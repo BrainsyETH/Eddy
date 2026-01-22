@@ -54,7 +54,8 @@ function getRiverConditionStatus(conditionCode: ConditionCode | null): {
 
 export default function WeatherBug({ riverSlug, riverId, className = '' }: WeatherBugProps) {
   const { data: weather, isLoading: weatherLoading } = useWeather(riverSlug);
-  const { data: condition } = useConditions(riverId);
+  const { data } = useConditions(riverId);
+  const condition = data?.condition ?? null;
 
   if (!riverSlug || !riverId) {
     return null;
