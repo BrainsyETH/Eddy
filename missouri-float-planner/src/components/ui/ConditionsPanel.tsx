@@ -23,7 +23,9 @@ const conditionStyles: Record<ConditionCode, { bg: string; border: string; text:
 };
 
 export default function ConditionsPanel({ riverId, className = '' }: ConditionsPanelProps) {
-  const { data: condition, isLoading, error } = useConditions(riverId);
+  const { data, isLoading, error } = useConditions(riverId);
+  const condition = data?.condition ?? null;
+  const diagnostic = data?.diagnostic ?? null;
 
   if (!riverId) {
     return (
@@ -67,7 +69,9 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
             <p className={`font-semibold ${style.text}`}>Unknown Conditions</p>
           </div>
           <p className={`text-xs ${style.text} opacity-75`}>
-            Gauge data is not available for this river at this time. Please check USGS website for current conditions.
+            {diagnostic
+              ? diagnostic
+              : 'Gauge data is not available for this river at this time. Please check USGS website for current conditions.'}
           </p>
         </div>
       </div>

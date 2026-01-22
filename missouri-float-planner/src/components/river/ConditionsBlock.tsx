@@ -13,8 +13,8 @@ interface ConditionsBlockProps {
 }
 
 export default function ConditionsBlock({ riverId, condition }: ConditionsBlockProps) {
-  const { data: currentCondition, isLoading } = useConditions(riverId);
-  const displayCondition = currentCondition || condition;
+  const { data, isLoading } = useConditions(riverId);
+  const displayCondition = data?.condition || condition;
 
   if (isLoading && !condition) {
     return (
