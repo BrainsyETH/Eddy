@@ -61,20 +61,25 @@ export async function PUT(
     }
 
     // Format response
+    // Type guard for GeoJSON Point
+    const getCoordinates = (geom: unknown): { lng: number; lat: number } | null => {
+      if (!geom || typeof geom !== 'object') return null;
+      const geo = geom as { type?: string; coordinates?: [number, number] };
+      if (geo.type === 'Point' && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
+        return { lng: geo.coordinates[0], lat: geo.coordinates[1] };
+      }
+      return null;
+    };
+
+    const origCoords = getCoordinates(data.location_orig) || { lng: 0, lat: 0 };
+    const snapCoords = data.location_snap ? getCoordinates(data.location_snap) : null;
+
     const formatted = {
       id: data.id,
       name: data.name,
       coordinates: {
-        orig: {
-          lng: (data.location_orig as any)?.coordinates?.[0] || 0,
-          lat: (data.location_orig as any)?.coordinates?.[1] || 0,
-        },
-        snap: data.location_snap
-          ? {
-              lng: (data.location_snap as any)?.coordinates?.[0] || 0,
-              lat: (data.location_snap as any)?.coordinates?.[1] || 0,
-            }
-          : null,
+        orig: origCoords,
+        snap: snapCoords,
       },
       riverMile: data.river_mile_downstream ? parseFloat(data.river_mile_downstream) : null,
     };

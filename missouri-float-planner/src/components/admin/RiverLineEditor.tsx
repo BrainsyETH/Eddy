@@ -3,37 +3,46 @@
 // src/components/admin/RiverLineEditor.tsx
 // River line editor with vertex editing
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 
+interface River {
+  id: string;
+  name: string;
+  slug: string;
+  lengthMiles: number;
+  geometry: GeoJSON.LineString | null;
+}
+
 interface RiverLineEditorProps {
-  rivers: any[];
+  rivers: River[];
   onUpdate: (id: string) => void;
 }
 
 export default function RiverLineEditor({
   rivers,
-  onUpdate,
 }: RiverLineEditorProps) {
   const map = useMap();
   const sourcesRef = useRef<Set<string>>(new Set());
   const layersRef = useRef<Set<string>>(new Set());
-  const [selectedRiverId, setSelectedRiverId] = useState<string | null>(null);
-  const [editingCoordinates, setEditingCoordinates] = useState<Map<string, number[][]>>(new Map());
 
   useEffect(() => {
     if (!map || !rivers.length) return;
 
+    // Store refs in local variables for cleanup
+    const currentSources = new Set(sourcesRef.current);
+    const currentLayers = new Set(layersRef.current);
+
     // Clean up existing sources and layers
-    sourcesRef.current.forEach((id) => {
+    currentSources.forEach((id) => {
       try {
         if (map.getSource(id)) {
           map.removeSource(id);
         }
       } catch {}
     });
-    layersRef.current.forEach((id) => {
+    currentLayers.forEach((id) => {
       try {
         if (map.getLayer(id)) {
           map.removeLayer(id);
@@ -49,9 +58,8 @@ export default function RiverLineEditor({
 
       const sourceId = `river-edit-${river.id}`;
       const layerId = `river-edit-layer-${river.id}`;
-      const vertexLayerId = `river-edit-vertices-${river.id}`;
 
-      const coords = editingCoordinates.get(river.id) || river.geometry.coordinates;
+      const coords = river.geometry.coordinates;
 
       // Add source
       if (!map.getSource(sourceId)) {
@@ -83,8 +91,8 @@ export default function RiverLineEditor({
           type: 'line',
           source: sourceId,
           paint: {
-            'line-color': selectedRiverId === river.id ? '#f95d9b' : '#39a0ca',
-            'line-width': selectedRiverId === river.id ? 4 : 2,
+            'line-color': '#39a0ca',
+            'line-width': 2,
             'line-opacity': 0.9,
           },
         });
@@ -96,18 +104,22 @@ export default function RiverLineEditor({
     });
 
     return () => {
-      sourcesRef.current.forEach((id) => {
+      // Use the stored refs for cleanup
+      const sourcesToClean = new Set(sourcesRef.current);
+      const layersToClean = new Set(layersRef.current);
+      
+      sourcesToClean.forEach((id) => {
         try {
           if (map.getSource(id)) map.removeSource(id);
         } catch {}
       });
-      layersRef.current.forEach((id) => {
+      layersToClean.forEach((id) => {
         try {
           if (map.getLayer(id)) map.removeLayer(id);
         } catch {}
       });
     };
-  }, [map, rivers, selectedRiverId, editingCoordinates]);
+  }, [map, rivers]);
 
   // Handle line click to select river for editing
   useEffect(() => {

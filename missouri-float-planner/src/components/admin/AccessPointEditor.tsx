@@ -10,8 +10,19 @@ import { MapPin } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import React from 'react';
 
+interface AccessPoint {
+  id: string;
+  name: string;
+  riverName?: string;
+  riverMile?: number;
+  coordinates: {
+    orig: { lng: number; lat: number };
+    snap: { lng: number; lat: number } | null;
+  };
+}
+
 interface AccessPointEditorProps {
-  accessPoints: any[];
+  accessPoints: AccessPoint[];
   onUpdate: (id: string) => void;
 }
 
@@ -22,7 +33,6 @@ export default function AccessPointEditor({
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const rootsRef = useRef<Root[]>([]);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { lng: number; lat: number }>>(new Map());
 
   useEffect(() => {
@@ -74,7 +84,6 @@ export default function AccessPointEditor({
 
       // Handle drag events
       marker.on('dragstart', () => {
-        setDraggingId(point.id);
         el.style.boxShadow = '0 6px 20px rgba(57, 160, 202, 0.6)';
       });
 
@@ -84,7 +93,6 @@ export default function AccessPointEditor({
 
       marker.on('dragend', async () => {
         const newLngLat = marker.getLngLat();
-        setDraggingId(null);
         el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
 
         // Store pending update

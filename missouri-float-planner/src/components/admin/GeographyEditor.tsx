@@ -4,7 +4,6 @@
 // Main geography editor component
 
 import { useState, useEffect } from 'react';
-import { useMap } from '@/components/map/MapContainer';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
 
@@ -16,15 +15,40 @@ interface EditState {
   unsavedChanges: Set<string>;
 }
 
+interface River {
+  id: string;
+  name: string;
+  slug: string;
+  lengthMiles: number;
+  geometry: GeoJSON.LineString | null;
+}
+
+interface AccessPoint {
+  id: string;
+  riverId: string;
+  name: string;
+  slug: string;
+  coordinates: {
+    orig: { lng: number; lat: number };
+    snap: { lng: number; lat: number } | null;
+  };
+  riverMile: number | null;
+  type: string;
+  isPublic: boolean;
+  ownership: string | null;
+  description: string | null;
+  approved: boolean;
+  riverName?: string;
+}
+
 export default function GeographyEditor() {
-  const map = useMap();
   const [editState, setEditState] = useState<EditState>({
     mode: 'access-points',
     selectedRiverId: null,
     unsavedChanges: new Set(),
   });
-  const [rivers, setRivers] = useState<any[]>([]);
-  const [accessPoints, setAccessPoints] = useState<any[]>([]);
+  const [rivers, setRivers] = useState<River[]>([]);
+  const [accessPoints, setAccessPoints] = useState<AccessPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

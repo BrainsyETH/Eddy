@@ -1,12 +1,12 @@
 // src/app/api/admin/rivers/route.ts
 // GET /api/admin/rivers - List all rivers with geometries for editing
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = createAdminClient();
 
