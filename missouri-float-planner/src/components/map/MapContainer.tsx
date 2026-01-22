@@ -2,22 +2,147 @@
 
 // src/components/map/MapContainer.tsx
 // Main map wrapper component using MapLibre GL JS
+// Includes optional RainViewer weather radar overlay
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+
 interface MapContainerProps {
   initialBounds?: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
   children?: React.ReactNode;
+  showWeatherOverlay?: boolean;
+  onWeatherToggle?: (enabled: boolean) => void;
+}
+
+// RainViewer API types
+interface RainViewerResponse {
+  version: string;
+  generated: number;
+  host: string;
+  radar: {
+    past: Array<{ time: number; path: string }>;
+    nowcast: Array<{ time: number; path: string }>;
+  };
 }
 
 export default function MapContainer({
   initialBounds,
   children,
+  showWeatherOverlay = false,
+  onWeatherToggle,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [weatherEnabled, setWeatherEnabled] = useState(showWeatherOverlay);
+  const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
+  const radarSourceId = 'rainviewer-radar';
+  const radarLayerId = 'rainviewer-radar-layer';
+
+  // Fetch latest radar timestamp from RainViewer API
+  const fetchRadarTimestamp = useCallback(async () => {
+    try {
+      const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+      const data: RainViewerResponse = await response.json();
+      
+      // Get the most recent radar frame
+      const latestRadar = data.radar.past[data.radar.past.length - 1];
+      if (latestRadar) {
+        setRadarTimestamp(latestRadar.path);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch RainViewer data:', error);
+    }
+  }, []);
+
+  // Add or remove radar layer
+  const updateRadarLayer = useCallback(() => {
+    if (!map.current || !mapLoaded) return;
+
+    const hasSource = map.current.getSource(radarSourceId) !== undefined;
+    const hasLayer = map.current.getLayer(radarLayerId) !== undefined;
+
+    if (weatherEnabled && radarTimestamp) {
+      // RainViewer tile URL format
+      const tileUrl = `https://tilecache.rainviewer.com${radarTimestamp}/256/{z}/{x}/{y}/2/1_1.png`;
+
+      if (hasSource) {
+        // Update existing source
+        try {
+          (map.current.getSource(radarSourceId) as maplibregl.RasterTileSource).setTiles([tileUrl]);
+        } catch {
+          // If update fails, remove and re-add
+          if (hasLayer) map.current.removeLayer(radarLayerId);
+          map.current.removeSource(radarSourceId);
+        }
+      }
+
+      if (!hasSource) {
+        // Add new source
+        map.current.addSource(radarSourceId, {
+          type: 'raster',
+          tiles: [tileUrl],
+          tileSize: 256,
+          attribution: '<a href="https://www.rainviewer.com/" target="_blank">RainViewer</a>',
+        });
+      }
+
+      if (!hasLayer) {
+        // Add layer below river layers (find first line layer)
+        const layers = map.current.getStyle().layers;
+        let beforeLayerId: string | undefined;
+        for (const layer of layers || []) {
+          if (layer.type === 'line') {
+            beforeLayerId = layer.id;
+            break;
+          }
+        }
+
+        map.current.addLayer(
+          {
+            id: radarLayerId,
+            type: 'raster',
+            source: radarSourceId,
+            paint: {
+              'raster-opacity': 0.6,
+            },
+          },
+          beforeLayerId
+        );
+      }
+    } else {
+      // Remove radar layer if disabled
+      if (hasLayer) {
+        map.current.removeLayer(radarLayerId);
+      }
+      if (hasSource) {
+        map.current.removeSource(radarSourceId);
+      }
+    }
+  }, [weatherEnabled, radarTimestamp, mapLoaded]);
+
+  // Toggle weather overlay
+  const toggleWeather = useCallback(() => {
+    const newValue = !weatherEnabled;
+    setWeatherEnabled(newValue);
+    onWeatherToggle?.(newValue);
+  }, [weatherEnabled, onWeatherToggle]);
+
+  // Fetch radar data when weather is enabled
+  useEffect(() => {
+    if (weatherEnabled) {
+      fetchRadarTimestamp();
+      // Refresh every 5 minutes
+      const interval = setInterval(fetchRadarTimestamp, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [weatherEnabled, fetchRadarTimestamp]);
+
+  // Update radar layer when state changes
+  useEffect(() => {
+    updateRadarLayer();
+  }, [updateRadarLayer]);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -93,6 +218,39 @@ export default function MapContainer({
       />
       {mapLoaded && map.current && (
         <MapProvider map={map.current}>{children}</MapProvider>
+      )}
+      
+      {/* Weather Overlay Toggle Button */}
+      <button
+        onClick={toggleWeather}
+        className={`absolute top-20 right-2 z-10 p-2 rounded-lg shadow-lg transition-all ${
+          weatherEnabled 
+            ? 'bg-river-water text-white' 
+            : 'bg-white/90 text-gray-700 hover:bg-white'
+        }`}
+        title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
+        aria-label={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
+      >
+        <svg 
+          className="w-5 h-5" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={2} 
+            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" 
+          />
+        </svg>
+      </button>
+      
+      {/* Weather Attribution */}
+      {weatherEnabled && (
+        <div className="absolute bottom-1 left-1 z-10 text-xs text-white/60 bg-black/30 px-1 rounded">
+          Radar: <a href="https://www.rainviewer.com/" target="_blank" rel="noopener noreferrer" className="underline">RainViewer</a>
+        </div>
       )}
     </div>
   );

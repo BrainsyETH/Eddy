@@ -187,6 +187,86 @@ export interface SavePlanResponse {
   url: string;
 }
 
+// Multi-day trip planning types
+export interface CampgroundsResponse {
+  campgrounds: AccessPoint[];
+  totalDistance: number;
+  recommendedStops: number;
+}
+
+export interface PlanParams {
+  riverId: string;
+  startId: string;
+  endId: string;
+  vesselTypeId?: string;
+  tripDurationDays?: number;
+}
+
+// Community reporting types
+export type ReportType = 'hazard' | 'water_level' | 'debris';
+export type ReportStatus = 'pending' | 'verified' | 'rejected';
+
+export interface CommunityReport {
+  id: string;
+  userId: string | null;
+  riverId: string;
+  hazardId: string | null;
+  type: ReportType;
+  coordinates: {
+    lng: number;
+    lat: number;
+  };
+  riverMile: number | null;
+  imageUrl: string | null;
+  description: string;
+  status: ReportStatus;
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityReportsResponse {
+  reports: CommunityReport[];
+}
+
+export interface CreateReportRequest {
+  riverId: string;
+  hazardId?: string;
+  type: ReportType;
+  latitude: number;
+  longitude: number;
+  imageUrl?: string;
+  description: string;
+}
+
+// Shuttle service types
+export interface ShuttleService {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  primaryAccessPointId: string | null;
+  serviceRadiusMiles: number | null;
+  offersShuttle: boolean;
+  offersRental: boolean;
+  offersCamping: boolean;
+  rentalTypes: string[];
+  shuttlePriceRange: string | null;
+  rentalPriceRange: string | null;
+  hoursOfOperation: Record<string, string> | null;
+  seasonalNotes: string | null;
+  active: boolean;
+  verified: boolean;
+}
+
+export interface ShuttleServicesResponse {
+  services: ShuttleService[];
+}
+
 // Admin Types
 export interface CreateAccessPointRequest {
   riverId: string;
