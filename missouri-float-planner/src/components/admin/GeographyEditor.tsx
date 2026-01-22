@@ -4,8 +4,10 @@
 // Main geography editor component with improved state management
 
 import { useState, useEffect, useCallback } from 'react';
+import { Plus, MousePointer2 } from 'lucide-react';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
+import CreateAccessPointModal from './CreateAccessPointModal';
 
 type EditMode = 'access-points' | 'rivers';
 
@@ -52,6 +54,8 @@ export default function GeographyEditor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [addMode, setAddMode] = useState(false);
+  const [pendingCoords, setPendingCoords] = useState<{ lng: number; lat: number } | null>(null);
 
   const loadData = useCallback(async (showRefreshing = false) => {
     try {
@@ -119,6 +123,38 @@ export default function GeographyEditor() {
       return { ...prev, unsavedChanges: newSet };
     });
   }, []);
+
+  const handleMapClick = useCallback((coords: { lng: number; lat: number }) => {
+    if (addMode) {
+      setPendingCoords(coords);
+    }
+  }, [addMode]);
+
+  const handleCreateAccessPoint = useCallback(async (data: {
+    name: string;
+    riverId: string;
+    latitude: number;
+    longitude: number;
+    type: string;
+    isPublic: boolean;
+    ownership: string | null;
+    description: string | null;
+  }) => {
+    const response = await fetch('/api/admin/access-points', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create access point');
+    }
+
+    // Refresh data after successful creation
+    await loadData(true);
+    setAddMode(false);
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -229,6 +265,37 @@ export default function GeographyEditor() {
             )}
           </div>
 
+          {/* Add Mode Toggle */}
+          {editState.mode === 'access-points' && (
+            <div className="pt-2 border-t border-bluff-200">
+              <button
+                onClick={() => setAddMode(!addMode)}
+                className={`w-full px-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                  addMode
+                    ? 'bg-river-500 text-white'
+                    : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
+                }`}
+              >
+                {addMode ? (
+                  <>
+                    <MousePointer2 size={16} />
+                    Click map to place point
+                  </>
+                ) : (
+                  <>
+                    <Plus size={16} />
+                    Add New Point
+                  </>
+                )}
+              </button>
+              {addMode && (
+                <p className="text-xs text-river-600 mt-2 text-center">
+                  Click anywhere on the map to add a new access point
+                </p>
+              )}
+            </div>
+          )}
+
           {editState.unsavedChanges.size > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-sm text-amber-800">
@@ -272,6 +339,8 @@ export default function GeographyEditor() {
           accessPoints={filteredAccessPoints}
           onUpdate={handleUpdate}
           onRefresh={handleRefresh}
+          addMode={addMode}
+          onMapClick={handleMapClick}
         />
       )}
 
@@ -280,6 +349,17 @@ export default function GeographyEditor() {
           rivers={filteredRivers}
           onUpdate={handleUpdate}
           onRefresh={handleRefresh}
+        />
+      )}
+
+      {/* Create Access Point Modal */}
+      {pendingCoords && (
+        <CreateAccessPointModal
+          coordinates={pendingCoords}
+          rivers={rivers}
+          selectedRiverId={editState.selectedRiverId}
+          onClose={() => setPendingCoords(null)}
+          onSave={handleCreateAccessPoint}
         />
       )}
     </>

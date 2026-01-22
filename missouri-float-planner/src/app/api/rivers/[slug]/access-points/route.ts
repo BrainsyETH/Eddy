@@ -46,31 +46,48 @@ export async function GET(
       );
     }
 
-    const formattedPoints = (accessPoints || []).map((ap) => ({
-      id: ap.id,
-      riverId: ap.river_id,
-      name: ap.name,
-      slug: ap.slug,
-      riverMile: parseFloat(ap.river_mile_downstream),
-      type: ap.type,
-      isPublic: ap.is_public,
-      ownership: ap.ownership,
-      description: ap.description,
-      amenities: ap.amenities || [],
-      parkingInfo: ap.parking_info,
-      feeRequired: ap.fee_required,
-      feeNotes: ap.fee_notes,
-      coordinates: {
-        lng:
+    // Filter and format access points, excluding those with invalid coordinates
+    const formattedPoints = (accessPoints || [])
+      .map((ap) => {
+        const lng =
           ap.location_snap?.coordinates?.[0] ||
-          ap.location_orig?.coordinates?.[0] ||
-          0,
-        lat:
+          ap.location_orig?.coordinates?.[0];
+        const lat =
           ap.location_snap?.coordinates?.[1] ||
-          ap.location_orig?.coordinates?.[1] ||
-          0,
-      },
-    }));
+          ap.location_orig?.coordinates?.[1];
+
+        // Skip points with missing or invalid coordinates
+        if (lng === undefined || lat === undefined || lng === null || lat === null) {
+          console.warn(`Access point ${ap.id} (${ap.name}) has invalid coordinates, skipping`);
+          return null;
+        }
+
+        // Validate coordinates are within reasonable bounds (Missouri area)
+        const isValidLng = lng >= -96 && lng <= -89;
+        const isValidLat = lat >= 36 && lat <= 40.5;
+        if (!isValidLng || !isValidLat) {
+          console.warn(`Access point ${ap.id} (${ap.name}) has out-of-bounds coordinates (${lng}, ${lat}), skipping`);
+          return null;
+        }
+
+        return {
+          id: ap.id,
+          riverId: ap.river_id,
+          name: ap.name,
+          slug: ap.slug,
+          riverMile: parseFloat(ap.river_mile_downstream),
+          type: ap.type,
+          isPublic: ap.is_public,
+          ownership: ap.ownership,
+          description: ap.description,
+          amenities: ap.amenities || [],
+          parkingInfo: ap.parking_info,
+          feeRequired: ap.fee_required,
+          feeNotes: ap.fee_notes,
+          coordinates: { lng, lat },
+        };
+      })
+      .filter((ap): ap is NonNullable<typeof ap> => ap !== null);
 
     const response: AccessPointsResponse = {
       accessPoints: formattedPoints,

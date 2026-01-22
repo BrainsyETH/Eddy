@@ -172,27 +172,19 @@ export default function AccessPointMarkers({
       const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center',
+        rotationAlignment: 'map',
+        pitchAlignment: 'map',
       })
         .setLngLat([point.coordinates.lng, point.coordinates.lat])
         .addTo(map);
 
-      // Add click handler - use both methods for reliability
-      const handleClick = (e: MouseEvent) => {
+      // Add click handler
+      el.addEventListener('click', (e: MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
-        console.log('Marker clicked:', point.name);
         onMarkerClick?.(point);
         popup.remove();
-      };
-
-      // Add to element
-      el.addEventListener('click', handleClick);
-      
-      // Also add to marker element (same element, but ensures it works)
-      const markerEl = marker.getElement();
-      if (markerEl !== el) {
-        markerEl.addEventListener('click', handleClick);
-      }
+      });
 
       markersRef.current.push(marker);
       popupsRef.current.push(popup);

@@ -25,12 +25,16 @@ interface AccessPointEditorProps {
   accessPoints: AccessPoint[];
   onUpdate: (id: string) => void;
   onRefresh?: () => void;
+  addMode?: boolean;
+  onMapClick?: (coords: { lng: number; lat: number }) => void;
 }
 
 export default function AccessPointEditor({
   accessPoints,
   onUpdate,
   onRefresh,
+  addMode = false,
+  onMapClick,
 }: AccessPointEditorProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -40,6 +44,25 @@ export default function AccessPointEditor({
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { lng: number; lat: number }>>(new Map());
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
+
+  // Handle map click for adding new points
+  useEffect(() => {
+    if (!map || !addMode || !onMapClick) return;
+
+    const handleClick = (e: maplibregl.MapMouseEvent) => {
+      onMapClick({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+    };
+
+    map.on('click', handleClick);
+
+    // Change cursor to crosshair in add mode
+    map.getCanvas().style.cursor = 'crosshair';
+
+    return () => {
+      map.off('click', handleClick);
+      map.getCanvas().style.cursor = '';
+    };
+  }, [map, addMode, onMapClick]);
 
   useEffect(() => {
     if (!map || !accessPoints.length) return;
@@ -95,6 +118,8 @@ export default function AccessPointEditor({
         const origMarker = new maplibregl.Marker({
           element: origEl,
           anchor: 'center',
+          rotationAlignment: 'map',
+          pitchAlignment: 'map',
         })
           .setLngLat([origLng, origLat])
           .addTo(map);
@@ -183,6 +208,8 @@ export default function AccessPointEditor({
         element: el,
         draggable: true,
         anchor: 'center',
+        rotationAlignment: 'map',
+        pitchAlignment: 'map',
       })
         .setLngLat([lng, lat])
         .addTo(map);
