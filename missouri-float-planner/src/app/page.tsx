@@ -129,16 +129,6 @@ export default function Home() {
     setShowRiverModal(false);
   };
 
-  // Clear river selection entirely
-  const handleClearRiver = () => {
-    setSelectedRiverId(null);
-    setSelectedRiverSlug(null);
-    setSelectedPutIn(null);
-    setSelectedTakeOut(null);
-    setShowPlan(false);
-    setShowRiverModal(false);
-  };
-
   const initialBounds = river?.bounds;
 
   // Show error state if rivers fail to load
