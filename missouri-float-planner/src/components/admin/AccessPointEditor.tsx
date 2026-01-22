@@ -50,6 +50,8 @@ export default function AccessPointEditor({
     if (!map || !addMode || !onMapClick) return;
 
     const handleClick = (e: maplibregl.MapMouseEvent) => {
+      // Only trigger if clicking directly on the map canvas, not on markers
+      if (e.originalEvent.target !== map.getCanvas()) return;
       onMapClick({ lng: e.lngLat.lng, lat: e.lngLat.lat });
     };
 
