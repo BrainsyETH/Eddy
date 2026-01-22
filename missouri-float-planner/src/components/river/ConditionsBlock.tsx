@@ -13,8 +13,9 @@ interface ConditionsBlockProps {
 }
 
 export default function ConditionsBlock({ riverId, condition }: ConditionsBlockProps) {
-  const { data: currentCondition, isLoading } = useConditions(riverId);
-  const displayCondition = currentCondition || condition;
+  const { data, isLoading } = useConditions(riverId);
+  const displayCondition = data?.condition || condition;
+  const gauges = data?.gauges ?? [];
 
   if (isLoading && !condition) {
     return (
@@ -83,10 +84,30 @@ export default function ConditionsBlock({ riverId, condition }: ConditionsBlockP
             )}
           </div>
 
-          {displayCondition.gaugeName && (
-            <p className="text-xs mt-2 opacity-75">Gauge: {displayCondition.gaugeName}</p>
-          )}
-        </div>
+        {displayCondition.gaugeName && (
+          <p className="text-xs mt-2 opacity-75">Gauge: {displayCondition.gaugeName}</p>
+        )}
+
+        {gauges.length > 1 && (
+          <div className="mt-3 text-xs opacity-75">
+            <p className="font-semibold">Other gauges</p>
+            <ul className="mt-1 space-y-1">
+              {gauges
+                .filter((gauge) => !gauge.isPrimary)
+                .map((gauge) => (
+                  <li key={gauge.id} className="flex items-center justify-between gap-2">
+                    <span>{gauge.name || gauge.usgsSiteId || 'Unknown gauge'}</span>
+                    <span>
+                      {gauge.gaugeHeightFt !== null
+                        ? `${gauge.gaugeHeightFt.toFixed(2)} ft`
+                        : 'No reading'}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
         {/* Trend */}
         <div className="glass-bg-soft rounded-xl p-4 border border-white/10">

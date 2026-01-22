@@ -61,7 +61,8 @@ export default function Home() {
   const { data: rivers, isLoading: riversLoading, error: riversError } = useRivers();
   const { data: river } = useRiver(selectedRiverSlug || '');
   const { data: accessPoints } = useAccessPoints(selectedRiverSlug);
-  const { data: condition } = useConditions(selectedRiverId);
+  const { data: conditionData } = useConditions(selectedRiverId);
+  const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
 
   // Set default vessel type when loaded (using useEffect to avoid render issues)

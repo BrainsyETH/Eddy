@@ -27,11 +27,17 @@ export async function GET() {
     // Get geometries for each river
     const riversWithGeometry = await Promise.all(
       (rivers || []).map(async (river) => {
-        const { data: geomData } = await supabase.rpc('get_river_geometry_json', {
+        const { data: geomData, error: geomError } = await supabase.rpc('get_river_geometry_json', {
           p_slug: river.slug,
         });
 
         let geometry: GeoJSON.LineString | null = null;
+
+        if (geomError?.code === 'PGRST202') {
+          console.warn('get_river_geometry_json function missing; falling back to rivers.geom.');
+        } else if (geomError) {
+          console.error('Error fetching geometry for river:', river.slug, geomError);
+        }
 
         if (geomData) {
           try {
@@ -39,6 +45,16 @@ export async function GET() {
             geometry = geomJson as GeoJSON.LineString;
           } catch (parseError) {
             console.error('Error parsing geometry for river:', river.slug, parseError);
+          }
+        } else {
+          const { data: riverWithGeom } = await supabase
+            .from('rivers')
+            .select('geom')
+            .eq('id', river.id)
+            .single();
+
+          if (riverWithGeom?.geom && typeof riverWithGeom.geom === 'object' && 'type' in riverWithGeom.geom) {
+            geometry = riverWithGeom.geom as GeoJSON.LineString;
           }
         }
 

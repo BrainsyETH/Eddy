@@ -14,7 +14,7 @@ export function useConditions(riverId: string | null) {
         throw new Error('Failed to fetch conditions');
       }
       const data = (await response.json()) as ConditionResponse;
-      return data.condition;
+      return data;
     },
     enabled: !!riverId,
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes

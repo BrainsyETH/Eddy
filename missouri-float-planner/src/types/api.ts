@@ -87,6 +87,17 @@ export interface RiverCondition {
   gaugeUsgsId: string | null;
 }
 
+export interface ConditionGauge {
+  id: string;
+  name: string | null;
+  usgsSiteId: string | null;
+  isPrimary: boolean;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+}
+
 export interface Hazard {
   id: string;
   riverId: string;
@@ -165,6 +176,7 @@ export interface ConditionResponse {
   available: boolean;
   error?: string;
   diagnostic?: string;
+  gauges?: ConditionGauge[];
 }
 
 export interface VesselTypesResponse {

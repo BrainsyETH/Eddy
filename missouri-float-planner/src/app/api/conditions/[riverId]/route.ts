@@ -3,7 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { ConditionResponse } from '@/types/api';
+import { fetchGaugeReadings } from '@/lib/usgs/gauges';
+import type { ConditionGauge, ConditionResponse } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,70 @@ export async function GET(
       );
     }
 
+    const { data: linkedGauges } = await supabase
+      .from('river_gauges')
+      .select('id, is_primary, gauge_station_id, gauge_stations(id, name, usgs_site_id)')
+      .eq('river_id', riverId);
+
+    const usgsSiteIds = (linkedGauges || [])
+      .map((gauge) => {
+        const gaugeStation = Array.isArray(gauge.gauge_stations)
+          ? gauge.gauge_stations[0]
+          : gauge.gauge_stations;
+        return gaugeStation?.usgs_site_id ?? null;
+      })
+      .filter((siteId): siteId is string => !!siteId);
+
+    const usgsReadings = usgsSiteIds.length > 0 ? await fetchGaugeReadings(usgsSiteIds) : [];
+    const usgsReadingMap = new Map(usgsReadings.map((reading) => [reading.siteId, reading]));
+
+    const gaugeSummaries: ConditionGauge[] = await Promise.all(
+      (linkedGauges || []).map(async (gauge) => {
+        const gaugeStation = Array.isArray(gauge.gauge_stations)
+          ? gauge.gauge_stations[0]
+          : gauge.gauge_stations;
+        const usgsReading = gaugeStation?.usgs_site_id
+          ? usgsReadingMap.get(gaugeStation.usgs_site_id)
+          : undefined;
+        const { data: latestReading } = await supabase
+          .from('gauge_readings')
+          .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+          .eq('gauge_station_id', gauge.gauge_station_id)
+          .order('reading_timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const dbTimestamp = latestReading?.reading_timestamp ?? null;
+        const usgsTimestamp = usgsReading?.readingTimestamp ?? null;
+        const readingTimestamp =
+          dbTimestamp && usgsTimestamp
+            ? new Date(dbTimestamp) >= new Date(usgsTimestamp)
+              ? dbTimestamp
+              : usgsTimestamp
+            : dbTimestamp ?? usgsTimestamp ?? null;
+        const readingAgeHours = readingTimestamp
+          ? (Date.now() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60)
+          : null;
+
+        return {
+          id: gauge.gauge_station_id,
+          name: gaugeStation?.name ?? null,
+          usgsSiteId: gaugeStation?.usgs_site_id ?? null,
+          isPrimary: gauge.is_primary ?? false,
+          gaugeHeightFt:
+            readingTimestamp === dbTimestamp
+              ? latestReading?.gauge_height_ft ?? null
+              : usgsReading?.gaugeHeightFt ?? null,
+          dischargeCfs:
+            readingTimestamp === dbTimestamp
+              ? latestReading?.discharge_cfs ?? null
+              : usgsReading?.dischargeCfs ?? null,
+          readingTimestamp,
+          readingAgeHours,
+        };
+      })
+    );
+
     if (!data || data.length === 0) {
       console.warn('[Conditions API] No condition data returned for river:', riverId);
       
@@ -74,14 +139,20 @@ export async function GET(
         diagnostic: process.env.NODE_ENV === 'development' 
           ? 'No condition data found. Check gauge station linkage and cron job status.'
           : undefined,
+        gauges: gaugeSummaries,
       });
     }
 
     const condition = data[0];
 
+    let diagnostic: string | undefined;
+
     // Validate condition data
     if (!condition.condition_code || condition.condition_code === 'unknown') {
       console.warn('[Conditions API] Condition code is unknown for river:', riverId);
+      if (condition.gauge_height_ft === null) {
+        diagnostic = 'Gauge reading is missing for the primary station. Check gauge_readings and cron updates.';
+      }
     }
 
     const response: ConditionResponse = {
@@ -98,6 +169,8 @@ export async function GET(
         gaugeUsgsId: condition.gauge_usgs_id,
       },
       available: true,
+      diagnostic,
+      gauges: gaugeSummaries,
     };
 
     return NextResponse.json(response);

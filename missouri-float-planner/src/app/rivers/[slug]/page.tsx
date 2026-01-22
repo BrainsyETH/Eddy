@@ -35,7 +35,8 @@ export default function RiverPage() {
 
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
   const { data: accessPoints, isLoading: accessPointsLoading } = useAccessPoints(slug);
-  const { data: condition } = useConditions(river?.id || null);
+  const { data: conditionData } = useConditions(river?.id || null);
+  const condition = conditionData?.condition ?? null;
 
   if (riverLoading) {
     return (
@@ -66,7 +67,7 @@ export default function RiverPage() {
       {/* River Header */}
       <RiverHeader 
         river={river} 
-        condition={condition || null}
+        condition={condition}
       />
 
       {/* Main Content */}
@@ -84,7 +85,7 @@ export default function RiverPage() {
             {/* Conditions & Safety */}
             <ConditionsBlock
               riverId={river.id}
-              condition={condition || null}
+              condition={condition}
             />
 
             {/* Difficulty & Experience */}

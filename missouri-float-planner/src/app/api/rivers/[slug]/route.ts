@@ -39,7 +39,11 @@ export async function GET(
     let geometry: GeoJSON.LineString;
 
     if (geomError || !geomData) {
-      console.error('Error fetching river geometry:', geomError);
+      if (geomError?.code === 'PGRST202') {
+        console.warn('get_river_geometry_json function missing; falling back to rivers.geom.');
+      } else if (geomError) {
+        console.error('Error fetching river geometry:', geomError);
+      }
       // Fallback: try to get geometry directly (may work if Supabase auto-converts)
       const { data: riverWithGeom } = await supabase
         .from('rivers')
