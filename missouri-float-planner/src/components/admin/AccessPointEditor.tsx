@@ -14,7 +14,7 @@ interface AccessPoint {
   id: string;
   name: string;
   riverName?: string;
-  riverMile?: number;
+  riverMile: number | null;
   coordinates: {
     orig: { lng: number; lat: number };
     snap: { lng: number; lat: number } | null;
