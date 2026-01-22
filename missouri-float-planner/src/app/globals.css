@@ -386,3 +386,23 @@ h1, h2, h3, h4, h5, h6 {
 .rounded-organic-lg {
   border-radius: 1.5rem;
 }
+
+/* Admin Geography Editor Styles */
+/* Ensure admin markers have higher z-index than production markers */
+.access-point-editor-marker {
+  z-index: 1000 !important;
+}
+
+.access-point-original-marker {
+  z-index: 5 !important;
+}
+
+/* Admin popups should be above production popups */
+.admin-access-point-popup {
+  z-index: 2000 !important;
+}
+
+/* Ensure admin control panels are above map elements */
+.maplibregl-popup.admin-access-point-popup {
+  z-index: 2000 !important;
+}
