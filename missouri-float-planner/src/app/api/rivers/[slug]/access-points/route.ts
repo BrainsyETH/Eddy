@@ -63,8 +63,8 @@ export async function GET(
         }
 
         // Validate coordinates are within reasonable bounds (Missouri area)
-        const isValidLng = lng >= -96 && lng <= -89;
-        const isValidLat = lat >= 36 && lat <= 40.5;
+        const isValidLng = lng >= -96.5 && lng <= -88.9;
+        const isValidLat = lat >= 35.9 && lat <= 40.7;
         if (!isValidLng || !isValidLat) {
           console.warn(`Access point ${ap.id} (${ap.name}) has out-of-bounds coordinates (${lng}, ${lat}), skipping`);
           return null;

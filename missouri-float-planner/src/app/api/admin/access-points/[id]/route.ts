@@ -1,5 +1,6 @@
 // src/app/api/admin/access-points/[id]/route.ts
 // PUT /api/admin/access-points/[id] - Update access point location
+// DELETE /api/admin/access-points/[id] - Delete access point
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -22,8 +23,8 @@ export async function PUT(
       );
     }
 
-    // Validate coordinates are in reasonable range (Missouri area)
-    if (latitude < 36 || latitude > 40 || longitude < -96 || longitude > -89) {
+    // Validate coordinates are in reasonable range (Missouri area with buffer)
+    if (latitude < 35.9 || latitude > 40.7 || longitude < -96.5 || longitude > -88.9) {
       return NextResponse.json(
         { error: 'Coordinates out of bounds' },
         { status: 400 }
@@ -87,6 +88,38 @@ export async function PUT(
     return NextResponse.json({ accessPoint: formatted });
   } catch (error) {
     console.error('Error in update access point endpoint:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Remove an access point
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = createAdminClient();
+
+    const { error } = await supabase
+      .from('access_points')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting access point:', error);
+      return NextResponse.json(
+        { error: 'Could not delete access point' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error in delete access point endpoint:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

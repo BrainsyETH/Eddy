@@ -1,11 +1,11 @@
 // src/app/api/plan/route.ts
-// GET /api/plan - Calculate a float plan
+// GET /api/plan - Calculate a float plan with segment-aware gauge selection
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getDriveTime } from '@/lib/mapbox/directions';
 import { calculateFloatTime, formatFloatTime, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
-import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity } from '@/types/api';
+import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 
 // Force dynamic rendering (uses cookies and searchParams)
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
     const startId = searchParams.get('startId');
     const endId = searchParams.get('endId');
     const vesselTypeId = searchParams.get('vesselTypeId');
+    // tripDurationDays is parsed but used by the separate /api/plan/campgrounds endpoint
+    // Kept here for potential future inline campground response
+    const _tripDurationDays = searchParams.get('tripDurationDays');
+    void _tripDurationDays; // Acknowledge parameter is available but handled by separate endpoint
 
     if (!riverId || !startId || !endId) {
       return NextResponse.json(
@@ -113,14 +117,21 @@ export async function GET(request: NextRequest) {
     const segmentData = segment[0];
     const distanceMiles = parseFloat(segmentData.distance_miles);
 
-    // Get river condition
+    // Get put-in coordinates for segment-aware gauge selection
+    const putInCoords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+    
+    // Get river condition using segment-aware gauge selection
+    // This selects the gauge nearest to the put-in point instead of relying on is_primary
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conditionData } = await (supabase.rpc as any)('get_river_condition', {
+    const { data: conditionData } = await (supabase.rpc as any)('get_river_condition_segment', {
       p_river_id: riverId,
+      p_put_in_point: putInCoords 
+        ? `SRID=4326;POINT(${putInCoords[0]} ${putInCoords[1]})`
+        : null,
     });
 
     const condition = conditionData?.[0];
-    const conditionCode = condition?.condition_code || 'unknown';
+    const conditionCode: ConditionCode = condition?.condition_code || 'unknown';
 
     // Calculate float time
     const floatTimeResult = calculateFloatTime(
@@ -154,21 +165,23 @@ export async function GET(request: NextRequest) {
         };
       } else {
         // Fetch from Mapbox
-        const putInCoords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+        const putInCoordsForDrive = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
         const takeOutCoords = takeOut.location_snap?.coordinates || takeOut.location_orig?.coordinates;
 
-        if (!putInCoords || !takeOutCoords) {
+        if (!putInCoordsForDrive || !takeOutCoords) {
           throw new Error('Missing coordinates');
         }
 
-        const [putInLng, putInLat] = putInCoords;
+        const [putInLng, putInLat] = putInCoordsForDrive;
         const [takeOutLng, takeOutLat] = takeOutCoords;
 
+        // Pass condition code to enable shorter cache for dangerous conditions
         const driveResult = await getDriveTime(
           takeOutLng,
           takeOutLat,
           putInLng,
-          putInLat
+          putInLat,
+          conditionCode
         );
 
         // Cache the result
