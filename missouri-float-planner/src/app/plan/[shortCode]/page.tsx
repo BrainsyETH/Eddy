@@ -4,7 +4,7 @@
 // Shareable plan view page
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -23,7 +23,6 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 
 export default function SharedPlanPage() {
   const params = useParams();
-  const router = useRouter();
   const shortCode = params.shortCode as string;
 
   const [plan, setPlan] = useState<FloatPlan | null>(null);
