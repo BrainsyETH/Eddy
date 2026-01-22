@@ -67,6 +67,7 @@ export default function RiverLineEditor({
           type: 'geojson',
           data: {
             type: 'Feature',
+            properties: {},
             geometry: {
               type: 'LineString',
               coordinates: coords,
@@ -77,6 +78,7 @@ export default function RiverLineEditor({
       } else {
         (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
           type: 'Feature',
+          properties: {},
           geometry: {
             type: 'LineString',
             coordinates: coords,
