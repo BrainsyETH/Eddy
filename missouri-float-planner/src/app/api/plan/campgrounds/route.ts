@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       id: string;
       name: string;
       slug: string;
-      river_mile: number;
+      river_mile: number | string;
       coordinates: { coordinates: [number, number] };
       amenities: string[];
       distance_from_start: number;
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
       riverId: riverId,
       name: cg.name,
       slug: cg.slug,
-      riverMile: parseFloat(cg.river_mile),
+      riverMile: typeof cg.river_mile === 'string' ? parseFloat(cg.river_mile) : cg.river_mile,
       type: 'campground' as AccessPointType,
       isPublic: true,
       ownership: null,

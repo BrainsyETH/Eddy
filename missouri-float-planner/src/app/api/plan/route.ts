@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
     const startId = searchParams.get('startId');
     const endId = searchParams.get('endId');
     const vesselTypeId = searchParams.get('vesselTypeId');
-    const tripDurationDays = parseInt(searchParams.get('tripDurationDays') || '1', 10);
+    // tripDurationDays is parsed but used by the separate /api/plan/campgrounds endpoint
+    // Kept here for potential future inline campground response
+    const _tripDurationDays = searchParams.get('tripDurationDays');
+    void _tripDurationDays; // Acknowledge parameter is available but handled by separate endpoint
 
     if (!riverId || !startId || !endId) {
       return NextResponse.json(
