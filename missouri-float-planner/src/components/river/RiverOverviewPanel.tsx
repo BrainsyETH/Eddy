@@ -168,6 +168,7 @@ export default function RiverOverviewPanel({
             Add Note
           </button>
         </div>
+          </div>
         </div>
       </div>
     </>
