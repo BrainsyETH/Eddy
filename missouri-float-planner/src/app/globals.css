@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MapLibre GL CSS is imported in MapContainer component */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

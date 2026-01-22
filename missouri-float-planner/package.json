@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
+    "db:import-gauges": "tsx scripts/fetch-gauge-stations.ts",
+    "db:snap-access-points": "tsx scripts/snap-access-points.ts",
+    "db:seed": "echo 'Run seed SQL files via Supabase CLI or SQL Editor. See scripts/run-seeds.ts for details.'",
+    "db:setup": "npm run db:seed && npm run db:snap-access-points"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -26,6 +31,7 @@
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.0",
     "typescript": "^5"
   }
 }

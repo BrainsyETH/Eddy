@@ -1,0 +1,151 @@
+// src/lib/usgs/gauges.ts
+// USGS Water Services API integration for gauge readings
+
+interface USGSValue {
+  value: string;
+  qualifiers: string[];
+  dateTime: string;
+}
+
+interface USGSTimeSeries {
+  sourceInfo: {
+    siteName: string;
+    siteCode: Array<{ value: string; network: string; agencyCode: string }>;
+    geoLocation: {
+      geogLocation: {
+        latitude: number;
+        longitude: number;
+      };
+    };
+  };
+  variable: {
+    variableCode: Array<{ value: string; network: string }>;
+    variableName: string;
+    unit: { unitCode: string };
+  };
+  values: Array<{
+    value: Array<USGSValue>;
+  }>;
+}
+
+interface USGSResponse {
+  name: string;
+  declaredType: string;
+  scope: string;
+  value: {
+    queryInfo: {
+      queryURL: string;
+      criteria: {
+        locationParam: string;
+        variableParam: string;
+        timeParam: {
+          beginDateTime: string;
+          endDateTime: string;
+        };
+      };
+    };
+    timeSeries: USGSTimeSeries[];
+  };
+  globalScope: boolean;
+  null: boolean;
+}
+
+export interface GaugeReading {
+  siteId: string;
+  siteName: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+}
+
+/**
+ * Fetches current gauge readings from USGS Water Services API
+ * 
+ * @param siteIds Array of USGS site IDs (e.g., ['07019000', '07018500'])
+ * @returns Array of gauge readings
+ */
+export async function fetchGaugeReadings(
+  siteIds: string[]
+): Promise<GaugeReading[]> {
+  if (siteIds.length === 0) {
+    return [];
+  }
+
+  const url = new URL('https://waterservices.usgs.gov/nwis/iv/');
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('sites', siteIds.join(','));
+  url.searchParams.set('parameterCd', '00065,00060'); // 00065 = gauge height (ft), 00060 = discharge (cfs)
+  url.searchParams.set('siteStatus', 'all');
+
+  try {
+    const response = await fetch(url.toString(), {
+      next: { revalidate: 3600 }, // Cache for 1 hour
+    });
+
+    if (!response.ok) {
+      throw new Error(`USGS API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json() as USGSResponse;
+
+    if (!data.value?.timeSeries) {
+      return [];
+    }
+
+    // Parse time series data
+    const readings = new Map<string, Partial<GaugeReading>>();
+
+    for (const series of data.value.timeSeries) {
+      const siteId = series.sourceInfo.siteCode[0]?.value;
+      if (!siteId) continue;
+
+      if (!readings.has(siteId)) {
+        readings.set(siteId, {
+          siteId,
+          siteName: series.sourceInfo.siteName,
+          gaugeHeightFt: null,
+          dischargeCfs: null,
+          readingTimestamp: null,
+        });
+      }
+
+      const reading = readings.get(siteId)!;
+      const variableCode = series.variable.variableCode[0]?.value;
+      const latestValue = series.values[0]?.value?.[0];
+
+      if (!latestValue) continue;
+
+      if (variableCode === '00065') {
+        // Gauge height in feet
+        const height = parseFloat(latestValue.value);
+        if (!isNaN(height)) {
+          reading.gaugeHeightFt = height;
+          reading.readingTimestamp = latestValue.dateTime;
+        }
+      } else if (variableCode === '00060') {
+        // Discharge in cubic feet per second
+        const discharge = parseFloat(latestValue.value);
+        if (!isNaN(discharge)) {
+          reading.dischargeCfs = discharge;
+          // Use discharge timestamp if gauge height timestamp not available
+          if (!reading.readingTimestamp) {
+            reading.readingTimestamp = latestValue.dateTime;
+          }
+        }
+      }
+    }
+
+    return Array.from(readings.values()) as GaugeReading[];
+  } catch (error) {
+    console.error('Error fetching USGS gauge readings:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches a single gauge reading by site ID
+ */
+export async function fetchGaugeReading(siteId: string): Promise<GaugeReading | null> {
+  const readings = await fetchGaugeReadings([siteId]);
+  return readings[0] || null;
+}
