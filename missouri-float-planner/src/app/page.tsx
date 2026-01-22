@@ -3,7 +3,7 @@
 // src/app/page.tsx
 // Main home page with interactive map and Ozark-themed design
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import RiverSelector from '@/components/ui/RiverSelector';
 import VesselSelector from '@/components/ui/VesselSelector';
@@ -42,11 +42,13 @@ export default function Home() {
   const { data: accessPoints } = useAccessPoints(selectedRiverSlug);
   const { data: vesselTypes } = useVesselTypes();
 
-  // Set default vessel type when loaded
-  if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
-    const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
-    setSelectedVesselTypeId(defaultVessel.id);
-  }
+  // Set default vessel type when loaded (using useEffect to avoid render issues)
+  useEffect(() => {
+    if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
+      const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
+      setSelectedVesselTypeId(defaultVessel.id);
+    }
+  }, [vesselTypes, selectedVesselTypeId]);
 
   // Calculate plan when all required data is selected
   const planParams =
