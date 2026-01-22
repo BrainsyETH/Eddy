@@ -10,6 +10,7 @@ import VesselSelector from '@/components/ui/VesselSelector';
 import PlanSummary from '@/components/plan/PlanSummary';
 import ConditionsPanel from '@/components/ui/ConditionsPanel';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useRivers, useRiver } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
@@ -120,6 +121,18 @@ export default function Home() {
 
   const initialBounds = river?.bounds;
 
+  // Show error state if rivers fail to load
+  if (riversError) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-ozark-900">
+        <ErrorMessage
+          title="Failed to Load Rivers"
+          message="Unable to connect to the server. Please check your connection and try again."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-ozark-900">
       {/* Header with controls */}
@@ -213,19 +226,6 @@ export default function Home() {
               <div className="text-center">
                 <LoadingSpinner size="lg" />
                 <p className="mt-4 text-river-300">Loading rivers...</p>
-              </div>
-            </div>
-          ) : riversError ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-ozark-900">
-              <div className="text-center max-w-md px-4">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 
-                              flex items-center justify-center">
-                  <span className="text-3xl">😕</span>
-                </div>
-                <h2 className="text-xl font-bold text-white mb-2">Connection Error</h2>
-                <p className="text-bluff-400">
-                  Could not load river data. Please check your connection and try again.
-                </p>
               </div>
             </div>
           ) : !selectedRiverId ? (
