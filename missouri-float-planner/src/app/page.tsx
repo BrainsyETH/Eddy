@@ -295,44 +295,49 @@ export default function Home() {
                   ↑ Select a river above to get started
                 </p>
               </div>
-
-        {!showPlan && selectedRiverId && river && (
-          <div className="absolute top-4 right-4 z-30">
-            <RiverOverviewPanel
-              river={river}
-              condition={condition || null}
-              accessPointCount={accessPoints?.length || 0}
-              onClear={handleClearRiver}
-            />
-          </div>
-        )}
-
-        {/* Mobile bottom sheet indicator */}
-        {selectedPutIn && !selectedTakeOut && (
-          <div className="absolute bottom-4 left-4 right-4 md:hidden z-20">
-            <div className="bg-ozark-800/95 backdrop-blur-md rounded-xl p-4 text-center">
-              <p className="text-river-300">
-                👆 Tap another marker for your <span className="text-sunset-400 font-medium">take-out</span>
-              </p>
             </div>
           ) : (
-            <MapContainer initialBounds={initialBounds}>
-              {river && (
-                <RiverLayer
-                  riverGeometry={river.geometry}
-                  selected={true}
-                  routeGeometry={plan?.route.geometry}
-                />
+            <>
+              {!showPlan && selectedRiverId && river && (
+                <div className="absolute top-4 right-4 z-30">
+                  <RiverOverviewPanel
+                    river={river}
+                    condition={condition || null}
+                    accessPointCount={accessPoints?.length || 0}
+                    onClear={handleClearRiver}
+                  />
+                </div>
               )}
-              {accessPoints && (
-                <AccessPointMarkers
-                  accessPoints={accessPoints}
-                  onMarkerClick={handleAccessPointClick}
-                  selectedPutIn={selectedPutIn}
-                  selectedTakeOut={selectedTakeOut}
-                />
+
+              {/* Mobile bottom sheet indicator */}
+              {selectedPutIn && !selectedTakeOut && (
+                <div className="absolute bottom-4 left-4 right-4 md:hidden z-20">
+                  <div className="bg-ozark-800/95 backdrop-blur-md rounded-xl p-4 text-center">
+                    <p className="text-river-300">
+                      👆 Tap another marker for your <span className="text-sunset-400 font-medium">take-out</span>
+                    </p>
+                  </div>
+                </div>
               )}
-            </MapContainer>
+
+              <MapContainer initialBounds={initialBounds}>
+                {river && (
+                  <RiverLayer
+                    riverGeometry={river.geometry}
+                    selected={true}
+                    routeGeometry={plan?.route.geometry}
+                  />
+                )}
+                {accessPoints && (
+                  <AccessPointMarkers
+                    accessPoints={accessPoints}
+                    onMarkerClick={handleAccessPointClick}
+                    selectedPutIn={selectedPutIn}
+                    selectedTakeOut={selectedTakeOut}
+                  />
+                )}
+              </MapContainer>
+            </>
           )}
         </div>
       </main>
