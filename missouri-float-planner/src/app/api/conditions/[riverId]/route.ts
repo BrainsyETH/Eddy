@@ -23,21 +23,66 @@ export async function GET(
     });
 
     if (error) {
-      console.error('Error fetching river condition:', error);
-      return NextResponse.json(
-        { condition: null, available: false },
+      console.error('[Conditions API] Database function error:', {
+        riverId,
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      // Return error response with diagnostic info
+      return NextResponse.json<ConditionResponse>(
+        {
+          condition: null,
+          available: false,
+          error: 'Database error',
+          diagnostic: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        },
         { status: 500 }
       );
     }
 
     if (!data || data.length === 0) {
+      console.warn('[Conditions API] No condition data returned for river:', riverId);
+      
+      // Check if river has gauge stations linked
+      const { data: gaugeCheck } = await supabase
+        .from('river_gauges')
+        .select('id, is_primary')
+        .eq('river_id', riverId)
+        .limit(1);
+      
+      if (!gaugeCheck || gaugeCheck.length === 0) {
+        console.warn('[Conditions API] River has no gauge stations linked:', riverId);
+      } else {
+        // Check if there are any gauge readings
+        const { data: readingCheck } = await supabase
+          .from('gauge_readings')
+          .select('id, reading_timestamp')
+          .order('reading_timestamp', { ascending: false })
+          .limit(1);
+        
+        if (!readingCheck || readingCheck.length === 0) {
+          console.warn('[Conditions API] No gauge readings found in database. Cron job may not be running.');
+        }
+      }
+      
       return NextResponse.json<ConditionResponse>({
         condition: null,
         available: false,
+        diagnostic: process.env.NODE_ENV === 'development' 
+          ? 'No condition data found. Check gauge station linkage and cron job status.'
+          : undefined,
       });
     }
 
     const condition = data[0];
+
+    // Validate condition data
+    if (!condition.condition_code || condition.condition_code === 'unknown') {
+      console.warn('[Conditions API] Condition code is unknown for river:', riverId);
+    }
 
     const response: ConditionResponse = {
       condition: {
@@ -57,9 +102,19 @@ export async function GET(
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Unexpected error in conditions endpoint:', error);
-    return NextResponse.json(
-      { condition: null, available: false },
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Conditions API] Unexpected error:', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    
+    return NextResponse.json<ConditionResponse>(
+      {
+        condition: null,
+        available: false,
+        error: 'Internal server error',
+        diagnostic: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }

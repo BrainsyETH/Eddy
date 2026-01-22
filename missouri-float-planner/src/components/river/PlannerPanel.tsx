@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import VesselSelector from '@/components/ui/VesselSelector';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
@@ -115,20 +114,6 @@ export default function PlannerPanel({
               excludeId={selectedPutIn}
             />
           </div>
-
-          {/* Vessel Type Selector */}
-          {vesselTypes && vesselTypes.length > 0 && (
-            <div>
-              <label className="block text-sm font-semibold text-white mb-2">
-                Vessel Type
-              </label>
-              <VesselSelector
-                vesselTypes={vesselTypes}
-                selectedVesselTypeId={selectedVesselTypeId}
-                onSelect={setSelectedVesselTypeId}
-              />
-            </div>
-          )}
 
           {/* Plan Summary */}
           {showPlan && (

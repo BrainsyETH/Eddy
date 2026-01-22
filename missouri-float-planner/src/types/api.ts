@@ -163,6 +163,8 @@ export interface HazardsResponse {
 export interface ConditionResponse {
   condition: RiverCondition | null;
   available: boolean;
+  error?: string;
+  diagnostic?: string;
 }
 
 export interface VesselTypesResponse {

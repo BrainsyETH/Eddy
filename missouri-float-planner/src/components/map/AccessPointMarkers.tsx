@@ -84,7 +84,7 @@ export default function AccessPointMarkers({
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: box-shadow 0.2s ease, border-width 0.2s ease;
         z-index: ${zIndex};
         pointer-events: auto;
         position: relative;
@@ -109,24 +109,26 @@ export default function AccessPointMarkers({
       );
       rootsRef.current.push(root);
 
-      // Hover effect with new color glow
+      // Hover effect - no transform to prevent marker movement
       el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.15)';
         const glowColor = isPutIn 
           ? 'rgba(71, 133, 89, 0.4)' // river-forest
           : isTakeOut 
           ? 'rgba(249, 93, 155, 0.4)' // sky-warm
           : 'rgba(57, 160, 202, 0.3)'; // river-water
         el.style.boxShadow = `0 6px 20px rgba(0,0,0,0.4), 0 0 20px ${glowColor}`;
+        el.style.borderWidth = '4px';
+        el.style.opacity = '1';
       });
       el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
         el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1)';
+        el.style.borderWidth = '3px';
+        el.style.opacity = '1';
       });
 
-      // Create popup with glassmorphism styling
+      // Create popup with flat, nature-inspired styling
       const popupContent = `
-        <div style="padding: 12px; min-width: 180px; background: rgba(22, 23, 72, 0.9); backdrop-filter: blur(12px); border-radius: 8px;">
+        <div style="padding: 12px; min-width: 180px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff;">
             ${point.name}
           </h3>
@@ -134,18 +136,18 @@ export default function AccessPointMarkers({
             Mile ${point.riverMile.toFixed(1)} • ${point.type.replace('_', ' ')}
           </p>
           ${point.isPublic 
-            ? '<span style="display: inline-block; padding: 2px 8px; background: rgba(71, 133, 89, 0.3); color: #478559; border-radius: 999px; font-size: 11px;">Public Access</span>'
-            : '<span style="display: inline-block; padding: 2px 8px; background: rgba(199, 184, 166, 0.3); color: #c7b8a6; border-radius: 999px; font-size: 11px;">Private</span>'
+            ? '<span style="display: inline-block; padding: 3px 10px; background: #478559; color: #ffffff; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #478559;">Public Access</span>'
+            : '<span style="display: inline-block; padding: 3px 10px; background: #c7b8a6; color: #161748; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #c7b8a6;">Private</span>'
           }
           ${point.feeRequired 
-            ? '<span style="display: inline-block; margin-left: 4px; padding: 2px 8px; background: rgba(249, 93, 155, 0.3); color: #f95d9b; border-radius: 999px; font-size: 11px;">Fee Required</span>'
+            ? '<span style="display: inline-block; margin-left: 4px; padding: 3px 10px; background: #f95d9b; color: #ffffff; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #f95d9b;">Fee Required</span>'
             : ''
           }
           ${point.description 
             ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #c7b8a6;">${point.description}</p>`
             : ''
           }
-          <p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 500;">
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">
             Click to select as ${selectedPutIn ? 'take-out' : 'put-in'}
           </p>
         </div>

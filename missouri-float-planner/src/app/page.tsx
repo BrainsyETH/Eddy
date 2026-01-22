@@ -7,7 +7,6 @@ import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Waves } from 'lucide-react';
 import RiverSelector from '@/components/ui/RiverSelector';
-import VesselSelector from '@/components/ui/VesselSelector';
 import PlanSummary from '@/components/plan/PlanSummary';
 import ConditionsPanel from '@/components/ui/ConditionsPanel';
 import RiverOverviewPanel from '@/components/river/RiverOverviewPanel';
@@ -39,6 +38,7 @@ export default function Home() {
   const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(null);
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
+  const [showRiverModal, setShowRiverModal] = useState(false);
 
   // Fetch data
   const { data: rivers, isLoading: riversLoading, error: riversError } = useRivers();
@@ -77,6 +77,7 @@ export default function Home() {
       setSelectedPutIn(null);
       setSelectedTakeOut(null);
       setShowPlan(false);
+      setShowRiverModal(true); // Auto-open modal when river is selected
     }
   }, [rivers]);
 
@@ -123,12 +124,19 @@ export default function Home() {
     setShowPlan(false);
   };
 
+  // Close river modal (but keep river selected)
+  const handleCloseRiverModal = () => {
+    setShowRiverModal(false);
+  };
+
+  // Clear river selection entirely
   const handleClearRiver = () => {
     setSelectedRiverId(null);
     setSelectedRiverSlug(null);
     setSelectedPutIn(null);
     setSelectedTakeOut(null);
     setShowPlan(false);
+    setShowRiverModal(false);
   };
 
   const initialBounds = river?.bounds;
@@ -197,17 +205,6 @@ export default function Home() {
                 onSelect={handleRiverSelect}
               />
             </div>
-
-            {/* Vessel selector */}
-            {vesselTypes && vesselTypes.length > 0 && (
-              <div className="flex-1">
-                <VesselSelector
-                  vesselTypes={vesselTypes}
-                  selectedVesselTypeId={selectedVesselTypeId}
-                  onSelect={setSelectedVesselTypeId}
-                />
-              </div>
-            )}
 
             {/* Clear selection button */}
             {(selectedPutIn || selectedTakeOut) && (
@@ -300,15 +297,20 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {!showPlan && selectedRiverId && river && (
-                <div className="absolute top-4 right-4 z-30">
-                  <RiverOverviewPanel
-                    river={river}
-                    condition={condition || null}
-                    accessPointCount={accessPoints?.length || 0}
-                    onClear={handleClearRiver}
-                  />
-                </div>
+              {/* Toggle button for river modal */}
+              {selectedRiverId && river && !showRiverModal && (
+                <button
+                  onClick={() => setShowRiverModal(true)}
+                  className="absolute bottom-4 left-4 z-30 bg-river-deep/90 hover:bg-river-deep text-white px-4 py-2 rounded-xl shadow-lg border border-white/10 backdrop-blur-sm transition-colors"
+                  aria-label="Show river details"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium">River Info</span>
+                  </div>
+                </button>
               )}
 
               {/* Mobile bottom sheet indicator */}
@@ -343,6 +345,17 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {/* River Bottom Sheet - Outside map container */}
+      {selectedRiverId && river && (
+        <RiverOverviewPanel
+          river={river}
+          condition={condition || null}
+          accessPointCount={accessPoints?.length || 0}
+          isOpen={showRiverModal}
+          onClose={handleCloseRiverModal}
+        />
+      )}
 
       {/* Footer */}
       <footer className="relative z-10 bg-river-night border-t border-white/10 px-4 py-3">
