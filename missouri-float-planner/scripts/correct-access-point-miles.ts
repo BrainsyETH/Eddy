@@ -70,7 +70,8 @@ async function main() {
 
   console.log(`Tolerance: ${tolerance} miles\n`);
 
-  // Call the database function to correct miles
+  // Check if migrations have been applied by checking if the function exists
+  // We can do this by trying to call it and checking the error
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: results, error } = await (supabase.rpc as any)(
     'correct_all_access_point_miles',
@@ -81,6 +82,21 @@ async function main() {
   );
 
   if (error) {
+    // Check if it's a "function not found" error
+    if (error.code === 'PGRST202' || error.message?.includes('Could not find the function')) {
+      console.error('❌ Error: Database migrations have not been applied yet.\n');
+      console.error('The function `correct_all_access_point_miles` is defined in migration:');
+      console.error('   supabase/migrations/00010_update_mile_calculations.sql\n');
+      console.error('Please run the migrations first:');
+      console.error('   1. Open Supabase Dashboard → SQL Editor');
+      console.error('   2. Run these migrations in order:');
+      console.error('      - 00008_river_mile_markers.sql');
+      console.error('      - 00009_mile_marker_corrections.sql');
+      console.error('      - 00010_update_mile_calculations.sql');
+      console.error('\n   Or use: npm run db:migrate (for instructions)');
+      process.exit(1);
+    }
+    
     console.error('Error correcting miles:', error);
     process.exit(1);
   }
