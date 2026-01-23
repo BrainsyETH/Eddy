@@ -56,8 +56,6 @@ export default function AccessPointEditor({
     };
 
     map.on('click', handleClick);
-
-    // Change cursor to crosshair in add mode
     map.getCanvas().style.cursor = 'crosshair';
 
     return () => {
@@ -65,6 +63,20 @@ export default function AccessPointEditor({
       map.getCanvas().style.cursor = '';
     };
   }, [map, addMode, onMapClick]);
+
+  // ESC key to cancel add mode
+  useEffect(() => {
+    if (!addMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Parent component handles the actual state change via onMapClick(null) or similar
+        // For now, just reset cursor as visual feedback
+        if (map) map.getCanvas().style.cursor = '';
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [addMode, map]);
 
   useEffect(() => {
     if (!map || !accessPoints.length) return;

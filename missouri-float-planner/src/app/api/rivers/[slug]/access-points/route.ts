@@ -75,7 +75,7 @@ export async function GET(
           riverId: ap.river_id,
           name: ap.name,
           slug: ap.slug,
-          riverMile: parseFloat(ap.river_mile_downstream),
+          riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : 0,
           type: ap.type,
           isPublic: ap.is_public,
           ownership: ap.ownership,

@@ -61,3 +61,37 @@ export function pointToCoordinates(point: GeoJSON.Point): Coordinates {
   const [lng, lat] = point.coordinates;
   return { lng, lat };
 }
+
+/**
+ * Missouri bounds with buffer for border points
+ */
+export const MISSOURI_BOUNDS = {
+  minLat: 35.9,
+  maxLat: 40.7,
+  minLng: -96.5,
+  maxLng: -88.9,
+} as const;
+
+/**
+ * Validates coordinates are within Missouri bounds
+ */
+export function isValidMissouriCoord(lat: number, lng: number): boolean {
+  return (
+    lat >= MISSOURI_BOUNDS.minLat &&
+    lat <= MISSOURI_BOUNDS.maxLat &&
+    lng >= MISSOURI_BOUNDS.minLng &&
+    lng <= MISSOURI_BOUNDS.maxLng
+  );
+}
+
+/**
+ * Type guard for GeoJSON Point coordinates extraction
+ */
+export function getPointCoordinates(geom: unknown): Coordinates | null {
+  if (!geom || typeof geom !== 'object') return null;
+  const geo = geom as { type?: string; coordinates?: [number, number] };
+  if (geo.type === 'Point' && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
+    return { lng: geo.coordinates[0], lat: geo.coordinates[1] };
+  }
+  return null;
+}
