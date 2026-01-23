@@ -16,12 +16,42 @@ export async function GET(
   try {
     const { riverId } = await params;
     const supabase = await createClient();
+    
+    // Check for optional put-in access point ID for segment-aware gauge selection
+    const searchParams = request.nextUrl.searchParams;
+    const putInAccessPointId = searchParams.get('putInAccessPointId');
+    
+    // Get put-in coordinates if access point ID provided
+    let putInPoint: string | null = null;
+    if (putInAccessPointId) {
+      const { data: accessPoint } = await supabase
+        .from('access_points')
+        .select('location_snap, location_orig')
+        .eq('id', putInAccessPointId)
+        .eq('river_id', riverId)
+        .single();
+      
+      if (accessPoint) {
+        const coords = accessPoint.location_snap?.coordinates || accessPoint.location_orig?.coordinates;
+        if (coords) {
+          putInPoint = `SRID=4326;POINT(${coords[0]} ${coords[1]})`;
+        }
+      }
+    }
 
-    // Call the database function to get river condition
+    // Call the database function to get river condition (segment-aware if put-in provided)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.rpc as any)('get_river_condition', {
-      p_river_id: riverId,
-    });
+    const { data, error } = await (supabase.rpc as any)(
+      putInPoint ? 'get_river_condition_segment' : 'get_river_condition',
+      putInPoint
+        ? {
+            p_river_id: riverId,
+            p_put_in_point: putInPoint,
+          }
+        : {
+            p_river_id: riverId,
+          }
+    );
 
     if (error) {
       console.error('[Conditions API] Database function error:', {

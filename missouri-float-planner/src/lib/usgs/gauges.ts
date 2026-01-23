@@ -62,10 +62,13 @@ export interface GaugeReading {
  * Fetches current gauge readings from USGS Water Services API
  * 
  * @param siteIds Array of USGS site IDs (e.g., ['07019000', '07018500'])
+ * @param options Optional configuration
+ * @param options.skipCache If true, bypasses Next.js cache (for cron jobs)
  * @returns Array of gauge readings
  */
 export async function fetchGaugeReadings(
-  siteIds: string[]
+  siteIds: string[],
+  options?: { skipCache?: boolean }
 ): Promise<GaugeReading[]> {
   if (siteIds.length === 0) {
     return [];
@@ -78,9 +81,11 @@ export async function fetchGaugeReadings(
   url.searchParams.set('siteStatus', 'all');
 
   try {
-    const response = await fetch(url.toString(), {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    });
+    const fetchOptions: RequestInit = options?.skipCache
+      ? { cache: 'no-store' } // No caching for cron jobs
+      : { next: { revalidate: 3600 } }; // Cache for 1 hour for regular API calls
+
+    const response = await fetch(url.toString(), fetchOptions);
 
     if (!response.ok) {
       throw new Error(`USGS API error: ${response.status} ${response.statusText}`);

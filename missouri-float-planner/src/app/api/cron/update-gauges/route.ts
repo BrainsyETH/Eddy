@@ -76,9 +76,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fetch readings from USGS
+    // Fetch readings from USGS (skip cache to ensure fresh data)
     const siteIds = stations.map(s => s.usgs_site_id);
-    const readings = await fetchGaugeReadings(siteIds);
+    const readings = await fetchGaugeReadings(siteIds, { skipCache: true });
 
     // Update database and calculate rate of change
     let updated = 0;
@@ -165,6 +165,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const executionTime = new Date().toISOString();
+    
     return NextResponse.json({
       message: 'Gauge update complete',
       updated,
@@ -173,6 +175,8 @@ export async function POST(request: NextRequest) {
       isHighFrequencyPoll,
       highFrequencyFlagsSet,
       highFrequencyFlagsCleared,
+      executionTime,
+      stationsProcessed: stations.length,
     });
   } catch (error) {
     console.error('Error in gauge update cron:', error);

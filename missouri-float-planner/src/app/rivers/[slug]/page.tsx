@@ -109,10 +109,7 @@ export default function RiverPage() {
                 <WeatherBug riverSlug={slug} riverId={river.id} />
                 
                 <MapContainer initialBounds={river.bounds}>
-                  <RiverLayer
-                    riverGeometry={river.geometry}
-                    selected={true}
-                  />
+                  {/* RiverLayer removed - geometry quality needs improvement before displaying */}
                   {accessPoints && (
                     <AccessPointMarkers
                       accessPoints={accessPoints}

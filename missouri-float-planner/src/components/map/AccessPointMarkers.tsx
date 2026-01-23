@@ -156,15 +156,18 @@ export default function AccessPointMarkers({
       const popup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false,
-        offset: 20,
+        offset: [0, -10], // Offset upward to prevent marker overlap
+        anchor: 'bottom', // Anchor at bottom so it appears above marker
         className: 'access-point-popup',
       }).setHTML(popupContent);
 
-      // Show popup on hover
+      // Show popup on hover - lower marker z-index when popup is visible
       el.addEventListener('mouseenter', () => {
+        el.style.zIndex = '1'; // Lower marker z-index when popup shows
         popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
       });
       el.addEventListener('mouseleave', () => {
+        el.style.zIndex = `${zIndex}`; // Restore original z-index
         popup.remove();
       });
 

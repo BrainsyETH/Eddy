@@ -237,6 +237,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Map popup styling - Clean, modern */
+.maplibregl-popup {
+  z-index: 1000 !important; /* Ensure popups are above markers (markers are z-index 1-10) */
+}
+
 .maplibregl-popup-content {
   border-radius: 0.75rem !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
@@ -244,6 +248,11 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden !important;
   background: var(--color-river-deep) !important;
   border: 2px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Access point popups specifically */
+.access-point-popup {
+  z-index: 1000 !important;
 }
 
 .maplibregl-popup-close-button {
