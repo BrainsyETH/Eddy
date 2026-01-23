@@ -1,42 +1,30 @@
 'use client';
 
 // src/components/map/RiverLayer.tsx
-// Themed river line rendering with smoothing
+// Themed river line rendering using pre-smoothed geometry from database
+// Performance optimization: Bezier smoothing is now done server-side and stored in smoothed_geometries
 
 import { useEffect } from 'react';
 import { useMap } from './MapContainer';
-import * as turf from '@turf/turf';
 import type { GeoJSON } from 'geojson';
 
 interface RiverLayerProps {
+  // Primary geometry - can be pre-smoothed from database smoothed_geometries column
   riverGeometry?: GeoJSON.LineString;
+  // Optional: Pre-smoothed geometry from database (takes precedence if provided)
+  smoothedGeometry?: GeoJSON.LineString;
   selected?: boolean;
   routeGeometry?: GeoJSON.LineString;
-}
-
-// Smooth a line string using bezier spline
-function smoothLineString(geometry: GeoJSON.LineString): GeoJSON.LineString {
-  if (!geometry.coordinates || geometry.coordinates.length < 2) {
-    return geometry;
-  }
-
-  // Convert to Turf LineString
-  const line = turf.lineString(geometry.coordinates);
-  
-  // Simplify the line slightly to reduce points, then smooth
-  // This helps with performance and makes curves smoother
-  const simplified = turf.simplify(line, { tolerance: 0.0001, highQuality: true });
-  
-  // Use bezier spline for smooth curves
-  const smoothed = turf.bezierSpline(simplified, { resolution: 10000, sharpness: 0.85 });
-  
-  return smoothed.geometry;
+  // Optional: Pre-smoothed route geometry
+  smoothedRouteGeometry?: GeoJSON.LineString;
 }
 
 export default function RiverLayer({
   riverGeometry,
+  smoothedGeometry,
   selected = false,
   routeGeometry,
+  smoothedRouteGeometry,
 }: RiverLayerProps) {
   const map = useMap();
 
@@ -79,15 +67,16 @@ export default function RiverLayer({
       }
     };
 
-    // Smooth the river geometry
-    const smoothedGeometry = smoothLineString(riverGeometry);
+    // Use pre-smoothed geometry from database if available, otherwise use raw geometry
+    // Note: Bezier smoothing is now done server-side to improve map performance
+    const displayGeometry = smoothedGeometry || riverGeometry;
 
     // Add or update river source
     if (hasSource(sourceId)) {
       try {
         (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
           type: 'Feature',
-          geometry: smoothedGeometry,
+          geometry: displayGeometry,
           properties: {},
         });
       } catch (err) {
@@ -99,7 +88,7 @@ export default function RiverLayer({
           type: 'geojson',
           data: {
             type: 'Feature',
-            geometry: smoothedGeometry,
+            geometry: displayGeometry,
             properties: {},
           },
         });
@@ -156,13 +145,14 @@ export default function RiverLayer({
 
     // Add route highlight if provided
     if (routeGeometry) {
-      const smoothedRoute = smoothLineString(routeGeometry);
+      // Use pre-smoothed route geometry from database if available
+      const displayRouteGeometry = smoothedRouteGeometry || routeGeometry;
       
       if (hasSource(routeSourceId)) {
         try {
           (map.getSource(routeSourceId) as maplibregl.GeoJSONSource).setData({
             type: 'Feature',
-            geometry: smoothedRoute,
+            geometry: displayRouteGeometry,
             properties: {},
           });
         } catch (err) {
@@ -174,7 +164,7 @@ export default function RiverLayer({
             type: 'geojson',
             data: {
               type: 'Feature',
-              geometry: smoothedRoute,
+              geometry: displayRouteGeometry,
               properties: {},
             },
           });
@@ -236,7 +226,7 @@ export default function RiverLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, riverGeometry, selected, routeGeometry]);
+  }, [map, riverGeometry, smoothedGeometry, selected, routeGeometry, smoothedRouteGeometry]);
 
   return null;
 }

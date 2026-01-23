@@ -1,6 +1,8 @@
 // src/lib/mapbox/directions.ts
 // Mapbox Directions API integration for drive time calculations
 
+import type { ConditionCode } from '@/types/api';
+
 export interface MapboxRoute {
   duration: number; // seconds
   distance: number; // meters
@@ -31,6 +33,10 @@ export interface DriveTimeResult {
   geometry: GeoJSON.LineString | null;
 }
 
+// Cache durations in seconds
+const CACHE_NORMAL = 2592000; // 30 days for normal conditions
+const CACHE_DANGEROUS = 3600; // 1 hour for high/dangerous conditions (potential road closures)
+
 /**
  * Calculates driving time and distance between two points using Mapbox Directions API
  * 
@@ -38,13 +44,16 @@ export interface DriveTimeResult {
  * @param startLat Start latitude
  * @param endLng End longitude
  * @param endLat End latitude
+ * @param conditionCode Optional river condition code - if 'high' or 'dangerous', 
+ *                      cache is reduced to 1 hour due to potential road/bridge closures
  * @returns Drive time result with minutes, miles, and route summary
  */
 export async function getDriveTime(
   startLng: number,
   startLat: number,
   endLng: number,
-  endLat: number
+  endLat: number,
+  conditionCode?: ConditionCode
 ): Promise<DriveTimeResult> {
   const accessToken = process.env.MAPBOX_ACCESS_TOKEN;
 
@@ -60,9 +69,15 @@ export async function getDriveTime(
   url.searchParams.set('overview', 'full');
   url.searchParams.set('steps', 'false');
 
+  // Determine cache duration based on river conditions
+  // During high water or dangerous conditions, roads/bridges may be closed
+  // so we need fresher routing data
+  const isDangerousConditions = conditionCode === 'high' || conditionCode === 'dangerous';
+  const revalidateTime = isDangerousConditions ? CACHE_DANGEROUS : CACHE_NORMAL;
+
   try {
     const response = await fetch(url.toString(), {
-      next: { revalidate: 2592000 }, // Cache for 30 days
+      next: { revalidate: revalidateTime },
     });
 
     if (!response.ok) {

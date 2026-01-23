@@ -36,7 +36,10 @@ export async function GET(
       .select('*')
       .eq('river_id', river.id)
       .eq('approved', true)
-      .order('river_mile_downstream', { ascending: false });
+      // Note: river_mile_downstream now represents "mile from headwaters" 
+      // (mile 0.0 = headwaters, increasing downstream)
+      // ascending: true = upstream to downstream (natural float direction)
+      .order('river_mile_downstream', { ascending: true });
 
     if (accessError) {
       console.error('Error fetching access points:', accessError);

@@ -53,6 +53,7 @@ export default function Home() {
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [showRiverModal, setShowRiverModal] = useState(false);
+  const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
 
   // Detect desktop viewport
   const isDesktop = useIsDesktop();
@@ -61,7 +62,8 @@ export default function Home() {
   const { data: rivers, isLoading: riversLoading, error: riversError } = useRivers();
   const { data: river } = useRiver(selectedRiverSlug || '');
   const { data: accessPoints } = useAccessPoints(selectedRiverSlug);
-  const { data: condition } = useConditions(selectedRiverId);
+  const { data: conditionData } = useConditions(selectedRiverId);
+  const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
 
   // Set default vessel type when loaded (using useEffect to avoid render issues)
@@ -100,17 +102,26 @@ export default function Home() {
 
   // Handle access point click
   const handleAccessPointClick = useCallback((point: AccessPoint) => {
-    console.log('Access point clicked:', point.name);
+    if (selectedPutIn && accessPoints) {
+      const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
+      if (putInPoint && point.riverMile < putInPoint.riverMile) {
+        setUpstreamWarning('That take-out is upstream of your put-in. Choose a downstream point.');
+        return;
+      }
+    }
     if (!selectedPutIn) {
       setSelectedPutIn(point.id);
-    } else if (!selectedTakeOut) {
-      setSelectedTakeOut(point.id);
-      setShowPlan(true);
-    } else {
+    } else if (!selectedTakeOut && point.id !== selectedPutIn) {
       setSelectedTakeOut(point.id);
       setShowPlan(true);
     }
-  }, [selectedPutIn, selectedTakeOut]);
+  }, [accessPoints, selectedPutIn, selectedTakeOut]);
+
+  useEffect(() => {
+    if (!upstreamWarning) return;
+    const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [upstreamWarning]);
 
   // Handle share
   const handleShare = async () => {
@@ -144,6 +155,9 @@ export default function Home() {
   // Close river modal (but keep river selected)
   const handleCloseRiverModal = () => {
     setShowRiverModal(false);
+    setSelectedPutIn(null);
+    setSelectedTakeOut(null);
+    setShowPlan(false);
   };
 
   const initialBounds = river?.bounds;
@@ -240,7 +254,7 @@ export default function Home() {
             <PlanSummary
               plan={plan || null}
               isLoading={planLoading}
-              onClose={() => setShowPlan(false)}
+              onClose={handleClearSelection}
               onShare={handleShare}
             />
           )}
@@ -335,7 +349,15 @@ export default function Home() {
                   </div>
                 )}
 
-                <MapContainer initialBounds={initialBounds}>
+                {upstreamWarning && (
+                  <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-30">
+                    <div className="bg-red-500/20 border border-red-400/40 text-red-100 text-sm px-4 py-2 rounded-xl shadow-lg">
+                      {upstreamWarning}
+                    </div>
+                  </div>
+                )}
+
+                <MapContainer initialBounds={initialBounds} showLegend={true}>
                   {river && (
                     <RiverLayer
                       riverGeometry={river.geometry}

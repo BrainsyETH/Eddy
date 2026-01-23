@@ -1,23 +1,12 @@
 // src/middleware.ts
 // Next.js middleware for Supabase auth session management
-// TEMPORARILY SIMPLIFIED FOR DEBUGGING - restore from .backup if needed
+// Required for Community Reporting feature and authenticated routes
 
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
-  // Log the request for debugging (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Middleware hit:', request.nextUrl.pathname);
-  }
-
-  try {
-    return await updateSession(request);
-  } catch (error) {
-    // If middleware fails, still allow the request through
-    console.error('Middleware error:', error);
-    return NextResponse.next();
-  }
+  return await updateSession(request);
 }
 
 export const config = {

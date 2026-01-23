@@ -10,6 +10,9 @@
     "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
     "db:import-gauges": "tsx scripts/fetch-gauge-stations.ts",
     "db:snap-access-points": "tsx scripts/snap-access-points.ts",
+    "db:migrate": "tsx scripts/run-migrations.ts",
+    "db:import-mile-markers": "tsx scripts/import-mile-markers.ts",
+    "db:correct-miles": "tsx scripts/correct-access-point-miles.ts",
     "db:seed": "echo 'Run seed SQL files via Supabase CLI or SQL Editor. See scripts/run-seeds.ts for details.'",
     "db:setup": "npm run db:seed && npm run db:snap-access-points"
   },

@@ -6,7 +6,7 @@
 import { Sun, Cloud, CloudRain, Wind, Droplet } from 'lucide-react';
 import { useWeather } from '@/hooks/useWeather';
 import { useConditions } from '@/hooks/useConditions';
-import { getWindDirection } from '@/lib/weather/openweather';
+import { getWindDirection, type WeatherData } from '@/lib/weather/openweather';
 import LoadingSpinner from './LoadingSpinner';
 import type { ConditionCode } from '@/types/api';
 
@@ -53,8 +53,10 @@ function getRiverConditionStatus(conditionCode: ConditionCode | null): {
 }
 
 export default function WeatherBug({ riverSlug, riverId, className = '' }: WeatherBugProps) {
-  const { data: weather, isLoading: weatherLoading } = useWeather(riverSlug);
-  const { data: condition } = useConditions(riverId);
+  const { data: weatherData, isLoading: weatherLoading, isError: hasWeatherError } = useWeather(riverSlug);
+  const weather = weatherData as WeatherData | null | undefined;
+  const { data } = useConditions(riverId);
+  const condition = data?.condition ?? null;
 
   if (!riverSlug || !riverId) {
     return null;
@@ -72,6 +74,10 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
         <div className="flex items-center gap-2 text-river-gravel">
           <LoadingSpinner size="sm" />
           <span className="text-sm">Loading weather...</span>
+        </div>
+      ) : hasWeatherError ? (
+        <div className="text-sm text-amber-400">
+          Unable to load weather data
         </div>
       ) : weather ? (
         <div className="space-y-3">

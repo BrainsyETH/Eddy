@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchWeather, getCityForRiver, type WeatherData } from '@/lib/weather/openweather';
 
 export function useWeather(riverSlug: string | null) {
-  return useQuery({
+  return useQuery<WeatherData | null, Error>({
     queryKey: ['weather', riverSlug],
     queryFn: async (): Promise<WeatherData | null> => {
       if (!riverSlug) return null;
@@ -23,11 +23,14 @@ export function useWeather(riverSlug: string | null) {
         return await fetchWeather(cityData.lat, cityData.lon, apiKey);
       } catch (error) {
         console.error('Error fetching weather:', error);
-        return null;
+        throw error; // Let React Query handle retry
       }
     },
     enabled: !!riverSlug,
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    retry: 2, // Retry failed requests twice
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    throwOnError: false, // Don't throw, let component handle error state
   });
 }

@@ -115,7 +115,7 @@ export default function SharedPlanPage() {
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Map */}
         <div className="flex-1 relative min-h-[400px] lg:min-h-0 order-2 lg:order-1">
-          <MapContainer initialBounds={bounds}>
+          <MapContainer initialBounds={bounds} showLegend={true}>
             <RiverLayer
               riverGeometry={plan.route.geometry}
               selected={true}

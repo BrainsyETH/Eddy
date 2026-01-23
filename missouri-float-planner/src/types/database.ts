@@ -27,6 +27,7 @@ export interface Database {
           difficulty_rating: string | null;
           region: string | null;
           nhd_feature_id: string | null;
+          smoothed_geometries: Json | null; // Pre-processed bezier-smoothed geometry
           created_at: string;
           updated_at: string;
         };
@@ -42,6 +43,7 @@ export interface Database {
           difficulty_rating?: string | null;
           region?: string | null;
           nhd_feature_id?: string | null;
+          smoothed_geometries?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -57,6 +59,7 @@ export interface Database {
           difficulty_rating?: string | null;
           region?: string | null;
           nhd_feature_id?: string | null;
+          smoothed_geometries?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +71,7 @@ export interface Database {
           name: string;
           location: unknown;
           active: boolean;
+          high_frequency_flag: boolean;
           created_at: string;
         };
         Insert: {
@@ -76,6 +80,7 @@ export interface Database {
           name: string;
           location: unknown;
           active?: boolean;
+          high_frequency_flag?: boolean;
           created_at?: string;
         };
         Update: {
@@ -84,6 +89,7 @@ export interface Database {
           name?: string;
           location?: unknown;
           active?: boolean;
+          high_frequency_flag?: boolean;
           created_at?: string;
         };
       };
@@ -430,6 +436,176 @@ export interface Database {
           created_at?: string;
         };
       };
+      segment_cache: {
+        Row: {
+          id: string;
+          start_access_id: string | null;
+          end_access_id: string | null;
+          segment_geom: unknown; // PostGIS geometry
+          distance_miles: number | null;
+          cached_at: string;
+        };
+        Insert: {
+          id?: string;
+          start_access_id?: string | null;
+          end_access_id?: string | null;
+          segment_geom?: unknown;
+          distance_miles?: number | null;
+          cached_at?: string;
+        };
+        Update: {
+          id?: string;
+          start_access_id?: string | null;
+          end_access_id?: string | null;
+          segment_geom?: unknown;
+          distance_miles?: number | null;
+          cached_at?: string;
+        };
+      };
+      community_reports: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          river_id: string | null;
+          hazard_id: string | null;
+          type: 'hazard' | 'water_level' | 'debris';
+          coordinates: unknown; // PostGIS geometry
+          river_mile: number | null;
+          image_url: string | null;
+          description: string;
+          status: 'pending' | 'verified' | 'rejected';
+          verified_by: string | null;
+          verified_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          river_id?: string | null;
+          hazard_id?: string | null;
+          type: 'hazard' | 'water_level' | 'debris';
+          coordinates: unknown;
+          river_mile?: number | null;
+          image_url?: string | null;
+          description: string;
+          status?: 'pending' | 'verified' | 'rejected';
+          verified_by?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          river_id?: string | null;
+          hazard_id?: string | null;
+          type?: 'hazard' | 'water_level' | 'debris';
+          coordinates?: unknown;
+          river_mile?: number | null;
+          image_url?: string | null;
+          description?: string;
+          status?: 'pending' | 'verified' | 'rejected';
+          verified_by?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      shuttle_services: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          phone: string | null;
+          email: string | null;
+          website: string | null;
+          primary_access_point_id: string | null;
+          service_radius_miles: number | null;
+          offers_shuttle: boolean;
+          offers_rental: boolean;
+          offers_camping: boolean;
+          rental_types: string[] | null;
+          shuttle_price_range: string | null;
+          rental_price_range: string | null;
+          hours_of_operation: Json | null;
+          seasonal_notes: string | null;
+          active: boolean;
+          verified: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          website?: string | null;
+          primary_access_point_id?: string | null;
+          service_radius_miles?: number | null;
+          offers_shuttle?: boolean;
+          offers_rental?: boolean;
+          offers_camping?: boolean;
+          rental_types?: string[] | null;
+          shuttle_price_range?: string | null;
+          rental_price_range?: string | null;
+          hours_of_operation?: Json | null;
+          seasonal_notes?: string | null;
+          active?: boolean;
+          verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          website?: string | null;
+          primary_access_point_id?: string | null;
+          service_radius_miles?: number | null;
+          offers_shuttle?: boolean;
+          offers_rental?: boolean;
+          offers_camping?: boolean;
+          rental_types?: string[] | null;
+          shuttle_price_range?: string | null;
+          rental_price_range?: string | null;
+          hours_of_operation?: Json | null;
+          seasonal_notes?: string | null;
+          active?: boolean;
+          verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      shuttle_service_coverage: {
+        Row: {
+          id: string;
+          shuttle_service_id: string | null;
+          access_point_id: string | null;
+          is_pickup: boolean;
+          is_dropoff: boolean;
+        };
+        Insert: {
+          id?: string;
+          shuttle_service_id?: string | null;
+          access_point_id?: string | null;
+          is_pickup?: boolean;
+          is_dropoff?: boolean;
+        };
+        Update: {
+          id?: string;
+          shuttle_service_id?: string | null;
+          access_point_id?: string | null;
+          is_pickup?: boolean;
+          is_dropoff?: boolean;
+        };
+      };
     };
     Functions: {
       snap_to_river: {
@@ -495,6 +671,94 @@ export interface Database {
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      get_segment_nearest_gauge: {
+        Args: {
+          p_river_id: string;
+          p_put_in_point: unknown;
+        };
+        Returns: {
+          gauge_station_id: string;
+          gauge_name: string;
+          usgs_site_id: string;
+          distance_meters: number;
+          threshold_unit: string;
+          level_too_low: number;
+          level_low: number;
+          level_optimal_min: number;
+          level_optimal_max: number;
+          level_high: number;
+          level_dangerous: number;
+          distance_from_section_miles: number;
+          accuracy_warning_threshold_miles: number;
+        }[];
+      };
+      get_river_condition_segment: {
+        Args: {
+          p_river_id: string;
+          p_put_in_point?: unknown;
+        };
+        Returns: {
+          condition_label: string;
+          condition_code: string;
+          gauge_height_ft: number;
+          discharge_cfs: number;
+          reading_timestamp: string;
+          reading_age_hours: number;
+          accuracy_warning: boolean;
+          accuracy_warning_reason: string;
+          gauge_name: string;
+          gauge_usgs_id: string;
+          distance_to_put_in_meters: number;
+        }[];
+      };
+      cache_segment: {
+        Args: {
+          p_start_access_id: string;
+          p_end_access_id: string;
+        };
+        Returns: {
+          segment_geom: unknown;
+          distance_miles: number;
+        }[];
+      };
+      invalidate_segment_cache: {
+        Args: {
+          p_river_id?: string;
+          p_access_point_id?: string;
+        };
+        Returns: number;
+      };
+      get_campgrounds_along_route: {
+        Args: {
+          p_river_id: string;
+          p_start_mile: number;
+          p_end_mile: number;
+          p_interval_min_miles?: number;
+          p_interval_max_miles?: number;
+        };
+        Returns: {
+          id: string;
+          name: string;
+          slug: string;
+          river_mile: number;
+          coordinates: unknown;
+          amenities: string[];
+          distance_from_start: number;
+        }[];
+      };
+      get_gauge_rate_of_change: {
+        Args: {
+          p_gauge_station_id: string;
+          p_hours_lookback?: number;
+        };
+        Returns: {
+          rate_ft_per_hour: number;
+          current_height: number;
+          previous_height: number;
+          hours_elapsed: number;
+          is_rapid_change: boolean;
+        }[];
       };
     };
   };

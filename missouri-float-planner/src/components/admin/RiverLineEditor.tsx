@@ -35,19 +35,22 @@ export default function RiverLineEditor({
   useEffect(() => {
     if (!map || !rivers.length) return;
 
-    // Store refs in local variables for cleanup
-    const currentSources = new Set(sourcesRef.current);
-    const currentLayers = new Set(layersRef.current);
+    // Track sources and layers added in this effect run for cleanup
+    const sourcesAdded: string[] = [];
+    const layersAdded: string[] = [];
 
-    // Clean up existing sources and layers
-    currentSources.forEach((id) => {
+    // Clean up existing sources and layers from previous runs
+    const previousSources = new Set(sourcesRef.current);
+    const previousLayers = new Set(layersRef.current);
+    
+    previousSources.forEach((id) => {
       try {
         if (map.getSource(id)) {
           map.removeSource(id);
         }
       } catch {}
     });
-    currentLayers.forEach((id) => {
+    previousLayers.forEach((id) => {
       try {
         if (map.getLayer(id)) {
           map.removeLayer(id);
@@ -80,6 +83,7 @@ export default function RiverLineEditor({
           },
         });
         sourcesRef.current.add(sourceId);
+        sourcesAdded.push(sourceId);
       } else {
         (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
           type: 'Feature',
@@ -117,6 +121,7 @@ export default function RiverLineEditor({
           },
         });
         layersRef.current.add(layerId);
+        layersAdded.push(layerId);
       } else {
         // Update existing layer style
         map.setPaintProperty(layerId, 'line-color', lineColor);
@@ -126,16 +131,13 @@ export default function RiverLineEditor({
     });
 
     return () => {
-      // Use the stored refs for cleanup
-      const sourcesToClean = new Set(sourcesRef.current);
-      const layersToClean = new Set(layersRef.current);
-      
-      sourcesToClean.forEach((id) => {
+      // Clean up sources and layers added in this effect run
+      sourcesAdded.forEach((id) => {
         try {
           if (map.getSource(id)) map.removeSource(id);
         } catch {}
       });
-      layersToClean.forEach((id) => {
+      layersAdded.forEach((id) => {
         try {
           if (map.getLayer(id)) map.removeLayer(id);
         } catch {}

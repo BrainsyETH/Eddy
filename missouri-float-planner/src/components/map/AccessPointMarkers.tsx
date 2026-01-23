@@ -28,8 +28,14 @@ export default function AccessPointMarkers({
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const popupsRef = useRef<maplibregl.Popup[]>([]);
   const rootsRef = useRef<Root[]>([]);
+  const supportsHoverRef = useRef(false);
 
   useEffect(() => {
+    supportsHoverRef.current =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(hover: hover)').matches;
+
     // Clear existing markers, popups, and React roots
     markersRef.current.forEach((marker) => marker.remove());
     popupsRef.current.forEach((popup) => popup.remove());
@@ -40,10 +46,18 @@ export default function AccessPointMarkers({
 
     if (!map || !accessPoints.length) return;
 
+    const selectedPutInPoint = selectedPutIn
+      ? accessPoints.find((point) => point.id === selectedPutIn)
+      : null;
+    const putInMile = selectedPutInPoint?.riverMile ?? null;
+    const selectionLocked = Boolean(selectedPutIn && selectedTakeOut);
+
     // Create markers for each access point
     accessPoints.forEach((point) => {
       const isPutIn = point.id === selectedPutIn;
       const isTakeOut = point.id === selectedTakeOut;
+      const isUpstreamChoice =
+        putInMile !== null && !isPutIn && point.riverMile < putInMile;
 
       // Determine marker style based on state - using new color palette
       let bgColor = '#c7b8a6'; // river-gravel for neutral markers
@@ -80,7 +94,7 @@ export default function AccessPointMarkers({
         border-radius: 50%;
         border: 3px solid ${borderColor};
         box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1);
-        cursor: pointer;
+        cursor: ${onMarkerClick && !selectionLocked ? 'pointer' : 'default'};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -88,6 +102,8 @@ export default function AccessPointMarkers({
         z-index: ${zIndex};
         pointer-events: auto;
         position: relative;
+        box-sizing: border-box;
+        will-change: transform;
       `;
       
       // Render lucide icon using React
@@ -127,6 +143,14 @@ export default function AccessPointMarkers({
       });
 
       // Create popup with flat, nature-inspired styling
+      const selectionPrompt = onMarkerClick && !selectionLocked && (!selectedPutIn || !isPutIn)
+        ? `
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">
+            Click to select as ${selectedPutIn ? 'take-out' : 'put-in'}
+          </p>
+        `
+        : '';
+
       const popupContent = `
         <div style="padding: 12px; min-width: 180px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff;">
@@ -147,44 +171,60 @@ export default function AccessPointMarkers({
             ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #c7b8a6;">${point.description}</p>`
             : ''
           }
-          <p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">
-            Click to select as ${selectedPutIn ? 'take-out' : 'put-in'}
-          </p>
+          ${isUpstreamChoice
+            ? '<p style="margin: 8px 0 0 0; font-size: 11px; color: #fca5a5; font-weight: 600;">Upstream from your put-in</p>'
+            : ''
+          }
+          ${selectionPrompt}
         </div>
       `;
 
       const popup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false,
-        offset: 20,
+        offset: 12,
+        anchor: 'bottom',
+        maxWidth: '260px',
         className: 'access-point-popup',
       }).setHTML(popupContent);
 
-      // Show popup on hover
-      el.addEventListener('mouseenter', () => {
-        popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
-      });
-      el.addEventListener('mouseleave', () => {
-        popup.remove();
-      });
+      // Show popup on hover for hover-capable devices
+      if (supportsHoverRef.current) {
+        el.addEventListener('mouseenter', () => {
+          el.style.zIndex = '1'; // Lower marker z-index when popup shows
+          popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
+        });
+        el.addEventListener('mouseleave', () => {
+          el.style.zIndex = `${zIndex}`; // Restore original z-index
+          popup.remove();
+        });
+      }
 
       // Create marker with click handler
       const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center',
-        rotationAlignment: 'map',
-        pitchAlignment: 'map',
+        rotationAlignment: 'viewport',
+        pitchAlignment: 'viewport',
       })
         .setLngLat([point.coordinates.lng, point.coordinates.lat])
         .addTo(map);
 
       // Add click handler
-      el.addEventListener('click', (e: MouseEvent) => {
-        e.stopPropagation();
-        e.preventDefault();
-        onMarkerClick?.(point);
-        popup.remove();
-      });
+      if (onMarkerClick && !selectionLocked) {
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (!supportsHoverRef.current) {
+            popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
+            map.once('click', () => popup.remove());
+          }
+          onMarkerClick(point);
+          if (supportsHoverRef.current) {
+            popup.remove();
+          }
+        });
+      }
 
       markersRef.current.push(marker);
       popupsRef.current.push(popup);

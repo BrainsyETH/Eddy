@@ -22,8 +22,25 @@ const conditionStyles: Record<ConditionCode, { bg: string; border: string; text:
   unknown: { bg: 'bg-white/5', border: 'border-white/10', text: 'text-river-gravel', icon: '?', label: 'Unknown' },
 };
 
+// Helper to validate gauge readings (filter out USGS error values like -999999)
+function isValidGaugeHeight(value: number | null | undefined): value is number {
+  return value !== null && value !== undefined && value > -100 && value < 500;
+}
+
+function isValidDischarge(value: number | null | undefined): value is number {
+  return value !== null && value !== undefined && value >= 0 && value < 1000000;
+}
+
+function formatGaugeHeight(value: number | null | undefined): string {
+  if (!isValidGaugeHeight(value)) return 'Data unavailable';
+  return `${value.toFixed(2)} ft`;
+}
+
 export default function ConditionsPanel({ riverId, className = '' }: ConditionsPanelProps) {
-  const { data: condition, isLoading, error } = useConditions(riverId);
+  const { data, isLoading, error } = useConditions(riverId);
+  const condition = data?.condition ?? null;
+  const diagnostic = data?.diagnostic ?? null;
+  const gauges = data?.gauges ?? [];
 
   if (!riverId) {
     return (
@@ -67,8 +84,28 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
             <p className={`font-semibold ${style.text}`}>Unknown Conditions</p>
           </div>
           <p className={`text-xs ${style.text} opacity-75`}>
-            Gauge data is not available for this river at this time. Please check USGS website for current conditions.
+            {diagnostic
+              ? diagnostic
+              : 'Gauge data is not available for this river at this time. Please check USGS website for current conditions.'}
           </p>
+          {gauges.length > 0 && (
+            <div className="mt-3 space-y-2 text-xs text-river-gravel/80">
+              <p className="font-semibold text-river-gravel">Gauges for this river</p>
+              <ul className="space-y-1">
+                {gauges.map((gauge) => (
+                  <li key={gauge.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      {gauge.name || gauge.usgsSiteId || 'Unknown gauge'}
+                      {gauge.isPrimary ? ' (primary)' : ''}
+                    </span>
+                    <span>
+                      {formatGaugeHeight(gauge.gaugeHeightFt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -93,7 +130,7 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
           <p className={`font-semibold ${style.text}`}>{condition.label}</p>
         </div>
 
-        {condition.gaugeHeightFt !== null && (
+        {isValidGaugeHeight(condition.gaugeHeightFt) && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs text-river-gravel">Gauge Height</span>
@@ -101,7 +138,7 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
                 {condition.gaugeHeightFt.toFixed(2)} ft
               </span>
             </div>
-            {condition.dischargeCfs !== null && (
+            {isValidDischarge(condition.dischargeCfs) && (
               <div className="flex justify-between items-center">
                 <span className="text-xs text-river-gravel">Discharge</span>
                 <span className={`text-sm font-bold ${style.text}`}>
@@ -114,6 +151,25 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
                 {condition.gaugeName}
               </p>
             )}
+          </div>
+        )}
+
+        {gauges.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-white/10 text-xs text-river-gravel/80">
+            <p className="font-semibold text-river-gravel mb-2">Gauges for this river</p>
+            <ul className="space-y-1">
+              {gauges.map((gauge) => (
+                <li key={gauge.id} className="flex items-center justify-between gap-2">
+                  <span>
+                    {gauge.name || gauge.usgsSiteId || 'Unknown gauge'}
+                    {gauge.isPrimary ? ' (primary)' : ''}
+                  </span>
+                  <span>
+                    {formatGaugeHeight(gauge.gaugeHeightFt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

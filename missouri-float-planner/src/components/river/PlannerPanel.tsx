@@ -2,14 +2,12 @@
 
 // src/components/river/PlannerPanel.tsx
 // Primary planning interaction panel
+// State is lifted to parent (RiverPage) to enable map integration
 
-import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { useFloatPlan } from '@/hooks/useFloatPlan';
-import { useVesselTypes } from '@/hooks/useVesselTypes';
-import type { RiverWithDetails, AccessPoint } from '@/types/api';
+import type { RiverWithDetails, AccessPoint, FloatPlan } from '@/types/api';
 
 const AccessPointSelector = dynamic(() => import('@/components/river/AccessPointSelector'), {
   ssr: false,
@@ -19,59 +17,54 @@ interface PlannerPanelProps {
   river: RiverWithDetails;
   accessPoints: AccessPoint[];
   isLoading: boolean;
+  // Controlled state from parent
+  selectedPutIn: string | null;
+  selectedTakeOut: string | null;
+  onPutInChange: (id: string | null) => void;
+  onTakeOutChange: (id: string | null) => void;
+  // Plan data from parent
+  plan: FloatPlan | null;
+  planLoading: boolean;
+  showPlan: boolean;
+  onShowPlanChange: (show: boolean) => void;
 }
 
 export default function PlannerPanel({
   river,
   accessPoints,
   isLoading,
+  selectedPutIn,
+  selectedTakeOut,
+  onPutInChange,
+  onTakeOutChange,
+  plan,
+  planLoading,
+  showPlan,
+  onShowPlanChange,
 }: PlannerPanelProps) {
-  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(null);
-  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(null);
-  const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
-  const [showPlan, setShowPlan] = useState(false);
-
-  const { data: vesselTypes } = useVesselTypes();
-
-  // Set default vessel type
-  if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
-    const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
-    setSelectedVesselTypeId(defaultVessel.id);
-  }
-
-  // Calculate plan
-  const planParams =
-    selectedPutIn && selectedTakeOut
-      ? {
-          riverId: river.id,
-          startId: selectedPutIn,
-          endId: selectedTakeOut,
-          vesselTypeId: selectedVesselTypeId || undefined,
-        }
-      : null;
-
-  const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
-
-  // Auto-show plan when both selected
-  if (selectedPutIn && selectedTakeOut && !showPlan) {
-    setShowPlan(true);
-  }
+  const selectedPutInPoint = selectedPutIn
+    ? accessPoints.find((point) => point.id === selectedPutIn)
+    : null;
 
   const handleShare = async () => {
-    if (!planParams) return;
+    if (!selectedPutIn || !selectedTakeOut) return;
 
     try {
       const response = await fetch('/api/plan/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(planParams),
+        body: JSON.stringify({
+          riverId: river.id,
+          startId: selectedPutIn,
+          endId: selectedTakeOut,
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to save plan');
 
       const { url } = await response.json();
       await navigator.clipboard.writeText(url);
-      alert('Link copied to clipboard! 🎉');
+      alert('Link copied to clipboard!');
     } catch (error) {
       console.error('Error sharing plan:', error);
       alert('Failed to create shareable link');
@@ -96,7 +89,7 @@ export default function PlannerPanel({
             <AccessPointSelector
               accessPoints={accessPoints}
               selectedId={selectedPutIn}
-              onSelect={setSelectedPutIn}
+              onSelect={onPutInChange}
               placeholder="Select put-in point..."
             />
           </div>
@@ -109,9 +102,11 @@ export default function PlannerPanel({
             <AccessPointSelector
               accessPoints={accessPoints}
               selectedId={selectedTakeOut}
-              onSelect={setSelectedTakeOut}
+              onSelect={onTakeOutChange}
               placeholder="Select take-out point..."
               excludeId={selectedPutIn}
+              referenceMile={selectedPutInPoint?.riverMile ?? null}
+              warnUpstream={Boolean(selectedPutInPoint)}
             />
           </div>
 
@@ -119,12 +114,12 @@ export default function PlannerPanel({
           {showPlan && (
             <div className="border-t border-white/10 pt-6">
               <PlanSummary
-                plan={plan || null}
+                plan={plan}
                 isLoading={planLoading}
                 onClose={() => {
-                  setShowPlan(false);
-                  setSelectedPutIn(null);
-                  setSelectedTakeOut(null);
+                  onShowPlanChange(false);
+                  onPutInChange(null);
+                  onTakeOutChange(null);
                 }}
                 onShare={handleShare}
               />

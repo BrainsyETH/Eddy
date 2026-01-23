@@ -2,8 +2,9 @@
 
 // src/components/plan/PlanSummary.tsx
 // Themed float plan summary panel
+// Simplified: TanStack Query handles caching natively via vesselTypeId in queryKey
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
@@ -25,8 +26,29 @@ const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: s
   unknown: { bg: 'bg-bluff-100', text: 'text-bluff-600', icon: '?' },
 };
 
-// Cache for storing pre-fetched plans by vessel type
-type PlanCache = Record<string, FloatPlan | null>;
+// Safety Warning Component - displays when conditions are unknown
+function SafetyWarning() {
+  return (
+    <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+          <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div>
+          <h4 className="font-bold text-amber-800">Conditions Unknown</h4>
+          <p className="text-sm text-amber-700 mt-1">
+            Current water conditions could not be determined. Float time estimates may be inaccurate.
+          </p>
+          <p className="text-sm font-medium text-amber-800 mt-2">
+            Please verify conditions locally before launching.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PlanSummary({
   plan,
@@ -36,29 +58,42 @@ export default function PlanSummary({
 }: PlanSummaryProps) {
   const { data: vesselTypes } = useVesselTypes();
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
-  const planCacheRef = useRef<PlanCache>({});
 
   // Find canoe and raft vessel types
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
+  // Track route changes to reset vessel selection when route changes
+  const currentRouteKey = plan ? `${plan.putIn.id}-${plan.takeOut.id}` : null;
+  const [lastRouteKey, setLastRouteKey] = useState<string | null>(null);
+
+  // Reset vessel type when route changes (to prevent stale state)
+  useEffect(() => {
+    if (currentRouteKey && currentRouteKey !== lastRouteKey) {
+      setLastRouteKey(currentRouteKey);
+      // Reset to plan's vessel type when route changes
+      if (plan) {
+        setSelectedVesselTypeId(plan.vessel.id);
+      }
+    }
+  }, [currentRouteKey, lastRouteKey, plan]);
+
   // Set initial vessel type from plan or default to canoe
   useEffect(() => {
     if (plan && !selectedVesselTypeId) {
       setSelectedVesselTypeId(plan.vessel.id);
-      // Cache the initial plan
-      planCacheRef.current[plan.vessel.id] = plan;
     } else if (!plan && canoeVessel && !selectedVesselTypeId) {
       setSelectedVesselTypeId(canoeVessel.id);
     }
   }, [plan, canoeVessel, selectedVesselTypeId]);
 
-  // Pre-fetch params for the other vessel type (for caching)
+  // Pre-fetch params for the other vessel type (TanStack Query handles caching)
   const otherVesselId = selectedVesselTypeId === canoeVessel?.id
     ? raftVessel?.id
     : canoeVessel?.id;
 
   // Params for current selected vessel
+  // vesselTypeId is included in queryKey for native caching
   const planParams = plan
     ? {
         riverId: plan.river.id,
@@ -78,41 +113,21 @@ export default function PlanSummary({
       }
     : null;
 
+  // TanStack Query handles caching natively - vesselTypeId is in the queryKey
   const { data: recalculatedPlan, isLoading: recalculating } = useFloatPlan(planParams);
-  const { data: prefetchedPlan } = useFloatPlan(prefetchParams);
+  // Pre-fetch the other vessel type for instant switching
+  useFloatPlan(prefetchParams);
 
-  // Update cache when plans are fetched
-  useEffect(() => {
-    if (recalculatedPlan && selectedVesselTypeId) {
-      planCacheRef.current[selectedVesselTypeId] = recalculatedPlan;
-    }
-  }, [recalculatedPlan, selectedVesselTypeId]);
-
-  useEffect(() => {
-    if (prefetchedPlan && otherVesselId) {
-      planCacheRef.current[otherVesselId] = prefetchedPlan;
-    }
-  }, [prefetchedPlan, otherVesselId]);
-
-  // Handle vessel toggle - use cached plan if available for instant switch
+  // Handle vessel toggle - TanStack Query provides instant switching via cached data
   const handleVesselChange = useCallback((vesselId: string) => {
     setSelectedVesselTypeId(vesselId);
   }, []);
 
-  // Use cached plan if available, otherwise use recalculated
-  const getCachedOrRecalculatedPlan = (): FloatPlan | null => {
-    if (selectedVesselTypeId && planCacheRef.current[selectedVesselTypeId]) {
-      return planCacheRef.current[selectedVesselTypeId];
-    }
-    if (selectedVesselTypeId && selectedVesselTypeId !== plan?.vessel.id) {
-      return recalculatedPlan ?? null;
-    }
-    return plan;
-  };
-
-  const displayPlan = getCachedOrRecalculatedPlan();
+  // Use recalculated plan if available, otherwise fall back to initial plan
+  const displayPlan = recalculatedPlan ?? plan;
 
   // Check if put-in is downstream of take-out (upstream warning)
+  // Mile values are ordered opposite of downstream flow for this data set.
   const isUpstream = displayPlan
     ? displayPlan.putIn.riverMile < displayPlan.takeOut.riverMile
     : false;
@@ -278,6 +293,12 @@ export default function PlanSummary({
                 <div className="w-4 h-4 border-2 border-river-water border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-sm text-river-water">Recalculating...</p>
               </div>
+            ) : displayPlan.condition.code === 'unknown' ? (
+              // Show verify locally message for unknown conditions
+              <div>
+                <p className="text-sm text-amber-600 font-medium">Verify locally</p>
+                <p className="text-xs text-bluff-500 mt-1">Conditions unknown</p>
+              </div>
             ) : displayPlan.floatTime ? (
               <>
                 <p className="text-xl font-bold text-river-water">{displayPlan.floatTime.formatted}</p>
@@ -288,6 +309,9 @@ export default function PlanSummary({
             )}
           </div>
         </div>
+
+        {/* Safety Warning for Unknown Conditions */}
+        {displayPlan.condition.code === 'unknown' && <SafetyWarning />}
 
         {/* Condition Badge */}
         <div className={`rounded-xl p-3 ${conditionStyle.bg}`}>

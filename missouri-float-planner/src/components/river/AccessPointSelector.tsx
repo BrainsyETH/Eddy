@@ -12,6 +12,8 @@ interface AccessPointSelectorProps {
   onSelect: (id: string) => void;
   placeholder?: string;
   excludeId?: string | null;
+  referenceMile?: number | null;
+  warnUpstream?: boolean;
 }
 
 export default function AccessPointSelector({
@@ -20,14 +22,24 @@ export default function AccessPointSelector({
   onSelect,
   placeholder = 'Select access point...',
   excludeId,
+  referenceMile = null,
+  warnUpstream = false,
 }: AccessPointSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedPoint = accessPoints.find((p) => p.id === selectedId);
   const filteredPoints = excludeId
     ? accessPoints.filter((p) => p.id !== excludeId)
     : accessPoints;
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const visiblePoints = normalizedSearch
+    ? filteredPoints.filter((point) => {
+        const haystack = `${point.name} ${point.type} ${point.riverMile}`.toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+    : filteredPoints;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -39,6 +51,12 @@ export default function AccessPointSelector({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  }, [isOpen]);
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -88,13 +106,26 @@ export default function AccessPointSelector({
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-md border border-bluff-200 
                         rounded-xl shadow-lg overflow-hidden animate-in">
+          <div className="p-3 border-b border-bluff-200">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search access points..."
+              className="w-full rounded-lg border border-bluff-200 bg-white px-3 py-2 text-sm text-ozark-800 placeholder:text-bluff-400 focus:outline-none focus:ring-2 focus:ring-river-500"
+            />
+          </div>
           <div className="max-h-80 overflow-y-auto scrollbar-thin">
-            {filteredPoints.length === 0 ? (
+            {visiblePoints.length === 0 ? (
               <div className="px-4 py-3 text-sm text-bluff-500 text-center">
                 No access points available
               </div>
             ) : (
-              filteredPoints.map((point) => (
+              visiblePoints.map((point) => {
+                const isUpstream =
+                  warnUpstream && referenceMile !== null && point.riverMile < referenceMile;
+
+                return (
                 <button
                   key={point.id}
                   type="button"
@@ -129,6 +160,12 @@ export default function AccessPointSelector({
                           <span className="text-xs text-sunset-600">Fee Required</span>
                         </>
                       )}
+                      {isUpstream && (
+                        <>
+                          <span className="text-bluff-300">•</span>
+                          <span className="text-xs text-red-600">Upstream</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   {point.id === selectedId && (
@@ -137,7 +174,8 @@ export default function AccessPointSelector({
                     </svg>
                   )}
                 </button>
-              ))
+              );
+              })
             )}
           </div>
         </div>

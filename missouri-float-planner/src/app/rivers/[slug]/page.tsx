@@ -2,7 +2,9 @@
 
 // src/app/rivers/[slug]/page.tsx
 // River detail page with full planning experience
+// State is managed here to enable map/planner integration
 
+import { useState, useCallback, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
@@ -16,6 +18,9 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRiver } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
+import { useFloatPlan } from '@/hooks/useFloatPlan';
+import { useVesselTypes } from '@/hooks/useVesselTypes';
+import type { AccessPoint } from '@/types/api';
 
 // Dynamic imports for map
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -26,16 +31,81 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
     </div>
   ),
 });
-const RiverLayer = dynamic(() => import('@/components/map/RiverLayer'), { ssr: false });
+// RiverLayer removed - geometry quality needs improvement before displaying
+// const RiverLayer = dynamic(() => import('@/components/map/RiverLayer'), { ssr: false });
+const RouteLayer = dynamic(() => import('@/components/map/RouteLayer'), { ssr: false });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 
 export default function RiverPage() {
   const params = useParams();
   const slug = params.slug as string;
 
+  // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
   const { data: accessPoints, isLoading: accessPointsLoading } = useAccessPoints(slug);
-  const { data: condition } = useConditions(river?.id || null);
+  const { data: conditionData } = useConditions(river?.id || null);
+  const condition = conditionData?.condition ?? null;
+  const { data: vesselTypes } = useVesselTypes();
+
+  // Lifted state for planner/map integration
+  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(null);
+  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(null);
+  const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
+  const [showPlan, setShowPlan] = useState(false);
+  const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
+
+  // Set default vessel type
+  useEffect(() => {
+    if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
+      const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
+      setSelectedVesselTypeId(defaultVessel.id);
+    }
+  }, [vesselTypes, selectedVesselTypeId]);
+
+  // Auto-show plan when both selected
+  useEffect(() => {
+    if (selectedPutIn && selectedTakeOut && !showPlan) {
+      setShowPlan(true);
+    }
+  }, [selectedPutIn, selectedTakeOut, showPlan]);
+
+  // Calculate plan
+  const planParams = (river && selectedPutIn && selectedTakeOut)
+    ? {
+        riverId: river.id,
+        startId: selectedPutIn,
+        endId: selectedTakeOut,
+        vesselTypeId: selectedVesselTypeId || undefined,
+      }
+    : null;
+
+  const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
+
+  // Handle map marker click - set as put-in or take-out
+  const handleMarkerClick = useCallback((point: AccessPoint) => {
+    if (selectedPutIn && accessPoints) {
+      const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
+      if (putInPoint && point.riverMile < putInPoint.riverMile) {
+        setUpstreamWarning('That take-out is upstream of your put-in. Choose a downstream point.');
+        return;
+      }
+    }
+    if (!selectedPutIn) {
+      // No put-in selected - set this as put-in
+      setSelectedPutIn(point.id);
+    } else if (!selectedTakeOut && point.id !== selectedPutIn) {
+      // Put-in selected but no take-out - set this as take-out
+      setSelectedTakeOut(point.id);
+    } else {
+      // Both selected - ignore until cleared
+    }
+  }, [accessPoints, selectedPutIn, selectedTakeOut]);
+
+  useEffect(() => {
+    if (!upstreamWarning) return;
+    const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [upstreamWarning]);
 
   if (riverLoading) {
     return (
@@ -66,7 +136,7 @@ export default function RiverPage() {
       {/* River Header */}
       <RiverHeader 
         river={river} 
-        condition={condition || null}
+        condition={condition}
       />
 
       {/* Main Content */}
@@ -79,12 +149,20 @@ export default function RiverPage() {
               river={river}
               accessPoints={accessPoints || []}
               isLoading={accessPointsLoading}
+              selectedPutIn={selectedPutIn}
+              selectedTakeOut={selectedTakeOut}
+              onPutInChange={setSelectedPutIn}
+              onTakeOutChange={setSelectedTakeOut}
+              plan={plan || null}
+              planLoading={planLoading}
+              showPlan={showPlan}
+              onShowPlanChange={setShowPlan}
             />
 
             {/* Conditions & Safety */}
             <ConditionsBlock
               riverId={river.id}
-              condition={condition || null}
+              condition={condition}
             />
 
             {/* Difficulty & Experience */}
@@ -106,17 +184,30 @@ export default function RiverPage() {
               <div className="rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] w-full">
                 {/* Weather Bug overlay */}
                 <WeatherBug riverSlug={slug} riverId={river.id} />
+
+                {upstreamWarning && (
+                  <div className="absolute top-4 left-4 right-4 z-30">
+                    <div className="bg-red-500/20 border border-red-400/40 text-red-100 text-sm px-4 py-2 rounded-xl shadow-lg">
+                      {upstreamWarning}
+                    </div>
+                  </div>
+                )}
                 
-                <MapContainer initialBounds={river.bounds}>
-                  <RiverLayer
-                    riverGeometry={river.geometry}
-                    selected={true}
-                  />
+                <MapContainer initialBounds={river.bounds} showLegend={true}>
+                  {/* RiverLayer removed - geometry quality needs improvement before displaying */}
+                  {/* Route visualization when both points are selected */}
+                  {plan?.route && (
+                    <RouteLayer
+                      routeGeometry={plan.route.geometry}
+                      isUpstream={plan.putIn.riverMile < plan.takeOut.riverMile}
+                    />
+                  )}
                   {accessPoints && (
                     <AccessPointMarkers
                       accessPoints={accessPoints}
-                      selectedPutIn={null}
-                      selectedTakeOut={null}
+                      selectedPutIn={selectedPutIn}
+                      selectedTakeOut={selectedTakeOut}
+                      onMarkerClick={handleMarkerClick}
                     />
                   )}
                 </MapContainer>
