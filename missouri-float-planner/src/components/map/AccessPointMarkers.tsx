@@ -183,7 +183,7 @@ export default function AccessPointMarkers({
         closeButton: false,
         closeOnClick: false,
         offset: 12,
-        anchor: 'auto',
+        anchor: 'bottom',
         maxWidth: '260px',
         className: 'access-point-popup',
       }).setHTML(popupContent);
