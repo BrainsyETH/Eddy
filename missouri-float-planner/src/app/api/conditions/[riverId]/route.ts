@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import type { ConditionGauge, ConditionResponse } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -48,11 +49,26 @@ export async function GET(
       .select('id, is_primary, gauge_station_id, gauge_stations(id, name, usgs_site_id)')
       .eq('river_id', riverId);
 
+    const usgsSiteIds = (linkedGauges || [])
+      .map((gauge) => {
+        const gaugeStation = Array.isArray(gauge.gauge_stations)
+          ? gauge.gauge_stations[0]
+          : gauge.gauge_stations;
+        return gaugeStation?.usgs_site_id ?? null;
+      })
+      .filter((siteId): siteId is string => !!siteId);
+
+    const usgsReadings = usgsSiteIds.length > 0 ? await fetchGaugeReadings(usgsSiteIds) : [];
+    const usgsReadingMap = new Map(usgsReadings.map((reading) => [reading.siteId, reading]));
+
     const gaugeSummaries: ConditionGauge[] = await Promise.all(
       (linkedGauges || []).map(async (gauge) => {
         const gaugeStation = Array.isArray(gauge.gauge_stations)
           ? gauge.gauge_stations[0]
           : gauge.gauge_stations;
+        const usgsReading = gaugeStation?.usgs_site_id
+          ? usgsReadingMap.get(gaugeStation.usgs_site_id)
+          : undefined;
         const { data: latestReading } = await supabase
           .from('gauge_readings')
           .select('gauge_height_ft, discharge_cfs, reading_timestamp')
@@ -61,7 +77,14 @@ export async function GET(
           .limit(1)
           .maybeSingle();
 
-        const readingTimestamp = latestReading?.reading_timestamp ?? null;
+        const dbTimestamp = latestReading?.reading_timestamp ?? null;
+        const usgsTimestamp = usgsReading?.readingTimestamp ?? null;
+        const readingTimestamp =
+          dbTimestamp && usgsTimestamp
+            ? new Date(dbTimestamp) >= new Date(usgsTimestamp)
+              ? dbTimestamp
+              : usgsTimestamp
+            : dbTimestamp ?? usgsTimestamp ?? null;
         const readingAgeHours = readingTimestamp
           ? (Date.now() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60)
           : null;
@@ -71,8 +94,14 @@ export async function GET(
           name: gaugeStation?.name ?? null,
           usgsSiteId: gaugeStation?.usgs_site_id ?? null,
           isPrimary: gauge.is_primary ?? false,
-          gaugeHeightFt: latestReading?.gauge_height_ft ?? null,
-          dischargeCfs: latestReading?.discharge_cfs ?? null,
+          gaugeHeightFt:
+            readingTimestamp === dbTimestamp
+              ? latestReading?.gauge_height_ft ?? null
+              : usgsReading?.gaugeHeightFt ?? null,
+          dischargeCfs:
+            readingTimestamp === dbTimestamp
+              ? latestReading?.discharge_cfs ?? null
+              : usgsReading?.dischargeCfs ?? null,
           readingTimestamp,
           readingAgeHours,
         };
