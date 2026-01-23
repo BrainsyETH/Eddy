@@ -52,12 +52,15 @@ export async function GET(
     // Filter and format access points, excluding those with invalid coordinates
     const formattedPoints = (accessPoints || [])
       .map((ap) => {
+        // Use original coordinates instead of snapped until river geometry is properly imported
+        // The snap coordinates are currently snapped to simplified seed geometry
+        // TODO: Revert to snap-first when NHD river data is imported
         const lng =
-          ap.location_snap?.coordinates?.[0] ||
-          ap.location_orig?.coordinates?.[0];
+          ap.location_orig?.coordinates?.[0] ||
+          ap.location_snap?.coordinates?.[0];
         const lat =
-          ap.location_snap?.coordinates?.[1] ||
-          ap.location_orig?.coordinates?.[1];
+          ap.location_orig?.coordinates?.[1] ||
+          ap.location_snap?.coordinates?.[1];
 
         // Skip points with missing or invalid coordinates
         if (lng === undefined || lat === undefined || lng === null || lat === null) {
