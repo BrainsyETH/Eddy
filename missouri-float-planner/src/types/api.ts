@@ -141,6 +141,11 @@ export interface FloatPlan {
     minutes: number;
     formatted: string;
     speedMph: number;
+    isEstimate?: boolean;  // true if calculated, false if from known segment data
+    timeRange?: {          // min/max range from segment data
+      min: number;
+      max: number;
+    };
   } | null;
   driveBack: {
     minutes: number;

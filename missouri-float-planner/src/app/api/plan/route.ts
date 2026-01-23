@@ -119,13 +119,13 @@ export async function GET(request: NextRequest) {
 
     // Get put-in coordinates for segment-aware gauge selection
     const putInCoords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
-    
+
     // Get river condition using segment-aware gauge selection
     // This selects the gauge nearest to the put-in point instead of relying on is_primary
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: conditionData } = await (supabase.rpc as any)('get_river_condition_segment', {
       p_river_id: riverId,
-      p_put_in_point: putInCoords 
+      p_put_in_point: putInCoords
         ? `SRID=4326;POINT(${putInCoords[0]} ${putInCoords[1]})`
         : null,
     });
@@ -133,16 +133,52 @@ export async function GET(request: NextRequest) {
     const condition = conditionData?.[0];
     const conditionCode: ConditionCode = condition?.condition_code || 'unknown';
 
-    // Calculate float time
-    const floatTimeResult = calculateFloatTime(
-      distanceMiles,
-      {
-        speedLowWater: parseFloat(vesselType.speed_low_water),
-        speedNormal: parseFloat(vesselType.speed_normal),
-        speedHighWater: parseFloat(vesselType.speed_high_water),
-      },
-      conditionCode
-    );
+    // Try to get known float time from float_segments table first
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: segmentTime } = await (supabase.rpc as any)('get_segment_float_time', {
+      p_put_in_id: startId,
+      p_take_out_id: endId,
+      p_vessel_type: vesselType.slug,
+    });
+
+    let floatTimeResult: { minutes: number; speedMph: number; isEstimate: boolean; timeRange?: { min: number; max: number } } | null = null;
+
+    if (segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
+      // Use known segment time
+      const st = segmentTime[0];
+      floatTimeResult = {
+        minutes: st.time_avg_minutes,
+        speedMph: distanceMiles / (st.time_avg_minutes / 60),
+        isEstimate: false,
+        timeRange: st.time_min_minutes && st.time_max_minutes
+          ? { min: st.time_min_minutes, max: st.time_max_minutes }
+          : undefined,
+      };
+
+      // Add warning if floating upstream (reverse direction)
+      if (st.is_reverse) {
+        // Will be added to warnings array below
+      }
+    } else {
+      // Fall back to calculation-based estimate
+      const calcResult = calculateFloatTime(
+        distanceMiles,
+        {
+          speedLowWater: parseFloat(vesselType.speed_low_water),
+          speedNormal: parseFloat(vesselType.speed_normal),
+          speedHighWater: parseFloat(vesselType.speed_high_water),
+        },
+        conditionCode
+      );
+
+      if (calcResult) {
+        floatTimeResult = {
+          minutes: calcResult.minutes,
+          speedMph: calcResult.speedMph,
+          isEstimate: true,
+        };
+      }
+    }
 
     // Get drive time (with caching)
     let driveBack;
@@ -310,8 +346,12 @@ export async function GET(request: NextRequest) {
       floatTime: floatTimeResult
         ? {
             minutes: floatTimeResult.minutes,
-            formatted: formatFloatTime(floatTimeResult.minutes),
+            formatted: floatTimeResult.timeRange
+              ? `${formatFloatTime(floatTimeResult.timeRange.min)} - ${formatFloatTime(floatTimeResult.timeRange.max)}`
+              : formatFloatTime(floatTimeResult.minutes),
             speedMph: floatTimeResult.speedMph,
+            isEstimate: floatTimeResult.isEstimate,
+            timeRange: floatTimeResult.timeRange,
           }
         : null,
       driveBack,
