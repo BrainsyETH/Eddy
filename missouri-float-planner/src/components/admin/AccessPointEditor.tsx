@@ -43,7 +43,6 @@ export default function AccessPointEditor({
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const originalMarkersRef = useRef<maplibregl.Marker[]>([]);
-  const linesRef = useRef<maplibregl.GeoJSONSource[]>([]);
   const rootsRef = useRef<Root[]>([]);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const popupCloseHandlerRef = useRef<(() => void) | null>(null);
@@ -51,6 +50,7 @@ export default function AccessPointEditor({
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
+  const lineSourceIdsRef = useRef<string[]>([]);
 
   // Handle map click for adding new points
   useEffect(() => {
@@ -92,18 +92,24 @@ export default function AccessPointEditor({
     markersRef.current.forEach((marker) => marker.remove());
     originalMarkersRef.current.forEach((marker) => marker.remove());
     rootsRef.current.forEach((root) => root.unmount());
-    linesRef.current.forEach((source) => {
+    // Remove layers and sources - must remove layer first, then source
+    lineSourceIdsRef.current.forEach((sourceId) => {
       try {
-        const sourceId = source.id;
+        const layerId = `ap-line-layer-${sourceId.replace('ap-line-', '')}`;
+        if (map.getLayer(layerId)) {
+          map.removeLayer(layerId);
+        }
         if (map.getSource(sourceId)) {
           map.removeSource(sourceId);
         }
-      } catch {}
+      } catch (e) {
+        console.warn('Error cleaning up map layer/source:', e);
+      }
     });
     markersRef.current = [];
     originalMarkersRef.current = [];
     rootsRef.current = [];
-    linesRef.current = [];
+    lineSourceIdsRef.current = [];
 
     // Create markers for each access point
     accessPoints.forEach((point) => {
@@ -160,8 +166,7 @@ export default function AccessPointEditor({
               },
             },
           });
-          const source = map.getSource(lineSourceId) as maplibregl.GeoJSONSource;
-          linesRef.current.push(source);
+          lineSourceIdsRef.current.push(lineSourceId);
 
           map.addLayer({
             id: `ap-line-layer-${point.id}`,
