@@ -36,6 +36,9 @@ export async function GET(
       .select('*')
       .eq('river_id', river.id)
       .eq('approved', true)
+      // Note: river_mile_downstream now represents "mile from headwaters" 
+      // (mile 0.0 = headwaters, increasing downstream)
+      // ascending: false = downstream to upstream, ascending: true = upstream to downstream
       .order('river_mile_downstream', { ascending: false });
 
     if (accessError) {
