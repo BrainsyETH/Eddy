@@ -22,6 +22,20 @@ const conditionStyles: Record<ConditionCode, { bg: string; border: string; text:
   unknown: { bg: 'bg-white/5', border: 'border-white/10', text: 'text-river-gravel', icon: '?', label: 'Unknown' },
 };
 
+// Helper to validate gauge readings (filter out USGS error values like -999999)
+function isValidGaugeHeight(value: number | null | undefined): value is number {
+  return value !== null && value !== undefined && value > -100 && value < 500;
+}
+
+function isValidDischarge(value: number | null | undefined): value is number {
+  return value !== null && value !== undefined && value >= 0 && value < 1000000;
+}
+
+function formatGaugeHeight(value: number | null | undefined): string {
+  if (!isValidGaugeHeight(value)) return 'Data unavailable';
+  return `${value.toFixed(2)} ft`;
+}
+
 export default function ConditionsPanel({ riverId, className = '' }: ConditionsPanelProps) {
   const { data, isLoading, error } = useConditions(riverId);
   const condition = data?.condition ?? null;
@@ -85,9 +99,7 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
                       {gauge.isPrimary ? ' (primary)' : ''}
                     </span>
                     <span>
-                      {gauge.gaugeHeightFt !== null
-                        ? `${gauge.gaugeHeightFt.toFixed(2)} ft`
-                        : 'No reading'}
+                      {formatGaugeHeight(gauge.gaugeHeightFt)}
                     </span>
                   </li>
                 ))}
@@ -118,7 +130,7 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
           <p className={`font-semibold ${style.text}`}>{condition.label}</p>
         </div>
 
-        {condition.gaugeHeightFt !== null && (
+        {isValidGaugeHeight(condition.gaugeHeightFt) && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs text-river-gravel">Gauge Height</span>
@@ -126,7 +138,7 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
                 {condition.gaugeHeightFt.toFixed(2)} ft
               </span>
             </div>
-            {condition.dischargeCfs !== null && (
+            {isValidDischarge(condition.dischargeCfs) && (
               <div className="flex justify-between items-center">
                 <span className="text-xs text-river-gravel">Discharge</span>
                 <span className={`text-sm font-bold ${style.text}`}>
@@ -153,9 +165,7 @@ export default function ConditionsPanel({ riverId, className = '' }: ConditionsP
                     {gauge.isPrimary ? ' (primary)' : ''}
                   </span>
                   <span>
-                    {gauge.gaugeHeightFt !== null
-                      ? `${gauge.gaugeHeightFt.toFixed(2)} ft`
-                      : 'No reading'}
+                    {formatGaugeHeight(gauge.gaugeHeightFt)}
                   </span>
                 </li>
               ))}

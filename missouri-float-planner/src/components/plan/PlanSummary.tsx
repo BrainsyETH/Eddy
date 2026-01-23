@@ -63,6 +63,21 @@ export default function PlanSummary({
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
+  // Track route changes to reset vessel selection when route changes
+  const currentRouteKey = plan ? `${plan.putIn.id}-${plan.takeOut.id}` : null;
+  const [lastRouteKey, setLastRouteKey] = useState<string | null>(null);
+
+  // Reset vessel type when route changes (to prevent stale state)
+  useEffect(() => {
+    if (currentRouteKey && currentRouteKey !== lastRouteKey) {
+      setLastRouteKey(currentRouteKey);
+      // Reset to plan's vessel type when route changes
+      if (plan) {
+        setSelectedVesselTypeId(plan.vessel.id);
+      }
+    }
+  }, [currentRouteKey, lastRouteKey, plan]);
+
   // Set initial vessel type from plan or default to canoe
   useEffect(() => {
     if (plan && !selectedVesselTypeId) {
@@ -112,8 +127,10 @@ export default function PlanSummary({
   const displayPlan = recalculatedPlan ?? plan;
 
   // Check if put-in is downstream of take-out (upstream warning)
+  // Mile 0.0 = headwaters, miles increase going downstream
+  // So if putIn.riverMile > takeOut.riverMile, user is trying to float upstream
   const isUpstream = displayPlan
-    ? displayPlan.putIn.riverMile < displayPlan.takeOut.riverMile
+    ? displayPlan.putIn.riverMile > displayPlan.takeOut.riverMile
     : false;
 
   if (isLoading) {

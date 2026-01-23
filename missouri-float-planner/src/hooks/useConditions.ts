@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import type { ConditionResponse } from '@/types/api';
 
 export function useConditions(riverId: string | null) {
-  return useQuery({
+  return useQuery<ConditionResponse | null, Error>({
     queryKey: ['conditions', riverId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ConditionResponse | null> => {
       if (!riverId) return null;
       const response = await fetch(`/api/conditions/${riverId}`);
       if (!response.ok) {
@@ -18,5 +18,8 @@ export function useConditions(riverId: string | null) {
     },
     enabled: !!riverId,
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    retry: 2, // Retry failed requests twice
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 2 * 60 * 1000, // Consider data stale after 2 minutes
   });
 }

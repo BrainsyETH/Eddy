@@ -46,8 +46,20 @@ export function useFloatPlan(params: PlanParams | null) {
       return data.plan;
     },
     enabled: !!params && !!params.riverId && !!params.startId && !!params.endId,
-    // Keep previous data while fetching new vessel type for smoother UX
-    placeholderData: (previousData) => previousData,
+    // Only keep previous data if the route (startId/endId) hasn't changed
+    // This prevents stale data from showing when user selects a new route
+    placeholderData: (previousData, previousQuery) => {
+      // Check if route changed by comparing startId and endId in queryKey
+      const prevKey = previousQuery?.queryKey;
+      if (!prevKey || !params) return undefined;
+      const prevStartId = prevKey[2];
+      const prevEndId = prevKey[3];
+      // Only use placeholder if same route (different vessel type is ok)
+      if (prevStartId === params.startId && prevEndId === params.endId) {
+        return previousData;
+      }
+      return undefined;
+    },
     // Stale time of 5 minutes - conditions don't change that fast
     staleTime: 5 * 60 * 1000,
   });

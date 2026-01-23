@@ -126,6 +126,76 @@ async function main() {
       console.log(`  ... and ${corrected - 10} more`);
     }
   }
+
+  // Check for duplicate mile markers (same river, same mile)
+  await checkDuplicateMiles(riverId);
+}
+
+async function checkDuplicateMiles(riverId: string | null) {
+  console.log('\n🔍 Checking for duplicate mile markers...');
+
+  // Query access points grouped by river and mile
+  const query = supabase
+    .from('access_points')
+    .select('id, name, river_id, river_mile_downstream, rivers(name)')
+    .eq('approved', true)
+    .order('river_id')
+    .order('river_mile_downstream');
+
+  if (riverId) {
+    query.eq('river_id', riverId);
+  }
+
+  const { data: accessPoints, error } = await query;
+
+  if (error) {
+    console.error('Error checking duplicates:', error);
+    return;
+  }
+
+  // Group by river_id + river_mile_downstream
+  const duplicates = new Map<string, Array<{ id: string; name: string; riverName: string }>>();
+
+  for (const ap of accessPoints || []) {
+    const key = `${ap.river_id}:${ap.river_mile_downstream}`;
+    if (!duplicates.has(key)) {
+      duplicates.set(key, []);
+    }
+    const riverName = Array.isArray(ap.rivers) 
+      ? (ap.rivers[0] as { name: string })?.name 
+      : (ap.rivers as { name: string })?.name;
+    duplicates.get(key)!.push({ 
+      id: ap.id, 
+      name: ap.name, 
+      riverName: riverName || 'Unknown River' 
+    });
+  }
+
+  // Filter to only duplicates
+  const actualDuplicates = Array.from(duplicates.entries())
+    .filter(([_, points]) => points.length > 1);
+
+  if (actualDuplicates.length === 0) {
+    console.log('✅ No duplicate mile markers found');
+    return;
+  }
+
+  console.log(`\n⚠️  Found ${actualDuplicates.length} duplicate mile marker(s):\n`);
+
+  for (const [key, points] of actualDuplicates) {
+    const [_, mile] = key.split(':');
+    console.log(`Mile ${mile} on ${points[0].riverName}:`);
+    for (const point of points) {
+      console.log(`  - ${point.name} (${point.id})`);
+    }
+    console.log('');
+  }
+
+  console.log('To fix duplicates:');
+  console.log('1. Verify the correct mile marker values for these access points');
+  console.log('2. Update the mile_markers reference table if needed');
+  console.log('3. Re-run this script with: npx tsx scripts/correct-access-point-miles.ts');
+  console.log('4. Or manually update access_points.river_mile_downstream in the database');
 }
 
 main().catch((error) => {

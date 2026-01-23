@@ -123,19 +123,27 @@ export async function fetchGaugeReadings(
       if (variableCode === '00065') {
         // Gauge height in feet
         const height = parseFloat(latestValue.value);
-        if (!isNaN(height)) {
+        // Validate: filter out USGS error values (e.g., -999999) and unreasonable values
+        // Valid gauge heights are typically between -10 and 100 feet
+        if (!isNaN(height) && height > -100 && height < 500) {
           reading.gaugeHeightFt = height;
           reading.readingTimestamp = latestValue.dateTime;
+        } else if (!isNaN(height)) {
+          console.warn(`Invalid gauge height ${height} for site ${siteId}, treating as unavailable`);
         }
       } else if (variableCode === '00060') {
         // Discharge in cubic feet per second
         const discharge = parseFloat(latestValue.value);
-        if (!isNaN(discharge)) {
+        // Validate: filter out USGS error values and unreasonable values
+        // Valid discharge is typically between 0 and 1,000,000 cfs
+        if (!isNaN(discharge) && discharge >= 0 && discharge < 1000000) {
           reading.dischargeCfs = discharge;
           // Use discharge timestamp if gauge height timestamp not available
           if (!reading.readingTimestamp) {
             reading.readingTimestamp = latestValue.dateTime;
           }
+        } else if (!isNaN(discharge)) {
+          console.warn(`Invalid discharge ${discharge} for site ${siteId}, treating as unavailable`);
         }
       }
     }
