@@ -10,7 +10,11 @@
  *   npx tsx scripts/fix-gauge-associations.ts --fix     # Fix issues
  */
 
+import { loadEnvConfig } from '@next/env';
 import { createClient } from '@supabase/supabase-js';
+
+// Load environment variables from .env.local
+loadEnvConfig(process.cwd());
 
 // Correct gauge-to-river mappings based on gauge names
 const GAUGE_RIVER_MAPPINGS: Record<string, string> = {

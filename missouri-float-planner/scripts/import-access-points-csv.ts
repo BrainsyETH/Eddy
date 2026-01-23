@@ -14,9 +14,13 @@
  * Types: public_ramp, private_ramp, carry_in, bridge, other
  */
 
+import { loadEnvConfig } from '@next/env';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createAdminClient } from '../src/lib/supabase/admin';
+
+// Load environment variables from .env.local
+loadEnvConfig(process.cwd());
 
 interface CSVRow {
   river_slug: string;
