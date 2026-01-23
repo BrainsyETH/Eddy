@@ -1,0 +1,4 @@
+river_slug,name,type,latitude,longitude,is_public,ownership,description,fee_required,fee_notes
+current-river,Sample Put-in,public_ramp,37.123456,-91.234567,true,MDC,Public boat ramp with parking,false,
+current-river,Sample Take-out,private_ramp,37.234567,-91.123456,false,Private,Permission required,true,$5 per vehicle
+meramec-river,Example Access,carry_in,38.123456,-90.234567,true,State Park,Walk-in access only,false,

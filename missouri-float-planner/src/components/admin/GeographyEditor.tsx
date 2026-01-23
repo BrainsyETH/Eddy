@@ -156,6 +156,16 @@ export default function GeographyEditor() {
     setAddMode(false);
   }, [loadData]);
 
+  const handleApprovalChange = useCallback(async (id: string, approved: boolean) => {
+    const method = approved ? 'POST' : 'DELETE';
+    const response = await fetch(`/api/admin/access-points/${id}/approve`, { method });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to change approval status');
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
@@ -258,7 +268,19 @@ export default function GeographyEditor() {
 
           <div className="text-xs text-bluff-500">
             {editState.mode === 'access-points' && (
-              <>Showing {filteredAccessPoints.length} access point{filteredAccessPoints.length !== 1 ? 's' : ''}</>
+              <>
+                <div>Showing {filteredAccessPoints.length} access point{filteredAccessPoints.length !== 1 ? 's' : ''}</div>
+                <div className="flex gap-3 mt-1">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    {filteredAccessPoints.filter(ap => ap.approved).length} approved
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                    {filteredAccessPoints.filter(ap => !ap.approved).length} pending
+                  </span>
+                </div>
+              </>
             )}
             {editState.mode === 'rivers' && (
               <>Showing {filteredRivers.length} river{filteredRivers.length !== 1 ? 's' : ''}</>
@@ -341,6 +363,7 @@ export default function GeographyEditor() {
           onRefresh={handleRefresh}
           addMode={addMode}
           onMapClick={handleMapClick}
+          onApprovalChange={handleApprovalChange}
         />
       )}
 

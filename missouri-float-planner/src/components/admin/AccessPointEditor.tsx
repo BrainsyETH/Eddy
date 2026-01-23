@@ -16,6 +16,7 @@ interface AccessPoint {
   riverName?: string;
   riverMile: number | null;
   type: string;
+  approved: boolean;
   coordinates: {
     orig: { lng: number; lat: number };
     snap: { lng: number; lat: number } | null;
@@ -28,6 +29,7 @@ interface AccessPointEditorProps {
   onRefresh?: () => void;
   addMode?: boolean;
   onMapClick?: (coords: { lng: number; lat: number }) => void;
+  onApprovalChange?: (id: string, approved: boolean) => Promise<void>;
 }
 
 export default function AccessPointEditor({
@@ -36,6 +38,7 @@ export default function AccessPointEditor({
   onRefresh,
   addMode = false,
   onMapClick,
+  onApprovalChange,
 }: AccessPointEditorProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -47,6 +50,7 @@ export default function AccessPointEditor({
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { lng: number; lat: number }>>(new Map());
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
+  const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
 
   // Handle map click for adding new points
   useEffect(() => {
@@ -187,19 +191,25 @@ export default function AccessPointEditor({
       el.className = 'access-point-editor-marker';
       const isSaving = savingIds.has(point.id);
       const hasError = errorIds.has(point.id);
-      
+      const isApproving = approvingIds.has(point.id);
+      const isApproved = point.approved;
+
+      // Color coding: approved = blue, unapproved = orange/amber, error = red
+      const getMarkerColor = () => {
+        if (hasError) return 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+        if (isSaving || isApproving) return 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+        if (!isApproved) return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'; // Orange for unapproved
+        return 'linear-gradient(135deg, #39a0ca 0%, #2d7fa0 100%)'; // Blue for approved
+      };
+
       el.style.cssText = `
-        background: ${hasError 
-          ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' 
-          : isSaving 
-            ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-            : 'linear-gradient(135deg, #39a0ca 0%, #2d7fa0 100%)'};
+        background: ${getMarkerColor()};
         width: ${hasMoved ? '36px' : '32px'};
         height: ${hasMoved ? '36px' : '32px'};
         border-radius: 50%;
-        border: 3px solid #ffffff;
-        box-shadow: ${hasMoved 
-          ? '0 6px 20px rgba(57, 160, 202, 0.6)' 
+        border: 3px solid ${isApproved ? '#ffffff' : '#fef3c7'};
+        box-shadow: ${hasMoved
+          ? '0 6px 20px rgba(57, 160, 202, 0.6)'
           : '0 4px 12px rgba(0,0,0,0.3)'};
         cursor: move;
         display: flex;
@@ -375,8 +385,13 @@ export default function AccessPointEditor({
         }
 
         // Create popup content with current data
+        const approvalStatusColor = isApproved ? '#22c55e' : '#f97316';
+        const approvalStatusText = isApproved ? 'Visible in app' : 'Hidden (not approved)';
+        const approvalButtonText = isApproved ? 'Hide from App' : 'Approve for App';
+        const approvalButtonColor = isApproved ? '#f97316' : '#22c55e';
+
         const popupContent = `
-          <div style="padding: 12px; min-width: 200px; background: white; border-radius: 8px;">
+          <div style="padding: 12px; min-width: 220px; background: white; border-radius: 8px;">
             <strong style="font-size: 14px; color: #161748;">${point.name}</strong>
             <div style="font-size: 12px; color: #666; margin-top: 4px;">
               ${point.riverName || 'Unknown River'}
@@ -385,6 +400,10 @@ export default function AccessPointEditor({
               ${point.riverMile !== null ? `Mile ${point.riverMile.toFixed(1)}` : 'No river mile data'}
               ${point.type ? ` • ${point.type.replace('_', ' ')}` : ''}
             </div>
+            <div style="margin-top: 8px; padding: 6px 8px; background: ${isApproved ? '#f0fdf4' : '#fff7ed'}; border-radius: 4px; display: flex; align-items: center; gap: 6px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: ${approvalStatusColor};"></span>
+              <span style="font-size: 11px; color: ${approvalStatusColor}; font-weight: 500;">${approvalStatusText}</span>
+            </div>
             ${hasMoved ? `
               <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 11px; color: #39a0ca;">
                 <strong>Moved:</strong> ${(Math.sqrt(
@@ -392,8 +411,17 @@ export default function AccessPointEditor({
                 ) * 111000).toFixed(0)}m from original
               </div>
             ` : ''}
-            ${isSaving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Saving...</div>' : ''}
+            ${isSaving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Saving location...</div>' : ''}
+            ${isApproving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Updating approval...</div>' : ''}
             ${hasError ? '<div style="margin-top: 4px; color: #dc2626; font-size: 11px;">Error saving</div>' : ''}
+            <div style="margin-top: 10px; display: flex; gap: 8px;">
+              <button
+                id="approve-btn-${point.id}"
+                style="flex: 1; padding: 6px 10px; background: ${approvalButtonColor}; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer;"
+              >
+                ${approvalButtonText}
+              </button>
+            </div>
             <div style="margin-top: 8px; font-size: 10px; color: #999;">
               ID: ${point.id.slice(0, 8)}...
             </div>
@@ -409,6 +437,34 @@ export default function AccessPointEditor({
           .setLngLat([lng, lat])
           .setHTML(popupContent)
           .addTo(map);
+
+        // Add approval button click handler
+        setTimeout(() => {
+          const approveBtn = document.getElementById(`approve-btn-${point.id}`);
+          if (approveBtn && onApprovalChange) {
+            approveBtn.addEventListener('click', async (btnEvent) => {
+              btnEvent.stopPropagation();
+              setApprovingIds((prev) => new Set(prev).add(point.id));
+              try {
+                await onApprovalChange(point.id, !isApproved);
+                // Close popup and refresh
+                if (popupRef.current) {
+                  popupRef.current.remove();
+                  popupRef.current = null;
+                }
+                onRefresh?.();
+              } catch (error) {
+                console.error('Error changing approval:', error);
+              } finally {
+                setApprovingIds((prev) => {
+                  const newSet = new Set(prev);
+                  newSet.delete(point.id);
+                  return newSet;
+                });
+              }
+            });
+          }
+        }, 0);
 
         // Create close handler and track it for cleanup
         const closeHandler = () => {
