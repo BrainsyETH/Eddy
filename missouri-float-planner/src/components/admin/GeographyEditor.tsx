@@ -126,6 +126,28 @@ export default function GeographyEditor() {
     loadData();
   }, [loadData]);
 
+  // Keep selectedAccessPoint in sync with accessPoints data (e.g., after marker drag)
+  useEffect(() => {
+    if (selectedAccessPoint && accessPoints.length > 0) {
+      const updatedPoint = accessPoints.find(ap => ap.id === selectedAccessPoint.id);
+      if (updatedPoint) {
+        // Check if coordinates or other data changed
+        const coordsChanged =
+          updatedPoint.coordinates.orig.lat !== selectedAccessPoint.coordinates.orig.lat ||
+          updatedPoint.coordinates.orig.lng !== selectedAccessPoint.coordinates.orig.lng;
+        const dataChanged =
+          updatedPoint.name !== selectedAccessPoint.name ||
+          updatedPoint.riverMile !== selectedAccessPoint.riverMile ||
+          updatedPoint.approved !== selectedAccessPoint.approved;
+
+        if (coordsChanged || dataChanged) {
+          setSelectedAccessPoint(updatedPoint);
+          setEditingDetails(prev => prev ? { ...prev, ...updatedPoint } : { ...updatedPoint });
+        }
+      }
+    }
+  }, [accessPoints, selectedAccessPoint]);
+
   const handleRefresh = useCallback(() => {
     loadData(true);
   }, [loadData]);
