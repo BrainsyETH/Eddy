@@ -71,8 +71,8 @@ export async function GET() {
         }
 
         // Validate coordinates are within reasonable bounds (Missouri area)
-        const isValidLng = origCoords.lng >= -96 && origCoords.lng <= -89;
-        const isValidLat = origCoords.lat >= 36 && origCoords.lat <= 40.5;
+        const isValidLng = origCoords.lng >= -96.5 && origCoords.lng <= -88.9;
+        const isValidLat = origCoords.lat >= 35.9 && origCoords.lat <= 40.7;
         const hasInvalidCoords = !isValidLng || !isValidLat;
 
         return {
@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate coordinates are in Missouri area
-    if (latitude < 36 || latitude > 40.5 || longitude < -96 || longitude > -89) {
+    // Validate coordinates are in Missouri area (with buffer for border points)
+    if (latitude < 35.9 || latitude > 40.7 || longitude < -96.5 || longitude > -88.9) {
       return NextResponse.json(
         { error: 'Coordinates must be within Missouri bounds' },
         { status: 400 }
