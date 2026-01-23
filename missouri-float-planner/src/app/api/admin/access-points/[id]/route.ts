@@ -61,6 +61,17 @@ export async function PUT(
       );
     }
 
+    // Invalidate segment cache for this access point
+    // This ensures float plans are recalculated with the new position
+    try {
+      await supabase.rpc('invalidate_segment_cache', {
+        p_access_point_id: id,
+      });
+    } catch (cacheError) {
+      // Log but don't fail the request if cache invalidation fails
+      console.warn('Failed to invalidate segment cache:', cacheError);
+    }
+
     // Format response
     // Type guard for GeoJSON Point
     const getCoordinates = (geom: unknown): { lng: number; lat: number } | null => {
@@ -103,6 +114,15 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = createAdminClient();
+
+    // Invalidate segment cache before deletion
+    try {
+      await supabase.rpc('invalidate_segment_cache', {
+        p_access_point_id: id,
+      });
+    } catch (cacheError) {
+      console.warn('Failed to invalidate segment cache:', cacheError);
+    }
 
     const { error } = await supabase
       .from('access_points')

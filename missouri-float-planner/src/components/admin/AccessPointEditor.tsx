@@ -15,6 +15,7 @@ interface AccessPoint {
   name: string;
   riverName?: string;
   riverMile: number | null;
+  type: string;
   coordinates: {
     orig: { lng: number; lat: number };
     snap: { lng: number; lat: number } | null;
@@ -42,6 +43,7 @@ export default function AccessPointEditor({
   const linesRef = useRef<maplibregl.GeoJSONSource[]>([]);
   const rootsRef = useRef<Root[]>([]);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const popupCloseHandlerRef = useRef<(() => void) | null>(null);
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { lng: number; lat: number }>>(new Map());
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
@@ -363,9 +365,13 @@ export default function AccessPointEditor({
       el.addEventListener('click', (e) => {
         e.stopPropagation();
 
-        // Remove existing popup first
+        // Remove existing popup and clean up any pending close handler
         if (popupRef.current) {
           popupRef.current.remove();
+        }
+        if (popupCloseHandlerRef.current) {
+          map.off('click', popupCloseHandlerRef.current);
+          popupCloseHandlerRef.current = null;
         }
 
         // Create popup content with current data
@@ -377,6 +383,7 @@ export default function AccessPointEditor({
             </div>
             <div style="font-size: 12px; color: #666; margin-top: 2px;">
               ${point.riverMile !== null ? `Mile ${point.riverMile.toFixed(1)}` : 'No river mile data'}
+              ${point.type ? ` • ${point.type.replace('_', ' ')}` : ''}
             </div>
             ${hasMoved ? `
               <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 11px; color: #39a0ca;">
@@ -403,15 +410,21 @@ export default function AccessPointEditor({
           .setHTML(popupContent)
           .addTo(map);
 
-        // Also close on map click (after a brief delay to avoid immediate close)
+        // Create close handler and track it for cleanup
+        const closeHandler = () => {
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+          }
+          popupCloseHandlerRef.current = null;
+        };
+        popupCloseHandlerRef.current = closeHandler;
+
+        // Register close on map click (after a brief delay to avoid immediate close)
         setTimeout(() => {
-          const closeHandler = () => {
-            if (popupRef.current) {
-              popupRef.current.remove();
-              popupRef.current = null;
-            }
-          };
-          map.once('click', closeHandler);
+          if (popupCloseHandlerRef.current === closeHandler) {
+            map.once('click', closeHandler);
+          }
         }, 100);
       });
 
@@ -434,7 +447,11 @@ export default function AccessPointEditor({
           }
         } catch {}
       });
-      // Clean up popup
+      // Clean up popup and its close handler
+      if (popupCloseHandlerRef.current) {
+        map.off('click', popupCloseHandlerRef.current);
+        popupCloseHandlerRef.current = null;
+      }
       if (popupRef.current) {
         popupRef.current.remove();
         popupRef.current = null;
