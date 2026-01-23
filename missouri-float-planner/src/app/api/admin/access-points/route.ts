@@ -3,14 +3,14 @@
 // POST /api/admin/access-points - Create a new access point
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    // Use admin client to bypass RLS and see all access points including unapproved
+    const supabase = createAdminClient();
 
     // Get all access points (including unapproved) for admin editing
     // Note: Supabase has a default limit of 1000, so we explicitly set a higher limit
