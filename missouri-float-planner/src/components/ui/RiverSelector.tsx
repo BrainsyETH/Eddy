@@ -30,8 +30,16 @@ export default function RiverSelector({
   className = '',
 }: RiverSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedRiver = rivers.find((r) => r.id === selectedRiverId);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredRivers = normalizedSearch
+    ? rivers.filter((river) => {
+        const haystack = `${river.name} ${river.region} ${river.difficultyRating}`.toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+    : rivers;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,6 +51,12 @@ export default function RiverSelector({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  }, [isOpen]);
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
@@ -94,8 +108,22 @@ export default function RiverSelector({
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 glass-card-dark border border-white/10 
                         rounded-xl shadow-lg overflow-hidden animate-in">
+          <div className="p-3 border-b border-white/10">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search rivers by name, region, or difficulty..."
+              className="w-full rounded-lg bg-white/10 px-3 py-2 text-sm text-white placeholder:text-river-gravel/70 focus:outline-none focus:ring-2 focus:ring-river-500"
+            />
+          </div>
           <div className="max-h-80 overflow-y-auto scrollbar-thin">
-            {rivers.map((river) => (
+            {filteredRivers.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-river-gravel text-center">
+                No rivers match your search.
+              </div>
+            ) : (
+              filteredRivers.map((river) => (
               <button
                 key={river.id}
                 type="button"
@@ -104,6 +132,7 @@ export default function RiverSelector({
                   e.stopPropagation();
                   onSelect(river.id);
                   setIsOpen(false);
+                  setSearchTerm('');
                 }}
                 className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors relative
                            focus:outline-none focus:ring-2 focus:ring-river-500 focus:ring-inset
@@ -153,7 +182,8 @@ export default function RiverSelector({
                   </a>
                 </div>
               </button>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}

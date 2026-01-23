@@ -13,6 +13,7 @@ interface MapContainerProps {
   children?: React.ReactNode;
   showWeatherOverlay?: boolean;
   onWeatherToggle?: (enabled: boolean) => void;
+  showLegend?: boolean;
 }
 
 // RainViewer API types
@@ -31,6 +32,7 @@ export default function MapContainer({
   children,
   showWeatherOverlay = false,
   onWeatherToggle,
+  showLegend = false,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -209,6 +211,27 @@ export default function MapContainer({
     };
   }, [initialBounds]);
 
+  useEffect(() => {
+    if (!map.current || !initialBounds) return;
+
+    const bounds = new maplibregl.LngLatBounds(
+      [initialBounds[0], initialBounds[1]],
+      [initialBounds[2], initialBounds[3]]
+    );
+
+    if (!map.current.loaded()) {
+      const handleLoad = () => {
+        map.current?.fitBounds(bounds, { padding: 50, duration: 800 });
+      };
+      map.current.once('load', handleLoad);
+      return () => {
+        map.current?.off('load', handleLoad);
+      };
+    }
+
+    map.current.fitBounds(bounds, { padding: 50, duration: 800 });
+  }, [initialBounds]);
+
   return (
     <div className="relative w-full h-full min-h-[400px]">
       <div 
@@ -252,6 +275,32 @@ export default function MapContainer({
           Radar: <a href="https://www.rainviewer.com/" target="_blank" rel="noopener noreferrer" className="underline">RainViewer</a>
         </div>
       )}
+
+      {showLegend && (
+        <div className="absolute bottom-2 right-2 z-10 rounded-xl border border-white/10 bg-river-night/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur">
+          <p className="text-[11px] font-semibold text-river-gravel mb-1">Map Legend</p>
+          <div className="flex flex-col gap-1">
+            <LegendItem color="#478559" label="Put-in" />
+            <LegendItem color="#f95d9b" label="Take-out" />
+            <LegendItem color="#c7b8a6" label="Access point" />
+            <LegendItem color="#22c55e" label="Route (downstream)" />
+            <LegendItem color="#ef4444" label="Route (upstream)" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-flex h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: color }}
+        aria-hidden="true"
+      />
+      <span className="text-[11px] text-white/80">{label}</span>
     </div>
   );
 }

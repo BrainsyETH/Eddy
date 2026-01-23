@@ -42,6 +42,9 @@ export default function PlannerPanel({
   showPlan,
   onShowPlanChange,
 }: PlannerPanelProps) {
+  const selectedPutInPoint = selectedPutIn
+    ? accessPoints.find((point) => point.id === selectedPutIn)
+    : null;
 
   const handleShare = async () => {
     if (!selectedPutIn || !selectedTakeOut) return;
@@ -102,6 +105,8 @@ export default function PlannerPanel({
               onSelect={onTakeOutChange}
               placeholder="Select take-out point..."
               excludeId={selectedPutIn}
+              referenceMile={selectedPutInPoint?.riverMile ?? null}
+              warnUpstream={Boolean(selectedPutInPoint)}
             />
           </div>
 

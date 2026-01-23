@@ -52,6 +52,7 @@ export default function RiverPage() {
   const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(null);
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
+  const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
 
   // Set default vessel type
   useEffect(() => {
@@ -82,6 +83,13 @@ export default function RiverPage() {
 
   // Handle map marker click - set as put-in or take-out
   const handleMarkerClick = useCallback((point: AccessPoint) => {
+    if (selectedPutIn && accessPoints) {
+      const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
+      if (putInPoint && point.riverMile > putInPoint.riverMile) {
+        setUpstreamWarning('That take-out is upstream of your put-in. Choose a downstream point.');
+        return;
+      }
+    }
     if (!selectedPutIn) {
       // No put-in selected - set this as put-in
       setSelectedPutIn(point.id);
@@ -94,7 +102,13 @@ export default function RiverPage() {
       setSelectedTakeOut(null);
       setShowPlan(false);
     }
-  }, [selectedPutIn, selectedTakeOut]);
+  }, [accessPoints, selectedPutIn, selectedTakeOut]);
+
+  useEffect(() => {
+    if (!upstreamWarning) return;
+    const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [upstreamWarning]);
 
   if (riverLoading) {
     return (
@@ -173,8 +187,16 @@ export default function RiverPage() {
               <div className="rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] w-full">
                 {/* Weather Bug overlay */}
                 <WeatherBug riverSlug={slug} riverId={river.id} />
+
+                {upstreamWarning && (
+                  <div className="absolute top-4 left-4 right-4 z-30">
+                    <div className="bg-red-500/20 border border-red-400/40 text-red-100 text-sm px-4 py-2 rounded-xl shadow-lg">
+                      {upstreamWarning}
+                    </div>
+                  </div>
+                )}
                 
-                <MapContainer initialBounds={river.bounds}>
+                <MapContainer initialBounds={river.bounds} showLegend={true}>
                   {/* RiverLayer removed - geometry quality needs improvement before displaying */}
                   {/* Route visualization when both points are selected */}
                   {plan?.route && (
