@@ -177,13 +177,17 @@ async function main() {
 
   const supabase = getSupabaseClient();
 
-  // Get existing rivers
+  // Get existing rivers with geometry info
   const { data: existingRivers } = await supabase
     .from('rivers')
-    .select('id, slug, name');
+    .select('id, slug, name, length_miles');
 
   const riverIdMap = new Map<string, string>();
-  existingRivers?.forEach(r => riverIdMap.set(r.slug, r.id));
+  const riverLengthMap = new Map<string, number>();
+  existingRivers?.forEach(r => {
+    riverIdMap.set(r.slug, r.id);
+    if (r.length_miles) riverLengthMap.set(r.id, parseFloat(r.length_miles));
+  });
 
   // Stats
   const stats = {
@@ -242,6 +246,25 @@ async function main() {
         continue;
       }
 
+      // Get coordinates from mile marker using database function
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pointData, error: pointError } = await (supabase.rpc as any)(
+        'get_point_at_mile',
+        {
+          p_river_id: dbRiverId,
+          p_mile: marker.mile,
+        }
+      );
+
+      if (pointError || !pointData || pointData.length === 0) {
+        console.log(`   ⚠️ Could not calculate coordinates for ${name} at mile ${marker.mile}`);
+        stats.errors++;
+        continue;
+      }
+
+      const coords = pointData[0];
+      const locationOrig = `SRID=4326;POINT(${coords.lng} ${coords.lat})`;
+
       const accessPointData = {
         river_id: dbRiverId,
         name,
@@ -250,6 +273,7 @@ async function main() {
         is_public: isPublic,
         description: marker.description,
         river_mile_downstream: marker.mile,
+        location_orig: locationOrig,
         approved: false, // Requires manual review
       };
 
@@ -290,6 +314,22 @@ async function main() {
         continue;
       }
 
+      // Get coordinates from mile marker using database function
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pointData, error: pointError } = await (supabase.rpc as any)(
+        'get_point_at_mile',
+        {
+          p_river_id: dbRiverId,
+          p_mile: marker.mile,
+        }
+      );
+
+      let location = null;
+      if (!pointError && pointData && pointData.length > 0) {
+        const coords = pointData[0];
+        location = `SRID=4326;POINT(${coords.lng} ${coords.lat})`;
+      }
+
       const hazardData = {
         river_id: dbRiverId,
         name,
@@ -300,6 +340,7 @@ async function main() {
         portage_required: marker.description.toLowerCase().includes('portage'),
         portage_side: marker.side as 'left' | 'right' | null,
         active: true,
+        ...(location ? { location } : {}),
       };
 
       if (existing && shouldUpdate) {
