@@ -39,17 +39,11 @@ export default function RiverLineEditor({
     const sourcesAdded: string[] = [];
     const layersAdded: string[] = [];
 
-    // Clean up existing sources and layers from previous runs
-    const previousSources = new Set(sourcesRef.current);
+    // Clean up existing layers FIRST, then sources (order matters!)
     const previousLayers = new Set(layersRef.current);
-    
-    previousSources.forEach((id) => {
-      try {
-        if (map.getSource(id)) {
-          map.removeSource(id);
-        }
-      } catch {}
-    });
+    const previousSources = new Set(sourcesRef.current);
+
+    // Remove layers first (they depend on sources)
     previousLayers.forEach((id) => {
       try {
         if (map.getLayer(id)) {
@@ -57,8 +51,16 @@ export default function RiverLineEditor({
         }
       } catch {}
     });
-    sourcesRef.current.clear();
+    // Then remove sources
+    previousSources.forEach((id) => {
+      try {
+        if (map.getSource(id)) {
+          map.removeSource(id);
+        }
+      } catch {}
+    });
     layersRef.current.clear();
+    sourcesRef.current.clear();
 
     // Add river lines
     rivers.forEach((river) => {
@@ -131,15 +133,15 @@ export default function RiverLineEditor({
     });
 
     return () => {
-      // Clean up sources and layers added in this effect run
-      sourcesAdded.forEach((id) => {
-        try {
-          if (map.getSource(id)) map.removeSource(id);
-        } catch {}
-      });
+      // Clean up layers FIRST, then sources (order matters!)
       layersAdded.forEach((id) => {
         try {
           if (map.getLayer(id)) map.removeLayer(id);
+        } catch {}
+      });
+      sourcesAdded.forEach((id) => {
+        try {
+          if (map.getSource(id)) map.removeSource(id);
         } catch {}
       });
     };
@@ -149,15 +151,19 @@ export default function RiverLineEditor({
   useEffect(() => {
     if (!map || !rivers.length) return;
 
-    // Get all layer IDs for querying
+    // Get all layer IDs for querying (only include layers that exist on the map)
     const layerIds = rivers
       .filter((r) => r.geometry && r.geometry.coordinates)
-      .map((r) => `river-edit-layer-${r.id}`);
+      .map((r) => `river-edit-layer-${r.id}`)
+      .filter((id) => map.getLayer(id));
 
     const handleClick = (e: maplibregl.MapMouseEvent) => {
       // Find which river was clicked using feature query
+      const existingLayers = layerIds.filter((id) => map.getLayer(id));
+      if (existingLayers.length === 0) return;
+
       const features = map.queryRenderedFeatures(e.point, {
-        layers: layerIds,
+        layers: existingLayers,
       });
 
       if (features.length > 0) {
@@ -171,8 +177,17 @@ export default function RiverLineEditor({
     };
 
     const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
+      const existingLayers = layerIds.filter((id) => map.getLayer(id));
+      if (existingLayers.length === 0) {
+        if (hoveredRiverId) {
+          setHoveredRiverId(null);
+          map.getCanvas().style.cursor = '';
+        }
+        return;
+      }
+
       const features = map.queryRenderedFeatures(e.point, {
-        layers: layerIds,
+        layers: existingLayers,
       });
 
       if (features.length > 0) {

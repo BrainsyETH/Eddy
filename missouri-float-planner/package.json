@@ -13,8 +13,11 @@
     "db:migrate": "tsx scripts/run-migrations.ts",
     "db:import-mile-markers": "tsx scripts/import-mile-markers.ts",
     "db:correct-miles": "tsx scripts/correct-access-point-miles.ts",
+    "db:verify-directions": "tsx scripts/verify-river-directions.ts",
+    "db:import-access-points": "tsx scripts/import-access-points-csv.ts",
     "db:seed": "echo 'Run seed SQL files via Supabase CLI or SQL Editor. See scripts/run-seeds.ts for details.'",
-    "db:setup": "npm run db:seed && npm run db:snap-access-points"
+    "db:setup": "npm run db:seed && npm run db:snap-access-points",
+    "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

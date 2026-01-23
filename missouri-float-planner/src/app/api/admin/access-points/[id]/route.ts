@@ -34,7 +34,7 @@ export async function PUT(
     const supabase = createAdminClient();
 
     // Update location_orig - this will trigger the auto-snap trigger
-    const { data, error } = await supabase
+    const { error: updateError } = await supabase
       .from('access_points')
       .update({
         location_orig: {
@@ -43,23 +43,46 @@ export async function PUT(
         },
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
-      .select(`
-        id,
-        name,
-        location_orig,
-        location_snap,
-        river_mile_downstream
-      `)
-      .single();
+      .eq('id', id);
 
-    if (error) {
-      console.error('Error updating access point:', error);
+    if (updateError) {
+      console.error('Error updating access point:', updateError);
       return NextResponse.json(
         { error: 'Could not update access point' },
         { status: 500 }
       );
     }
+
+    // Re-fetch to ensure we get trigger-updated values (location_snap, river_mile_downstream)
+    const { data, error: fetchError } = await supabase
+      .from('access_points')
+      .select(`
+        id,
+        name,
+        location_orig,
+        location_snap,
+        river_mile_downstream,
+        approved
+      `)
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !data) {
+      console.error('Error fetching updated access point:', fetchError);
+      return NextResponse.json(
+        { error: 'Could not fetch updated access point' },
+        { status: 500 }
+      );
+    }
+
+    // Log for debugging - helps identify if trigger is working
+    console.log('Access point updated:', {
+      id: data.id,
+      name: data.name,
+      riverMile: data.river_mile_downstream,
+      approved: data.approved,
+      hasSnappedLocation: !!data.location_snap,
+    });
 
     // Invalidate segment cache for this access point
     // This ensures float plans are recalculated with the new position
@@ -94,9 +117,14 @@ export async function PUT(
         snap: snapCoords,
       },
       riverMile: data.river_mile_downstream ? parseFloat(data.river_mile_downstream) : null,
+      approved: data.approved,
     };
 
-    return NextResponse.json({ accessPoint: formatted });
+    return NextResponse.json({
+      accessPoint: formatted,
+      // Include a warning if the point is not approved (won't show in production)
+      warning: !data.approved ? 'This access point is not approved and will not appear in the public app until approved.' : undefined,
+    });
   } catch (error) {
     console.error('Error in update access point endpoint:', error);
     return NextResponse.json(
