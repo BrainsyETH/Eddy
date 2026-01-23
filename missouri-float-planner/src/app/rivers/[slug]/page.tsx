@@ -196,10 +196,11 @@ export default function RiverPage() {
                 <MapContainer initialBounds={river.bounds} showLegend={true}>
                   {/* RiverLayer removed - geometry quality needs improvement before displaying */}
                   {/* Route visualization when both points are selected */}
+                  {/* isUpstream: true when put-in is downstream (higher mile) of take-out */}
                   {plan?.route && (
                     <RouteLayer
                       routeGeometry={plan.route.geometry}
-                      isUpstream={plan.putIn.riverMile < plan.takeOut.riverMile}
+                      isUpstream={plan.putIn.riverMile > plan.takeOut.riverMile}
                     />
                   )}
                   {accessPoints && (

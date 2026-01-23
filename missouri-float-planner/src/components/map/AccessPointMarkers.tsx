@@ -85,6 +85,7 @@ export default function AccessPointMarkers({
       }
 
       // Create custom marker element with React icon
+      // Note: Avoid position: relative and will-change: transform as they interfere with MapLibre's positioning
       const el = document.createElement('div');
       el.className = 'access-point-marker';
       el.style.cssText = `
@@ -101,9 +102,7 @@ export default function AccessPointMarkers({
         transition: box-shadow 0.2s ease, border-width 0.2s ease;
         z-index: ${zIndex};
         pointer-events: auto;
-        position: relative;
         box-sizing: border-box;
-        will-change: transform;
       `;
       
       // Render lucide icon using React
@@ -201,11 +200,12 @@ export default function AccessPointMarkers({
       }
 
       // Create marker with click handler
+      // Using 'map' alignment for stable positioning at all zoom levels
       const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center',
-        rotationAlignment: 'viewport',
-        pitchAlignment: 'viewport',
+        rotationAlignment: 'map',
+        pitchAlignment: 'map',
       })
         .setLngLat([point.coordinates.lng, point.coordinates.lat])
         .addTo(map);

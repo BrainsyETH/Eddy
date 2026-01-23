@@ -41,6 +41,7 @@ export default function AccessPointEditor({
   const originalMarkersRef = useRef<maplibregl.Marker[]>([]);
   const linesRef = useRef<maplibregl.GeoJSONSource[]>([]);
   const rootsRef = useRef<Root[]>([]);
+  const popupRef = useRef<maplibregl.Popup | null>(null);
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { lng: number; lat: number }>>(new Map());
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
@@ -358,37 +359,59 @@ export default function AccessPointEditor({
         }
       });
 
-      // Show popup on click
+      // Show popup on click - reuse single popup instance
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        const popup = new maplibregl.Popup({ 
+
+        // Remove existing popup first
+        if (popupRef.current) {
+          popupRef.current.remove();
+        }
+
+        // Create popup content with current data
+        const popupContent = `
+          <div style="padding: 12px; min-width: 200px; background: white; border-radius: 8px;">
+            <strong style="font-size: 14px; color: #161748;">${point.name}</strong>
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              ${point.riverName || 'Unknown River'}
+            </div>
+            <div style="font-size: 12px; color: #666; margin-top: 2px;">
+              ${point.riverMile !== null ? `Mile ${point.riverMile.toFixed(1)}` : 'No river mile data'}
+            </div>
+            ${hasMoved ? `
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 11px; color: #39a0ca;">
+                <strong>Moved:</strong> ${(Math.sqrt(
+                  Math.pow(lng - origLng, 2) + Math.pow(lat - origLat, 2)
+                ) * 111000).toFixed(0)}m from original
+              </div>
+            ` : ''}
+            ${isSaving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Saving...</div>' : ''}
+            ${hasError ? '<div style="margin-top: 4px; color: #dc2626; font-size: 11px;">Error saving</div>' : ''}
+            <div style="margin-top: 8px; font-size: 10px; color: #999;">
+              ID: ${point.id.slice(0, 8)}...
+            </div>
+          </div>
+        `;
+
+        popupRef.current = new maplibregl.Popup({
           offset: 20,
           className: 'admin-access-point-popup',
+          closeButton: true,
+          closeOnClick: false,
         })
           .setLngLat([lng, lat])
-          .setHTML(`
-            <div style="padding: 12px; min-width: 200px;">
-              <strong style="font-size: 14px; color: #161748;">${point.name}</strong><br/>
-              <div style="font-size: 12px; color: #666; margin-top: 4px;">
-                ${point.riverName || 'Unknown River'}<br/>
-                ${point.riverMile ? `Mile ${point.riverMile.toFixed(1)}` : 'No river mile'}
-              </div>
-              ${hasMoved ? `
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 11px; color: #39a0ca;">
-                  <strong>Moved:</strong> ${(Math.sqrt(
-                    Math.pow(lng - origLng, 2) + Math.pow(lat - origLat, 2)
-                  ) * 111000).toFixed(0)}m from original
-                </div>
-              ` : ''}
-              ${isSaving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Saving...</div>' : ''}
-              ${hasError ? '<div style="margin-top: 4px; color: #dc2626; font-size: 11px;">Error saving</div>' : ''}
-            </div>
-          `)
+          .setHTML(popupContent)
           .addTo(map);
-        
-        // Remove popup when clicking elsewhere
+
+        // Also close on map click (after a brief delay to avoid immediate close)
         setTimeout(() => {
-          map.once('click', () => popup.remove());
+          const closeHandler = () => {
+            if (popupRef.current) {
+              popupRef.current.remove();
+              popupRef.current = null;
+            }
+          };
+          map.once('click', closeHandler);
         }, 100);
       });
 
@@ -411,6 +434,11 @@ export default function AccessPointEditor({
           }
         } catch {}
       });
+      // Clean up popup
+      if (popupRef.current) {
+        popupRef.current.remove();
+        popupRef.current = null;
+      }
       markersRef.current = [];
       originalMarkersRef.current = [];
       rootsRef.current = [];

@@ -127,9 +127,10 @@ export default function PlanSummary({
   const displayPlan = recalculatedPlan ?? plan;
 
   // Check if put-in is downstream of take-out (upstream warning)
-  // Mile values are ordered opposite of downstream flow for this data set.
+  // Mile 0.0 is at the headwaters (start) of rivers, increasing downstream.
+  // Upstream trip = put-in has higher mile (closer to mouth) than take-out
   const isUpstream = displayPlan
-    ? displayPlan.putIn.riverMile < displayPlan.takeOut.riverMile
+    ? displayPlan.putIn.riverMile > displayPlan.takeOut.riverMile
     : false;
 
   if (isLoading) {
@@ -151,9 +152,9 @@ export default function PlanSummary({
   const conditionStyle = conditionStyles[displayPlan.condition.code];
 
   return (
-    <div className="glass-card rounded-2xl w-80 max-h-[85vh] overflow-hidden animate-slide-in-right">
+    <div className="glass-card rounded-2xl w-80 max-h-[85vh] flex flex-col animate-slide-in-right">
       {/* Header */}
-      <div className="bg-gradient-to-r from-ozark-800 to-ozark-700 px-5 py-4 text-white">
+      <div className="bg-gradient-to-r from-ozark-800 to-ozark-700 px-5 py-4 text-white flex-shrink-0">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-lg font-bold">Your Float Plan</h2>
@@ -171,8 +172,8 @@ export default function PlanSummary({
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-thin">
+      {/* Content - scrollable area */}
+      <div className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-thin min-h-0">
         {/* Upstream Warning Pill */}
         {isUpstream && (
           <div className="flex items-center gap-2 px-3 py-2 bg-red-500/20 border-2 border-red-500/40 rounded-xl">
@@ -366,7 +367,7 @@ export default function PlanSummary({
       </div>
 
       {/* Actions */}
-      <div className="border-t border-white/10 p-4 bg-river-deep/50">
+      <div className="border-t border-white/10 p-4 bg-river-deep/50 flex-shrink-0">
         <div className="flex gap-3">
           <button onClick={onShare} className="btn-primary flex-1 flex items-center justify-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
