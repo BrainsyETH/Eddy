@@ -28,6 +28,7 @@ export async function GET() {
         is_public,
         ownership,
         description,
+        fee_required,
         approved,
         rivers(id, name, slug)
       `)
@@ -94,6 +95,7 @@ export async function GET() {
           isPublic: ap.is_public,
           ownership: ap.ownership,
           description: ap.description,
+          feeRequired: ap.fee_required,
           approved: ap.approved,
           hasInvalidCoords, // Flag for admin UI to show warning
           hasMissingCoords, // New flag for points without coordinates

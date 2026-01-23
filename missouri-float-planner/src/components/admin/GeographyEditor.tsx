@@ -4,7 +4,7 @@
 // Main geography editor component with improved state management
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MousePointer2 } from 'lucide-react';
+import { Plus, MousePointer2, X, Save, Trash2 } from 'lucide-react';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
@@ -39,8 +39,11 @@ interface AccessPoint {
   isPublic: boolean;
   ownership: string | null;
   description: string | null;
+  feeRequired?: boolean;
   approved: boolean;
   riverName?: string;
+  hasInvalidCoords?: boolean;
+  hasMissingCoords?: boolean;
 }
 
 export default function GeographyEditor() {
@@ -56,6 +59,10 @@ export default function GeographyEditor() {
   const [refreshing, setRefreshing] = useState(false);
   const [addMode, setAddMode] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<{ lng: number; lat: number } | null>(null);
+  const [selectedAccessPoint, setSelectedAccessPoint] = useState<AccessPoint | null>(null);
+  const [editingDetails, setEditingDetails] = useState<Partial<AccessPoint> | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const loadData = useCallback(async (showRefreshing = false) => {
     try {
@@ -166,6 +173,85 @@ export default function GeographyEditor() {
     }
   }, []);
 
+  // Handle selecting an access point for editing
+  const handleSelectAccessPoint = useCallback((point: AccessPoint | null) => {
+    setSelectedAccessPoint(point);
+    setEditingDetails(point ? { ...point } : null);
+    setDeleteConfirm(false);
+  }, []);
+
+  // Handle saving access point details
+  const handleSaveDetails = useCallback(async () => {
+    if (!selectedAccessPoint || !editingDetails) return;
+
+    setSavingDetails(true);
+    try {
+      const response = await fetch(`/api/admin/access-points/${selectedAccessPoint.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingDetails.name,
+          type: editingDetails.type,
+          isPublic: editingDetails.isPublic,
+          ownership: editingDetails.ownership,
+          description: editingDetails.description,
+          feeRequired: editingDetails.feeRequired,
+          riverId: editingDetails.riverId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save changes');
+      }
+
+      // Refresh data and update selection
+      await loadData(true);
+      // Find the updated point in the refreshed data
+      const updatedPoints = accessPoints.find(ap => ap.id === selectedAccessPoint.id);
+      if (updatedPoints) {
+        setSelectedAccessPoint(updatedPoints);
+        setEditingDetails({ ...updatedPoints });
+      } else {
+        setSelectedAccessPoint(null);
+        setEditingDetails(null);
+      }
+    } catch (err) {
+      console.error('Error saving access point:', err);
+      alert(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSavingDetails(false);
+    }
+  }, [selectedAccessPoint, editingDetails, loadData, accessPoints]);
+
+  // Handle deleting an access point
+  const handleDeleteAccessPoint = useCallback(async () => {
+    if (!selectedAccessPoint) return;
+
+    setSavingDetails(true);
+    try {
+      const response = await fetch(`/api/admin/access-points/${selectedAccessPoint.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete access point');
+      }
+
+      // Clear selection and refresh
+      setSelectedAccessPoint(null);
+      setEditingDetails(null);
+      setDeleteConfirm(false);
+      await loadData(true);
+    } catch (err) {
+      console.error('Error deleting access point:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete access point');
+    } finally {
+      setSavingDetails(false);
+    }
+  }, [selectedAccessPoint, loadData]);
+
   if (loading) {
     return (
       <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
@@ -201,8 +287,8 @@ export default function GeographyEditor() {
 
   return (
     <>
-      {/* Control Panel */}
-      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10 min-w-[300px]">
+      {/* Control Panel - z-50 to stay above map markers */}
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-50 min-w-[300px]">
         <div className="space-y-4">
           {refreshing && (
             <div className="flex items-center gap-2 text-sm text-bluff-600">
@@ -364,6 +450,8 @@ export default function GeographyEditor() {
           addMode={addMode}
           onMapClick={handleMapClick}
           onApprovalChange={handleApprovalChange}
+          onSelectAccessPoint={handleSelectAccessPoint}
+          selectedAccessPointId={selectedAccessPoint?.id}
         />
       )}
 
@@ -384,6 +472,182 @@ export default function GeographyEditor() {
           onClose={() => setPendingCoords(null)}
           onSave={handleCreateAccessPoint}
         />
+      )}
+
+      {/* Access Point Detail Panel */}
+      {selectedAccessPoint && editingDetails && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 w-[340px] max-h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-bluff-200">
+            <h3 className="font-semibold text-bluff-800">Edit Access Point</h3>
+            <button
+              onClick={() => handleSelectAccessPoint(null)}
+              className="p-1 hover:bg-bluff-100 rounded transition-colors"
+            >
+              <X size={18} className="text-bluff-500" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Name</label>
+              <input
+                type="text"
+                value={editingDetails.name || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, name: e.target.value })}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              />
+            </div>
+
+            {/* River */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">River</label>
+              <select
+                value={editingDetails.riverId || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, riverId: e.target.value })}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              >
+                {rivers.map((river) => (
+                  <option key={river.id} value={river.id}>
+                    {river.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Type</label>
+              <select
+                value={editingDetails.type || 'access'}
+                onChange={(e) => setEditingDetails({ ...editingDetails, type: e.target.value })}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              >
+                <option value="boat_ramp">Boat Ramp</option>
+                <option value="gravel_bar">Gravel Bar</option>
+                <option value="campground">Campground</option>
+                <option value="bridge">Bridge</option>
+                <option value="access">Access</option>
+                <option value="park">Park</option>
+              </select>
+            </div>
+
+            {/* Public / Private */}
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingDetails.isPublic ?? true}
+                  onChange={(e) => setEditingDetails({ ...editingDetails, isPublic: e.target.checked })}
+                  className="w-4 h-4 text-river-500 rounded focus:ring-river-500"
+                />
+                <span className="text-sm text-bluff-700">Public Access</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingDetails.feeRequired ?? false}
+                  onChange={(e) => setEditingDetails({ ...editingDetails, feeRequired: e.target.checked })}
+                  className="w-4 h-4 text-river-500 rounded focus:ring-river-500"
+                />
+                <span className="text-sm text-bluff-700">Fee Required</span>
+              </label>
+            </div>
+
+            {/* Ownership */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Ownership</label>
+              <input
+                type="text"
+                value={editingDetails.ownership || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, ownership: e.target.value })}
+                placeholder="e.g., MDC, NPS, County"
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Description</label>
+              <textarea
+                value={editingDetails.description || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, description: e.target.value })}
+                rows={3}
+                placeholder="Additional details about this access point..."
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
+              />
+            </div>
+
+            {/* Approval Status */}
+            <div className={`p-3 rounded-lg ${selectedAccessPoint.approved ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${selectedAccessPoint.approved ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+                  <span className={`text-sm font-medium ${selectedAccessPoint.approved ? 'text-green-700' : 'text-orange-700'}`}>
+                    {selectedAccessPoint.approved ? 'Approved - Visible in App' : 'Pending - Hidden from App'}
+                  </span>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await handleApprovalChange(selectedAccessPoint.id, !selectedAccessPoint.approved);
+                      await loadData(true);
+                      // Update local state
+                      const updatedPoint = accessPoints.find(ap => ap.id === selectedAccessPoint.id);
+                      if (updatedPoint) {
+                        setSelectedAccessPoint({ ...updatedPoint, approved: !selectedAccessPoint.approved });
+                      }
+                    } catch (err) {
+                      console.error('Error changing approval:', err);
+                    }
+                  }}
+                  className={`px-2 py-1 text-xs font-medium rounded ${
+                    selectedAccessPoint.approved
+                      ? 'bg-orange-500 text-white hover:bg-orange-600'
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                >
+                  {selectedAccessPoint.approved ? 'Unapprove' : 'Approve'}
+                </button>
+              </div>
+            </div>
+
+            {/* Location Info */}
+            <div className="text-xs text-bluff-500 bg-bluff-50 p-2 rounded">
+              <div>River Mile: {selectedAccessPoint.riverMile?.toFixed(1) ?? 'N/A'}</div>
+              <div>Coords: {selectedAccessPoint.coordinates.orig.lat.toFixed(5)}, {selectedAccessPoint.coordinates.orig.lng.toFixed(5)}</div>
+              <div className="mt-1 text-bluff-400">Drag marker on map to change location</div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2 border-t border-bluff-200">
+              <button
+                onClick={handleSaveDetails}
+                disabled={savingDetails}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-river-500 text-white rounded-lg text-sm font-medium hover:bg-river-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save size={16} />
+                {savingDetails ? 'Saving...' : 'Save Changes'}
+              </button>
+              {!deleteConfirm ? (
+                <button
+                  onClick={() => setDeleteConfirm(true)}
+                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200"
+                >
+                  <Trash2 size={16} />
+                </button>
+              ) : (
+                <button
+                  onClick={handleDeleteAccessPoint}
+                  disabled={savingDetails}
+                  className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                >
+                  Confirm Delete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

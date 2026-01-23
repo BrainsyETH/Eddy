@@ -50,7 +50,6 @@ export default function AccessPointMarkers({
       ? accessPoints.find((point) => point.id === selectedPutIn)
       : null;
     const putInMile = selectedPutInPoint?.riverMile ?? null;
-    const selectionLocked = Boolean(selectedPutIn && selectedTakeOut);
 
     // Create markers for each access point
     accessPoints.forEach((point) => {
@@ -95,7 +94,7 @@ export default function AccessPointMarkers({
         border-radius: 50%;
         border: 3px solid ${borderColor};
         box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1);
-        cursor: ${onMarkerClick && !selectionLocked ? 'pointer' : 'default'};
+        cursor: ${onMarkerClick ? 'pointer' : 'default'};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -142,13 +141,18 @@ export default function AccessPointMarkers({
       });
 
       // Create popup with flat, nature-inspired styling
-      const selectionPrompt = onMarkerClick && !selectionLocked && (!selectedPutIn || !isPutIn)
-        ? `
-          <p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">
-            Click to select as ${selectedPutIn ? 'take-out' : 'put-in'}
-          </p>
-        `
-        : '';
+      let selectionPrompt = '';
+      if (onMarkerClick) {
+        if (isPutIn) {
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to deselect put-in</p>`;
+        } else if (isTakeOut) {
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to deselect take-out</p>`;
+        } else if (!selectedPutIn) {
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to select as put-in</p>`;
+        } else {
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to select as take-out</p>`;
+        }
+      }
 
       const popupContent = `
         <div style="padding: 12px; min-width: 180px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
@@ -210,8 +214,8 @@ export default function AccessPointMarkers({
         .setLngLat([point.coordinates.lng, point.coordinates.lat])
         .addTo(map);
 
-      // Add click handler
-      if (onMarkerClick && !selectionLocked) {
+      // Add click handler - always allow clicks so user can deselect or change selection
+      if (onMarkerClick) {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
           e.preventDefault();

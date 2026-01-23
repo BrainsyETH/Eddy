@@ -7,6 +7,29 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { Layers } from 'lucide-react';
+
+// Available map styles (all free, no API key required)
+const MAP_STYLES = {
+  dark: {
+    name: 'Dark',
+    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  },
+  light: {
+    name: 'Light',
+    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  },
+  voyager: {
+    name: 'Streets',
+    url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+  },
+  liberty: {
+    name: 'Terrain',
+    url: 'https://maputnik.github.io/osm-liberty/style.json',
+  },
+} as const;
+
+type MapStyleKey = keyof typeof MAP_STYLES;
 
 interface MapContainerProps {
   initialBounds?: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
@@ -39,8 +62,45 @@ export default function MapContainer({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [weatherEnabled, setWeatherEnabled] = useState(showWeatherOverlay);
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('dark');
+  const [showStylePicker, setShowStylePicker] = useState(false);
   const radarSourceId = 'rainviewer-radar';
   const radarLayerId = 'rainviewer-radar-layer';
+
+  // Load saved style preference
+  useEffect(() => {
+    const saved = localStorage.getItem('mapStyle') as MapStyleKey | null;
+    if (saved && MAP_STYLES[saved]) {
+      setMapStyle(saved);
+    }
+  }, []);
+
+  // Change map style
+  const changeMapStyle = useCallback((styleKey: MapStyleKey) => {
+    if (!map.current) return;
+
+    setMapStyle(styleKey);
+    localStorage.setItem('mapStyle', styleKey);
+    setShowStylePicker(false);
+
+    const styleUrl = MAP_STYLES[styleKey].url;
+    map.current.setStyle(styleUrl);
+
+    // Re-apply background color after style loads
+    map.current.once('style.load', () => {
+      if (styleKey === 'dark') {
+        try {
+          map.current?.setPaintProperty('background', 'background-color', '#0f132f');
+        } catch {
+          // Background layer might not exist
+        }
+      }
+      // Re-trigger radar layer if enabled
+      if (weatherEnabled && radarTimestamp) {
+        updateRadarLayer();
+      }
+    });
+  }, [weatherEnabled, radarTimestamp]);
 
   // Fetch latest radar timestamp from RainViewer API
   const fetchRadarTimestamp = useCallback(async () => {
@@ -149,12 +209,12 @@ export default function MapContainer({
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    // Use dark map style (CartoDB Dark Matter or similar)
-    const mapStyleUrl =
-      process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
-      'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+    // Get saved style or use dark as default
+    const savedStyle = localStorage.getItem('mapStyle') as MapStyleKey | null;
+    const initialStyle = savedStyle && MAP_STYLES[savedStyle] ? savedStyle : 'dark';
+    const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL || MAP_STYLES[initialStyle].url;
 
-    // Initialize map with dark theme
+    // Initialize map
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: mapStyleUrl,
@@ -243,28 +303,60 @@ export default function MapContainer({
         <MapProvider map={map.current}>{children}</MapProvider>
       )}
       
+      {/* Map Style Picker */}
+      <div className="absolute top-20 right-2 z-10">
+        <button
+          onClick={() => setShowStylePicker(!showStylePicker)}
+          className={`p-2 rounded-lg shadow-lg transition-all ${
+            showStylePicker
+              ? 'bg-river-water text-white'
+              : 'bg-white/90 text-gray-700 hover:bg-white'
+          }`}
+          title="Change map style"
+          aria-label="Change map style"
+        >
+          <Layers className="w-5 h-5" />
+        </button>
+
+        {showStylePicker && (
+          <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px]">
+            {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => changeMapStyle(key)}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
+                  mapStyle === key ? 'bg-river-50 text-river-600 font-medium' : 'text-gray-700'
+                }`}
+              >
+                {MAP_STYLES[key].name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Weather Overlay Toggle Button */}
       <button
         onClick={toggleWeather}
-        className={`absolute top-20 right-2 z-10 p-2 rounded-lg shadow-lg transition-all ${
-          weatherEnabled 
-            ? 'bg-river-water text-white' 
+        className={`absolute top-32 right-2 z-10 p-2 rounded-lg shadow-lg transition-all ${
+          weatherEnabled
+            ? 'bg-river-water text-white'
             : 'bg-white/90 text-gray-700 hover:bg-white'
         }`}
         title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
         aria-label={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
       >
-        <svg 
-          className="w-5 h-5" 
-          fill="none" 
-          stroke="currentColor" 
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" 
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
           />
         </svg>
       </button>
