@@ -13,6 +13,7 @@ export async function GET() {
     const supabase = await createClient();
 
     // Get all access points (including unapproved) for admin editing
+    // Note: Supabase has a default limit of 1000, so we explicitly set a higher limit
     const { data: accessPoints, error } = await supabase
       .from('access_points')
       .select(`
@@ -28,9 +29,10 @@ export async function GET() {
         ownership,
         description,
         approved,
-        rivers!inner(id, name, slug)
+        rivers(id, name, slug)
       `)
-      .order('name', { ascending: true });
+      .order('name', { ascending: true })
+      .limit(5000);
 
     if (error) {
       console.error('Error fetching access points:', error);
@@ -57,33 +59,34 @@ export async function GET() {
       return rivers as { name?: string; slug?: string };
     };
 
-    // Format and filter access points - for admin, include all but flag invalid ones
+    // Format access points - for admin, include ALL points including those with missing coordinates
     const formatted = (accessPoints || [])
       .map((ap) => {
         const riverData = getRiverData(ap.rivers);
         const origCoords = getCoordinates(ap.location_orig);
         const snapCoords = ap.location_snap ? getCoordinates(ap.location_snap) : null;
 
-        // Skip points with completely missing coordinates
-        if (!origCoords) {
-          console.warn(`Access point ${ap.id} (${ap.name}) has no original coordinates, skipping`);
-          return null;
-        }
+        // For admin view, include points without coordinates but flag them
+        const hasMissingCoords = !origCoords;
 
         // Validate coordinates are within reasonable bounds (Missouri area)
-        const isValidLng = origCoords.lng >= -96.5 && origCoords.lng <= -88.9;
-        const isValidLat = origCoords.lat >= 35.9 && origCoords.lat <= 40.7;
-        const hasInvalidCoords = !isValidLng || !isValidLat;
+        let hasInvalidCoords = false;
+        if (origCoords) {
+          const isValidLng = origCoords.lng >= -96.5 && origCoords.lng <= -88.9;
+          const isValidLat = origCoords.lat >= 35.9 && origCoords.lat <= 40.7;
+          hasInvalidCoords = !isValidLng || !isValidLat;
+        }
 
         return {
           id: ap.id,
           riverId: ap.river_id,
-          riverName: riverData?.name,
+          riverName: riverData?.name || 'Unknown River',
           riverSlug: riverData?.slug,
           name: ap.name,
           slug: ap.slug,
           coordinates: {
-            orig: origCoords,
+            // Use placeholder coordinates for points without coords (center of Missouri)
+            orig: origCoords || { lng: -92.5, lat: 38.5 },
             snap: snapCoords,
           },
           riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : null,
@@ -93,9 +96,9 @@ export async function GET() {
           description: ap.description,
           approved: ap.approved,
           hasInvalidCoords, // Flag for admin UI to show warning
+          hasMissingCoords, // New flag for points without coordinates
         };
-      })
-      .filter((ap): ap is NonNullable<typeof ap> => ap !== null);
+      });
 
     return NextResponse.json({ accessPoints: formatted });
   } catch (error) {

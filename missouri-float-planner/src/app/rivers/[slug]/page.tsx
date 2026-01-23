@@ -82,10 +82,25 @@ export default function RiverPage() {
 
   // Handle map marker click - set as put-in or take-out
   const handleMarkerClick = useCallback((point: AccessPoint) => {
+    // If clicking the current put-in, deselect it
+    if (point.id === selectedPutIn) {
+      setSelectedPutIn(null);
+      setSelectedTakeOut(null); // Also clear take-out
+      setShowPlan(false);
+      return;
+    }
+
+    // If clicking the current take-out, deselect it
+    if (point.id === selectedTakeOut) {
+      setSelectedTakeOut(null);
+      setShowPlan(false);
+      return;
+    }
+
     if (!selectedPutIn) {
       // No put-in selected - set this as put-in
       setSelectedPutIn(point.id);
-    } else if (!selectedTakeOut && point.id !== selectedPutIn) {
+    } else if (!selectedTakeOut) {
       // Put-in selected but no take-out - set this as take-out
       // Show warning if upstream, but still allow selection
       if (accessPoints) {
@@ -96,7 +111,14 @@ export default function RiverPage() {
       }
       setSelectedTakeOut(point.id);
     } else {
-      // Both selected - ignore until cleared
+      // Both selected - clicking a new point changes the take-out
+      if (accessPoints) {
+        const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
+        if (putInPoint && point.riverMile < putInPoint.riverMile) {
+          setUpstreamWarning('This take-out is upstream of your put-in. You will be paddling against the current.');
+        }
+      }
+      setSelectedTakeOut(point.id);
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut]);
 

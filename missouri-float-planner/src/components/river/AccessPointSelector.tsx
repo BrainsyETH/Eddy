@@ -9,7 +9,7 @@ import type { AccessPoint } from '@/types/api';
 interface AccessPointSelectorProps {
   accessPoints: AccessPoint[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
   placeholder?: string;
   excludeId?: string | null;
   referenceMile?: number | null;
@@ -77,8 +77,8 @@ export default function AccessPointSelector({
           {selectedPoint ? (
             <>
               <span className="text-xl">
-                {selectedPoint.type === 'boat_ramp' ? '🚤' : 
-                 selectedPoint.type === 'campground' ? '🏕️' : 
+                {selectedPoint.type === 'boat_ramp' ? '🚤' :
+                 selectedPoint.type === 'campground' ? '🏕️' :
                  selectedPoint.type === 'bridge' ? '🌉' : '📍'}
               </span>
               <div>
@@ -92,6 +92,22 @@ export default function AccessPointSelector({
             <span className="text-bluff-500">{placeholder}</span>
           )}
         </div>
+        {selectedPoint && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSelect(null);
+            }}
+            className="p-1 hover:bg-bluff-100 rounded-full transition-colors"
+            title="Clear selection"
+          >
+            <svg className="w-4 h-4 text-bluff-400 hover:text-bluff-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
         <svg
           className={`w-5 h-5 text-bluff-500 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
