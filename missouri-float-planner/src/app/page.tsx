@@ -94,7 +94,10 @@ export default function Home() {
       setSelectedPutIn(null);
       setSelectedTakeOut(null);
       setShowPlan(false);
-      setShowRiverModal(true); // Auto-open modal when river is selected
+      // Only auto-open modal on desktop (1024px+), not on mobile
+      if (window.innerWidth >= 1024) {
+        setShowRiverModal(true);
+      }
     }
   }, [rivers]);
 

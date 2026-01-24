@@ -10,10 +10,10 @@ export async function GET() {
   try {
     const supabase = createAdminClient();
 
-    // Get all rivers
+    // Get all rivers (including inactive for admin)
     const { data: rivers, error } = await supabase
       .from('rivers')
-      .select('id, name, slug, length_miles')
+      .select('id, name, slug, length_miles, active')
       .order('name', { ascending: true });
 
     if (error) {
@@ -64,6 +64,7 @@ export async function GET() {
           slug: river.slug,
           lengthMiles: parseFloat(river.length_miles),
           geometry,
+          active: river.active ?? true,
         };
       })
     );

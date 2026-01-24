@@ -238,6 +238,13 @@ export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelec
               </div>
             )}
 
+            {/* Safety Disclaimer */}
+            <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
+              <p className="text-xs text-amber-200/90 leading-relaxed">
+                <span className="font-bold text-amber-300">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly due to weather upstream. This data is for planning purposes only and should not replace on-site assessment of conditions.
+              </p>
+            </div>
+
             {/* USGS Link */}
             {displayCondition.usgsUrl && (
               <a
