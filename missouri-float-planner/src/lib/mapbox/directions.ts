@@ -26,6 +26,13 @@ export interface MapboxDirectionsResponse {
   }>;
 }
 
+export interface MapboxGeocodingResponse {
+  features: Array<{
+    center: [number, number]; // [lng, lat]
+    place_name: string;
+  }>;
+}
+
 export interface DriveTimeResult {
   minutes: number;
   miles: number;
@@ -36,6 +43,50 @@ export interface DriveTimeResult {
 // Cache durations in seconds
 const CACHE_NORMAL = 2592000; // 30 days for normal conditions
 const CACHE_DANGEROUS = 3600; // 1 hour for high/dangerous conditions (potential road closures)
+
+/**
+ * Geocodes an address to coordinates using Mapbox Geocoding API
+ *
+ * @param address The address or place name to geocode
+ * @returns Coordinates [lng, lat] or null if not found
+ */
+export async function geocodeAddress(address: string): Promise<[number, number] | null> {
+  const accessToken = process.env.MAPBOX_ACCESS_TOKEN;
+
+  if (!accessToken) {
+    throw new Error('MAPBOX_ACCESS_TOKEN environment variable is not set');
+  }
+
+  const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json`);
+  url.searchParams.set('access_token', accessToken);
+  url.searchParams.set('limit', '1');
+  // Bias results toward Missouri
+  url.searchParams.set('proximity', '-91.5,37.5');
+  url.searchParams.set('country', 'US');
+
+  try {
+    const response = await fetch(url.toString(), {
+      next: { revalidate: CACHE_NORMAL }, // Cache for 30 days
+    });
+
+    if (!response.ok) {
+      console.error('Mapbox Geocoding API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json() as MapboxGeocodingResponse;
+
+    if (!data.features || data.features.length === 0) {
+      console.warn('No geocoding results for:', address);
+      return null;
+    }
+
+    return data.features[0].center;
+  } catch (error) {
+    console.error('Error geocoding address:', error);
+    return null;
+  }
+}
 
 /**
  * Calculates driving time and distance between two points using Mapbox Directions API
