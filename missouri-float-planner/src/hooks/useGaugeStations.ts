@@ -21,6 +21,8 @@ export function useGaugeStations() {
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch on tab focus (prevents flicker)
+    placeholderData: (previousData) => previousData, // Keep previous data during refetch
   });
 }
 

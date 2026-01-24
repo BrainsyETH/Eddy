@@ -13,14 +13,14 @@ export interface WeatherData {
 
 // Map river slugs to nearby cities for weather lookup
 const RIVER_CITY_MAP: Record<string, { city: string; lat: number; lon: number }> = {
-  'current-river': { city: 'Salem', lat: 37.6456, lon: -91.5354 },
+  'current': { city: 'Van Buren', lat: 36.9956, lon: -91.0146 },
   'meramec': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
   'eleven-point': { city: 'Alton', lat: 36.6942, lon: -91.3993 },
   'niangua': { city: 'Bennett Spring', lat: 37.7156, lon: -92.8564 },
   'jacks-fork': { city: 'Eminence', lat: 37.1481, lon: -91.3576 },
   'big-piney': { city: 'Licking', lat: 37.4992, lon: -91.8571 },
-  'huzzah-creek': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
-  'courtois-creek': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
+  'huzzah': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
+  'courtois': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
 };
 
 export function getCityForRiver(riverSlug: string): { city: string; lat: number; lon: number } | null {

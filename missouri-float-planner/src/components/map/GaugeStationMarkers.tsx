@@ -69,7 +69,7 @@ export default function GaugeStationMarkers({
       window.matchMedia &&
       window.matchMedia('(hover: hover)').matches;
 
-    if (!map || !gauges.length) return;
+    if (!map || !gauges || gauges.length === 0) return;
 
     // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove());
