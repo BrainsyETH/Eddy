@@ -6,7 +6,7 @@
 // URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
@@ -40,7 +40,6 @@ export default function RiverPage() {
   const params = useParams();
   const slug = params.slug as string;
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);

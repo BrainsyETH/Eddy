@@ -26,23 +26,33 @@ const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: s
   unknown: { bg: 'bg-bluff-100', text: 'text-bluff-600', icon: '?' },
 };
 
-// Safety Warning Component - displays when conditions are unknown
-function SafetyWarning() {
+// Dangerous Conditions Warning - displays when conditions are dangerous
+function DangerousWarning() {
   return (
-    <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-          <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
+    <div className="bg-red-50 border-2 border-red-400 rounded-xl p-3">
+      <div className="flex items-start gap-2">
+        <span className="text-lg flex-shrink-0">⚠️</span>
         <div>
-          <h4 className="font-bold text-amber-800">Conditions Unknown</h4>
-          <p className="text-sm text-amber-700 mt-1">
-            Current water conditions could not be determined. Float time estimates may be inaccurate.
+          <h4 className="font-bold text-red-800 text-sm">Dangerous Conditions</h4>
+          <p className="text-xs text-red-700 mt-0.5">
+            High water levels make floating extremely hazardous. Do not launch.
           </p>
-          <p className="text-sm font-medium text-amber-800 mt-2">
-            Please verify conditions locally before launching.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Unknown Conditions Warning - displays when conditions cannot be determined
+function UnknownConditionsWarning() {
+  return (
+    <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
+      <div className="flex items-start gap-2">
+        <span className="text-lg flex-shrink-0">❓</span>
+        <div>
+          <h4 className="font-bold text-amber-800 text-sm">Conditions Unknown</h4>
+          <p className="text-xs text-amber-700 mt-0.5">
+            Verify current conditions locally before launching.
           </p>
         </div>
       </div>
@@ -261,15 +271,13 @@ export default function PlanSummary({
                   <div className="w-4 h-4 border-2 border-river-water border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-sm text-river-water">...</p>
                 </div>
-              ) : displayPlan.condition.code === 'unknown' ? (
-                <p className="text-lg font-bold text-amber-600">Verify locally</p>
               ) : displayPlan.floatTime ? (
                 <>
                   <p className="text-xl font-bold text-river-water">{displayPlan.floatTime.formatted}</p>
                   <p className="text-xs text-river-gravel">{displayPlan.floatTime.speedMph} mph avg</p>
                 </>
               ) : (
-                <p className="text-sm text-red-400 font-medium">Not safe</p>
+                <p className="text-lg font-bold text-river-water">--</p>
               )}
             </div>
             <div>
@@ -338,8 +346,9 @@ export default function PlanSummary({
           </div>
         </div>
 
-        {/* Safety Warning for Unknown Conditions */}
-        {displayPlan.condition.code === 'unknown' && <SafetyWarning />}
+        {/* Condition Warnings */}
+        {displayPlan.condition.code === 'dangerous' && <DangerousWarning />}
+        {displayPlan.condition.code === 'unknown' && <UnknownConditionsWarning />}
 
         {/* Condition Badge */}
         <div className={`rounded-xl p-3 ${conditionStyle.bg}`}>

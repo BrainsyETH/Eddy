@@ -26,8 +26,9 @@ export function calculateFloatTime(
 
   switch (conditionCode) {
     case 'dangerous':
-      // Don't calculate for dangerous conditions
-      return null;
+      // Use high water speed for dangerous conditions (still fast due to high water)
+      speedMph = speeds.speedHighWater;
+      break;
 
     case 'high':
       speedMph = speeds.speedHighWater;
