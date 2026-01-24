@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getDriveTime } from '@/lib/mapbox/directions';
+// Drive time now comes from float_segments table (manually entered from Google Maps)
 import { calculateFloatTime, formatFloatTime, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 
@@ -180,80 +180,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get drive time (with caching)
-    let driveBack;
-    try {
-      // Check cache first
-      const { data: cached } = await supabase
-        .from('drive_time_cache')
-        .select('*')
-        .eq('start_access_id', endId) // Take-out to put-in
-        .eq('end_access_id', startId)
-        .gt('expires_at', new Date().toISOString())
-        .single();
-
-      if (cached) {
-        console.log('[DriveTime] Using cached data:', cached);
-        driveBack = {
-          minutes: Math.round(parseFloat(cached.drive_minutes)),
-          miles: parseFloat(cached.drive_miles),
-          formatted: formatDriveTime(Math.round(parseFloat(cached.drive_minutes))),
-          routeSummary: cached.route_summary,
-        };
-      } else {
-        // Fetch from Mapbox using database coordinates
-        // Note: directions_override is only used for Google Maps links in the UI,
-        // not for drive time calculation (to avoid geocoding discrepancies)
-        const putInCoords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
-        const takeOutCoords = takeOut.location_snap?.coordinates || takeOut.location_orig?.coordinates;
-
-        if (!putInCoords || !takeOutCoords) {
-          throw new Error('Missing coordinates');
-        }
-
-        const [putInLng, putInLat] = putInCoords;
-        const [takeOutLng, takeOutLat] = takeOutCoords;
-
-        console.log('[DriveTime] Using database coords - Put-in:', { putInLng, putInLat }, 'Take-out:', { takeOutLng, takeOutLat });
-
-        // Pass condition code to enable shorter cache for dangerous conditions
-        const driveResult = await getDriveTime(
-          takeOutLng,
-          takeOutLat,
-          putInLng,
-          putInLat,
-          conditionCode
-        );
-
-        console.log('[DriveTime] Mapbox result:', driveResult);
-
-        // Cache the result
-        await supabase.from('drive_time_cache').upsert({
-          start_access_id: endId,
-          end_access_id: startId,
-          drive_minutes: driveResult.minutes,
-          drive_miles: driveResult.miles,
-          route_summary: driveResult.routeSummary,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-        });
-
-        driveBack = {
-          minutes: driveResult.minutes,
-          miles: driveResult.miles,
-          formatted: formatDriveTime(driveResult.minutes),
-          routeSummary: driveResult.routeSummary,
-        };
-      }
-    } catch (error) {
-      console.error('Error calculating drive time:', error);
-      // Fallback to estimated drive time
-      driveBack = {
-        minutes: 0,
-        miles: 0,
-        formatted: 'Unknown',
-        routeSummary: null,
-      };
-    }
+    // Get shuttle drive time from float_segments (manually entered from Google Maps)
+    const segmentData0 = segmentTime?.[0];
+    const driveBack = {
+      minutes: segmentData0?.shuttle_time_minutes || 0,
+      miles: segmentData0?.shuttle_distance_miles ? parseFloat(segmentData0.shuttle_distance_miles) : 0,
+      formatted: segmentData0?.shuttle_time_minutes
+        ? formatDriveTime(segmentData0.shuttle_time_minutes)
+        : 'Not set',
+      routeSummary: null,
+    };
 
     // Get hazards along the route
     const startMile = parseFloat(segmentData.start_river_mile);
