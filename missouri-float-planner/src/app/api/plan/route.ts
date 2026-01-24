@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-// Drive time now comes from float_segments table (manually entered from Google Maps)
+import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { calculateFloatTime, formatFloatTime, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 
@@ -180,16 +180,71 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get shuttle drive time from float_segments (manually entered from Google Maps)
-    const segmentData0 = segmentTime?.[0];
-    const driveBack = {
-      minutes: segmentData0?.shuttle_time_minutes || 0,
-      miles: segmentData0?.shuttle_distance_miles ? parseFloat(segmentData0.shuttle_distance_miles) : 0,
-      formatted: segmentData0?.shuttle_time_minutes
-        ? formatDriveTime(segmentData0.shuttle_time_minutes)
-        : 'Not set',
-      routeSummary: null,
-    };
+    // Get shuttle drive time using Mapbox Directions API
+    // Priority: directions_override (geocoded) > database coordinates
+    let driveBack;
+    try {
+      let putInLng: number, putInLat: number;
+      let takeOutLng: number, takeOutLat: number;
+
+      // Get put-in coordinates (try directions_override first, then database coords)
+      if (putIn.directions_override) {
+        const geocoded = await geocodeAddress(putIn.directions_override);
+        if (geocoded) {
+          [putInLng, putInLat] = geocoded;
+        } else {
+          // Geocoding failed, fall back to database coordinates
+          const coords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+          if (!coords) throw new Error('Missing put-in coordinates');
+          [putInLng, putInLat] = coords;
+        }
+      } else {
+        const coords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+        if (!coords) throw new Error('Missing put-in coordinates');
+        [putInLng, putInLat] = coords;
+      }
+
+      // Get take-out coordinates (try directions_override first, then database coords)
+      if (takeOut.directions_override) {
+        const geocoded = await geocodeAddress(takeOut.directions_override);
+        if (geocoded) {
+          [takeOutLng, takeOutLat] = geocoded;
+        } else {
+          // Geocoding failed, fall back to database coordinates
+          const coords = takeOut.location_snap?.coordinates || takeOut.location_orig?.coordinates;
+          if (!coords) throw new Error('Missing take-out coordinates');
+          [takeOutLng, takeOutLat] = coords;
+        }
+      } else {
+        const coords = takeOut.location_snap?.coordinates || takeOut.location_orig?.coordinates;
+        if (!coords) throw new Error('Missing take-out coordinates');
+        [takeOutLng, takeOutLat] = coords;
+      }
+
+      // Call Mapbox Directions API (shuttle goes take-out -> put-in)
+      const driveResult = await getDriveTime(
+        takeOutLng,
+        takeOutLat,
+        putInLng,
+        putInLat,
+        conditionCode
+      );
+
+      driveBack = {
+        minutes: driveResult.minutes,
+        miles: driveResult.miles,
+        formatted: formatDriveTime(driveResult.minutes),
+        routeSummary: driveResult.routeSummary,
+      };
+    } catch (error) {
+      console.error('Error calculating drive time:', error);
+      driveBack = {
+        minutes: 0,
+        miles: 0,
+        formatted: 'Unknown',
+        routeSummary: null,
+      };
+    }
 
     // Get hazards along the route
     const startMile = parseFloat(segmentData.start_river_mile);

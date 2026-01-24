@@ -103,6 +103,7 @@ export default function MapContainer({
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('liberty');
   const [showStylePicker, setShowStylePicker] = useState(false);
+  const [legendExpanded, setLegendExpanded] = useState(false);
   const radarSourceId = 'rainviewer-radar';
   const radarLayerId = 'rainviewer-radar-layer';
 
@@ -384,10 +385,10 @@ export default function MapContainer({
         )}
       </div>
 
-      {/* Weather Overlay Toggle Button */}
+      {/* Weather Overlay Toggle Button - moved left on desktop to avoid zoom controls */}
       <button
         onClick={toggleWeather}
-        className={`absolute top-[168px] right-2.5 z-10 p-2 rounded-lg shadow-lg transition-all ${
+        className={`absolute top-[168px] right-2.5 md:right-12 z-10 p-2 rounded-lg shadow-lg transition-all ${
           weatherEnabled
             ? 'bg-river-water text-white'
             : 'bg-white/90 text-gray-700 hover:bg-white'
@@ -417,16 +418,32 @@ export default function MapContainer({
         </div>
       )}
 
+      {/* Collapsible Map Legend - default minimized */}
       {showLegend && (
-        <div className="absolute bottom-2 right-2 z-10 rounded-xl border border-white/10 bg-river-night/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur">
-          <p className="text-[11px] font-semibold text-river-gravel mb-1">Map Legend</p>
-          <div className="flex flex-col gap-1">
-            <LegendItem color="#478559" label="Put-in" />
-            <LegendItem color="#f95d9b" label="Take-out" />
-            <LegendItem color="#c7b8a6" label="Access point" />
-            <LegendItem color="#22c55e" label="Route (downstream)" />
-            <LegendItem color="#ef4444" label="Route (upstream)" />
-          </div>
+        <div className="absolute bottom-2 right-2 z-10 rounded-xl border border-white/10 bg-river-night/80 text-xs text-white shadow-lg backdrop-blur">
+          <button
+            onClick={() => setLegendExpanded(!legendExpanded)}
+            className="flex items-center gap-2 px-3 py-2 w-full hover:bg-white/5 transition-colors rounded-xl"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform ${legendExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+            <span className="text-[11px] font-semibold text-river-gravel">Legend</span>
+          </button>
+          {legendExpanded && (
+            <div className="flex flex-col gap-1 px-3 pb-2">
+              <LegendItem color="#478559" label="Put-in" />
+              <LegendItem color="#f95d9b" label="Take-out" />
+              <LegendItem color="#c7b8a6" label="Access point" />
+              <LegendItem color="#22c55e" label="Route (downstream)" />
+              <LegendItem color="#ef4444" label="Route (upstream)" />
+            </div>
+          )}
         </div>
       )}
     </div>
