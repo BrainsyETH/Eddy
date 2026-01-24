@@ -6,9 +6,12 @@
 import { useState } from 'react';
 import type { RiverCondition, FlowRating } from '@/types/api';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
+import FlowTrendChart from './FlowTrendChart';
+import WeatherForecast from './WeatherForecast';
 
 interface ConditionsBlockProps {
   riverId: string;
+  riverSlug?: string;
   condition: RiverCondition | null;
   nearestGauge?: GaugeStation | null;
   hasPutInSelected?: boolean;
@@ -98,7 +101,7 @@ const FLOW_RATING_DETAILS: Record<FlowRating, {
   },
 };
 
-export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelected, isLoading }: ConditionsBlockProps) {
+export default function ConditionsBlock({ riverSlug, condition, nearestGauge, hasPutInSelected, isLoading }: ConditionsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Use the condition passed from parent (which is segment-aware when put-in is selected)
@@ -268,6 +271,16 @@ export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelec
                 : 'Recent reading'}
             </p>
           </div>
+        )}
+
+        {/* 7-Day Flow Trend */}
+        {displayCondition.gaugeUsgsId && (
+          <FlowTrendChart gaugeSiteId={displayCondition.gaugeUsgsId} />
+        )}
+
+        {/* 5-Day Weather Forecast */}
+        {riverSlug && (
+          <WeatherForecast riverSlug={riverSlug} />
         )}
 
         {/* Nearest Gauge (only show if different from main gauge) */}
