@@ -8,7 +8,6 @@ import dynamic from 'next/dynamic';
 import { Waves } from 'lucide-react';
 import RiverSelector from '@/components/ui/RiverSelector';
 import PlanSummary from '@/components/plan/PlanSummary';
-import ConditionsPanel from '@/components/ui/ConditionsPanel';
 import RiverOverviewPanel from '@/components/river/RiverOverviewPanel';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -243,11 +242,8 @@ export default function Home() {
 
       {/* Main content area - split layout */}
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
-        {/* Left sidebar - Conditions and info */}
+        {/* Left sidebar - Plan summary only */}
         <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 overflow-y-auto scrollbar-thin order-2 lg:order-1">
-          {/* Conditions Panel */}
-          <ConditionsPanel riverId={selectedRiverId} />
-          
           {/* Plan Summary (when available) */}
           {showPlan && (
             <PlanSummary
