@@ -303,6 +303,7 @@ export async function GET(request: NextRequest) {
         parkingInfo: putIn.parking_info,
         feeRequired: putIn.fee_required,
         feeNotes: putIn.fee_notes,
+        directionsOverride: putIn.directions_override || null,
         coordinates: {
           lng: putIn.location_snap?.coordinates?.[0] || putIn.location_orig?.coordinates?.[0] || 0,
           lat: putIn.location_snap?.coordinates?.[1] || putIn.location_orig?.coordinates?.[1] || 0,
@@ -322,6 +323,7 @@ export async function GET(request: NextRequest) {
         parkingInfo: takeOut.parking_info,
         feeRequired: takeOut.fee_required,
         feeNotes: takeOut.fee_notes,
+        directionsOverride: takeOut.directions_override || null,
         coordinates: {
           lng: takeOut.location_snap?.coordinates?.[0] || takeOut.location_orig?.coordinates?.[0] || 0,
           lat: takeOut.location_snap?.coordinates?.[1] || takeOut.location_orig?.coordinates?.[1] || 0,

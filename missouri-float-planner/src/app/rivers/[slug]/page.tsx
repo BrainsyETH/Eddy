@@ -3,9 +3,10 @@
 // src/app/rivers/[slug]/page.tsx
 // River detail page with full planning experience
 // State is managed here to enable map/planner integration
+// URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
@@ -38,6 +39,8 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 export default function RiverPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
@@ -46,27 +49,79 @@ export default function RiverPage() {
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
 
+  // Read initial state from URL params
+  const urlPutIn = searchParams.get('putIn');
+  const urlTakeOut = searchParams.get('takeOut');
+  const urlVessel = searchParams.get('vessel');
+
   // Lifted state for planner/map integration
-  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(null);
-  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(null);
+  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(urlPutIn);
+  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
+  const [urlInitialized, setUrlInitialized] = useState(false);
 
-  // Set default vessel type
+  // Update URL when state changes (without causing navigation)
+  const updateUrl = useCallback((putIn: string | null, takeOut: string | null, vessel: string | null) => {
+    const params = new URLSearchParams();
+    if (putIn) params.set('putIn', putIn);
+    if (takeOut) params.set('takeOut', takeOut);
+    if (vessel) params.set('vessel', vessel);
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+
+    // Use replaceState to avoid adding to browser history on every selection
+    window.history.replaceState(null, '', newUrl);
+  }, []);
+
+  // Sync URL when selections change
+  useEffect(() => {
+    if (urlInitialized) {
+      updateUrl(selectedPutIn, selectedTakeOut, selectedVesselTypeId);
+    }
+  }, [selectedPutIn, selectedTakeOut, selectedVesselTypeId, urlInitialized, updateUrl]);
+
+  // Set default vessel type (from URL or default to canoe)
   useEffect(() => {
     if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
+      // Check if URL has a vessel param that matches
+      if (urlVessel) {
+        const urlVesselType = vesselTypes.find(v => v.id === urlVessel || v.slug === urlVessel);
+        if (urlVesselType) {
+          setSelectedVesselTypeId(urlVesselType.id);
+          setUrlInitialized(true);
+          return;
+        }
+      }
+      // Default to canoe
       const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
       setSelectedVesselTypeId(defaultVessel.id);
+      setUrlInitialized(true);
     }
-  }, [vesselTypes, selectedVesselTypeId]);
+  }, [vesselTypes, selectedVesselTypeId, urlVessel]);
 
-  // Auto-show plan when both selected
+  // Auto-show plan when both selected (including from URL params)
   useEffect(() => {
     if (selectedPutIn && selectedTakeOut && !showPlan) {
       setShowPlan(true);
     }
   }, [selectedPutIn, selectedTakeOut, showPlan]);
+
+  // Validate URL params against actual access points
+  useEffect(() => {
+    if (accessPoints && accessPoints.length > 0 && urlInitialized) {
+      // Validate putIn exists
+      if (selectedPutIn && !accessPoints.find(ap => ap.id === selectedPutIn)) {
+        setSelectedPutIn(null);
+      }
+      // Validate takeOut exists
+      if (selectedTakeOut && !accessPoints.find(ap => ap.id === selectedTakeOut)) {
+        setSelectedTakeOut(null);
+      }
+    }
+  }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
 
   // Calculate plan
   const planParams = (river && selectedPutIn && selectedTakeOut)

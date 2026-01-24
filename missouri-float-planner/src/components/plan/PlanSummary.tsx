@@ -218,15 +218,81 @@ export default function PlanSummary({
           </div>
         </div>
 
-        {/* Google Maps Navigation Section */}
+        {/* Float Time & Distance Section */}
+        <div className="bg-river-water/10 rounded-xl p-4 border border-river-water/20">
+          {/* Header with vessel toggle */}
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-river-water uppercase tracking-wide">Float Details</p>
+            {/* Canoe/Raft Toggle */}
+            {canoeVessel && raftVessel && (
+              <div className="flex items-center bg-river-deep/80 rounded-lg p-0.5 border border-white/10">
+                <button
+                  onClick={() => handleVesselChange(canoeVessel.id)}
+                  disabled={recalculating}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded transition-all ${
+                    selectedVesselTypeId === canoeVessel.id
+                      ? 'bg-river-water text-white shadow-sm'
+                      : 'text-river-gravel hover:text-white hover:bg-white/10'
+                  } ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Canoe
+                </button>
+                <button
+                  onClick={() => handleVesselChange(raftVessel.id)}
+                  disabled={recalculating}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded transition-all ${
+                    selectedVesselTypeId === raftVessel.id
+                      ? 'bg-river-water text-white shadow-sm'
+                      : 'text-river-gravel hover:text-white hover:bg-white/10'
+                  } ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Raft
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Float time and distance grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-river-gravel mb-1">Time</p>
+              {recalculating ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-river-water border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm text-river-water">...</p>
+                </div>
+              ) : displayPlan.condition.code === 'unknown' ? (
+                <p className="text-lg font-bold text-amber-600">Verify locally</p>
+              ) : displayPlan.floatTime ? (
+                <>
+                  <p className="text-xl font-bold text-river-water">{displayPlan.floatTime.formatted}</p>
+                  <p className="text-xs text-river-gravel">{displayPlan.floatTime.speedMph} mph avg</p>
+                </>
+              ) : (
+                <p className="text-sm text-red-400 font-medium">Not safe</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-river-gravel mb-1">Distance</p>
+              <p className="text-xl font-bold text-river-water">{displayPlan.distance.formatted}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Shuttle & Driving Directions Section */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-          <p className="text-xs font-medium text-blue-800 uppercase tracking-wide mb-3 flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Driving Directions
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-blue-800 uppercase tracking-wide flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              Shuttle
+            </p>
+            <div className="text-right">
+              <p className="text-sm font-bold text-blue-800">{displayPlan.driveBack.formatted}</p>
+              <p className="text-xs text-blue-600">{displayPlan.driveBack.miles.toFixed(1)} mi drive</p>
+            </div>
+          </div>
           <div className="space-y-2">
             {/* Directions to Put-In */}
             <a
@@ -236,7 +302,7 @@ export default function PlanSummary({
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-3 py-2.5 bg-white border border-blue-200 rounded-lg text-sm text-blue-800 font-medium hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm text-blue-800 font-medium hover:bg-blue-100 transition-colors"
             >
               <span className="w-2.5 h-2.5 rounded-full bg-river-forest flex-shrink-0"></span>
               Directions to Put-In
@@ -244,7 +310,7 @@ export default function PlanSummary({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
-            {/* Shuttle: Put-In to Take-Out (drop off car before float) */}
+            {/* Shuttle: Put-In to Take-Out */}
             <a
               href={(() => {
                 const origin = displayPlan.putIn.directionsOverride
@@ -257,85 +323,18 @@ export default function PlanSummary({
               })()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               <span className="flex items-center gap-1 flex-shrink-0">
                 <span className="w-2 h-2 rounded-full bg-river-forest"></span>
                 <span className="text-blue-200">→</span>
                 <span className="w-2 h-2 rounded-full bg-sky-warm"></span>
               </span>
-              Shuttle: Put-In → Take-Out
+              Shuttle Route
               <svg className="w-4 h-4 ml-auto text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Distance */}
-          <div className="bg-bluff-50 rounded-xl p-3">
-            <p className="text-xs font-medium text-bluff-500 uppercase tracking-wide">Distance</p>
-            <p className="text-xl font-bold text-ozark-800">{displayPlan.distance.formatted}</p>
-            <div className="mt-2 pt-2 border-t border-bluff-200">
-              <p className="text-xs font-medium text-bluff-500 uppercase tracking-wide">ETA (one way)</p>
-              <p className="text-lg font-bold text-ozark-800">{displayPlan.driveBack.formatted}</p>
-              <p className="text-sm text-bluff-500">{displayPlan.driveBack.miles.toFixed(1)} miles</p>
-            </div>
-          </div>
-
-          {/* Float Time */}
-          <div className="bg-river-water/10 rounded-xl p-4 border border-river-water/20">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium text-river-water uppercase tracking-wide">Float Time</p>
-              {/* Canoe/Raft Toggle - Improved padding */}
-              {canoeVessel && raftVessel && (
-                <div className="flex items-center bg-river-deep/80 rounded-lg p-1 border border-white/10">
-                  <button
-                    onClick={() => handleVesselChange(canoeVessel.id)}
-                    disabled={recalculating}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                      selectedVesselTypeId === canoeVessel.id
-                        ? 'bg-river-water text-white shadow-sm'
-                        : 'text-river-gravel hover:text-white hover:bg-white/10'
-                    } ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    Canoe
-                  </button>
-                  <button
-                    onClick={() => handleVesselChange(raftVessel.id)}
-                    disabled={recalculating}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                      selectedVesselTypeId === raftVessel.id
-                        ? 'bg-river-water text-white shadow-sm'
-                        : 'text-river-gravel hover:text-white hover:bg-white/10'
-                    } ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    Raft
-                  </button>
-                </div>
-              )}
-            </div>
-            {recalculating ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-river-water border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm text-river-water">Recalculating...</p>
-              </div>
-            ) : displayPlan.condition.code === 'unknown' ? (
-              // Show verify locally message for unknown conditions
-              <div>
-                <p className="text-sm text-amber-600 font-medium">Verify locally</p>
-                <p className="text-xs text-bluff-500 mt-1">Conditions unknown</p>
-              </div>
-            ) : displayPlan.floatTime ? (
-              <>
-                <p className="text-xl font-bold text-river-water">{displayPlan.floatTime.formatted}</p>
-                <p className="text-xs text-river-gravel">{displayPlan.floatTime.speedMph} mph avg</p>
-              </>
-            ) : (
-              <p className="text-sm text-red-400 font-medium">Not safe to float</p>
-            )}
           </div>
         </div>
 

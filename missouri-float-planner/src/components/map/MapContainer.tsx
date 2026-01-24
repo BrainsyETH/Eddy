@@ -352,8 +352,8 @@ export default function MapContainer({
         <MapProvider map={map.current}>{children}</MapProvider>
       )}
       
-      {/* Map Style Picker */}
-      <div className="absolute top-20 right-2 z-10">
+      {/* Map Style Picker - positioned below MapLibre navigation controls */}
+      <div className="absolute top-[120px] right-2.5 z-10">
         <button
           onClick={() => setShowStylePicker(!showStylePicker)}
           className={`p-2 rounded-lg shadow-lg transition-all ${
@@ -387,7 +387,7 @@ export default function MapContainer({
       {/* Weather Overlay Toggle Button */}
       <button
         onClick={toggleWeather}
-        className={`absolute top-32 right-2 z-10 p-2 rounded-lg shadow-lg transition-all ${
+        className={`absolute top-[168px] right-2.5 z-10 p-2 rounded-lg shadow-lg transition-all ${
           weatherEnabled
             ? 'bg-river-water text-white'
             : 'bg-white/90 text-gray-700 hover:bg-white'
