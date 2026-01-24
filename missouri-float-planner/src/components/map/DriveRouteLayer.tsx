@@ -58,9 +58,9 @@ export default function DriveRouteLayer({
         return;
       }
 
-      // Blue color for driving route
-      const routeColor = '#3b82f6'; // blue-500
-      const glowColor = 'rgba(59, 130, 246, 0.4)';
+      // Orange color for driving route (distinct from blue river)
+      const routeColor = '#f97316'; // orange-500
+      const outlineColor = '#ffffff';
 
       const geojsonData: GeoJSON.Feature = {
         type: 'Feature',
@@ -88,24 +88,27 @@ export default function DriveRouteLayer({
         return;
       }
 
-      // Add glow layer
+      // Add white outline/casing layer for visibility
       try {
         map.addLayer({
           id: DRIVE_GLOW_LAYER_ID,
           type: 'line',
           source: DRIVE_SOURCE_ID,
           paint: {
-            'line-color': glowColor,
-            'line-width': 8,
-            'line-opacity': 0.6,
-            'line-blur': 2,
+            'line-color': outlineColor,
+            'line-width': 6,
+            'line-opacity': 0.8,
+          },
+          layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
           },
         });
       } catch (err) {
-        console.warn('Error adding drive route glow layer:', err);
+        console.warn('Error adding drive route outline layer:', err);
       }
 
-      // Add main route layer
+      // Add main route layer with prominent dashed pattern
       try {
         map.addLayer({
           id: DRIVE_LAYER_ID,
@@ -113,12 +116,12 @@ export default function DriveRouteLayer({
           source: DRIVE_SOURCE_ID,
           paint: {
             'line-color': routeColor,
-            'line-width': 3,
-            'line-opacity': 0.9,
-            'line-dasharray': [2, 2],
+            'line-width': 4,
+            'line-opacity': 1,
+            'line-dasharray': [3, 2],
           },
           layout: {
-            'line-cap': 'round',
+            'line-cap': 'butt',
             'line-join': 'round',
           },
         });
