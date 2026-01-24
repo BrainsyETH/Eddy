@@ -96,10 +96,18 @@ function UnknownConditionsWarning() {
   );
 }
 
-// Condition Badge with flow rating - tap to expand for details
-function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+// Flow rating explanations
+const FLOW_EXPLANATIONS: Record<FlowRating, string> = {
+  good: 'Ideal for floating - water levels are near normal for this time of year.',
+  low: 'Expect some dragging in shallow riffles. Still floatable.',
+  poor: 'Very low water - frequent dragging and portaging likely.',
+  high: 'Fast current with stronger hydraulics. Experienced paddlers only.',
+  flood: 'Dangerous flooding conditions. Do not float.',
+  unknown: 'Check conditions locally before launching.',
+};
 
+// Compact River Conditions component with inline explanation
+function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
   // Use flow rating if available, otherwise fall back to legacy code mapping
   const flowRating: FlowRating = condition.flowRating ||
     (condition.code === 'optimal' ? 'good' :
@@ -111,127 +119,64 @@ function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
   const displayDescription = condition.flowDescription || condition.label || 'Unknown Conditions';
 
   return (
-    <div className="space-y-2">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full rounded-xl p-3 ${ratingConfig.bgClass} ${ratingConfig.textClass} border-2 ${ratingConfig.borderClass} transition-all hover:opacity-95 active:scale-[0.99] text-left`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{ratingConfig.emoji}</span>
-            <div>
-              <p className="font-bold text-base">{displayDescription}</p>
-              {condition.gaugeName && (
-                <p className="text-xs opacity-80">{condition.gaugeName}</p>
-              )}
-            </div>
+    <div className={`rounded-xl overflow-hidden border-2 ${ratingConfig.borderClass}`}>
+      {/* Header with rating */}
+      <div className={`${ratingConfig.bgClass} ${ratingConfig.textClass} p-3`}>
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{ratingConfig.emoji}</span>
+          <div className="flex-1">
+            <p className="font-bold text-base">{displayDescription}</p>
+            <p className="text-xs opacity-80">{FLOW_EXPLANATIONS[flowRating]}</p>
           </div>
-          <svg
-            className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
         </div>
+      </div>
 
-        {/* Quick stats row */}
-        <div className="flex gap-4 mt-2 pt-2 border-t border-current/20 text-sm">
-          <div>
-            <span className="opacity-70">Discharge:</span>{' '}
-            <span className="font-semibold">
-              {condition.dischargeCfs !== null ? `${condition.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
+      {/* Stats and gauge info */}
+      <div className="bg-gray-50 p-3 space-y-2">
+        {/* Gauge readings */}
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex gap-4">
+            <span className="text-gray-600">
+              <span className="font-medium">{condition.dischargeCfs?.toLocaleString() ?? '—'}</span> cfs
             </span>
-          </div>
-          <div>
-            <span className="opacity-70">Height:</span>{' '}
-            <span className="font-semibold">
-              {condition.gaugeHeightFt !== null ? `${condition.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
+            <span className="text-gray-600">
+              <span className="font-medium">{condition.gaugeHeightFt?.toFixed(2) ?? '—'}</span> ft
             </span>
+            {condition.percentile !== null && condition.percentile !== undefined && (
+              <span className="text-gray-600">
+                <span className="font-medium">{Math.round(condition.percentile)}%</span> percentile
+              </span>
+            )}
           </div>
-          {condition.percentile !== null && condition.percentile !== undefined && (
-            <div>
-              <span className="opacity-70">Percentile:</span>{' '}
-              <span className="font-semibold">{Math.round(condition.percentile)}%</span>
-            </div>
-          )}
         </div>
 
-        <p className="text-xs opacity-60 mt-1 text-center">Tap for details</p>
-      </button>
-
-      {/* Expanded details */}
-      {isExpanded && (
-        <div className="bg-gray-50 rounded-xl p-3 space-y-3 border border-gray-200 animate-in slide-in-from-top-2 duration-200">
-          {/* What this means */}
-          <div>
-            <h4 className="font-bold text-gray-800 text-sm mb-1">What This Means</h4>
-            <p className="text-xs text-gray-600">
-              {flowRating === 'good' && 'Water levels are near the historical median for this date - ideal for floating.'}
-              {flowRating === 'low' && 'Water levels are below typical for this date. Expect some dragging in riffles.'}
-              {flowRating === 'poor' && 'Water levels are very low. Frequent dragging and portaging likely.'}
-              {flowRating === 'high' && 'Water levels are above typical. Fast current - experienced paddlers only.'}
-              {flowRating === 'flood' && 'Dangerous flooding conditions. Do not float.'}
-              {flowRating === 'unknown' && 'Unable to determine conditions. Check locally before launching.'}
-            </p>
+        {/* Gauge name with USGS link */}
+        {condition.gaugeName && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-500">{condition.gaugeName}</span>
+            {condition.usgsUrl && (
+              <a
+                href={condition.usgsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              >
+                USGS Data
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
           </div>
+        )}
 
-          {/* Percentile visualization */}
-          {condition.percentile !== null && condition.percentile !== undefined && (
-            <div>
-              <h4 className="font-bold text-gray-800 text-sm mb-2">How This Compares</h4>
-              <div className="relative h-6 bg-gradient-to-r from-gray-400 via-amber-400 via-emerald-400 via-orange-400 to-red-500 rounded-full overflow-hidden">
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg"
-                  style={{ left: `${condition.percentile}%` }}
-                >
-                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs font-bold px-1.5 py-0.5 rounded whitespace-nowrap">
-                    {Math.round(condition.percentile)}%
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>Poor</span>
-                <span>Low</span>
-                <span>Good</span>
-                <span>High</span>
-                <span>Flood</span>
-              </div>
-              {condition.medianDischargeCfs && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Typical for today: ~{condition.medianDischargeCfs.toLocaleString()} cfs
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* USGS Link */}
-          {condition.usgsUrl && (
-            <a
-              href={condition.usgsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-sm transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="font-medium">View USGS Gauge Data</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
-          )}
-
-          {/* Accuracy warning */}
-          {condition.accuracyWarning && condition.accuracyWarningReason && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
-              <p className="text-xs text-orange-700">
-                <span className="font-bold">Note:</span> {condition.accuracyWarningReason}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Accuracy warning */}
+        {condition.accuracyWarning && condition.accuracyWarningReason && (
+          <p className="text-xs text-orange-600 bg-orange-50 rounded px-2 py-1">
+            ⚠ {condition.accuracyWarningReason}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
