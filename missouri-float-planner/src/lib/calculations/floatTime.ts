@@ -44,12 +44,12 @@ export function calculateFloatTime(
 
     case 'very_low':
       // Very low water slows down significantly
-      speedMph = speeds.speedLowWater * 0.75;
+      speedMph = speeds.speedLowWater * 0.95;
       break;
 
     case 'too_low':
       // Too low water is very slow
-      speedMph = speeds.speedLowWater * 0.5;
+      speedMph = speeds.speedLowWater * 0.87;
       break;
 
     case 'unknown':
