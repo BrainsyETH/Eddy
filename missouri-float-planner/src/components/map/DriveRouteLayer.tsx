@@ -1,32 +1,31 @@
 'use client';
 
 // src/components/map/DriveRouteLayer.tsx
-// Displays the shuttle driving route on the map
+// Displays the shuttle driving route on the map as a blue dashed line
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useMap } from './MapContainer';
 
 interface DriveRouteLayerProps {
   routeGeometry: GeoJSON.LineString | null;
 }
 
+const DRIVE_SOURCE_ID = 'drive-route-source';
+const DRIVE_LAYER_ID = 'drive-route-layer';
+const DRIVE_GLOW_LAYER_ID = 'drive-route-glow-layer';
+
 export default function DriveRouteLayer({
   routeGeometry,
 }: DriveRouteLayerProps) {
   const map = useMap();
-  const layersAddedRef = useRef(false);
 
   useEffect(() => {
     if (!map) return;
 
-    const driveSourceId = 'drive-route-source';
-    const driveLayerId = 'drive-route-layer';
-    const driveGlowLayerId = 'drive-route-glow-layer';
-
     // Helper to safely check if source exists
-    const hasSource = (id: string): boolean => {
+    const hasSource = (): boolean => {
       try {
-        return map.getSource(id) !== undefined;
+        return map.getSource(DRIVE_SOURCE_ID) !== undefined;
       } catch {
         return false;
       }
@@ -41,45 +40,47 @@ export default function DriveRouteLayer({
       }
     };
 
+    // Helper to clean up layers and source
+    const cleanup = () => {
+      try {
+        if (hasLayer(DRIVE_LAYER_ID)) map.removeLayer(DRIVE_LAYER_ID);
+        if (hasLayer(DRIVE_GLOW_LAYER_ID)) map.removeLayer(DRIVE_GLOW_LAYER_ID);
+        if (hasSource()) map.removeSource(DRIVE_SOURCE_ID);
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+
     // Function to add/update the drive route
-    const updateDriveRoute = () => {
-      // Remove existing layers/source if no route geometry
-      if (!routeGeometry) {
-        try {
-          if (hasLayer(driveLayerId)) map.removeLayer(driveLayerId);
-          if (hasLayer(driveGlowLayerId)) map.removeLayer(driveGlowLayerId);
-          if (hasSource(driveSourceId)) map.removeSource(driveSourceId);
-          layersAddedRef.current = false;
-        } catch (err) {
-          console.warn('Error removing drive route layers:', err);
-        }
+    const addDriveRoute = () => {
+      if (!routeGeometry || !routeGeometry.coordinates || routeGeometry.coordinates.length === 0) {
+        cleanup();
         return;
       }
 
-      // Blue color for driving route to distinguish from river route
+      // Blue color for driving route
       const routeColor = '#3b82f6'; // blue-500
-      const glowColor = 'rgba(59, 130, 246, 0.3)';
+      const glowColor = 'rgba(59, 130, 246, 0.4)';
 
-      // Update existing source or add new one
-      if (hasSource(driveSourceId)) {
+      const geojsonData: GeoJSON.Feature = {
+        type: 'Feature',
+        geometry: routeGeometry,
+        properties: {},
+      };
+
+      // Add or update source
+      if (hasSource()) {
         try {
-          (map.getSource(driveSourceId) as maplibregl.GeoJSONSource).setData({
-            type: 'Feature',
-            geometry: routeGeometry,
-            properties: {},
-          });
+          const source = map.getSource(DRIVE_SOURCE_ID) as maplibregl.GeoJSONSource;
+          source.setData(geojsonData);
         } catch (err) {
           console.warn('Error updating drive route source:', err);
         }
       } else {
         try {
-          map.addSource(driveSourceId, {
+          map.addSource(DRIVE_SOURCE_ID, {
             type: 'geojson',
-            data: {
-              type: 'Feature',
-              geometry: routeGeometry,
-              properties: {},
-            },
+            data: geojsonData,
           });
         } catch (err) {
           console.warn('Error adding drive route source:', err);
@@ -87,18 +88,18 @@ export default function DriveRouteLayer({
         }
       }
 
-      // Add layers if they don't exist
-      if (!hasLayer(driveGlowLayerId)) {
+      // Add glow layer if it doesn't exist
+      if (!hasLayer(DRIVE_GLOW_LAYER_ID)) {
         try {
           map.addLayer({
-            id: driveGlowLayerId,
+            id: DRIVE_GLOW_LAYER_ID,
             type: 'line',
-            source: driveSourceId,
+            source: DRIVE_SOURCE_ID,
             paint: {
               'line-color': glowColor,
-              'line-width': 10,
-              'line-opacity': 0.5,
-              'line-blur': 3,
+              'line-width': 8,
+              'line-opacity': 0.6,
+              'line-blur': 2,
             },
           });
         } catch (err) {
@@ -106,17 +107,18 @@ export default function DriveRouteLayer({
         }
       }
 
-      if (!hasLayer(driveLayerId)) {
+      // Add main route layer if it doesn't exist
+      if (!hasLayer(DRIVE_LAYER_ID)) {
         try {
           map.addLayer({
-            id: driveLayerId,
+            id: DRIVE_LAYER_ID,
             type: 'line',
-            source: driveSourceId,
+            source: DRIVE_SOURCE_ID,
             paint: {
               'line-color': routeColor,
-              'line-width': 4,
-              'line-opacity': 0.8,
-              'line-dasharray': [2, 1],
+              'line-width': 3,
+              'line-opacity': 0.9,
+              'line-dasharray': [2, 2],
             },
             layout: {
               'line-cap': 'round',
@@ -127,32 +129,29 @@ export default function DriveRouteLayer({
           console.warn('Error adding drive route layer:', err);
         }
       }
-
-      layersAddedRef.current = true;
     };
 
-    // Wait for map to be loaded
-    if (!map.loaded()) {
-      map.once('load', updateDriveRoute);
-      return () => {
-        map.off('load', updateDriveRoute);
-      };
-    }
-
-    // Map is loaded, update the route
-    updateDriveRoute();
-
-    // Cleanup only on unmount
-    return () => {
-      if (layersAddedRef.current) {
-        try {
-          if (hasLayer(driveLayerId)) map.removeLayer(driveLayerId);
-          if (hasLayer(driveGlowLayerId)) map.removeLayer(driveGlowLayerId);
-          if (hasSource(driveSourceId)) map.removeSource(driveSourceId);
-        } catch {
-          // Ignore cleanup errors
-        }
+    // Wait for map style to be loaded
+    const setupRoute = () => {
+      if (map.isStyleLoaded()) {
+        addDriveRoute();
+      } else {
+        map.once('style.load', addDriveRoute);
       }
+    };
+
+    // Handle style changes (style change removes all custom layers)
+    const handleStyleLoad = () => {
+      addDriveRoute();
+    };
+
+    setupRoute();
+    map.on('style.load', handleStyleLoad);
+
+    // Cleanup on unmount or when routeGeometry changes
+    return () => {
+      map.off('style.load', handleStyleLoad);
+      cleanup();
     };
   }, [map, routeGeometry]);
 
