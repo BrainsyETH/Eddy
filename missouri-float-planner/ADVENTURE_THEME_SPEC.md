@@ -1,392 +1,303 @@
-# Adventure Theme Design Spec
-
-## Overview
-
-A bright, optimistic "outdoor adventure" visual refresh inspired by mountain landscapes, alpine lakes, and sunrise vistas. The theme maintains the existing dark foundation while introducing warmer, more vibrant accent colors and layered depth through gradients and elevated surfaces.
-
----
+# Neo-Brutalist Adventure Theme
 
 ## Design Philosophy
 
-| Principle | Description |
-|-----------|-------------|
-| **Depth through layers** | Mountain silhouettes inspire stacked gradients that create visual depth |
-| **Warm optimism** | Coral and peach accents bring warmth to the deep indigo foundation |
-| **Water highlights** | Teal/blue for interactive elements mirrors calm lake reflections |
-| **Soft elevation** | Large border-radius and subtle glows make surfaces feel approachable |
-| **Natural contrast** | Deep nights meet warm dawns - dark backgrounds with vibrant accents |
+Raw, bold, unapologetic. Neo-brutalism meets outdoor adventure - combining the stark honesty of brutalist design with the energy of the outdoors. Hard shadows, thick borders, saturated colors, and bold typography create an interface that demands attention.
+
+**Core Principles:**
+- **Hard edges** - Solid offset shadows, no soft blurs
+- **Thick borders** - 2-4px black or dark borders on everything
+- **Flat & bold** - Saturated solid colors, minimal gradients
+- **High contrast** - Dark on light, light on dark, nothing subtle
+- **Chunky elements** - Generous padding, large touch targets
+- **Raw typography** - Bold weights, tight tracking, big sizes
 
 ---
 
 ## Color Palette
 
-### Primary Tokens (Adventure Theme)
-
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  FOUNDATIONS                                                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  Deep Indigo     #15143D   Base backgrounds, darkest layer      │
-│  Night Purple    #2B1F6B   Card backgrounds, elevated surfaces  │
-│  Mountain Violet #5144A8   Tertiary UI, subtle highlights       │
+│  Void           #0D0C1D   Deepest black-purple                  │
+│  Night          #1A1833   Primary dark background               │
+│  Slate          #2D2A4A   Elevated surfaces, cards              │
 ├─────────────────────────────────────────────────────────────────┤
-│  ACCENTS                                                         │
+│  PRIMARY ACCENT                                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│  Coral Accent    #F37A8A   Primary CTA, warm highlights         │
-│  Sunrise Peach   #F2B7A0   Secondary warm, hover states         │
+│  Coral Pop      #FF6B6B   Primary CTA, key actions              │
+│  Coral Light    #FF8E8E   Hover states                          │
 ├─────────────────────────────────────────────────────────────────┤
-│  FUNCTIONAL                                                      │
+│  SECONDARY ACCENTS                                               │
 ├─────────────────────────────────────────────────────────────────┤
-│  Teal Lake       #3AA0C9   River lines, interactive elements    │
-│  Green Treeline  #478559   Success states, put-in markers       │
+│  Electric Blue  #4ECDC4   Interactive, links, water             │
+│  Lime Punch     #A8E6CF   Success, positive states              │
+│  Gold Flash     #FFE66D   Warnings, highlights                  │
 ├─────────────────────────────────────────────────────────────────┤
-│  TEXT & NEUTRALS                                                 │
+│  NEUTRALS                                                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  Cloud White     #F7F6FB   Primary text on dark backgrounds     │
-│  Text Primary    #1E1B3A   Text on light backgrounds            │
-│  Text Muted      #6E6A8E   Secondary text, captions             │
-│  Mist Gray       #B8B5C9   Disabled states, borders             │
+│  White          #FFFFFF   Primary text on dark                  │
+│  Off-White      #F5F5F5   Secondary backgrounds                 │
+│  Gray           #6B6B8D   Muted text                            │
+│  Border Dark    #000000   Hard borders on light                 │
+│  Border Light   #FFFFFF   Hard borders on dark                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Color Mapping (Old → New)
-
-| Current Token | New Token | Hex Change |
-|---------------|-----------|------------|
-| `river-night` | `adventure-night` | `#0f132f` → `#15143D` |
-| `river-deep` | `adventure-deep` | `#161748` → `#2B1F6B` |
-| `sky-warm` | `adventure-coral` | `#f95d9b` → `#F37A8A` |
-| `sky-soft` | `adventure-peach` | `#f7a1c4` → `#F2B7A0` |
-| `river-water` | `adventure-lake` | `#39a0ca` → `#3AA0C9` |
-| `river-forest` | `adventure-forest` | `#478559` → `#478559` (unchanged) |
-| `river-gravel` | `adventure-mist` | `#c7b8a6` → `#B8B5C9` |
-
 ---
 
-## Gradient System
+## Shadow System
 
-### Background Gradients
+No soft shadows. Only hard, offset shadows that look like physical depth:
 
 ```css
-/* Hero Mountain Gradient - Multi-layered depth */
-gradient-mountain: linear-gradient(
-  180deg,
-  #15143D 0%,      /* Deep indigo sky */
-  #2B1F6B 30%,     /* Night purple mid */
-  #5144A8 60%,     /* Mountain violet */
-  #2B1F6B 85%,     /* Back to night */
-  #15143D 100%     /* Deep base */
-);
+/* Standard offset shadow */
+--shadow-brutal: 4px 4px 0 #000000;
+--shadow-brutal-sm: 2px 2px 0 #000000;
+--shadow-brutal-lg: 6px 6px 0 #000000;
+--shadow-brutal-xl: 8px 8px 0 #000000;
 
-/* Sunrise Horizon - Warm accent gradient */
-gradient-sunrise: linear-gradient(
-  180deg,
-  #F37A8A 0%,      /* Coral top */
-  #F2B7A0 50%,     /* Peach mid */
-  #5144A8 100%     /* Fade to violet */
-);
+/* Colored shadows for emphasis */
+--shadow-brutal-coral: 4px 4px 0 #FF6B6B;
+--shadow-brutal-blue: 4px 4px 0 #4ECDC4;
 
-/* Lake Reflection - Cool interactive gradient */
-gradient-lake: linear-gradient(
-  135deg,
-  #3AA0C9 0%,      /* Teal lake */
-  #478559 100%     /* Forest edge */
-);
-
-/* Card Overlay - Subtle depth */
-gradient-card-overlay: linear-gradient(
-  180deg,
-  rgba(255, 255, 255, 0.08) 0%,
-  rgba(255, 255, 255, 0) 100%
-);
+/* Inverted for dark backgrounds */
+--shadow-brutal-light: 4px 4px 0 rgba(255,255,255,0.3);
 ```
 
-### Text Gradients
+---
+
+## Border System
+
+Thick, visible borders are core to the aesthetic:
 
 ```css
-/* Adventure Title - Hero text */
-text-gradient-adventure: linear-gradient(
-  135deg,
-  #F37A8A 0%,
-  #F2B7A0 50%,
-  #3AA0C9 100%
-);
+/* Standard borders */
+--border-brutal: 3px solid #000000;
+--border-brutal-thick: 4px solid #000000;
+--border-brutal-light: 3px solid #FFFFFF;
 
-/* Lake Text - Subtle accent */
-text-gradient-lake: linear-gradient(
-  135deg,
-  #3AA0C9 0%,
-  #478559 100%
-);
+/* Colored borders */
+--border-coral: 3px solid #FF6B6B;
+--border-blue: 3px solid #4ECDC4;
 ```
 
 ---
 
-## Typography Scale
+## Typography
 
-### Font Sizes
+Bold and unapologetic:
 
-| Token | Size | Line Height | Use Case |
-|-------|------|-------------|----------|
-| `text-hero` | 4rem (64px) | 1.1 | Hero headlines |
-| `text-display` | 3rem (48px) | 1.15 | Section titles |
-| `text-heading` | 2rem (32px) | 1.2 | Card titles |
-| `text-subhead` | 1.5rem (24px) | 1.3 | Subsections |
-| `text-body-lg` | 1.125rem (18px) | 1.6 | Lead paragraphs |
-| `text-body` | 1rem (16px) | 1.6 | Body text |
-| `text-small` | 0.875rem (14px) | 1.5 | Captions, labels |
-| `text-micro` | 0.75rem (12px) | 1.4 | Tags, badges |
+| Token | Size | Weight | Use |
+|-------|------|--------|-----|
+| `text-brutal-hero` | 5rem | 900 | Hero headlines |
+| `text-brutal-display` | 3.5rem | 800 | Section titles |
+| `text-brutal-heading` | 2rem | 700 | Card titles |
+| `text-brutal-subhead` | 1.25rem | 700 | Subsections |
+| `text-brutal-body` | 1rem | 500 | Body text |
+| `text-brutal-small` | 0.875rem | 500 | Labels |
+| `text-brutal-micro` | 0.75rem | 600 | Tags, badges |
 
-### Font Weights
-
-```
-thin:       100
-light:      300
-normal:     400
-medium:     500
-semibold:   600
-bold:       700
-extrabold:  800
-```
-
-### Letter Spacing
-
-```
-tight:     -0.025em  /* Headlines */
-normal:     0        /* Body */
-wide:       0.025em  /* Buttons, labels */
-wider:      0.05em   /* All caps text */
-```
+**Letter spacing:** Tight (-0.02em to -0.04em) for headlines, normal for body.
 
 ---
 
-## Spacing Scale
+## Border Radius
 
-Using a 4px base unit with a harmonious scale:
-
-| Token | Value | Use Case |
-|-------|-------|----------|
-| `space-1` | 4px | Inline spacing, icon gaps |
-| `space-2` | 8px | Tight element spacing |
-| `space-3` | 12px | Button padding (vertical) |
-| `space-4` | 16px | Card padding, input padding |
-| `space-5` | 20px | Section padding (small) |
-| `space-6` | 24px | Card gaps |
-| `space-8` | 32px | Component spacing |
-| `space-10` | 40px | Section margins |
-| `space-12` | 48px | Large section gaps |
-| `space-16` | 64px | Hero padding |
-| `space-20` | 80px | Section breaks |
-| `space-24` | 96px | Major section padding |
-
----
-
-## Border Radius Scale
-
-Soft, organic shapes that feel approachable:
-
-| Token | Value | Use Case |
-|-------|-------|----------|
-| `rounded-sm` | 6px | Badges, small elements |
-| `rounded-md` | 10px | Inputs, small buttons |
-| `rounded-lg` | 16px | Cards, panels |
-| `rounded-xl` | 24px | Hero cards, modals |
-| `rounded-2xl` | 32px | Feature sections |
-| `rounded-full` | 9999px | Pills, avatars |
-
----
-
-## Shadow & Elevation
-
-### Shadows
+Neo-brutalism often uses sharp corners OR intentionally chunky rounded corners:
 
 ```css
-/* Subtle card shadow */
-shadow-card: 0 4px 16px rgba(21, 20, 61, 0.25);
-
-/* Elevated card (hover) */
-shadow-card-elevated: 0 8px 32px rgba(21, 20, 61, 0.35);
-
-/* Glow effects */
-shadow-glow-coral: 0 0 24px rgba(243, 122, 138, 0.3);
-shadow-glow-lake: 0 0 24px rgba(58, 160, 201, 0.3);
-shadow-glow-soft: 0 0 40px rgba(243, 122, 138, 0.15);
-
-/* Inner shadow for depth */
-shadow-inner-soft: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+--radius-none: 0;           /* Sharp, raw */
+--radius-brutal: 8px;       /* Slightly chunky */
+--radius-brutal-lg: 16px;   /* Noticeably rounded */
+--radius-pill: 9999px;      /* Pills and badges */
 ```
 
 ---
 
-## Component Specifications
+## Component Specs
 
 ### Buttons
 
-#### Primary Button (Coral)
 ```css
-.btn-adventure-primary {
-  background: linear-gradient(135deg, #F37A8A 0%, #E66B7B 100%);
+/* Primary - Coral with hard shadow */
+.btn-brutal {
+  background: #FF6B6B;
+  color: #000000;
+  border: 3px solid #000000;
+  padding: 14px 28px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0 #000000;
+  transition: all 0.1s ease;
+}
+
+.btn-brutal:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 #000000;
+}
+
+.btn-brutal:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000000;
+}
+
+/* Secondary - Outline style */
+.btn-brutal-outline {
+  background: transparent;
   color: #FFFFFF;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  box-shadow: 0 4px 16px rgba(243, 122, 138, 0.3);
-  transition: all 0.2s ease-out;
+  border: 3px solid #FFFFFF;
+  box-shadow: 4px 4px 0 rgba(255,255,255,0.3);
 }
 
-.btn-adventure-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(243, 122, 138, 0.4);
-}
-```
-
-#### Secondary Button (Lake)
-```css
-.btn-adventure-secondary {
+/* Ghost - Minimal */
+.btn-brutal-ghost {
   background: transparent;
-  color: #3AA0C9;
-  border: 2px solid rgba(58, 160, 201, 0.4);
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease-out;
-}
-
-.btn-adventure-secondary:hover {
-  background: rgba(58, 160, 201, 0.1);
-  border-color: #3AA0C9;
-}
-```
-
-#### Ghost Button
-```css
-.btn-adventure-ghost {
-  background: transparent;
-  color: #F7F6FB;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease-out;
-}
-
-.btn-adventure-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 ```
 
 ### Cards
 
-#### Standard Card
 ```css
-.card-adventure {
-  background: #2B1F6B;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+/* Standard card */
+.card-brutal {
+  background: #2D2A4A;
+  border: 3px solid #FFFFFF;
   padding: 24px;
-  box-shadow: 0 4px 16px rgba(21, 20, 61, 0.25);
-  transition: all 0.2s ease-out;
+  box-shadow: 6px 6px 0 rgba(255,255,255,0.2);
 }
 
-.card-adventure:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 32px rgba(21, 20, 61, 0.35);
-  border-color: rgba(58, 160, 201, 0.3);
-}
-```
-
-#### Feature Card (with gradient header)
-```css
-.card-adventure-feature {
-  background: linear-gradient(
-    180deg,
-    rgba(81, 68, 168, 0.3) 0%,
-    #2B1F6B 40%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
-  overflow: hidden;
-}
-```
-
-### Navigation
-
-```css
-.nav-adventure {
-  background: rgba(21, 20, 61, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+/* Feature card with accent border */
+.card-brutal-accent {
+  background: #2D2A4A;
+  border: 4px solid #FF6B6B;
+  box-shadow: 6px 6px 0 #FF6B6B;
 }
 
-.nav-link-adventure {
-  color: #B8B5C9;
-  font-weight: 500;
-  padding: 8px 16px;
-  border-radius: 8px;
-  transition: all 0.15s ease-out;
-}
-
-.nav-link-adventure:hover {
-  color: #F7F6FB;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.nav-link-adventure.active {
-  color: #F37A8A;
-  background: rgba(243, 122, 138, 0.1);
+/* Light card for contrast sections */
+.card-brutal-light {
+  background: #F5F5F5;
+  color: #0D0C1D;
+  border: 3px solid #000000;
+  box-shadow: 6px 6px 0 #000000;
 }
 ```
 
 ### Badges
 
 ```css
-/* Status badges */
-.badge-adventure-optimal {
-  background: rgba(71, 133, 89, 0.2);
-  color: #7EE7A0;
-  border: 1px solid rgba(71, 133, 89, 0.4);
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+.badge-brutal {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid currentColor;
+}
+
+/* Status variants */
+.badge-brutal-success { background: #A8E6CF; color: #000; border-color: #000; }
+.badge-brutal-warning { background: #FFE66D; color: #000; border-color: #000; }
+.badge-brutal-danger { background: #FF6B6B; color: #000; border-color: #000; }
+.badge-brutal-info { background: #4ECDC4; color: #000; border-color: #000; }
+```
+
+### Inputs
+
+```css
+.input-brutal {
+  background: #1A1833;
+  color: #FFFFFF;
+  border: 3px solid #FFFFFF;
+  padding: 14px 18px;
   font-weight: 500;
 }
 
-.badge-adventure-warning {
-  background: rgba(242, 183, 160, 0.2);
-  color: #F2B7A0;
-  border: 1px solid rgba(242, 183, 160, 0.4);
-}
-
-.badge-adventure-danger {
-  background: rgba(243, 122, 138, 0.2);
-  color: #F37A8A;
-  border: 1px solid rgba(243, 122, 138, 0.4);
+.input-brutal:focus {
+  outline: none;
+  border-color: #4ECDC4;
+  box-shadow: 4px 4px 0 #4ECDC4;
 }
 ```
 
 ---
 
-## Implementation Checklist
+## Interaction States
 
-- [ ] Add adventure color tokens to `tailwind.config.ts`
-- [ ] Create CSS variables in `:root` for adventure palette
-- [ ] Add gradient utilities to Tailwind config
-- [ ] Create adventure-prefixed component classes in `globals.css`
-- [ ] Add typography scale tokens
-- [ ] Add spacing scale tokens
-- [ ] Add shadow utilities
-- [ ] Create text gradient utilities
-- [ ] Test with existing components for compatibility
+Brutalist interactions are snappy and tactile:
+
+```css
+/* Hover: lift up and expand shadow */
+:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 [color];
+}
+
+/* Active/Click: push down and shrink shadow */
+:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 [color];
+}
+
+/* Focus: colored border + shadow */
+:focus {
+  outline: none;
+  border-color: #4ECDC4;
+  box-shadow: 0 0 0 4px rgba(78, 205, 196, 0.3);
+}
+```
 
 ---
 
-## Visual Reference
+## Layout Principles
 
-The theme draws inspiration from:
-- **Mountains at dusk**: Deep indigo/purple foundations
-- **Alpine lakes**: Teal/cyan for interactive elements
-- **Sunrise warmth**: Coral and peach for CTAs and accents
-- **Forest edges**: Green for success/positive states
-- **Cloud mist**: Soft white/gray for text and neutral elements
+1. **Generous whitespace** - Let elements breathe
+2. **Strong grid** - Visible structure, no floating elements
+3. **Stacked sections** - Clear horizontal breaks between content
+4. **Bold dividers** - Use thick lines or color blocks to separate sections
+5. **Asymmetry welcome** - Off-center elements add visual interest
 
-The overall effect should feel like standing at a mountain viewpoint during golden hour - calm, inspiring, and full of possibility.
+---
+
+## Animation
+
+Minimal and snappy - no floaty/bouncy animations:
+
+```css
+transition: all 0.1s ease;  /* Quick, direct */
+```
+
+Avoid: ease-in-out, spring animations, long durations
+
+---
+
+## Visual Example
+
+```
+┌────────────────────────────────────────────────┐
+│  ██████████████████████████████████████████   │
+│  █                                          █  │
+│  █   FLOAT THE                              █  │
+│  █   MISSOURI    ████████████               █  │
+│  █               █ PLAN NOW █               █  │
+│  █               ████████████               █  │
+│  █                    ↑                     █  │
+│  █             hard shadow button           █  │
+│  ██████████████████████████████████████████   │
+│                                                │
+│  ┌──────────────┐  ┌──────────────┐           │
+│  │ CURRENT FORK │  │ JACKS FORK   │  ← cards  │
+│  │              │  │              │    with   │
+│  │  ████████    │  │  ████████    │    offset │
+│  │  Optimal     │  │  Low Water   │    shadow │
+│  └──────────────┘  └──────────────┘           │
+│       └───shadow        └───shadow            │
+└────────────────────────────────────────────────┘
+```

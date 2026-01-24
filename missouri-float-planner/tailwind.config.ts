@@ -10,28 +10,29 @@ const config: Config = {
     extend: {
       colors: {
         // =========================================
-        // Adventure Theme - Outdoor Mountain Palette
-        // Bright, optimistic with deep indigo foundations
+        // Neo-Brutalist Theme
+        // Raw, bold, unapologetic - hard shadows & thick borders
         // =========================================
 
-        // Foundations (Backgrounds)
-        'adventure-night': '#15143D',    // Deepest layer - page backgrounds
-        'adventure-deep': '#2B1F6B',     // Card backgrounds, elevated surfaces
-        'adventure-violet': '#5144A8',   // Tertiary UI, mountain highlights
+        // Foundations (Dark backgrounds)
+        'brutal-void': '#0D0C1D',        // Deepest black-purple
+        'brutal-night': '#1A1833',       // Primary dark background
+        'brutal-slate': '#2D2A4A',       // Elevated surfaces, cards
 
-        // Warm Accents (CTAs, Highlights)
-        'adventure-coral': '#F37A8A',    // Primary CTA, warm highlights
-        'adventure-peach': '#F2B7A0',    // Secondary warm, hover states
+        // Primary Accent
+        'brutal-coral': '#FF6B6B',       // Primary CTA, key actions
+        'brutal-coral-light': '#FF8E8E', // Hover states
 
-        // Cool Functional Colors
-        'adventure-lake': '#3AA0C9',     // River lines, interactive elements
-        'adventure-forest': '#478559',   // Success states, put-in markers
+        // Secondary Accents
+        'brutal-electric': '#4ECDC4',    // Interactive, links, water
+        'brutal-lime': '#A8E6CF',        // Success, positive states
+        'brutal-gold': '#FFE66D',        // Warnings, highlights
 
-        // Text & Neutrals
-        'adventure-cloud': '#F7F6FB',    // Primary text on dark
-        'adventure-text': '#1E1B3A',     // Text on light backgrounds
-        'adventure-muted': '#6E6A8E',    // Secondary text, captions
-        'adventure-mist': '#B8B5C9',     // Disabled states, borders
+        // Neutrals
+        'brutal-white': '#FFFFFF',       // Primary text on dark
+        'brutal-offwhite': '#F5F5F5',    // Secondary backgrounds
+        'brutal-gray': '#6B6B8D',        // Muted text
+        'brutal-black': '#000000',       // Borders, shadows
 
         // =========================================
         // Legacy Palette (backward compatibility)
@@ -113,23 +114,24 @@ const config: Config = {
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        // Adventure Typography Scale
-        'hero': ['4rem', { lineHeight: '1.1', letterSpacing: '-0.025em' }],
-        'display': ['3rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
-        'heading': ['2rem', { lineHeight: '1.2', letterSpacing: '-0.015em' }],
-        'subhead': ['1.5rem', { lineHeight: '1.3', letterSpacing: '-0.01em' }],
-        'body-lg': ['1.125rem', { lineHeight: '1.6' }],
-        'body': ['1rem', { lineHeight: '1.6' }],
-        'small': ['0.875rem', { lineHeight: '1.5' }],
-        'micro': ['0.75rem', { lineHeight: '1.4' }],
+        // Neo-Brutalist Typography Scale - Bold and tight
+        'brutal-hero': ['5rem', { lineHeight: '1', letterSpacing: '-0.04em', fontWeight: '900' }],
+        'brutal-display': ['3.5rem', { lineHeight: '1.05', letterSpacing: '-0.03em', fontWeight: '800' }],
+        'brutal-heading': ['2rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
+        'brutal-subhead': ['1.25rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'brutal-body': ['1rem', { lineHeight: '1.5', fontWeight: '500' }],
+        'brutal-small': ['0.875rem', { lineHeight: '1.4', fontWeight: '500' }],
+        'brutal-micro': ['0.75rem', { lineHeight: '1.3', letterSpacing: '0.05em', fontWeight: '600' }],
       },
       borderRadius: {
-        // Adventure soft radius scale
-        'adventure-sm': '6px',
-        'adventure-md': '10px',
-        'adventure-lg': '16px',
-        'adventure-xl': '24px',
-        'adventure-2xl': '32px',
+        // Neo-Brutalist - sharp or chunky
+        'brutal-none': '0',
+        'brutal': '8px',
+        'brutal-lg': '16px',
+      },
+      borderWidth: {
+        'brutal': '3px',
+        'brutal-thick': '4px',
       },
       spacing: {
         // Adventure spacing additions
@@ -137,13 +139,10 @@ const config: Config = {
         '22': '5.5rem',
       },
       backgroundImage: {
-        // Adventure Theme Gradients
-        'gradient-mountain': 'linear-gradient(180deg, #15143D 0%, #2B1F6B 30%, #5144A8 60%, #2B1F6B 85%, #15143D 100%)',
-        'gradient-sunrise': 'linear-gradient(180deg, #F37A8A 0%, #F2B7A0 50%, #5144A8 100%)',
-        'gradient-lake': 'linear-gradient(135deg, #3AA0C9 0%, #478559 100%)',
-        'gradient-adventure-hero': 'linear-gradient(180deg, #15143D 0%, #2B1F6B 40%, #5144A8 70%, #F37A8A 100%)',
-        'gradient-adventure-card': 'linear-gradient(180deg, rgba(81, 68, 168, 0.3) 0%, #2B1F6B 40%)',
-        'gradient-coral-glow': 'radial-gradient(ellipse at 50% 0%, rgba(243, 122, 138, 0.15) 0%, transparent 70%)',
+        // Neo-Brutalist - Minimal gradients, mostly flat
+        // Only use gradients sparingly for section breaks
+        'brutal-fade': 'linear-gradient(180deg, #1A1833 0%, #0D0C1D 100%)',
+        'brutal-coral-fade': 'linear-gradient(180deg, #FF6B6B 0%, #FF8E8E 100%)',
 
         // Legacy Gradients
         'gradient-ozark': 'linear-gradient(180deg, var(--tw-gradient-stops))',
@@ -182,13 +181,22 @@ const config: Config = {
         },
       },
       boxShadow: {
-        // Adventure Theme Shadows
-        'adventure-card': '0 4px 16px rgba(21, 20, 61, 0.25)',
-        'adventure-card-hover': '0 8px 32px rgba(21, 20, 61, 0.35)',
-        'glow-coral': '0 0 24px rgba(243, 122, 138, 0.3)',
-        'glow-lake': '0 0 24px rgba(58, 160, 201, 0.3)',
-        'glow-soft': '0 0 40px rgba(243, 122, 138, 0.15)',
-        'inner-soft': 'inset 0 2px 4px rgba(0, 0, 0, 0.1)',
+        // Neo-Brutalist - Hard offset shadows, no blur
+        'brutal-sm': '2px 2px 0 #000000',
+        'brutal': '4px 4px 0 #000000',
+        'brutal-lg': '6px 6px 0 #000000',
+        'brutal-xl': '8px 8px 0 #000000',
+
+        // Colored hard shadows
+        'brutal-coral': '4px 4px 0 #FF6B6B',
+        'brutal-coral-lg': '6px 6px 0 #FF6B6B',
+        'brutal-electric': '4px 4px 0 #4ECDC4',
+        'brutal-electric-lg': '6px 6px 0 #4ECDC4',
+
+        // Light shadows for dark backgrounds
+        'brutal-light': '4px 4px 0 rgba(255,255,255,0.25)',
+        'brutal-light-lg': '6px 6px 0 rgba(255,255,255,0.25)',
+        'brutal-white': '4px 4px 0 #FFFFFF',
 
         // Legacy Shadows
         'glow': '0 0 20px rgba(45, 212, 191, 0.3)',

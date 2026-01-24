@@ -3,45 +3,50 @@
 @tailwind utilities;
 
 /* =========================================
-   Missouri Float Planner - Adventure Theme
-   Bright, optimistic outdoor mountain palette
+   Missouri Float Planner - Neo-Brutalist Theme
+   Raw, bold, unapologetic - hard shadows & thick borders
    ========================================= */
 
 :root {
   /* =========================================
-     Adventure Theme - Primary Palette
+     Neo-Brutalist - Primary Palette
      ========================================= */
 
   /* Foundations */
-  --adventure-night: #15143D;       /* Deepest layer - page backgrounds */
-  --adventure-deep: #2B1F6B;        /* Card backgrounds, elevated surfaces */
-  --adventure-violet: #5144A8;      /* Tertiary UI, mountain highlights */
+  --brutal-void: #0D0C1D;           /* Deepest black-purple */
+  --brutal-night: #1A1833;          /* Primary dark background */
+  --brutal-slate: #2D2A4A;          /* Elevated surfaces, cards */
 
-  /* Warm Accents */
-  --adventure-coral: #F37A8A;       /* Primary CTA, warm highlights */
-  --adventure-peach: #F2B7A0;       /* Secondary warm, hover states */
+  /* Primary Accent */
+  --brutal-coral: #FF6B6B;          /* Primary CTA, key actions */
+  --brutal-coral-light: #FF8E8E;    /* Hover states */
 
-  /* Cool Functional */
-  --adventure-lake: #3AA0C9;        /* River lines, interactive elements */
-  --adventure-forest: #478559;      /* Success states, put-in markers */
+  /* Secondary Accents */
+  --brutal-electric: #4ECDC4;       /* Interactive, links, water */
+  --brutal-lime: #A8E6CF;           /* Success, positive states */
+  --brutal-gold: #FFE66D;           /* Warnings, highlights */
 
-  /* Text & Neutrals */
-  --adventure-cloud: #F7F6FB;       /* Primary text on dark */
-  --adventure-text: #1E1B3A;        /* Text on light backgrounds */
-  --adventure-muted: #6E6A8E;       /* Secondary text, captions */
-  --adventure-mist: #B8B5C9;        /* Disabled states, borders */
+  /* Neutrals */
+  --brutal-white: #FFFFFF;          /* Primary text on dark */
+  --brutal-offwhite: #F5F5F5;       /* Secondary backgrounds */
+  --brutal-gray: #6B6B8D;           /* Muted text */
+  --brutal-black: #000000;          /* Borders, shadows */
 
-  /* Adventure Gradients */
-  --gradient-mountain: linear-gradient(180deg, #15143D 0%, #2B1F6B 30%, #5144A8 60%, #2B1F6B 85%, #15143D 100%);
-  --gradient-sunrise: linear-gradient(180deg, #F37A8A 0%, #F2B7A0 50%, #5144A8 100%);
-  --gradient-lake: linear-gradient(135deg, #3AA0C9 0%, #478559 100%);
-  --gradient-adventure-hero: linear-gradient(180deg, #15143D 0%, #2B1F6B 40%, #5144A8 70%, rgba(243, 122, 138, 0.3) 100%);
+  /* Hard Shadows - No blur, offset only */
+  --shadow-brutal-sm: 2px 2px 0 #000000;
+  --shadow-brutal: 4px 4px 0 #000000;
+  --shadow-brutal-lg: 6px 6px 0 #000000;
+  --shadow-brutal-xl: 8px 8px 0 #000000;
+  --shadow-brutal-coral: 4px 4px 0 #FF6B6B;
+  --shadow-brutal-electric: 4px 4px 0 #4ECDC4;
+  --shadow-brutal-light: 4px 4px 0 rgba(255,255,255,0.25);
+  --shadow-brutal-white: 4px 4px 0 #FFFFFF;
 
-  /* Adventure Shadows */
-  --shadow-adventure-card: 0 4px 16px rgba(21, 20, 61, 0.25);
-  --shadow-adventure-card-hover: 0 8px 32px rgba(21, 20, 61, 0.35);
-  --shadow-glow-coral: 0 0 24px rgba(243, 122, 138, 0.3);
-  --shadow-glow-lake: 0 0 24px rgba(58, 160, 201, 0.3);
+  /* Borders */
+  --border-brutal: 3px solid #000000;
+  --border-brutal-white: 3px solid #FFFFFF;
+  --border-brutal-coral: 3px solid #FF6B6B;
+  --border-brutal-electric: 3px solid #4ECDC4;
 
   /* =========================================
      Legacy Palette (backward compatibility)
@@ -443,250 +448,332 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* =========================================
-   Adventure Theme - Component Classes
-   Bright outdoor aesthetic with warm accents
+   Neo-Brutalist Theme - Component Classes
+   Raw, bold, unapologetic design
    ========================================= */
 
-/* Adventure Text Gradients */
-.text-gradient-adventure {
-  background: linear-gradient(135deg, var(--adventure-coral) 0%, var(--adventure-peach) 50%, var(--adventure-lake) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+/* ===== BUTTONS - Hard shadows, thick borders ===== */
 
-.text-gradient-lake {
-  background: linear-gradient(135deg, var(--adventure-lake) 0%, var(--adventure-forest) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.text-gradient-coral {
-  background: linear-gradient(135deg, var(--adventure-coral) 0%, var(--adventure-peach) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Adventure Cards */
-.card-adventure {
-  background: var(--adventure-deep);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: var(--shadow-adventure-card);
-  transition: all 0.2s ease-out;
-}
-
-.card-adventure:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-adventure-card-hover);
-  border-color: rgba(58, 160, 201, 0.3);
-}
-
-.card-adventure-feature {
-  background: linear-gradient(180deg, rgba(81, 68, 168, 0.3) 0%, var(--adventure-deep) 40%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
-  overflow: hidden;
-}
-
-.card-adventure-glow {
-  background: var(--adventure-deep);
-  border: 1px solid rgba(243, 122, 138, 0.2);
-  border-radius: 16px;
-  box-shadow: var(--shadow-glow-coral);
-}
-
-/* Adventure Buttons */
-.btn-adventure-primary {
+/* Primary Button - Coral with black border and hard shadow */
+.btn-brutal {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, var(--adventure-coral) 0%, #E66B7B 100%);
-  color: white;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  border-radius: 12px;
-  border: none;
-  box-shadow: 0 4px 16px rgba(243, 122, 138, 0.3);
-  transition: all 0.2s ease-out;
+  padding: 14px 28px;
+  background: var(--brutal-coral);
+  color: var(--brutal-black);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 3px solid var(--brutal-black);
+  box-shadow: var(--shadow-brutal);
+  transition: all 0.1s ease;
   cursor: pointer;
 }
 
-.btn-adventure-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(243, 122, 138, 0.4);
+.btn-brutal:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-brutal-lg);
 }
 
-.btn-adventure-primary:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(243, 122, 138, 0.3);
+.btn-brutal:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-brutal-sm);
 }
 
-.btn-adventure-secondary {
+/* Secondary Button - Outline with hard shadow */
+.btn-brutal-outline {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
+  padding: 14px 28px;
   background: transparent;
-  color: var(--adventure-lake);
-  border: 2px solid rgba(58, 160, 201, 0.4);
-  font-weight: 600;
-  border-radius: 12px;
-  transition: all 0.2s ease-out;
+  color: var(--brutal-white);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 3px solid var(--brutal-white);
+  box-shadow: var(--shadow-brutal-light);
+  transition: all 0.1s ease;
   cursor: pointer;
 }
 
-.btn-adventure-secondary:hover {
-  background: rgba(58, 160, 201, 0.1);
-  border-color: var(--adventure-lake);
+.btn-brutal-outline:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.05);
 }
 
-.btn-adventure-ghost {
+.btn-brutal-outline:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 rgba(255,255,255,0.2);
+}
+
+/* Electric Blue Button */
+.btn-brutal-electric {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
-  background: transparent;
-  color: var(--adventure-cloud);
-  border: none;
-  font-weight: 500;
-  border-radius: 12px;
-  transition: all 0.2s ease-out;
+  padding: 14px 28px;
+  background: var(--brutal-electric);
+  color: var(--brutal-black);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 3px solid var(--brutal-black);
+  box-shadow: var(--shadow-brutal);
+  transition: all 0.1s ease;
   cursor: pointer;
 }
 
-.btn-adventure-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
+.btn-brutal-electric:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-brutal-lg);
 }
 
-/* Adventure Navigation */
-.nav-adventure {
-  background: rgba(21, 20, 61, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+/* Ghost Button - Underline style */
+.btn-brutal-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--brutal-white);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+  transition: all 0.1s ease;
+  cursor: pointer;
 }
 
-.nav-link-adventure {
-  color: var(--adventure-mist);
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  transition: all 0.15s ease-out;
+.btn-brutal-ghost:hover {
+  color: var(--brutal-coral);
 }
 
-.nav-link-adventure:hover {
-  color: var(--adventure-cloud);
-  background: rgba(255, 255, 255, 0.06);
+/* ===== CARDS - Thick borders, hard shadows ===== */
+
+/* Standard Card */
+.card-brutal {
+  background: var(--brutal-slate);
+  border: 3px solid var(--brutal-white);
+  padding: 24px;
+  box-shadow: var(--shadow-brutal-light);
+  transition: all 0.1s ease;
 }
 
-.nav-link-adventure.active {
-  color: var(--adventure-coral);
-  background: rgba(243, 122, 138, 0.1);
+.card-brutal:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(255,255,255,0.3);
 }
 
-/* Adventure Badges */
-.badge-adventure-optimal {
-  background: rgba(71, 133, 89, 0.2);
-  color: #7EE7A0;
-  border: 1px solid rgba(71, 133, 89, 0.4);
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
+/* Accent Card - Coral border */
+.card-brutal-accent {
+  background: var(--brutal-slate);
+  border: 4px solid var(--brutal-coral);
+  padding: 24px;
+  box-shadow: 6px 6px 0 var(--brutal-coral);
+  transition: all 0.1s ease;
+}
+
+.card-brutal-accent:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--brutal-coral);
+}
+
+/* Electric Card - Blue accent */
+.card-brutal-electric {
+  background: var(--brutal-slate);
+  border: 4px solid var(--brutal-electric);
+  padding: 24px;
+  box-shadow: 6px 6px 0 var(--brutal-electric);
+  transition: all 0.1s ease;
+}
+
+/* Light Card - For contrast sections */
+.card-brutal-light {
+  background: var(--brutal-offwhite);
+  color: var(--brutal-void);
+  border: 3px solid var(--brutal-black);
+  padding: 24px;
+  box-shadow: var(--shadow-brutal-lg);
+  transition: all 0.1s ease;
+}
+
+.card-brutal-light:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-brutal-xl);
+}
+
+/* ===== BADGES - Bold, uppercase ===== */
+
+.badge-brutal {
+  display: inline-block;
+  padding: 6px 12px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid currentColor;
 }
 
-.badge-adventure-warning {
-  background: rgba(242, 183, 160, 0.2);
-  color: var(--adventure-peach);
-  border: 1px solid rgba(242, 183, 160, 0.4);
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
+.badge-brutal-success {
+  background: var(--brutal-lime);
+  color: var(--brutal-black);
+  border-color: var(--brutal-black);
 }
 
-.badge-adventure-danger {
-  background: rgba(243, 122, 138, 0.2);
-  color: var(--adventure-coral);
-  border: 1px solid rgba(243, 122, 138, 0.4);
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
+.badge-brutal-warning {
+  background: var(--brutal-gold);
+  color: var(--brutal-black);
+  border-color: var(--brutal-black);
 }
 
-.badge-adventure-info {
-  background: rgba(58, 160, 201, 0.2);
-  color: var(--adventure-lake);
-  border: 1px solid rgba(58, 160, 201, 0.4);
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
+.badge-brutal-danger {
+  background: var(--brutal-coral);
+  color: var(--brutal-black);
+  border-color: var(--brutal-black);
 }
 
-/* Adventure Hero Section */
-.hero-adventure {
-  background: var(--gradient-adventure-hero);
+.badge-brutal-info {
+  background: var(--brutal-electric);
+  color: var(--brutal-black);
+  border-color: var(--brutal-black);
+}
+
+.badge-brutal-neutral {
+  background: var(--brutal-slate);
+  color: var(--brutal-white);
+  border-color: var(--brutal-white);
+}
+
+/* ===== INPUTS - Thick borders, hard focus ===== */
+
+.input-brutal {
+  background: var(--brutal-night);
+  color: var(--brutal-white);
+  border: 3px solid var(--brutal-white);
+  padding: 14px 18px;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.1s ease;
+}
+
+.input-brutal::placeholder {
+  color: var(--brutal-gray);
+}
+
+.input-brutal:focus {
+  outline: none;
+  border-color: var(--brutal-electric);
+  box-shadow: var(--shadow-brutal-electric);
+}
+
+/* ===== NAVIGATION - Bold and clear ===== */
+
+.nav-brutal {
+  background: var(--brutal-void);
+  border-bottom: 4px solid var(--brutal-white);
+}
+
+.nav-link-brutal {
+  color: var(--brutal-gray);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  border-bottom: 3px solid transparent;
+  transition: all 0.1s ease;
+}
+
+.nav-link-brutal:hover {
+  color: var(--brutal-white);
+}
+
+.nav-link-brutal.active {
+  color: var(--brutal-coral);
+  border-bottom-color: var(--brutal-coral);
+}
+
+/* ===== HERO - Bold and striking ===== */
+
+.hero-brutal {
+  background: var(--brutal-night);
   position: relative;
-  overflow: hidden;
 }
 
-.hero-adventure::before {
+/* Decorative border block */
+.hero-brutal::after {
   content: '';
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(243, 122, 138, 0.12) 0%, transparent 60%);
-  pointer-events: none;
+  height: 8px;
+  background: var(--brutal-coral);
 }
 
-/* Adventure Input Styles */
-.input-adventure {
-  background: rgba(21, 20, 61, 0.6);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  color: var(--adventure-cloud);
-  transition: all 0.15s ease-out;
+/* ===== SECTION DIVIDERS ===== */
+
+.divider-brutal {
+  height: 4px;
+  background: var(--brutal-white);
+  border: none;
+  margin: 48px 0;
 }
 
-.input-adventure::placeholder {
-  color: var(--adventure-muted);
+.divider-brutal-coral {
+  height: 4px;
+  background: var(--brutal-coral);
+  border: none;
+  margin: 48px 0;
 }
 
-.input-adventure:focus {
+/* ===== UTILITY CLASSES ===== */
+
+/* Backgrounds */
+.bg-brutal-void { background: var(--brutal-void); }
+.bg-brutal-night { background: var(--brutal-night); }
+.bg-brutal-slate { background: var(--brutal-slate); }
+.bg-brutal-coral { background: var(--brutal-coral); }
+.bg-brutal-electric { background: var(--brutal-electric); }
+.bg-brutal-lime { background: var(--brutal-lime); }
+.bg-brutal-gold { background: var(--brutal-gold); }
+
+/* Text colors */
+.text-brutal-white { color: var(--brutal-white); }
+.text-brutal-coral { color: var(--brutal-coral); }
+.text-brutal-electric { color: var(--brutal-electric); }
+.text-brutal-lime { color: var(--brutal-lime); }
+.text-brutal-gold { color: var(--brutal-gold); }
+.text-brutal-gray { color: var(--brutal-gray); }
+
+/* Borders */
+.border-brutal { border: 3px solid var(--brutal-black); }
+.border-brutal-white { border: 3px solid var(--brutal-white); }
+.border-brutal-coral { border: 3px solid var(--brutal-coral); }
+.border-brutal-electric { border: 3px solid var(--brutal-electric); }
+.border-brutal-thick { border: 4px solid var(--brutal-black); }
+
+/* Shadows */
+.shadow-brutal { box-shadow: var(--shadow-brutal); }
+.shadow-brutal-lg { box-shadow: var(--shadow-brutal-lg); }
+.shadow-brutal-coral { box-shadow: var(--shadow-brutal-coral); }
+.shadow-brutal-electric { box-shadow: var(--shadow-brutal-electric); }
+.shadow-brutal-light { box-shadow: var(--shadow-brutal-light); }
+
+/* Focus ring for accessibility */
+.focus-brutal:focus-visible {
   outline: none;
-  border-color: var(--adventure-lake);
-  box-shadow: 0 0 0 3px rgba(58, 160, 201, 0.15);
-}
-
-/* Adventure Shadow Utilities */
-.shadow-adventure-glow-coral {
-  box-shadow: var(--shadow-glow-coral);
-}
-
-.shadow-adventure-glow-lake {
-  box-shadow: var(--shadow-glow-lake);
-}
-
-/* Adventure Backgrounds */
-.bg-adventure-night {
-  background: var(--adventure-night);
-}
-
-.bg-adventure-deep {
-  background: var(--adventure-deep);
-}
-
-.bg-adventure-gradient {
-  background: var(--gradient-mountain);
+  box-shadow: 0 0 0 4px var(--brutal-electric);
 }
 
 /* Admin Geography Editor Styles */
