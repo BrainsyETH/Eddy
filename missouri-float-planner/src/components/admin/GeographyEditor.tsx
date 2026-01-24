@@ -252,24 +252,23 @@ export default function GeographyEditor() {
         throw new Error(errorData.error || 'Failed to save changes');
       }
 
-      // Refresh data and update selection
-      await loadData(true);
-      // Find the updated point in the refreshed data
-      const updatedPoints = accessPoints.find(ap => ap.id === selectedAccessPoint.id);
-      if (updatedPoints) {
-        setSelectedAccessPoint(updatedPoints);
-        setEditingDetails({ ...updatedPoints });
-      } else {
-        setSelectedAccessPoint(null);
-        setEditingDetails(null);
+      // Get updated data from the response instead of relying on stale state
+      const responseData = await response.json();
+      if (responseData.accessPoint) {
+        // Update selection with fresh data from API response
+        setSelectedAccessPoint(responseData.accessPoint);
+        setEditingDetails({ ...responseData.accessPoint });
       }
+
+      // Refresh the full list in background (don't await - the sync useEffect will handle updates)
+      loadData(true);
     } catch (err) {
       console.error('Error saving access point:', err);
       alert(err instanceof Error ? err.message : 'Failed to save changes');
     } finally {
       setSavingDetails(false);
     }
-  }, [selectedAccessPoint, editingDetails, loadData, accessPoints]);
+  }, [selectedAccessPoint, editingDetails, loadData]);
 
   // Handle deleting an access point
   const handleDeleteAccessPoint = useCallback(async () => {
@@ -731,12 +730,11 @@ export default function GeographyEditor() {
                   onClick={async () => {
                     try {
                       await handleApprovalChange(selectedAccessPoint.id, !selectedAccessPoint.approved);
-                      await loadData(true);
-                      // Update local state
-                      const updatedPoint = accessPoints.find(ap => ap.id === selectedAccessPoint.id);
-                      if (updatedPoint) {
-                        setSelectedAccessPoint({ ...updatedPoint, approved: !selectedAccessPoint.approved });
-                      }
+                      // Update local state immediately with toggled approval
+                      // The sync useEffect will update with full data after loadData completes
+                      setSelectedAccessPoint(prev => prev ? { ...prev, approved: !prev.approved } : null);
+                      // Refresh in background - sync useEffect handles the rest
+                      loadData(true);
                     } catch (err) {
                       console.error('Error changing approval:', err);
                     }
