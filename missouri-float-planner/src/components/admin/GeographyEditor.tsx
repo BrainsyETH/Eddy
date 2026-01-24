@@ -40,6 +40,7 @@ interface AccessPoint {
   ownership: string | null;
   description: string | null;
   feeRequired?: boolean;
+  directionsOverride?: string | null;
   approved: boolean;
   riverName?: string;
   hasInvalidCoords?: boolean;
@@ -244,6 +245,7 @@ export default function GeographyEditor() {
           description: editingDetails.description,
           feeRequired: editingDetails.feeRequired,
           riverId: editingDetails.riverId,
+          directionsOverride: editingDetails.directionsOverride,
         }),
       });
 
@@ -690,9 +692,27 @@ export default function GeographyEditor() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <label className="block text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
                 <MapPin size={14} />
-                Google Maps Links
+                Google Maps & Directions
               </label>
-              <div className="space-y-2">
+
+              {/* Directions Override Input */}
+              <div className="mb-3">
+                <label className="block text-xs text-blue-700 mb-1">
+                  Directions Override (optional)
+                </label>
+                <input
+                  type="text"
+                  value={editingDetails.directionsOverride || ''}
+                  onChange={(e) => setEditingDetails({ ...editingDetails, directionsOverride: e.target.value })}
+                  placeholder="e.g., Round Spring Recreation Area, MO"
+                  className="w-full px-2 py-1.5 border border-blue-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                />
+                <p className="text-xs text-blue-500 mt-1">
+                  Place name or address for more accurate directions. Leave empty to use coordinates.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-blue-200">
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${selectedAccessPoint.coordinates.orig.lat},${selectedAccessPoint.coordinates.orig.lng}`}
                   target="_blank"
@@ -703,18 +723,21 @@ export default function GeographyEditor() {
                   View on Google Maps
                 </a>
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedAccessPoint.coordinates.orig.lat},${selectedAccessPoint.coordinates.orig.lng}`}
+                  href={selectedAccessPoint.directionsOverride
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedAccessPoint.directionsOverride)}`
+                    : `https://www.google.com/maps/dir/?api=1&destination=${selectedAccessPoint.coordinates.orig.lat},${selectedAccessPoint.coordinates.orig.lng}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   <Navigation size={14} />
                   Get Driving Directions
+                  {selectedAccessPoint.directionsOverride && (
+                    <span className="text-xs bg-blue-200 px-1.5 py-0.5 rounded">custom</span>
+                  )}
                 </a>
               </div>
-              <p className="text-xs text-blue-600 mt-2">
-                Links update automatically when location changes
-              </p>
             </div>
 
             {/* Approval Status */}

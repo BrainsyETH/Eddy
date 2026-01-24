@@ -29,6 +29,7 @@ export async function GET() {
         ownership,
         description,
         fee_required,
+        directions_override,
         approved,
         rivers(id, name, slug)
       `)
@@ -96,6 +97,7 @@ export async function GET() {
           ownership: ap.ownership,
           description: ap.description,
           feeRequired: ap.fee_required,
+          directionsOverride: ap.directions_override,
           approved: ap.approved,
           hasInvalidCoords, // Flag for admin UI to show warning
           hasMissingCoords, // New flag for points without coordinates

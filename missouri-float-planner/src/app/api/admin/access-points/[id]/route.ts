@@ -24,6 +24,7 @@ export async function PUT(
       description,
       feeRequired,
       riverId,
+      directionsOverride,
     } = body;
 
     const supabase = createAdminClient();
@@ -95,6 +96,11 @@ export async function PUT(
       updateData.river_id = riverId;
     }
 
+    // Handle directionsOverride update (can be set to empty string to clear)
+    if (directionsOverride !== undefined) {
+      updateData.directions_override = directionsOverride === '' ? null : directionsOverride;
+    }
+
     // Check if we have anything to update
     if (Object.keys(updateData).length === 1) {
       // Only updated_at, no actual changes
@@ -134,6 +140,7 @@ export async function PUT(
         ownership,
         description,
         fee_required,
+        directions_override,
         approved,
         rivers(id, name, slug)
       `)
@@ -206,6 +213,7 @@ export async function PUT(
       ownership: data.ownership,
       description: data.description,
       feeRequired: data.fee_required,
+      directionsOverride: data.directions_override,
       approved: data.approved,
     };
 

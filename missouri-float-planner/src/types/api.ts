@@ -38,6 +38,7 @@ export interface AccessPoint {
   parkingInfo: string | null;
   feeRequired: boolean;
   feeNotes: string | null;
+  directionsOverride?: string | null;
   coordinates: {
     lng: number;
     lat: number;

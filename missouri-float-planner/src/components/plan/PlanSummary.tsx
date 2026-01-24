@@ -230,7 +230,10 @@ export default function PlanSummary({
           <div className="space-y-2">
             {/* Directions to Put-In */}
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}`}
+              href={displayPlan.putIn.directionsOverride
+                ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(displayPlan.putIn.directionsOverride)}`
+                : `https://www.google.com/maps/dir/?api=1&destination=${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 w-full px-3 py-2.5 bg-white border border-blue-200 rounded-lg text-sm text-blue-800 font-medium hover:bg-blue-100 transition-colors"
@@ -243,7 +246,15 @@ export default function PlanSummary({
             </a>
             {/* Shuttle: Put-In to Take-Out (drop off car before float) */}
             <a
-              href={`https://www.google.com/maps/dir/${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}/${displayPlan.takeOut.coordinates.lat},${displayPlan.takeOut.coordinates.lng}`}
+              href={(() => {
+                const origin = displayPlan.putIn.directionsOverride
+                  ? encodeURIComponent(displayPlan.putIn.directionsOverride)
+                  : `${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}`;
+                const dest = displayPlan.takeOut.directionsOverride
+                  ? encodeURIComponent(displayPlan.takeOut.directionsOverride)
+                  : `${displayPlan.takeOut.coordinates.lat},${displayPlan.takeOut.coordinates.lng}`;
+                return `https://www.google.com/maps/dir/${origin}/${dest}`;
+              })()}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 w-full px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -254,23 +265,6 @@ export default function PlanSummary({
                 <span className="w-2 h-2 rounded-full bg-sky-warm"></span>
               </span>
               Shuttle: Put-In → Take-Out
-              <svg className="w-4 h-4 ml-auto text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
-            {/* Shuttle: Take-Out to Put-In (retrieve car after float) */}
-            <a
-              href={`https://www.google.com/maps/dir/${displayPlan.takeOut.coordinates.lat},${displayPlan.takeOut.coordinates.lng}/${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              <span className="flex items-center gap-1 flex-shrink-0">
-                <span className="w-2 h-2 rounded-full bg-sky-warm"></span>
-                <span className="text-blue-200">→</span>
-                <span className="w-2 h-2 rounded-full bg-river-forest"></span>
-              </span>
-              Shuttle: Take-Out → Put-In
               <svg className="w-4 h-4 ml-auto text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
