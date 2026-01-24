@@ -3,8 +3,6 @@
 // src/components/river/ConditionsBlock.tsx
 // Conditions & Safety section with USGS data and trends
 
-import { useConditions } from '@/hooks/useConditions';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { RiverCondition } from '@/types/api';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 
@@ -13,19 +11,18 @@ interface ConditionsBlockProps {
   condition: RiverCondition | null;
   nearestGauge?: GaugeStation | null;
   hasPutInSelected?: boolean;
+  isLoading?: boolean;
 }
 
-export default function ConditionsBlock({ riverId, condition, nearestGauge, hasPutInSelected }: ConditionsBlockProps) {
-  const { data, isLoading } = useConditions(riverId);
-  const displayCondition = data?.condition || condition;
+export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelected, isLoading }: ConditionsBlockProps) {
+  // Use the condition passed from parent (which is segment-aware when put-in is selected)
+  const displayCondition = condition;
 
-  if (isLoading && !condition) {
+  if (isLoading) {
     return (
       <div className="glass-card-dark rounded-2xl p-6 border border-white/10">
-        <div className="flex items-center gap-3">
-          <LoadingSpinner size="sm" />
-          <p className="text-sm text-white/70">Loading conditions...</p>
-        </div>
+        <h3 className="text-xl font-bold text-white mb-4">Conditions & Safety</h3>
+        <p className="text-sm text-white/70">Loading conditions...</p>
       </div>
     );
   }
