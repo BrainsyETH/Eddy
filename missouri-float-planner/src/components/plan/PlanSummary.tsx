@@ -225,7 +225,7 @@ export default function PlanSummary({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Google Maps Directions
+            Driving Directions
           </p>
           <div className="space-y-2">
             {/* Directions to Put-In */}
@@ -241,24 +241,24 @@ export default function PlanSummary({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
-            {/* Put-In to Take-Out */}
+            {/* Shuttle: Put-In to Take-Out (drop off car before float) */}
             <a
               href={`https://www.google.com/maps/dir/${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}/${displayPlan.takeOut.coordinates.lat},${displayPlan.takeOut.coordinates.lng}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-3 py-2.5 bg-white border border-blue-200 rounded-lg text-sm text-blue-800 font-medium hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               <span className="flex items-center gap-1 flex-shrink-0">
                 <span className="w-2 h-2 rounded-full bg-river-forest"></span>
-                <span className="text-blue-400">→</span>
+                <span className="text-blue-200">→</span>
                 <span className="w-2 h-2 rounded-full bg-sky-warm"></span>
               </span>
-              Put-In to Take-Out
-              <svg className="w-4 h-4 ml-auto text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              Shuttle: Put-In → Take-Out
+              <svg className="w-4 h-4 ml-auto text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
-            {/* Take-Out to Put-In (Shuttle) */}
+            {/* Shuttle: Take-Out to Put-In (retrieve car after float) */}
             <a
               href={`https://www.google.com/maps/dir/${displayPlan.takeOut.coordinates.lat},${displayPlan.takeOut.coordinates.lng}/${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}`}
               target="_blank"
@@ -270,7 +270,7 @@ export default function PlanSummary({
                 <span className="text-blue-200">→</span>
                 <span className="w-2 h-2 rounded-full bg-river-forest"></span>
               </span>
-              Take-Out to Put-In (Shuttle)
+              Shuttle: Take-Out → Put-In
               <svg className="w-4 h-4 ml-auto text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
