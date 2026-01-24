@@ -247,14 +247,14 @@ export default function MapContainer({
     if (!mapContainer.current || map.current) return;
 
     // Get saved style or use liberty (Natural) as default
-    // Also handle migration to liberty if not already migrated
+    // Use v2 migration key to force Natural as default for all users
     const savedStyle = localStorage.getItem('mapStyle') as MapStyleKey | null;
-    const migrated = localStorage.getItem('mapStyleMigrated');
+    const migratedV2 = localStorage.getItem('mapStyleMigratedV2');
     let initialStyle: MapStyleKey = 'liberty';
 
-    if (!migrated) {
-      // First time or not yet migrated - set to liberty
-      localStorage.setItem('mapStyleMigrated', '1');
+    if (!migratedV2) {
+      // Force migration to liberty (Natural) for all users
+      localStorage.setItem('mapStyleMigratedV2', '1');
       localStorage.setItem('mapStyle', 'liberty');
     } else if (savedStyle && MAP_STYLES[savedStyle]) {
       initialStyle = savedStyle;

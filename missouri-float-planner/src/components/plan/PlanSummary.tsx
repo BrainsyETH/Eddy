@@ -287,20 +287,14 @@ export default function PlanSummary({
           </div>
         </div>
 
-        {/* Shuttle & Driving Directions Section */}
+        {/* Shuttle Section */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-blue-800 uppercase tracking-wide flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              Shuttle
-            </p>
-            <div className="text-right">
-              <p className="text-sm font-bold text-blue-800">{displayPlan.driveBack.formatted}</p>
-              <p className="text-xs text-blue-600">{displayPlan.driveBack.miles.toFixed(1)} mi drive</p>
-            </div>
-          </div>
+          <p className="text-xs font-medium text-blue-800 uppercase tracking-wide flex items-center gap-1 mb-3">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Shuttle
+          </p>
           <div className="space-y-2">
             {/* Directions to Put-In */}
             <a

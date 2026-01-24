@@ -43,7 +43,6 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ),
 });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
-const DriveRouteLayer = dynamic(() => import('@/components/map/DriveRouteLayer'), { ssr: false });
 
 export default function Home() {
   const [selectedRiverId, setSelectedRiverId] = useState<string | null>(null);
@@ -358,10 +357,6 @@ export default function Home() {
                 )}
 
                 <MapContainer initialBounds={initialBounds} showLegend={true}>
-                  {/* Drive route visualization (blue dashed line) */}
-                  {plan?.driveBack?.routeGeometry && (
-                    <DriveRouteLayer routeGeometry={plan.driveBack.routeGeometry} />
-                  )}
                   {accessPoints && (
                     <AccessPointMarkers
                       accessPoints={accessPoints}

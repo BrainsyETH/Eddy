@@ -32,7 +32,6 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
     </div>
   ),
 });
-const DriveRouteLayer = dynamic(() => import('@/components/map/DriveRouteLayer'), { ssr: false });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 
 export default function RiverPage() {
@@ -268,12 +267,6 @@ export default function RiverPage() {
                 )}
 
                 <MapContainer initialBounds={river.bounds} showLegend={true}>
-                  {/* Driving/shuttle route visualization (blue dashed line) */}
-                  {plan?.driveBack?.routeGeometry && (
-                    <DriveRouteLayer
-                      routeGeometry={plan.driveBack.routeGeometry}
-                    />
-                  )}
                   {accessPoints && (
                     <AccessPointMarkers
                       accessPoints={accessPoints}
