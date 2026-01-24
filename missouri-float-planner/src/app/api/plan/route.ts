@@ -196,14 +196,29 @@ export async function GET(request: NextRequest) {
     // Get put-in coordinates for segment-aware gauge selection
     const putInCoords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
 
+    // Debug logging for gauge selection
+    console.log('[Plan API] Segment-aware gauge selection:', {
+      putInName: putIn.name,
+      putInCoords,
+      coordString: putInCoords ? `SRID=4326;POINT(${putInCoords[0]} ${putInCoords[1]})` : null,
+    });
+
     // Get river condition using segment-aware gauge selection
     // This selects the gauge nearest to the put-in point instead of relying on is_primary
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conditionData } = await (supabase.rpc as any)('get_river_condition_segment', {
+    const { data: conditionData, error: conditionError } = await (supabase.rpc as any)('get_river_condition_segment', {
       p_river_id: riverId,
       p_put_in_point: putInCoords
         ? `SRID=4326;POINT(${putInCoords[0]} ${putInCoords[1]})`
         : null,
+    });
+
+    // Debug logging for condition result
+    console.log('[Plan API] Condition result:', {
+      error: conditionError,
+      gaugeName: conditionData?.[0]?.gauge_name,
+      gaugeUsgsId: conditionData?.[0]?.gauge_usgs_id,
+      distanceToPutIn: conditionData?.[0]?.distance_to_put_in_meters,
     });
 
     let condition = conditionData?.[0];
