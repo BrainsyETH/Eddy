@@ -25,6 +25,15 @@ const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: s
   unknown: { bg: 'bg-bluff-100', text: 'text-bluff-600', icon: '?' },
 };
 
+// Condition level explanations for the legend
+const CONDITION_LEGEND = [
+  { code: 'optimal', label: 'Good', icon: '✓', color: 'bg-emerald-500', description: 'Ideal conditions - minimal dragging' },
+  { code: 'low', label: 'Low', icon: '↓', color: 'bg-amber-500', description: 'Floatable with some dragging in riffles' },
+  { code: 'very_low', label: 'Very Low', icon: '⚠', color: 'bg-orange-500', description: 'Frequent scraping and portaging likely' },
+  { code: 'high', label: 'High', icon: '↑', color: 'bg-orange-500', description: 'Fast current - experienced paddlers only' },
+  { code: 'dangerous', label: 'Flood', icon: '🚫', color: 'bg-red-600', description: 'Dangerous conditions - do not float' },
+];
+
 export default function RiverOverviewPanel({
   river,
   condition,
@@ -126,8 +135,8 @@ export default function RiverOverviewPanel({
               )}
             </div>
 
-            {/* Tags and description row */}
-            <div className="flex flex-wrap gap-2 text-xs">
+            {/* Tags row */}
+            <div className="flex flex-wrap gap-2 text-xs mb-4">
               {river.region && (
                 <span className="px-3 py-1.5 rounded-full bg-white/10 text-river-gravel border border-white/10">Region: {river.region}</span>
               )}
@@ -138,6 +147,22 @@ export default function RiverOverviewPanel({
               )}
               <span className="px-3 py-1.5 rounded-full bg-sky-warm/20 text-sky-warm border border-sky-warm/30">Tubing friendly</span>
               <span className="px-3 py-1.5 rounded-full bg-river-forest/20 text-river-forest border border-river-forest/30">Dog friendly</span>
+            </div>
+
+            {/* Condition Legend */}
+            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+              <p className="text-xs font-medium text-river-gravel uppercase tracking-wide mb-2">River Condition Guide</p>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                {CONDITION_LEGEND.map((item) => (
+                  <div key={item.code} className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${item.color} flex-shrink-0`} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-white truncate">{item.label}</p>
+                      <p className="text-[10px] text-river-gravel truncate">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -246,6 +271,22 @@ export default function RiverOverviewPanel({
               )}
               <span className="px-3 py-1.5 rounded-full bg-sky-warm/20 text-sky-warm border border-sky-warm/30">Tubing friendly</span>
               <span className="px-3 py-1.5 rounded-full bg-river-forest/20 text-river-forest border border-river-forest/30">Dog friendly</span>
+            </div>
+
+            {/* Condition Legend */}
+            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+              <p className="text-xs font-medium text-river-gravel uppercase tracking-wide mb-2">River Condition Guide</p>
+              <div className="space-y-2">
+                {CONDITION_LEGEND.map((item) => (
+                  <div key={item.code} className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${item.color} flex-shrink-0`} />
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-xs font-medium text-white">{item.label}</span>
+                      <span className="text-[10px] text-river-gravel">{item.description}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="bg-amber-900/30 rounded-xl p-4 border-2 border-amber-600/40">

@@ -35,19 +35,19 @@ function getRiverConditionStatus(conditionCode: ConditionCode | null): {
   if (!conditionCode) {
     return { label: 'Unknown', color: 'text-river-gravel' };
   }
-  
+
   switch (conditionCode) {
     case 'too_low':
     case 'very_low':
-      return { label: 'Low/Scrapey', color: 'text-amber-400' };
+      return { label: 'Low', color: 'text-amber-400' };
     case 'optimal':
       return { label: 'Good', color: 'text-river-water' };
     case 'high':
-      return { label: 'High/Fast', color: 'text-orange-400' };
+      return { label: 'High', color: 'text-orange-400' };
     case 'dangerous':
-      return { label: 'Flood Stage', color: 'text-red-400' };
+      return { label: 'Flood', color: 'text-red-400' };
     case 'low':
-      return { label: 'Low/Scrapey', color: 'text-amber-400' };
+      return { label: 'Low', color: 'text-amber-400' };
     default:
       return { label: 'Check Conditions', color: 'text-river-gravel' };
   }
@@ -72,7 +72,7 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
     return (
       <button
         onClick={() => setIsExpanded(true)}
-        className={`absolute top-4 left-4 z-20 glass-card-dark rounded-xl px-3 py-2
+        className={`absolute top-4 left-4 z-10 glass-card-dark rounded-xl px-3 py-2
                     backdrop-blur-md border border-white/10 shadow-lg
                     hover:border-white/20 transition-colors ${className}`}
       >
@@ -108,7 +108,7 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
 
   return (
     <div
-      className={`absolute top-4 left-4 z-20 glass-card-dark rounded-xl p-4
+      className={`absolute top-4 left-4 z-10 glass-card-dark rounded-xl p-4
                   backdrop-blur-md border border-white/10 shadow-lg
                   min-w-[240px] ${className}`}
     >
