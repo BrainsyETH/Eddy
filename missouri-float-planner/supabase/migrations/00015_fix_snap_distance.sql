@@ -1,9 +1,8 @@
 -- File: supabase/migrations/00015_fix_snap_distance.sql
 -- Fix: Mile markers should be manually entered, not auto-calculated
--- Only auto-snap the location_snap point, but preserve manual river_mile values
+-- Only auto-snap the location_snap point, but NEVER touch river_mile values
 
--- Update auto_snap_access_point to ONLY snap location, NOT update mile markers
--- Mile markers are now manually maintained by admins
+-- Update auto_snap_access_point to ONLY snap location, NEVER update mile markers
 CREATE OR REPLACE FUNCTION auto_snap_access_point()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -16,15 +15,11 @@ BEGIN
     -- Only update the snapped location point
     NEW.location_snap := snap_result.snapped_point;
 
-    -- IMPORTANT: Do NOT update river_mile_downstream or river_mile_upstream
+    -- NEVER update river_mile_downstream or river_mile_upstream
     -- These are manually entered by admins and should be preserved
-    -- Only set mile markers on INSERT if they are NULL
-    IF TG_OP = 'INSERT' AND NEW.river_mile_downstream IS NULL THEN
-        NEW.river_mile_downstream := snap_result.river_mile;
-    END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION auto_snap_access_point IS 'Auto-snaps access points to river geometry. Mile markers are manually maintained - only auto-set on INSERT if NULL.';
+COMMENT ON FUNCTION auto_snap_access_point IS 'Auto-snaps access points to river geometry. Mile markers are NEVER auto-updated - they must be manually maintained.';
