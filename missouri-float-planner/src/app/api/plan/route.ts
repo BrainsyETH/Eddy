@@ -31,6 +31,19 @@ const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
   unknown: 'Current conditions unavailable',
 };
 
+// Map legacy condition codes to flow ratings (fallback when stats unavailable)
+function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
+  switch (code) {
+    case 'optimal': return 'good';
+    case 'low': return 'low';
+    case 'very_low': return 'poor';
+    case 'too_low': return 'poor';
+    case 'high': return 'high';
+    case 'dangerous': return 'flood';
+    default: return 'unknown';
+  }
+}
+
 // Helper to compute condition from gauge height and thresholds
 function computeConditionFromReading(
   gaugeHeightFt: number | null,
@@ -470,6 +483,12 @@ export async function GET(request: NextRequest) {
       } catch (statsError) {
         console.warn('Failed to fetch statistics for plan:', statsError);
       }
+    }
+
+    // Fallback: if stats-based rating failed, use condition code mapping
+    if (flowRating === 'unknown' && conditionCode !== 'unknown') {
+      flowRating = conditionCodeToFlowRating(conditionCode);
+      flowDescription = FLOW_DESCRIPTIONS[flowRating];
     }
 
     // Build plan response

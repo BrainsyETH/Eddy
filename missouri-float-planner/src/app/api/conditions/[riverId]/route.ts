@@ -83,6 +83,19 @@ async function enrichWithStatistics(
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
 
+// Map legacy condition codes to flow ratings (fallback when stats unavailable)
+function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
+  switch (code) {
+    case 'optimal': return 'good';
+    case 'low': return 'low';
+    case 'very_low': return 'poor';
+    case 'too_low': return 'poor';
+    case 'high': return 'high';
+    case 'dangerous': return 'flood';
+    default: return 'unknown';
+  }
+}
+
 // Helper to determine condition from gauge height and thresholds
 function computeConditionFromReading(
   gaugeHeightFt: number | null,
@@ -495,6 +508,16 @@ export async function GET(
         usgsUrl: finalCondition.gaugeUsgsId
           ? `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`
           : null,
+      };
+    }
+
+    // Fallback: if stats-based rating failed, use condition code mapping
+    if (finalCondition.flowRating === 'unknown' && finalCondition.code !== 'unknown') {
+      const fallbackRating = conditionCodeToFlowRating(finalCondition.code);
+      finalCondition = {
+        ...finalCondition,
+        flowRating: fallbackRating,
+        flowDescription: FLOW_RATING_INFO[fallbackRating]?.description || 'Based on gauge height thresholds',
       };
     }
 
