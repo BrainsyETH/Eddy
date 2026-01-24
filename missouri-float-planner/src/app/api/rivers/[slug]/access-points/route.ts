@@ -90,6 +90,7 @@ export async function GET(
           parkingInfo: ap.parking_info,
           feeRequired: ap.fee_required,
           feeNotes: ap.fee_notes,
+          directionsOverride: ap.directions_override,
           coordinates: { lng, lat },
         };
       })
