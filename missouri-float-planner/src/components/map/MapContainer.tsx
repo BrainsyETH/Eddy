@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Layers } from 'lucide-react';
+import { Layers, Droplets } from 'lucide-react';
 
 // Available map styles (all free, no API key required)
 // Natural (liberty) is first and default
@@ -76,6 +76,8 @@ interface MapContainerProps {
   children?: React.ReactNode;
   showWeatherOverlay?: boolean;
   onWeatherToggle?: (enabled: boolean) => void;
+  showGauges?: boolean;
+  onGaugeToggle?: (enabled: boolean) => void;
   showLegend?: boolean;
 }
 
@@ -95,12 +97,15 @@ export default function MapContainer({
   children,
   showWeatherOverlay = false,
   onWeatherToggle,
+  showGauges = false,
+  onGaugeToggle,
   showLegend = false,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [weatherEnabled, setWeatherEnabled] = useState(showWeatherOverlay);
+  const [gaugesEnabled, setGaugesEnabled] = useState(showGauges);
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('liberty');
   const [showStylePicker, setShowStylePicker] = useState(false);
@@ -227,6 +232,13 @@ export default function MapContainer({
     setWeatherEnabled(newValue);
     onWeatherToggle?.(newValue);
   }, [weatherEnabled, onWeatherToggle]);
+
+  // Toggle gauge markers
+  const toggleGauges = useCallback(() => {
+    const newValue = !gaugesEnabled;
+    setGaugesEnabled(newValue);
+    onGaugeToggle?.(newValue);
+  }, [gaugesEnabled, onGaugeToggle]);
 
   // Fetch radar data when weather is enabled
   useEffect(() => {
@@ -411,6 +423,20 @@ export default function MapContainer({
           />
         </svg>
       </button>
+
+      {/* Gauge Stations Toggle Button - aligned under weather toggle */}
+      <button
+        onClick={toggleGauges}
+        className={`absolute top-[216px] right-2.5 z-10 p-2 rounded-lg shadow-lg transition-all ${
+          gaugesEnabled
+            ? 'bg-blue-500 text-white'
+            : 'bg-white/90 text-gray-700 hover:bg-white'
+        }`}
+        title={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
+        aria-label={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
+      >
+        <Droplets className="w-5 h-5" />
+      </button>
       
       {/* Weather Attribution */}
       {weatherEnabled && (
@@ -443,6 +469,7 @@ export default function MapContainer({
               <LegendItem color="#c7b8a6" label="Access point" />
               <LegendItem color="#22c55e" label="Route (downstream)" />
               <LegendItem color="#ef4444" label="Route (upstream)" />
+              {gaugesEnabled && <LegendItem color="#3b82f6" label="Gauge station" />}
             </div>
           )}
         </div>

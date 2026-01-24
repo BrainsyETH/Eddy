@@ -6,16 +6,18 @@
 import { useConditions } from '@/hooks/useConditions';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { RiverCondition } from '@/types/api';
+import type { GaugeStation } from '@/hooks/useGaugeStations';
 
 interface ConditionsBlockProps {
   riverId: string;
   condition: RiverCondition | null;
+  nearestGauge?: GaugeStation | null;
+  hasPutInSelected?: boolean;
 }
 
-export default function ConditionsBlock({ riverId, condition }: ConditionsBlockProps) {
+export default function ConditionsBlock({ riverId, condition, nearestGauge, hasPutInSelected }: ConditionsBlockProps) {
   const { data, isLoading } = useConditions(riverId);
   const displayCondition = data?.condition || condition;
-  const gauges = data?.gauges ?? [];
 
   if (isLoading && !condition) {
     return (
@@ -89,27 +91,48 @@ export default function ConditionsBlock({ riverId, condition }: ConditionsBlockP
               📍 Gauge: {displayCondition.gaugeName}
             </p>
           )}
-
-          {gauges.length > 1 && (
-            <div className="mt-3 text-xs border-t border-current/20 pt-2">
-              <p className="font-bold mb-1">Other Gauges</p>
-              <ul className="space-y-1">
-                {gauges
-                  .filter((gauge) => !gauge.isPrimary)
-                  .map((gauge) => (
-                    <li key={gauge.id} className="flex items-center justify-between gap-2 font-medium">
-                      <span>{gauge.name || gauge.usgsSiteId || 'Unknown gauge'}</span>
-                      <span className="font-bold">
-                        {gauge.gaugeHeightFt !== null
-                          ? `${gauge.gaugeHeightFt.toFixed(2)} ft`
-                          : 'No reading'}
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          )}
         </div>
+
+        {/* Nearest Gauge to Put-in */}
+        {hasPutInSelected && nearestGauge && (
+          <div className="bg-blue-500/20 border border-blue-400/40 rounded-xl p-4">
+            <h4 className="font-bold text-blue-300 mb-2 text-sm flex items-center gap-2">
+              <span>💧</span>
+              <span>Nearest Gauge to Your Put-in</span>
+            </h4>
+            <p className="text-white font-medium text-sm mb-2">{nearestGauge.name}</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-blue-200/70 text-xs">Gauge Height</p>
+                <p className="text-white font-bold">
+                  {nearestGauge.gaugeHeightFt !== null
+                    ? `${nearestGauge.gaugeHeightFt.toFixed(2)} ft`
+                    : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-blue-200/70 text-xs">Discharge</p>
+                <p className="text-white font-bold">
+                  {nearestGauge.dischargeCfs !== null
+                    ? `${nearestGauge.dischargeCfs.toLocaleString()} cfs`
+                    : 'N/A'}
+                </p>
+              </div>
+            </div>
+            {nearestGauge.readingAgeHours !== null && (
+              <p className="text-blue-200/60 text-xs mt-2">
+                Updated {nearestGauge.readingAgeHours < 1
+                  ? 'just now'
+                  : nearestGauge.readingAgeHours < 24
+                    ? `${Math.round(nearestGauge.readingAgeHours)}h ago`
+                    : `${Math.round(nearestGauge.readingAgeHours / 24)}d ago`}
+              </p>
+            )}
+            <p className="text-blue-200/60 text-xs mt-1">
+              Toggle gauge pins on the map to see thresholds
+            </p>
+          </div>
+        )}
 
         {/* Trend */}
         <div className="bg-white/10 rounded-xl p-4 border border-white/20">

@@ -21,6 +21,7 @@ import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import type { AccessPoint } from '@/types/api';
 
 // Dynamic imports for map
@@ -33,6 +34,7 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ),
 });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
+const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 
 export default function RiverPage() {
   const params = useParams();
@@ -45,6 +47,10 @@ export default function RiverPage() {
   const { data: conditionData } = useConditions(river?.id || null);
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
+  const { data: gaugeStations } = useGaugeStations();
+
+  // Gauge visibility state
+  const [showGauges, setShowGauges] = useState(false);
 
   // Read initial state from URL params
   const urlPutIn = searchParams.get('putIn');
@@ -131,6 +137,12 @@ export default function RiverPage() {
     : null;
 
   const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
+
+  // Find nearest gauge to the selected put-in
+  const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
+  const nearestGauge = selectedPutInPoint && gaugeStations
+    ? findNearestGauge(gaugeStations, selectedPutInPoint.coordinates.lat, selectedPutInPoint.coordinates.lng)
+    : null;
 
   // Handle map marker click - set as put-in or take-out
   const handleMarkerClick = useCallback((point: AccessPoint) => {
@@ -236,6 +248,8 @@ export default function RiverPage() {
             <ConditionsBlock
               riverId={river.id}
               condition={condition}
+              nearestGauge={nearestGauge}
+              hasPutInSelected={!!selectedPutIn}
             />
 
             {/* Difficulty & Experience */}
@@ -266,13 +280,25 @@ export default function RiverPage() {
                   </div>
                 )}
 
-                <MapContainer initialBounds={river.bounds} showLegend={true}>
+                <MapContainer
+                  initialBounds={river.bounds}
+                  showLegend={true}
+                  showGauges={showGauges}
+                  onGaugeToggle={setShowGauges}
+                >
                   {accessPoints && (
                     <AccessPointMarkers
                       accessPoints={accessPoints}
                       selectedPutIn={selectedPutIn}
                       selectedTakeOut={selectedTakeOut}
                       onMarkerClick={handleMarkerClick}
+                    />
+                  )}
+                  {showGauges && gaugeStations && (
+                    <GaugeStationMarkers
+                      gauges={gaugeStations}
+                      selectedRiverId={river.id}
+                      nearestGaugeId={nearestGauge?.id}
                     />
                   )}
                 </MapContainer>
