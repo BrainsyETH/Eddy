@@ -3,12 +3,49 @@
 @tailwind utilities;
 
 /* =========================================
-   Missouri Float Planner - Nature-Inspired Theme
-   Clean, modern design with organic feel
+   Missouri Float Planner - Adventure Theme
+   Bright, optimistic outdoor mountain palette
    ========================================= */
 
 :root {
-  /* Primary Palette - Nature-Inspired */
+  /* =========================================
+     Adventure Theme - Primary Palette
+     ========================================= */
+
+  /* Foundations */
+  --adventure-night: #15143D;       /* Deepest layer - page backgrounds */
+  --adventure-deep: #2B1F6B;        /* Card backgrounds, elevated surfaces */
+  --adventure-violet: #5144A8;      /* Tertiary UI, mountain highlights */
+
+  /* Warm Accents */
+  --adventure-coral: #F37A8A;       /* Primary CTA, warm highlights */
+  --adventure-peach: #F2B7A0;       /* Secondary warm, hover states */
+
+  /* Cool Functional */
+  --adventure-lake: #3AA0C9;        /* River lines, interactive elements */
+  --adventure-forest: #478559;      /* Success states, put-in markers */
+
+  /* Text & Neutrals */
+  --adventure-cloud: #F7F6FB;       /* Primary text on dark */
+  --adventure-text: #1E1B3A;        /* Text on light backgrounds */
+  --adventure-muted: #6E6A8E;       /* Secondary text, captions */
+  --adventure-mist: #B8B5C9;        /* Disabled states, borders */
+
+  /* Adventure Gradients */
+  --gradient-mountain: linear-gradient(180deg, #15143D 0%, #2B1F6B 30%, #5144A8 60%, #2B1F6B 85%, #15143D 100%);
+  --gradient-sunrise: linear-gradient(180deg, #F37A8A 0%, #F2B7A0 50%, #5144A8 100%);
+  --gradient-lake: linear-gradient(135deg, #3AA0C9 0%, #478559 100%);
+  --gradient-adventure-hero: linear-gradient(180deg, #15143D 0%, #2B1F6B 40%, #5144A8 70%, rgba(243, 122, 138, 0.3) 100%);
+
+  /* Adventure Shadows */
+  --shadow-adventure-card: 0 4px 16px rgba(21, 20, 61, 0.25);
+  --shadow-adventure-card-hover: 0 8px 32px rgba(21, 20, 61, 0.35);
+  --shadow-glow-coral: 0 0 24px rgba(243, 122, 138, 0.3);
+  --shadow-glow-lake: 0 0 24px rgba(58, 160, 201, 0.3);
+
+  /* =========================================
+     Legacy Palette (backward compatibility)
+     ========================================= */
   --color-river-deep: #161748;      /* Purple baseline - UI cards */
   --color-river-night: #0f132f;     /* Deep background */
   --color-sky-warm: #f95d9b;        /* Pink highlight - CTAs */
@@ -17,7 +54,7 @@
   --color-river-forest: #478559;    /* Green treeline - put-in markers */
   --color-river-gravel: #c7b8a6;    /* Gravel tan - text, secondary */
 
-  /* Legacy colors (backward compatibility) */
+  /* Legacy colors */
   --color-ozark-900: #1a1a2e;
   --color-ozark-800: #16213e;
   --color-ozark-700: #1f3460;
@@ -403,6 +440,253 @@ h1, h2, h3, h4, h5, h6 {
 
 .rounded-organic-lg {
   border-radius: 1.5rem;
+}
+
+/* =========================================
+   Adventure Theme - Component Classes
+   Bright outdoor aesthetic with warm accents
+   ========================================= */
+
+/* Adventure Text Gradients */
+.text-gradient-adventure {
+  background: linear-gradient(135deg, var(--adventure-coral) 0%, var(--adventure-peach) 50%, var(--adventure-lake) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-lake {
+  background: linear-gradient(135deg, var(--adventure-lake) 0%, var(--adventure-forest) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-coral {
+  background: linear-gradient(135deg, var(--adventure-coral) 0%, var(--adventure-peach) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Adventure Cards */
+.card-adventure {
+  background: var(--adventure-deep);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-adventure-card);
+  transition: all 0.2s ease-out;
+}
+
+.card-adventure:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-adventure-card-hover);
+  border-color: rgba(58, 160, 201, 0.3);
+}
+
+.card-adventure-feature {
+  background: linear-gradient(180deg, rgba(81, 68, 168, 0.3) 0%, var(--adventure-deep) 40%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.card-adventure-glow {
+  background: var(--adventure-deep);
+  border: 1px solid rgba(243, 122, 138, 0.2);
+  border-radius: 16px;
+  box-shadow: var(--shadow-glow-coral);
+}
+
+/* Adventure Buttons */
+.btn-adventure-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, var(--adventure-coral) 0%, #E66B7B 100%);
+  color: white;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 16px rgba(243, 122, 138, 0.3);
+  transition: all 0.2s ease-out;
+  cursor: pointer;
+}
+
+.btn-adventure-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(243, 122, 138, 0.4);
+}
+
+.btn-adventure-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(243, 122, 138, 0.3);
+}
+
+.btn-adventure-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--adventure-lake);
+  border: 2px solid rgba(58, 160, 201, 0.4);
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.2s ease-out;
+  cursor: pointer;
+}
+
+.btn-adventure-secondary:hover {
+  background: rgba(58, 160, 201, 0.1);
+  border-color: var(--adventure-lake);
+}
+
+.btn-adventure-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--adventure-cloud);
+  border: none;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: all 0.2s ease-out;
+  cursor: pointer;
+}
+
+.btn-adventure-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Adventure Navigation */
+.nav-adventure {
+  background: rgba(21, 20, 61, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav-link-adventure {
+  color: var(--adventure-mist);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: all 0.15s ease-out;
+}
+
+.nav-link-adventure:hover {
+  color: var(--adventure-cloud);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-link-adventure.active {
+  color: var(--adventure-coral);
+  background: rgba(243, 122, 138, 0.1);
+}
+
+/* Adventure Badges */
+.badge-adventure-optimal {
+  background: rgba(71, 133, 89, 0.2);
+  color: #7EE7A0;
+  border: 1px solid rgba(71, 133, 89, 0.4);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-adventure-warning {
+  background: rgba(242, 183, 160, 0.2);
+  color: var(--adventure-peach);
+  border: 1px solid rgba(242, 183, 160, 0.4);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-adventure-danger {
+  background: rgba(243, 122, 138, 0.2);
+  color: var(--adventure-coral);
+  border: 1px solid rgba(243, 122, 138, 0.4);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-adventure-info {
+  background: rgba(58, 160, 201, 0.2);
+  color: var(--adventure-lake);
+  border: 1px solid rgba(58, 160, 201, 0.4);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Adventure Hero Section */
+.hero-adventure {
+  background: var(--gradient-adventure-hero);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-adventure::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(243, 122, 138, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Adventure Input Styles */
+.input-adventure {
+  background: rgba(21, 20, 61, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: var(--adventure-cloud);
+  transition: all 0.15s ease-out;
+}
+
+.input-adventure::placeholder {
+  color: var(--adventure-muted);
+}
+
+.input-adventure:focus {
+  outline: none;
+  border-color: var(--adventure-lake);
+  box-shadow: 0 0 0 3px rgba(58, 160, 201, 0.15);
+}
+
+/* Adventure Shadow Utilities */
+.shadow-adventure-glow-coral {
+  box-shadow: var(--shadow-glow-coral);
+}
+
+.shadow-adventure-glow-lake {
+  box-shadow: var(--shadow-glow-lake);
+}
+
+/* Adventure Backgrounds */
+.bg-adventure-night {
+  background: var(--adventure-night);
+}
+
+.bg-adventure-deep {
+  background: var(--adventure-deep);
+}
+
+.bg-adventure-gradient {
+  background: var(--gradient-mountain);
 }
 
 /* Admin Geography Editor Styles */
