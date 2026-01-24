@@ -49,8 +49,8 @@ export default function RiverPage() {
   const { data: vesselTypes } = useVesselTypes();
   const { data: gaugeStations } = useGaugeStations();
 
-  // Gauge visibility state
-  const [showGauges, setShowGauges] = useState(false);
+  // Gauge visibility state - default to ON so users can see gauges
+  const [showGauges, setShowGauges] = useState(true);
 
   // Read initial state from URL params
   const urlPutIn = searchParams.get('putIn');
@@ -138,10 +138,18 @@ export default function RiverPage() {
 
   const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
 
-  // Find nearest gauge to the selected put-in
+  // Find nearest gauge to the selected put-in, or to river center if no put-in
   const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
-  const nearestGauge = selectedPutInPoint && gaugeStations
-    ? findNearestGauge(gaugeStations, selectedPutInPoint.coordinates.lat, selectedPutInPoint.coordinates.lng)
+  const nearestGauge = gaugeStations && gaugeStations.length > 0
+    ? selectedPutInPoint
+      ? findNearestGauge(gaugeStations, selectedPutInPoint.coordinates.lat, selectedPutInPoint.coordinates.lng)
+      : river?.bounds
+        ? findNearestGauge(
+            gaugeStations,
+            (river.bounds[1] + river.bounds[3]) / 2, // center lat
+            (river.bounds[0] + river.bounds[2]) / 2  // center lng
+          )
+        : null
     : null;
 
   // Handle map marker click - set as put-in or take-out

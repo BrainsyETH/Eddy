@@ -93,12 +93,12 @@ export default function ConditionsBlock({ riverId, condition, nearestGauge, hasP
           )}
         </div>
 
-        {/* Nearest Gauge to Put-in */}
-        {hasPutInSelected && nearestGauge && (
+        {/* Nearest Gauge */}
+        {nearestGauge && (
           <div className="bg-blue-500/20 border border-blue-400/40 rounded-xl p-4">
             <h4 className="font-bold text-blue-300 mb-2 text-sm flex items-center gap-2">
               <span>💧</span>
-              <span>Nearest Gauge to Your Put-in</span>
+              <span>{hasPutInSelected ? 'Nearest Gauge to Your Put-in' : 'Nearest Gauge Station'}</span>
             </h4>
             <p className="text-white font-medium text-sm mb-2">{nearestGauge.name}</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -129,7 +129,7 @@ export default function ConditionsBlock({ riverId, condition, nearestGauge, hasP
               </p>
             )}
             <p className="text-blue-200/60 text-xs mt-1">
-              Toggle gauge pins on the map to see thresholds
+              View gauge pins on the map to see thresholds
             </p>
           </div>
         )}
