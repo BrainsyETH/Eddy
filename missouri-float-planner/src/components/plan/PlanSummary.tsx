@@ -205,8 +205,8 @@ export default function PlanSummary({
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-xs font-medium text-bluff-500 uppercase tracking-wide">Put-in</p>
-              <p className="font-semibold text-ozark-800">{displayPlan.putIn.name}</p>
+              <p className="text-xs font-medium text-river-forest uppercase tracking-wide">Put-in</p>
+              <p className="font-bold text-gray-900">{displayPlan.putIn.name}</p>
               <p className="text-sm text-bluff-500">Mile {displayPlan.putIn.riverMile.toFixed(1)}</p>
             </div>
           </div>
@@ -221,8 +221,8 @@ export default function PlanSummary({
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-xs font-medium text-bluff-500 uppercase tracking-wide">Take-out</p>
-              <p className="font-semibold text-ozark-800">{displayPlan.takeOut.name}</p>
+              <p className="text-xs font-medium text-sky-warm uppercase tracking-wide">Take-out</p>
+              <p className="font-bold text-gray-900">{displayPlan.takeOut.name}</p>
               <p className="text-sm text-bluff-500">Mile {displayPlan.takeOut.riverMile.toFixed(1)}</p>
             </div>
           </div>
@@ -310,11 +310,15 @@ export default function PlanSummary({
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm text-blue-800 font-medium hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 bg-river-forest text-white rounded-lg text-sm font-medium hover:bg-river-forest/90 transition-colors"
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-river-forest flex-shrink-0"></span>
+              <span className="flex items-center gap-1 flex-shrink-0">
+                <span className="text-base">🏠</span>
+                <span className="text-white/60">→</span>
+                <span className="w-2 h-2 rounded-full bg-white"></span>
+              </span>
               Directions to Put-In
-              <svg className="w-4 h-4 ml-auto text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 ml-auto text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>

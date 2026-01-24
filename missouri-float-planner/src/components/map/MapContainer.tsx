@@ -108,20 +108,8 @@ export default function MapContainer({
   const radarSourceId = 'rainviewer-radar';
   const radarLayerId = 'rainviewer-radar-layer';
 
-  // Load saved style preference - one-time migration to 'liberty' (Natural) as default
-  useEffect(() => {
-    const migrated = localStorage.getItem('mapStyleMigrated');
-    const saved = localStorage.getItem('mapStyle') as MapStyleKey | null;
-
-    // One-time migration: reset to 'liberty' if not already migrated
-    if (!migrated) {
-      localStorage.setItem('mapStyleMigrated', '1');
-      localStorage.setItem('mapStyle', 'liberty');
-      setMapStyle('liberty');
-    } else if (saved && MAP_STYLES[saved]) {
-      setMapStyle(saved);
-    }
-  }, []);
+  // Note: Style preference is loaded synchronously in the map initialization effect
+  // to avoid a flash of wrong style on first render
 
   // Change map style
   const changeMapStyle = useCallback((styleKey: MapStyleKey) => {
@@ -259,8 +247,20 @@ export default function MapContainer({
     if (!mapContainer.current || map.current) return;
 
     // Get saved style or use liberty (Natural) as default
+    // Also handle migration to liberty if not already migrated
     const savedStyle = localStorage.getItem('mapStyle') as MapStyleKey | null;
-    const initialStyle = savedStyle && MAP_STYLES[savedStyle] ? savedStyle : 'liberty';
+    const migrated = localStorage.getItem('mapStyleMigrated');
+    let initialStyle: MapStyleKey = 'liberty';
+
+    if (!migrated) {
+      // First time or not yet migrated - set to liberty
+      localStorage.setItem('mapStyleMigrated', '1');
+      localStorage.setItem('mapStyle', 'liberty');
+    } else if (savedStyle && MAP_STYLES[savedStyle]) {
+      initialStyle = savedStyle;
+    }
+
+    setMapStyle(initialStyle);
     // Use custom style object for satellite, URL for others
     const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
       (initialStyle === 'satellite' ? SATELLITE_STYLE : MAP_STYLES[initialStyle].url);
