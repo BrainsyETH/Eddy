@@ -102,10 +102,10 @@ export default function AccessPointSelector({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full px-4 py-3 bg-white border border-bluff-200 rounded-xl 
-                   shadow-card hover:shadow-card-hover hover:border-river-400
+        className="w-full px-4 py-3 bg-white border-2 border-neutral-200 rounded-lg
+                   shadow-sm hover:shadow-md hover:border-primary-400
                    flex items-center justify-between gap-3 transition-all duration-200
-                   focus:outline-none focus:ring-2 focus:ring-river-500 focus:ring-offset-2"
+                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
       >
         <div className="flex items-center gap-3 flex-1 text-left">
           {selectedPoint ? (
@@ -116,14 +116,14 @@ export default function AccessPointSelector({
                  selectedPoint.type === 'bridge' ? '🌉' : '📍'}
               </span>
               <div>
-                <p className="font-medium text-ozark-800">{selectedPoint.name}</p>
-                <p className="text-sm text-bluff-500">
+                <p className="font-medium text-neutral-900">{selectedPoint.name}</p>
+                <p className="text-sm text-neutral-500">
                   Mile {selectedPoint.riverMile.toFixed(1)} • {selectedPoint.type.replace('_', ' ')}
                 </p>
               </div>
             </>
           ) : (
-            <span className="text-bluff-500">{placeholder}</span>
+            <span className="text-neutral-500">{placeholder}</span>
           )}
         </div>
         {selectedPoint && (
@@ -134,16 +134,16 @@ export default function AccessPointSelector({
               e.stopPropagation();
               onSelect(null);
             }}
-            className="p-1 hover:bg-bluff-100 rounded-full transition-colors"
+            className="p-1 hover:bg-neutral-100 rounded-full transition-colors"
             title="Clear selection"
           >
-            <svg className="w-4 h-4 text-bluff-400 hover:text-bluff-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-neutral-400 hover:text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         )}
         <svg
-          className={`w-5 h-5 text-bluff-500 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -154,15 +154,15 @@ export default function AccessPointSelector({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-md border border-bluff-200
-                        rounded-xl shadow-lg overflow-hidden animate-in">
-          <div className="p-3 border-b border-bluff-200 space-y-2">
+        <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-md border-2 border-neutral-200
+                        rounded-lg shadow-lg overflow-hidden animate-in">
+          <div className="p-3 border-b border-neutral-200 space-y-2">
             <input
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search access points..."
-              className="w-full rounded-lg border border-bluff-200 bg-white px-3 py-2 text-sm text-ozark-800 placeholder:text-bluff-400 focus:outline-none focus:ring-2 focus:ring-river-500"
+              className="w-full rounded-md border-2 border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
             {/* Type Filter Toggle */}
             <button
@@ -172,7 +172,7 @@ export default function AccessPointSelector({
                 e.stopPropagation();
                 setShowTypeFilter(!showTypeFilter);
               }}
-              className="w-full flex items-center justify-between text-xs text-bluff-600 hover:text-river-600 transition-colors py-1"
+              className="w-full flex items-center justify-between text-xs text-neutral-600 hover:text-primary-600 transition-colors py-1"
             >
               <span className="flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +180,7 @@ export default function AccessPointSelector({
                 </svg>
                 Filter by Type
                 {selectedTypes.size > 0 && (
-                  <span className="bg-river-500 text-white px-1.5 py-0.5 rounded-full text-[10px]">
+                  <span className="bg-primary-500 text-white px-1.5 py-0.5 rounded-full text-[10px]">
                     {selectedTypes.size}
                   </span>
                 )}
@@ -189,7 +189,7 @@ export default function AccessPointSelector({
             </button>
             {/* Type Filter Options */}
             {showTypeFilter && (
-              <div className="bg-bluff-50 rounded-lg p-2">
+              <div className="bg-neutral-50 rounded-lg p-2">
                 <div className="flex justify-between items-center mb-2">
                   <button
                     type="button"
@@ -198,7 +198,7 @@ export default function AccessPointSelector({
                       e.stopPropagation();
                       setSelectedTypes(new Set(ACCESS_POINT_TYPES.map(t => t.value)));
                     }}
-                    className="text-[10px] text-river-600 hover:text-river-700"
+                    className="text-[10px] text-primary-600 hover:text-primary-700"
                   >
                     Select All
                   </button>
@@ -209,7 +209,7 @@ export default function AccessPointSelector({
                       e.stopPropagation();
                       setSelectedTypes(new Set());
                     }}
-                    className="text-[10px] text-bluff-500 hover:text-bluff-700"
+                    className="text-[10px] text-neutral-500 hover:text-neutral-700"
                   >
                     Clear
                   </button>
@@ -226,8 +226,8 @@ export default function AccessPointSelector({
                       }}
                       className={`flex items-center gap-1 px-2 py-1.5 rounded text-[11px] transition-colors ${
                         selectedTypes.has(type.value)
-                          ? 'bg-river-500 text-white'
-                          : 'bg-white text-bluff-700 hover:bg-bluff-100'
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-700 hover:bg-neutral-100'
                       }`}
                     >
                       <span>{type.emoji}</span>
@@ -240,7 +240,7 @@ export default function AccessPointSelector({
           </div>
           <div className="max-h-80 overflow-y-auto scrollbar-thin">
             {visiblePoints.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-bluff-500 text-center">
+              <div className="px-4 py-3 text-sm text-neutral-500 text-center">
                 No access points available
               </div>
             ) : (
@@ -258,41 +258,41 @@ export default function AccessPointSelector({
                     onSelect(point.id);
                     setIsOpen(false);
                   }}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-river-50 transition-colors
-                             focus:outline-none focus:ring-2 focus:ring-river-500 focus:ring-inset
-                             ${point.id === selectedId ? 'bg-river-50' : ''}`}
+                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-primary-50 transition-colors
+                             focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset
+                             ${point.id === selectedId ? 'bg-primary-50' : ''}`}
                 >
                   <span className="text-xl flex-shrink-0">
-                    {point.type === 'boat_ramp' ? '🚤' : 
-                     point.type === 'campground' ? '🏕️' : 
+                    {point.type === 'boat_ramp' ? '🚤' :
+                     point.type === 'campground' ? '🏕️' :
                      point.type === 'bridge' ? '🌉' : '📍'}
                   </span>
                   <div className="flex-1 text-left">
-                    <p className="font-medium text-ozark-800">{point.name}</p>
+                    <p className="font-medium text-neutral-900">{point.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-sm text-bluff-500">
+                      <span className="text-sm text-neutral-500">
                         Mile {point.riverMile.toFixed(1)}
                       </span>
-                      <span className="text-bluff-300">•</span>
-                      <span className="text-sm text-bluff-500">
+                      <span className="text-neutral-300">•</span>
+                      <span className="text-sm text-neutral-500">
                         {point.type.replace('_', ' ')}
                       </span>
                       {point.feeRequired && (
                         <>
-                          <span className="text-bluff-300">•</span>
-                          <span className="text-xs text-sunset-600">Fee Required</span>
+                          <span className="text-neutral-300">•</span>
+                          <span className="text-xs text-accent-600">Fee Required</span>
                         </>
                       )}
                       {isUpstream && (
                         <>
-                          <span className="text-bluff-300">•</span>
+                          <span className="text-neutral-300">•</span>
                           <span className="text-xs text-red-600">Upstream</span>
                         </>
                       )}
                     </div>
                   </div>
                   {point.id === selectedId && (
-                    <svg className="w-5 h-5 text-river-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-primary-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}

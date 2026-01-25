@@ -57,9 +57,9 @@ const FLOW_RATING_CONFIG: Record<FlowRating, {
   },
   unknown: {
     emoji: '?',
-    bgClass: 'bg-bluff-500',
+    bgClass: 'bg-neutral-500',
     textClass: 'text-white',
-    borderClass: 'border-bluff-400',
+    borderClass: 'border-neutral-400',
   },
 };
 

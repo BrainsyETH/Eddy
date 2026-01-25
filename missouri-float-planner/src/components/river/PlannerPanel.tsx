@@ -128,7 +128,7 @@ export default function PlannerPanel({
 
           {/* Instructions */}
           {!selectedPutIn && (
-            <div className="glass-bg-soft rounded-xl p-4 text-sm text-river-gravel border border-white/10">
+            <div className="bg-primary-700/30 rounded-xl p-4 text-sm text-primary-200 border border-primary-600/30">
               <p className="font-medium mb-1 text-white">👆 Get Started</p>
               <p>Select a put-in and take-out point above to calculate your float plan.</p>
             </div>

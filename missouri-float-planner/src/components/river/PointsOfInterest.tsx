@@ -26,7 +26,7 @@ export default function PointsOfInterest({ riverSlug }: PointsOfInterestProps) {
     queryFn: async () => {
       const response = await fetch(`/api/rivers/${riverSlug}/hazards`);
       if (!response.ok) return [];
-      
+
       const data = await response.json();
       return (data.hazards || []) as POI[];
     },
@@ -38,39 +38,39 @@ export default function PointsOfInterest({ riverSlug }: PointsOfInterestProps) {
 
   if (isLoading) {
     return (
-      <div className="glass-card rounded-2xl p-6">
+      <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
         <div className="flex items-center gap-3">
           <LoadingSpinner size="sm" />
-          <p className="text-sm text-bluff-500">Loading points of interest...</p>
+          <p className="text-sm text-neutral-500">Loading points of interest...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="glass-card rounded-2xl p-6">
-      <h3 className="text-xl font-bold text-ozark-800 mb-4">Points of Interest</h3>
+    <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
+      <h3 className="text-xl font-bold text-neutral-900 mb-4">Points of Interest</h3>
 
       {pois.length > 0 ? (
         <div className="space-y-3">
           {pois.map((poi) => (
-            <div key={poi.id} className="bg-bluff-50 rounded-xl p-4">
+            <div key={poi.id} className="bg-neutral-50 rounded-lg p-4">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="font-semibold text-ozark-800">{poi.name}</p>
-                  <p className="text-sm text-bluff-500 capitalize">{poi.type}</p>
+                  <p className="font-semibold text-neutral-900">{poi.name}</p>
+                  <p className="text-sm text-neutral-500 capitalize">{poi.type}</p>
                 </div>
-                <span className="text-xs text-bluff-500">Mile {poi.riverMile.toFixed(1)}</span>
+                <span className="text-xs text-neutral-500">Mile {poi.riverMile.toFixed(1)}</span>
               </div>
               {poi.description && (
-                <p className="text-sm text-bluff-600 mt-2">{poi.description}</p>
+                <p className="text-sm text-neutral-600 mt-2">{poi.description}</p>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <div className="bg-bluff-50 rounded-xl p-6 text-center">
-          <p className="text-sm text-bluff-500">
+        <div className="bg-neutral-50 rounded-lg p-6 text-center">
+          <p className="text-sm text-neutral-500">
             Points of interest will be added soon. Check back for springs, bluffs, caves, and other landmarks!
           </p>
         </div>
