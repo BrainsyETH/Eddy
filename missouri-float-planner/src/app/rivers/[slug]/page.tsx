@@ -240,17 +240,28 @@ export default function RiverPage() {
         condition={condition}
       />
 
-      {/* Main Content - Content left, Map right */}
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Gauge Stations - Above map on mobile, in sidebar on desktop */}
+        <div className="lg:hidden mb-4">
+          <GaugeOverview
+            gauges={gaugeStations}
+            riverId={river.id}
+            isLoading={!allGaugeStations}
+          />
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column - Content (scrollable) */}
+          {/* Left Column - Planner and key info */}
           <div className="w-full lg:w-[400px] flex-shrink-0 order-2 lg:order-1 space-y-4">
-            {/* Gauge Stations Overview - at top for quick reference */}
-            <GaugeOverview
-              gauges={gaugeStations}
-              riverId={river.id}
-              isLoading={!allGaugeStations}
-            />
+            {/* Gauge Stations - Desktop only (hidden on mobile, shown above) */}
+            <div className="hidden lg:block">
+              <GaugeOverview
+                gauges={gaugeStations}
+                riverId={river.id}
+                isLoading={!allGaugeStations}
+              />
+            </div>
 
             {/* Planner Panel */}
             <PlannerPanel
@@ -276,24 +287,13 @@ export default function RiverPage() {
               hasPutInSelected={!!selectedPutIn}
               isLoading={conditionsLoading}
             />
-
-            {/* Difficulty & Experience */}
-            <DifficultyExperience river={river} />
-
-            {/* Logistics */}
-            <LogisticsSection
-              accessPoints={accessPoints || []}
-              isLoading={accessPointsLoading}
-            />
-
-            {/* Points of Interest */}
-            <PointsOfInterest riverSlug={slug} />
           </div>
 
-          {/* Right Column - Map (contained fixed height) */}
-          <div className="flex-1 order-1 lg:order-2">
+          {/* Right Column - Map and additional content */}
+          <div className="flex-1 order-1 lg:order-2 space-y-4">
+            {/* Map */}
             <div className="lg:sticky lg:top-4">
-              <div className="relative h-[350px] lg:h-[500px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
+              <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
                 {/* Weather Bug overlay */}
                 <WeatherBug riverSlug={slug} riverId={river.id} />
 
@@ -329,7 +329,37 @@ export default function RiverPage() {
                 </MapContainer>
               </div>
             </div>
+
+            {/* Content below map on desktop to fill white space */}
+            <div className="hidden lg:block space-y-4">
+              {/* Difficulty & Experience */}
+              <DifficultyExperience river={river} />
+
+              {/* Logistics */}
+              <LogisticsSection
+                accessPoints={accessPoints || []}
+                isLoading={accessPointsLoading}
+              />
+
+              {/* Points of Interest */}
+              <PointsOfInterest riverSlug={slug} />
+            </div>
           </div>
+        </div>
+
+        {/* Mobile-only: Additional content below the two-column layout */}
+        <div className="lg:hidden space-y-4 mt-4">
+          {/* Difficulty & Experience */}
+          <DifficultyExperience river={river} />
+
+          {/* Logistics */}
+          <LogisticsSection
+            accessPoints={accessPoints || []}
+            isLoading={accessPointsLoading}
+          />
+
+          {/* Points of Interest */}
+          <PointsOfInterest riverSlug={slug} />
         </div>
       </div>
     </div>
