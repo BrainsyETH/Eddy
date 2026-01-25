@@ -280,39 +280,39 @@ export default function Home() {
                 </div>
               </div>
             ) : !selectedRiverId ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-primary-800">
+              <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: '#163F4A' }}>
                 {/* Hero content */}
                 <div className="relative z-10 text-center max-w-2xl px-4 animate-in">
                   <div className="mb-8">
-                    <div className="w-20 h-20 mx-auto rounded-xl bg-accent-500 border-2 border-neutral-900 shadow-lg flex items-center justify-center">
-                      <Waves className="w-12 h-12 text-white" />
+                    <div className="w-24 h-24 mx-auto rounded-xl border-4 border-neutral-900 shadow-xl flex items-center justify-center" style={{ backgroundColor: '#F07052' }}>
+                      <Waves className="w-14 h-14 text-white" />
                     </div>
                   </div>
-                  <h2 className="text-4xl md:text-5xl font-heading font-bold text-white mb-4">
+                  <h2 className="text-4xl md:text-5xl font-heading font-bold text-white mb-4 drop-shadow-lg">
                     Discover Missouri&apos;s <br />
-                    <span className="text-accent-400">
+                    <span style={{ color: '#F07052' }}>
                       Float Trips
                     </span>
                   </h2>
-                  <p className="text-lg text-primary-200 mb-8 max-w-lg mx-auto">
+                  <p className="text-lg text-white/80 mb-8 max-w-lg mx-auto">
                     Plan your perfect float on the Current River, Eleven Point, Meramec,
                     and more. Real-time water conditions and shuttle times.
                   </p>
 
                   {/* Feature pills */}
                   <div className="flex flex-wrap justify-center gap-3 mb-8">
-                    <span className="px-4 py-2 bg-primary-700 border-2 border-primary-600 rounded-md text-sm text-white font-medium">
+                    <span className="px-4 py-2 border-3 border-neutral-900 rounded-lg text-sm text-white font-bold shadow-md" style={{ backgroundColor: '#1D525F' }}>
                       8 Rivers
                     </span>
-                    <span className="px-4 py-2 bg-primary-700 border-2 border-primary-600 rounded-md text-sm text-white font-medium">
+                    <span className="px-4 py-2 border-3 border-neutral-900 rounded-lg text-sm text-white font-bold shadow-md" style={{ backgroundColor: '#1D525F' }}>
                       30+ Access Points
                     </span>
-                    <span className="px-4 py-2 bg-primary-700 border-2 border-primary-600 rounded-md text-sm text-white font-medium">
+                    <span className="px-4 py-2 border-3 border-neutral-900 rounded-lg text-sm text-white font-bold shadow-md" style={{ backgroundColor: '#1D525F' }}>
                       Real-time Conditions
                     </span>
                   </div>
 
-                  <p className="text-support-400 font-medium animate-pulse">
+                  <p className="text-white font-bold text-lg animate-pulse" style={{ color: '#4EB86B' }}>
                     ↑ Select a river above to get started
                   </p>
                 </div>
