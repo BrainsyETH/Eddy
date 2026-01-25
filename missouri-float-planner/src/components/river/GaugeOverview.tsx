@@ -21,8 +21,9 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
 } {
   const height = gauge.gaugeHeightFt;
 
-  // Find threshold for this river
-  const threshold = gauge.thresholds?.find(t => t.riverId === riverId);
+  // Find threshold for this river - prefer primary (matches conditions API)
+  const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
+    || gauge.thresholds?.find(t => t.riverId === riverId);
 
   if (height === null || !threshold) {
     return { code: 'unknown', label: 'Unknown', color: 'bg-neutral-400' };

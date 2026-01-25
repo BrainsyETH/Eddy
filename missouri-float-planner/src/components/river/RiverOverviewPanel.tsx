@@ -30,8 +30,8 @@ const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: s
 // Condition level explanations for the legend (ordered: Too Low → Low → Good → High → Flood)
 const CONDITION_LEGEND = [
   { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400', description: 'Not recommended' },
-  { code: 'very_low', label: 'Low', color: 'bg-yellow-500', description: 'Scraping likely' },
-  { code: 'low', label: 'Good', color: 'bg-lime-500', description: 'Some dragging' },
+  { code: 'very_low', label: 'Low', color: 'bg-yellow-500', description: 'Expect dragging' },
+  { code: 'low', label: 'Good', color: 'bg-lime-500', description: 'Floatable' },
   { code: 'optimal', label: 'Optimal', color: 'bg-emerald-500', description: 'Ideal' },
   { code: 'high', label: 'High', color: 'bg-orange-500', description: 'Fast current' },
   { code: 'dangerous', label: 'Flood', color: 'bg-red-600', description: 'Do not float' },
@@ -40,7 +40,9 @@ const CONDITION_LEGEND = [
 // Determine condition based on gauge height and thresholds
 function getGaugeConditionColor(gauge: GaugeStation, riverId: string): string {
   const height = gauge.gaugeHeightFt;
-  const threshold = gauge.thresholds?.find(t => t.riverId === riverId);
+  // Prefer primary threshold (matches what conditions API uses), fall back to any matching
+  const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
+    || gauge.thresholds?.find(t => t.riverId === riverId);
 
   if (height === null || !threshold) {
     return 'bg-neutral-400';
