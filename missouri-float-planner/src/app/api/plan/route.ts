@@ -26,7 +26,7 @@ const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
   flood: 'Dangerous flooding - do not float',
   high: 'Fast current - experienced paddlers only',
   good: 'Ideal conditions - minimal dragging',
-  low: 'Floatable with some dragging in riffles',
+  low: 'Low - Floatable',
   poor: 'Frequent dragging and portaging may occur',
   unknown: 'Current conditions unavailable',
 };

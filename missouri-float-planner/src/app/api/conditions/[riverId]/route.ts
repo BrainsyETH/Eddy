@@ -16,7 +16,7 @@ const FLOW_RATING_INFO: Record<FlowRating, { label: string; description: string 
   flood: { label: 'Flood', description: 'Dangerous flooding - do not float' },
   high: { label: 'High', description: 'Fast current - experienced paddlers only' },
   good: { label: 'Good', description: 'Ideal conditions - minimal dragging' },
-  low: { label: 'Low', description: 'Floatable with some dragging in riffles' },
+  low: { label: 'Low', description: 'Low - Floatable' },
   poor: { label: 'Too Low', description: 'Frequent dragging and portaging may occur' },
   unknown: { label: 'Unknown', description: 'Current conditions unavailable' },
 };

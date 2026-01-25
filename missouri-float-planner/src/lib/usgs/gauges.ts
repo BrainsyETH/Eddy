@@ -348,7 +348,7 @@ export interface FlowCondition {
  */
 const PERCENTILE_RATINGS: Array<{ max: number; rating: FlowRating; label: string; description: string }> = [
   { max: 10, rating: 'poor', label: 'Too Low', description: 'Frequent dragging and portaging may occur' },
-  { max: 25, rating: 'low', label: 'Low', description: 'Floatable with some dragging in riffles' },
+  { max: 25, rating: 'low', label: 'Low', description: 'Low - Floatable' },
   { max: 75, rating: 'good', label: 'Good', description: 'Ideal conditions - minimal dragging' },
   { max: 90, rating: 'high', label: 'High', description: 'Fast current - experienced paddlers only' },
   { max: 100, rating: 'flood', label: 'Flood', description: 'Dangerous flooding - do not float' },
