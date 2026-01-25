@@ -73,9 +73,10 @@ export default function RiverOverviewPanel({
   if (isDesktop) {
     return (
       <div
-        className={`w-full bg-primary-800 border-t-2 border-neutral-900 transform transition-all duration-300 ease-out ${
+        className={`w-full border-t-2 border-neutral-900 transform transition-all duration-300 ease-out ${
           isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         }`}
+        style={{ backgroundColor: '#163F4A' }}
       >
         {/* Content - Compact horizontal layout for desktop */}
         <div className="px-6 py-3">
@@ -85,11 +86,12 @@ export default function RiverOverviewPanel({
             <div className="flex items-center gap-3 flex-shrink-0">
               <div>
                 <h2 className="text-lg font-heading font-bold text-white">{river.name}</h2>
-                <p className="text-primary-300 text-xs">Plan your float with live conditions</p>
+                <p className="text-xs" style={{ color: '#72B5C4' }}>Plan your float with live conditions</p>
               </div>
               <button
                 onClick={onClose}
-                className="text-primary-300 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                className="hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                style={{ color: '#72B5C4' }}
                 aria-label="Close river panel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,15 +102,15 @@ export default function RiverOverviewPanel({
 
             {/* Quick stats - inline */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="bg-primary-700 rounded-md px-3 py-1.5 border border-primary-600">
-                <p className="text-[10px] font-medium text-primary-300 uppercase">Length</p>
+              <div className="rounded-md px-3 py-1.5 border" style={{ backgroundColor: '#1D525F', borderColor: '#256574' }}>
+                <p className="text-[10px] font-medium uppercase" style={{ color: '#72B5C4' }}>Length</p>
                 <p className="text-sm font-bold text-white">{river.lengthMiles.toFixed(1)} mi</p>
               </div>
-              <div className="bg-primary-700 rounded-md px-3 py-1.5 border border-primary-600">
-                <p className="text-[10px] font-medium text-primary-300 uppercase">Access</p>
-                <p className="text-sm font-bold text-primary-200">{accessPointCount}</p>
+              <div className="rounded-md px-3 py-1.5 border" style={{ backgroundColor: '#1D525F', borderColor: '#256574' }}>
+                <p className="text-[10px] font-medium uppercase" style={{ color: '#72B5C4' }}>Access</p>
+                <p className="text-sm font-bold" style={{ color: '#A3D1DB' }}>{accessPointCount}</p>
               </div>
-              <div className={`rounded-md px-3 py-1.5 border border-primary-600 ${conditionStyle.bg}`}>
+              <div className={`rounded-md px-3 py-1.5 border ${conditionStyle.bg}`} style={{ borderColor: '#256574' }}>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm">{conditionStyle.icon}</span>
                   <div>
@@ -124,8 +126,8 @@ export default function RiverOverviewPanel({
                 </div>
               </div>
               {condition?.dischargeCfs !== null && condition?.dischargeCfs !== undefined && (
-                <div className="bg-primary-700 rounded-md px-3 py-1.5 border border-primary-600">
-                  <p className="text-[10px] font-medium text-primary-300 uppercase">Flow</p>
+                <div className="rounded-md px-3 py-1.5 border" style={{ backgroundColor: '#1D525F', borderColor: '#256574' }}>
+                  <p className="text-[10px] font-medium uppercase" style={{ color: '#72B5C4' }}>Flow</p>
                   <p className="text-sm font-bold text-white">{condition.dischargeCfs.toLocaleString()} cfs</p>
                 </div>
               )}
@@ -134,20 +136,20 @@ export default function RiverOverviewPanel({
             {/* Tags - inline */}
             <div className="flex items-center gap-2 flex-wrap flex-1">
               {river.region && (
-                <span className="px-2 py-1 rounded-md bg-primary-700 text-primary-200 text-[10px] border border-primary-600">
+                <span className="px-2 py-1 rounded-md text-[10px] border" style={{ backgroundColor: '#1D525F', color: '#A3D1DB', borderColor: '#256574' }}>
                   {river.region}
                 </span>
               )}
               {river.difficultyRating && (
-                <span className="px-2 py-1 rounded-md bg-primary-600 text-primary-100 text-[10px] border border-primary-500">
+                <span className="px-2 py-1 rounded-md text-[10px] border" style={{ backgroundColor: '#256574', color: '#D4EAEF', borderColor: '#2D7889' }}>
                   {river.difficultyRating}
                 </span>
               )}
             </div>
 
             {/* Compact condition legend */}
-            <div className="flex items-center gap-3 flex-shrink-0 border-l border-primary-600 pl-4">
-              <p className="text-[10px] font-medium text-primary-300 uppercase">Conditions:</p>
+            <div className="flex items-center gap-3 flex-shrink-0 pl-4" style={{ borderLeft: '1px solid #256574' }}>
+              <p className="text-[10px] font-medium uppercase" style={{ color: '#72B5C4' }}>Conditions:</p>
               <div className="flex items-center gap-2">
                 {CONDITION_LEGEND.map((item) => (
                   <div key={item.code} className="flex items-center gap-1" title={item.description}>
@@ -160,7 +162,7 @@ export default function RiverOverviewPanel({
           </div>
 
           {/* Disclaimer - compact single line */}
-          <p className="text-[10px] text-primary-400 mt-2 text-center">
+          <p className="text-[10px] mt-2 text-center" style={{ color: '#4A9AAD' }}>
             Always confirm conditions with local outfitters before your float. This data is for planning purposes only.
           </p>
         </div>
@@ -193,15 +195,16 @@ export default function RiverOverviewPanel({
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(85vh-1rem)] scrollbar-thin">
           {/* Header section */}
-          <div className="relative bg-primary-800 px-5 py-4 border-b border-primary-700">
+          <div className="relative px-5 py-4" style={{ backgroundColor: '#163F4A', borderBottom: '1px solid #1D525F' }}>
             <div className="relative flex justify-between items-start">
               <div>
                 <h2 className="text-lg font-heading font-bold text-white">{river.name}</h2>
-                <p className="text-primary-200 text-sm mt-0.5">Plan your float with live conditions</p>
+                <p className="text-sm mt-0.5" style={{ color: '#A3D1DB' }}>Plan your float with live conditions</p>
               </div>
               <button
                 onClick={onClose}
-                className="text-primary-300 hover:text-white transition-colors p-1"
+                className="hover:text-white transition-colors p-1"
+                style={{ color: '#72B5C4' }}
                 aria-label="Close river panel"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
