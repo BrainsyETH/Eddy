@@ -11,42 +11,49 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 
 // Flow rating display configuration (matches ConditionsBlock.tsx)
 const FLOW_RATING_CONFIG: Record<FlowRating, {
+  label: string;
   emoji: string;
   bgClass: string;
   textClass: string;
   borderClass: string;
 }> = {
   flood: {
+    label: 'Flood',
     emoji: '🚫',
     bgClass: 'bg-red-600',
     textClass: 'text-white',
     borderClass: 'border-red-400',
   },
   high: {
+    label: 'High',
     emoji: '⚡',
     bgClass: 'bg-orange-500',
     textClass: 'text-white',
     borderClass: 'border-orange-400',
   },
   good: {
+    label: 'Good',
     emoji: '✓',
     bgClass: 'bg-emerald-500',
     textClass: 'text-white',
     borderClass: 'border-emerald-400',
   },
   low: {
+    label: 'Low',
     emoji: '↓',
     bgClass: 'bg-lime-500',
     textClass: 'text-white',
     borderClass: 'border-lime-400',
   },
   poor: {
+    label: 'Too Low',
     emoji: '⚠',
     bgClass: 'bg-yellow-500',
     textClass: 'text-white',
     borderClass: 'border-yellow-400',
   },
   unknown: {
+    label: 'Unknown',
     emoji: '?',
     bgClass: 'bg-bluff-500',
     textClass: 'text-white',
@@ -116,7 +123,6 @@ function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
      condition.code as FlowRating) || 'unknown';
 
   const ratingConfig = FLOW_RATING_CONFIG[flowRating] || FLOW_RATING_CONFIG.unknown;
-  const displayDescription = condition.flowDescription || condition.label || 'Unknown Conditions';
 
   return (
     <div className={`rounded-xl overflow-hidden border-2 ${ratingConfig.borderClass}`}>
@@ -125,7 +131,7 @@ function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
         <div className="flex items-center gap-2">
           <span className="text-xl">{ratingConfig.emoji}</span>
           <div className="flex-1">
-            <p className="font-bold text-base">{displayDescription}</p>
+            <p className="font-bold text-base">{ratingConfig.label}</p>
             <p className="text-xs opacity-80">{FLOW_EXPLANATIONS[flowRating]}</p>
           </div>
         </div>
