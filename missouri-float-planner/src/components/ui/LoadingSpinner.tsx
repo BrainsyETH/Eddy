@@ -1,5 +1,5 @@
 // src/components/ui/LoadingSpinner.tsx
-// Themed loading spinner with river animation
+// Themed loading spinner
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -21,13 +21,13 @@ export default function LoadingSpinner({
       <div className="relative">
         {/* Outer glow ring */}
         <div
-          className={`${sizeConfig[size].outer} rounded-full absolute inset-0 
-                      bg-river-500/20 blur-md animate-pulse`}
+          className={`${sizeConfig[size].outer} rounded-full absolute inset-0
+                      bg-primary-500/20 blur-md animate-pulse`}
         />
         {/* Spinning ring */}
         <div
-          className={`${sizeConfig[size].outer} ${sizeConfig[size].inner} 
-                      border-river-200 border-t-river-500 rounded-full animate-spin`}
+          className={`${sizeConfig[size].outer} ${sizeConfig[size].inner}
+                      border-primary-200 border-t-primary-600 rounded-full animate-spin`}
         />
       </div>
     </div>

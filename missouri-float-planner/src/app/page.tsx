@@ -1,7 +1,7 @@
 'use client';
 
 // src/app/page.tsx
-// Main home page with interactive map and Ozark-themed design
+// Main home page with interactive map and Organic Brutalist design
 
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -16,6 +16,7 @@ import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { useGaugeStations } from '@/hooks/useGaugeStations';
 import type { AccessPoint } from '@/types/api';
 
 // Hook to detect desktop viewport
@@ -36,7 +37,7 @@ function useIsDesktop() {
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-ozark-900 flex items-center justify-center">
+    <div className="w-full h-full bg-neutral-100 flex items-center justify-center">
       <LoadingSpinner size="lg" />
     </div>
   ),
@@ -63,6 +64,12 @@ export default function Home() {
   const { data: conditionData } = useConditions(selectedRiverId);
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
+  const { data: allGaugeStations } = useGaugeStations();
+
+  // Filter gauge stations for selected river
+  const gaugeStations = selectedRiverId && allGaugeStations
+    ? allGaugeStations.filter(gauge => gauge.thresholds?.some(t => t.riverId === selectedRiverId))
+    : [];
 
   // Set default vessel type when loaded (using useEffect to avoid render issues)
   useEffect(() => {
@@ -101,8 +108,24 @@ export default function Home() {
     }
   }, [rivers]);
 
-  // Handle access point click
+  // Handle access point click - supports selection and deselection
   const handleAccessPointClick = useCallback((point: AccessPoint) => {
+    // If clicking the current put-in, deselect it and clear take-out too
+    if (point.id === selectedPutIn) {
+      setSelectedPutIn(null);
+      setSelectedTakeOut(null);
+      setShowPlan(false);
+      return;
+    }
+
+    // If clicking the current take-out, deselect it
+    if (point.id === selectedTakeOut) {
+      setSelectedTakeOut(null);
+      setShowPlan(false);
+      return;
+    }
+
+    // Prevent upstream take-out selection
     if (selectedPutIn && accessPoints) {
       const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
       if (putInPoint && point.riverMile < putInPoint.riverMile) {
@@ -110,9 +133,15 @@ export default function Home() {
         return;
       }
     }
+
+    // Normal selection flow
     if (!selectedPutIn) {
       setSelectedPutIn(point.id);
     } else if (!selectedTakeOut && point.id !== selectedPutIn) {
+      setSelectedTakeOut(point.id);
+      setShowPlan(true);
+    } else {
+      // Both selected - clicking a new point changes the take-out
       setSelectedTakeOut(point.id);
       setShowPlan(true);
     }
@@ -139,7 +168,7 @@ export default function Home() {
 
       const { url } = await response.json();
       await navigator.clipboard.writeText(url);
-      alert('Link copied to clipboard! 🎉');
+      alert('Link copied to clipboard!');
     } catch (error) {
       console.error('Error sharing plan:', error);
       alert('Failed to create shareable link');
@@ -166,13 +195,13 @@ export default function Home() {
   // Show error state if rivers fail to load
   if (riversError) {
     return (
-      <div className="h-screen flex items-center justify-center bg-ozark-900">
+      <div className="h-screen flex items-center justify-center bg-neutral-50">
         <div className="text-center max-w-md px-4">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
             <span className="text-3xl">😕</span>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Failed to Load Rivers</h2>
-          <p className="text-bluff-400 mb-6">
+          <h2 className="text-xl font-heading font-bold text-neutral-900 mb-2">Failed to Load Rivers</h2>
+          <p className="text-neutral-600 mb-6">
             Unable to connect to the server. Please check your connection and try again.
           </p>
           <button
@@ -187,54 +216,44 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-river-night">
+    <div className="h-screen flex flex-col bg-neutral-50">
       {/* Header with controls */}
-      <header className="relative z-20 bg-gradient-to-b from-river-night via-river-deep/50 to-transparent pb-4">
+      <header className="relative z-20 border-b-2 border-neutral-900 pb-4" style={{ backgroundColor: '#163F4A' }}>
         <div className="max-w-7xl mx-auto px-4 pt-4">
           {/* Logo and title */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-river-water to-river-forest 
-                            flex items-center justify-center shadow-glow">
+              <div className="w-10 h-10 rounded-lg border-2 border-neutral-900 shadow-md flex items-center justify-center" style={{ backgroundColor: '#F07052' }}>
                 <Waves className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">Missouri Float Planner</h1>
-                <p className="text-sm text-river-gravel">Plan your Ozark adventure</p>
+                <h1 className="text-xl font-heading font-bold" style={{ color: '#FFFFFF' }}>Missouri Float Planner</h1>
+                <p className="text-sm" style={{ color: '#A3D1DB' }}>Plan your Ozark adventure</p>
               </div>
             </div>
-            
+
             {/* Quick instructions */}
             {selectedRiverId && !selectedPutIn && (
-              <div className="hidden md:block text-sm text-river-gravel glass-bg px-4 py-2 rounded-lg border border-white/10">
-                👆 Click a marker to set your <span className="text-river-water font-medium">put-in</span>
+              <div className="hidden md:block text-sm text-primary-100 bg-primary-700 px-4 py-2 rounded-md border border-primary-600">
+                Click a marker to set your <span className="text-support-400 font-semibold">put-in</span>
               </div>
             )}
             {selectedPutIn && !selectedTakeOut && (
-              <div className="hidden md:block text-sm text-river-gravel glass-bg px-4 py-2 rounded-lg border border-white/10">
-                👆 Now click another marker for your <span className="text-sky-warm font-medium">take-out</span>
+              <div className="hidden md:block text-sm text-primary-100 bg-primary-700 px-4 py-2 rounded-md border border-primary-600">
+                Now click another marker for your <span className="text-accent-400 font-semibold">take-out</span>
               </div>
             )}
           </div>
 
           {/* Controls row */}
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* River selector */}
-            <div className="lg:w-80">
-              <RiverSelector
-                rivers={rivers || []}
-                selectedRiverId={selectedRiverId}
-                onSelect={handleRiverSelect}
-              />
-            </div>
-
             {/* Clear selection button */}
             {(selectedPutIn || selectedTakeOut) && (
               <button
                 onClick={handleClearSelection}
-                className="px-4 py-2 text-sm text-river-gravel hover:text-white 
-                         border border-white/10 hover:border-river-water rounded-xl
-                         glass-bg-soft transition-colors"
+                className="px-4 py-2 text-sm text-primary-100 hover:text-white
+                         border border-primary-600 hover:border-primary-400 rounded-md
+                         bg-primary-700 hover:bg-primary-600 transition-colors"
               >
                 Clear Selection
               </button>
@@ -245,21 +264,62 @@ export default function Home() {
 
       {/* Main content area - split layout */}
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
-        {/* Left sidebar - Plan summary only */}
-        <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 overflow-y-auto scrollbar-thin order-2 lg:order-1">
+        {/* Left sidebar - River selector and Plan summary */}
+        <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 order-2 lg:order-1">
+          {/* River Selector */}
+          <div className="bg-white border-2 border-neutral-200 rounded-lg p-4 shadow-sm">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Select a River</label>
+            <RiverSelector
+              rivers={rivers || []}
+              selectedRiverId={selectedRiverId}
+              onSelect={handleRiverSelect}
+            />
+          </div>
+
           {/* Plan Summary (when available) */}
-          {showPlan && (
+          {showPlan ? (
             <PlanSummary
               plan={plan || null}
               isLoading={planLoading}
               onClose={handleClearSelection}
               onShare={handleShare}
             />
+          ) : (
+            /* Instruction card when no plan is selected */
+            <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: '#2D7889' }}>
+                  <Waves className="w-10 h-10 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-neutral-900 mb-2">Plan Your Float</h3>
+                <p className="text-sm text-neutral-600 mb-4">
+                  {!selectedRiverId
+                    ? 'Select a river from the dropdown above to get started.'
+                    : !selectedPutIn
+                    ? 'Click a marker on the map to set your put-in point.'
+                    : 'Click another marker to set your take-out point.'}
+                </p>
+                <div className="flex flex-col gap-2 text-left text-sm">
+                  <div className="flex items-center gap-3 py-2 px-3 rounded-lg" style={{ backgroundColor: selectedRiverId ? '#E8F5E9' : '#F5F5F5' }}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${selectedRiverId ? 'bg-emerald-500 text-white' : 'bg-neutral-300 text-neutral-600'}`}>1</span>
+                    <span className={selectedRiverId ? 'text-emerald-700 font-medium' : 'text-neutral-600'}>Select a river</span>
+                  </div>
+                  <div className="flex items-center gap-3 py-2 px-3 rounded-lg" style={{ backgroundColor: selectedPutIn ? '#E8F5E9' : '#F5F5F5' }}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${selectedPutIn ? 'bg-emerald-500 text-white' : 'bg-neutral-300 text-neutral-600'}`}>2</span>
+                    <span className={selectedPutIn ? 'text-emerald-700 font-medium' : 'text-neutral-600'}>Choose put-in point</span>
+                  </div>
+                  <div className="flex items-center gap-3 py-2 px-3 rounded-lg" style={{ backgroundColor: selectedTakeOut ? '#E8F5E9' : '#F5F5F5' }}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${selectedTakeOut ? 'bg-emerald-500 text-white' : 'bg-neutral-300 text-neutral-600'}`}>3</span>
+                    <span className={selectedTakeOut ? 'text-emerald-700 font-medium' : 'text-neutral-600'}>Choose take-out point</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </aside>
 
         {/* Map Container with integrated bottom panel for desktop */}
-        <div className="flex-1 flex flex-col rounded-xl overflow-hidden shadow-2xl min-h-[400px] lg:min-h-0 order-1 lg:order-2">
+        <div className="flex-1 flex flex-col rounded-lg overflow-hidden shadow-lg border-2 border-neutral-200 min-h-[400px] lg:min-h-0 order-1 lg:order-2">
           {/* Map area - shrinks when panel is open on desktop */}
           <div className={`relative flex-1 transition-all duration-300 ${
             isDesktop && showRiverModal ? 'flex-[2]' : 'flex-1'
@@ -273,47 +333,46 @@ export default function Home() {
             )}
 
             {riversLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-river-night">
+              <div className="absolute inset-0 flex items-center justify-center bg-neutral-100">
                 <div className="text-center">
                   <LoadingSpinner size="lg" />
-                  <p className="mt-4 text-river-gravel">Loading rivers...</p>
+                  <p className="mt-4 text-neutral-600">Loading rivers...</p>
                 </div>
               </div>
             ) : !selectedRiverId ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-river-night">
-                {/* Hero background */}
-                <div className="absolute inset-0 hero-gradient" />
-
+              <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: '#163F4A' }}>
                 {/* Hero content */}
                 <div className="relative z-10 text-center max-w-2xl px-4 animate-in">
                   <div className="mb-8">
-                    <Waves className="w-16 h-16 mx-auto text-river-water" />
+                    <div className="w-24 h-24 mx-auto rounded-xl border-4 border-neutral-900 shadow-xl flex items-center justify-center" style={{ backgroundColor: '#F07052' }}>
+                      <Waves className="w-14 h-14 text-white" />
+                    </div>
                   </div>
-                  <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                  <h2 className="text-4xl md:text-5xl font-heading font-bold text-white mb-4 drop-shadow-lg">
                     Discover Missouri&apos;s <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-river-water to-sky-warm">
+                    <span style={{ color: '#F07052' }}>
                       Float Trips
                     </span>
                   </h2>
-                  <p className="text-lg text-river-gravel mb-8 max-w-lg mx-auto">
+                  <p className="text-lg text-white/80 mb-8 max-w-lg mx-auto">
                     Plan your perfect float on the Current River, Eleven Point, Meramec,
                     and more. Real-time water conditions and shuttle times.
                   </p>
 
                   {/* Feature pills */}
                   <div className="flex flex-wrap justify-center gap-3 mb-8">
-                    <span className="px-4 py-2 glass-bg border border-white/10 rounded-full text-sm text-white">
+                    <span className="px-4 py-2 border-3 border-neutral-900 rounded-lg text-sm text-white font-bold shadow-md" style={{ backgroundColor: '#1D525F' }}>
                       8 Rivers
                     </span>
-                    <span className="px-4 py-2 glass-bg border border-white/10 rounded-full text-sm text-white">
+                    <span className="px-4 py-2 border-3 border-neutral-900 rounded-lg text-sm text-white font-bold shadow-md" style={{ backgroundColor: '#1D525F' }}>
                       30+ Access Points
                     </span>
-                    <span className="px-4 py-2 glass-bg border border-white/10 rounded-full text-sm text-white">
+                    <span className="px-4 py-2 border-3 border-neutral-900 rounded-lg text-sm text-white font-bold shadow-md" style={{ backgroundColor: '#1D525F' }}>
                       Real-time Conditions
                     </span>
                   </div>
 
-                  <p className="text-river-water animate-pulse">
+                  <p className="text-white font-bold text-lg animate-pulse" style={{ color: '#4EB86B' }}>
                     ↑ Select a river above to get started
                   </p>
                 </div>
@@ -324,14 +383,14 @@ export default function Home() {
                 {selectedRiverId && river && !showRiverModal && (
                   <button
                     onClick={() => setShowRiverModal(true)}
-                    className="absolute bottom-4 left-4 z-30 bg-river-deep hover:bg-river-deep/90 text-white px-4 py-2 rounded-xl shadow-lg border-2 border-white/15 transition-colors"
+                    className="absolute bottom-4 left-4 z-30 bg-white hover:bg-neutral-50 text-neutral-900 px-4 py-2 rounded-md shadow-md border-2 border-neutral-200 hover:border-primary-400 transition-colors"
                     aria-label="Show river details"
                   >
                     <div className="flex items-center gap-2">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="font-medium">River Info</span>
+                      <span className="font-semibold">River Info</span>
                     </div>
                   </button>
                 )}
@@ -339,9 +398,9 @@ export default function Home() {
                 {/* Mobile bottom sheet indicator */}
                 {selectedPutIn && !selectedTakeOut && (
                   <div className="absolute bottom-4 left-4 right-4 md:hidden z-20">
-                    <div className="bg-river-deep border-2 border-white/15 rounded-xl p-4 text-center">
-                      <p className="text-river-gravel">
-                        Tap another marker for your <span className="text-sky-warm font-medium">take-out</span>
+                    <div className="bg-white border-2 border-neutral-200 rounded-lg p-4 text-center shadow-md">
+                      <p className="text-neutral-700">
+                        Tap another marker for your <span className="text-accent-600 font-semibold">take-out</span>
                       </p>
                     </div>
                   </div>
@@ -349,7 +408,7 @@ export default function Home() {
 
                 {upstreamWarning && (
                   <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-30">
-                    <div className="bg-red-500/20 border border-red-400/40 text-red-100 text-sm px-4 py-2 rounded-xl shadow-lg">
+                    <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
                       {upstreamWarning}
                     </div>
                   </div>
@@ -375,6 +434,7 @@ export default function Home() {
               river={river}
               condition={condition || null}
               accessPointCount={accessPoints?.length || 0}
+              gaugeStations={gaugeStations}
               isOpen={showRiverModal}
               onClose={handleCloseRiverModal}
               isDesktop={true}
@@ -389,6 +449,7 @@ export default function Home() {
           river={river}
           condition={condition || null}
           accessPointCount={accessPoints?.length || 0}
+          gaugeStations={gaugeStations}
           isOpen={showRiverModal}
           onClose={handleCloseRiverModal}
           isDesktop={false}
@@ -396,8 +457,8 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="relative z-10 bg-river-night border-t border-white/10 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-river-gravel">
+      <footer className="relative z-10 bg-primary-800 border-t-2 border-neutral-900 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-primary-200">
           <p>Missouri Float Planner • Water data from USGS</p>
           <p className="hidden md:block">Always check local conditions before floating</p>
         </div>

@@ -5,39 +5,67 @@
 
 import { useEffect, useState } from 'react';
 import type { RiverWithDetails, RiverCondition, ConditionCode } from '@/types/api';
+import type { GaugeStation } from '@/hooks/useGaugeStations';
 
 interface RiverOverviewPanelProps {
   river: RiverWithDetails | null;
   condition: RiverCondition | null;
   accessPointCount: number;
+  gaugeStations?: GaugeStation[];
   isOpen: boolean;
   onClose: () => void;
   isDesktop?: boolean;
 }
 
 const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: string }> = {
-  optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
-  low: { bg: 'bg-lime-100', text: 'text-lime-700', icon: '↓' },
-  very_low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⚠' },
+  optimal: { bg: 'bg-support-100', text: 'text-support-700', icon: '✓' },
+  low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '↓' },
+  very_low: { bg: 'bg-amber-100', text: 'text-amber-700', icon: '⚠' },
   high: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '↑' },
   too_low: { bg: 'bg-red-100', text: 'text-red-700', icon: '✕' },
   dangerous: { bg: 'bg-red-200', text: 'text-red-800', icon: '⚠' },
-  unknown: { bg: 'bg-bluff-100', text: 'text-bluff-600', icon: '?' },
+  unknown: { bg: 'bg-neutral-100', text: 'text-neutral-600', icon: '?' },
 };
 
 // Condition level explanations for the legend (ordered: Very Low → Low → Good → High → Flood)
 const CONDITION_LEGEND = [
-  { code: 'very_low', label: 'Low', icon: '⚠', color: 'bg-yellow-500', description: 'Scraping and portaging likely' },
-  { code: 'low', label: 'Good', icon: '↓', color: 'bg-lime-500', description: 'Good conditions with some dragging' },
-  { code: 'optimal', label: 'Optimal', icon: '✓', color: 'bg-emerald-500', description: 'Ideal conditions' },
-  { code: 'high', label: 'High', icon: '↑', color: 'bg-orange-500', description: 'Fast current - experienced paddlers only' },
-  { code: 'dangerous', label: 'Flood', icon: '🚫', color: 'bg-red-600', description: 'Dangerous conditions - do not float' },
+  { code: 'very_low', label: 'Low', color: 'bg-yellow-500', description: 'Scraping likely' },
+  { code: 'low', label: 'Good', color: 'bg-lime-500', description: 'Some dragging' },
+  { code: 'optimal', label: 'Optimal', color: 'bg-emerald-500', description: 'Ideal' },
+  { code: 'high', label: 'High', color: 'bg-orange-500', description: 'Fast current' },
+  { code: 'dangerous', label: 'Flood', color: 'bg-red-600', description: 'Do not float' },
 ];
+
+// Determine condition based on gauge height and thresholds
+function getGaugeConditionColor(gauge: GaugeStation, riverId: string): string {
+  const height = gauge.gaugeHeightFt;
+  const threshold = gauge.thresholds?.find(t => t.riverId === riverId);
+
+  if (height === null || !threshold) {
+    return 'bg-neutral-400';
+  }
+
+  if (threshold.levelDangerous !== null && height >= threshold.levelDangerous) {
+    return 'bg-red-600';
+  }
+  if (threshold.levelHigh !== null && height >= threshold.levelHigh) {
+    return 'bg-orange-500';
+  }
+  if (threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null &&
+      height >= threshold.levelOptimalMin && height <= threshold.levelOptimalMax) {
+    return 'bg-emerald-500';
+  }
+  if (threshold.levelLow !== null && height >= threshold.levelLow) {
+    return 'bg-lime-500';
+  }
+  return 'bg-yellow-500';
+}
 
 export default function RiverOverviewPanel({
   river,
   condition,
   accessPointCount,
+  gaugeStations,
   isOpen,
   onClose,
   isDesktop = false,
@@ -73,9 +101,10 @@ export default function RiverOverviewPanel({
   if (isDesktop) {
     return (
       <div
-        className={`w-full bg-river-deep border-t-2 border-white/15 transform transition-all duration-300 ease-out ${
+        className={`w-full border-t-2 border-neutral-900 transform transition-all duration-300 ease-out ${
           isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         }`}
+        style={{ backgroundColor: '#163F4A' }}
       >
         {/* Content - Compact horizontal layout for desktop */}
         <div className="px-6 py-3">
@@ -84,12 +113,13 @@ export default function RiverOverviewPanel({
             {/* River name and close button */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-white">{river.name}</h2>
-                <p className="text-river-gravel text-xs">Plan your float with live conditions</p>
+                <h2 className="text-lg font-heading font-bold text-white">{river.name}</h2>
+                <p className="text-xs" style={{ color: '#72B5C4' }}>Plan your float with live conditions</p>
               </div>
               <button
                 onClick={onClose}
-                className="text-river-gravel hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                className="hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                style={{ color: '#72B5C4' }}
                 aria-label="Close river panel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,59 +128,42 @@ export default function RiverOverviewPanel({
               </button>
             </div>
 
-            {/* Quick stats - inline */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="bg-white/10 rounded-lg px-3 py-1.5 border border-white/10">
-                <p className="text-[10px] font-medium text-river-gravel uppercase">Length</p>
-                <p className="text-sm font-bold text-white">{river.lengthMiles.toFixed(1)} mi</p>
-              </div>
-              <div className="bg-white/10 rounded-lg px-3 py-1.5 border border-white/10">
-                <p className="text-[10px] font-medium text-river-gravel uppercase">Access</p>
-                <p className="text-sm font-bold text-river-water">{accessPointCount}</p>
-              </div>
-              <div className={`rounded-lg px-3 py-1.5 border border-white/10 ${conditionStyle.bg}`}>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm">{conditionStyle.icon}</span>
-                  <div>
-                    <p className={`font-semibold text-xs ${conditionStyle.text}`}>
-                      {condition?.label ?? 'Unknown'}
-                    </p>
-                    {condition?.gaugeHeightFt !== null && condition?.gaugeHeightFt !== undefined && (
-                      <p className={`text-[10px] ${conditionStyle.text} opacity-75`}>
-                        {condition.gaugeHeightFt.toFixed(2)} ft
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {condition?.dischargeCfs !== null && condition?.dischargeCfs !== undefined && (
-                <div className="bg-white/10 rounded-lg px-3 py-1.5 border border-white/10">
-                  <p className="text-[10px] font-medium text-river-gravel uppercase">Flow</p>
-                  <p className="text-sm font-bold text-white">{condition.dischargeCfs.toLocaleString()} cfs</p>
-                </div>
-              )}
+            {/* Length stat */}
+            <div className="rounded-md px-3 py-1.5 border flex-shrink-0" style={{ backgroundColor: '#1D525F', borderColor: '#256574' }}>
+              <p className="text-[10px] font-medium uppercase" style={{ color: '#72B5C4' }}>Length</p>
+              <p className="text-sm font-bold text-white">{river.lengthMiles.toFixed(1)} mi</p>
             </div>
 
-            {/* Tags - inline */}
-            <div className="flex items-center gap-2 flex-wrap flex-1">
-              {river.region && (
-                <span className="px-2 py-1 rounded-full bg-white/10 text-river-gravel text-[10px] border border-white/10">
-                  {river.region}
-                </span>
-              )}
-              {river.difficultyRating && (
-                <span className="px-2 py-1 rounded-full bg-river-water/20 text-river-water text-[10px] border border-river-water/30">
-                  {river.difficultyRating}
-                </span>
-              )}
+            {/* Gauge Stations */}
+            <div className="flex items-center gap-4 flex-1">
+              <p className="text-[10px] font-medium uppercase flex-shrink-0" style={{ color: '#72B5C4' }}>Gauges:</p>
+              <div className="flex items-center gap-4 flex-wrap">
+                {gaugeStations && gaugeStations.length > 0 ? (
+                  gaugeStations.map((gauge) => (
+                    <div key={gauge.id} className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getGaugeConditionColor(gauge, river.id)}`} />
+                      <span className="text-xs text-white truncate max-w-[180px]" title={gauge.name}>
+                        {gauge.name.replace('Current River', '').replace('Eleven Point River', '').replace('near', '@').replace('above', '@').trim() || gauge.name}
+                      </span>
+                      {gauge.gaugeHeightFt !== null && (
+                        <span className="text-[10px]" style={{ color: '#72B5C4' }}>
+                          {gauge.gaugeHeightFt.toFixed(2)} ft
+                        </span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-xs" style={{ color: '#72B5C4' }}>No gauge data</span>
+                )}
+              </div>
             </div>
 
-            {/* Compact condition legend */}
-            <div className="flex items-center gap-3 flex-shrink-0 border-l border-white/10 pl-4">
-              <p className="text-[10px] font-medium text-river-gravel uppercase">Conditions:</p>
-              <div className="flex items-center gap-2">
+            {/* Vertical condition legend */}
+            <div className="flex-shrink-0 pl-4" style={{ borderLeft: '1px solid #256574' }}>
+              <p className="text-[10px] font-medium uppercase mb-1" style={{ color: '#72B5C4' }}>Conditions:</p>
+              <div className="flex flex-col gap-0.5">
                 {CONDITION_LEGEND.map((item) => (
-                  <div key={item.code} className="flex items-center gap-1" title={item.description}>
+                  <div key={item.code} className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${item.color}`} />
                     <span className="text-[10px] text-white">{item.label}</span>
                   </div>
@@ -160,7 +173,7 @@ export default function RiverOverviewPanel({
           </div>
 
           {/* Disclaimer - compact single line */}
-          <p className="text-[10px] text-river-gravel/70 mt-2 text-center">
+          <p className="text-[10px] mt-2 text-center" style={{ color: '#4A9AAD' }}>
             Always confirm conditions with local outfitters before your float. This data is for planning purposes only.
           </p>
         </div>
@@ -180,28 +193,29 @@ export default function RiverOverviewPanel({
 
       {/* Bottom Sheet */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 bg-river-deep rounded-t-2xl shadow-2xl transform transition-transform duration-300 ease-out lg:hidden ${
+        className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-xl shadow-2xl transform transition-transform duration-300 ease-out lg:hidden ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{ maxHeight: '85vh' }}
       >
         {/* Drag Handle */}
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-12 h-1.5 bg-river-gravel/40 rounded-full" />
+          <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
         </div>
 
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(85vh-1rem)] scrollbar-thin">
           {/* Header section */}
-          <div className="relative bg-river-deep px-5 py-4 border-b border-white/10">
+          <div className="relative px-5 py-4" style={{ backgroundColor: '#163F4A', borderBottom: '1px solid #1D525F' }}>
             <div className="relative flex justify-between items-start">
               <div>
-                <h2 className="text-lg font-bold text-white">{river.name}</h2>
-                <p className="text-river-gravel text-sm mt-0.5">Plan your float with live conditions</p>
+                <h2 className="text-lg font-heading font-bold text-white">{river.name}</h2>
+                <p className="text-sm mt-0.5" style={{ color: '#A3D1DB' }}>Plan your float with live conditions</p>
               </div>
               <button
                 onClick={onClose}
-                className="text-river-gravel hover:text-white transition-colors p-1"
+                className="hover:text-white transition-colors p-1"
+                style={{ color: '#72B5C4' }}
                 aria-label="Close river panel"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -213,17 +227,17 @@ export default function RiverOverviewPanel({
 
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-xs font-medium text-river-gravel uppercase tracking-wide">Length</p>
-                <p className="text-xl font-bold text-white">{river.lengthMiles.toFixed(1)} mi</p>
+              <div className="bg-neutral-100 rounded-lg p-3 border border-neutral-200">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Length</p>
+                <p className="text-xl font-bold text-neutral-900">{river.lengthMiles.toFixed(1)} mi</p>
               </div>
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-xs font-medium text-river-gravel uppercase tracking-wide">Access Points</p>
-                <p className="text-xl font-bold text-river-water">{accessPointCount}</p>
+              <div className="bg-neutral-100 rounded-lg p-3 border border-neutral-200">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Access Points</p>
+                <p className="text-xl font-bold text-primary-600">{accessPointCount}</p>
               </div>
             </div>
 
-            <div className={`rounded-xl p-3 border border-white/10 ${conditionStyle.bg}`}>
+            <div className={`rounded-lg p-3 border ${conditionStyle.bg}`}>
               <div className="flex items-center gap-2">
                 <span className="text-lg">{conditionStyle.icon}</span>
                 <div>
@@ -243,52 +257,52 @@ export default function RiverOverviewPanel({
                 </p>
               )}
               {condition?.readingTimestamp && (
-                <p className="text-xs text-bluff-600 mt-1">
+                <p className="text-xs text-neutral-500 mt-1">
                   Updated {new Date(condition.readingTimestamp).toLocaleString()}
                 </p>
               )}
             </div>
 
             {river.description && (
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-xs font-medium text-river-gravel uppercase tracking-wide mb-2">
+              <div className="bg-neutral-100 rounded-lg p-3 border border-neutral-200">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
                   About this river
                 </p>
-                <p className="text-sm text-river-gravel">{river.description}</p>
+                <p className="text-sm text-neutral-700">{river.description}</p>
               </div>
             )}
 
             <div className="flex flex-wrap gap-2 text-xs">
               {river.region && (
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-river-gravel border border-white/10">Region: {river.region}</span>
+                <span className="px-3 py-1.5 rounded-md bg-neutral-100 text-neutral-700 border border-neutral-200">Region: {river.region}</span>
               )}
               {river.difficultyRating && (
-                <span className="px-3 py-1.5 rounded-full bg-river-water/20 text-river-water border border-river-water/30">
+                <span className="px-3 py-1.5 rounded-md bg-primary-100 text-primary-700 border border-primary-200">
                   Difficulty: {river.difficultyRating}
                 </span>
               )}
-              <span className="px-3 py-1.5 rounded-full bg-sky-warm/20 text-sky-warm border border-sky-warm/30">Tubing friendly</span>
-              <span className="px-3 py-1.5 rounded-full bg-river-forest/20 text-river-forest border border-river-forest/30">Dog friendly</span>
+              <span className="px-3 py-1.5 rounded-md bg-accent-100 text-accent-700 border border-accent-200">Tubing friendly</span>
+              <span className="px-3 py-1.5 rounded-md bg-support-100 text-support-700 border border-support-200">Dog friendly</span>
             </div>
 
             {/* Condition Legend */}
-            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-              <p className="text-xs font-medium text-river-gravel uppercase tracking-wide mb-2">River Condition Guide</p>
+            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
+              <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide mb-2">River Condition Guide</p>
               <div className="space-y-2">
                 {CONDITION_LEGEND.map((item) => (
                   <div key={item.code} className="flex items-center gap-2">
                     <span className={`w-3 h-3 rounded-full ${item.color} flex-shrink-0`} />
                     <div className="flex-1 flex items-center justify-between">
-                      <span className="text-xs font-medium text-white">{item.label}</span>
-                      <span className="text-[10px] text-river-gravel">{item.description}</span>
+                      <span className="text-xs font-medium text-neutral-800">{item.label}</span>
+                      <span className="text-[10px] text-neutral-500">{item.description}</span>
                     </div>
                   </div>
                 ))}
               </div>
               {/* Safety Disclaimer */}
-              <div className="mt-3 pt-3 border-t border-white/10">
-                <p className="text-[10px] text-river-gravel/80 leading-relaxed">
-                  <span className="font-semibold text-amber-400">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly. This data is for planning purposes only and should not replace on-site assessment.
+              <div className="mt-3 pt-3 border-t border-neutral-200">
+                <p className="text-[10px] text-neutral-500 leading-relaxed">
+                  <span className="font-semibold text-amber-600">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly. This data is for planning purposes only and should not replace on-site assessment.
                 </p>
               </div>
             </div>

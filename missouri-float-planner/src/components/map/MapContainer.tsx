@@ -277,6 +277,9 @@ export default function MapContainer({
     const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
       (initialStyle === 'satellite' ? SATELLITE_STYLE : MAP_STYLES[initialStyle].url);
 
+    // Reset mapLoaded when creating a new map instance (important for bounds changes)
+    setMapLoaded(false);
+
     // Initialize map
     map.current = new maplibregl.Map({
       container: mapContainer.current,
@@ -367,7 +370,7 @@ export default function MapContainer({
       )}
       
       {/* Map Style Picker - positioned below MapLibre navigation controls */}
-      <div className="absolute top-[120px] right-2.5 z-10">
+      <div className={`absolute top-[120px] right-2.5 ${showStylePicker ? 'z-50' : 'z-10'}`}>
         <button
           onClick={() => setShowStylePicker(!showStylePicker)}
           className={`p-2 rounded-lg shadow-lg transition-all ${
@@ -382,7 +385,7 @@ export default function MapContainer({
         </button>
 
         {showStylePicker && (
-          <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px]">
+          <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px] z-50">
             {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
               <button
                 key={key}

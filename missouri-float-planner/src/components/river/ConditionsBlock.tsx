@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import type { RiverCondition, FlowRating } from '@/types/api';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import FlowTrendChart from './FlowTrendChart';
 import WeatherForecast from './WeatherForecast';
 
@@ -57,9 +58,9 @@ const FLOW_RATING_CONFIG: Record<FlowRating, {
   },
   unknown: {
     emoji: '?',
-    bgClass: 'bg-bluff-500',
+    bgClass: 'bg-neutral-500',
     textClass: 'text-white',
-    borderClass: 'border-bluff-400',
+    borderClass: 'border-neutral-400',
   },
 };
 
@@ -107,35 +108,38 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
   // Use the condition passed from parent (which is segment-aware when put-in is selected)
   const displayCondition = condition;
 
+  const flowRating = displayCondition?.flowRating || 'unknown';
+  const ratingConfig = FLOW_RATING_CONFIG[flowRating];
+  const ratingDetails = FLOW_RATING_DETAILS[flowRating];
+
+  // Badge showing current flow rating
+  const badge = displayCondition ? (
+    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${ratingConfig.bgClass}`}>
+      {ratingDetails.title.split(' ')[0]}
+    </span>
+  ) : null;
+
   if (isLoading) {
     return (
-      <div className="glass-card-dark rounded-2xl p-6 border border-white/10">
-        <h3 className="text-xl font-bold text-white mb-4">Conditions & Safety</h3>
+      <CollapsibleSection title="Conditions & Safety" defaultOpen={false} badge={badge}>
         <div className="animate-pulse space-y-4">
-          <div className="h-24 bg-white/10 rounded-xl"></div>
-          <div className="h-16 bg-white/10 rounded-xl"></div>
+          <div className="h-24 bg-neutral-200 rounded-xl"></div>
+          <div className="h-16 bg-neutral-200 rounded-xl"></div>
         </div>
-      </div>
+      </CollapsibleSection>
     );
   }
 
   if (!displayCondition) {
     return (
-      <div className="glass-card-dark rounded-2xl p-6 border border-white/10">
-        <h3 className="text-xl font-bold text-white mb-4">Conditions & Safety</h3>
-        <p className="text-sm text-white/70">Condition data not available at this time.</p>
-      </div>
+      <CollapsibleSection title="Conditions & Safety" defaultOpen={false} badge={badge}>
+        <p className="text-sm text-neutral-500">Condition data not available at this time.</p>
+      </CollapsibleSection>
     );
   }
 
-  const flowRating = displayCondition.flowRating || 'unknown';
-  const ratingConfig = FLOW_RATING_CONFIG[flowRating];
-  const ratingDetails = FLOW_RATING_DETAILS[flowRating];
-
   return (
-    <div className="glass-card-dark rounded-2xl p-6 border border-white/10">
-      <h3 className="text-xl font-bold text-white mb-4">Conditions & Safety</h3>
-
+    <CollapsibleSection title="Conditions & Safety" defaultOpen={false} badge={badge}>
       <div className="space-y-4">
         {/* Main Flow Rating Card - Tappable */}
         <button
@@ -198,35 +202,35 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
 
         {/* Expanded Details */}
         {isExpanded && (
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200 space-y-4 animate-in slide-in-from-top-2 duration-200">
             {/* What This Means */}
             <div>
-              <h4 className="font-bold text-white mb-2">What This Means</h4>
-              <p className="text-sm text-white/80">{ratingDetails.description}</p>
+              <h4 className="font-bold text-neutral-900 mb-2">What This Means</h4>
+              <p className="text-sm text-neutral-600">{ratingDetails.description}</p>
             </div>
 
             {/* Advice */}
-            <div className={`rounded-lg p-3 ${flowRating === 'flood' || flowRating === 'high' ? 'bg-red-500/20' : 'bg-blue-500/20'}`}>
-              <h4 className="font-bold text-white mb-1 text-sm">Advice</h4>
-              <p className="text-sm text-white/90">{ratingDetails.advice}</p>
+            <div className={`rounded-lg p-3 ${flowRating === 'flood' || flowRating === 'high' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
+              <h4 className={`font-bold mb-1 text-sm ${flowRating === 'flood' || flowRating === 'high' ? 'text-red-800' : 'text-blue-800'}`}>Advice</h4>
+              <p className={`text-sm ${flowRating === 'flood' || flowRating === 'high' ? 'text-red-700' : 'text-blue-700'}`}>{ratingDetails.advice}</p>
             </div>
 
             {/* Percentile Context */}
             {displayCondition.percentile !== null && displayCondition.percentile !== undefined && (
               <div>
-                <h4 className="font-bold text-white mb-2">How This Compares</h4>
-                <div className="relative h-8 bg-gradient-to-r from-gray-500 via-amber-500 via-emerald-500 via-orange-500 to-red-500 rounded-full overflow-hidden">
+                <h4 className="font-bold text-neutral-900 mb-2">How This Compares</h4>
+                <div className="relative h-8 bg-gradient-to-r from-gray-400 via-amber-400 via-emerald-400 via-orange-400 to-red-400 rounded-full overflow-hidden">
                   {/* Percentile marker */}
                   <div
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    className="absolute top-0 bottom-0 w-1 bg-neutral-900 shadow-lg"
                     style={{ left: `${displayCondition.percentile}%` }}
                   >
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white text-gray-800 text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap">
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap">
                       {Math.round(displayCondition.percentile)}%
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-between text-xs text-white/60 mt-1">
+                <div className="flex justify-between text-xs text-neutral-500 mt-1">
                   <span>Poor (0-10%)</span>
                   <span>Low</span>
                   <span>Good (25-75%)</span>
@@ -234,7 +238,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
                   <span>Flood (90%+)</span>
                 </div>
                 {displayCondition.medianDischargeCfs && (
-                  <p className="text-xs text-white/70 mt-2">
+                  <p className="text-xs text-neutral-500 mt-2">
                     Typical for today: ~{displayCondition.medianDischargeCfs.toLocaleString()} cfs (median)
                   </p>
                 )}
@@ -242,9 +246,9 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
             )}
 
             {/* Safety Disclaimer */}
-            <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
-              <p className="text-xs text-amber-200/90 leading-relaxed">
-                <span className="font-bold text-amber-300">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly due to weather upstream. This data is for planning purposes only and should not replace on-site assessment of conditions.
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                <span className="font-bold text-amber-900">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly due to weather upstream. This data is for planning purposes only and should not replace on-site assessment of conditions.
               </p>
             </div>
 
@@ -254,7 +258,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
                 href={displayCondition.usgsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 transition-colors"
+                className="flex items-center justify-between w-full bg-primary-600 hover:bg-primary-700 text-white rounded-lg px-4 py-3 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <span className="font-medium">View Full USGS Data</span>
@@ -265,7 +269,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
             )}
 
             {/* Reading Age */}
-            <p className="text-xs text-white/50 text-center">
+            <p className="text-xs text-neutral-400 text-center">
               {displayCondition.readingAgeHours !== null && displayCondition.readingAgeHours < 24
                 ? `Data updated ${Math.round(displayCondition.readingAgeHours)} hour${Math.round(displayCondition.readingAgeHours) !== 1 ? 's' : ''} ago`
                 : 'Recent reading'}
@@ -285,24 +289,24 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
 
         {/* Nearest Gauge (only show if different from main gauge) */}
         {nearestGauge && nearestGauge.usgsSiteId !== displayCondition.gaugeUsgsId && (
-          <div className="bg-blue-500/20 border border-blue-400/40 rounded-xl p-4">
-            <h4 className="font-bold text-blue-300 mb-2 text-sm flex items-center gap-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <h4 className="font-bold text-blue-800 mb-2 text-sm flex items-center gap-2">
               <span>💧</span>
               <span>{hasPutInSelected ? 'Nearest Gauge to Your Put-in' : 'Nearby Gauge'}</span>
             </h4>
-            <p className="text-white font-medium text-sm mb-2">{nearestGauge.name}</p>
+            <p className="text-neutral-900 font-medium text-sm mb-2">{nearestGauge.name}</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-blue-200/70 text-xs">Gauge Height</p>
-                <p className="text-white font-bold">
+                <p className="text-blue-600 text-xs">Gauge Height</p>
+                <p className="text-neutral-900 font-bold">
                   {nearestGauge.gaugeHeightFt !== null
                     ? `${nearestGauge.gaugeHeightFt.toFixed(2)} ft`
                     : 'N/A'}
                 </p>
               </div>
               <div>
-                <p className="text-blue-200/70 text-xs">Discharge</p>
-                <p className="text-white font-bold">
+                <p className="text-blue-600 text-xs">Discharge</p>
+                <p className="text-neutral-900 font-bold">
                   {nearestGauge.dischargeCfs !== null
                     ? `${nearestGauge.dischargeCfs.toLocaleString()} cfs`
                     : 'N/A'}
@@ -313,23 +317,23 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
         )}
 
         {/* Safety Notes */}
-        <div className="bg-amber-500/20 border border-amber-400/40 rounded-xl p-4">
-          <h4 className="font-bold text-amber-300 mb-3 text-base">Safety Reminders</h4>
-          <ul className="text-sm text-white/90 space-y-2">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <h4 className="font-bold text-amber-800 mb-3 text-base">Safety Reminders</h4>
+          <ul className="text-sm text-neutral-700 space-y-2">
             <li className="flex items-start gap-2">
-              <span className="text-amber-400">•</span>
+              <span className="text-amber-600">•</span>
               <span>Always wear a life jacket</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-amber-400">•</span>
+              <span className="text-amber-600">•</span>
               <span>Check weather - flash floods can occur quickly</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-amber-400">•</span>
+              <span className="text-amber-600">•</span>
               <span>Inform someone of your float plan</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-amber-400">•</span>
+              <span className="text-amber-600">•</span>
               <span>Know your skill level and river difficulty</span>
             </li>
           </ul>
@@ -337,13 +341,13 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
 
         {/* Accuracy Warning */}
         {displayCondition.accuracyWarning && displayCondition.accuracyWarningReason && (
-          <div className="bg-orange-500/20 border border-orange-400/40 rounded-xl p-4">
-            <p className="text-sm text-orange-200">
-              <span className="font-bold text-orange-300">Note:</span> {displayCondition.accuracyWarningReason}
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <p className="text-sm text-orange-700">
+              <span className="font-bold text-orange-800">Note:</span> {displayCondition.accuracyWarningReason}
             </p>
           </div>
         )}
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

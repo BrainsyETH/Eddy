@@ -33,7 +33,7 @@ function getRiverConditionStatus(conditionCode: ConditionCode | null): {
   color: string;
 } {
   if (!conditionCode) {
-    return { label: 'Unknown', color: 'text-river-gravel' };
+    return { label: 'Unknown', color: 'text-neutral-400' };
   }
 
   switch (conditionCode) {
@@ -41,7 +41,7 @@ function getRiverConditionStatus(conditionCode: ConditionCode | null): {
     case 'very_low':
       return { label: 'Low', color: 'text-amber-400' };
     case 'optimal':
-      return { label: 'Good', color: 'text-river-water' };
+      return { label: 'Good', color: 'text-primary-400' };
     case 'high':
       return { label: 'High', color: 'text-orange-400' };
     case 'dangerous':
@@ -49,7 +49,7 @@ function getRiverConditionStatus(conditionCode: ConditionCode | null): {
     case 'low':
       return { label: 'Low', color: 'text-amber-400' };
     default:
-      return { label: 'Check Conditions', color: 'text-river-gravel' };
+      return { label: 'Check Conditions', color: 'text-neutral-400' };
   }
 }
 
@@ -72,9 +72,9 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
     return (
       <button
         onClick={() => setIsExpanded(true)}
-        className={`absolute top-4 left-4 z-10 glass-card-dark rounded-xl px-3 py-2
-                    backdrop-blur-md border border-white/10 shadow-lg
-                    hover:border-white/20 transition-colors ${className}`}
+        className={`absolute top-4 left-4 z-10 glass-card-dark rounded-lg px-3 py-2
+                    backdrop-blur-md border border-primary-600/30 shadow-lg
+                    hover:border-primary-500/50 transition-colors ${className}`}
       >
         <div className="flex items-center gap-3 text-sm">
           {weatherLoading ? (
@@ -82,14 +82,14 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
           ) : weather ? (
             <>
               <div className="flex items-center gap-1.5 text-white">
-                <span className="text-river-water">{getConditionIcon(weather.condition)}</span>
+                <span className="text-primary-400">{getConditionIcon(weather.condition)}</span>
                 <span className="font-medium">{weather.temp}°</span>
               </div>
               {condition && (
                 <>
                   <span className="text-white/30">|</span>
                   <div className="flex items-center gap-1.5">
-                    <Droplet className="w-3.5 h-3.5 text-river-water" />
+                    <Droplet className="w-3.5 h-3.5 text-primary-400" />
                     <span className={`font-medium ${riverStatus.color}`}>
                       {riverStatus.label}
                     </span>
@@ -98,9 +98,9 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
               )}
             </>
           ) : (
-            <span className="text-river-gravel">Weather unavailable</span>
+            <span className="text-neutral-400">Weather unavailable</span>
           )}
-          <ChevronUp className="w-4 h-4 text-river-gravel" />
+          <ChevronUp className="w-4 h-4 text-neutral-400" />
         </div>
       </button>
     );
@@ -108,12 +108,12 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
 
   return (
     <div
-      className={`absolute top-4 left-4 z-10 glass-card-dark rounded-xl p-4
-                  backdrop-blur-md border border-white/10 shadow-lg
+      className={`absolute top-4 left-4 z-10 glass-card-dark rounded-lg p-4
+                  backdrop-blur-md border border-primary-600/30 shadow-lg
                   min-w-[240px] ${className}`}
     >
       {weatherLoading ? (
-        <div className="flex items-center gap-2 text-river-gravel">
+        <div className="flex items-center gap-2 text-neutral-400">
           <LoadingSpinner size="sm" />
           <span className="text-sm">Loading weather...</span>
         </div>
@@ -130,27 +130,27 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
               onClick={() => setIsExpanded(false)}
               className="p-1 hover:bg-white/10 rounded transition-colors"
             >
-              <ChevronDown className="w-4 h-4 text-river-gravel" />
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
             </button>
           </div>
 
           {/* Temperature & Condition */}
           <div className="flex items-center gap-3">
-            <div className="text-river-water">
+            <div className="text-primary-400">
               {getConditionIcon(weather.condition)}
             </div>
             <div className="flex-1">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-white">{weather.temp}°</span>
-                <span className="text-sm text-river-gravel">{weather.condition}</span>
+                <span className="text-sm text-neutral-400">{weather.condition}</span>
               </div>
             </div>
           </div>
 
           {/* Wind */}
           <div className="flex items-center gap-2 text-sm">
-            <Wind className="w-4 h-4 text-river-gravel" />
-            <span className="text-river-gravel">
+            <Wind className="w-4 h-4 text-neutral-400" />
+            <span className="text-neutral-400">
               {weather.windSpeed} mph {getWindDirection(weather.windDirection)}
             </span>
           </div>
@@ -158,10 +158,10 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
           {/* River Level */}
           {condition && (
             <div className="flex items-center gap-2 text-sm border-t border-white/10 pt-2">
-              <Droplet className="w-4 h-4 text-river-water" />
+              <Droplet className="w-4 h-4 text-primary-400" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-river-gravel">River Level</span>
+                  <span className="text-neutral-400">River Level</span>
                   {condition.gaugeHeightFt !== null && (
                     <span className="text-white font-medium">
                       {condition.gaugeHeightFt.toFixed(1)} ft
@@ -178,12 +178,12 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
           )}
 
           {/* City info */}
-          <div className="text-xs text-river-gravel text-right pt-1 border-t border-white/10">
+          <div className="text-xs text-neutral-400 text-right pt-1 border-t border-white/10">
             {weather.city}
           </div>
         </div>
       ) : (
-        <div className="text-sm text-river-gravel">
+        <div className="text-sm text-neutral-400">
           Weather data unavailable
         </div>
       )}

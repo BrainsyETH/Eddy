@@ -60,8 +60,8 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
   if (isLoading) {
     return (
       <div className={`bg-white/5 rounded-lg p-4 ${className}`}>
-        <div className="flex items-center gap-2 text-river-gravel text-sm">
-          <div className="w-4 h-4 border-2 border-river-water border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-2 text-neutral-400 text-sm">
+          <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           Loading 7-day trend...
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
   if (error || !chartData) {
     return (
       <div className={`bg-white/5 rounded-lg p-4 ${className}`}>
-        <p className="text-river-gravel text-sm">Flow trend data unavailable</p>
+        <p className="text-neutral-400 text-sm">Flow trend data unavailable</p>
       </div>
     );
   }
@@ -91,7 +91,7 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold text-white">7-Day Flow Trend</h4>
         {chartData.currentVal !== null && (
-          <span className="text-xs text-river-water font-medium">
+          <span className="text-xs text-primary-400 font-medium">
             Current: {formatCfs(chartData.currentVal)} cfs
           </span>
         )}
@@ -107,8 +107,8 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
           {/* Gradient fill */}
           <defs>
             <linearGradient id="flowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(59, 130, 246)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="rgb(59, 130, 246)" stopOpacity="0.05" />
+              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
             </linearGradient>
           </defs>
 
@@ -119,7 +119,7 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
           <path
             d={chartData.pathD}
             fill="none"
-            stroke="rgb(59, 130, 246)"
+            stroke="rgb(45, 120, 137)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
@@ -130,7 +130,7 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
               cx={chartData.points[chartData.points.length - 1].x}
               cy={chartData.points[chartData.points.length - 1].y}
               r="3"
-              fill="rgb(59, 130, 246)"
+              fill="rgb(45, 120, 137)"
               stroke="white"
               strokeWidth="1.5"
               vectorEffect="non-scaling-stroke"
@@ -139,19 +139,19 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
         </svg>
 
         {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-river-gravel -ml-1">
+        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-400 -ml-1">
           <span>{formatCfs(chartData.maxVal)}</span>
           <span>{formatCfs(chartData.minVal)}</span>
         </div>
       </div>
 
       {/* X-axis labels */}
-      <div className="flex justify-between text-[10px] text-river-gravel mt-1 px-2">
+      <div className="flex justify-between text-[10px] text-neutral-400 mt-1 px-2">
         <span>{formatDate(chartData.startDate)}</span>
         <span>{formatDate(chartData.endDate)}</span>
       </div>
 
-      <p className="text-[10px] text-river-gravel/70 mt-2 text-center">
+      <p className="text-[10px] text-neutral-500 mt-2 text-center">
         Discharge in cubic feet per second (cfs)
       </p>
     </div>

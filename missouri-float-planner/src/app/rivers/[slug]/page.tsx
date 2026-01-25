@@ -10,6 +10,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
+import GaugeOverview from '@/components/river/GaugeOverview';
 import ConditionsBlock from '@/components/river/ConditionsBlock';
 import DifficultyExperience from '@/components/river/DifficultyExperience';
 import LogisticsSection from '@/components/river/LogisticsSection';
@@ -28,7 +29,7 @@ import type { AccessPoint } from '@/types/api';
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-ozark-900 flex items-center justify-center">
+    <div className="w-full h-full bg-neutral-100 flex items-center justify-center">
       <LoadingSpinner size="lg" />
     </div>
   ),
@@ -50,8 +51,8 @@ export default function RiverPage() {
   const [selectedPutIn, setSelectedPutIn] = useState<string | null>(urlPutIn);
   const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
 
-  // Gauge visibility state - default to ON so users can see gauges
-  const [showGauges, setShowGauges] = useState(true);
+  // Gauge visibility state - default to OFF for cleaner map view
+  const [showGauges, setShowGauges] = useState(false);
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
@@ -209,7 +210,7 @@ export default function RiverPage() {
 
   if (riverLoading) {
     return (
-      <div className="min-h-screen bg-river-night flex items-center justify-center">
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -217,13 +218,13 @@ export default function RiverPage() {
 
   if (riverError || !river) {
     return (
-      <div className="min-h-screen bg-river-night flex items-center justify-center">
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
             <span className="text-3xl">😕</span>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">River Not Found</h2>
-          <p className="text-river-gravel">
+          <h2 className="text-xl font-bold text-neutral-900 mb-2">River Not Found</h2>
+          <p className="text-neutral-600">
             The river you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
         </div>
@@ -232,7 +233,7 @@ export default function RiverPage() {
   }
 
   return (
-    <div className="min-h-screen bg-river-night">
+    <div className="min-h-screen bg-neutral-50">
       {/* River Header */}
       <RiverHeader 
         river={river} 
@@ -241,10 +242,10 @@ export default function RiverPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
-            {/* Planner Panel */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Column - Planner and key info */}
+          <div className="w-full lg:w-[400px] flex-shrink-0 order-2 lg:order-1 space-y-4">
+            {/* Planner Panel - Always first */}
             <PlannerPanel
               river={river}
               accessPoints={accessPoints || []}
@@ -259,6 +260,15 @@ export default function RiverPage() {
               onShowPlanChange={setShowPlan}
             />
 
+            {/* Gauge Stations - Desktop only */}
+            <div className="hidden lg:block">
+              <GaugeOverview
+                gauges={gaugeStations}
+                riverId={river.id}
+                isLoading={!allGaugeStations}
+              />
+            </div>
+
             {/* Conditions & Safety */}
             <ConditionsBlock
               riverId={river.id}
@@ -268,30 +278,19 @@ export default function RiverPage() {
               hasPutInSelected={!!selectedPutIn}
               isLoading={conditionsLoading}
             />
-
-            {/* Difficulty & Experience */}
-            <DifficultyExperience river={river} />
-
-            {/* Logistics */}
-            <LogisticsSection
-              accessPoints={accessPoints || []}
-              isLoading={accessPointsLoading}
-            />
-
-            {/* Points of Interest */}
-            <PointsOfInterest riverSlug={slug} />
           </div>
 
-          {/* Right Column - Map */}
-          <div className="lg:col-span-1 order-1 lg:order-2">
-            <div className="sticky top-4 relative">
-              <div className="rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] w-full">
+          {/* Right Column - Map and additional content */}
+          <div className="flex-1 order-1 lg:order-2 space-y-4">
+            {/* Map */}
+            <div>
+              <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
                 {/* Weather Bug overlay */}
                 <WeatherBug riverSlug={slug} riverId={river.id} />
 
                 {upstreamWarning && (
                   <div className="absolute top-4 left-4 right-4 z-30">
-                    <div className="bg-red-500/20 border border-red-400/40 text-red-100 text-sm px-4 py-2 rounded-xl shadow-lg">
+                    <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
                       {upstreamWarning}
                     </div>
                   </div>
@@ -321,7 +320,44 @@ export default function RiverPage() {
                 </MapContainer>
               </div>
             </div>
+
+            {/* Content below map on desktop to fill white space */}
+            <div className="hidden lg:block space-y-4">
+              {/* Difficulty & Experience */}
+              <DifficultyExperience river={river} />
+
+              {/* Logistics */}
+              <LogisticsSection
+                accessPoints={accessPoints || []}
+                isLoading={accessPointsLoading}
+              />
+
+              {/* Points of Interest */}
+              <PointsOfInterest riverSlug={slug} />
+            </div>
           </div>
+        </div>
+
+        {/* Mobile-only: Additional content below the two-column layout */}
+        <div className="lg:hidden space-y-4 mt-4">
+          {/* Gauge Stations - Mobile only, below map */}
+          <GaugeOverview
+            gauges={gaugeStations}
+            riverId={river.id}
+            isLoading={!allGaugeStations}
+          />
+
+          {/* Difficulty & Experience */}
+          <DifficultyExperience river={river} />
+
+          {/* Logistics */}
+          <LogisticsSection
+            accessPoints={accessPoints || []}
+            isLoading={accessPointsLoading}
+          />
+
+          {/* Points of Interest */}
+          <PointsOfInterest riverSlug={slug} />
         </div>
       </div>
     </div>

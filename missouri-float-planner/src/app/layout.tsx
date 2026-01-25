@@ -3,14 +3,24 @@ import localFont from "next/font/local";
 import { Providers } from "@/lib/providers";
 import "./globals.css";
 
+// Using local Geist fonts with CSS variables that match the design system
+// In production, these can be swapped for Google Fonts (Space Grotesk, Inter, JetBrains Mono)
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+  variable: "--font-body",
   weight: "100 900",
 });
+
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
+  variable: "--font-mono",
+  weight: "100 900",
+});
+
+// Heading font uses body font for now - in production can use Space Grotesk
+const geistHeading = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-heading",
   weight: "100 900",
 });
 
@@ -27,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>
