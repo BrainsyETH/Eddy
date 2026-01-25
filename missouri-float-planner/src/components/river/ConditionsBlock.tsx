@@ -45,15 +45,15 @@ const FLOW_RATING_CONFIG: Record<FlowRating, {
   },
   low: {
     emoji: '↓',
-    bgClass: 'bg-amber-500',
+    bgClass: 'bg-lime-500',
     textClass: 'text-white',
-    borderClass: 'border-amber-400',
+    borderClass: 'border-lime-400',
   },
   poor: {
     emoji: '⚠',
-    bgClass: 'bg-gray-500',
+    bgClass: 'bg-yellow-500',
     textClass: 'text-white',
-    borderClass: 'border-gray-400',
+    borderClass: 'border-yellow-400',
   },
   unknown: {
     emoji: '?',

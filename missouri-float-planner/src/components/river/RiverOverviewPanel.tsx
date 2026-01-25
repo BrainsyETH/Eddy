@@ -17,8 +17,8 @@ interface RiverOverviewPanelProps {
 
 const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: string }> = {
   optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
-  low: { bg: 'bg-amber-100', text: 'text-amber-700', icon: '↓' },
-  very_low: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '⚠' },
+  low: { bg: 'bg-lime-100', text: 'text-lime-700', icon: '↓' },
+  very_low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⚠' },
   high: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '↑' },
   too_low: { bg: 'bg-red-100', text: 'text-red-700', icon: '✕' },
   dangerous: { bg: 'bg-red-200', text: 'text-red-800', icon: '⚠' },
@@ -27,10 +27,10 @@ const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: s
 
 // Condition level explanations for the legend (ordered: Very Low → Low → Good → High → Flood)
 const CONDITION_LEGEND = [
-  { code: 'very_low', label: 'Very Low', icon: '⚠', color: 'bg-orange-500', description: 'Frequent scraping and portaging likely' },
-  { code: 'low', label: 'Low', icon: '↓', color: 'bg-amber-500', description: 'Floatable with some dragging in riffles' },
+  { code: 'very_low', label: 'Very Low', icon: '⚠', color: 'bg-yellow-500', description: 'Frequent scraping and portaging likely' },
+  { code: 'low', label: 'Low', icon: '↓', color: 'bg-lime-500', description: 'Floatable with some dragging in riffles' },
   { code: 'optimal', label: 'Good', icon: '✓', color: 'bg-emerald-500', description: 'Ideal conditions - minimal dragging' },
-  { code: 'high', label: 'High', icon: '↑', color: 'bg-blue-500', description: 'Fast current - experienced paddlers only' },
+  { code: 'high', label: 'High', icon: '↑', color: 'bg-orange-500', description: 'Fast current - experienced paddlers only' },
   { code: 'dangerous', label: 'Flood', icon: '🚫', color: 'bg-red-600', description: 'Dangerous conditions - do not float' },
 ];
 

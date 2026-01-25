@@ -14,8 +14,8 @@ interface ConditionsPanelProps {
 
 const conditionStyles: Record<ConditionCode, { bg: string; border: string; text: string; icon: string; label: string }> = {
   optimal: { bg: 'bg-river-forest/20', border: 'border-river-forest/40', text: 'text-emerald-400', icon: '✓', label: 'Optimal' },
-  low: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: '↓', label: 'Low' },
-  very_low: { bg: 'bg-orange-500/15', border: 'border-orange-500/30', text: 'text-orange-400', icon: '⚠', label: 'Very Low' },
+  low: { bg: 'bg-lime-500/15', border: 'border-lime-500/30', text: 'text-lime-400', icon: '↓', label: 'Low' },
+  very_low: { bg: 'bg-yellow-500/15', border: 'border-yellow-500/30', text: 'text-yellow-400', icon: '⚠', label: 'Very Low' },
   high: { bg: 'bg-orange-500/15', border: 'border-orange-500/30', text: 'text-orange-400', icon: '↑', label: 'High' },
   too_low: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: '✕', label: 'Too Low' },
   dangerous: { bg: 'bg-red-500/20', border: 'border-red-500/40', text: 'text-red-400', icon: '⚠', label: 'Dangerous' },
