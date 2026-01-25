@@ -14,13 +14,13 @@ interface RiverSelectorProps {
 }
 
 const conditionColors: Record<ConditionCode, string> = {
-  optimal: 'bg-emerald-500',
-  low: 'bg-lime-500',
-  very_low: 'bg-yellow-500',
+  optimal: 'bg-support-500',
+  low: 'bg-yellow-500',
+  very_low: 'bg-amber-500',
   high: 'bg-orange-500',
   too_low: 'bg-red-500',
   dangerous: 'bg-red-600',
-  unknown: 'bg-bluff-400',
+  unknown: 'bg-neutral-400',
 };
 
 export default function RiverSelector({
@@ -68,34 +68,34 @@ export default function RiverSelector({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full px-4 py-3 glass-card-dark border border-white/10 rounded-xl 
-                   shadow-card hover:shadow-card-hover hover:border-river-water
+        className="w-full px-4 py-3 bg-white border-2 border-neutral-300 rounded-md
+                   shadow-sm hover:shadow-md hover:border-primary-400
                    flex items-center justify-between gap-3 transition-all duration-200
-                   focus:outline-none focus:ring-2 focus:ring-river-500 focus:ring-offset-2"
+                   focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-river-water to-river-forest 
+          <div className="w-8 h-8 rounded-md bg-primary-500 border border-primary-700
                         flex items-center justify-center">
-            <span className="text-sm">🌊</span>
+            <span className="text-sm text-white">🌊</span>
           </div>
           <div className="text-left">
             {selectedRiver ? (
               <>
-                <p className="font-medium text-white">{selectedRiver.name}</p>
-                <p className="text-sm text-river-gravel">
+                <p className="font-semibold text-neutral-900">{selectedRiver.name}</p>
+                <p className="text-sm text-neutral-600">
                   {selectedRiver.lengthMiles.toFixed(1)} miles • {selectedRiver.accessPointCount} access points
                 </p>
               </>
             ) : (
               <>
-                <p className="font-medium text-white">Select a River</p>
-                <p className="text-sm text-river-gravel">Choose your floating adventure</p>
+                <p className="font-semibold text-neutral-900">Select a River</p>
+                <p className="text-sm text-neutral-500">Choose your floating adventure</p>
               </>
             )}
           </div>
         </div>
         <svg
-          className={`w-5 h-5 text-river-gravel transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-neutral-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -106,20 +106,20 @@ export default function RiverSelector({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 glass-card-dark border border-white/10 
-                        rounded-xl shadow-lg overflow-hidden animate-in">
-          <div className="p-3 border-b border-white/10">
+        <div className="absolute z-50 w-full mt-2 bg-white border-2 border-neutral-200
+                        rounded-md shadow-lg overflow-hidden animate-in">
+          <div className="p-3 border-b border-neutral-200">
             <input
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search rivers by name, region, or difficulty..."
-              className="w-full rounded-lg bg-white/10 px-3 py-2 text-sm text-white placeholder:text-river-gravel/70 focus:outline-none focus:ring-2 focus:ring-river-500"
+              className="w-full rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-400"
             />
           </div>
           <div className="max-h-80 overflow-y-auto scrollbar-thin">
             {filteredRivers.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-river-gravel text-center">
+              <div className="px-4 py-3 text-sm text-neutral-500 text-center">
                 No rivers match your search.
               </div>
             ) : (
@@ -134,13 +134,13 @@ export default function RiverSelector({
                   setIsOpen(false);
                   setSearchTerm('');
                 }}
-                className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors relative
-                           focus:outline-none focus:ring-2 focus:ring-river-500 focus:ring-inset
-                           ${river.id === selectedRiverId ? 'bg-white/5' : ''}`}
+                className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-neutral-50 transition-colors relative
+                           focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-inset
+                           ${river.id === selectedRiverId ? 'bg-primary-50' : ''}`}
               >
                 <div className="flex-1 text-left">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-white">{river.name}</p>
+                    <p className="font-semibold text-neutral-900">{river.name}</p>
                     {river.currentCondition && (
                       <span
                         className={`w-2 h-2 rounded-full ${conditionColors[river.currentCondition.code]}`}
@@ -149,22 +149,22 @@ export default function RiverSelector({
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-sm text-river-gravel">
+                    <span className="text-sm text-neutral-600">
                       {river.lengthMiles.toFixed(1)} mi
                     </span>
-                    <span className="text-river-gravel/50">•</span>
-                    <span className="text-sm text-river-gravel">
+                    <span className="text-neutral-400">•</span>
+                    <span className="text-sm text-neutral-600">
                       {river.region}
                     </span>
-                    <span className="text-river-gravel/50">•</span>
-                    <span className="text-sm text-river-gravel">
+                    <span className="text-neutral-400">•</span>
+                    <span className="text-sm text-neutral-600">
                       {river.difficultyRating}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {river.id === selectedRiverId && (
-                    <svg className="w-5 h-5 text-river-water flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-primary-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -175,7 +175,7 @@ export default function RiverSelector({
                       e.preventDefault();
                       window.location.href = `/rivers/${river.slug}`;
                     }}
-                    className="px-2 py-1 text-xs text-river-water hover:text-sky-warm hover:bg-white/5 rounded transition-colors flex-shrink-0"
+                    className="px-2 py-1 text-xs text-primary-600 hover:text-accent-600 hover:bg-neutral-100 rounded transition-colors flex-shrink-0"
                     title="View river page"
                   >
                     View →

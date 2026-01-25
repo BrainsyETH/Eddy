@@ -6,150 +6,146 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
         // =========================================
-        // Neo-Brutalist Theme
-        // Raw, bold, unapologetic - hard shadows & thick borders
+        // Organic Brutalist Theme
+        // Bold and grounded with natural warmth
         // =========================================
 
-        // Foundations (Dark backgrounds)
-        'brutal-void': '#0D0C1D',        // Deepest black-purple
-        'brutal-night': '#1A1833',       // Primary dark background
-        'brutal-slate': '#2D2A4A',       // Elevated surfaces, cards
-
-        // Primary Accent
-        'brutal-coral': '#FF6B6B',       // Primary CTA, key actions
-        'brutal-coral-light': '#FF8E8E', // Hover states
-
-        // Secondary Accents
-        'brutal-electric': '#4ECDC4',    // Interactive, links, water
-        'brutal-lime': '#A8E6CF',        // Success, positive states
-        'brutal-gold': '#FFE66D',        // Warnings, highlights
-
-        // Neutrals
-        'brutal-white': '#FFFFFF',       // Primary text on dark
-        'brutal-offwhite': '#F5F5F5',    // Secondary backgrounds
-        'brutal-gray': '#6B6B8D',        // Muted text
-        'brutal-black': '#000000',       // Borders, shadows
-
-        // =========================================
-        // Legacy Palette (backward compatibility)
-        // =========================================
-
-        // Missouri Float Planner - Atmospheric Utility Color Palette
-        // Baselines (Backgrounds)
-        'river-deep': '#161748', // Primary UI cards/sections
-        'river-night': '#0f132f', // Global background/Map background
-
-        // Accents (Highlights/Actions)
-        'sky-warm': '#f95d9b', // Primary Call-to-Action, sunset vibes
-        'sky-soft': '#f7a1c4', // Secondary gradients, hover states
-
-        // Functional Colors
-        'river-water': '#39a0ca', // River polylines, active states
-        'river-forest': '#478559', // "Put-in" markers (Start)
-        'river-gravel': '#c7b8a6', // Text, secondary icons, gravel bars
-
-        // Legacy colors (kept for backward compatibility during migration)
-        ozark: {
-          900: '#1a1a2e',
-          800: '#16213e',
-          700: '#1f3460',
-          600: '#2d4a7c',
-          500: '#3d5a80',
+        // Primary — Deep river blue-green (main surfaces, nav, map chrome)
+        primary: {
+          50: '#EBF5F7',
+          100: '#D4EAEF',
+          200: '#A3D1DB',
+          300: '#72B5C4',
+          400: '#4A9AAD',
+          500: '#2D7889', // Base
+          600: '#256574',
+          700: '#1D525F',
+          800: '#163F4A',
+          900: '#0F2D35',
         },
-        river: {
-          900: '#134e4a',
-          800: '#115e59',
-          700: '#0f766e',
-          600: '#14b8a6',
-          500: '#2dd4bf',
-          400: '#5eead4',
-          300: '#99f6e4',
-          200: '#ccfbf1',
+
+        // Secondary — Sandbar tan (supporting surfaces, cards)
+        secondary: {
+          50: '#FAF8F4',
+          100: '#F4EFE7',
+          200: '#E8DFD0',
+          300: '#D9C9B0',
+          400: '#C9B391',
+          500: '#B89D72', // Base
+          600: '#99835F',
+          700: '#7A684B',
+          800: '#5C4E38',
+          900: '#3D3425',
         },
-        forest: {
-          900: '#1a2e1a',
-          800: '#22543d',
-          700: '#276749',
-          600: '#38a169',
-          500: '#48bb78',
-          400: '#68d391',
+
+        // Accent — Sunset coral (CTAs, highlights, active states)
+        accent: {
+          50: '#FEF5F3',
+          100: '#FDE7E1',
+          200: '#FACABD',
+          300: '#F7AC9A',
+          400: '#F48E76',
+          500: '#F07052', // Base
+          600: '#E5573F',
+          700: '#CC3E2B',
+          800: '#A33122',
+          900: '#7A2419',
         },
-        sunset: {
-          900: '#9d174d',
-          800: '#be185d',
-          700: '#db2777',
-          600: '#ec4899',
-          500: '#f472b6',
-          400: '#f9a8d4',
-          300: '#fbcfe8',
+
+        // Support — Trail green (success, nature callouts, badges)
+        support: {
+          50: '#EDFAF1',
+          100: '#DCF4E2',
+          200: '#B8E9C5',
+          300: '#95D9A7',
+          400: '#71C989',
+          500: '#4EB86B', // Base
+          600: '#419959',
+          700: '#347A47',
+          800: '#275C35',
+          900: '#1A3D23',
         },
-        golden: {
-          900: '#92400e',
-          800: '#b45309',
-          700: '#d97706',
-          600: '#f59e0b',
-          500: '#fbbf24',
-          400: '#fcd34d',
+
+        // Neutrals — Warm stone tones
+        neutral: {
+          50: '#F7F6F3',
+          100: '#EDEBE6',
+          200: '#DBD5CA',
+          300: '#C2BAAC',
+          400: '#A49C8E',
+          500: '#857D70',
+          600: '#6B6459',
+          700: '#524D43',
+          800: '#3F3B33',
+          900: '#2D2A24',
+          950: '#1A1814',
         },
-        bluff: {
-          900: '#1c1917',
-          800: '#292524',
-          700: '#44403c',
-          600: '#57534e',
-          500: '#78716c',
-          400: '#a8a29e',
-          300: '#d6d3d1',
-          200: '#e7e5e4',
-          100: '#f5f5f4',
-          50: '#fafaf9',
-        },
+
+        // Semantic shorthand colors
+        background: '#F7F6F3', // neutral-50
+        surface: '#FFFFFF',
+        success: '#4EB86B', // support-500
+        warning: '#E5A000',
+        error: '#DC2626',
+        info: '#2D7889', // primary-500
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'monospace'],
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-heading)', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace'],
+        // Fallback for legacy code
+        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        // Neo-Brutalist Typography Scale - Bold and tight
-        'brutal-hero': ['5rem', { lineHeight: '1', letterSpacing: '-0.04em', fontWeight: '900' }],
-        'brutal-display': ['3.5rem', { lineHeight: '1.05', letterSpacing: '-0.03em', fontWeight: '800' }],
-        'brutal-heading': ['2rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
-        'brutal-subhead': ['1.25rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '700' }],
-        'brutal-body': ['1rem', { lineHeight: '1.5', fontWeight: '500' }],
-        'brutal-small': ['0.875rem', { lineHeight: '1.4', fontWeight: '500' }],
-        'brutal-micro': ['0.75rem', { lineHeight: '1.3', letterSpacing: '0.05em', fontWeight: '600' }],
+        // Type Scale
+        'xs': ['0.75rem', { lineHeight: '1.4' }],      // 12px
+        'sm': ['0.875rem', { lineHeight: '1.5' }],    // 14px
+        'base': ['1rem', { lineHeight: '1.5' }],      // 16px
+        'lg': ['1.125rem', { lineHeight: '1.6' }],    // 18px
+        'xl': ['1.25rem', { lineHeight: '1.4' }],     // 20px
+        '2xl': ['1.5rem', { lineHeight: '1.3' }],     // 24px
+        '3xl': ['1.875rem', { lineHeight: '1.25' }],  // 30px
+        '4xl': ['2.25rem', { lineHeight: '1.15' }],   // 36px
+        '5xl': ['3rem', { lineHeight: '1.1' }],       // 48px
+        '6xl': ['3.75rem', { lineHeight: '1.05' }],   // 60px
+      },
+      letterSpacing: {
+        tighter: '-0.02em',
+        tight: '-0.01em',
+        normal: '0',
+        wide: '0.025em',
+        wider: '0.05em',
+        widest: '0.1em',
       },
       borderRadius: {
-        // Neo-Brutalist - sharp or chunky
-        'brutal-none': '0',
-        'brutal': '8px',
-        'brutal-lg': '16px',
+        'none': '0',
+        'sm': '4px',
+        'md': '6px',
+        'lg': '8px',
+        'xl': '12px',
+        '2xl': '16px',
+        'full': '9999px',
       },
       borderWidth: {
-        'brutal': '3px',
-        'brutal-thick': '4px',
+        'thin': '1px',
+        'base': '2px',
+        'thick': '3px',
+        'chunky': '4px',
       },
       spacing: {
-        // Adventure spacing additions
         '18': '4.5rem',
         '22': '5.5rem',
       },
       backgroundImage: {
-        // Neo-Brutalist - Minimal gradients, mostly flat
-        // Only use gradients sparingly for section breaks
-        'brutal-fade': 'linear-gradient(180deg, #1A1833 0%, #0D0C1D 100%)',
-        'brutal-coral-fade': 'linear-gradient(180deg, #FF6B6B 0%, #FF8E8E 100%)',
-
-        // Legacy Gradients
-        'gradient-ozark': 'linear-gradient(180deg, var(--tw-gradient-stops))',
-        'gradient-sunset': 'linear-gradient(135deg, #161748 0%, #0f132f 50%, #161748 100%)',
-        'gradient-river': 'linear-gradient(180deg, #39a0ca 0%, #478559 100%)',
-        'gradient-hero': 'linear-gradient(180deg, #0f132f 0%, #161748 50%, #0f132f 100%)',
-        'gradient-card': 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)',
+        // Organic gradients - subtle, natural
+        'gradient-page': 'linear-gradient(180deg, #F7F6F3 0%, #EDEBE6 100%)',
+        'gradient-primary': 'linear-gradient(180deg, #163F4A 0%, #0F2D35 100%)',
+        'gradient-accent': 'linear-gradient(180deg, #F07052 0%, #E5573F 100%)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',
@@ -157,6 +153,8 @@ const config: Config = {
         'fade-in': 'fadeIn 0.5s ease-out',
         'slide-up': 'slideUp 0.5s ease-out',
         'slide-in-right': 'slideInRight 0.3s ease-out',
+        'spin-slow': 'spin 1.5s linear infinite',
+        'shimmer': 'shimmer 1.5s infinite',
       },
       keyframes: {
         float: {
@@ -179,30 +177,37 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateX(20px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
       },
       boxShadow: {
-        // Neo-Brutalist - Hard offset shadows, no blur
-        'brutal-sm': '2px 2px 0 #000000',
-        'brutal': '4px 4px 0 #000000',
-        'brutal-lg': '6px 6px 0 #000000',
-        'brutal-xl': '8px 8px 0 #000000',
+        // Organic Brutalist shadows - offset with slight warmth
+        'xs': '1px 1px 0 #C2BAAC',
+        'sm': '2px 2px 0 #C2BAAC',
+        'md': '3px 3px 0 #A49C8E',
+        'lg': '4px 4px 0 #857D70',
+        'xl': '6px 6px 0 #6B6459',
 
-        // Colored hard shadows
-        'brutal-coral': '4px 4px 0 #FF6B6B',
-        'brutal-coral-lg': '6px 6px 0 #FF6B6B',
-        'brutal-electric': '4px 4px 0 #4ECDC4',
-        'brutal-electric-lg': '6px 6px 0 #4ECDC4',
+        // Soft variants for less aggressive contexts
+        'soft-sm': '0 1px 3px rgba(45, 42, 36, 0.1)',
+        'soft-md': '0 4px 6px rgba(45, 42, 36, 0.1)',
+        'soft-lg': '0 10px 15px rgba(45, 42, 36, 0.1)',
 
-        // Light shadows for dark backgrounds
-        'brutal-light': '4px 4px 0 rgba(255,255,255,0.25)',
-        'brutal-light-lg': '6px 6px 0 rgba(255,255,255,0.25)',
-        'brutal-white': '4px 4px 0 #FFFFFF',
+        // Colored shadows for emphasis
+        'accent': '3px 3px 0 #E5573F',
+        'primary': '3px 3px 0 #1D525F',
 
-        // Legacy Shadows
-        'glow': '0 0 20px rgba(45, 212, 191, 0.3)',
-        'glow-sunset': '0 0 20px rgba(244, 114, 182, 0.3)',
-        'card': '0 4px 6px -1px rgba(26, 26, 46, 0.1), 0 2px 4px -2px rgba(26, 26, 46, 0.1)',
-        'card-hover': '0 10px 15px -3px rgba(26, 26, 46, 0.15), 0 4px 6px -4px rgba(26, 26, 46, 0.1)',
+        // Inset for pressed states
+        'inset': 'inset 2px 2px 4px rgba(45, 42, 36, 0.15)',
+      },
+      transitionDuration: {
+        '0': '0ms',
+        'fast': '100ms',
+        'normal': '200ms',
+        'slow': '300ms',
+        'slower': '500ms',
       },
     },
   },
