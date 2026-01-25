@@ -70,18 +70,18 @@ export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen 
     );
   }
 
-  // Get overall condition badge
+  // Get overall condition badge - show BEST condition (most favorable for floating)
   const conditions = gauges.map(g => getGaugeCondition(g, riverId));
-  const worstCondition = conditions.find(c => c.code === 'dangerous') ||
+  const bestCondition = conditions.find(c => c.code === 'optimal') ||
+    conditions.find(c => c.code === 'low') ||  // "Good" - floatable
     conditions.find(c => c.code === 'high') ||
     conditions.find(c => c.code === 'very_low') ||
-    conditions.find(c => c.code === 'low') ||
-    conditions.find(c => c.code === 'optimal') ||
+    conditions.find(c => c.code === 'dangerous') ||
     conditions[0];
 
-  const badge = worstCondition ? (
-    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${worstCondition.color}`}>
-      {worstCondition.label}
+  const badge = bestCondition ? (
+    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${bestCondition.color}`}>
+      {bestCondition.label}
     </span>
   ) : null;
 
