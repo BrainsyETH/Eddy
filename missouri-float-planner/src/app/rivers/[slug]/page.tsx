@@ -61,7 +61,12 @@ export default function RiverPage() {
   });
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
-  const { data: gaugeStations } = useGaugeStations();
+  const { data: allGaugeStations } = useGaugeStations();
+
+  // Filter gauge stations to only show those linked to this river
+  const gaugeStations = allGaugeStations?.filter(gauge =>
+    gauge.thresholds?.some(t => t.riverId === river?.id)
+  );
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);

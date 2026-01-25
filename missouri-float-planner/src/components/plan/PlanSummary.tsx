@@ -132,47 +132,50 @@ function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
       </div>
 
       {/* Stats and gauge info */}
-      <div className="bg-gray-50 p-3 space-y-2">
-        {/* Gauge readings */}
-        <div className="flex items-center justify-between text-sm">
+      <div className="bg-gray-50 p-3">
+        <div className="flex items-start justify-between gap-4">
+          {/* Left: Gauge readings (larger) */}
           <div className="flex gap-4">
-            <span className="text-gray-600">
-              <span className="font-medium">{condition.dischargeCfs?.toLocaleString() ?? '—'}</span> cfs
-            </span>
-            <span className="text-gray-600">
-              <span className="font-medium">{condition.gaugeHeightFt?.toFixed(2) ?? '—'}</span> ft
-            </span>
+            <div>
+              <span className="text-lg font-bold text-gray-800">{condition.dischargeCfs?.toLocaleString() ?? '—'}</span>
+              <span className="text-sm text-gray-500 ml-1">cfs</span>
+            </div>
+            <div>
+              <span className="text-lg font-bold text-gray-800">{condition.gaugeHeightFt?.toFixed(2) ?? '—'}</span>
+              <span className="text-sm text-gray-500 ml-1">ft</span>
+            </div>
             {condition.percentile !== null && condition.percentile !== undefined && (
-              <span className="text-gray-600">
-                <span className="font-medium">{Math.round(condition.percentile)}%</span> percentile
-              </span>
+              <div>
+                <span className="text-lg font-bold text-gray-800">{Math.round(condition.percentile)}%</span>
+                <span className="text-sm text-gray-500 ml-1">ile</span>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Gauge name with USGS link */}
-        {condition.gaugeName && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">{condition.gaugeName}</span>
-            {condition.usgsUrl && (
-              <a
-                href={condition.usgsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-              >
-                USGS Data
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            )}
-          </div>
-        )}
+          {/* Right: Gauge name above USGS link */}
+          {condition.gaugeName && (
+            <div className="text-right flex-shrink-0">
+              <p className="text-xs text-gray-500 leading-tight">{condition.gaugeName}</p>
+              {condition.usgsUrl && (
+                <a
+                  href={condition.usgsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 mt-0.5"
+                >
+                  USGS Data
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Accuracy warning */}
         {condition.accuracyWarning && condition.accuracyWarningReason && (
-          <p className="text-xs text-orange-600 bg-orange-50 rounded px-2 py-1">
+          <p className="text-xs text-orange-600 bg-orange-50 rounded px-2 py-1 mt-2">
             ⚠ {condition.accuracyWarningReason}
           </p>
         )}
