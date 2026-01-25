@@ -42,12 +42,12 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
   if (threshold.levelLow !== null && height >= threshold.levelLow) {
     return { code: 'low', label: 'Good', color: 'bg-lime-500' };
   }
-  if (threshold.levelTooLow !== null && height < threshold.levelTooLow) {
+  // Between level_too_low and level_low = some dragging expected
+  if (threshold.levelTooLow !== null && height >= threshold.levelTooLow) {
     return { code: 'very_low', label: 'Low', color: 'bg-yellow-500' };
   }
-
-  // Default to low if below optimal but above too_low
-  return { code: 'low', label: 'Good', color: 'bg-lime-500' };
+  // Below level_too_low = too low for comfortable floating
+  return { code: 'too_low', label: 'Too Low', color: 'bg-red-400' };
 }
 
 export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen = true }: GaugeOverviewProps) {
