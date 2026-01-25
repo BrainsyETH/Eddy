@@ -3,8 +3,16 @@
 -- The gauge_info CTE was missing the river_id filter, causing it to potentially
 -- return thresholds for the wrong river when a gauge is linked to multiple rivers.
 
--- Drop existing function first (specify full signature to avoid ambiguity)
-DROP FUNCTION IF EXISTS get_river_condition_segment(UUID, geometry);
+-- Drop all existing versions of this function
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN SELECT oid::regprocedure FROM pg_proc WHERE proname = 'get_river_condition_segment'
+    LOOP
+        EXECUTE 'DROP FUNCTION ' || r.oid::regprocedure || ' CASCADE';
+    END LOOP;
+END $$;
 
 CREATE OR REPLACE FUNCTION get_river_condition_segment(
     p_river_id UUID,
