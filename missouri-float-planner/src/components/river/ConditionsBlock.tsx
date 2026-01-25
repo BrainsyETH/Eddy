@@ -87,7 +87,7 @@ const FLOW_RATING_DETAILS: Record<FlowRating, {
   low: {
     title: 'Low Water',
     description: 'Water levels are below the 25th percentile - lower than typical for this date.',
-    advice: 'Floatable but expect some dragging in riffles. Consider a lighter load and shorter trip.',
+    advice: 'Expect some dragging in the shallow areas. Consider a lighter load and shorter trip.',
   },
   poor: {
     title: 'Too Low',
