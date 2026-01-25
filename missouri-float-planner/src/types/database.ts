@@ -28,6 +28,7 @@ export interface Database {
           region: string | null;
           nhd_feature_id: string | null;
           smoothed_geometries: Json | null; // Pre-processed bezier-smoothed geometry
+          active: boolean; // Whether river is visible in public app
           created_at: string;
           updated_at: string;
         };
@@ -44,6 +45,7 @@ export interface Database {
           region?: string | null;
           nhd_feature_id?: string | null;
           smoothed_geometries?: Json | null;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -60,6 +62,7 @@ export interface Database {
           region?: string | null;
           nhd_feature_id?: string | null;
           smoothed_geometries?: Json | null;
+          active?: boolean;
           created_at?: string;
           updated_at?: string;
         };

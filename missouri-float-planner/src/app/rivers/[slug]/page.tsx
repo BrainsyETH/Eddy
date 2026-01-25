@@ -257,6 +257,7 @@ export default function RiverPage() {
             {/* Conditions & Safety */}
             <ConditionsBlock
               riverId={river.id}
+              riverSlug={slug}
               condition={condition}
               nearestGauge={nearestGauge}
               hasPutInSelected={!!selectedPutIn}

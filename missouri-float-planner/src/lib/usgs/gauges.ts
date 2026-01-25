@@ -414,3 +414,112 @@ export function calculateFlowCondition(
     gaugeHeightFt: reading.gaugeHeightFt,
   };
 }
+
+// ============================================
+// 7-DAY HISTORICAL DATA
+// ============================================
+
+export interface HistoricalReading {
+  timestamp: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+}
+
+export interface HistoricalData {
+  siteId: string;
+  siteName: string;
+  readings: HistoricalReading[];
+  minDischarge: number | null;
+  maxDischarge: number | null;
+  minHeight: number | null;
+  maxHeight: number | null;
+}
+
+/**
+ * Fetches historical gauge readings from USGS Water Services API
+ *
+ * @param siteId USGS site ID
+ * @param days Number of days of history to fetch (default: 7)
+ * @returns Historical data with readings array
+ */
+export async function fetchHistoricalReadings(
+  siteId: string,
+  days: number = 7
+): Promise<HistoricalData | null> {
+  const url = new URL('https://waterservices.usgs.gov/nwis/iv/');
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('sites', siteId);
+  url.searchParams.set('parameterCd', '00065,00060');
+  url.searchParams.set('period', `P${days}D`);
+  url.searchParams.set('siteStatus', 'all');
+
+  try {
+    const response = await fetch(url.toString(), {
+      next: { revalidate: 3600 }, // Cache for 1 hour
+    });
+
+    if (!response.ok) {
+      console.error(`USGS Historical API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json() as USGSResponse;
+
+    if (!data.value?.timeSeries || data.value.timeSeries.length === 0) {
+      return null;
+    }
+
+    // Parse time series data - combine height and discharge by timestamp
+    const readingsMap = new Map<string, HistoricalReading>();
+    let siteName = '';
+
+    for (const series of data.value.timeSeries) {
+      siteName = series.sourceInfo.siteName;
+      const variableCode = series.variable.variableCode[0]?.value;
+      const values = series.values[0]?.value || [];
+
+      for (const val of values) {
+        const timestamp = val.dateTime;
+        const numValue = parseFloat(val.value);
+
+        if (!readingsMap.has(timestamp)) {
+          readingsMap.set(timestamp, {
+            timestamp,
+            gaugeHeightFt: null,
+            dischargeCfs: null,
+          });
+        }
+
+        const reading = readingsMap.get(timestamp)!;
+
+        if (variableCode === '00065' && !isNaN(numValue) && numValue > -100 && numValue < 500) {
+          reading.gaugeHeightFt = numValue;
+        } else if (variableCode === '00060' && !isNaN(numValue) && numValue >= 0 && numValue < 1000000) {
+          reading.dischargeCfs = numValue;
+        }
+      }
+    }
+
+    // Convert to array and sort by timestamp
+    const readings = Array.from(readingsMap.values())
+      .filter(r => r.gaugeHeightFt !== null || r.dischargeCfs !== null)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // Calculate min/max values for chart scaling
+    const dischargeValues = readings.map(r => r.dischargeCfs).filter((v): v is number => v !== null);
+    const heightValues = readings.map(r => r.gaugeHeightFt).filter((v): v is number => v !== null);
+
+    return {
+      siteId,
+      siteName,
+      readings,
+      minDischarge: dischargeValues.length > 0 ? Math.min(...dischargeValues) : null,
+      maxDischarge: dischargeValues.length > 0 ? Math.max(...dischargeValues) : null,
+      minHeight: heightValues.length > 0 ? Math.min(...heightValues) : null,
+      maxHeight: heightValues.length > 0 ? Math.max(...heightValues) : null,
+    };
+  } catch (error) {
+    console.error(`Error fetching USGS historical data for site ${siteId}:`, error);
+    return null;
+  }
+}

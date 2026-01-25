@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const supabase = await createClient();
 
-    // Get all rivers with access point counts
+    // Get all active rivers with access point counts
     const { data: rivers, error } = await supabase
       .from('rivers')
       .select(`
@@ -25,6 +25,7 @@ export async function GET() {
         region,
         access_points!inner(id)
       `)
+      .eq('active', true)
       .order('name', { ascending: true });
 
     if (error) {

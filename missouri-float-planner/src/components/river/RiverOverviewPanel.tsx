@@ -77,50 +77,46 @@ export default function RiverOverviewPanel({
           isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         }`}
       >
-        {/* Drag Handle */}
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="w-12 h-1 bg-river-gravel/40 rounded-full" />
-        </div>
-
-        {/* Content - Horizontal layout for desktop */}
-        <div className="max-h-[280px] overflow-y-auto scrollbar-thin">
-          <div className="px-6 py-4">
-            {/* Header row */}
-            <div className="flex items-start justify-between mb-4">
+        {/* Content - Compact horizontal layout for desktop */}
+        <div className="px-6 py-3">
+          {/* Single row layout - all info visible without scroll */}
+          <div className="flex items-center gap-6">
+            {/* River name and close button */}
+            <div className="flex items-center gap-3 flex-shrink-0">
               <div>
-                <h2 className="text-xl font-bold text-white">{river.name}</h2>
-                <p className="text-river-gravel text-sm mt-0.5">Plan your float with live conditions</p>
+                <h2 className="text-lg font-bold text-white">{river.name}</h2>
+                <p className="text-river-gravel text-xs">Plan your float with live conditions</p>
               </div>
               <button
                 onClick={onClose}
-                className="text-river-gravel hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10"
+                className="text-river-gravel hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
                 aria-label="Close river panel"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {/* Stats grid - horizontal on desktop */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-xs font-medium text-river-gravel uppercase tracking-wide">Length</p>
-                <p className="text-xl font-bold text-white">{river.lengthMiles.toFixed(1)} mi</p>
+            {/* Quick stats - inline */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="bg-white/10 rounded-lg px-3 py-1.5 border border-white/10">
+                <p className="text-[10px] font-medium text-river-gravel uppercase">Length</p>
+                <p className="text-sm font-bold text-white">{river.lengthMiles.toFixed(1)} mi</p>
               </div>
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-xs font-medium text-river-gravel uppercase tracking-wide">Access Points</p>
-                <p className="text-xl font-bold text-river-water">{accessPointCount}</p>
+              <div className="bg-white/10 rounded-lg px-3 py-1.5 border border-white/10">
+                <p className="text-[10px] font-medium text-river-gravel uppercase">Access</p>
+                <p className="text-sm font-bold text-river-water">{accessPointCount}</p>
               </div>
-              <div className={`rounded-xl p-3 border border-white/10 ${conditionStyle.bg}`}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{conditionStyle.icon}</span>
+              <div className={`rounded-lg px-3 py-1.5 border border-white/10 ${conditionStyle.bg}`}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{conditionStyle.icon}</span>
                   <div>
-                    <p className={`font-semibold text-sm ${conditionStyle.text}`}>
+                    <p className={`font-semibold text-xs ${conditionStyle.text}`}>
                       {condition?.label ?? 'Unknown'}
                     </p>
                     {condition?.gaugeHeightFt !== null && condition?.gaugeHeightFt !== undefined && (
-                      <p className={`text-xs ${conditionStyle.text} opacity-75`}>
+                      <p className={`text-[10px] ${conditionStyle.text} opacity-75`}>
                         {condition.gaugeHeightFt.toFixed(2)} ft
                       </p>
                     )}
@@ -128,43 +124,45 @@ export default function RiverOverviewPanel({
                 </div>
               </div>
               {condition?.dischargeCfs !== null && condition?.dischargeCfs !== undefined && (
-                <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                  <p className="text-xs font-medium text-river-gravel uppercase tracking-wide">Flow</p>
-                  <p className="text-lg font-bold text-white">{condition.dischargeCfs.toLocaleString()} cfs</p>
+                <div className="bg-white/10 rounded-lg px-3 py-1.5 border border-white/10">
+                  <p className="text-[10px] font-medium text-river-gravel uppercase">Flow</p>
+                  <p className="text-sm font-bold text-white">{condition.dischargeCfs.toLocaleString()} cfs</p>
                 </div>
               )}
             </div>
 
-            {/* Tags row */}
-            <div className="flex flex-wrap gap-2 text-xs mb-4">
+            {/* Tags - inline */}
+            <div className="flex items-center gap-2 flex-wrap flex-1">
               {river.region && (
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-river-gravel border border-white/10">Region: {river.region}</span>
-              )}
-              {river.difficultyRating && (
-                <span className="px-3 py-1.5 rounded-full bg-river-water/20 text-river-water border border-river-water/30">
-                  Difficulty: {river.difficultyRating}
+                <span className="px-2 py-1 rounded-full bg-white/10 text-river-gravel text-[10px] border border-white/10">
+                  {river.region}
                 </span>
               )}
-              <span className="px-3 py-1.5 rounded-full bg-sky-warm/20 text-sky-warm border border-sky-warm/30">Tubing friendly</span>
-              <span className="px-3 py-1.5 rounded-full bg-river-forest/20 text-river-forest border border-river-forest/30">Dog friendly</span>
+              {river.difficultyRating && (
+                <span className="px-2 py-1 rounded-full bg-river-water/20 text-river-water text-[10px] border border-river-water/30">
+                  {river.difficultyRating}
+                </span>
+              )}
             </div>
 
-            {/* Condition Legend */}
-            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-              <p className="text-xs font-medium text-river-gravel uppercase tracking-wide mb-2">River Condition Guide</p>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+            {/* Compact condition legend */}
+            <div className="flex items-center gap-3 flex-shrink-0 border-l border-white/10 pl-4">
+              <p className="text-[10px] font-medium text-river-gravel uppercase">Conditions:</p>
+              <div className="flex items-center gap-2">
                 {CONDITION_LEGEND.map((item) => (
-                  <div key={item.code} className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${item.color} flex-shrink-0`} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-white truncate">{item.label}</p>
-                      <p className="text-[10px] text-river-gravel truncate">{item.description}</p>
-                    </div>
+                  <div key={item.code} className="flex items-center gap-1" title={item.description}>
+                    <span className={`w-2 h-2 rounded-full ${item.color}`} />
+                    <span className="text-[10px] text-white">{item.label}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* Disclaimer - compact single line */}
+          <p className="text-[10px] text-river-gravel/70 mt-2 text-center">
+            Always confirm conditions with local outfitters before your float. This data is for planning purposes only.
+          </p>
         </div>
       </div>
     );
@@ -287,18 +285,12 @@ export default function RiverOverviewPanel({
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div className="bg-amber-900/30 rounded-xl p-4 border-2 border-amber-600/40">
-              <p className="text-xs font-bold text-amber-400 uppercase tracking-wide mb-2">
-                Community Notes
-              </p>
-              <p className="text-sm text-amber-200 font-medium">
-                No active warnings yet. Share updates about obstacles or closures with the community.
-              </p>
-              <button className="mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg border-2 border-amber-700 transition-colors">
-                Add Note
-              </button>
+              {/* Safety Disclaimer */}
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <p className="text-[10px] text-river-gravel/80 leading-relaxed">
+                  <span className="font-semibold text-amber-400">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly. This data is for planning purposes only and should not replace on-site assessment.
+                </p>
+              </div>
             </div>
           </div>
         </div>

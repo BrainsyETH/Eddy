@@ -4,12 +4,12 @@
 // Main geography editor component with improved state management
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation } from 'lucide-react';
+import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff } from 'lucide-react';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
 
-type EditMode = 'access-points' | 'rivers';
+type EditMode = 'access-points' | 'rivers' | 'river-visibility';
 
 interface EditState {
   mode: EditMode;
@@ -23,6 +23,7 @@ interface River {
   slug: string;
   lengthMiles: number;
   geometry: GeoJSON.LineString | null;
+  active: boolean;
 }
 
 interface AccessPoint {
@@ -361,12 +362,12 @@ export default function GeographyEditor() {
             <label className="block text-sm font-medium text-bluff-700 mb-2">
               Edit Mode
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() =>
                   setEditState((prev) => ({ ...prev, mode: 'access-points' }))
                 }
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   editState.mode === 'access-points'
                     ? 'bg-river-500 text-white'
                     : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
@@ -378,13 +379,26 @@ export default function GeographyEditor() {
                 onClick={() =>
                   setEditState((prev) => ({ ...prev, mode: 'rivers' }))
                 }
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   editState.mode === 'rivers'
                     ? 'bg-river-500 text-white'
                     : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
                 }`}
               >
                 River Lines
+              </button>
+              <button
+                onClick={() =>
+                  setEditState((prev) => ({ ...prev, mode: 'river-visibility' }))
+                }
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  editState.mode === 'river-visibility'
+                    ? 'bg-river-500 text-white'
+                    : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
+                }`}
+              >
+                <Eye size={14} />
+                Visibility
               </button>
             </div>
           </div>
@@ -575,6 +589,92 @@ export default function GeographyEditor() {
           onUpdate={handleUpdate}
           onRefresh={handleRefresh}
         />
+      )}
+
+      {/* River Visibility Editor Panel */}
+      {editState.mode === 'river-visibility' && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 w-[320px] max-h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-bluff-200">
+            <h3 className="font-semibold text-bluff-800 flex items-center gap-2">
+              <Eye size={18} />
+              River Visibility
+            </h3>
+          </div>
+
+          <p className="text-xs text-bluff-500 mb-4">
+            Control which rivers are visible in the public app. Only active rivers will appear in the river selector and on the map.
+          </p>
+
+          <div className="space-y-2">
+            {rivers.map((river) => (
+              <div
+                key={river.id}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                  river.active
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-bluff-50 border-bluff-200'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium text-sm truncate ${
+                    river.active ? 'text-green-800' : 'text-bluff-600'
+                  }`}>
+                    {river.name}
+                  </p>
+                  <p className="text-xs text-bluff-500">
+                    {river.lengthMiles.toFixed(1)} mi
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`/api/admin/rivers/${river.id}/visibility`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ active: !river.active }),
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to update visibility');
+                      }
+
+                      // Update local state
+                      setRivers((prev) =>
+                        prev.map((r) =>
+                          r.id === river.id ? { ...r, active: !r.active } : r
+                        )
+                      );
+                    } catch (err) {
+                      console.error('Error updating river visibility:', err);
+                      alert('Failed to update river visibility');
+                    }
+                  }}
+                  className={`ml-3 p-2 rounded-lg transition-colors ${
+                    river.active
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-bluff-300 text-bluff-600 hover:bg-bluff-400'
+                  }`}
+                  title={river.active ? 'Hide river' : 'Show river'}
+                >
+                  {river.active ? <Eye size={16} /> : <EyeOff size={16} />}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-bluff-200">
+            <div className="flex items-center gap-2 text-xs text-bluff-500">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                {rivers.filter((r) => r.active).length} visible
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-bluff-400"></span>
+                {rivers.filter((r) => !r.active).length} hidden
+              </span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Create Access Point Modal */}

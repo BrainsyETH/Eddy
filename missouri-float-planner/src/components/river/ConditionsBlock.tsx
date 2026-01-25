@@ -6,9 +6,12 @@
 import { useState } from 'react';
 import type { RiverCondition, FlowRating } from '@/types/api';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
+import FlowTrendChart from './FlowTrendChart';
+import WeatherForecast from './WeatherForecast';
 
 interface ConditionsBlockProps {
   riverId: string;
+  riverSlug?: string;
   condition: RiverCondition | null;
   nearestGauge?: GaugeStation | null;
   hasPutInSelected?: boolean;
@@ -98,7 +101,7 @@ const FLOW_RATING_DETAILS: Record<FlowRating, {
   },
 };
 
-export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelected, isLoading }: ConditionsBlockProps) {
+export default function ConditionsBlock({ riverSlug, condition, nearestGauge, hasPutInSelected, isLoading }: ConditionsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Use the condition passed from parent (which is segment-aware when put-in is selected)
@@ -238,6 +241,13 @@ export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelec
               </div>
             )}
 
+            {/* Safety Disclaimer */}
+            <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
+              <p className="text-xs text-amber-200/90 leading-relaxed">
+                <span className="font-bold text-amber-300">Safety First:</span> Always confirm current conditions with local outfitters and authorities before your float. Water levels can change rapidly due to weather upstream. This data is for planning purposes only and should not replace on-site assessment of conditions.
+              </p>
+            </div>
+
             {/* USGS Link */}
             {displayCondition.usgsUrl && (
               <a
@@ -261,6 +271,16 @@ export default function ConditionsBlock({ condition, nearestGauge, hasPutInSelec
                 : 'Recent reading'}
             </p>
           </div>
+        )}
+
+        {/* 7-Day Flow Trend */}
+        {displayCondition.gaugeUsgsId && (
+          <FlowTrendChart gaugeSiteId={displayCondition.gaugeUsgsId} />
+        )}
+
+        {/* 5-Day Weather Forecast */}
+        {riverSlug && (
+          <WeatherForecast riverSlug={riverSlug} />
         )}
 
         {/* Nearest Gauge (only show if different from main gauge) */}
