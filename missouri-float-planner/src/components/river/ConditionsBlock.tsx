@@ -90,9 +90,9 @@ const FLOW_RATING_DETAILS: Record<FlowRating, {
     advice: 'Floatable but expect some dragging in riffles. Consider a lighter load and shorter trip.',
   },
   poor: {
-    title: 'Poor Conditions',
+    title: 'Too Low',
     description: 'Water levels are below the 10th percentile - very low for this time of year.',
-    advice: 'Not recommended. Frequent dragging and portaging likely. Wait for rain or try a spring-fed river.',
+    advice: 'Frequent dragging and portaging may occur. Consider waiting for rain or try a spring-fed river.',
   },
   unknown: {
     title: 'Unknown Conditions',

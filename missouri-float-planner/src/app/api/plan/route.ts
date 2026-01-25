@@ -27,7 +27,7 @@ const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
   high: 'Fast current - experienced paddlers only',
   good: 'Ideal conditions - minimal dragging',
   low: 'Floatable with some dragging in riffles',
-  poor: 'Too low - frequent dragging and portages likely',
+  poor: 'Frequent dragging and portaging may occur',
   unknown: 'Current conditions unavailable',
 };
 
@@ -477,9 +477,6 @@ export async function GET(request: NextRequest) {
     }
     if (conditionCode === 'high') {
       warnings.push('High water conditions - experienced paddlers only');
-    }
-    if (conditionCode === 'too_low' || conditionCode === 'very_low') {
-      warnings.push('Water levels are very low - scraping and portaging likely');
     }
 
     // Enrich condition with percentile-based flow rating
