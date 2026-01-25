@@ -83,16 +83,30 @@ async function enrichWithStatistics(
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
 
-// Map legacy condition codes to flow ratings (fallback when stats unavailable)
+// Map threshold-based condition codes to flow ratings for display
+// Note: 'low' condition code means "above level_low threshold" = floatable = 'good' rating
 function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
   switch (code) {
     case 'optimal': return 'good';
-    case 'low': return 'low';
-    case 'very_low': return 'poor';
+    case 'low': return 'good';      // 'low' condition = floatable = good
+    case 'very_low': return 'low';  // 'very_low' = some dragging = low
     case 'too_low': return 'poor';
     case 'high': return 'high';
     case 'dangerous': return 'flood';
     default: return 'unknown';
+  }
+}
+
+// Get description for threshold-based flow rating
+function getThresholdBasedDescription(code: ConditionCode): string {
+  switch (code) {
+    case 'optimal': return 'Ideal conditions for floating';
+    case 'low': return 'Good conditions - minimal dragging expected';
+    case 'very_low': return 'Expect some dragging in shallow areas';
+    case 'too_low': return 'Frequent dragging and portaging likely';
+    case 'high': return 'Fast current - experienced paddlers only';
+    case 'dangerous': return 'Dangerous conditions - do not float';
+    default: return 'Conditions unknown';
   }
 }
 
@@ -467,59 +481,40 @@ export async function GET(
       };
     }
 
-    // Enrich with percentile-based flow rating from USGS statistics
+    // Always derive flowRating from threshold-based condition code (not percentile)
+    // This ensures consistency with GaugeOverview display
+    const thresholdBasedRating = conditionCodeToFlowRating(finalCondition.code);
+    const thresholdBasedDescription = getThresholdBasedDescription(finalCondition.code);
+
+    // Optionally fetch percentile stats as supplementary info (but don't use for primary rating)
+    let percentile: number | null = null;
+    let medianDischargeCfs: number | null = null;
+
     if (finalCondition.gaugeUsgsId && finalCondition.dischargeCfs !== null) {
       try {
         const statsEnrichment = await enrichWithStatistics(
           finalCondition.gaugeUsgsId,
           finalCondition.dischargeCfs
         );
-
-        finalCondition = {
-          ...finalCondition,
-          flowRating: statsEnrichment.flowRating,
-          flowDescription: statsEnrichment.flowDescription,
-          percentile: statsEnrichment.percentile,
-          medianDischargeCfs: statsEnrichment.medianDischargeCfs,
-          usgsUrl: `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`,
-        };
+        // Only use percentile data as supplementary info, not for the primary rating
+        percentile = statsEnrichment.percentile;
+        medianDischargeCfs = statsEnrichment.medianDischargeCfs;
       } catch (statsError) {
         console.warn('[Conditions API] Failed to fetch statistics:', statsError);
-        // Continue without statistics - the condition data is still valid
-        finalCondition = {
-          ...finalCondition,
-          flowRating: 'unknown',
-          flowDescription: 'Historical comparison unavailable',
-          percentile: null,
-          medianDischargeCfs: null,
-          usgsUrl: `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`,
-        };
+        // Continue without statistics - threshold-based rating is still valid
       }
-    } else {
-      // No USGS site ID or no discharge - can't calculate percentile
-      finalCondition = {
-        ...finalCondition,
-        flowRating: 'unknown',
-        flowDescription: finalCondition.dischargeCfs === null
-          ? 'Discharge data unavailable'
-          : 'Gauge information unavailable',
-        percentile: null,
-        medianDischargeCfs: null,
-        usgsUrl: finalCondition.gaugeUsgsId
-          ? `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`
-          : null,
-      };
     }
 
-    // Fallback: if stats-based rating failed, use condition code mapping
-    if (finalCondition.flowRating === 'unknown' && finalCondition.code !== 'unknown') {
-      const fallbackRating = conditionCodeToFlowRating(finalCondition.code);
-      finalCondition = {
-        ...finalCondition,
-        flowRating: fallbackRating,
-        flowDescription: FLOW_RATING_INFO[fallbackRating]?.description || 'Based on gauge height thresholds',
-      };
-    }
+    finalCondition = {
+      ...finalCondition,
+      flowRating: thresholdBasedRating,
+      flowDescription: thresholdBasedDescription,
+      percentile,
+      medianDischargeCfs,
+      usgsUrl: finalCondition.gaugeUsgsId
+        ? `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`
+        : null,
+    };
 
     const response: ConditionResponse = {
       condition: finalCondition,

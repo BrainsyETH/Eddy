@@ -102,9 +102,9 @@ function UnknownConditionsWarning() {
   );
 }
 
-// Flow rating explanations
+// Flow rating explanations (based on gauge height thresholds)
 const FLOW_EXPLANATIONS: Record<FlowRating, string> = {
-  good: 'Ideal for floating - water levels are near normal for this time of year.',
+  good: 'Good conditions - minimal dragging expected.',
   low: 'Expect some dragging in the shallow areas.',
   poor: 'Frequent dragging and portaging may occur.',
   high: 'Fast current with stronger hydraulics. Experienced paddlers only.',

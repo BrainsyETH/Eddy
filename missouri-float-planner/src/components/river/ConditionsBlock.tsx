@@ -1,7 +1,7 @@
 'use client';
 
 // src/components/river/ConditionsBlock.tsx
-// Conditions & Safety section with USGS data, percentile ratings, and tap-to-expand details
+// Conditions & Safety section with USGS data, threshold-based ratings, and tap-to-expand details
 
 import { useState } from 'react';
 import type { RiverCondition, FlowRating } from '@/types/api';
@@ -64,7 +64,7 @@ const FLOW_RATING_CONFIG: Record<FlowRating, {
   },
 };
 
-// Detailed explanations for each rating
+// Detailed explanations for each rating (based on gauge height thresholds)
 const FLOW_RATING_DETAILS: Record<FlowRating, {
   title: string;
   description: string;
@@ -72,27 +72,27 @@ const FLOW_RATING_DETAILS: Record<FlowRating, {
 }> = {
   flood: {
     title: 'Flood Conditions',
-    description: 'Water levels are dangerously high, well above the 90th percentile for this time of year.',
+    description: 'Water levels are at or above the dangerous threshold for this gauge.',
     advice: 'Do not float. Wait for water levels to drop significantly before attempting any trip.',
   },
   high: {
     title: 'High Water',
-    description: 'Water levels are above the 75th percentile - higher than typical for this date.',
+    description: 'Water levels are above the high water threshold for this gauge.',
     advice: 'Only for experienced paddlers. Expect fast current, submerged obstacles, and limited stopping opportunities.',
   },
   good: {
     title: 'Good Conditions',
-    description: 'Water levels are near the historical median for this date (25th-75th percentile).',
-    advice: 'Ideal for floating! Expect minimal dragging, good navigation, and enjoyable conditions.',
+    description: 'Water levels are within the floatable range for this gauge.',
+    advice: 'Great for floating! Expect minimal dragging, good navigation, and enjoyable conditions.',
   },
   low: {
     title: 'Low Water',
-    description: 'Water levels are below the 25th percentile - lower than typical for this date.',
+    description: 'Water levels are below ideal but still floatable with some shallow sections.',
     advice: 'Expect some dragging in the shallow areas. Consider a lighter load and shorter trip.',
   },
   poor: {
     title: 'Too Low',
-    description: 'Water levels are below the 10th percentile - very low for this time of year.',
+    description: 'Water levels are below the recommended minimum for this gauge.',
     advice: 'Frequent dragging and portaging may occur. Consider waiting for rain or try a spring-fed river.',
   },
   unknown: {
@@ -215,11 +215,14 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
               <p className={`text-sm ${flowRating === 'flood' || flowRating === 'high' ? 'text-red-700' : 'text-blue-700'}`}>{ratingDetails.advice}</p>
             </div>
 
-            {/* Percentile Context */}
+            {/* Percentile Context - Supplementary historical comparison */}
             {displayCondition.percentile !== null && displayCondition.percentile !== undefined && (
               <div>
-                <h4 className="font-bold text-neutral-900 mb-2">How This Compares</h4>
-                <div className="relative h-8 bg-gradient-to-r from-gray-400 via-amber-400 via-emerald-400 via-orange-400 to-red-400 rounded-full overflow-hidden">
+                <h4 className="font-bold text-neutral-900 mb-2">Historical Comparison</h4>
+                <p className="text-xs text-neutral-600 mb-2">
+                  How current flow compares to historical data for this time of year:
+                </p>
+                <div className="relative h-8 bg-gradient-to-r from-gray-300 via-gray-400 to-gray-500 rounded-full overflow-hidden">
                   {/* Percentile marker */}
                   <div
                     className="absolute top-0 bottom-0 w-1 bg-neutral-900 shadow-lg"
@@ -231,11 +234,9 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
                   </div>
                 </div>
                 <div className="flex justify-between text-xs text-neutral-500 mt-1">
-                  <span>Poor (0-10%)</span>
-                  <span>Low</span>
-                  <span>Good (25-75%)</span>
-                  <span>High</span>
-                  <span>Flood (90%+)</span>
+                  <span>Lower than usual</span>
+                  <span>Typical</span>
+                  <span>Higher than usual</span>
                 </div>
                 {displayCondition.medianDischargeCfs && (
                   <p className="text-xs text-neutral-500 mt-2">
