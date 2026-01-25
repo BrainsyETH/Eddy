@@ -4,34 +4,41 @@
 // Logistics information for access points - sorted by mile marker
 
 import { useState } from 'react';
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { AccessPoint } from '@/types/api';
 
 interface LogisticsSectionProps {
   accessPoints: AccessPoint[];
   isLoading: boolean;
+  defaultOpen?: boolean;
 }
 
-export default function LogisticsSection({ accessPoints, isLoading }: LogisticsSectionProps) {
+export default function LogisticsSection({ accessPoints, isLoading, defaultOpen = false }: LogisticsSectionProps) {
   const [expandedPoint, setExpandedPoint] = useState<string | null>(null);
-
-  if (isLoading) {
-    return (
-      <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <LoadingSpinner size="sm" />
-          <p className="text-sm text-neutral-500">Loading logistics...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Sort access points by mile marker (upstream to downstream)
   const sortedPoints = [...accessPoints].sort((a, b) => a.riverMile - b.riverMile);
 
+  const badge = accessPoints.length > 0 ? (
+    <span className="px-2 py-0.5 rounded text-xs font-medium bg-neutral-200 text-neutral-700">
+      {accessPoints.length} points
+    </span>
+  ) : null;
+
+  if (isLoading) {
+    return (
+      <CollapsibleSection title="Access Points" defaultOpen={defaultOpen} badge={badge}>
+        <div className="flex items-center gap-3">
+          <LoadingSpinner size="sm" />
+          <p className="text-sm text-neutral-500">Loading logistics...</p>
+        </div>
+      </CollapsibleSection>
+    );
+  }
+
   return (
-    <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
-      <h3 className="text-xl font-bold text-neutral-900 mb-4">Access Points</h3>
+    <CollapsibleSection title="Access Points" defaultOpen={defaultOpen} badge={badge}>
 
       {/* Mile markers in a horizontal scrollable row */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
@@ -130,6 +137,6 @@ export default function LogisticsSection({ accessPoints, isLoading }: LogisticsS
       {accessPoints.length === 0 && (
         <p className="text-sm text-neutral-500">No access point information available.</p>
       )}
-    </div>
+    </CollapsibleSection>
   );
 }

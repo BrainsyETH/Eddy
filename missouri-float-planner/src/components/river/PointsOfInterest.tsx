@@ -4,10 +4,12 @@
 // Curated points of interest along the river
 
 import { useQuery } from '@tanstack/react-query';
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface PointsOfInterestProps {
   riverSlug: string;
+  defaultOpen?: boolean;
 }
 
 interface POI {
@@ -19,7 +21,7 @@ interface POI {
   coordinates: { lng: number; lat: number } | null;
 }
 
-export default function PointsOfInterest({ riverSlug }: PointsOfInterestProps) {
+export default function PointsOfInterest({ riverSlug, defaultOpen = false }: PointsOfInterestProps) {
   // For MVP, we'll use hazards as POIs (can be expanded later with dedicated POI table)
   const { data: hazards, isLoading } = useQuery({
     queryKey: ['hazards', riverSlug],
@@ -36,21 +38,25 @@ export default function PointsOfInterest({ riverSlug }: PointsOfInterestProps) {
   // For MVP, show a placeholder - POIs can be added as a separate feature
   const pois: POI[] = hazards || [];
 
+  const badge = pois.length > 0 ? (
+    <span className="px-2 py-0.5 rounded text-xs font-medium bg-neutral-200 text-neutral-700">
+      {pois.length}
+    </span>
+  ) : null;
+
   if (isLoading) {
     return (
-      <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
+      <CollapsibleSection title="Points of Interest" defaultOpen={defaultOpen} badge={badge}>
         <div className="flex items-center gap-3">
           <LoadingSpinner size="sm" />
           <p className="text-sm text-neutral-500">Loading points of interest...</p>
         </div>
-      </div>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
-      <h3 className="text-xl font-bold text-neutral-900 mb-4">Points of Interest</h3>
-
+    <CollapsibleSection title="Points of Interest" defaultOpen={defaultOpen} badge={badge}>
       {pois.length > 0 ? (
         <div className="space-y-3">
           {pois.map((poi) => (
@@ -75,6 +81,6 @@ export default function PointsOfInterest({ riverSlug }: PointsOfInterestProps) {
           </p>
         </div>
       )}
-    </div>
+    </CollapsibleSection>
   );
 }

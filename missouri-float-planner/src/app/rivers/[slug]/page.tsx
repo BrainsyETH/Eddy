@@ -242,28 +242,10 @@ export default function RiverPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Gauge Stations - Above map on mobile, in sidebar on desktop */}
-        <div className="lg:hidden mb-4">
-          <GaugeOverview
-            gauges={gaugeStations}
-            riverId={river.id}
-            isLoading={!allGaugeStations}
-          />
-        </div>
-
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Column - Planner and key info */}
           <div className="w-full lg:w-[400px] flex-shrink-0 order-2 lg:order-1 space-y-4">
-            {/* Gauge Stations - Desktop only (hidden on mobile, shown above) */}
-            <div className="hidden lg:block">
-              <GaugeOverview
-                gauges={gaugeStations}
-                riverId={river.id}
-                isLoading={!allGaugeStations}
-              />
-            </div>
-
-            {/* Planner Panel */}
+            {/* Planner Panel - Always first */}
             <PlannerPanel
               river={river}
               accessPoints={accessPoints || []}
@@ -277,6 +259,15 @@ export default function RiverPage() {
               showPlan={showPlan}
               onShowPlanChange={setShowPlan}
             />
+
+            {/* Gauge Stations - Desktop only */}
+            <div className="hidden lg:block">
+              <GaugeOverview
+                gauges={gaugeStations}
+                riverId={river.id}
+                isLoading={!allGaugeStations}
+              />
+            </div>
 
             {/* Conditions & Safety */}
             <ConditionsBlock
@@ -349,6 +340,13 @@ export default function RiverPage() {
 
         {/* Mobile-only: Additional content below the two-column layout */}
         <div className="lg:hidden space-y-4 mt-4">
+          {/* Gauge Stations - Mobile only, below map */}
+          <GaugeOverview
+            gauges={gaugeStations}
+            riverId={river.id}
+            isLoading={!allGaugeStations}
+          />
+
           {/* Difficulty & Experience */}
           <DifficultyExperience river={river} />
 

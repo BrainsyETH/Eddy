@@ -3,13 +3,15 @@
 // src/components/river/DifficultyExperience.tsx
 // Difficulty rating and experience suitability
 
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import type { RiverWithDetails } from '@/types/api';
 
 interface DifficultyExperienceProps {
   river: RiverWithDetails;
+  defaultOpen?: boolean;
 }
 
-export default function DifficultyExperience({ river }: DifficultyExperienceProps) {
+export default function DifficultyExperience({ river, defaultOpen = false }: DifficultyExperienceProps) {
   // Map difficulty rating to display
   const getDifficultyInfo = (rating: string | null) => {
     if (!rating) return { label: 'Not Rated', color: 'bg-neutral-300', description: 'Difficulty information not available' };
@@ -48,10 +50,14 @@ export default function DifficultyExperience({ river }: DifficultyExperienceProp
     familyFriendly: river.difficultyRating?.toLowerCase().includes('beginner') || !river.difficultyRating,
   };
 
-  return (
-    <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 shadow-sm">
-      <h3 className="text-xl font-bold text-neutral-900 mb-4">Difficulty & Experience</h3>
+  const badge = (
+    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${difficulty.color}`}>
+      {difficulty.label}
+    </span>
+  );
 
+  return (
+    <CollapsibleSection title="Difficulty & Experience" defaultOpen={defaultOpen} badge={badge}>
       <div className="space-y-4">
         {/* Difficulty Rating */}
         <div>
@@ -92,32 +98,32 @@ export default function DifficultyExperience({ river }: DifficultyExperienceProp
           <div className="flex flex-wrap gap-2">
             {suitability.tubing && (
               <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-                ✓ Tubing Friendly
+                Tubing Friendly
               </span>
             )}
             {suitability.canoe && (
               <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-                ✓ Canoe
+                Canoe
               </span>
             )}
             {suitability.kayak && (
               <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-                ✓ Kayak
+                Kayak
               </span>
             )}
             {suitability.dogFriendly && (
               <span className="px-3 py-1 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium">
-                🐕 Dog Friendly
+                Dog Friendly
               </span>
             )}
             {suitability.familyFriendly && (
               <span className="px-3 py-1 bg-accent-100 text-accent-700 rounded-full text-sm font-medium">
-                👨‍👩‍👧‍👦 Family Friendly
+                Family Friendly
               </span>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

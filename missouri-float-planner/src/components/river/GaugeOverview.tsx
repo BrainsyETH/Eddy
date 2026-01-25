@@ -3,12 +3,14 @@
 // src/components/river/GaugeOverview.tsx
 // High-level overview of gauge stations for a river
 
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 
 interface GaugeOverviewProps {
   gauges: GaugeStation[] | undefined;
   riverId: string;
   isLoading?: boolean;
+  defaultOpen?: boolean;
 }
 
 // Determine condition based on gauge height and thresholds
@@ -48,32 +50,43 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
   return { code: 'low', label: 'Good', color: 'bg-lime-500' };
 }
 
-export default function GaugeOverview({ gauges, riverId, isLoading }: GaugeOverviewProps) {
+export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen = true }: GaugeOverviewProps) {
   if (isLoading) {
     return (
-      <div className="bg-white border-2 border-neutral-200 rounded-lg p-5 shadow-sm">
-        <h3 className="text-lg font-bold text-neutral-900 mb-4">Gauge Stations</h3>
+      <CollapsibleSection title="Gauge Stations" defaultOpen={defaultOpen}>
         <div className="animate-pulse space-y-3">
           <div className="h-10 bg-neutral-100 rounded-lg"></div>
           <div className="h-10 bg-neutral-100 rounded-lg"></div>
         </div>
-      </div>
+      </CollapsibleSection>
     );
   }
 
   if (!gauges || gauges.length === 0) {
     return (
-      <div className="bg-white border-2 border-neutral-200 rounded-lg p-5 shadow-sm">
-        <h3 className="text-lg font-bold text-neutral-900 mb-4">Gauge Stations</h3>
+      <CollapsibleSection title="Gauge Stations" defaultOpen={defaultOpen}>
         <p className="text-neutral-500 text-sm">No gauge data available for this river.</p>
-      </div>
+      </CollapsibleSection>
     );
   }
 
-  return (
-    <div className="bg-white border-2 border-neutral-200 rounded-lg p-5 shadow-sm">
-      <h3 className="text-lg font-bold text-neutral-900 mb-4">Gauge Stations</h3>
+  // Get overall condition badge
+  const conditions = gauges.map(g => getGaugeCondition(g, riverId));
+  const worstCondition = conditions.find(c => c.code === 'dangerous') ||
+    conditions.find(c => c.code === 'high') ||
+    conditions.find(c => c.code === 'very_low') ||
+    conditions.find(c => c.code === 'low') ||
+    conditions.find(c => c.code === 'optimal') ||
+    conditions[0];
 
+  const badge = worstCondition ? (
+    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${worstCondition.color}`}>
+      {worstCondition.label}
+    </span>
+  ) : null;
+
+  return (
+    <CollapsibleSection title="Gauge Stations" defaultOpen={defaultOpen} badge={badge}>
       <div className="space-y-2">
         {gauges.map((gauge) => {
           const condition = getGaugeCondition(gauge, riverId);
@@ -143,6 +156,6 @@ export default function GaugeOverview({ gauges, riverId, isLoading }: GaugeOverv
           </div>
         </div>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
