@@ -142,7 +142,7 @@ export async function fetchForecast(
   const days: ForecastDay[] = [];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  for (const [dateKey, dayData] of dailyData) {
+  for (const [dateKey, dayData] of Array.from(dailyData.entries())) {
     const date = new Date(dateKey);
     const mostCommonCondition = dayData.conditions.sort((a, b) => b.count - a.count)[0];
 
