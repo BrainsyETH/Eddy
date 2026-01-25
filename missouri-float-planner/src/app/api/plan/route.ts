@@ -12,31 +12,22 @@ import {
 } from '@/lib/usgs/gauges';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode, FlowRating } from '@/types/api';
 
-// Flow rating based on percentile thresholds
-function getFlowRatingFromPercentile(percentile: number | null): FlowRating {
-  if (percentile === null) return 'unknown';
-  if (percentile <= 10) return 'poor';
-  if (percentile <= 25) return 'low';
-  if (percentile <= 75) return 'good';
-  if (percentile <= 90) return 'high';
-  return 'flood';
-}
-
 const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
   flood: 'Dangerous flooding - do not float',
   high: 'Fast current - experienced paddlers only',
-  good: 'Ideal conditions - minimal dragging',
-  low: 'Low - Floatable',
+  good: 'Good conditions - minimal dragging expected',
+  low: 'Expect some dragging in the shallow areas',
   poor: 'Frequent dragging and portaging may occur',
   unknown: 'Current conditions unavailable',
 };
 
-// Map legacy condition codes to flow ratings (fallback when stats unavailable)
+// Map threshold-based condition codes to flow ratings
+// Note: 'low' condition code means "above level_low threshold" = floatable = 'good' rating
 function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
   switch (code) {
     case 'optimal': return 'good';
-    case 'low': return 'low';
-    case 'very_low': return 'poor';
+    case 'low': return 'good';      // 'low' condition = floatable = good
+    case 'very_low': return 'low';  // 'very_low' = some dragging = low
     case 'too_low': return 'poor';
     case 'high': return 'high';
     case 'dangerous': return 'flood';
@@ -479,9 +470,12 @@ export async function GET(request: NextRequest) {
       warnings.push('High water conditions - experienced paddlers only');
     }
 
-    // Enrich condition with percentile-based flow rating
-    let flowRating: FlowRating = 'unknown';
-    let flowDescription = FLOW_DESCRIPTIONS.unknown;
+    // Always derive flowRating from threshold-based condition code (not percentile)
+    // This ensures consistency with gauge overview display
+    const flowRating: FlowRating = conditionCodeToFlowRating(conditionCode);
+    const flowDescription = FLOW_DESCRIPTIONS[flowRating];
+
+    // Optionally fetch percentile stats as supplementary info
     let percentile: number | null = null;
     let medianDischargeCfs: number | null = null;
 
@@ -490,19 +484,11 @@ export async function GET(request: NextRequest) {
         const stats = await fetchDailyStatistics(condition.gauge_usgs_id);
         if (stats) {
           percentile = calculateDischargePercentile(condition.discharge_cfs, stats);
-          flowRating = getFlowRatingFromPercentile(percentile);
-          flowDescription = FLOW_DESCRIPTIONS[flowRating];
           medianDischargeCfs = stats.p50;
         }
       } catch (statsError) {
         console.warn('Failed to fetch statistics for plan:', statsError);
       }
-    }
-
-    // Fallback: if stats-based rating failed, use condition code mapping
-    if (flowRating === 'unknown' && conditionCode !== 'unknown') {
-      flowRating = conditionCodeToFlowRating(conditionCode);
-      flowDescription = FLOW_DESCRIPTIONS[flowRating];
     }
 
     // Build plan response
