@@ -3,6 +3,9 @@
 -- The gauge_info CTE was missing the river_id filter, causing it to potentially
 -- return thresholds for the wrong river when a gauge is linked to multiple rivers.
 
+-- Drop existing function first (specify full signature to avoid ambiguity)
+DROP FUNCTION IF EXISTS get_river_condition_segment(UUID, GEOMETRY(Point, 4326));
+
 CREATE OR REPLACE FUNCTION get_river_condition_segment(
     p_river_id UUID,
     p_put_in_point GEOMETRY(Point, 4326) DEFAULT NULL
