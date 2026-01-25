@@ -87,12 +87,15 @@ export default function AccessPointMarkers({
 
       // Create custom marker element with React icon
       // Note: Avoid position: relative and will-change: transform as they interfere with MapLibre's positioning
+      // Use larger base size on touch devices for better tap targets
+      const isTouchDevice = !supportsHoverRef.current;
+      const baseSize = isTouchDevice ? 36 : 32;
       const el = document.createElement('div');
       el.className = 'access-point-marker';
       el.style.cssText = `
         background: linear-gradient(135deg, ${bgColor} 0%, ${adjustColor(bgColor, -20)} 100%);
-        width: ${32 * scale}px;
-        height: ${32 * scale}px;
+        width: ${baseSize * scale}px;
+        height: ${baseSize * scale}px;
         border-radius: 50%;
         border: 3px solid ${borderColor};
         box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1);
@@ -104,10 +107,12 @@ export default function AccessPointMarkers({
         z-index: ${zIndex};
         pointer-events: auto;
         box-sizing: border-box;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
       `;
       
       // Render lucide icon using React
-      const iconSize = 16 * scale;
+      const iconSize = (isTouchDevice ? 18 : 16) * scale;
       let IconComponent: LucideIcon;
       
       if (iconType === 'putin') {

@@ -2,9 +2,11 @@
 
 // src/app/page.tsx
 // Main home page with interactive map and Organic Brutalist design
+// URL persistence: river, putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
-import { useState, useCallback, useEffect } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { Waves } from 'lucide-react';
 import RiverSelector from '@/components/ui/RiverSelector';
 import PlanSummary from '@/components/plan/PlanSummary';
@@ -44,15 +46,45 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 
+// Loading fallback for Suspense
+function HomeLoading() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-neutral-50">
+      <div className="text-center">
+        <LoadingSpinner size="lg" />
+        <p className="mt-4 text-neutral-600">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main Home component with Suspense wrapper for useSearchParams
 export default function Home() {
+  return (
+    <Suspense fallback={<HomeLoading />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
+  const searchParams = useSearchParams();
+
+  // Read initial state from URL params
+  const urlRiver = searchParams.get('river');
+  const urlPutIn = searchParams.get('putIn');
+  const urlTakeOut = searchParams.get('takeOut');
+  const urlVessel = searchParams.get('vessel');
+
   const [selectedRiverId, setSelectedRiverId] = useState<string | null>(null);
-  const [selectedRiverSlug, setSelectedRiverSlug] = useState<string | null>(null);
-  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(null);
-  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(null);
+  const [selectedRiverSlug, setSelectedRiverSlug] = useState<string | null>(urlRiver);
+  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(urlPutIn);
+  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [showRiverModal, setShowRiverModal] = useState(false);
   const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
+  const [urlInitialized, setUrlInitialized] = useState(false);
 
   // Detect desktop viewport
   const isDesktop = useIsDesktop();
@@ -71,13 +103,75 @@ export default function Home() {
     ? allGaugeStations.filter(gauge => gauge.thresholds?.some(t => t.riverId === selectedRiverId))
     : [];
 
+  // Update URL when state changes (without causing navigation)
+  const updateUrl = useCallback((riverSlug: string | null, putIn: string | null, takeOut: string | null, vessel: string | null) => {
+    const params = new URLSearchParams();
+    if (riverSlug) params.set('river', riverSlug);
+    if (putIn) params.set('putIn', putIn);
+    if (takeOut) params.set('takeOut', takeOut);
+    if (vessel) params.set('vessel', vessel);
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+
+    // Use replaceState to avoid adding to browser history on every selection
+    window.history.replaceState(null, '', newUrl);
+  }, []);
+
+  // Initialize river from URL param when rivers are loaded
+  useEffect(() => {
+    if (rivers && rivers.length > 0 && urlRiver && !selectedRiverId) {
+      const riverFromUrl = rivers.find(r => r.slug === urlRiver);
+      if (riverFromUrl) {
+        setSelectedRiverId(riverFromUrl.id);
+        setSelectedRiverSlug(riverFromUrl.slug);
+        // Auto-show plan if we have put-in and take-out from URL
+        if (urlPutIn && urlTakeOut) {
+          setShowPlan(true);
+        }
+      }
+    }
+  }, [rivers, urlRiver, urlPutIn, urlTakeOut, selectedRiverId]);
+
+  // Validate URL params against actual access points
+  useEffect(() => {
+    if (accessPoints && accessPoints.length > 0 && urlInitialized) {
+      // Validate putIn exists
+      if (selectedPutIn && !accessPoints.find(ap => ap.id === selectedPutIn)) {
+        setSelectedPutIn(null);
+      }
+      // Validate takeOut exists
+      if (selectedTakeOut && !accessPoints.find(ap => ap.id === selectedTakeOut)) {
+        setSelectedTakeOut(null);
+      }
+    }
+  }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
+
+  // Sync URL when selections change
+  useEffect(() => {
+    if (urlInitialized) {
+      updateUrl(selectedRiverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId);
+    }
+  }, [selectedRiverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, urlInitialized, updateUrl]);
+
   // Set default vessel type when loaded (using useEffect to avoid render issues)
   useEffect(() => {
     if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
+      // Check if URL has a vessel param that matches
+      if (urlVessel) {
+        const urlVesselType = vesselTypes.find(v => v.id === urlVessel || v.slug === urlVessel);
+        if (urlVesselType) {
+          setSelectedVesselTypeId(urlVesselType.id);
+          setUrlInitialized(true);
+          return;
+        }
+      }
+      // Default to canoe
       const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
       setSelectedVesselTypeId(defaultVessel.id);
+      setUrlInitialized(true);
     }
-  }, [vesselTypes, selectedVesselTypeId]);
+  }, [vesselTypes, selectedVesselTypeId, urlVessel]);
 
   // Calculate plan when all required data is selected
   const planParams =
@@ -101,12 +195,14 @@ export default function Home() {
       setSelectedPutIn(null);
       setSelectedTakeOut(null);
       setShowPlan(false);
+      // Update URL immediately with new river (clear access points)
+      updateUrl(river.slug, null, null, selectedVesselTypeId);
       // Only auto-open modal on desktop (1024px+), not on mobile
       if (window.innerWidth >= 1024) {
         setShowRiverModal(true);
       }
     }
-  }, [rivers]);
+  }, [rivers, selectedVesselTypeId, updateUrl]);
 
   // Handle access point click - supports selection and deselection
   const handleAccessPointClick = useCallback((point: AccessPoint) => {
@@ -176,19 +272,23 @@ export default function Home() {
   };
 
   // Clear selections
-  const handleClearSelection = () => {
+  const handleClearSelection = useCallback(() => {
     setSelectedPutIn(null);
     setSelectedTakeOut(null);
     setShowPlan(false);
-  };
+    // Update URL to clear access point params but keep river
+    updateUrl(selectedRiverSlug, null, null, selectedVesselTypeId);
+  }, [selectedRiverSlug, selectedVesselTypeId, updateUrl]);
 
   // Close river modal (but keep river selected)
-  const handleCloseRiverModal = () => {
+  const handleCloseRiverModal = useCallback(() => {
     setShowRiverModal(false);
     setSelectedPutIn(null);
     setSelectedTakeOut(null);
     setShowPlan(false);
-  };
+    // Update URL to clear access point params but keep river
+    updateUrl(selectedRiverSlug, null, null, selectedVesselTypeId);
+  }, [selectedRiverSlug, selectedVesselTypeId, updateUrl]);
 
   const initialBounds = river?.bounds;
 
@@ -216,9 +316,9 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-50">
+    <div className="min-h-screen flex flex-col bg-neutral-50 lg:h-screen lg:overflow-hidden">
       {/* Header with controls */}
-      <header className="relative z-20 border-b-2 border-neutral-900 pb-4" style={{ backgroundColor: '#163F4A' }}>
+      <header className="relative z-20 border-b-2 border-neutral-900 pb-4 flex-shrink-0" style={{ backgroundColor: '#163F4A' }}>
         <div className="max-w-7xl mx-auto px-4 pt-4">
           {/* Logo and title */}
           <div className="flex items-center justify-between mb-4">
@@ -263,7 +363,7 @@ export default function Home() {
       </header>
 
       {/* Main content area - split layout */}
-      <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
+      <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-y-auto lg:overflow-hidden">
         {/* Left sidebar - River selector and Plan summary */}
         <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 order-2 lg:order-1">
           {/* River Selector */}
@@ -319,7 +419,7 @@ export default function Home() {
         </aside>
 
         {/* Map Container with integrated bottom panel for desktop */}
-        <div className="flex-1 flex flex-col rounded-lg overflow-hidden shadow-lg border-2 border-neutral-200 min-h-[400px] lg:min-h-0 order-1 lg:order-2">
+        <div className="flex-1 flex flex-col rounded-lg overflow-hidden shadow-lg border-2 border-neutral-200 min-h-[350px] lg:min-h-0 order-1 lg:order-2 flex-shrink-0 lg:flex-shrink">
           {/* Map area - shrinks when panel is open on desktop */}
           <div className={`relative flex-1 transition-all duration-300 ${
             isDesktop && showRiverModal ? 'flex-[2]' : 'flex-1'

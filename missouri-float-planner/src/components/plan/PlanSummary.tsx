@@ -310,7 +310,10 @@ export default function PlanSummary({
       </div>
 
       {/* Content - scrollable area */}
-      <div className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-thin min-h-0">
+      <div
+        className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-thin min-h-0 overscroll-contain"
+        style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+      >
         {/* Upstream Warning Pill */}
         {isUpstream && (
           <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border-2 border-red-300 rounded-lg">

@@ -117,7 +117,10 @@ export default function RiverSelector({
               className="w-full rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-400"
             />
           </div>
-          <div className="max-h-80 overflow-y-auto scrollbar-thin">
+          <div
+            className="max-h-60 sm:max-h-80 overflow-y-auto scrollbar-thin overscroll-contain"
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+          >
             {filteredRivers.length === 0 ? (
               <div className="px-4 py-3 text-sm text-neutral-500 text-center">
                 No rivers match your search.

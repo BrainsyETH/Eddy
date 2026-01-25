@@ -900,6 +900,44 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ===== MOBILE TOUCH & SCROLL OPTIMIZATIONS ===== */
+
+@media (max-width: 1023px) {
+  /* Improve touch scrolling on mobile */
+  .overflow-y-auto,
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent text selection on interactive elements on mobile */
+  button,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Larger touch targets on mobile */
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Disable pull-to-refresh on scrollable areas */
+  .overscroll-contain {
+    overscroll-behavior: contain;
+  }
+}
+
+/* Fix iOS momentum scrolling issues */
+@supports (-webkit-touch-callout: none) {
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* ===== MOTION PREFERENCES ===== */
 
 @media (prefers-reduced-motion: reduce) {

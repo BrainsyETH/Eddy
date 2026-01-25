@@ -211,8 +211,14 @@ export default function RiverOverviewPanel({
           <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
         </div>
 
-        {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(85vh-1rem)] scrollbar-thin">
+        {/* Content - improved scrolling for mobile */}
+        <div
+          className="overflow-y-auto max-h-[calc(85vh-1rem)] scrollbar-thin overscroll-contain"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y'
+          }}
+        >
           {/* Header section */}
           <div className="relative px-5 py-4" style={{ backgroundColor: '#163F4A', borderBottom: '1px solid #1D525F' }}>
             <div className="relative flex justify-between items-start">
