@@ -27,8 +27,9 @@ const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: s
   unknown: { bg: 'bg-neutral-100', text: 'text-neutral-600', icon: '?' },
 };
 
-// Condition level explanations for the legend (ordered: Very Low → Low → Good → High → Flood)
+// Condition level explanations for the legend (ordered: Too Low → Low → Good → High → Flood)
 const CONDITION_LEGEND = [
+  { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400', description: 'Not recommended' },
   { code: 'very_low', label: 'Low', color: 'bg-yellow-500', description: 'Scraping likely' },
   { code: 'low', label: 'Good', color: 'bg-lime-500', description: 'Some dragging' },
   { code: 'optimal', label: 'Optimal', color: 'bg-emerald-500', description: 'Ideal' },
@@ -62,8 +63,8 @@ function getGaugeConditionColor(gauge: GaugeStation, riverId: string): string {
   if (threshold.levelTooLow !== null && height >= threshold.levelTooLow) {
     return 'bg-yellow-500';
   }
-  // Below level_too_low = too low
-  return 'bg-red-400';
+  // Below level_too_low = too low to float
+  return 'bg-neutral-400';
 }
 
 export default function RiverOverviewPanel({

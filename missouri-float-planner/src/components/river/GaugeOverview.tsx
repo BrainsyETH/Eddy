@@ -47,7 +47,7 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
     return { code: 'very_low', label: 'Low', color: 'bg-yellow-500' };
   }
   // Below level_too_low = too low for comfortable floating
-  return { code: 'too_low', label: 'Too Low', color: 'bg-red-400' };
+  return { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400' };
 }
 
 export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen = true }: GaugeOverviewProps) {
