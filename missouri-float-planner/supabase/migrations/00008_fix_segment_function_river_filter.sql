@@ -4,7 +4,7 @@
 -- return thresholds for the wrong river when a gauge is linked to multiple rivers.
 
 -- Drop existing function first (specify full signature to avoid ambiguity)
-DROP FUNCTION IF EXISTS get_river_condition_segment(UUID, GEOMETRY(Point, 4326));
+DROP FUNCTION IF EXISTS get_river_condition_segment(UUID, geometry);
 
 CREATE OR REPLACE FUNCTION get_river_condition_segment(
     p_river_id UUID,
