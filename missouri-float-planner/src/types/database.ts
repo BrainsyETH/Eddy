@@ -385,6 +385,7 @@ export interface Database {
           drive_back_minutes: number | null;
           condition_at_creation: string | null;
           gauge_reading_at_creation: number | null;
+          discharge_cfs_at_creation: number | null;
           created_at: string;
           view_count: number;
           last_viewed_at: string | null;
@@ -401,6 +402,7 @@ export interface Database {
           drive_back_minutes?: number | null;
           condition_at_creation?: string | null;
           gauge_reading_at_creation?: number | null;
+          discharge_cfs_at_creation?: number | null;
           created_at?: string;
           view_count?: number;
           last_viewed_at?: string | null;
@@ -417,6 +419,7 @@ export interface Database {
           drive_back_minutes?: number | null;
           condition_at_creation?: string | null;
           gauge_reading_at_creation?: number | null;
+          discharge_cfs_at_creation?: number | null;
           created_at?: string;
           view_count?: number;
           last_viewed_at?: string | null;

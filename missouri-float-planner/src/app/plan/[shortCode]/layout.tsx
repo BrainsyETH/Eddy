@@ -103,6 +103,9 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const gaugeHeight = savedPlan.gauge_reading_at_creation
       ? parseFloat(savedPlan.gauge_reading_at_creation).toFixed(2)
       : '';
+    const dischargeCfs = savedPlan.discharge_cfs_at_creation
+      ? Math.round(parseFloat(savedPlan.discharge_cfs_at_creation)).toString()
+      : '';
     const distanceMiles = savedPlan.distance_miles
       ? parseFloat(savedPlan.distance_miles).toFixed(1)
       : '';
@@ -143,6 +146,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     if (floatTimeFormatted) ogParams.set('floatTime', floatTimeFormatted);
     if (gaugeName) ogParams.set('gaugeName', gaugeName);
     if (gaugeHeight) ogParams.set('gaugeHeight', gaugeHeight);
+    if (dischargeCfs) ogParams.set('dischargeCfs', dischargeCfs);
 
     const ogImageUrl = `${BASE_URL}/api/og/plan?${ogParams.toString()}`;
     const pageUrl = `${BASE_URL}/plan/${shortCode}`;

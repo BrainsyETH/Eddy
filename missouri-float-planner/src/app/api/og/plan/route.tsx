@@ -9,14 +9,62 @@ export const runtime = 'edge';
 
 type ConditionCode = 'dangerous' | 'high' | 'optimal' | 'low' | 'very_low' | 'too_low' | 'unknown';
 
-const conditionDisplay: Record<ConditionCode, { label: string; textColor: string; bg: string; borderColor: string }> = {
-  optimal:   { label: 'Optimal',         textColor: '#1A3D23', bg: '#4EB86B', borderColor: '#347A47' },
-  low:       { label: 'Low - Floatable', textColor: '#3D3425', bg: '#84CC16', borderColor: '#5C8A10' },
-  very_low:  { label: 'Very Low',        textColor: '#3D3425', bg: '#EAB308', borderColor: '#B88A06' },
-  high:      { label: 'High Water',      textColor: '#ffffff', bg: '#F97316', borderColor: '#CC3E2B' },
-  too_low:   { label: 'Too Low',         textColor: '#2D2A24', bg: '#C2BAAC', borderColor: '#A49C8E' },
-  dangerous: { label: 'Dangerous',       textColor: '#ffffff', bg: '#DC2626', borderColor: '#A33122' },
-  unknown:   { label: 'Unknown',         textColor: '#2D2A24', bg: '#C2BAAC', borderColor: '#A49C8E' },
+const conditionDisplay: Record<ConditionCode, {
+  label: string;
+  secondaryLabel: string;
+  textColor: string;
+  bg: string;
+  otterImage: string;
+}> = {
+  optimal:   {
+    label: 'OPTIMAL',
+    secondaryLabel: 'GOOD CONDITIONS',
+    textColor: '#1A3D23',
+    bg: '#4EB86B',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png'
+  },
+  low:       {
+    label: 'LOW',
+    secondaryLabel: 'FLOATABLE',
+    textColor: '#1A3D23',
+    bg: '#84CC16',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png'
+  },
+  very_low:  {
+    label: 'VERY LOW',
+    secondaryLabel: 'SCRAPING LIKELY',
+    textColor: '#2D2A24',
+    bg: '#EAB308',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png'
+  },
+  high:      {
+    label: 'HIGH WATER',
+    secondaryLabel: 'EXPERIENCED ONLY',
+    textColor: '#ffffff',
+    bg: '#F97316',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png'
+  },
+  too_low:   {
+    label: 'TOO LOW',
+    secondaryLabel: 'NOT RECOMMENDED',
+    textColor: '#2D2A24',
+    bg: '#EAB308',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png'
+  },
+  dangerous: {
+    label: 'DANGEROUS',
+    secondaryLabel: 'DO NOT FLOAT',
+    textColor: '#ffffff',
+    bg: '#DC2626',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png'
+  },
+  unknown:   {
+    label: 'UNKNOWN',
+    secondaryLabel: 'CONDITIONS UNAVAILABLE',
+    textColor: '#2D2A24',
+    bg: '#C2BAAC',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png'
+  },
 };
 
 export async function GET(request: NextRequest) {
@@ -25,11 +73,10 @@ export async function GET(request: NextRequest) {
   const river = searchParams.get('river') || 'Missouri River';
   const putIn = searchParams.get('putIn') || 'Start';
   const takeOut = searchParams.get('takeOut') || 'End';
-  const distance = searchParams.get('distance') || '';
-  const floatTime = searchParams.get('floatTime') || '';
   const condition = (searchParams.get('condition') || 'unknown') as ConditionCode;
-  const gaugeName = searchParams.get('gaugeName') || '';
+  const gaugeName = searchParams.get('gaugeName') || 'USGS Gauge';
   const gaugeHeight = searchParams.get('gaugeHeight') || '';
+  const dischargeCfs = searchParams.get('dischargeCfs') || '';
 
   const cond = conditionDisplay[condition] || conditionDisplay.unknown;
 
@@ -42,34 +89,59 @@ export async function GET(request: NextRequest) {
           display: 'flex',
           flexDirection: 'row',
           fontFamily: 'system-ui, -apple-system, sans-serif',
+          background: '#1A3D40',
         }}
       >
-        {/* Accent top bar */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: '#F07052', display: 'flex' }} />
-
-        {/* LEFT PANEL — Eddy branding */}
+        {/* LEFT PANEL — Eddy the Otter */}
         <div
           style={{
-            width: '300px',
+            width: '340px',
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             background: '#0F2D35',
+            borderRight: '8px solid #000',
+            position: 'relative',
           }}
         >
-          {/* Eddy the Otter */}
+          {/* Hard shadow effect */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '-24px',
+              width: '16px',
+              height: '100%',
+              background: '#000',
+              display: 'flex',
+            }}
+          />
+
+          {/* Eddy the Otter - condition-based */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
-            width={260}
-            height={260}
-            style={{ marginBottom: '12px', objectFit: 'contain' }}
+            src={cond.otterImage}
+            width={280}
+            height={280}
+            style={{ marginBottom: '20px', objectFit: 'contain' }}
           />
-          <span style={{ fontSize: '32px', fontWeight: 800, color: 'white', letterSpacing: '0.1em' }}>
-            EDDY
-          </span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '16px 24px',
+              background: '#F07052',
+              border: '6px solid #000',
+              boxShadow: '8px 8px 0 #000',
+            }}
+          >
+            <span style={{ fontSize: '28px', fontWeight: 900, color: 'white', letterSpacing: '0.15em' }}>
+              EDDY
+            </span>
+          </div>
         </div>
 
         {/* RIGHT PANEL — content */}
@@ -79,101 +151,184 @@ export async function GET(request: NextRequest) {
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
-            background: '#163F4A',
+            background: '#1A3D40',
+            padding: '48px 56px',
           }}
         >
-          {/* Top: river info */}
+          {/* Float Plan Label */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignSelf: 'flex-start',
+              padding: '12px 24px',
+              background: '#F07052',
+              border: '5px solid #000',
+              boxShadow: '6px 6px 0 #000',
+              marginBottom: '24px',
+            }}
+          >
+            <span style={{ fontSize: '24px', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>
+              FLOAT PLAN
+            </span>
+          </div>
+
+          {/* River name — HUGE */}
+          <h1
+            style={{
+              fontSize: '68px',
+              fontWeight: 900,
+              color: 'white',
+              lineHeight: 0.95,
+              letterSpacing: '-0.02em',
+              margin: '0 0 32px 0',
+              fontStyle: 'italic',
+            }}
+          >
+            {river.toUpperCase()}
+          </h1>
+
+          {/* Route info with icons */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              padding: '44px 48px 24px',
+              gap: '12px',
+              marginBottom: '32px',
+              padding: '20px 24px',
+              background: '#0F2D35',
+              border: '4px solid #000',
             }}
           >
-            {/* River name */}
-            <h1
-              style={{
-                fontSize: '48px',
-                fontWeight: 800,
-                color: 'white',
-                lineHeight: 1.05,
-                letterSpacing: '-0.02em',
-                margin: '0 0 14px 0',
-              }}
-            >
-              {river}
-            </h1>
-
-            {/* Route */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#4EB86B', display: 'flex' }} />
-              <span style={{ fontSize: '19px', fontWeight: 600, color: '#D4EAEF' }}>{putIn}</span>
-              <span style={{ fontSize: '17px', color: '#4A9AAD' }}>to</span>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#F07052', display: 'flex' }} />
-              <span style={{ fontSize: '19px', fontWeight: 600, color: '#D4EAEF' }}>{takeOut}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  background: '#4EB86B',
+                  border: '3px solid #000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span style={{ fontSize: '20px', color: '#000' }}>📍</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#A0C4C7', letterSpacing: '0.1em' }}>PUT-IN LOCATION</span>
+                <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>{putIn}</span>
+              </div>
             </div>
 
-            {/* Distance + Time */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {distance && (
-                <div style={{ padding: '6px 16px', borderRadius: '6px', background: '#0F2D35', border: '2px solid #1D525F', display: 'flex' }}>
-                  <span style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>{distance}</span>
-                </div>
-              )}
-              {floatTime && (
-                <div style={{ padding: '6px 16px', borderRadius: '6px', background: '#0F2D35', border: '2px solid #1D525F', display: 'flex' }}>
-                  <span style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>~{floatTime}</span>
-                </div>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  background: '#F07052',
+                  border: '3px solid #000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span style={{ fontSize: '20px', color: '#000' }}>🎯</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#A0C4C7', letterSpacing: '0.1em' }}>TAKE-OUT POINT</span>
+                <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>{takeOut}</span>
+              </div>
             </div>
           </div>
 
-          {/* Bottom: Gauge hero — fills remaining space */}
+          {/* CURRENT WATER FLOW - Brutalist card */}
           <div
             style={{
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
-              padding: '0 48px 36px',
+              padding: '28px 32px',
               background: '#F4EFE7',
-              borderTop: '3px solid #D9C9B0',
+              border: '6px solid #000',
+              boxShadow: '10px 10px 0 #000',
             }}
           >
-            {/* Condition — BIG */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Label */}
+              <span style={{ fontSize: '16px', fontWeight: 800, color: '#6B6459', letterSpacing: '0.15em' }}>
+                CURRENT WATER FLOW
+              </span>
+
+              {/* Condition Status - MASSIVE */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignSelf: 'flex-start',
+                  padding: '16px 32px',
+                  background: cond.bg,
+                  border: '5px solid #000',
+                  boxShadow: '8px 8px 0 #000',
+                  marginBottom: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '52px', fontWeight: 900, color: cond.textColor, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                    {cond.label}
+                  </span>
+                  <span style={{ fontSize: '20px', fontWeight: 800, color: cond.textColor, opacity: 0.8, marginTop: '4px' }}>
+                    {cond.secondaryLabel}
+                  </span>
+                </div>
+              </div>
+
+              {/* Gauge data grid */}
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end' }}>
+                {/* Gauge Height */}
+                {gaugeHeight && (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                      GAUGE HEIGHT
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                      <span style={{ fontSize: '48px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                        {gaugeHeight}
+                      </span>
+                      <span style={{ fontSize: '24px', fontWeight: 800, color: '#6B6459' }}>ft</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* CFS */}
+                {dischargeCfs && (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                      DISCHARGE (CFS)
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                      <span style={{ fontSize: '48px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                        {dischargeCfs}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Gauge name */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  padding: '10px 28px',
-                  borderRadius: '10px',
-                  background: cond.bg,
-                  border: `3px solid ${cond.borderColor}`,
+                  gap: '8px',
+                  marginTop: '8px',
+                  padding: '8px 16px',
+                  background: '#E5DED2',
+                  border: '3px solid #C2BAAC',
                 }}
               >
-                <span style={{ fontSize: '32px', fontWeight: 800, color: cond.textColor }}>
-                  {cond.label}
+                <span style={{ fontSize: '16px', fontWeight: 800, color: '#6B6459' }}>
+                  {gaugeName}
                 </span>
               </div>
-
-              {/* Gauge height — large */}
-              {gaugeHeight && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '56px', fontWeight: 800, color: '#2D2A24', letterSpacing: '-0.03em' }}>{gaugeHeight}</span>
-                  <span style={{ fontSize: '22px', fontWeight: 700, color: '#857D70' }}>ft</span>
-                </div>
-              )}
-            </div>
-
-            {/* Gauge station name */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 600, color: '#6B6459' }}>
-                {gaugeName || 'USGS Gauge'}
-              </span>
-              <span style={{ fontSize: '15px', fontWeight: 500, color: '#A49C8E' }}>
-                · USGS
-              </span>
             </div>
           </div>
         </div>
