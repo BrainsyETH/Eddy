@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Layers, Droplets } from 'lucide-react';
+import { Layers, Droplets, Maximize2, Minimize2 } from 'lucide-react';
 
 // Available map styles (all free, no API key required)
 // Natural (liberty) is first and default
@@ -102,6 +102,7 @@ export default function MapContainer({
   showLegend = false,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const fullscreenRef = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [weatherEnabled, setWeatherEnabled] = useState(showWeatherOverlay);
@@ -110,6 +111,7 @@ export default function MapContainer({
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('liberty');
   const [showStylePicker, setShowStylePicker] = useState(false);
   const [legendExpanded, setLegendExpanded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const radarSourceId = 'rainviewer-radar';
   const radarLayerId = 'rainviewer-radar-layer';
 
@@ -240,6 +242,48 @@ export default function MapContainer({
     onGaugeToggle?.(newValue);
   }, [gaugesEnabled, onGaugeToggle]);
 
+  // Toggle fullscreen
+  const toggleFullscreen = useCallback(() => {
+    const el = fullscreenRef.current;
+    if (!el) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = document as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const elem = el as any;
+
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      }
+    } else {
+      if (doc.exitFullscreen) {
+        doc.exitFullscreen();
+      } else if (doc.webkitExitFullscreen) {
+        doc.webkitExitFullscreen();
+      }
+    }
+  }, []);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const doc = document as any;
+      setIsFullscreen(!!(doc.fullscreenElement || doc.webkitFullscreenElement));
+      // Resize map to fill new container size
+      setTimeout(() => map.current?.resize(), 100);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   // Fetch radar data when weather is enabled
   useEffect(() => {
     if (weatherEnabled) {
@@ -359,87 +403,100 @@ export default function MapContainer({
   }, [initialBounds]);
 
   return (
-    <div className="relative w-full h-full min-h-[400px]">
-      <div 
-        ref={mapContainer} 
+    <div ref={fullscreenRef} className={`relative w-full h-full min-h-[400px] ${isFullscreen ? 'bg-black' : ''}`}>
+      <div
+        ref={mapContainer}
         className="w-full h-full"
         style={{ pointerEvents: 'auto', minHeight: '400px' }}
       />
       {mapLoaded && map.current && (
         <MapProvider map={map.current}>{children}</MapProvider>
       )}
-      
-      {/* Map Style Picker - positioned below MapLibre navigation controls */}
-      <div className={`absolute top-[120px] right-2.5 ${showStylePicker ? 'z-50' : 'z-10'}`}>
+
+      {/* Map Controls - right side, below MapLibre navigation controls */}
+      <div className="absolute top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 z-10">
+        {/* Style Picker */}
+        <div className={`relative ${showStylePicker ? 'z-50' : ''}`}>
+          <button
+            onClick={() => setShowStylePicker(!showStylePicker)}
+            className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+              showStylePicker
+                ? 'bg-river-water text-white'
+                : 'bg-white/90 text-gray-700 hover:bg-white'
+            }`}
+            title="Change map style"
+            aria-label="Change map style"
+          >
+            <Layers className="w-5 h-5" />
+          </button>
+
+          {showStylePicker && (
+            <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px] z-50">
+              {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => changeMapStyle(key)}
+                  className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
+                    mapStyle === key ? 'bg-river-50 text-river-600 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  {MAP_STYLES[key].name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Weather Overlay Toggle */}
         <button
-          onClick={() => setShowStylePicker(!showStylePicker)}
-          className={`p-2 rounded-lg shadow-lg transition-all ${
-            showStylePicker
+          onClick={toggleWeather}
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+            weatherEnabled
               ? 'bg-river-water text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
           }`}
-          title="Change map style"
-          aria-label="Change map style"
+          title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
+          aria-label={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
         >
-          <Layers className="w-5 h-5" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+            />
+          </svg>
         </button>
 
-        {showStylePicker && (
-          <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px] z-50">
-            {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
-              <button
-                key={key}
-                onClick={() => changeMapStyle(key)}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
-                  mapStyle === key ? 'bg-river-50 text-river-600 font-medium' : 'text-gray-700'
-                }`}
-              >
-                {MAP_STYLES[key].name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Weather Overlay Toggle Button - aligned under style picker */}
-      <button
-        onClick={toggleWeather}
-        className={`absolute top-[168px] right-2.5 z-10 p-2 rounded-lg shadow-lg transition-all ${
-          weatherEnabled
-            ? 'bg-river-water text-white'
-            : 'bg-white/90 text-gray-700 hover:bg-white'
-        }`}
-        title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
-        aria-label={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
-      >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+        {/* Gauge Stations Toggle */}
+        <button
+          onClick={toggleGauges}
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+            gaugesEnabled
+              ? 'bg-blue-500 text-white'
+              : 'bg-white/90 text-gray-700 hover:bg-white'
+          }`}
+          title={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
+          aria-label={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
-          />
-        </svg>
-      </button>
+          <Droplets className="w-5 h-5" />
+        </button>
 
-      {/* Gauge Stations Toggle Button - aligned under weather toggle */}
-      <button
-        onClick={toggleGauges}
-        className={`absolute top-[216px] right-2.5 z-10 p-2 rounded-lg shadow-lg transition-all ${
-          gaugesEnabled
-            ? 'bg-blue-500 text-white'
-            : 'bg-white/90 text-gray-700 hover:bg-white'
-        }`}
-        title={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
-        aria-label={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
-      >
-        <Droplets className="w-5 h-5" />
-      </button>
+        {/* Fullscreen Toggle */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-2.5 md:p-2 rounded-lg shadow-lg transition-all bg-white/90 text-gray-700 hover:bg-white"
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen map'}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen map'}
+        >
+          {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+        </button>
+      </div>
       
       {/* Weather Attribution */}
       {weatherEnabled && (

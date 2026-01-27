@@ -10,12 +10,13 @@ import { Waves, Menu, X, ChevronDown } from 'lucide-react';
 import { useRivers } from '@/hooks/useRivers';
 import type { ConditionCode } from '@/types/api';
 
+// Matches GaugeOverview colors
 const conditionColors: Record<ConditionCode, string> = {
-  optimal: 'bg-support-500',
-  low: 'bg-yellow-500',
-  very_low: 'bg-amber-500',
+  optimal: 'bg-emerald-500',
+  low: 'bg-lime-500',
+  very_low: 'bg-yellow-500',
   high: 'bg-orange-500',
-  too_low: 'bg-red-500',
+  too_low: 'bg-neutral-400',
   dangerous: 'bg-red-600',
   unknown: 'bg-neutral-400',
 };
