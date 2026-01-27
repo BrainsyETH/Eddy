@@ -59,19 +59,20 @@ function HomeContent() {
       {/* Hero */}
       <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <div className="mb-6">
+          <div className="mb-2">
             <Image
               src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
               alt="Eddy the Otter"
-              width={128}
-              height={128}
-              className="w-32 h-32 mx-auto rounded-2xl shadow-xl"
+              width={200}
+              height={200}
+              className="mx-auto h-44 md:h-52 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+              priority
             />
           </div>
-          <h1 className="text-4xl md:text-5xl font-heading font-bold text-white mb-4">
+          <h1 className="text-4xl md:text-5xl font-heading font-bold text-white mb-3">
             <span style={{ color: '#F07052' }}>Eddy</span>
           </h1>
-          <p className="text-lg text-white/80 max-w-xl mx-auto mb-8">
+          <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
             Real-time water conditions, access points, and float time estimates
             for the best rivers in the Ozarks.
           </p>
