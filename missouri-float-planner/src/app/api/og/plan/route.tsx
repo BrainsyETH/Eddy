@@ -207,12 +207,8 @@ export async function GET(request: NextRequest) {
                   background: '#4EB86B',
                   border: '3px solid #000',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                 }}
-              >
-                <span style={{ fontSize: '20px', color: '#000' }}>📍</span>
-              </div>
+              />
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#A0C4C7', letterSpacing: '0.1em' }}>PUT-IN LOCATION</span>
                 <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>{putIn}</span>
@@ -227,12 +223,8 @@ export async function GET(request: NextRequest) {
                   background: '#F07052',
                   border: '3px solid #000',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                 }}
-              >
-                <span style={{ fontSize: '20px', color: '#000' }}>🎯</span>
-              </div>
+              />
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#A0C4C7', letterSpacing: '0.1em' }}>TAKE-OUT POINT</span>
                 <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>{takeOut}</span>
