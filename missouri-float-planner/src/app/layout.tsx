@@ -5,7 +5,7 @@ import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
 import "./globals.css";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatmo.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 // Using local Geist fonts with CSS variables that match the design system
 // In production, these can be swapped for Google Fonts (Space Grotesk, Inter, JetBrains Mono)

@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
           }}
         >
           <span style={{ fontSize: '15px', color: '#4A9AAD' }}>Water data from USGS gauges</span>
-          <span style={{ fontSize: '15px', color: '#4A9AAD' }}>floatmo.com</span>
+          <span style={{ fontSize: '15px', color: '#4A9AAD' }}>eddy.guide</span>
         </div>
       </div>
     ),
