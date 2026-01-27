@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
                 <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
               </svg>
             </div>
-            <span style={{ fontSize: '20px', fontWeight: 700, color: '#72B5C4' }}>FLOAT MO</span>
+            <span style={{ fontSize: '20px', fontWeight: 700, color: '#72B5C4' }}>EDDY</span>
           </div>
 
           {/* Condition badge */}

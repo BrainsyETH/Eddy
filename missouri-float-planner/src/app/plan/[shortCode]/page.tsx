@@ -8,6 +8,9 @@ import SharedPlanPage from './PlanPageClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatmo.com';
 
+// Force dynamic rendering - this page fetches live data from Supabase
+export const dynamic = 'force-dynamic';
+
 interface PlanPageProps {
   params: Promise<{ shortCode: string }>;
 }
@@ -20,58 +23,52 @@ function formatMinutes(totalMinutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-export async function generateMetadata({ params }: PlanPageProps): Promise<Metadata> {
-  const { shortCode } = await params;
-
+export async function generateMetadata(props: PlanPageProps): Promise<Metadata> {
+  // Wrap everything in try-catch to ensure the page never 500s due to metadata
   try {
+    const resolvedParams = await props.params;
+    const shortCode = resolvedParams?.shortCode;
+
+    if (!shortCode) {
+      return {
+        title: 'Float Plan',
+        description: 'View and share your Missouri float trip plan.',
+      };
+    }
+
     const supabase = await createClient();
 
-    // Fetch the saved plan with related data
-    const { data: savedPlan } = await supabase
+    // Fetch the saved plan
+    const { data: savedPlan, error: planError } = await supabase
       .from('float_plans')
       .select('*')
       .eq('short_code', shortCode)
       .single();
 
-    if (!savedPlan) {
+    if (planError || !savedPlan) {
       return {
         title: 'Plan Not Found',
         description: 'This float plan could not be found.',
       };
     }
 
-    // Fetch river name
-    const { data: river } = await supabase
-      .from('rivers')
-      .select('name, slug, region')
-      .eq('id', savedPlan.river_id)
-      .single();
+    // Fetch river, access points, and vessel type in parallel for speed
+    const [riverResult, putInResult, takeOutResult, vesselResult] = await Promise.all([
+      supabase.from('rivers').select('name, slug, region').eq('id', savedPlan.river_id).single(),
+      supabase.from('access_points').select('name').eq('id', savedPlan.start_access_id).single(),
+      supabase.from('access_points').select('name').eq('id', savedPlan.end_access_id).single(),
+      savedPlan.vessel_type_id
+        ? supabase.from('vessel_types').select('name').eq('id', savedPlan.vessel_type_id).single()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
-    // Fetch access point names
-    const { data: putIn } = await supabase
-      .from('access_points')
-      .select('name')
-      .eq('id', savedPlan.start_access_id)
-      .single();
-
-    const { data: takeOut } = await supabase
-      .from('access_points')
-      .select('name')
-      .eq('id', savedPlan.end_access_id)
-      .single();
-
-    // Fetch vessel type name
-    const { data: vessel } = await supabase
-      .from('vessel_types')
-      .select('name')
-      .eq('id', savedPlan.vessel_type_id)
-      .single();
-
-    const riverName = river?.name || 'Missouri River';
-    const putInName = putIn?.name || 'Start';
-    const takeOutName = takeOut?.name || 'End';
-    const vesselName = vessel?.name || 'Canoe';
-    const distanceMiles = savedPlan.distance_miles ? parseFloat(savedPlan.distance_miles).toFixed(1) : '';
+    const riverName = riverResult.data?.name || 'Missouri River';
+    const putInName = putInResult.data?.name || 'Start';
+    const takeOutName = takeOutResult.data?.name || 'End';
+    const vesselName = vesselResult.data?.name || 'Canoe';
+    const distanceMiles = savedPlan.distance_miles
+      ? parseFloat(savedPlan.distance_miles).toFixed(1)
+      : '';
     const floatTimeFormatted = savedPlan.estimated_float_minutes
       ? formatMinutes(savedPlan.estimated_float_minutes)
       : '';
@@ -101,20 +98,19 @@ export async function generateMetadata({ params }: PlanPageProps): Promise<Metad
     if (driveBackFormatted) descParts.push(`${driveBackFormatted} drive back`);
 
     const description = descParts.length > 0
-      ? `${riverName} float plan - ${descParts.join(' | ')}. Check current conditions on Float MO.`
-      : `${riverName} float plan from ${putInName} to ${takeOutName}. Check current conditions on Float MO.`;
+      ? `${riverName} float plan - ${descParts.join(' | ')}. Check current conditions on Eddy.`
+      : `${riverName} float plan from ${putInName} to ${takeOutName}. Check current conditions on Eddy.`;
 
-    // Build OG image URL
-    const ogParams = new URLSearchParams({
-      river: riverName,
-      putIn: putInName,
-      takeOut: takeOutName,
-      condition: conditionCode,
-      ...(distanceMiles && { distance: `${distanceMiles} mi` }),
-      ...(floatTimeFormatted && { floatTime: floatTimeFormatted }),
-      ...(vesselName && { vessel: vesselName }),
-      ...(driveBackFormatted && { driveBack: driveBackFormatted }),
-    });
+    // Build OG image URL with explicit param setting to avoid issues with falsy spread
+    const ogParams = new URLSearchParams();
+    ogParams.set('river', riverName);
+    ogParams.set('putIn', putInName);
+    ogParams.set('takeOut', takeOutName);
+    ogParams.set('condition', conditionCode);
+    if (distanceMiles) ogParams.set('distance', `${distanceMiles} mi`);
+    if (floatTimeFormatted) ogParams.set('floatTime', floatTimeFormatted);
+    if (vesselName) ogParams.set('vessel', vesselName);
+    if (driveBackFormatted) ogParams.set('driveBack', driveBackFormatted);
 
     const ogImageUrl = `${BASE_URL}/api/og/plan?${ogParams.toString()}`;
     const pageUrl = `${BASE_URL}/plan/${shortCode}`;
@@ -127,7 +123,7 @@ export async function generateMetadata({ params }: PlanPageProps): Promise<Metad
         title: `Float Plan: ${riverName} - ${putInName} to ${takeOutName}`,
         description,
         url: pageUrl,
-        siteName: 'Float MO',
+        siteName: 'Eddy',
         images: [
           {
             url: ogImageUrl,

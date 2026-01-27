@@ -8,46 +8,63 @@ import RiverPage from './RiverPageClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatmo.com';
 
+// Force dynamic rendering - this page fetches live data from Supabase
+export const dynamic = 'force-dynamic';
+
 interface RiverPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: RiverPageProps): Promise<Metadata> {
-  const { slug } = await params;
-
+export async function generateMetadata(props: RiverPageProps): Promise<Metadata> {
+  // Wrap everything in try-catch to ensure the page never 500s due to metadata
   try {
+    const resolvedParams = await props.params;
+    const slug = resolvedParams?.slug;
+
+    if (!slug) {
+      return {
+        title: 'River',
+        description: 'Plan your float trip on Missouri rivers.',
+      };
+    }
+
     const supabase = await createClient();
 
     // Fetch river basic info
-    const { data: river } = await supabase
+    const { data: river, error: riverError } = await supabase
       .from('rivers')
       .select('id, name, slug, length_miles, description, difficulty_rating, region')
       .eq('slug', slug)
       .single();
 
-    if (!river) {
+    if (riverError || !river) {
       return {
         title: 'River Not Found',
       };
     }
 
-    // Fetch current conditions for the river
+    // Fetch current conditions for the river (non-critical - gracefully degrade)
     let conditionCode = 'unknown';
     let gaugeHeight = '';
     let flowDesc = '';
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conditionData } = await (supabase.rpc as any)('get_river_condition', {
-      p_river_id: river.id,
-    });
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: conditionData } = await (supabase.rpc as any)('get_river_condition', {
+        p_river_id: river.id,
+      });
 
-    if (conditionData && conditionData.length > 0) {
-      const cond = conditionData[0];
-      conditionCode = cond.condition_code || 'unknown';
-      if (cond.gauge_height_ft) {
-        gaugeHeight = parseFloat(cond.gauge_height_ft).toFixed(2);
+      if (conditionData && conditionData.length > 0) {
+        const cond = conditionData[0];
+        conditionCode = cond.condition_code || 'unknown';
+        if (cond.gauge_height_ft) {
+          gaugeHeight = parseFloat(cond.gauge_height_ft).toFixed(2);
+        }
+        flowDesc = cond.condition_label || '';
       }
-      flowDesc = cond.condition_label || '';
+    } catch (condError) {
+      // Conditions are non-critical for metadata - continue with defaults
+      console.warn('Failed to fetch conditions for river metadata:', condError);
     }
 
     const conditionLabels: Record<string, string> = {
@@ -67,16 +84,15 @@ export async function generateMetadata({ params }: RiverPageProps): Promise<Meta
     const title = `${river.name}${conditionSuffix}`;
     const description = `${river.name} float trip info${conditionText ? `: Currently ${conditionText.toLowerCase()}` : ''}. ${lengthMiles ? `${lengthMiles} miles` : ''}${river.difficulty_rating ? `, ${river.difficulty_rating}` : ''}${river.region ? ` in ${river.region}` : ''}. Real-time water conditions, access points, float times, and weather.`;
 
-    // Build OG image URL with query params
-    const ogParams = new URLSearchParams({
-      name: river.name,
-      condition: conditionCode,
-      ...(lengthMiles && { length: lengthMiles }),
-      ...(river.difficulty_rating && { difficulty: river.difficulty_rating }),
-      ...(river.region && { region: river.region }),
-      ...(gaugeHeight && { gaugeHeight }),
-      ...(flowDesc && { flowDesc }),
-    });
+    // Build OG image URL with explicit param setting
+    const ogParams = new URLSearchParams();
+    ogParams.set('name', river.name);
+    ogParams.set('condition', conditionCode);
+    if (lengthMiles) ogParams.set('length', lengthMiles);
+    if (river.difficulty_rating) ogParams.set('difficulty', river.difficulty_rating);
+    if (river.region) ogParams.set('region', river.region);
+    if (gaugeHeight) ogParams.set('gaugeHeight', gaugeHeight);
+    if (flowDesc) ogParams.set('flowDesc', flowDesc);
 
     const ogImageUrl = `${BASE_URL}/api/og/river?${ogParams.toString()}`;
     const pageUrl = `${BASE_URL}/rivers/${slug}`;
@@ -89,7 +105,7 @@ export async function generateMetadata({ params }: RiverPageProps): Promise<Meta
         title: `${river.name} - Float Trip Conditions & Info`,
         description,
         url: pageUrl,
-        siteName: 'Float MO',
+        siteName: 'Eddy',
         images: [
           {
             url: ogImageUrl,
