@@ -4,24 +4,50 @@
 // Themed float plan summary panel
 
 import { useState, useEffect, useCallback } from 'react';
-import type { FloatPlan, FlowRating } from '@/types/api';
+import type { FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 
-// Flow rating display configuration - colors match gauge condition legend
-const FLOW_RATING_CONFIG: Record<FlowRating, {
+// Condition display config — matches GaugeOverview labels and colors
+const CONDITION_CONFIG: Record<ConditionCode, {
   label: string;
   emoji: string;
   bgClass: string;
   textClass: string;
   borderClass: string;
+  explanation: string;
 }> = {
-  flood: {
-    label: 'Flood',
-    emoji: '🚫',
-    bgClass: 'bg-red-600',
+  optimal: {
+    label: 'Optimal',
+    emoji: '✓',
+    bgClass: 'bg-emerald-500',
     textClass: 'text-white',
-    borderClass: 'border-red-400',
+    borderClass: 'border-emerald-400',
+    explanation: 'Ideal conditions for floating.',
+  },
+  low: {
+    label: 'Okay',
+    emoji: '✓',
+    bgClass: 'bg-lime-500',
+    textClass: 'text-white',
+    borderClass: 'border-lime-400',
+    explanation: 'Floatable with minimal dragging.',
+  },
+  very_low: {
+    label: 'Low',
+    emoji: '↓',
+    bgClass: 'bg-yellow-500',
+    textClass: 'text-neutral-900',
+    borderClass: 'border-yellow-400',
+    explanation: 'Expect some dragging in shallow areas.',
+  },
+  too_low: {
+    label: 'Too Low',
+    emoji: '⚠',
+    bgClass: 'bg-neutral-400',
+    textClass: 'text-white',
+    borderClass: 'border-neutral-300',
+    explanation: 'Frequent dragging and portaging likely.',
   },
   high: {
     label: 'High',
@@ -29,27 +55,15 @@ const FLOW_RATING_CONFIG: Record<FlowRating, {
     bgClass: 'bg-orange-500',
     textClass: 'text-white',
     borderClass: 'border-orange-400',
+    explanation: 'Fast current — experienced paddlers only.',
   },
-  good: {
-    label: 'Okay',
-    emoji: '✓',
-    bgClass: 'bg-lime-500',
+  dangerous: {
+    label: 'Flood',
+    emoji: '🚫',
+    bgClass: 'bg-red-600',
     textClass: 'text-white',
-    borderClass: 'border-lime-400',
-  },
-  low: {
-    label: 'Low',
-    emoji: '↓',
-    bgClass: 'bg-yellow-500',
-    textClass: 'text-neutral-900',
-    borderClass: 'border-yellow-400',
-  },
-  poor: {
-    label: 'Too Low',
-    emoji: '⚠',
-    bgClass: 'bg-yellow-600',
-    textClass: 'text-white',
-    borderClass: 'border-yellow-500',
+    borderClass: 'border-red-400',
+    explanation: 'Dangerous flooding. Do not float.',
   },
   unknown: {
     label: 'Unknown',
@@ -57,6 +71,7 @@ const FLOW_RATING_CONFIG: Record<FlowRating, {
     bgClass: 'bg-neutral-500',
     textClass: 'text-white',
     borderClass: 'border-neutral-400',
+    explanation: 'Check conditions locally before launching.',
   },
 };
 
@@ -102,48 +117,27 @@ function UnknownConditionsWarning() {
   );
 }
 
-// Flow rating explanations (based on gauge height thresholds)
-const FLOW_EXPLANATIONS: Record<FlowRating, string> = {
-  good: 'Good conditions - minimal dragging expected.',
-  low: 'Expect some dragging in the shallow areas.',
-  poor: 'Frequent dragging and portaging may occur.',
-  high: 'Fast current with stronger hydraulics. Experienced paddlers only.',
-  flood: 'Dangerous flooding conditions. Do not float.',
-  unknown: 'Check conditions locally before launching.',
-};
-
-// Compact River Conditions component with inline explanation
+// Compact River Conditions component — uses ConditionCode directly
 function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
-  // Use flow rating if available, otherwise fall back to legacy code mapping
-  // Condition codes: optimal, low, very_low, too_low, high, dangerous, unknown
-  // Flow ratings: good, low, poor, high, flood, unknown
-  const flowRating: FlowRating = condition.flowRating ||
-    (condition.code === 'optimal' ? 'good' :
-     condition.code === 'low' ? 'good' :  // low condition = good/floatable
-     condition.code === 'very_low' ? 'low' :  // very_low = some dragging
-     condition.code === 'too_low' ? 'poor' :  // too_low = scraping likely
-     condition.code === 'dangerous' ? 'flood' :
-     condition.code === 'high' ? 'high' :
-     'unknown');
-
-  const ratingConfig = FLOW_RATING_CONFIG[flowRating] || FLOW_RATING_CONFIG.unknown;
+  const code: ConditionCode = condition.code || 'unknown';
+  const config = CONDITION_CONFIG[code] || CONDITION_CONFIG.unknown;
 
   return (
-    <div className={`rounded-lg overflow-hidden border-2 ${ratingConfig.borderClass}`}>
+    <div className={`rounded-lg overflow-hidden border-2 ${config.borderClass}`}>
       {/* Header with rating */}
-      <div className={`${ratingConfig.bgClass} ${ratingConfig.textClass} p-3`}>
+      <div className={`${config.bgClass} ${config.textClass} p-3`}>
         <div className="flex items-center gap-2">
-          <span className="text-xl">{ratingConfig.emoji}</span>
+          <span className="text-xl">{config.emoji}</span>
           <div className="flex-1">
-            <p className="font-bold text-base">{ratingConfig.label}</p>
-            <p className="text-xs opacity-80">{FLOW_EXPLANATIONS[flowRating]}</p>
+            <p className="font-bold text-base">{config.label}</p>
+            <p className="text-xs opacity-80">{config.explanation}</p>
           </div>
         </div>
       </div>
 
       {/* Stats and gauge info */}
       <div className="bg-neutral-50 p-3 space-y-2">
-        {/* Gauge readings (larger) */}
+        {/* Gauge readings */}
         <div className="flex gap-4">
           <div>
             <span className="text-lg font-bold text-neutral-800">{condition.dischargeCfs?.toLocaleString() ?? '—'}</span>

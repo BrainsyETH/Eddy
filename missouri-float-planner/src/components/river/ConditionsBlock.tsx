@@ -1,10 +1,11 @@
 'use client';
 
 // src/components/river/ConditionsBlock.tsx
-// Conditions & Safety section with USGS data, threshold-based ratings, and expandable details
+// Conditions & Safety section using threshold-based condition codes
+// Labels and colors match GaugeOverview for consistency
 
 import { useState } from 'react';
-import type { RiverCondition, FlowRating } from '@/types/api';
+import type { RiverCondition, ConditionCode } from '@/types/api';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import FlowTrendChart from './FlowTrendChart';
@@ -19,73 +20,83 @@ interface ConditionsBlockProps {
   isLoading?: boolean;
 }
 
-// Flow rating display configuration
-const FLOW_RATING_CONFIG: Record<FlowRating, {
-  emoji: string;
+// Condition display config — matches GaugeOverview labels and colors exactly
+const CONDITION_CONFIG: Record<ConditionCode, {
+  label: string;
+  summary: string;
   bgClass: string;
   textClass: string;
   dotClass: string;
+  badgeBg: string;
 }> = {
-  flood: { emoji: '🚫', bgClass: 'bg-red-50', textClass: 'text-red-700', dotClass: 'bg-red-500' },
-  high: { emoji: '⚡', bgClass: 'bg-orange-50', textClass: 'text-orange-700', dotClass: 'bg-orange-500' },
-  good: { emoji: '✓', bgClass: 'bg-emerald-50', textClass: 'text-emerald-700', dotClass: 'bg-emerald-500' },
-  low: { emoji: '↓', bgClass: 'bg-lime-50', textClass: 'text-lime-700', dotClass: 'bg-lime-500' },
-  poor: { emoji: '⚠', bgClass: 'bg-yellow-50', textClass: 'text-yellow-700', dotClass: 'bg-yellow-500' },
-  unknown: { emoji: '?', bgClass: 'bg-neutral-50', textClass: 'text-neutral-600', dotClass: 'bg-neutral-400' },
-};
-
-// Combined title + advice per rating
-const FLOW_RATING_INFO: Record<FlowRating, {
-  title: string;
-  summary: string;
-}> = {
-  flood: {
-    title: 'Flood Conditions',
-    summary: 'Water is at or above the dangerous threshold. Do not float — wait for levels to drop.',
-  },
-  high: {
-    title: 'High Water',
-    summary: 'Above the high water threshold. Experienced paddlers only — fast current and submerged obstacles.',
-  },
-  good: {
-    title: 'Good Conditions',
-    summary: 'Within the ideal floatable range. Minimal dragging, good navigation, enjoyable conditions.',
+  optimal: {
+    label: 'Optimal',
+    summary: 'Ideal conditions for floating. Good current, clear navigation.',
+    bgClass: 'bg-emerald-50',
+    textClass: 'text-emerald-700',
+    dotClass: 'bg-emerald-500',
+    badgeBg: 'bg-emerald-500',
   },
   low: {
-    title: 'Low Water',
-    summary: 'Below ideal but still floatable. Expect some dragging in shallow areas; lighter loads help.',
+    label: 'Okay',
+    summary: 'Floatable with minimal dragging. Still a good day on the water.',
+    bgClass: 'bg-lime-50',
+    textClass: 'text-lime-700',
+    dotClass: 'bg-lime-500',
+    badgeBg: 'bg-lime-500',
   },
-  poor: {
-    title: 'Too Low',
-    summary: 'Below the recommended minimum. Frequent dragging and portaging likely. Consider a spring-fed river.',
+  very_low: {
+    label: 'Low',
+    summary: 'Expect some dragging in shallow areas. Lighter loads help.',
+    bgClass: 'bg-yellow-50',
+    textClass: 'text-yellow-700',
+    dotClass: 'bg-yellow-500',
+    badgeBg: 'bg-yellow-500',
+  },
+  too_low: {
+    label: 'Too Low',
+    summary: 'Frequent dragging and portaging likely. Consider waiting for rain.',
+    bgClass: 'bg-neutral-100',
+    textClass: 'text-neutral-600',
+    dotClass: 'bg-neutral-400',
+    badgeBg: 'bg-neutral-400',
+  },
+  high: {
+    label: 'High',
+    summary: 'Fast current with submerged obstacles. Experienced paddlers only.',
+    bgClass: 'bg-orange-50',
+    textClass: 'text-orange-700',
+    dotClass: 'bg-orange-500',
+    badgeBg: 'bg-orange-500',
+  },
+  dangerous: {
+    label: 'Flood',
+    summary: 'Dangerous flooding conditions. Do not float.',
+    bgClass: 'bg-red-50',
+    textClass: 'text-red-700',
+    dotClass: 'bg-red-600',
+    badgeBg: 'bg-red-600',
   },
   unknown: {
-    title: 'Unknown Conditions',
-    summary: 'Unable to determine conditions. Check the USGS website or call local outfitters.',
+    label: 'Unknown',
+    summary: 'Unable to determine conditions. Check USGS or call local outfitters.',
+    bgClass: 'bg-neutral-50',
+    textClass: 'text-neutral-600',
+    dotClass: 'bg-neutral-400',
+    badgeBg: 'bg-neutral-500',
   },
-};
-
-// Badge color for the collapsed header
-const BADGE_BG: Record<FlowRating, string> = {
-  flood: 'bg-red-600',
-  high: 'bg-orange-500',
-  good: 'bg-emerald-500',
-  low: 'bg-lime-500',
-  poor: 'bg-yellow-500',
-  unknown: 'bg-neutral-500',
 };
 
 export default function ConditionsBlock({ riverSlug, condition, nearestGauge, hasPutInSelected, isLoading }: ConditionsBlockProps) {
   const [showDetails, setShowDetails] = useState(false);
 
   const displayCondition = condition;
-  const flowRating = displayCondition?.flowRating || 'unknown';
-  const config = FLOW_RATING_CONFIG[flowRating];
-  const info = FLOW_RATING_INFO[flowRating];
+  const code: ConditionCode = displayCondition?.code || 'unknown';
+  const config = CONDITION_CONFIG[code];
 
   const badge = displayCondition ? (
-    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${BADGE_BG[flowRating]}`}>
-      {info.title}
+    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${config.badgeBg}`}>
+      {config.label}
     </span>
   ) : null;
 
@@ -121,7 +132,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${config.dotClass}`} />
               <span className={`text-base font-bold ${config.textClass}`}>
-                {displayCondition.flowDescription || info.title}
+                {config.label}
               </span>
             </div>
             {readingAge && (
@@ -157,7 +168,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
         </div>
 
         {/* Advice line */}
-        <p className={`text-sm ${config.textClass}`}>{info.summary}</p>
+        <p className={`text-sm ${config.textClass}`}>{config.summary}</p>
 
         {/* Details toggle */}
         <button

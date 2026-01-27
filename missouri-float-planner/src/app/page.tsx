@@ -10,23 +10,24 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import type { ConditionCode } from '@/types/api';
 
+// Matches GaugeOverview labels and colors
 const conditionColors: Record<ConditionCode, string> = {
-  optimal: 'bg-support-500',
-  low: 'bg-yellow-500',
-  very_low: 'bg-amber-500',
+  optimal: 'bg-emerald-500',
+  low: 'bg-lime-500',
+  very_low: 'bg-yellow-500',
   high: 'bg-orange-500',
-  too_low: 'bg-red-500',
+  too_low: 'bg-neutral-400',
   dangerous: 'bg-red-600',
   unknown: 'bg-neutral-400',
 };
 
 const conditionLabels: Record<ConditionCode, string> = {
   optimal: 'Optimal',
-  low: 'Low',
-  very_low: 'Very Low',
+  low: 'Okay',
+  very_low: 'Low',
   high: 'High',
   too_low: 'Too Low',
-  dangerous: 'Dangerous',
+  dangerous: 'Flood',
   unknown: 'Unknown',
 };
 
