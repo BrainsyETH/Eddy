@@ -133,31 +133,33 @@ export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen 
 
       {/* Legend */}
       <div className="mt-4 pt-4 border-t border-neutral-200">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
+        <div className="flex flex-col items-center gap-2 text-xs sm:flex-row sm:justify-center sm:flex-wrap sm:gap-x-4 sm:gap-y-1">
           <span className="text-neutral-500 font-medium">Conditions:</span>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neutral-400" />
-            <span className="text-neutral-600">Too Low</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-yellow-500" />
-            <span className="text-neutral-600">Low</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-lime-500" />
-            <span className="text-neutral-600">Okay</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-neutral-600">Optimal</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-orange-500" />
-            <span className="text-neutral-600">High</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-600" />
-            <span className="text-neutral-600">Flood</span>
+          <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-neutral-400" />
+              <span className="text-neutral-600">Too Low</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span className="text-neutral-600">Low</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-lime-500" />
+              <span className="text-neutral-600">Okay</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-neutral-600">Optimal</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-500" />
+              <span className="text-neutral-600">High</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-600" />
+              <span className="text-neutral-600">Flood</span>
+            </div>
           </div>
         </div>
       </div>

@@ -269,13 +269,14 @@ export default function PlanSummary({
   if (isLoading) {
     return (
       <div className="bg-white border-2 border-neutral-200 rounded-lg p-6 w-full shadow-md">
-        <div className="animate-pulse space-y-4 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6">
+        <div className="animate-pulse space-y-4 lg:space-y-0 lg:grid lg:grid-cols-4 lg:gap-4">
           <div className="space-y-3">
             <div className="h-6 bg-neutral-200 rounded-lg w-2/3"></div>
             <div className="h-4 bg-neutral-200 rounded w-full"></div>
           </div>
           <div className="h-20 bg-primary-100 rounded-lg"></div>
-          <div className="h-12 bg-neutral-200 rounded-lg"></div>
+          <div className="h-16 bg-neutral-200 rounded-lg"></div>
+          <div className="h-16 bg-neutral-200 rounded-lg"></div>
         </div>
       </div>
     );
@@ -326,7 +327,7 @@ export default function PlanSummary({
         )}
 
         {/* Main content - horizontal on desktop, vertical on mobile */}
-        <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-5">
+        <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-4 lg:gap-4">
           {/* Column 1: Route */}
           <div className="space-y-2">
             <div className="flex items-start gap-2.5">
@@ -361,7 +362,7 @@ export default function PlanSummary({
           </div>
 
           {/* Column 2: Float Details */}
-          <div className="bg-primary-50 rounded-lg p-3 lg:p-4 border border-primary-200">
+          <div className="bg-primary-50 rounded-lg p-3 border border-primary-200">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-medium text-primary-700 uppercase tracking-wide">Float Details</p>
               {canoeVessel && raftVessel && (
@@ -414,7 +415,21 @@ export default function PlanSummary({
             </div>
           </div>
 
-          {/* Column 3: Shuttle */}
+          {/* Column 3: Conditions */}
+          <div>
+            {displayPlan.condition.code === 'dangerous' && <DangerousWarning />}
+            {displayPlan.condition.code === 'unknown' && <UnknownConditionsWarning />}
+            {displayPlan.condition.code !== 'unknown' && displayPlan.condition.code !== 'dangerous' && (
+              <ConditionBadge condition={displayPlan.condition} />
+            )}
+            {displayPlan.condition.code === 'dangerous' && (
+              <div className="mt-2">
+                <ConditionBadge condition={displayPlan.condition} />
+              </div>
+            )}
+          </div>
+
+          {/* Column 4: Shuttle */}
           <div className="rounded-lg p-3 border-2 border-neutral-300" style={{ backgroundColor: '#F4EFE7' }}>
             <p className="text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 mb-2" style={{ color: '#524D43' }}>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,21 +487,12 @@ export default function PlanSummary({
           </div>
         </div>
 
-        {/* Conditions, Hazards, Warnings - row on desktop */}
-        {(displayPlan.condition.code !== 'unknown' || displayPlan.hazards.length > 0 || displayPlan.warnings.length > 0) && (
-          <div className="mt-4 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4">
-            {/* Condition Warnings */}
-            {displayPlan.condition.code === 'dangerous' && <DangerousWarning />}
-            {displayPlan.condition.code === 'unknown' && <UnknownConditionsWarning />}
-
-            {/* River Conditions */}
-            {displayPlan.condition.code !== 'unknown' && (
-              <ConditionBadge condition={displayPlan.condition} />
-            )}
-
+        {/* Hazards & Warnings below main row */}
+        {(displayPlan.hazards.length > 0 || displayPlan.warnings.length > 0) && (
+          <div className="mt-4 space-y-3 lg:space-y-0 lg:flex lg:gap-4">
             {/* Hazards */}
             {displayPlan.hazards.length > 0 && (
-              <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+              <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 lg:flex-1">
                 <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-2">
                   ⚠ Hazards on Route
                 </p>
@@ -503,7 +509,7 @@ export default function PlanSummary({
 
             {/* Warnings */}
             {displayPlan.warnings.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 lg:col-span-2">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 lg:flex-1">
                 <ul className="space-y-1">
                   {displayPlan.warnings.map((warning, idx) => (
                     <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
