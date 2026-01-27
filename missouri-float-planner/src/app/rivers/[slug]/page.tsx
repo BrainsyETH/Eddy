@@ -243,9 +243,8 @@ export default function RiverPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column - Planner and key info */}
-          <div className="w-full lg:w-[400px] flex-shrink-0 order-2 lg:order-1 space-y-4">
-            {/* Planner Panel - Always first */}
+          {/* Left Column - Planner */}
+          <div className="w-full lg:w-[400px] flex-shrink-0 order-2 lg:order-1">
             <PlannerPanel
               river={river}
               accessPoints={accessPoints || []}
@@ -259,92 +258,65 @@ export default function RiverPage() {
               showPlan={showPlan}
               onShowPlanChange={setShowPlan}
             />
-
-            {/* Gauge Stations - Desktop only */}
-            <div className="hidden lg:block">
-              <GaugeOverview
-                gauges={gaugeStations}
-                riverId={river.id}
-                isLoading={!allGaugeStations}
-              />
-            </div>
-
-            {/* Conditions & Safety */}
-            <ConditionsBlock
-              riverId={river.id}
-              riverSlug={slug}
-              condition={condition}
-              nearestGauge={nearestGauge}
-              hasPutInSelected={!!selectedPutIn}
-              isLoading={conditionsLoading}
-            />
           </div>
 
-          {/* Right Column - Map and additional content */}
-          <div className="flex-1 order-1 lg:order-2 space-y-4">
-            {/* Map */}
-            <div>
-              <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
-                {/* Weather Bug overlay */}
-                <WeatherBug riverSlug={slug} riverId={river.id} />
+          {/* Right Column - Map */}
+          <div className="flex-1 order-1 lg:order-2">
+            <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
+              {/* Weather Bug overlay */}
+              <WeatherBug riverSlug={slug} riverId={river.id} />
 
-                {upstreamWarning && (
-                  <div className="absolute top-4 left-4 right-4 z-30">
-                    <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
-                      {upstreamWarning}
-                    </div>
+              {upstreamWarning && (
+                <div className="absolute top-4 left-4 right-4 z-30">
+                  <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
+                    {upstreamWarning}
                   </div>
+                </div>
+              )}
+
+              <MapContainer
+                initialBounds={river.bounds}
+                showLegend={true}
+                showGauges={showGauges}
+                onGaugeToggle={setShowGauges}
+              >
+                {accessPoints && (
+                  <AccessPointMarkers
+                    accessPoints={accessPoints}
+                    selectedPutIn={selectedPutIn}
+                    selectedTakeOut={selectedTakeOut}
+                    onMarkerClick={handleMarkerClick}
+                  />
                 )}
-
-                <MapContainer
-                  initialBounds={river.bounds}
-                  showLegend={true}
-                  showGauges={showGauges}
-                  onGaugeToggle={setShowGauges}
-                >
-                  {accessPoints && (
-                    <AccessPointMarkers
-                      accessPoints={accessPoints}
-                      selectedPutIn={selectedPutIn}
-                      selectedTakeOut={selectedTakeOut}
-                      onMarkerClick={handleMarkerClick}
-                    />
-                  )}
-                  {showGauges && gaugeStations && (
-                    <GaugeStationMarkers
-                      gauges={gaugeStations}
-                      selectedRiverId={river.id}
-                      nearestGaugeId={nearestGauge?.id}
-                    />
-                  )}
-                </MapContainer>
-              </div>
-            </div>
-
-            {/* Content below map on desktop to fill white space */}
-            <div className="hidden lg:block space-y-4">
-              {/* Difficulty & Experience */}
-              <DifficultyExperience river={river} />
-
-              {/* Logistics */}
-              <LogisticsSection
-                accessPoints={accessPoints || []}
-                isLoading={accessPointsLoading}
-              />
-
-              {/* Points of Interest */}
-              <PointsOfInterest riverSlug={slug} />
+                {showGauges && gaugeStations && (
+                  <GaugeStationMarkers
+                    gauges={gaugeStations}
+                    selectedRiverId={river.id}
+                    nearestGaugeId={nearestGauge?.id}
+                  />
+                )}
+              </MapContainer>
             </div>
           </div>
         </div>
 
-        {/* Mobile-only: Additional content below the two-column layout */}
-        <div className="lg:hidden space-y-4 mt-4">
-          {/* Gauge Stations - Mobile only, below map */}
+        {/* Info Sections - full width below planner/map, consistent on desktop and mobile */}
+        <div className="space-y-4 mt-6">
+          {/* Gauge Stations */}
           <GaugeOverview
             gauges={gaugeStations}
             riverId={river.id}
             isLoading={!allGaugeStations}
+          />
+
+          {/* Conditions & Safety */}
+          <ConditionsBlock
+            riverId={river.id}
+            riverSlug={slug}
+            condition={condition}
+            nearestGauge={nearestGauge}
+            hasPutInSelected={!!selectedPutIn}
+            isLoading={conditionsLoading}
           />
 
           {/* Difficulty & Experience */}

@@ -105,38 +105,41 @@ export default function RiverHeader({ river, condition }: RiverHeaderProps) {
           )}
         </div>
 
-        {/* Mobile Gauge Bar - full width, compact inline layout */}
+        {/* Mobile Gauge Bar - full width, two-row layout */}
         {condition && (
-          <div className="md:hidden mt-4 backdrop-blur-sm rounded-lg px-3 py-2.5" style={{ backgroundColor: 'rgba(29, 82, 95, 0.7)' }}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[10px] font-bold tracking-wide uppercase shrink-0" style={{ color: '#4EB86B' }}>USGS</span>
-                {condition.gaugeName && (
-                  <span className="text-xs text-white/60 truncate">{condition.gaugeName}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                {condition.gaugeHeightFt !== null && (
-                  <div className="flex items-center gap-1 text-sm">
-                    <span className="text-[11px]" style={{ color: '#72B5C4' }}>Stage</span>
-                    <InfoTooltip text="Water height at the gauge station" />
-                    <span className="font-bold text-white">{condition.gaugeHeightFt.toFixed(2)} ft</span>
-                  </div>
-                )}
-                {condition.dischargeCfs !== null && (
-                  <div className="flex items-center gap-1 text-sm">
-                    <span className="text-[11px]" style={{ color: '#72B5C4' }}>Flow</span>
-                    <InfoTooltip text="Water volume in cubic feet per second" />
-                    <span className="font-bold text-white">{condition.dischargeCfs.toLocaleString()} cfs</span>
-                  </div>
-                )}
-              </div>
+          <div className="md:hidden mt-4 backdrop-blur-sm rounded-lg px-3 py-3" style={{ backgroundColor: 'rgba(29, 82, 95, 0.7)' }}>
+            {/* Row 1: Gauge name */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded" style={{ color: '#4EB86B', backgroundColor: 'rgba(78, 184, 107, 0.15)' }}>USGS</span>
+              {condition.gaugeName && (
+                <span className="text-sm font-medium text-white">{condition.gaugeName}</span>
+              )}
             </div>
-            {condition.readingAgeHours !== null && condition.readingAgeHours < 24 && (
-              <p className="text-[10px] mt-1" style={{ color: '#4EB86B' }}>
-                Updated {Math.round(condition.readingAgeHours)}h ago
-              </p>
-            )}
+
+            {/* Row 2: Stats */}
+            <div className="flex items-center gap-4">
+              {condition.gaugeHeightFt !== null && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs" style={{ color: '#72B5C4' }}>Stage</span>
+                  <InfoTooltip text="Water height at the gauge station" />
+                  <span className="text-base font-bold text-white tabular-nums">{condition.gaugeHeightFt.toFixed(2)}</span>
+                  <span className="text-xs text-white/50">ft</span>
+                </div>
+              )}
+              {condition.dischargeCfs !== null && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs" style={{ color: '#72B5C4' }}>Flow</span>
+                  <InfoTooltip text="Water volume in cubic feet per second" />
+                  <span className="text-base font-bold text-white tabular-nums">{condition.dischargeCfs.toLocaleString()}</span>
+                  <span className="text-xs text-white/50">cfs</span>
+                </div>
+              )}
+              {condition.readingAgeHours !== null && condition.readingAgeHours < 24 && (
+                <span className="ml-auto text-[10px]" style={{ color: '#4EB86B' }}>
+                  {Math.round(condition.readingAgeHours)}h ago
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>

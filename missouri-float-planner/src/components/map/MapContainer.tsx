@@ -415,8 +415,8 @@ export default function MapContainer({
 
       {/* Map Controls - right side, below MapLibre navigation controls */}
       <div className="absolute top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 z-10">
-        {/* Style Picker */}
-        <div className={`relative ${showStylePicker ? 'z-50' : ''}`}>
+        {/* Style Picker - hidden on mobile unless fullscreen */}
+        <div className={`relative ${showStylePicker ? 'z-50' : ''} ${isFullscreen ? '' : 'hidden md:block'}`}>
           <button
             onClick={() => setShowStylePicker(!showStylePicker)}
             className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
@@ -447,10 +447,10 @@ export default function MapContainer({
           )}
         </div>
 
-        {/* Weather Overlay Toggle */}
+        {/* Weather Overlay Toggle - hidden on mobile unless fullscreen */}
         <button
           onClick={toggleWeather}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${isFullscreen ? '' : 'hidden md:block'} ${
             weatherEnabled
               ? 'bg-river-water text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
@@ -473,10 +473,10 @@ export default function MapContainer({
           </svg>
         </button>
 
-        {/* Gauge Stations Toggle */}
+        {/* Gauge Stations Toggle - hidden on mobile unless fullscreen */}
         <button
           onClick={toggleGauges}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${isFullscreen ? '' : 'hidden md:block'} ${
             gaugesEnabled
               ? 'bg-blue-500 text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
@@ -487,7 +487,7 @@ export default function MapContainer({
           <Droplets className="w-5 h-5" />
         </button>
 
-        {/* Fullscreen Toggle */}
+        {/* Fullscreen Toggle - always visible */}
         <button
           onClick={toggleFullscreen}
           className="p-2.5 md:p-2 rounded-lg shadow-lg transition-all bg-white/90 text-gray-700 hover:bg-white"

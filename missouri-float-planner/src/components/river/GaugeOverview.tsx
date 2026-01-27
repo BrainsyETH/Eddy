@@ -51,7 +51,7 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
   return { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400' };
 }
 
-export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen = true }: GaugeOverviewProps) {
+export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen = false }: GaugeOverviewProps) {
   if (isLoading) {
     return (
       <CollapsibleSection title="Gauge Stations" defaultOpen={defaultOpen}>
