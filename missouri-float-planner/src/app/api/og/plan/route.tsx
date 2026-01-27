@@ -59,26 +59,14 @@ export async function GET(request: NextRequest) {
             background: '#0F2D35',
           }}
         >
-          {/* Large Eddy mark */}
-          <div
-            style={{
-              width: '140px',
-              height: '140px',
-              borderRadius: '32px',
-              background: '#F07052',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '20px',
-              border: '4px solid #C9503A',
-            }}
-          >
-            <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
-              <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
-              <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
-            </svg>
-          </div>
+          {/* Eddy the Otter */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+            width={200}
+            height={200}
+            style={{ marginBottom: '16px', objectFit: 'contain' }}
+          />
           <span style={{ fontSize: '32px', fontWeight: 800, color: 'white', letterSpacing: '0.1em' }}>
             EDDY
           </span>
