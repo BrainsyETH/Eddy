@@ -24,7 +24,7 @@ async function getBaseUrl(): Promise<string> {
   }
   return process.env.NEXT_PUBLIC_BASE_URL
     || process.env.NEXT_PUBLIC_SITE_URL
-    || 'https://floatmo.com';
+    || 'https://eddy.guide';
 }
 
 interface PlanLayoutProps {

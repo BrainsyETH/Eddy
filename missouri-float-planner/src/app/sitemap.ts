@@ -6,7 +6,7 @@ import { MetadataRoute } from 'next';
 import { createClient } from '@/lib/supabase/server';
 
 // Base URL for the site - use environment variable or fallback
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatme.app';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();

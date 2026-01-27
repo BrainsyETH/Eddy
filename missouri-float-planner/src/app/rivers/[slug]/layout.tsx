@@ -7,7 +7,7 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatmo.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 // Force dynamic rendering - this page fetches live data from Supabase
 export const dynamic = 'force-dynamic';
