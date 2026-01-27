@@ -48,8 +48,8 @@ const conditionDisplay: Record<ConditionCode, {
     label: 'TOO LOW',
     secondaryLabel: 'NOT RECOMMENDED',
     textColor: '#2D2A24',
-    bg: '#EAB308',
-    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png'
+    bg: '#C2BAAC',
+    otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png'
   },
   dangerous: {
     label: 'DANGEROUS',
