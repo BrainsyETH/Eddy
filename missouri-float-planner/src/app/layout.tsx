@@ -60,6 +60,7 @@ export const metadata: Metadata = {
         url: `${BASE_URL}/api/og`,
         width: 1200,
         height: 630,
+        type: "image/png",
         alt: "Eddy - Plan Your Missouri Float Trip",
       },
     ],
@@ -68,7 +69,13 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Eddy - Missouri River Float Trip Planner",
     description: "Real-time water conditions, float times, access points, and weather for Missouri's best float rivers.",
-    images: [`${BASE_URL}/api/og`],
+    images: [
+      {
+        url: `${BASE_URL}/api/og`,
+        width: 1200,
+        height: 630,
+      },
+    ],
   },
 };
 

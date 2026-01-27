@@ -1,136 +1,338 @@
+'use client';
+
 // src/app/rivers/[slug]/page.tsx
-// Server component wrapper for river detail page
-// Exports generateMetadata for dynamic social media preview tags
+// Client component for river detail page with full planning experience
+// State is managed here to enable map/planner integration
+// URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
-import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
-import RiverPage from './RiverPageClient';
+import { useState, useCallback, useEffect } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import RiverHeader from '@/components/river/RiverHeader';
+import PlannerPanel from '@/components/river/PlannerPanel';
+import GaugeOverview from '@/components/river/GaugeOverview';
+import ConditionsBlock from '@/components/river/ConditionsBlock';
+import DifficultyExperience from '@/components/river/DifficultyExperience';
+import LogisticsSection from '@/components/river/LogisticsSection';
+import PointsOfInterest from '@/components/river/PointsOfInterest';
+import WeatherBug from '@/components/ui/WeatherBug';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useRiver } from '@/hooks/useRivers';
+import { useAccessPoints } from '@/hooks/useAccessPoints';
+import { useConditions } from '@/hooks/useConditions';
+import { useFloatPlan } from '@/hooks/useFloatPlan';
+import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
+import type { AccessPoint } from '@/types/api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatmo.com';
+// Dynamic imports for map
+const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-neutral-100 flex items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  ),
+});
+const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
+const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 
-// Force dynamic rendering - this page fetches live data from Supabase
-export const dynamic = 'force-dynamic';
+export default function RiverPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const searchParams = useSearchParams();
 
-interface RiverPageProps {
-  params: Promise<{ slug: string }>;
-}
+  // Read initial state from URL params
+  const urlPutIn = searchParams.get('putIn');
+  const urlTakeOut = searchParams.get('takeOut');
+  const urlVessel = searchParams.get('vessel');
 
-export async function generateMetadata(props: RiverPageProps): Promise<Metadata> {
-  // Wrap everything in try-catch to ensure the page never 500s due to metadata
-  try {
-    const resolvedParams = await props.params;
-    const slug = resolvedParams?.slug;
+  // Lifted state for planner/map integration
+  const [selectedPutIn, setSelectedPutIn] = useState<string | null>(urlPutIn);
+  const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
 
-    if (!slug) {
-      return {
-        title: 'River',
-        description: 'Plan your float trip on Missouri rivers.',
-      };
+  // Gauge visibility state - default to OFF for cleaner map view
+  const [showGauges, setShowGauges] = useState(false);
+
+  // Data fetching
+  const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
+  const { data: accessPoints, isLoading: accessPointsLoading } = useAccessPoints(slug);
+  const { data: conditionData, isLoading: conditionsLoading } = useConditions(river?.id || null, {
+    putInAccessPointId: selectedPutIn,
+  });
+  const condition = conditionData?.condition ?? null;
+  const { data: vesselTypes } = useVesselTypes();
+  const { data: allGaugeStations } = useGaugeStations();
+
+  // Filter gauge stations to only show those linked to this river
+  const gaugeStations = allGaugeStations?.filter(gauge =>
+    gauge.thresholds?.some(t => t.riverId === river?.id)
+  );
+  const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
+  const [showPlan, setShowPlan] = useState(false);
+  const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
+  const [urlInitialized, setUrlInitialized] = useState(false);
+
+  // Update URL when state changes (without causing navigation)
+  const updateUrl = useCallback((putIn: string | null, takeOut: string | null, vessel: string | null) => {
+    const params = new URLSearchParams();
+    if (putIn) params.set('putIn', putIn);
+    if (takeOut) params.set('takeOut', takeOut);
+    if (vessel) params.set('vessel', vessel);
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+
+    // Use replaceState to avoid adding to browser history on every selection
+    window.history.replaceState(null, '', newUrl);
+  }, []);
+
+  // Sync URL when selections change
+  useEffect(() => {
+    if (urlInitialized) {
+      updateUrl(selectedPutIn, selectedTakeOut, selectedVesselTypeId);
     }
+  }, [selectedPutIn, selectedTakeOut, selectedVesselTypeId, urlInitialized, updateUrl]);
 
-    const supabase = await createClient();
-
-    // Fetch river basic info
-    const { data: river, error: riverError } = await supabase
-      .from('rivers')
-      .select('id, name, slug, length_miles, description, difficulty_rating, region')
-      .eq('slug', slug)
-      .single();
-
-    if (riverError || !river) {
-      return {
-        title: 'River Not Found',
-      };
-    }
-
-    // Fetch current conditions for the river (non-critical - gracefully degrade)
-    let conditionCode = 'unknown';
-    let gaugeHeight = '';
-    let flowDesc = '';
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: conditionData } = await (supabase.rpc as any)('get_river_condition', {
-        p_river_id: river.id,
-      });
-
-      if (conditionData && conditionData.length > 0) {
-        const cond = conditionData[0];
-        conditionCode = cond.condition_code || 'unknown';
-        if (cond.gauge_height_ft) {
-          gaugeHeight = parseFloat(cond.gauge_height_ft).toFixed(2);
+  // Set default vessel type (from URL or default to canoe)
+  useEffect(() => {
+    if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
+      // Check if URL has a vessel param that matches
+      if (urlVessel) {
+        const urlVesselType = vesselTypes.find(v => v.id === urlVessel || v.slug === urlVessel);
+        if (urlVesselType) {
+          setSelectedVesselTypeId(urlVesselType.id);
+          setUrlInitialized(true);
+          return;
         }
-        flowDesc = cond.condition_label || '';
       }
-    } catch (condError) {
-      // Conditions are non-critical for metadata - continue with defaults
-      console.warn('Failed to fetch conditions for river metadata:', condError);
+      // Default to canoe
+      const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
+      setSelectedVesselTypeId(defaultVessel.id);
+      setUrlInitialized(true);
+    }
+  }, [vesselTypes, selectedVesselTypeId, urlVessel]);
+
+  // Auto-show plan when both selected (including from URL params)
+  useEffect(() => {
+    if (selectedPutIn && selectedTakeOut && !showPlan) {
+      setShowPlan(true);
+    }
+  }, [selectedPutIn, selectedTakeOut, showPlan]);
+
+  // Validate URL params against actual access points
+  useEffect(() => {
+    if (accessPoints && accessPoints.length > 0 && urlInitialized) {
+      // Validate putIn exists
+      if (selectedPutIn && !accessPoints.find(ap => ap.id === selectedPutIn)) {
+        setSelectedPutIn(null);
+      }
+      // Validate takeOut exists
+      if (selectedTakeOut && !accessPoints.find(ap => ap.id === selectedTakeOut)) {
+        setSelectedTakeOut(null);
+      }
+    }
+  }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
+
+  // Calculate plan
+  const planParams = (river && selectedPutIn && selectedTakeOut)
+    ? {
+        riverId: river.id,
+        startId: selectedPutIn,
+        endId: selectedTakeOut,
+        vesselTypeId: selectedVesselTypeId || undefined,
+      }
+    : null;
+
+  const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
+
+  // Find nearest gauge to the selected put-in, or to river center if no put-in
+  const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
+  const nearestGauge = gaugeStations && gaugeStations.length > 0
+    ? selectedPutInPoint
+      ? findNearestGauge(gaugeStations, selectedPutInPoint.coordinates.lat, selectedPutInPoint.coordinates.lng)
+      : river?.bounds
+        ? findNearestGauge(
+            gaugeStations,
+            (river.bounds[1] + river.bounds[3]) / 2, // center lat
+            (river.bounds[0] + river.bounds[2]) / 2  // center lng
+          )
+        : null
+    : null;
+
+  // Handle map marker click - set as put-in or take-out
+  const handleMarkerClick = useCallback((point: AccessPoint) => {
+    // If clicking the current put-in, deselect it
+    if (point.id === selectedPutIn) {
+      setSelectedPutIn(null);
+      setSelectedTakeOut(null); // Also clear take-out
+      setShowPlan(false);
+      return;
     }
 
-    const conditionLabels: Record<string, string> = {
-      optimal: 'Optimal',
-      low: 'Low - Floatable',
-      very_low: 'Very Low',
-      high: 'High Water',
-      too_low: 'Too Low',
-      dangerous: 'Dangerous',
-      unknown: '',
-    };
+    // If clicking the current take-out, deselect it
+    if (point.id === selectedTakeOut) {
+      setSelectedTakeOut(null);
+      setShowPlan(false);
+      return;
+    }
 
-    const conditionText = conditionLabels[conditionCode] || '';
-    const conditionSuffix = conditionText ? ` - ${conditionText}` : '';
-    const lengthMiles = river.length_miles ? parseFloat(river.length_miles).toFixed(1) : '';
+    if (!selectedPutIn) {
+      // No put-in selected - set this as put-in
+      setSelectedPutIn(point.id);
+    } else if (!selectedTakeOut) {
+      // Put-in selected but no take-out - set this as take-out
+      // Show warning if upstream, but still allow selection
+      if (accessPoints) {
+        const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
+        if (putInPoint && point.riverMile < putInPoint.riverMile) {
+          setUpstreamWarning('This take-out is upstream of your put-in. You will be paddling against the current.');
+        }
+      }
+      setSelectedTakeOut(point.id);
+    } else {
+      // Both selected - clicking a new point changes the take-out
+      if (accessPoints) {
+        const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
+        if (putInPoint && point.riverMile < putInPoint.riverMile) {
+          setUpstreamWarning('This take-out is upstream of your put-in. You will be paddling against the current.');
+        }
+      }
+      setSelectedTakeOut(point.id);
+    }
+  }, [accessPoints, selectedPutIn, selectedTakeOut]);
 
-    const title = `${river.name}${conditionSuffix}`;
-    const description = `${river.name} float trip info${conditionText ? `: Currently ${conditionText.toLowerCase()}` : ''}. ${lengthMiles ? `${lengthMiles} miles` : ''}${river.difficulty_rating ? `, ${river.difficulty_rating}` : ''}${river.region ? ` in ${river.region}` : ''}. Real-time water conditions, access points, float times, and weather.`;
+  useEffect(() => {
+    if (!upstreamWarning) return;
+    const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [upstreamWarning]);
 
-    // Build OG image URL with explicit param setting
-    const ogParams = new URLSearchParams();
-    ogParams.set('name', river.name);
-    ogParams.set('condition', conditionCode);
-    if (lengthMiles) ogParams.set('length', lengthMiles);
-    if (river.difficulty_rating) ogParams.set('difficulty', river.difficulty_rating);
-    if (river.region) ogParams.set('region', river.region);
-    if (gaugeHeight) ogParams.set('gaugeHeight', gaugeHeight);
-    if (flowDesc) ogParams.set('flowDesc', flowDesc);
-
-    const ogImageUrl = `${BASE_URL}/api/og/river?${ogParams.toString()}`;
-    const pageUrl = `${BASE_URL}/rivers/${slug}`;
-
-    return {
-      title,
-      description,
-      openGraph: {
-        type: 'website',
-        title: `${river.name} - Float Trip Conditions & Info`,
-        description,
-        url: pageUrl,
-        siteName: 'Eddy',
-        images: [
-          {
-            url: ogImageUrl,
-            width: 1200,
-            height: 630,
-            alt: `${river.name} current conditions and float trip info`,
-          },
-        ],
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: `${river.name}${conditionSuffix}`,
-        description,
-        images: [ogImageUrl],
-      },
-    };
-  } catch (error) {
-    console.error('Error generating river metadata:', error);
-    return {
-      title: 'River',
-      description: 'Plan your float trip on Missouri rivers.',
-    };
+  if (riverLoading) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
-}
 
-export default function Page() {
-  return <RiverPage />;
+  if (riverError || !river) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <span className="text-3xl">:/</span>
+          </div>
+          <h2 className="text-xl font-bold text-neutral-900 mb-2">River Not Found</h2>
+          <p className="text-neutral-600">
+            The river you&apos;re looking for doesn&apos;t exist or has been removed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-50">
+      {/* River Header */}
+      <RiverHeader
+        river={river}
+        condition={condition}
+      />
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Planner - full width above map on desktop, below map on mobile */}
+        <div className="flex flex-col gap-4">
+          <div className="order-2 lg:order-1">
+            <PlannerPanel
+              river={river}
+              accessPoints={accessPoints || []}
+              isLoading={accessPointsLoading}
+              selectedPutIn={selectedPutIn}
+              selectedTakeOut={selectedTakeOut}
+              onPutInChange={setSelectedPutIn}
+              onTakeOutChange={setSelectedTakeOut}
+              plan={plan || null}
+              planLoading={planLoading}
+              showPlan={showPlan}
+              onShowPlanChange={setShowPlan}
+              vesselTypeId={selectedVesselTypeId}
+            />
+          </div>
+
+          {/* Map */}
+          <div className="order-1 lg:order-2">
+            <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
+              {/* Weather Bug overlay */}
+              <WeatherBug riverSlug={slug} riverId={river.id} />
+
+              {upstreamWarning && (
+                <div className="absolute top-4 left-4 right-4 z-30">
+                  <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
+                    {upstreamWarning}
+                  </div>
+                </div>
+              )}
+
+              <MapContainer
+                initialBounds={river.bounds}
+                showLegend={true}
+                showGauges={showGauges}
+                onGaugeToggle={setShowGauges}
+              >
+                {accessPoints && (
+                  <AccessPointMarkers
+                    accessPoints={accessPoints}
+                    selectedPutIn={selectedPutIn}
+                    selectedTakeOut={selectedTakeOut}
+                    onMarkerClick={handleMarkerClick}
+                  />
+                )}
+                {showGauges && gaugeStations && (
+                  <GaugeStationMarkers
+                    gauges={gaugeStations}
+                    selectedRiverId={river.id}
+                    nearestGaugeId={nearestGauge?.id}
+                  />
+                )}
+              </MapContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Sections - full width below planner/map, consistent on desktop and mobile */}
+        <div className="space-y-4 mt-6">
+          {/* Gauge Stations */}
+          <GaugeOverview
+            gauges={gaugeStations}
+            riverId={river.id}
+            isLoading={!allGaugeStations}
+          />
+
+          {/* Conditions & Safety */}
+          <ConditionsBlock
+            riverId={river.id}
+            riverSlug={slug}
+            condition={condition}
+            nearestGauge={nearestGauge}
+            hasPutInSelected={!!selectedPutIn}
+            isLoading={conditionsLoading}
+          />
+
+          {/* Difficulty & Experience */}
+          <DifficultyExperience river={river} />
+
+          {/* Logistics */}
+          <LogisticsSection
+            accessPoints={accessPoints || []}
+            isLoading={accessPointsLoading}
+          />
+
+          {/* Points of Interest */}
+          <PointsOfInterest riverSlug={slug} />
+        </div>
+      </div>
+    </div>
+  );
 }
