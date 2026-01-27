@@ -5,9 +5,27 @@
 // can remain a pure client component without SSR issues
 
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://floatmo.com';
+// Derive base URL from request headers so OG images resolve from the same
+// origin that serves the page (avoids cross-domain timeouts when the custom
+// domain isn't configured or has DNS issues).
+async function getBaseUrl(): Promise<string> {
+  try {
+    const headersList = await headers();
+    const host = headersList.get('host');
+    if (host) {
+      const proto = headersList.get('x-forwarded-proto') || 'https';
+      return `${proto}://${host}`;
+    }
+  } catch {
+    // headers() not available outside request context
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL
+    || process.env.NEXT_PUBLIC_SITE_URL
+    || 'https://floatmo.com';
+}
 
 interface PlanLayoutProps {
   children: React.ReactNode;
@@ -24,6 +42,7 @@ function formatMinutes(totalMinutes: number): string {
 
 export async function generateMetadata({ params }: PlanLayoutProps): Promise<Metadata> {
   try {
+    const BASE_URL = await getBaseUrl();
     const resolvedParams = await params;
     const shortCode = resolvedParams?.shortCode;
 
@@ -153,7 +172,8 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     };
   } catch (error) {
     console.error('Error generating plan metadata:', error);
-    const fallbackOgImage = `${BASE_URL}/api/og`;
+    const fallbackBase = await getBaseUrl();
+    const fallbackOgImage = `${fallbackBase}/api/og`;
     return {
       title: 'Float Plan',
       description: 'View and share your Missouri float trip plan.',
