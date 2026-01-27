@@ -186,7 +186,8 @@ export async function GET(request: NextRequest) {
     const putInMile = parseFloat(segmentData.start_river_mile);
 
     // Get put-in coordinates for segment-aware gauge selection (fallback)
-    const putInCoords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+    // Use location_orig first — location_snap is snapped to simplified seed geometry
+    const putInCoords = putIn.location_orig?.coordinates || putIn.location_snap?.coordinates;
 
     // Debug logging for gauge selection
     console.log('[Plan API] Segment-aware gauge selection:', {
@@ -518,8 +519,8 @@ export async function GET(request: NextRequest) {
         feeNotes: putIn.fee_notes,
         directionsOverride: putIn.directions_override || null,
         coordinates: {
-          lng: putIn.location_snap?.coordinates?.[0] || putIn.location_orig?.coordinates?.[0] || 0,
-          lat: putIn.location_snap?.coordinates?.[1] || putIn.location_orig?.coordinates?.[1] || 0,
+          lng: putIn.location_orig?.coordinates?.[0] || putIn.location_snap?.coordinates?.[0] || 0,
+          lat: putIn.location_orig?.coordinates?.[1] || putIn.location_snap?.coordinates?.[1] || 0,
         },
       },
       takeOut: {
@@ -538,8 +539,8 @@ export async function GET(request: NextRequest) {
         feeNotes: takeOut.fee_notes,
         directionsOverride: takeOut.directions_override || null,
         coordinates: {
-          lng: takeOut.location_snap?.coordinates?.[0] || takeOut.location_orig?.coordinates?.[0] || 0,
-          lat: takeOut.location_snap?.coordinates?.[1] || takeOut.location_orig?.coordinates?.[1] || 0,
+          lng: takeOut.location_orig?.coordinates?.[0] || takeOut.location_snap?.coordinates?.[0] || 0,
+          lat: takeOut.location_orig?.coordinates?.[1] || takeOut.location_snap?.coordinates?.[1] || 0,
         },
       },
       vessel: {
