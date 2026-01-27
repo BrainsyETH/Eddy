@@ -63,9 +63,9 @@ export async function GET(request: NextRequest) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
-            width={200}
-            height={200}
-            style={{ marginBottom: '16px', objectFit: 'contain' }}
+            width={260}
+            height={260}
+            style={{ marginBottom: '12px', objectFit: 'contain' }}
           />
           <span style={{ fontSize: '32px', fontWeight: 800, color: 'white', letterSpacing: '0.1em' }}>
             EDDY
