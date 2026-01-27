@@ -5,7 +5,8 @@
 
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { Waves, MapPin, Droplets, Clock } from 'lucide-react';
+import Image from 'next/image';
+import { MapPin, Droplets, Clock } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import type { ConditionCode } from '@/types/api';
@@ -59,9 +60,13 @@ function HomeContent() {
       <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
           <div className="mb-6">
-            <div className="w-20 h-20 mx-auto rounded-xl border-4 border-neutral-900 shadow-xl flex items-center justify-center" style={{ backgroundColor: '#F07052' }}>
-              <Waves className="w-12 h-12 text-white" />
-            </div>
+            <Image
+              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+              alt="Eddy the Otter"
+              width={128}
+              height={128}
+              className="w-32 h-32 mx-auto rounded-2xl shadow-xl"
+            />
           </div>
           <h1 className="text-4xl md:text-5xl font-heading font-bold text-white mb-4">
             <span style={{ color: '#F07052' }}>Eddy</span>
