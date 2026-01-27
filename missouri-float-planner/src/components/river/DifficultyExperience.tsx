@@ -46,6 +46,7 @@ export default function DifficultyExperience({ river, defaultOpen = false }: Dif
     tubing: river.difficultyRating?.toLowerCase().includes('beginner') || !river.difficultyRating,
     canoe: true,
     kayak: true,
+    raft: true,
     dogFriendly: true,
     familyFriendly: river.difficultyRating?.toLowerCase().includes('beginner') || !river.difficultyRating,
   };
@@ -109,6 +110,11 @@ export default function DifficultyExperience({ river, defaultOpen = false }: Dif
             {suitability.kayak && (
               <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
                 Kayak
+              </span>
+            )}
+            {suitability.raft && (
+              <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+                Raft
               </span>
             )}
             {suitability.dogFriendly && (

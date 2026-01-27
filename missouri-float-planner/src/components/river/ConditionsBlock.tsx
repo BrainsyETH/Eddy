@@ -115,7 +115,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
   // Badge showing current flow rating
   const badge = displayCondition ? (
     <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${ratingConfig.bgClass}`}>
-      {ratingDetails.title.split(' ')[0]}
+      {ratingDetails.title}
     </span>
   ) : null;
 

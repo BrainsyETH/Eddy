@@ -60,10 +60,10 @@ export default function SharedPlanPage() {
 
   if (isLoading) {
     return (
-      <div className="h-screen bg-ozark-900 flex items-center justify-center">
+      <div className="min-h-[60vh] bg-neutral-50 flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          <p className="mt-4 text-river-300">Loading your float plan...</p>
+          <p className="mt-4 text-neutral-600">Loading your float plan...</p>
         </div>
       </div>
     );
@@ -71,14 +71,13 @@ export default function SharedPlanPage() {
 
   if (error || !plan) {
     return (
-      <div className="h-screen bg-ozark-900 flex items-center justify-center">
+      <div className="min-h-[60vh] bg-neutral-50 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sunset-500/20 
-                        flex items-center justify-center">
-            <span className="text-4xl">🌊</span>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <span className="text-3xl">😕</span>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-3">Plan Not Found</h1>
-          <p className="text-bluff-400 mb-6">{error}</p>
+          <h1 className="text-2xl font-bold text-neutral-900 mb-3">Plan Not Found</h1>
+          <p className="text-neutral-600 mb-6">{error}</p>
         </div>
       </div>
     );
@@ -91,41 +90,17 @@ export default function SharedPlanPage() {
     : undefined;
 
   return (
-    <div className="h-screen flex flex-col bg-ozark-900">
-      {/* Header */}
-      <header className="relative z-20 bg-ozark-800 border-b border-ozark-700">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-river-500 to-river-700 
-                            flex items-center justify-center shadow-glow">
-                <span className="text-xl">🌊</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Float Plan</h1>
-                <p className="text-sm text-river-300">{plan.river.name}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
+      {/* Plan title bar */}
+      <div className="flex-shrink-0 px-4 py-3 bg-white border-b-2 border-neutral-200 text-center">
+        <h1 className="text-lg font-bold text-neutral-900">Float Plan &middot; {plan.river.name}</h1>
+      </div>
 
-      {/* Map and Plan */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Map */}
-        <div className="flex-1 relative min-h-[400px] lg:min-h-0 order-2 lg:order-1">
-          <MapContainer initialBounds={bounds} showLegend={true}>
-            <AccessPointMarkers
-              accessPoints={accessPoints}
-              selectedPutIn={plan.putIn.id}
-              selectedTakeOut={plan.takeOut.id}
-            />
-          </MapContainer>
-        </div>
-
-        {/* Plan Summary Sidebar */}
-        <div className="w-full lg:w-96 bg-white lg:border-l border-bluff-200 overflow-y-auto order-1 lg:order-2">
-          <div className="p-6">
+      {/* Mobile: stacked layout that scrolls naturally. Desktop: side-by-side fixed height. */}
+      <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
+        {/* Plan Summary */}
+        <div className="w-full lg:w-96 bg-white lg:border-r border-neutral-200 lg:overflow-y-auto">
+          <div className="max-w-lg mx-auto lg:max-w-none p-6">
             <PlanSummary
               plan={plan}
               isLoading={false}
@@ -134,12 +109,23 @@ export default function SharedPlanPage() {
             />
           </div>
         </div>
+
+        {/* Map */}
+        <div className="flex-1 relative min-h-[400px] lg:min-h-0">
+          <MapContainer initialBounds={bounds} showLegend={true}>
+            <AccessPointMarkers
+              accessPoints={accessPoints}
+              selectedPutIn={plan.putIn.id}
+              selectedTakeOut={plan.takeOut.id}
+            />
+          </MapContainer>
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-ozark-900 border-t border-ozark-700 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-bluff-500">
-          <p>Missouri Float Planner • Water data from USGS</p>
+      <footer className="flex-shrink-0 bg-primary-800 border-t-2 border-neutral-900 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-primary-200">
+          <p>Float MO &middot; Water data from USGS</p>
           <p className="hidden md:block">Always check local conditions before floating</p>
         </div>
       </footer>

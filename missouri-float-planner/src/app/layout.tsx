@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Providers } from "@/lib/providers";
+import SiteHeader from "@/components/layout/SiteHeader";
 import "./globals.css";
 
 // Using local Geist fonts with CSS variables that match the design system
@@ -25,7 +26,7 @@ const geistHeading = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Missouri Float Planner",
+  title: "Float MO",
   description: "Plan your float trip on Missouri rivers with real-time conditions and route information.",
 };
 
@@ -39,7 +40,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <SiteHeader />
+          {children}
+        </Providers>
       </body>
     </html>
   );
