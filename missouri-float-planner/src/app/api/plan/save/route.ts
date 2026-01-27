@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       drive_back_minutes: plan.driveBack.minutes,
       condition_at_creation: plan.condition.code,
       gauge_reading_at_creation: plan.condition.gaugeHeightFt,
-      // discharge_cfs_at_creation: plan.condition.dischargeCfs, // TODO: Uncomment after migration 00020
+      discharge_cfs_at_creation: plan.condition.dischargeCfs, // Done
     });
 
     if (insertError) {
