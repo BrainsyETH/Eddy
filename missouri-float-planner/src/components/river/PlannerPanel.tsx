@@ -67,9 +67,10 @@ export default function PlannerPanel({
       if (!response.ok) throw new Error('Failed to save plan');
 
       const { url } = await response.json();
+      const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
-      // Use Web Share API on mobile (clipboard fails after async fetch on iOS Safari)
-      if (navigator.share) {
+      // Mobile: use native share sheet. Desktop: copy to clipboard.
+      if (isMobile && navigator.share) {
         try {
           await navigator.share({
             title: `Float Plan - ${river.name}`,
@@ -81,12 +82,10 @@ export default function PlannerPanel({
         }
       }
 
-      // Fallback to clipboard for desktop
       try {
         await navigator.clipboard.writeText(url);
         alert('Link copied to clipboard!');
       } catch {
-        // Last resort: prompt with selectable text
         window.prompt('Copy this link:', url);
       }
     } catch (error) {

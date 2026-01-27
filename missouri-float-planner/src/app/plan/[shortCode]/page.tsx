@@ -52,9 +52,10 @@ export default function SharedPlanPage() {
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
-    // Use Web Share API on mobile (avoids clipboard permission issues)
-    if (navigator.share) {
+    // Mobile: use native share sheet. Desktop: copy to clipboard.
+    if (isMobile && navigator.share) {
       try {
         await navigator.share({
           title: `Float Plan - ${plan?.river.name ?? 'River'}`,
@@ -66,12 +67,10 @@ export default function SharedPlanPage() {
       }
     }
 
-    // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl);
       alert('Link copied to clipboard!');
     } catch {
-      // Last resort: prompt with selectable text
       window.prompt('Copy this link:', shareUrl);
     }
   };

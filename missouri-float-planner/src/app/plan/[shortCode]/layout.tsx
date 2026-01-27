@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     }
 
     // Fetch river, access points, vessel type, and gauge station in parallel
-    const [riverResult, putInResult, takeOutResult, vesselResult, gaugeResult] = await Promise.all([
+    const [riverResult, putInResult, takeOutResult, , gaugeResult] = await Promise.all([
       supabase.from('rivers').select('name, slug, region').eq('id', savedPlan.river_id).single(),
       supabase.from('access_points').select('name').eq('id', savedPlan.start_access_id).single(),
       supabase.from('access_points').select('name').eq('id', savedPlan.end_access_id).single(),
@@ -95,7 +95,6 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const riverName = riverResult.data?.name || 'Missouri River';
     const putInName = putInResult.data?.name || 'Start';
     const takeOutName = takeOutResult.data?.name || 'End';
-    const vesselName = vesselResult.data?.name || 'Canoe';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gaugeStationRaw = gaugeResult.data?.gauge_stations as any;
     const gaugeName = Array.isArray(gaugeStationRaw)
@@ -109,9 +108,6 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
       : '';
     const floatTimeFormatted = savedPlan.estimated_float_minutes
       ? formatMinutes(savedPlan.estimated_float_minutes)
-      : '';
-    const driveBackFormatted = savedPlan.drive_back_minutes
-      ? formatMinutes(savedPlan.drive_back_minutes)
       : '';
     const conditionCode = savedPlan.condition_at_creation || 'unknown';
 
@@ -127,17 +123,15 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
 
     const conditionText = conditionLabels[conditionCode] || '';
 
-    const title = `${riverName}: ${putInName} to ${takeOutName}`;
+    const title = `${riverName} - ${putInName} to ${takeOutName}`;
     const descParts: string[] = [];
     if (distanceMiles) descParts.push(`${distanceMiles} mi`);
     if (floatTimeFormatted) descParts.push(`~${floatTimeFormatted} float`);
-    if (vesselName) descParts.push(`by ${vesselName.toLowerCase()}`);
     if (conditionText) descParts.push(`Conditions: ${conditionText}`);
-    if (driveBackFormatted) descParts.push(`${driveBackFormatted} drive back`);
 
     const description = descParts.length > 0
-      ? `${riverName} float plan - ${descParts.join(' | ')}. Check current conditions on Eddy.`
-      : `${riverName} float plan from ${putInName} to ${takeOutName}. Check current conditions on Eddy.`;
+      ? `${riverName} float plan - ${descParts.join(' | ')} | Check conditions on Eddy.`
+      : `${riverName} float plan from ${putInName} to ${takeOutName}. Check conditions on Eddy.`;
 
     // Build OG image URL
     const ogParams = new URLSearchParams();
@@ -147,8 +141,6 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     ogParams.set('condition', conditionCode);
     if (distanceMiles) ogParams.set('distance', `${distanceMiles} mi`);
     if (floatTimeFormatted) ogParams.set('floatTime', floatTimeFormatted);
-    if (vesselName) ogParams.set('vessel', vesselName);
-    if (driveBackFormatted) ogParams.set('driveBack', driveBackFormatted);
     if (gaugeName) ogParams.set('gaugeName', gaugeName);
     if (gaugeHeight) ogParams.set('gaugeHeight', gaugeHeight);
 
@@ -160,7 +152,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
       description,
       openGraph: {
         type: 'website',
-        title: `Float Plan: ${riverName} - ${putInName} to ${takeOutName}`,
+        title: `${riverName} - ${putInName} to ${takeOutName}`,
         description,
         url: pageUrl,
         siteName: 'Eddy',
