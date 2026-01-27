@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Fredoka } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
 import "./globals.css";
@@ -27,13 +28,20 @@ const geistHeading = localFont({
   weight: "100 900",
 });
 
-const EDDY_LOGO_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
+// Fun rounded display font for Eddy branding
+const fredoka = Fredoka({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700"],
+});
+
+const EDDY_FAVICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   icons: {
-    icon: EDDY_LOGO_URL,
-    apple: EDDY_LOGO_URL,
+    icon: EDDY_FAVICON_URL,
+    apple: EDDY_FAVICON_URL,
   },
   title: {
     default: "Float MO - Missouri River Float Trip Planner",
@@ -72,7 +80,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} ${fredoka.variable} antialiased`}
       >
         <Providers>
           <SiteHeader />
