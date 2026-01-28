@@ -43,6 +43,17 @@ BEGIN
   RAISE NOTICE 'Jacks Fork River ID: %', jacks_fork_id;
   RAISE NOTICE 'Current River ID: %', current_river_id;
 
+  -- Step 0: Remove incorrect associations where Jacks Fork gauges are linked to OTHER rivers
+  -- (e.g., Niangua River) - these gauges should ONLY be associated with Jacks Fork River
+  DELETE FROM river_gauges
+  WHERE river_id != jacks_fork_id
+  AND gauge_station_id IN (
+    SELECT id FROM gauge_stations
+    WHERE usgs_site_id IN ('07065200', '07065495', '07066000')
+  );
+
+  RAISE NOTICE 'Removed incorrect non-Jacks Fork associations for Jacks Fork gauges';
+
   -- Step 1: Remove incorrect Current River gauge associations from Jacks Fork
   -- These gauges should only be associated with Current River, not Jacks Fork
   DELETE FROM river_gauges
