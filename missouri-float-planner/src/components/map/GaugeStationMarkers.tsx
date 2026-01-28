@@ -23,33 +23,33 @@ function getConditionFromReading(
   thresholds: GaugeStation['thresholds']
 ): { code: string; label: string; color: string } {
   if (gaugeHeight === null || !thresholds || thresholds.length === 0) {
-    return { code: 'unknown', label: 'Unknown', color: '#6b7280' };
+    return { code: 'unknown', label: 'Unknown', color: '#9ca3af' };
   }
 
   // Use the first threshold set (primary river if available)
   const t = thresholds.find(th => th.isPrimary) || thresholds[0];
 
   if (t.levelDangerous !== null && gaugeHeight >= t.levelDangerous) {
-    return { code: 'dangerous', label: 'Dangerous', color: '#ef4444' };
+    return { code: 'dangerous', label: 'Flood', color: '#ef4444' };
   }
   if (t.levelHigh !== null && gaugeHeight >= t.levelHigh) {
     return { code: 'high', label: 'High', color: '#f97316' };
   }
   if (t.levelOptimalMin !== null && t.levelOptimalMax !== null &&
       gaugeHeight >= t.levelOptimalMin && gaugeHeight <= t.levelOptimalMax) {
-    return { code: 'optimal', label: 'Optimal', color: '#22c55e' };
+    return { code: 'optimal', label: 'Optimal', color: '#059669' };
   }
   if (t.levelLow !== null && gaugeHeight >= t.levelLow) {
-    return { code: 'low', label: 'Low', color: '#eab308' };
+    return { code: 'low', label: 'Okay', color: '#84cc16' };
   }
   if (t.levelTooLow !== null && gaugeHeight >= t.levelTooLow) {
-    return { code: 'very_low', label: 'Very Low', color: '#f97316' };
+    return { code: 'very_low', label: 'Low', color: '#eab308' };
   }
   if (t.levelTooLow !== null && gaugeHeight < t.levelTooLow) {
-    return { code: 'too_low', label: 'Too Low', color: '#ef4444' };
+    return { code: 'too_low', label: 'Too Low', color: '#9ca3af' };
   }
 
-  return { code: 'unknown', label: 'Unknown', color: '#6b7280' };
+  return { code: 'unknown', label: 'Unknown', color: '#9ca3af' };
 }
 
 export default function GaugeStationMarkers({
@@ -146,15 +146,15 @@ export default function GaugeStationMarkers({
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
               ${t.levelOptimalMin !== null && t.levelOptimalMax !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e;"></span>
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #059669;"></span>
                   <span style="color: #a3a3a3;">Optimal:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ft</span>
               ` : ''}
               ${t.levelLow !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #eab308;"></span>
-                  <span style="color: #a3a3a3;">Low:</span>
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #84cc16;"></span>
+                  <span style="color: #a3a3a3;">Okay:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelLow} ft</span>
               ` : ''}

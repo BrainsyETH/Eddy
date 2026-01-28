@@ -148,7 +148,7 @@ export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen 
               <span className="text-neutral-600">Okay</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="w-2 h-2 rounded-full bg-emerald-600" />
               <span className="text-neutral-600">Optimal</span>
             </div>
             <div className="flex items-center gap-1.5">
