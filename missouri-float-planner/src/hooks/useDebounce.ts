@@ -43,7 +43,7 @@ export function useDebounce<T>(value: T, delay: number = 500): T {
  * @param delay - Minimum time between executions (default: 200ms)
  * @returns Throttled callback
  */
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number = 200
 ): T {
