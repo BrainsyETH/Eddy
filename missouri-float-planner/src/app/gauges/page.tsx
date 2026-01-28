@@ -152,7 +152,7 @@ export default function GaugesPage() {
 
   // Calculate stats for overview cards
   const stats = useMemo(() => {
-    if (!gaugeData?.gauges) return { total: 0, optimal: 0, okay: 0, low: 0, high: 0, flood: 0 };
+    if (!gaugeData?.gauges) return { total: 0, optimal: 0, okay: 0, low: 0, tooLow: 0, high: 0, flood: 0 };
 
     const counts = { total: 0, optimal: 0, okay: 0, low: 0, high: 0, flood: 0, tooLow: 0 };
     gaugeData.gauges.forEach(gauge => {
@@ -286,6 +286,19 @@ export default function GaugesPage() {
                   <span className="text-2xl font-bold text-yellow-600">{stats.low}</span>
                 </div>
                 <p className="text-xs text-neutral-500 font-medium">Low</p>
+              </button>
+
+              <button
+                onClick={() => setSelectedCondition('too_low')}
+                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
+                  selectedCondition === 'too_low' ? 'border-neutral-500 ring-2 ring-neutral-200' : 'border-neutral-200'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded-full bg-neutral-400"></span>
+                  <span className="text-2xl font-bold text-neutral-600">{stats.tooLow}</span>
+                </div>
+                <p className="text-xs text-neutral-500 font-medium">Too Low</p>
               </button>
 
               <button
