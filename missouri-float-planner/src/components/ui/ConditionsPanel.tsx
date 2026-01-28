@@ -12,12 +12,13 @@ interface ConditionsPanelProps {
   className?: string;
 }
 
+// Condition styles ordered: Too Low → Low → Okay → Optimal → High → Flood
 const conditionStyles: Record<ConditionCode, { bg: string; border: string; text: string; icon: string; label: string }> = {
-  optimal: { bg: 'bg-emerald-600/20', border: 'border-emerald-600/40', text: 'text-emerald-400', icon: '✓', label: 'Optimal' },
-  low: { bg: 'bg-lime-500/15', border: 'border-lime-500/30', text: 'text-lime-400', icon: '✓', label: 'Okay' },
-  very_low: { bg: 'bg-yellow-500/15', border: 'border-yellow-500/30', text: 'text-yellow-400', icon: '⚠', label: 'Low' },
-  high: { bg: 'bg-orange-500/15', border: 'border-orange-500/30', text: 'text-orange-400', icon: '↑', label: 'High' },
   too_low: { bg: 'bg-neutral-500/15', border: 'border-neutral-500/30', text: 'text-neutral-400', icon: '✕', label: 'Too Low' },
+  very_low: { bg: 'bg-yellow-500/15', border: 'border-yellow-500/30', text: 'text-yellow-400', icon: '⚠', label: 'Low' },
+  low: { bg: 'bg-lime-500/15', border: 'border-lime-500/30', text: 'text-lime-400', icon: '✓', label: 'Okay' },
+  optimal: { bg: 'bg-emerald-600/20', border: 'border-emerald-600/40', text: 'text-emerald-400', icon: '✓', label: 'Optimal' },
+  high: { bg: 'bg-orange-500/15', border: 'border-orange-500/30', text: 'text-orange-400', icon: '↑', label: 'High' },
   dangerous: { bg: 'bg-red-500/20', border: 'border-red-500/40', text: 'text-red-400', icon: '⚠', label: 'Flood' },
   unknown: { bg: 'bg-white/5', border: 'border-white/10', text: 'text-river-gravel', icon: '?', label: 'Unknown' },
 };

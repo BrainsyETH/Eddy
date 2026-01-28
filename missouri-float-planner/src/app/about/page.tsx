@@ -11,23 +11,18 @@ import type { ConditionCode } from '@/types/api';
 
 const conditionCodes: ConditionCode[] = ['too_low', 'very_low', 'low', 'optimal', 'high', 'dangerous', 'unknown'];
 
+// Condition descriptions ordered: Too Low → Low → Okay → Optimal → High → Flood
 const conditionDescriptions: Record<ConditionCode, {
   title: string;
   description: string;
   recommendation: string;
   icon: string;
 }> = {
-  optimal: {
-    title: 'Optimal Conditions',
-    description: 'Water levels are ideal for floating. This is the sweet spot where you\'ll have plenty of depth to avoid scraping, but flows aren\'t dangerously fast. Most paddlers will find these conditions enjoyable and safe.',
-    recommendation: 'Great for all skill levels. Perfect time to float!',
-    icon: '🎯',
-  },
-  low: {
-    title: 'Okay - Floatable',
-    description: 'Water levels are below optimal but still floatable. You may encounter some shallow areas and occasional scraping on gravel bars, especially in wider sections. Float times may be slightly longer than estimated.',
-    recommendation: 'Suitable for most paddlers. Be prepared for some shallow sections and possibly dragging your vessel occasionally.',
-    icon: '✓',
+  too_low: {
+    title: 'Too Low - Not Recommended',
+    description: 'Water levels are extremely low, making floating impractical or impossible. You\'ll spend more time walking and dragging your vessel than actually floating. Many sections may be unnavigable.',
+    recommendation: 'Do not float. Wait for rain or choose a different river with better conditions.',
+    icon: '🚫',
   },
   very_low: {
     title: 'Low - Scraping Likely',
@@ -35,20 +30,26 @@ const conditionDescriptions: Record<ConditionCode, {
     recommendation: 'Not recommended for beginners or large groups. Consider waiting for higher water or choosing a different river.',
     icon: '⚠️',
   },
+  low: {
+    title: 'Okay - Floatable',
+    description: 'Water levels are below optimal but still floatable. You may encounter some shallow areas and occasional scraping on gravel bars, especially in wider sections. Float times may be slightly longer than estimated.',
+    recommendation: 'Suitable for most paddlers. Be prepared for some shallow sections and possibly dragging your vessel occasionally.',
+    icon: '✓',
+  },
+  optimal: {
+    title: 'Optimal Conditions',
+    description: 'Water levels are ideal for floating. This is the sweet spot where you\'ll have plenty of depth to avoid scraping, but flows aren\'t dangerously fast. Most paddlers will find these conditions enjoyable and safe.',
+    recommendation: 'Great for all skill levels. Perfect time to float!',
+    icon: '🎯',
+  },
   high: {
     title: 'High Water - Experienced Only',
     description: 'Water levels are elevated with faster currents and increased hazards. Strainers, sweepers, and hydraulics become more dangerous. Navigation requires skill and quick decision-making. Float times will be faster than normal.',
     recommendation: 'Only for experienced paddlers comfortable with swift water rescue and river reading. Beginners should wait for lower water.',
     icon: '🌊',
   },
-  too_low: {
-    title: 'Too Low - Not Recommended',
-    description: 'Water levels are extremely low, making floating impractical or impossible. You\'ll spend more time walking and dragging your vessel than actually floating. Many sections may be unnavigable.',
-    recommendation: 'Do not float. Wait for rain or choose a different river with better conditions.',
-    icon: '🚫',
-  },
   dangerous: {
-    title: 'Dangerous - Do Not Float',
+    title: 'Flood - Do Not Float',
     description: 'Water levels are at or near flood stage. Currents are extremely swift and hazards are severe. Debris, trees, and submerged obstacles create life-threatening conditions. Even experienced paddlers should not attempt to float.',
     recommendation: 'DO NOT FLOAT under any circumstances. Stay off the water until levels drop significantly.',
     icon: '🛑',

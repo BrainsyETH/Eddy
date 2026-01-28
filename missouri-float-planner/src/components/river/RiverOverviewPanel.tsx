@@ -17,12 +17,13 @@ interface RiverOverviewPanelProps {
   isDesktop?: boolean;
 }
 
+// Condition styles ordered: Too Low → Low → Okay → Optimal → High → Flood
 const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: string }> = {
-  optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
-  low: { bg: 'bg-lime-100', text: 'text-lime-700', icon: '✓' },
-  very_low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⚠' },
-  high: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '↑' },
   too_low: { bg: 'bg-neutral-100', text: 'text-neutral-600', icon: '✕' },
+  very_low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⚠' },
+  low: { bg: 'bg-lime-100', text: 'text-lime-700', icon: '✓' },
+  optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
+  high: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '↑' },
   dangerous: { bg: 'bg-red-200', text: 'text-red-800', icon: '⚠' },
   unknown: { bg: 'bg-neutral-100', text: 'text-neutral-600', icon: '?' },
 };

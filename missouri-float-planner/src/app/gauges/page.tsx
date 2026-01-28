@@ -136,13 +136,13 @@ export default function GaugesPage() {
         primaryRiver: gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0],
       }))
       .sort((a, b) => {
-        // Sort by condition priority (optimal first, then okay, etc.)
+        // Sort by water level progression (Too Low → Low → Okay → Optimal → High → Flood)
         const conditionOrder: Record<ConditionCode, number> = {
-          optimal: 0,
-          low: 1,
-          very_low: 2,
-          high: 3,
-          too_low: 4,
+          too_low: 0,
+          very_low: 1,
+          low: 2,
+          optimal: 3,
+          high: 4,
           dangerous: 5,
           unknown: 6,
         };
@@ -234,8 +234,8 @@ export default function GaugesPage() {
           </div>
         ) : (
           <>
-            {/* Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+            {/* Stats Overview - Ordered from Too Low to Flood (water level progression) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
               <button
                 onClick={() => setSelectedCondition('all')}
                 className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
@@ -246,33 +246,20 @@ export default function GaugesPage() {
                   <BarChart3 className="w-5 h-5 text-neutral-500" />
                   <span className="text-2xl font-bold text-neutral-900">{stats.total}</span>
                 </div>
-                <p className="text-xs text-neutral-500 font-medium">Total Gauges</p>
+                <p className="text-xs text-neutral-500 font-medium">Total</p>
               </button>
 
               <button
-                onClick={() => setSelectedCondition('optimal')}
+                onClick={() => setSelectedCondition('too_low')}
                 className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'optimal' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-neutral-200'
+                  selectedCondition === 'too_low' ? 'border-neutral-500 ring-2 ring-neutral-200' : 'border-neutral-200'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
-                  <span className="text-2xl font-bold text-emerald-600">{stats.optimal}</span>
+                  <span className="w-3 h-3 rounded-full bg-neutral-400"></span>
+                  <span className="text-2xl font-bold text-neutral-600">{stats.tooLow}</span>
                 </div>
-                <p className="text-xs text-neutral-500 font-medium">Optimal</p>
-              </button>
-
-              <button
-                onClick={() => setSelectedCondition('low')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'low' ? 'border-lime-500 ring-2 ring-lime-200' : 'border-neutral-200'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-lime-500"></span>
-                  <span className="text-2xl font-bold text-lime-600">{stats.okay}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Okay</p>
+                <p className="text-xs text-neutral-500 font-medium">Too Low</p>
               </button>
 
               <button
@@ -289,16 +276,29 @@ export default function GaugesPage() {
               </button>
 
               <button
-                onClick={() => setSelectedCondition('too_low')}
+                onClick={() => setSelectedCondition('low')}
                 className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'too_low' ? 'border-neutral-500 ring-2 ring-neutral-200' : 'border-neutral-200'
+                  selectedCondition === 'low' ? 'border-lime-500 ring-2 ring-lime-200' : 'border-neutral-200'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-neutral-400"></span>
-                  <span className="text-2xl font-bold text-neutral-600">{stats.tooLow}</span>
+                  <span className="w-3 h-3 rounded-full bg-lime-500"></span>
+                  <span className="text-2xl font-bold text-lime-600">{stats.okay}</span>
                 </div>
-                <p className="text-xs text-neutral-500 font-medium">Too Low</p>
+                <p className="text-xs text-neutral-500 font-medium">Okay</p>
+              </button>
+
+              <button
+                onClick={() => setSelectedCondition('optimal')}
+                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
+                  selectedCondition === 'optimal' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-neutral-200'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
+                  <span className="text-2xl font-bold text-emerald-600">{stats.optimal}</span>
+                </div>
+                <p className="text-xs text-neutral-500 font-medium">Optimal</p>
               </button>
 
               <button
