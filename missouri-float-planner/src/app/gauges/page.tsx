@@ -120,10 +120,12 @@ export default function GaugesPage() {
 
     return gaugeData.gauges
       .filter(gauge => {
-        // Filter by OSNR rivers
+        // Filter by OSNR rivers (exclude unknown/empty river names)
         if (osnrOnly) {
           const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
           const riverName = primaryRiver?.riverName?.toLowerCase() || '';
+          // Skip gauges with no river or unknown river
+          if (!riverName || riverName === 'unknown' || riverName.includes('unknown')) return false;
           const isOsnr = OSNR_RIVERS.some(r => riverName.includes(r) || r.includes(riverName));
           if (!isOsnr) return false;
         }
@@ -344,18 +346,6 @@ export default function GaugesPage() {
             {/* Filter Bar */}
             <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 mb-6">
               <div className="flex flex-wrap items-center gap-4">
-                {/* OSNR Toggle */}
-                <button
-                  onClick={() => setOsnrOnly(!osnrOnly)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    osnrOnly
-                      ? 'bg-[#7B2D3B] text-white shadow-md'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                >
-                  OSNR
-                </button>
-
                 {/* River filter */}
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-neutral-600">River:</label>
@@ -406,6 +396,19 @@ export default function GaugesPage() {
                 <div className="ml-auto text-sm text-neutral-500">
                   Showing {processedGauges.length} of {stats.total} gauges
                 </div>
+
+                {/* OSNR Toggle - at end on desktop */}
+                <button
+                  onClick={() => setOsnrOnly(!osnrOnly)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    osnrOnly
+                      ? 'bg-[#7B2D3B] text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
+                  title="Ozark National Scenic Riverways - Current, Eleven Point, Jacks Fork"
+                >
+                  OSNR
+                </button>
               </div>
             </div>
 

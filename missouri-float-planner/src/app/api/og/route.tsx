@@ -45,11 +45,12 @@ export async function GET() {
         >
           {/* Top: Eddy branding */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
             <img
               src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
               width={64}
               height={64}
+              alt=""
               style={{ objectFit: 'contain', marginRight: '16px' }}
             />
             <div

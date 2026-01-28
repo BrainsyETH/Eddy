@@ -101,11 +101,12 @@ export async function GET(request: NextRequest) {
           >
             {/* Otter image - large */}
             <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
               <img
                 src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
                 width={140}
                 height={140}
+                alt=""
                 style={{ objectFit: 'contain' }}
               />
             </div>

@@ -92,11 +92,12 @@ export async function GET(request: NextRequest) {
       >
         {/* TOP LEFT - Otter (absolute) */}
         <div style={{ position: 'absolute', top: '24px', left: '32px', display: 'flex' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
           <img
             src={cond.otterImage}
             width={100}
             height={100}
+            alt=""
             style={{ objectFit: 'contain' }}
           />
         </div>
