@@ -178,10 +178,8 @@ export async function GET(request: NextRequest) {
               fontSize: '68px',
               fontWeight: 900,
               color: 'white',
-              lineHeight: 0.95,
               letterSpacing: '-0.02em',
               margin: '0 0 32px 0',
-              fontStyle: 'italic',
             }}
           >
             {river.toUpperCase()}
@@ -254,8 +252,7 @@ export async function GET(request: NextRequest) {
               {/* Condition Status - MASSIVE */}
               <div
                 style={{
-                  display: 'inline-flex',
-                  alignSelf: 'flex-start',
+                  display: 'flex',
                   padding: '16px 32px',
                   background: cond.bg,
                   border: '5px solid #000',
@@ -264,24 +261,24 @@ export async function GET(request: NextRequest) {
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '52px', fontWeight: 900, color: cond.textColor, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                  <span style={{ fontSize: '52px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
                     {cond.label}
                   </span>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: cond.textColor, opacity: 0.8, marginTop: '4px' }}>
+                  <span style={{ fontSize: '20px', fontWeight: 800, color: cond.textColor, marginTop: '4px' }}>
                     {cond.secondaryLabel}
                   </span>
                 </div>
               </div>
 
               {/* Gauge data grid */}
-              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '24px' }}>
                 {/* Gauge Height */}
                 {gaugeHeight && (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: '14px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
                       GAUGE HEIGHT
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
                       <span style={{ fontSize: '48px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                         {gaugeHeight}
                       </span>
@@ -296,7 +293,7 @@ export async function GET(request: NextRequest) {
                     <span style={{ fontSize: '14px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
                       DISCHARGE (CFS)
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
                       <span style={{ fontSize: '48px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                         {dischargeCfs}
                       </span>
