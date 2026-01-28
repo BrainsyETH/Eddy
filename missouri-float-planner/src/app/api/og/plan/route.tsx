@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
             src={cond.otterImage}
             width={260}
             height={260}
-            style={{ marginBottom: '20px' }}
+            style={{ objectFit: 'contain' }}
           />
           <div
             style={{
@@ -111,6 +111,7 @@ export async function GET(request: NextRequest) {
               background: '#F07052',
               border: '6px solid #000',
               boxShadow: '8px 8px 0 #000',
+              marginTop: '20px',
             }}
           >
             <span style={{ fontSize: '28px', fontWeight: 900, color: 'white', letterSpacing: '0.15em' }}>
@@ -127,34 +128,17 @@ export async function GET(request: NextRequest) {
             display: 'flex',
             flexDirection: 'column',
             background: '#1A3D40',
-            padding: '48px',
+            padding: '32px 48px',
           }}
         >
-          {/* Float Plan badge */}
-          <div
-            style={{
-              display: 'flex',
-              padding: '10px 20px',
-              background: '#F07052',
-              border: '4px solid #000',
-              boxShadow: '6px 6px 0 #000',
-              marginBottom: '20px',
-              width: '200px',
-            }}
-          >
-            <span style={{ fontSize: '20px', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>
-              FLOAT PLAN
-            </span>
-          </div>
-
           {/* River name */}
           <h1
             style={{
-              fontSize: '64px',
+              fontSize: '58px',
               fontWeight: 900,
               color: 'white',
               letterSpacing: '-0.02em',
-              margin: '0 0 28px 0',
+              margin: '0 0 24px 0',
             }}
           >
             {river.toUpperCase()}
@@ -165,7 +149,7 @@ export async function GET(request: NextRequest) {
             style={{
               display: 'flex',
               flexDirection: 'column',
-              marginBottom: '28px',
+              marginBottom: '24px',
               padding: '18px 22px',
               background: '#0F2D35',
               border: '4px solid #000',
@@ -208,7 +192,7 @@ export async function GET(request: NextRequest) {
             </div>
           </div>
 
-          {/* CURRENT WATER FLOW card */}
+          {/* Gauge data card */}
           <div
             style={{
               display: 'flex',
@@ -219,39 +203,35 @@ export async function GET(request: NextRequest) {
               boxShadow: '10px 10px 0 #000',
             }}
           >
-            <span style={{ fontSize: '14px', fontWeight: 800, color: '#6B6459', letterSpacing: '0.15em', marginBottom: '14px' }}>
-              CURRENT WATER FLOW
-            </span>
 
             {/* Condition badge */}
             <div
               style={{
                 display: 'flex',
-                padding: '14px 28px',
+                padding: '12px 24px',
                 background: cond.bg,
                 border: '5px solid #000',
                 boxShadow: '8px 8px 0 #000',
                 marginBottom: '16px',
-                width: '480px',
               }}
             >
-              <span style={{ fontSize: '48px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
+              <span style={{ fontSize: '44px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
                 {cond.label}
               </span>
             </div>
 
             {/* Gauge data */}
-            <div style={{ display: 'flex', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', marginBottom: '14px' }}>
               {gaugeHeight && (
                 <div style={{ display: 'flex', flexDirection: 'column', marginRight: '32px' }}>
                   <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
                     GAUGE HEIGHT
                   </span>
                   <div style={{ display: 'flex' }}>
-                    <span style={{ fontSize: '44px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                    <span style={{ fontSize: '42px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                       {gaugeHeight}
                     </span>
-                    <span style={{ fontSize: '22px', fontWeight: 800, color: '#6B6459', marginLeft: '6px', marginTop: '12px' }}>
+                    <span style={{ fontSize: '20px', fontWeight: 800, color: '#6B6459', marginLeft: '6px', marginTop: '12px' }}>
                       ft
                     </span>
                   </div>
@@ -263,7 +243,7 @@ export async function GET(request: NextRequest) {
                   <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
                     DISCHARGE (CFS)
                   </span>
-                  <span style={{ fontSize: '44px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                  <span style={{ fontSize: '42px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                     {dischargeCfs}
                   </span>
                 </div>
