@@ -18,19 +18,19 @@ const conditionDisplay: Record<ConditionCode, {
   optimal:   {
     label: 'OPTIMAL',
     textColor: '#1A3D23',
-    bg: '#4EB86B',
+    bg: '#059669', // emerald-600
     otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png'
   },
   low:       {
-    label: 'LOW - FLOATABLE',
+    label: 'OKAY',
     textColor: '#1A3D23',
-    bg: '#84CC16',
+    bg: '#84CC16', // lime-500
     otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png'
   },
   very_low:  {
-    label: 'VERY LOW',
+    label: 'LOW',
     textColor: '#2D2A24',
-    bg: '#EAB308',
+    bg: '#EAB308', // yellow-500
     otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png'
   },
   high:      {
@@ -42,11 +42,11 @@ const conditionDisplay: Record<ConditionCode, {
   too_low:   {
     label: 'TOO LOW',
     textColor: '#2D2A24',
-    bg: '#C2BAAC',
+    bg: '#9CA3AF', // neutral-400
     otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png'
   },
   dangerous: {
-    label: 'DANGEROUS',
+    label: 'FLOOD',
     textColor: '#ffffff',
     bg: '#DC2626',
     otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png'
@@ -54,7 +54,7 @@ const conditionDisplay: Record<ConditionCode, {
   unknown:   {
     label: 'UNKNOWN',
     textColor: '#2D2A24',
-    bg: '#C2BAAC',
+    bg: '#9CA3AF',
     otterImage: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png'
   },
 };
@@ -68,9 +68,11 @@ export async function GET(request: NextRequest) {
   const condition = (searchParams.get('condition') || 'unknown') as ConditionCode;
   const gaugeName = searchParams.get('gaugeName') || 'USGS Gauge';
   const gaugeHeight = searchParams.get('gaugeHeight') || '';
-  const dischargeCfs = searchParams.get('dischargeCfs') || '';
-  const distance = searchParams.get('distance') || '';
-  const floatTime = searchParams.get('floatTime') || '';
+  // Reserved for future use
+  const _dischargeCfs = searchParams.get('dischargeCfs') || '';
+  const _distance = searchParams.get('distance') || '';
+  const _floatTime = searchParams.get('floatTime') || '';
+  void _dischargeCfs; void _distance; void _floatTime;
 
   const cond = conditionDisplay[condition] || conditionDisplay.unknown;
 
