@@ -13,10 +13,7 @@ import {
   ExternalLink,
   Activity,
   Gauge as GaugeIcon,
-  Filter,
   TrendingUp,
-  TrendingDown,
-  Minus,
   BarChart3,
   X
 } from 'lucide-react';
@@ -24,17 +21,6 @@ import { computeCondition, getConditionTailwindColor, getConditionShortLabel, ty
 import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 import type { ConditionCode } from '@/types/api';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-
-// Condition filter options
-const CONDITION_FILTERS: { code: ConditionCode | 'all'; label: string; color: string }[] = [
-  { code: 'all', label: 'All', color: 'bg-neutral-500' },
-  { code: 'optimal', label: 'Optimal', color: 'bg-emerald-600' },
-  { code: 'low', label: 'Okay', color: 'bg-lime-500' },
-  { code: 'very_low', label: 'Low', color: 'bg-yellow-500' },
-  { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400' },
-  { code: 'high', label: 'High', color: 'bg-orange-500' },
-  { code: 'dangerous', label: 'Flood', color: 'bg-red-600' },
-];
 
 // Date range options for charts
 const DATE_RANGES = [
@@ -69,7 +55,6 @@ export default function GaugesPage() {
   const [selectedRiver, setSelectedRiver] = useState<string>('all');
   const [selectedCondition, setSelectedCondition] = useState<ConditionCode | 'all'>('all');
   const [dateRange, setDateRange] = useState(7);
-  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     async function fetchGauges() {
