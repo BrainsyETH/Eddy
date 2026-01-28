@@ -3,12 +3,11 @@
 // src/app/about/page.tsx
 // About page explaining how Eddy works and condition codes
 
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, Table } from 'lucide-react';
+import Link from 'next/link';
+import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, ArrowRight } from 'lucide-react';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
-import type { GaugeThresholdsResponse } from '@/app/api/gauge-thresholds/route';
 
 const conditionCodes: ConditionCode[] = ['too_low', 'very_low', 'low', 'optimal', 'high', 'dangerous', 'unknown'];
 
@@ -63,26 +62,6 @@ const conditionDescriptions: Record<ConditionCode, {
 };
 
 export default function AboutPage() {
-  const [gaugeThresholds, setGaugeThresholds] = useState<GaugeThresholdsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchThresholds() {
-      try {
-        const response = await fetch('/api/gauge-thresholds');
-        if (response.ok) {
-          const data = await response.json();
-          setGaugeThresholds(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch gauge thresholds:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchThresholds();
-  }, []);
-
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Hero */}
@@ -240,182 +219,27 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Gauge Thresholds by River */}
+        {/* Link to Gauge Stations Page */}
         <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
-              <Table className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold text-neutral-900">Gauge Thresholds by River</h2>
-          </div>
-
-          <p className="text-neutral-700 mb-6 leading-relaxed">
-            Each river uses specific gauge height thresholds (in feet) to determine current conditions.
-            These values are calibrated for each river based on historical data, river characteristics,
-            and local knowledge. Here are the exact thresholds used for each river:
-          </p>
-
-          {loading ? (
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-12 text-center">
-              <div className="inline-block w-8 h-8 border-4 border-neutral-300 border-t-primary-500 rounded-full animate-spin"></div>
-              <p className="text-neutral-600 mt-4">Loading gauge thresholds...</p>
-            </div>
-          ) : gaugeThresholds && gaugeThresholds.rivers.length > 0 ? (
-            <div className="space-y-6">
-              {gaugeThresholds.rivers.map((river) => (
-                <div key={river.riverId} className="bg-white border-2 border-neutral-200 rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-primary-50 border-b-2 border-neutral-200 px-6 py-4">
-                    <h3 className="text-2xl font-bold text-neutral-900">{river.riverName}</h3>
+          <Link href="/gauges" className="block">
+            <div className="bg-white border-2 border-primary-300 rounded-xl p-6 shadow-sm hover:shadow-md hover:border-primary-400 transition-all group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
+                    <Gauge className="w-8 h-8 text-white" />
                   </div>
-                  <div className="p-6">
-                    {river.gauges.map((gauge, idx) => (
-                      <div key={`${gauge.usgsId}-${idx}`} className="mb-6 last:mb-0">
-                        <div className="flex items-center gap-2 mb-3">
-                          <h4 className="text-lg font-semibold text-neutral-800">{gauge.gaugeName}</h4>
-                          {gauge.isPrimary && (
-                            <span className="px-2 py-1 bg-accent-500 text-white text-xs font-semibold rounded-md">
-                              PRIMARY
-                            </span>
-                          )}
-                          <a
-                            href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsId}/`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary-600 hover:text-primary-700 font-mono"
-                          >
-                            {gauge.usgsId}
-                          </a>
-                        </div>
-
-                        {/* Thresholds table */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b-2 border-neutral-200">
-                                <th className="text-left py-2 px-3 font-semibold text-neutral-600">Condition</th>
-                                <th className="text-right py-2 px-3 font-semibold text-neutral-600">Threshold (ft)</th>
-                                <th className="text-left py-2 px-3 font-semibold text-neutral-600">Description</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-neutral-200">
-                              <tr>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: CONDITION_COLORS.dangerous }}
-                                    ></div>
-                                    <span className="font-medium">Dangerous</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-mono">
-                                  {gauge.thresholds.dangerous !== null ? `≥ ${gauge.thresholds.dangerous}` : 'N/A'}
-                                </td>
-                                <td className="py-3 px-3 text-neutral-600">Do not float</td>
-                              </tr>
-                              <tr>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: CONDITION_COLORS.high }}
-                                    ></div>
-                                    <span className="font-medium">High</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-mono">
-                                  {gauge.thresholds.high !== null && gauge.thresholds.dangerous !== null
-                                    ? `${gauge.thresholds.high} - ${(gauge.thresholds.dangerous - 0.01).toFixed(2)}`
-                                    : gauge.thresholds.high !== null
-                                    ? `≥ ${gauge.thresholds.high}`
-                                    : 'N/A'}
-                                </td>
-                                <td className="py-3 px-3 text-neutral-600">Experienced only</td>
-                              </tr>
-                              <tr>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: CONDITION_COLORS.optimal }}
-                                    ></div>
-                                    <span className="font-medium">Optimal</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-mono">
-                                  {gauge.thresholds.optimalMin !== null && gauge.thresholds.optimalMax !== null
-                                    ? `${gauge.thresholds.optimalMin} - ${gauge.thresholds.optimalMax}`
-                                    : 'N/A'}
-                                </td>
-                                <td className="py-3 px-3 text-neutral-600">Ideal conditions</td>
-                              </tr>
-                              <tr>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: CONDITION_COLORS.low }}
-                                    ></div>
-                                    <span className="font-medium">Low</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-mono">
-                                  {gauge.thresholds.low !== null && gauge.thresholds.optimalMin !== null
-                                    ? `${gauge.thresholds.low} - ${(gauge.thresholds.optimalMin - 0.01).toFixed(2)}`
-                                    : gauge.thresholds.low !== null
-                                    ? `≥ ${gauge.thresholds.low}`
-                                    : 'N/A'}
-                                </td>
-                                <td className="py-3 px-3 text-neutral-600">Floatable</td>
-                              </tr>
-                              <tr>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: CONDITION_COLORS.very_low }}
-                                    ></div>
-                                    <span className="font-medium">Very Low</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-mono">
-                                  {gauge.thresholds.tooLow !== null && gauge.thresholds.low !== null
-                                    ? `${gauge.thresholds.tooLow} - ${(gauge.thresholds.low - 0.01).toFixed(2)}`
-                                    : gauge.thresholds.tooLow !== null
-                                    ? `≥ ${gauge.thresholds.tooLow}`
-                                    : 'N/A'}
-                                </td>
-                                <td className="py-3 px-3 text-neutral-600">Scraping likely</td>
-                              </tr>
-                              <tr>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: CONDITION_COLORS.too_low }}
-                                    ></div>
-                                    <span className="font-medium">Too Low</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-mono">
-                                  {gauge.thresholds.tooLow !== null ? `< ${gauge.thresholds.tooLow}` : 'N/A'}
-                                </td>
-                                <td className="py-3 px-3 text-neutral-600">Not recommended</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ))}
+                  <div>
+                    <h3 className="text-2xl font-bold text-neutral-900 mb-1">View All Gauge Stations</h3>
+                    <p className="text-neutral-700">
+                      See real-time USGS data, current readings, and detailed thresholds for every gauge station
+                      on all monitored rivers.
+                    </p>
                   </div>
                 </div>
-              ))}
+                <ArrowRight className="w-6 h-6 text-primary-600 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </div>
             </div>
-          ) : (
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-6">
-              <p className="text-neutral-600">No gauge threshold data available.</p>
-            </div>
-          )}
+          </Link>
         </section>
 
         {/* Condition Codes Explained */}

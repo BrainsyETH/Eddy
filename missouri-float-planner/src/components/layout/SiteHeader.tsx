@@ -85,6 +85,18 @@ export default function SiteHeader() {
               About
             </Link>
 
+            {/* Gauges link */}
+            <Link
+              href="/gauges"
+              className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+                pathname === '/gauges'
+                  ? 'text-white bg-white/10'
+                  : 'text-primary-100 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Gauges
+            </Link>
+
             {/* Rivers dropdown */}
             <div ref={dropdownRef} className="relative">
               <button
@@ -156,13 +168,24 @@ export default function SiteHeader() {
           <div className="px-4 py-3">
             <Link
               href="/about"
-              className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-3 ${
+              className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-1 ${
                 pathname === '/about'
                   ? 'bg-white/10 text-white'
                   : 'text-primary-100 hover:bg-white/5 hover:text-white'
               }`}
             >
               <span className="font-medium">About / How It Works</span>
+            </Link>
+
+            <Link
+              href="/gauges"
+              className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-3 ${
+                pathname === '/gauges'
+                  ? 'bg-white/10 text-white'
+                  : 'text-primary-100 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <span className="font-medium">Gauge Stations</span>
             </Link>
 
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#72B5C4' }}>
