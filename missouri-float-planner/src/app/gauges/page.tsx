@@ -8,8 +8,8 @@ import { ChevronDown, ChevronRight, Droplets, MapPin, Clock, ExternalLink, Activ
 import { CONDITION_COLORS } from '@/constants';
 import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 
-// Rivers to expand by default (the 3 most active ones)
-const DEFAULT_EXPANDED_RIVERS = ['Meramec River', 'Current River', 'Eleven Point River'];
+// Rivers to expand by default (start with all collapsed)
+const DEFAULT_EXPANDED_RIVERS: string[] = [];
 
 interface RiverGaugeGroup {
   riverName: string;
@@ -21,6 +21,7 @@ export default function GaugesPage() {
   const [gaugeData, setGaugeData] = useState<GaugesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedRivers, setExpandedRivers] = useState<Set<string>>(new Set(DEFAULT_EXPANDED_RIVERS));
+  const [expandedGauges, setExpandedGauges] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function fetchGauges() {
@@ -49,6 +50,30 @@ export default function GaugesPage() {
       }
       return next;
     });
+  };
+
+  const toggleGauge = (gaugeId: string) => {
+    setExpandedGauges((prev) => {
+      const next = new Set(prev);
+      if (next.has(gaugeId)) {
+        next.delete(gaugeId);
+      } else {
+        next.add(gaugeId);
+      }
+      return next;
+    });
+  };
+
+  const hasValidThresholds = (thresholds: NonNullable<GaugeStation['thresholds']>) => {
+    if (!thresholds || thresholds.length === 0) return false;
+    return thresholds.some(t =>
+      t.levelTooLow !== null ||
+      t.levelLow !== null ||
+      t.levelOptimalMin !== null ||
+      t.levelOptimalMax !== null ||
+      t.levelHigh !== null ||
+      t.levelDangerous !== null
+    );
   };
 
   // Group gauges by river
@@ -186,42 +211,55 @@ export default function GaugesPage() {
 
                   {/* Expanded content */}
                   {isExpanded && (
-                    <div className="p-6 space-y-8">
+                    <div className="p-6 space-y-4">
                       {riverGroup.gauges.map((gauge) => {
                         const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
                         const currentCondition = primaryRiver ? getConditionLabel(gauge.gaugeHeightFt, primaryRiver) : 'Unknown';
                         const conditionColor = primaryRiver ? getConditionColor(gauge.gaugeHeightFt, primaryRiver) : CONDITION_COLORS.unknown;
+                        const isGaugeExpanded = expandedGauges.has(gauge.id);
 
                         return (
                           <div
                             key={gauge.id}
-                            className="border-2 border-neutral-200 rounded-lg p-6 space-y-6"
+                            className="border-2 border-neutral-200 rounded-lg overflow-hidden"
                           >
-                            {/* Gauge header */}
-                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="text-xl font-bold text-neutral-900">{gauge.name}</h3>
-                                  <a
-                                    href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 font-mono"
-                                  >
-                                    {gauge.usgsSiteId}
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-neutral-600">
-                                  <MapPin className="w-4 h-4" />
-                                  <span>
-                                    {gauge.coordinates.lat.toFixed(5)}, {gauge.coordinates.lng.toFixed(5)}
-                                  </span>
+                            {/* Gauge header - clickable to expand/collapse */}
+                            <button
+                              onClick={() => toggleGauge(gauge.id)}
+                              className="w-full px-6 py-4 flex items-center justify-between hover:bg-neutral-50 transition-colors text-left"
+                              style={{ borderBottom: isGaugeExpanded ? '2px solid #e5e7eb' : 'none' }}
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                {isGaugeExpanded ? (
+                                  <ChevronDown className="w-5 h-5 text-neutral-500 flex-shrink-0" />
+                                ) : (
+                                  <ChevronRight className="w-5 h-5 text-neutral-500 flex-shrink-0" />
+                                )}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-1">
+                                    <h3 className="text-xl font-bold text-neutral-900">{gauge.name}</h3>
+                                    <a
+                                      href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 font-mono"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {gauge.usgsSiteId}
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-neutral-600">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>
+                                      {gauge.coordinates.lat.toFixed(5)}, {gauge.coordinates.lng.toFixed(5)}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
 
                               {/* Current condition badge */}
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 flex-shrink-0">
                                 <div
                                   className="px-4 py-2 rounded-full text-white font-bold text-sm shadow-md"
                                   style={{ backgroundColor: conditionColor }}
@@ -229,10 +267,13 @@ export default function GaugesPage() {
                                   {currentCondition}
                                 </div>
                               </div>
-                            </div>
+                            </button>
 
-                            {/* Current readings */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Gauge details - only show when expanded */}
+                            {isGaugeExpanded && (
+                              <div className="p-6 space-y-6">
+                                {/* Current readings */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
                                 <div className="flex items-center gap-2 mb-2">
                                   <Droplets className="w-5 h-5 text-primary-600" />
@@ -288,12 +329,12 @@ export default function GaugesPage() {
                               </div>
                             </div>
 
-                            {/* Thresholds table */}
-                            {gauge.thresholds && gauge.thresholds.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide mb-3">
-                                  Condition Thresholds
-                                </h4>
+                                {/* Thresholds table */}
+                                {gauge.thresholds && hasValidThresholds(gauge.thresholds) && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide mb-3">
+                                      Condition Thresholds
+                                    </h4>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
                                     <thead>
@@ -424,7 +465,9 @@ export default function GaugesPage() {
                                       ))}
                                     </tbody>
                                   </table>
-                                </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
