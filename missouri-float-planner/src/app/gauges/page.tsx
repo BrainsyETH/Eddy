@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Droplets, MapPin, Clock, ExternalLink, Activity, Gauge as GaugeIcon } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
+import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 
 // Rivers to expand by default (start with all collapsed)
@@ -103,48 +104,19 @@ export default function GaugesPage() {
     ));
   }
 
-  const getConditionColor = (gaugeHeight: number | null, thresholds: NonNullable<GaugeStation['thresholds']>[0]) => {
-    if (gaugeHeight === null) return CONDITION_COLORS.unknown;
+  // Helper to get condition from gauge height and thresholds
+  // Uses shared condition computation logic from @/lib/conditions
+  const getCondition = (gaugeHeight: number | null, thresholds: NonNullable<GaugeStation['thresholds']>[0]) => {
+    const thresholdsForCompute: ConditionThresholds = {
+      levelTooLow: thresholds.levelTooLow,
+      levelLow: thresholds.levelLow,
+      levelOptimalMin: thresholds.levelOptimalMin,
+      levelOptimalMax: thresholds.levelOptimalMax,
+      levelHigh: thresholds.levelHigh,
+      levelDangerous: thresholds.levelDangerous,
+    };
 
-    if (thresholds.levelDangerous !== null && gaugeHeight >= thresholds.levelDangerous) {
-      return CONDITION_COLORS.dangerous;
-    }
-    if (thresholds.levelHigh !== null && gaugeHeight >= thresholds.levelHigh) {
-      return CONDITION_COLORS.high;
-    }
-    if (thresholds.levelOptimalMin !== null && thresholds.levelOptimalMax !== null &&
-        gaugeHeight >= thresholds.levelOptimalMin && gaugeHeight <= thresholds.levelOptimalMax) {
-      return CONDITION_COLORS.optimal;
-    }
-    if (thresholds.levelLow !== null && gaugeHeight >= thresholds.levelLow) {
-      return CONDITION_COLORS.low;
-    }
-    if (thresholds.levelTooLow !== null && gaugeHeight >= thresholds.levelTooLow) {
-      return CONDITION_COLORS.very_low;
-    }
-    return CONDITION_COLORS.too_low;
-  };
-
-  const getConditionLabel = (gaugeHeight: number | null, thresholds: NonNullable<GaugeStation['thresholds']>[0]) => {
-    if (gaugeHeight === null) return 'Unknown';
-
-    if (thresholds.levelDangerous !== null && gaugeHeight >= thresholds.levelDangerous) {
-      return 'Dangerous';
-    }
-    if (thresholds.levelHigh !== null && gaugeHeight >= thresholds.levelHigh) {
-      return 'High';
-    }
-    if (thresholds.levelOptimalMin !== null && thresholds.levelOptimalMax !== null &&
-        gaugeHeight >= thresholds.levelOptimalMin && gaugeHeight <= thresholds.levelOptimalMax) {
-      return 'Optimal';
-    }
-    if (thresholds.levelLow !== null && gaugeHeight >= thresholds.levelLow) {
-      return 'Low';
-    }
-    if (thresholds.levelTooLow !== null && gaugeHeight >= thresholds.levelTooLow) {
-      return 'Very Low';
-    }
-    return 'Too Low';
+    return computeCondition(gaugeHeight, thresholdsForCompute);
   };
 
   return (
@@ -214,8 +186,7 @@ export default function GaugesPage() {
                     <div className="p-6 space-y-4">
                       {riverGroup.gauges.map((gauge) => {
                         const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
-                        const currentCondition = primaryRiver ? getConditionLabel(gauge.gaugeHeightFt, primaryRiver) : 'Unknown';
-                        const conditionColor = primaryRiver ? getConditionColor(gauge.gaugeHeightFt, primaryRiver) : CONDITION_COLORS.unknown;
+                        const condition = primaryRiver ? getCondition(gauge.gaugeHeightFt, primaryRiver) : { label: 'Unknown', color: CONDITION_COLORS.unknown };
                         const isGaugeExpanded = expandedGauges.has(gauge.id);
 
                         return (
@@ -262,9 +233,9 @@ export default function GaugesPage() {
                               <div className="flex items-center gap-3 flex-shrink-0">
                                 <div
                                   className="px-4 py-2 rounded-full text-white font-bold text-sm shadow-md"
-                                  style={{ backgroundColor: conditionColor }}
+                                  style={{ backgroundColor: condition.color }}
                                 >
-                                  {currentCondition}
+                                  {condition.label}
                                 </div>
                               </div>
                             </button>

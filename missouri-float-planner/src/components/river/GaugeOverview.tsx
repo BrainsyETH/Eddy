@@ -4,6 +4,7 @@
 // High-level overview of gauge stations for a river
 
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
+import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 
 interface GaugeOverviewProps {
@@ -14,6 +15,7 @@ interface GaugeOverviewProps {
 }
 
 // Determine condition based on gauge height and thresholds
+// Uses shared condition computation logic from @/lib/conditions
 function getGaugeCondition(gauge: GaugeStation, riverId: string): {
   code: string;
   label: string;
@@ -29,26 +31,23 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
     return { code: 'unknown', label: 'Unknown', color: 'bg-neutral-400' };
   }
 
-  // Check thresholds from highest to lowest
-  if (threshold.levelDangerous !== null && height >= threshold.levelDangerous) {
-    return { code: 'dangerous', label: 'Flood', color: 'bg-red-600' };
-  }
-  if (threshold.levelHigh !== null && height >= threshold.levelHigh) {
-    return { code: 'high', label: 'High', color: 'bg-orange-500' };
-  }
-  if (threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null &&
-      height >= threshold.levelOptimalMin && height <= threshold.levelOptimalMax) {
-    return { code: 'optimal', label: 'Optimal', color: 'bg-emerald-500' };
-  }
-  if (threshold.levelLow !== null && height >= threshold.levelLow) {
-    return { code: 'low', label: 'Okay', color: 'bg-lime-500' };
-  }
-  // Between level_too_low and level_low = some dragging expected
-  if (threshold.levelTooLow !== null && height >= threshold.levelTooLow) {
-    return { code: 'very_low', label: 'Low', color: 'bg-yellow-500' };
-  }
-  // Below level_too_low = too low for comfortable floating
-  return { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400' };
+  // Convert to format expected by shared utility
+  const thresholdsForCompute: ConditionThresholds = {
+    levelTooLow: threshold.levelTooLow,
+    levelLow: threshold.levelLow,
+    levelOptimalMin: threshold.levelOptimalMin,
+    levelOptimalMax: threshold.levelOptimalMax,
+    levelHigh: threshold.levelHigh,
+    levelDangerous: threshold.levelDangerous,
+  };
+
+  const result = computeCondition(height, thresholdsForCompute);
+
+  return {
+    code: result.code,
+    label: getConditionShortLabel(result.code),
+    color: getConditionTailwindColor(result.code),
+  };
 }
 
 export default function GaugeOverview({ gauges, riverId, isLoading, defaultOpen = false }: GaugeOverviewProps) {

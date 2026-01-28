@@ -9,6 +9,7 @@ import {
   calculateDischargePercentile,
   type DailyStatistics,
 } from '@/lib/usgs/gauges';
+import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { ConditionCode, ConditionGauge, ConditionResponse, RiverCondition, FlowRating } from '@/types/api';
 
 // Flow rating descriptions for user display
@@ -111,6 +112,7 @@ function getThresholdBasedDescription(code: ConditionCode): string {
 }
 
 // Helper to determine condition from gauge height and thresholds
+// Uses shared condition computation logic from @/lib/conditions
 function computeConditionFromReading(
   gaugeHeightFt: number | null,
   thresholds: {
@@ -122,31 +124,18 @@ function computeConditionFromReading(
     level_dangerous: number | null;
   }
 ): { label: string; code: ConditionCode } {
-  if (gaugeHeightFt === null) {
-    return { label: 'Unknown', code: 'unknown' };
-  }
+  // Convert database snake_case to camelCase for shared utility
+  const thresholdsForCompute: ConditionThresholds = {
+    levelTooLow: thresholds.level_too_low,
+    levelLow: thresholds.level_low,
+    levelOptimalMin: thresholds.level_optimal_min,
+    levelOptimalMax: thresholds.level_optimal_max,
+    levelHigh: thresholds.level_high,
+    levelDangerous: thresholds.level_dangerous,
+  };
 
-  if (thresholds.level_dangerous !== null && gaugeHeightFt >= thresholds.level_dangerous) {
-    return { label: 'Dangerous - Do Not Float', code: 'dangerous' };
-  }
-  if (thresholds.level_high !== null && gaugeHeightFt >= thresholds.level_high) {
-    return { label: 'High Water - Experienced Only', code: 'high' };
-  }
-  if (
-    thresholds.level_optimal_min !== null &&
-    thresholds.level_optimal_max !== null &&
-    gaugeHeightFt >= thresholds.level_optimal_min &&
-    gaugeHeightFt <= thresholds.level_optimal_max
-  ) {
-    return { label: 'Optimal Conditions', code: 'optimal' };
-  }
-  if (thresholds.level_low !== null && gaugeHeightFt >= thresholds.level_low) {
-    return { label: 'Low - Floatable', code: 'low' };
-  }
-  if (thresholds.level_too_low !== null && gaugeHeightFt >= thresholds.level_too_low) {
-    return { label: 'Very Low - Scraping Likely', code: 'very_low' };
-  }
-  return { label: 'Too Low - Not Recommended', code: 'too_low' };
+  const result = computeCondition(gaugeHeightFt, thresholdsForCompute);
+  return { label: result.label, code: result.code };
 }
 
 export async function GET(
