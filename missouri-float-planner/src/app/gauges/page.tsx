@@ -5,8 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Droplets, MapPin, Clock, ExternalLink, Activity, Gauge as GaugeIcon } from 'lucide-react';
-import { CONDITION_COLORS } from '@/constants';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { computeCondition, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 
 // Rivers to expand by default (start with all collapsed)
@@ -116,7 +115,11 @@ export default function GaugesPage() {
       levelDangerous: thresholds.levelDangerous,
     };
 
-    return computeCondition(gaugeHeight, thresholdsForCompute);
+    const result = computeCondition(gaugeHeight, thresholdsForCompute);
+    return {
+      ...result,
+      tailwindColor: getConditionTailwindColor(result.code),
+    };
   };
 
   return (
@@ -186,7 +189,12 @@ export default function GaugesPage() {
                     <div className="p-6 space-y-4">
                       {riverGroup.gauges.map((gauge) => {
                         const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
-                        const condition = primaryRiver ? getCondition(gauge.gaugeHeightFt, primaryRiver) : { label: 'Unknown', color: CONDITION_COLORS.unknown };
+                        const condition = primaryRiver ? getCondition(gauge.gaugeHeightFt, primaryRiver) : {
+                          label: 'Unknown',
+                          code: 'unknown' as const,
+                          color: '#9ca3af',
+                          tailwindColor: 'bg-neutral-400'
+                        };
                         const isGaugeExpanded = expandedGauges.has(gauge.id);
 
                         return (
@@ -231,10 +239,7 @@ export default function GaugesPage() {
 
                               {/* Current condition badge */}
                               <div className="flex items-center gap-3 flex-shrink-0">
-                                <div
-                                  className="px-4 py-2 rounded-full text-white font-bold text-sm shadow-md"
-                                  style={{ backgroundColor: condition.color }}
-                                >
+                                <div className={`px-4 py-2 rounded-full text-white font-bold text-sm shadow-md ${condition.tailwindColor}`}>
                                   {condition.label}
                                 </div>
                               </div>
@@ -331,10 +336,7 @@ export default function GaugesPage() {
                                           <tr>
                                             <td className="py-3 px-3">
                                               <div className="flex items-center gap-2">
-                                                <div
-                                                  className="w-3 h-3 rounded-full"
-                                                  style={{ backgroundColor: CONDITION_COLORS.dangerous }}
-                                                ></div>
+                                                <div className="w-3 h-3 rounded-full bg-red-600"></div>
                                                 <span className="font-medium">Dangerous</span>
                                               </div>
                                             </td>
@@ -346,10 +348,7 @@ export default function GaugesPage() {
                                           <tr>
                                             <td className="py-3 px-3">
                                               <div className="flex items-center gap-2">
-                                                <div
-                                                  className="w-3 h-3 rounded-full"
-                                                  style={{ backgroundColor: CONDITION_COLORS.high }}
-                                                ></div>
+                                                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                                                 <span className="font-medium">High</span>
                                               </div>
                                             </td>
@@ -365,10 +364,7 @@ export default function GaugesPage() {
                                           <tr>
                                             <td className="py-3 px-3">
                                               <div className="flex items-center gap-2">
-                                                <div
-                                                  className="w-3 h-3 rounded-full"
-                                                  style={{ backgroundColor: CONDITION_COLORS.optimal }}
-                                                ></div>
+                                                <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
                                                 <span className="font-medium">Optimal</span>
                                               </div>
                                             </td>
@@ -382,10 +378,7 @@ export default function GaugesPage() {
                                           <tr>
                                             <td className="py-3 px-3">
                                               <div className="flex items-center gap-2">
-                                                <div
-                                                  className="w-3 h-3 rounded-full"
-                                                  style={{ backgroundColor: CONDITION_COLORS.low }}
-                                                ></div>
+                                                <div className="w-3 h-3 rounded-full bg-lime-500"></div>
                                                 <span className="font-medium">Low</span>
                                               </div>
                                             </td>
@@ -401,10 +394,7 @@ export default function GaugesPage() {
                                           <tr>
                                             <td className="py-3 px-3">
                                               <div className="flex items-center gap-2">
-                                                <div
-                                                  className="w-3 h-3 rounded-full"
-                                                  style={{ backgroundColor: CONDITION_COLORS.very_low }}
-                                                ></div>
+                                                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                                                 <span className="font-medium">Very Low</span>
                                               </div>
                                             </td>
@@ -420,10 +410,7 @@ export default function GaugesPage() {
                                           <tr>
                                             <td className="py-3 px-3">
                                               <div className="flex items-center gap-2">
-                                                <div
-                                                  className="w-3 h-3 rounded-full"
-                                                  style={{ backgroundColor: CONDITION_COLORS.too_low }}
-                                                ></div>
+                                                <div className="w-3 h-3 rounded-full bg-neutral-400"></div>
                                                 <span className="font-medium">Too Low</span>
                                               </div>
                                             </td>

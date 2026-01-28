@@ -161,17 +161,40 @@ export default function AboutPage() {
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-neutral-900 mb-2">Condition Calculation</h3>
                   <p className="text-neutral-700 leading-relaxed mb-3">
-                    Each river has carefully researched gauge height thresholds that define different
-                    condition levels. For example, a river might have:
+                    Each river has carefully researched gauge height thresholds based on local outfitter
+                    experience, National Park Service guidance, and historical data. For example,
+                    the Current River at Akers gauge uses these thresholds:
                   </p>
                   <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 font-mono text-sm space-y-1">
-                    <div><span className="text-red-600">Dangerous:</span> ≥ 7.0 ft</div>
-                    <div><span className="text-orange-500">High:</span> 5.0 - 6.9 ft</div>
-                    <div><span className="text-green-600">Optimal:</span> 2.5 - 4.0 ft</div>
-                    <div><span className="text-yellow-600">Low:</span> 2.0 - 2.4 ft</div>
-                    <div><span className="text-orange-500">Very Low:</span> 1.5 - 1.9 ft</div>
-                    <div><span className="text-red-600">Too Low:</span> &lt; 1.5 ft</div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0"></span>
+                      <span><span className="font-semibold">Dangerous:</span> ≥ 4.5 ft - River closed by NPS</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
+                      <span><span className="font-semibold">High:</span> 4.0 - 4.49 ft - Fast current, experienced only</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                      <span><span className="font-semibold">Optimal:</span> 2.0 - 3.5 ft - Ideal conditions</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-lime-500 flex-shrink-0"></span>
+                      <span><span className="font-semibold">Low (Okay):</span> 1.5 - 1.99 ft - Floatable, some dragging</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></span>
+                      <span><span className="font-semibold">Very Low:</span> 1.0 - 1.49 ft - Frequent dragging</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-neutral-400 flex-shrink-0"></span>
+                      <span><span className="font-semibold">Too Low:</span> &lt; 1.0 ft - Not recommended</span>
+                    </div>
                   </div>
+                  <p className="text-neutral-600 text-sm mt-3 italic">
+                    Thresholds vary by river and gauge location. Visit the <Link href="/gauges" className="text-primary-600 hover:text-primary-700 font-semibold">Gauges page</Link> to
+                    see specific thresholds for each gauge station.
+                  </p>
                 </div>
               </div>
             </div>
