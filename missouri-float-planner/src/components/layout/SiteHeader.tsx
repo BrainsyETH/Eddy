@@ -66,7 +66,7 @@ export default function SiteHeader() {
               height={32}
               className="w-8 h-8 rounded-md"
             />
-            <span className="text-xl font-semibold text-white" style={{ fontFamily: 'var(--font-display)' }}>
+            <span className="text-xl font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
               Eddy
             </span>
           </Link>

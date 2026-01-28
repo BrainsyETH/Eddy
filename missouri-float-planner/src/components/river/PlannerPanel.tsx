@@ -6,9 +6,12 @@
 // Users can select via dropdown OR by clicking map markers
 
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { RiverWithDetails, AccessPoint, FloatPlan } from '@/types/api';
+
+const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 const AccessPointSelector = dynamic(() => import('@/components/river/AccessPointSelector'), {
   ssr: false,
@@ -104,7 +107,16 @@ export default function PlannerPanel({
         <div className="space-y-4">
           {/* Header + Selectors - horizontal on desktop */}
           <div className="lg:flex lg:items-end lg:gap-4">
-            <h2 className="text-xl lg:text-2xl font-bold text-white mb-3 lg:mb-0 lg:shrink-0">Plan Your Float</h2>
+            <div className="flex items-center gap-2 mb-3 lg:mb-0 lg:shrink-0">
+              <Image
+                src={EDDY_CANOE_IMAGE}
+                alt="Eddy the Otter in a canoe"
+                width={56}
+                height={56}
+                className="w-10 h-10 md:w-14 md:h-14 object-contain"
+              />
+              <h2 className="text-xl lg:text-2xl font-bold text-white">Plan Your Float</h2>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:flex-1">
               <div>
                 <label className="block text-sm font-semibold text-white mb-1.5">

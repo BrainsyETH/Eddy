@@ -4,6 +4,7 @@
 // Dashboard-style gauge stations page with charts, filters, and engaging cards
 
 import React, { useEffect, useState, useMemo } from 'react';
+import Image from 'next/image';
 import {
   ChevronDown,
   ChevronUp,
@@ -12,15 +13,17 @@ import {
   Clock,
   ExternalLink,
   Activity,
-  Gauge as GaugeIcon,
   TrendingUp,
   BarChart3,
   X
 } from 'lucide-react';
+
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 import type { ConditionCode } from '@/types/api';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+
+const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
 
 // Date range options for charts
 const DATE_RANGES = [
@@ -224,17 +227,24 @@ export default function GaugesPage() {
         className="relative py-12 md:py-16 text-white"
         style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}
       >
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <GaugeIcon className="w-10 h-10" style={{ color: '#F07052' }} />
-            <h1
-              className="text-3xl md:text-4xl font-bold"
-              style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
-            >
-              Gauge Dashboard
-            </h1>
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <div className="-mb-1">
+            <Image
+              src={EDDY_FLOOD_IMAGE}
+              alt="Eddy the Otter"
+              width={160}
+              height={160}
+              className="mx-auto h-32 md:h-40 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+              priority
+            />
           </div>
-          <p className="text-base text-white/80 max-w-2xl mx-auto text-center">
+          <h1
+            className="text-3xl md:text-4xl font-bold mb-4"
+            style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
+          >
+            Gauge Dashboard
+          </h1>
+          <p className="text-base text-white/80 max-w-2xl mx-auto">
             Real-time water levels and flow trends from USGS gauges across Missouri rivers.
           </p>
         </div>

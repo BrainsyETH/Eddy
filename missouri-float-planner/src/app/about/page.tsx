@@ -141,8 +141,8 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <div className="-mb-1">
             <Image
-              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
-              alt="Eddy the Otter"
+              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20floatie.png"
+              alt="Eddy the Otter in a floatie"
               width={200}
               height={200}
               className="mx-auto h-48 md:h-56 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
