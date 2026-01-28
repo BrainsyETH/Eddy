@@ -84,14 +84,26 @@ export async function GET(request: NextRequest) {
           flexDirection: 'column',
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
+          position: 'relative',
         }}
       >
+        {/* TOP LEFT - Otter (absolute) */}
+        <div style={{ position: 'absolute', top: '20px', left: '24px', display: 'flex' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={cond.otterImage}
+            width={120}
+            height={120}
+            style={{ objectFit: 'contain' }}
+          />
+        </div>
+
         {/* TOP - River name centered */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'center',
-            padding: '28px 48px 0 48px',
+            padding: '24px 48px 0 48px',
           }}
         >
           <h1
@@ -109,119 +121,99 @@ export async function GET(request: NextRequest) {
           </h1>
         </div>
 
-        {/* MAIN CONTENT - Otter + Put-in/Take-out | Conditions */}
+        {/* MAIN CONTENT */}
         <div
           style={{
             display: 'flex',
             flex: 1,
             alignItems: 'center',
-            padding: '0 40px 20px 40px',
+            padding: '0 32px 0 160px',
           }}
         >
-          {/* LEFT - Otter next to Put-in/Take-out */}
-          <div
-            style={{
-              display: 'flex',
-              flex: 1,
-              alignItems: 'center',
-            }}
-          >
-            {/* Otter */}
-            <div style={{ display: 'flex', marginRight: '24px', flexShrink: 0 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={cond.otterImage}
-                width={160}
-                height={160}
-                style={{ objectFit: 'contain' }}
+          {/* Put-in / Take-out - LARGE */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#4EB86B',
+                  border: '4px solid #000',
+                  marginRight: '16px',
+                  flexShrink: 0,
+                }}
               />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.08em' }}>PUT-IN</span>
+                <span style={{ fontSize: '58px', fontWeight: 800, color: 'white', lineHeight: 1.0 }}>{putIn}</span>
+              </div>
             </div>
 
-            {/* Put-in / Take-out - MAXIMUM SIZE */}
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    background: '#4EB86B',
-                    border: '4px solid #000',
-                    marginRight: '14px',
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.08em' }}>PUT-IN</span>
-                  <span style={{ fontSize: '48px', fontWeight: 800, color: 'white', lineHeight: 1.05 }}>{putIn}</span>
-                </div>
+            {/* Connector line */}
+            <div style={{ width: '4px', height: '12px', background: '#4A6E6F', marginLeft: '14px', marginBottom: '6px' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#F07052',
+                  border: '4px solid #000',
+                  marginRight: '16px',
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.08em' }}>TAKE-OUT</span>
+                <span style={{ fontSize: '58px', fontWeight: 800, color: 'white', lineHeight: 1.0 }}>{takeOut}</span>
               </div>
-
-              {/* Connector line */}
-              <div style={{ width: '4px', height: '16px', background: '#4A6E6F', marginLeft: '12px', marginBottom: '8px' }} />
-
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    background: '#F07052',
-                    border: '4px solid #000',
-                    marginRight: '14px',
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.08em' }}>TAKE-OUT</span>
-                  <span style={{ fontSize: '48px', fontWeight: 800, color: 'white', lineHeight: 1.05 }}>{takeOut}</span>
-                </div>
-              </div>
-
-              {/* Trip stats row */}
-              {(distance || floatTime) && (
-                <div style={{ display: 'flex', marginTop: '16px' }}>
-                  {distance && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        padding: '8px 16px',
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '2px solid rgba(255,255,255,0.15)',
-                        marginRight: '10px',
-                      }}
-                    >
-                      <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
-                        {distance}
-                      </span>
-                    </div>
-                  )}
-                  {floatTime && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        padding: '8px 16px',
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '2px solid rgba(255,255,255,0.15)',
-                      }}
-                    >
-                      <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
-                        ~{floatTime}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
+
+            {/* Trip stats row */}
+            {(distance || floatTime) && (
+              <div style={{ display: 'flex', marginTop: '14px' }}>
+                {distance && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      padding: '8px 16px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '2px solid rgba(255,255,255,0.15)',
+                      marginRight: '10px',
+                    }}
+                  >
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
+                      {distance}
+                    </span>
+                  </div>
+                )}
+                {floatTime && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      padding: '8px 16px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '2px solid rgba(255,255,255,0.15)',
+                    }}
+                  >
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
+                      ~{floatTime}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* RIGHT - Conditions card */}
+          {/* Conditions card */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              width: '340px',
-              marginLeft: '20px',
+              width: '320px',
+              marginLeft: '24px',
               flexShrink: 0,
             }}
           >
@@ -229,7 +221,7 @@ export async function GET(request: NextRequest) {
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                padding: '24px 28px',
+                padding: '20px 24px',
                 background: '#F4EFE7',
                 border: '6px solid #000',
                 boxShadow: '10px 10px 0 #000',
@@ -243,26 +235,26 @@ export async function GET(request: NextRequest) {
                   background: cond.bg,
                   border: '5px solid #000',
                   boxShadow: '6px 6px 0 #000',
-                  marginBottom: '16px',
+                  marginBottom: '14px',
                 }}
               >
-                <span style={{ fontSize: '36px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '42px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
                   {cond.label}
                 </span>
               </div>
 
               {/* Gauge data - side by side */}
-              <div style={{ display: 'flex', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', marginBottom: '10px' }}>
                 {gaugeHeight && (
-                  <div style={{ display: 'flex', flexDirection: 'column', marginRight: '24px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '2px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '2px' }}>
                       GAUGE HEIGHT
                     </span>
                     <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '40px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                      <span style={{ fontSize: '38px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                         {gaugeHeight}
                       </span>
-                      <span style={{ fontSize: '16px', fontWeight: 800, color: '#6B6459', marginLeft: '4px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#6B6459', marginLeft: '3px' }}>
                         ft
                       </span>
                     </div>
@@ -271,14 +263,14 @@ export async function GET(request: NextRequest) {
 
                 {dischargeCfs && (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '2px' }}>
                       DISCHARGE
                     </span>
                     <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '40px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                      <span style={{ fontSize: '38px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                         {dischargeCfs}
                       </span>
-                      <span style={{ fontSize: '16px', fontWeight: 800, color: '#6B6459', marginLeft: '4px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#6B6459', marginLeft: '3px' }}>
                         cfs
                       </span>
                     </div>
@@ -290,12 +282,12 @@ export async function GET(request: NextRequest) {
               <div
                 style={{
                   display: 'flex',
-                  padding: '6px 12px',
+                  padding: '5px 10px',
                   background: '#E5DED2',
                   border: '3px solid #C2BAAC',
                 }}
               >
-                <span style={{ fontSize: '12px', fontWeight: 800, color: '#6B6459' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#6B6459' }}>
                   {gaugeName}
                 </span>
               </div>
@@ -304,7 +296,7 @@ export async function GET(request: NextRequest) {
         </div>
 
         {/* BOTTOM - CTA */}
-        <div style={{ display: 'flex', padding: '0 40px 20px 40px' }}>
+        <div style={{ display: 'flex', padding: '0 32px 16px 32px' }}>
           <span style={{ fontSize: '14px', fontWeight: 600, color: '#4A9AAD' }}>
             eddy.guide
           </span>
