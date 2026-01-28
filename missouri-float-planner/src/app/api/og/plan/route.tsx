@@ -79,56 +79,53 @@ export async function GET(request: NextRequest) {
           width: '1200px',
           height: '630px',
           display: 'flex',
-          flexDirection: 'row',
+          flexDirection: 'column',
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
+          position: 'relative',
         }}
       >
-        {/* LEFT PANEL */}
+        {/* TOP LEFT - Eddy the Otter + Branding */}
         <div
           style={{
-            width: '320px',
-            height: '630px',
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            background: '#0F2D35',
-            borderRight: '8px solid #000',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cond.otterImage}
-            width={260}
-            height={260}
-            style={{ objectFit: 'contain' }}
+            width={120}
+            height={120}
+            style={{ objectFit: 'contain', marginBottom: '8px' }}
           />
           <div
             style={{
               display: 'flex',
-              padding: '16px 32px',
+              padding: '8px 16px',
               background: '#F07052',
-              border: '6px solid #000',
-              boxShadow: '8px 8px 0 #000',
-              marginTop: '20px',
+              border: '4px solid #000',
+              boxShadow: '4px 4px 0 #000',
             }}
           >
-            <span style={{ fontSize: '28px', fontWeight: 900, color: 'white', letterSpacing: '0.15em' }}>
+            <span style={{ fontSize: '18px', fontWeight: 900, color: 'white', letterSpacing: '0.15em' }}>
               EDDY
             </span>
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* MAIN CONTENT */}
         <div
           style={{
-            width: '880px',
+            width: '1200px',
             height: '630px',
             display: 'flex',
             flexDirection: 'column',
-            background: '#1A3D40',
-            padding: '32px 48px',
+            padding: '32px 48px 32px 180px',
           }}
         >
           {/* River name */}
@@ -144,94 +141,79 @@ export async function GET(request: NextRequest) {
             {river.toUpperCase()}
           </h1>
 
-          {/* Put-in/Take-out */}
+          {/* Put-in/Take-out - Just icons and names */}
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
               marginBottom: '24px',
-              padding: '18px 22px',
-              background: '#0F2D35',
-              border: '4px solid #000',
             }}
           >
-            <div style={{ display: 'flex', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', marginRight: '40px' }}>
               <div
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '32px',
+                  height: '32px',
                   background: '#4EB86B',
                   border: '3px solid #000',
                   marginRight: '12px',
                 }}
               />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#A0C4C7', letterSpacing: '0.1em', marginBottom: '2px' }}>
-                  PUT-IN LOCATION
-                </span>
-                <span style={{ fontSize: '20px', fontWeight: 800, color: 'white' }}>{putIn}</span>
-              </div>
+              <span style={{ fontSize: '28px', fontWeight: 800, color: 'white' }}>{putIn}</span>
             </div>
 
             <div style={{ display: 'flex' }}>
               <div
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '32px',
+                  height: '32px',
                   background: '#F07052',
                   border: '3px solid #000',
                   marginRight: '12px',
                 }}
               />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#A0C4C7', letterSpacing: '0.1em', marginBottom: '2px' }}>
-                  TAKE-OUT POINT
-                </span>
-                <span style={{ fontSize: '20px', fontWeight: 800, color: 'white' }}>{takeOut}</span>
-              </div>
+              <span style={{ fontSize: '28px', fontWeight: 800, color: 'white' }}>{takeOut}</span>
             </div>
           </div>
 
-          {/* Gauge data card */}
+          {/* Expanded Gauge data card - Full width */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              padding: '24px 28px',
+              padding: '32px 40px',
               background: '#F4EFE7',
               border: '6px solid #000',
               boxShadow: '10px 10px 0 #000',
             }}
           >
-
-            {/* Condition badge */}
+            {/* Condition badge - Expanded */}
             <div
               style={{
                 display: 'flex',
-                padding: '12px 24px',
+                padding: '20px 40px',
                 background: cond.bg,
                 border: '5px solid #000',
                 boxShadow: '8px 8px 0 #000',
-                marginBottom: '16px',
+                marginBottom: '24px',
               }}
             >
-              <span style={{ fontSize: '44px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
+              <span style={{ fontSize: '56px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
                 {cond.label}
               </span>
             </div>
 
-            {/* Gauge data */}
-            <div style={{ display: 'flex', marginBottom: '14px' }}>
+            {/* Gauge data - Larger and more readable */}
+            <div style={{ display: 'flex', marginBottom: '20px' }}>
               {gaugeHeight && (
-                <div style={{ display: 'flex', flexDirection: 'column', marginRight: '32px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', marginRight: '60px' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '8px' }}>
                     GAUGE HEIGHT
                   </span>
                   <div style={{ display: 'flex' }}>
-                    <span style={{ fontSize: '42px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                    <span style={{ fontSize: '56px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                       {gaugeHeight}
                     </span>
-                    <span style={{ fontSize: '20px', fontWeight: 800, color: '#6B6459', marginLeft: '6px', marginTop: '12px' }}>
+                    <span style={{ fontSize: '28px', fontWeight: 800, color: '#6B6459', marginLeft: '8px', marginTop: '16px' }}>
                       ft
                     </span>
                   </div>
@@ -240,10 +222,10 @@ export async function GET(request: NextRequest) {
 
               {dischargeCfs && (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '8px' }}>
                     DISCHARGE (CFS)
                   </span>
-                  <span style={{ fontSize: '42px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                  <span style={{ fontSize: '56px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
                     {dischargeCfs}
                   </span>
                 </div>
@@ -254,12 +236,12 @@ export async function GET(request: NextRequest) {
             <div
               style={{
                 display: 'flex',
-                padding: '8px 14px',
+                padding: '10px 20px',
                 background: '#E5DED2',
                 border: '3px solid #C2BAAC',
               }}
             >
-              <span style={{ fontSize: '15px', fontWeight: 800, color: '#6B6459' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#6B6459' }}>
                 {gaugeName}
               </span>
             </div>
