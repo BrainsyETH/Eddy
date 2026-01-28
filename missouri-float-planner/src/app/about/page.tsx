@@ -3,11 +3,79 @@
 // src/app/about/page.tsx
 // About page explaining how Eddy works and condition codes
 
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, ArrowRight } from 'lucide-react';
+import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, ArrowRight, ChevronDown, Database, Waves } from 'lucide-react';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
+
+// Eddy otter images for different conditions
+const EDDY_IMAGES: Record<string, string> = {
+  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
+  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
+  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
+  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
+};
+
+// Map condition codes to Eddy images
+const getEddyImageForCondition = (code: ConditionCode): string => {
+  switch (code) {
+    case 'optimal':
+    case 'low': // "Okay - Floatable"
+      return EDDY_IMAGES.green;
+    case 'high':
+    case 'dangerous': // Flood
+      return EDDY_IMAGES.red;
+    case 'very_low': // "Low - Scraping Likely"
+      return EDDY_IMAGES.yellow;
+    case 'too_low':
+    case 'unknown':
+    default:
+      return EDDY_IMAGES.flag;
+  }
+};
+
+// Collapsible section component
+function CollapsibleSection({
+  title,
+  icon,
+  children,
+  defaultExpanded = false,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  defaultExpanded?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  return (
+    <section>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-3 mb-6 w-full text-left group"
+      >
+        <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
+          {icon}
+        </div>
+        <h2 className="text-3xl font-bold text-neutral-900 flex-1">{title}</h2>
+        <ChevronDown
+          className={`w-6 h-6 text-neutral-500 transition-transform duration-200 ${
+            isExpanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
 
 const conditionCodes: ConditionCode[] = ['too_low', 'very_low', 'low', 'optimal', 'high', 'dangerous', 'unknown'];
 
@@ -98,13 +166,11 @@ export default function AboutPage() {
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-16">
 
         {/* What is Eddy */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
-              <Info className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold text-neutral-900">What is Eddy?</h2>
-          </div>
+        <CollapsibleSection
+          title="What is Eddy?"
+          icon={<Info className="w-6 h-6 text-white" />}
+          defaultExpanded={true}
+        >
           <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
             <p className="text-neutral-700 leading-relaxed mb-4">
               Eddy is a Missouri River float trip planner that combines real-time water conditions,
@@ -118,17 +184,14 @@ export default function AboutPage() {
               Eleven Point, Jacks Fork, Niangua, Big Piney, Huzzah, and Courtois rivers.
             </p>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* How It Works */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
-              <Gauge className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold text-neutral-900">How It Works</h2>
-          </div>
-
+        <CollapsibleSection
+          title="How It Works"
+          icon={<Gauge className="w-6 h-6 text-white" />}
+          defaultExpanded={false}
+        >
           <div className="space-y-4">
             {/* Live USGS Data */}
             <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
@@ -241,7 +304,7 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Link to Gauge Stations Page */}
         <section>
@@ -267,14 +330,11 @@ export default function AboutPage() {
         </section>
 
         {/* Condition Codes Explained */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
-              <AlertTriangle className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold text-neutral-900">Understanding Condition Codes</h2>
-          </div>
-
+        <CollapsibleSection
+          title="Understanding Condition Codes"
+          icon={<AlertTriangle className="w-6 h-6 text-white" />}
+          defaultExpanded={false}
+        >
           <p className="text-neutral-700 mb-6 leading-relaxed">
             Eddy uses seven condition codes to communicate water levels and safety. Here&apos;s what each
             condition means and when you should (or shouldn&apos;t) float:
@@ -283,6 +343,7 @@ export default function AboutPage() {
           <div className="space-y-4">
             {conditionCodes.map((code) => {
               const info = conditionDescriptions[code];
+              const eddyImage = getEddyImageForCondition(code);
               return (
                 <div
                   key={code}
@@ -297,7 +358,13 @@ export default function AboutPage() {
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">{info.icon}</span>
+                      <Image
+                        src={eddyImage}
+                        alt={`Eddy for ${info.title}`}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 object-contain"
+                      />
                       <div className="flex-1">
                         <h3 className="text-xl font-bold text-neutral-900">{info.title}</h3>
                         <p className="text-sm text-neutral-600">{CONDITION_LABELS[code]}</p>
@@ -332,11 +399,14 @@ export default function AboutPage() {
               );
             })}
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Data Sources */}
-        <section>
-          <h2 className="text-3xl font-bold text-neutral-900 mb-6">Data Sources</h2>
+        <CollapsibleSection
+          title="Data Sources"
+          icon={<Database className="w-6 h-6 text-white" />}
+          defaultExpanded={false}
+        >
           <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
             <div className="space-y-4">
               <div>
@@ -366,7 +436,7 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Safety Notice */}
         <section>
@@ -396,8 +466,11 @@ export default function AboutPage() {
         </section>
 
         {/* Rivers Covered */}
-        <section>
-          <h2 className="text-3xl font-bold text-neutral-900 mb-6">Rivers We Cover</h2>
+        <CollapsibleSection
+          title="Rivers We Cover"
+          icon={<Waves className="w-6 h-6 text-white" />}
+          defaultExpanded={false}
+        >
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               'Meramec River',
@@ -417,7 +490,7 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-        </section>
+        </CollapsibleSection>
 
       </div>
 

@@ -361,24 +361,34 @@ export default function GaugesPage() {
                   </select>
                 </div>
 
+                {/* OSNR Toggle */}
+                <button
+                  onClick={() => setOsnrOnly(!osnrOnly)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    osnrOnly
+                      ? 'bg-[#7B2D3B] text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
+                  title="Ozark National Scenic Riverways - Current, Eleven Point, Jacks Fork"
+                >
+                  OSNR
+                </button>
+
                 {/* Date range for charts */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-neutral-600">Chart Range:</label>
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                    {DATE_RANGES.map(range => (
-                      <button
-                        key={range.days}
-                        onClick={() => setDateRange(range.days)}
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          dateRange === range.days
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                        }`}
-                      >
-                        {range.label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                  {DATE_RANGES.map(range => (
+                    <button
+                      key={range.days}
+                      onClick={() => setDateRange(range.days)}
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${
+                        dateRange === range.days
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Clear filters */}
@@ -396,19 +406,6 @@ export default function GaugesPage() {
                 <div className="ml-auto text-sm text-neutral-500">
                   Showing {processedGauges.length} of {stats.total} gauges
                 </div>
-
-                {/* OSNR Toggle - at end on desktop */}
-                <button
-                  onClick={() => setOsnrOnly(!osnrOnly)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    osnrOnly
-                      ? 'bg-[#7B2D3B] text-white shadow-md'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                  title="Ozark National Scenic Riverways - Current, Eleven Point, Jacks Fork"
-                >
-                  OSNR
-                </button>
               </div>
             </div>
 
