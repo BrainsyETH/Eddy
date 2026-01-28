@@ -85,9 +85,9 @@ BEGIN
     1.0,    -- Too low
     1.3,    -- Low
     1.5,    -- Optimal min
-    3.5,    -- Optimal max
-    4.0,    -- High
-    5.0     -- Dangerous
+    3.0,    -- Optimal max - more cautious
+    3.5,    -- High - suggest another day
+    4.0     -- Dangerous - river likely closed
   FROM gauge_stations gs
   WHERE gs.usgs_site_id = '07065200'
   ON CONFLICT (gauge_station_id, river_id)
@@ -120,8 +120,8 @@ BEGIN
     1.5,    -- Too low - below this, very difficult
     2.0,    -- Low - will drag with gear
     2.5,    -- Optimal min - good conditions start
-    3.5,    -- Optimal max
-    3.65,   -- High - flood level begins
+    3.0,    -- Optimal max - more cautious
+    3.5,    -- High - suggest another day, flood level approaching
     4.0     -- Dangerous - parks close the river
   FROM gauge_stations gs
   WHERE gs.usgs_site_id = '07065495'
@@ -156,9 +156,9 @@ BEGIN
     1.0,    -- Too low
     1.5,    -- Low - average level, may drag loaded
     2.0,    -- Optimal min
-    3.5,    -- Optimal max
-    4.0,    -- High - river closes
-    5.3     -- Dangerous - flood level
+    3.0,    -- Optimal max - more cautious
+    3.5,    -- High - suggest another day
+    4.0     -- Dangerous - river closes
   FROM gauge_stations gs
   WHERE gs.usgs_site_id = '07066000'
   ON CONFLICT (gauge_station_id, river_id)

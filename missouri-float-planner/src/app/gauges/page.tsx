@@ -29,22 +29,22 @@ const DATE_RANGES = [
   { days: 30, label: '30 Days' },
 ];
 
-// River-specific floating summaries (local knowledge)
+// River-specific floating summaries (local knowledge - SAFETY FIRST)
 const RIVER_SUMMARIES: Record<string, { title: string; summary: string; tip: string }> = {
   'current-river': {
     title: 'Current River',
-    summary: 'Most floaters agree that anything above 2.0 ft at Akers is good to go. The Current is spring-fed, so it rarely gets too low for a fun float. Below 1.5 ft you\'ll be dragging in the riffles.',
-    tip: 'The upper Current (Montauk to Akers) needs slightly more water than the lower sections.',
+    summary: 'The Akers gauge is the primary reference. 2.0–3.0 ft is optimal. The Current is spring-fed and forgiving, but above 3.5 ft conditions deteriorate. At 4.0 ft the river closes. Below 1.5 ft you\'ll drag in riffles. Van Buren (lower river) runs higher—optimal 3.0–4.0 ft, closes at 5.0 ft.',
+    tip: 'Spring rains can cause rapid rises. If the gauge is climbing, consider another day. The upper Current (Montauk to Akers) needs slightly more water than lower sections.',
   },
   'eleven-point-river': {
     title: 'Eleven Point River',
-    summary: 'The Bardley gauge (16 mi downstream from Greer) is the key reference. 3.0–3.5 ft is optimal for floating. Average is ~3.0 ft. Above 4 ft gets murky/muddy and undesirable. Only experienced floaters at 4–5 ft. At 5 ft, outfitters stop putting in and Forest Service closes the river. Flood stage is 10 ft.',
-    tip: 'The Eleven Point has excellent water clarity when conditions are right. Mid-June through mid-September offers the best floating with clear water. Spring rains (March–May) can cause rapid rises and muddy conditions.',
+    summary: 'The Bardley gauge (16 mi downstream from Greer) is the key reference. 3.0–3.5 ft is optimal. Average is ~3.0 ft. Above 4 ft we recommend another day—water gets murky and conditions deteriorate. At 5 ft, outfitters stop and Forest Service closes the river.',
+    tip: 'Mid-June through mid-September offers the best floating with clear water. Spring rains (March–May) cause rapid rises and muddy conditions. When in doubt, wait it out.',
   },
   'jacks-fork-river': {
     title: 'Jacks Fork River',
-    summary: 'The Jacks Fork is shallower than the Current and more rain-dependent. At Alley Spring (primary gauge), 2.5–3.5 ft is ideal; below 2.0 ft you\'ll drag with gear, below 1.5 ft is tough even with an empty canoe. At Eminence (lower), 2.0–3.5 ft is good; ~1.5 ft is average but may drag loaded. River closes when Alley Spring hits 3.65 ft or Eminence hits 4.0 ft.',
-    tip: 'The Jacks Fork rises and falls fast after rain. The upper sections near Mountain View need higher water. The Eminence gauge is useful for lower sections near Two Rivers.',
+    summary: 'The Jacks Fork is shallower and more rain-dependent. At Alley Spring (primary), 2.5–3.0 ft is ideal. Above 3.5 ft we recommend another day—river closes at 4.0 ft. Below 2.0 ft you\'ll drag with gear. At Eminence (lower), 2.0–3.0 ft is good; average is ~1.5 ft but may drag loaded.',
+    tip: 'The Jacks Fork rises and falls FAST after rain. Flash floods are a serious concern. If rain is forecast or the gauge is rising, postpone your trip.',
   },
 };
 

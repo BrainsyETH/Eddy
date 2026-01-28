@@ -6,13 +6,11 @@
 -- Correct Eleven Point USGS Gauge:
 -- - 07071500 - Eleven Point River near Bardley, MO (16 mi downstream from Greer)
 --
--- Local Knowledge Thresholds (from experienced floaters):
+-- Local Knowledge Thresholds (CAUTIOUS - safety first):
 -- - Average/Normal: ~3.0 ft
 -- - Optimal: 3.0-3.5 ft
--- - 4+ ft: Undesirable (murky/muddy waters)
--- - 4-5 ft: Experienced floaters only
--- - 5 ft: Max level - Forest Service closes river, outfitters won't put in
--- - Action level: 8 ft
+-- - 4+ ft: HIGH - suggest another day, murky/muddy, not recommended
+-- - 5 ft: DANGEROUS - Forest Service closes river, outfitters won't put in
 -- - Flood stage: 10 ft
 --
 -- Gauges that should NOT be on Eleven Point:
@@ -90,8 +88,8 @@ BEGIN
       2.5,    -- Low - floatable but some scraping
       3.0,    -- Optimal min - good conditions, average level
       3.5,    -- Optimal max - ideal floating
-      5.0,    -- High - Forest Service closes, outfitters won't put in
-      10.0    -- Dangerous - flood stage
+      4.0,    -- High - suggest another day, murky/muddy conditions likely
+      5.0     -- Dangerous - Forest Service closes, outfitters won't put in
     )
     ON CONFLICT (gauge_station_id, river_id)
     DO UPDATE SET
