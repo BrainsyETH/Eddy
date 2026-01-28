@@ -73,6 +73,18 @@ export default function SiteHeader() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
+            {/* About link */}
+            <Link
+              href="/about"
+              className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+                pathname === '/about'
+                  ? 'text-white bg-white/10'
+                  : 'text-primary-100 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              About
+            </Link>
+
             {/* Rivers dropdown */}
             <div ref={dropdownRef} className="relative">
               <button
@@ -142,6 +154,17 @@ export default function SiteHeader() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
           <div className="px-4 py-3">
+            <Link
+              href="/about"
+              className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-3 ${
+                pathname === '/about'
+                  ? 'bg-white/10 text-white'
+                  : 'text-primary-100 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <span className="font-medium">About / How It Works</span>
+            </Link>
+
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#72B5C4' }}>
               Rivers
             </p>
