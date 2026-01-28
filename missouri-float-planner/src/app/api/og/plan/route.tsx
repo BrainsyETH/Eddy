@@ -84,221 +84,106 @@ export async function GET(request: NextRequest) {
           flexDirection: 'column',
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
+          padding: '32px 40px',
           position: 'relative',
         }}
       >
         {/* TOP LEFT - Otter (absolute) */}
-        <div style={{ position: 'absolute', top: '20px', left: '24px', display: 'flex' }}>
+        <div style={{ position: 'absolute', top: '24px', left: '32px', display: 'flex' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cond.otterImage}
-            width={120}
-            height={120}
+            width={100}
+            height={100}
             style={{ objectFit: 'contain' }}
           />
         </div>
 
-        {/* TOP - River name centered */}
-        <div
+        {/* River name - large */}
+        <h1
           style={{
-            display: 'flex',
-            justifyContent: 'center',
-            padding: '24px 48px 0 48px',
+            fontSize: '56px',
+            fontWeight: 900,
+            color: 'white',
+            letterSpacing: '-0.02em',
+            margin: '0 0 12px 120px',
+            lineHeight: 1.0,
           }}
         >
-          <h1
-            style={{
-              fontSize: '52px',
-              fontWeight: 900,
-              color: 'white',
-              letterSpacing: '-0.02em',
-              margin: 0,
-              lineHeight: 1.05,
-              textAlign: 'center',
-            }}
-          >
-            {river.toUpperCase()}
-          </h1>
-        </div>
+          {river.toUpperCase()}
+        </h1>
 
-        {/* MAIN CONTENT */}
-        <div
-          style={{
-            display: 'flex',
-            flex: 1,
-            alignItems: 'center',
-            padding: '0 32px 0 160px',
-          }}
-        >
-          {/* Put-in / Take-out - LARGE */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: '#4EB86B',
-                  border: '4px solid #000',
-                  marginRight: '16px',
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.08em' }}>PUT-IN</span>
-                <span style={{ fontSize: '58px', fontWeight: 800, color: 'white', lineHeight: 1.0 }}>{putIn}</span>
-              </div>
-            </div>
-
-            {/* Connector line */}
-            <div style={{ width: '4px', height: '12px', background: '#4A6E6F', marginLeft: '14px', marginBottom: '6px' }} />
-
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: '#F07052',
-                  border: '4px solid #000',
-                  marginRight: '16px',
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.08em' }}>TAKE-OUT</span>
-                <span style={{ fontSize: '58px', fontWeight: 800, color: 'white', lineHeight: 1.0 }}>{takeOut}</span>
-              </div>
-            </div>
-
-            {/* Trip stats row */}
-            {(distance || floatTime) && (
-              <div style={{ display: 'flex', marginTop: '14px' }}>
-                {distance && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      padding: '8px 16px',
-                      background: 'rgba(255,255,255,0.1)',
-                      border: '2px solid rgba(255,255,255,0.15)',
-                      marginRight: '10px',
-                    }}
-                  >
-                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
-                      {distance}
-                    </span>
-                  </div>
-                )}
-                {floatTime && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      padding: '8px 16px',
-                      background: 'rgba(255,255,255,0.1)',
-                      border: '2px solid rgba(255,255,255,0.15)',
-                    }}
-                  >
-                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
-                      ~{floatTime}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Conditions card */}
+        {/* Put-in / Take-out - single line with squares */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', marginLeft: '120px' }}>
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              width: '320px',
-              marginLeft: '24px',
+              width: '18px',
+              height: '18px',
+              background: '#4EB86B',
+              marginRight: '8px',
               flexShrink: 0,
             }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '20px 24px',
-                background: '#F4EFE7',
-                border: '6px solid #000',
-                boxShadow: '10px 10px 0 #000',
-              }}
-            >
-              {/* Condition badge - LARGE */}
-              <div
-                style={{
-                  display: 'flex',
-                  padding: '14px 20px',
-                  background: cond.bg,
-                  border: '5px solid #000',
-                  boxShadow: '6px 6px 0 #000',
-                  marginBottom: '14px',
-                }}
-              >
-                <span style={{ fontSize: '42px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
-                  {cond.label}
+          />
+          <span style={{ fontSize: '22px', fontWeight: 600, color: 'white', marginRight: '28px' }}>{putIn}</span>
+
+          <div
+            style={{
+              width: '18px',
+              height: '18px',
+              background: '#F07052',
+              marginRight: '8px',
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontSize: '22px', fontWeight: 600, color: 'white' }}>{takeOut}</span>
+        </div>
+
+        {/* Condition badge - VERY LARGE, full width */}
+        <div
+          style={{
+            display: 'flex',
+            padding: '24px 36px',
+            background: cond.bg,
+            border: '6px solid #000',
+            marginBottom: '24px',
+          }}
+        >
+          <span style={{ fontSize: '80px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
+            {cond.label}
+          </span>
+        </div>
+
+        {/* Gauge data */}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {gaugeHeight && (
+            <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '12px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#72B5C4', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                GAUGE HEIGHT
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                <span style={{ fontSize: '52px', fontWeight: 900, color: 'white', letterSpacing: '-0.03em' }}>
+                  {gaugeHeight}
                 </span>
-              </div>
-
-              {/* Gauge data - side by side */}
-              <div style={{ display: 'flex', marginBottom: '10px' }}>
-                {gaugeHeight && (
-                  <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '2px' }}>
-                      GAUGE HEIGHT
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '38px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
-                        {gaugeHeight}
-                      </span>
-                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#6B6459', marginLeft: '3px' }}>
-                        ft
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {dischargeCfs && (
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '2px' }}>
-                      DISCHARGE
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '38px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
-                        {dischargeCfs}
-                      </span>
-                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#6B6459', marginLeft: '3px' }}>
-                        cfs
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Gauge name */}
-              <div
-                style={{
-                  display: 'flex',
-                  padding: '5px 10px',
-                  background: '#E5DED2',
-                  border: '3px solid #C2BAAC',
-                }}
-              >
-                <span style={{ fontSize: '11px', fontWeight: 800, color: '#6B6459' }}>
-                  {gaugeName}
+                <span style={{ fontSize: '22px', fontWeight: 700, color: '#A3D1DB', marginLeft: '8px' }}>
+                  ft
                 </span>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* BOTTOM - CTA */}
-        <div style={{ display: 'flex', padding: '0 32px 16px 32px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: '#4A9AAD' }}>
-            eddy.guide
+        {/* Gauge name */}
+        <div
+          style={{
+            display: 'flex',
+            padding: '8px 14px',
+            background: 'rgba(255,255,255,0.08)',
+            border: '2px solid rgba(255,255,255,0.15)',
+            alignSelf: 'flex-start',
+          }}
+        >
+          <span style={{ fontSize: '14px', fontWeight: 700, color: '#A3D1DB' }}>
+            {gaugeName}
           </span>
         </div>
       </div>
