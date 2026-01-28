@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           width: '1200px',
           height: '630px',
           display: 'flex',
+          flexDirection: 'column',
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
           position: 'relative',
@@ -57,181 +58,186 @@ export async function GET(request: NextRequest) {
           }}
         />
 
-        {/* LEFT PANEL - River info */}
+        {/* TOP - River name centered */}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            padding: '48px 48px',
-            justifyContent: 'space-between',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 48px 0 48px',
           }}
         >
-          {/* Top: Logo + region */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
-              width={52}
-              height={52}
-              style={{ objectFit: 'contain', marginRight: '14px' }}
-            />
-            <div
-              style={{
-                display: 'flex',
-                padding: '8px 18px',
-                background: '#F07052',
-                border: '4px solid #000',
-                boxShadow: '4px 4px 0 #000',
-              }}
-            >
-              <span style={{ fontSize: '18px', fontWeight: 900, color: 'white', letterSpacing: '0.15em' }}>
-                EDDY
-              </span>
-            </div>
-            {region && (
-              <span style={{ fontSize: '16px', fontWeight: 600, color: '#72B5C4', marginLeft: '16px' }}>
-                {region}
-              </span>
-            )}
-          </div>
-
-          {/* Middle: River name + stats */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1
-              style={{
-                fontSize: '56px',
-                fontWeight: 900,
-                color: 'white',
-                lineHeight: 1.1,
-                letterSpacing: '-0.02em',
-                margin: '0 0 20px 0',
-              }}
-            >
-              {name}
-            </h1>
-
-            {/* Stats pills */}
-            <div style={{ display: 'flex' }}>
-              {length && (
-                <div
-                  style={{
-                    display: 'flex',
-                    padding: '8px 18px',
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '2px solid rgba(255,255,255,0.15)',
-                    marginRight: '10px',
-                  }}
-                >
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#A3D1DB' }}>
-                    {length} miles
-                  </span>
-                </div>
-              )}
-              {difficulty && (
-                <div
-                  style={{
-                    display: 'flex',
-                    padding: '8px 18px',
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '2px solid rgba(255,255,255,0.15)',
-                  }}
-                >
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#A3D1DB' }}>
-                    {difficulty}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bottom: CTA */}
-          <div style={{ display: 'flex' }}>
-            <span style={{ fontSize: '16px', fontWeight: 600, color: '#4A9AAD' }}>
-              eddy.guide
-            </span>
-          </div>
+          <h1
+            style={{
+              fontSize: '58px',
+              fontWeight: 900,
+              color: 'white',
+              lineHeight: 1.1,
+              letterSpacing: '-0.02em',
+              margin: 0,
+              textAlign: 'center',
+            }}
+          >
+            {name}
+          </h1>
         </div>
 
-        {/* RIGHT PANEL - Conditions card */}
+        {/* BOTTOM SECTION - Otter + stats on left, Conditions on right */}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
-            width: '420px',
-            padding: '48px 48px 48px 0',
-            justifyContent: 'center',
+            flex: 1,
+            padding: '20px 48px 40px 48px',
           }}
         >
+          {/* LEFT - Otter + stats */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              padding: '28px 32px',
-              background: '#F4EFE7',
-              border: '6px solid #000',
-              boxShadow: '10px 10px 0 #000',
+              flex: 1,
+              justifyContent: 'space-between',
             }}
           >
-            {/* Section label */}
-            <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '16px' }}>
-              CURRENT CONDITIONS
-            </span>
+            {/* Otter image - large */}
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+                width={140}
+                height={140}
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
 
-            {/* Condition badge - brutalist style */}
+            {/* Stats pills + region */}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {region && (
+                <span style={{ fontSize: '18px', fontWeight: 600, color: '#72B5C4', marginBottom: '12px' }}>
+                  {region}
+                </span>
+              )}
+              <div style={{ display: 'flex' }}>
+                {length && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      padding: '10px 20px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '2px solid rgba(255,255,255,0.15)',
+                      marginRight: '10px',
+                    }}
+                  >
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
+                      {length} miles
+                    </span>
+                  </div>
+                )}
+                {difficulty && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      padding: '10px 20px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '2px solid rgba(255,255,255,0.15)',
+                    }}
+                  >
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#A3D1DB' }}>
+                      {difficulty}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div style={{ display: 'flex' }}>
+              <span style={{ fontSize: '16px', fontWeight: 600, color: '#4A9AAD' }}>
+                eddy.guide
+              </span>
+            </div>
+          </div>
+
+          {/* RIGHT - Conditions card (narrower) */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: '380px',
+              justifyContent: 'center',
+              paddingLeft: '24px',
+            }}
+          >
             <div
               style={{
                 display: 'flex',
-                padding: '16px 28px',
-                background: cond.bg,
-                border: '5px solid #000',
-                boxShadow: '6px 6px 0 #000',
-                marginBottom: '24px',
+                flexDirection: 'column',
+                padding: '28px 32px',
+                background: '#F4EFE7',
+                border: '6px solid #000',
+                boxShadow: '10px 10px 0 #000',
               }}
             >
-              <span style={{ fontSize: '36px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
-                {cond.label}
+              {/* Section label */}
+              <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                CURRENT CONDITIONS
               </span>
-            </div>
 
-            {/* Gauge height */}
-            {gaugeHeight && (
-              <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '6px' }}>
-                  GAUGE HEIGHT
-                </span>
-                <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: '44px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
-                    {gaugeHeight}
-                  </span>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#6B6459', marginLeft: '6px' }}>
-                    ft
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Flow description */}
-            {flowDesc && (
+              {/* Condition badge */}
               <div
                 style={{
                   display: 'flex',
-                  padding: '10px 16px',
-                  background: '#E5DED2',
-                  border: '3px solid #C2BAAC',
+                  padding: '14px 24px',
+                  background: cond.bg,
+                  border: '5px solid #000',
+                  boxShadow: '6px 6px 0 #000',
+                  marginBottom: '20px',
                 }}
               >
-                <span style={{ fontSize: '15px', fontWeight: 700, color: '#6B6459' }}>
-                  {flowDesc}
+                <span style={{ fontSize: '34px', fontWeight: 900, color: cond.textColor, letterSpacing: '-0.02em' }}>
+                  {cond.label}
                 </span>
               </div>
-            )}
 
-            {/* Live data badge */}
-            <div style={{ display: 'flex', marginTop: '16px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#857D70', letterSpacing: '0.05em' }}>
-                LIVE FROM USGS GAUGES
-              </span>
+              {/* Gauge height */}
+              {gaugeHeight && (
+                <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#857D70', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                    GAUGE HEIGHT
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: '40px', fontWeight: 900, color: '#2D2A24', letterSpacing: '-0.03em' }}>
+                      {gaugeHeight}
+                    </span>
+                    <span style={{ fontSize: '18px', fontWeight: 800, color: '#6B6459', marginLeft: '6px' }}>
+                      ft
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Flow description */}
+              {flowDesc && (
+                <div
+                  style={{
+                    display: 'flex',
+                    padding: '8px 16px',
+                    background: '#E5DED2',
+                    border: '3px solid #C2BAAC',
+                  }}
+                >
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#6B6459' }}>
+                    {flowDesc}
+                  </span>
+                </div>
+              )}
+
+              {/* Live data badge */}
+              <div style={{ display: 'flex', marginTop: '14px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#857D70', letterSpacing: '0.05em' }}>
+                  LIVE FROM USGS GAUGES
+                </span>
+              </div>
             </div>
           </div>
         </div>
