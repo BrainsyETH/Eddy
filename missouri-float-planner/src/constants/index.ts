@@ -52,10 +52,10 @@ export const HAZARD_SEVERITY_COLORS = {
 export const CONDITION_COLORS = {
   dangerous: '#ef4444', // red
   high: '#f97316',      // orange
-  optimal: '#22c55e',   // green
-  low: '#eab308',       // yellow
-  very_low: '#f97316',  // orange
-  too_low: '#ef4444',   // red
+  optimal: '#059669',   // emerald-600 (richer green)
+  low: '#84cc16',       // lime-500 (okay green)
+  very_low: '#eab308',  // yellow
+  too_low: '#9ca3af',   // gray
   unknown: '#9ca3af',   // gray
 } as const;
 
@@ -64,8 +64,8 @@ export const CONDITION_LABELS = {
   dangerous: 'Dangerous - Do Not Float',
   high: 'High Water - Experienced Only',
   optimal: 'Optimal Conditions',
-  low: 'Low - Floatable',
-  very_low: 'Very Low - Scraping Likely',
+  low: 'Okay - Floatable',
+  very_low: 'Low - Scraping Likely',
   too_low: 'Too Low - Not Recommended',
   unknown: 'Unknown',
 } as const;

@@ -24,16 +24,16 @@ const conditionDescriptions: Record<ConditionCode, {
     icon: '🎯',
   },
   low: {
-    title: 'Low - Floatable',
+    title: 'Okay - Floatable',
     description: 'Water levels are below optimal but still floatable. You may encounter some shallow areas and occasional scraping on gravel bars, especially in wider sections. Float times may be slightly longer than estimated.',
     recommendation: 'Suitable for most paddlers. Be prepared for some shallow sections and possibly dragging your vessel occasionally.',
-    icon: '⚠️',
+    icon: '✓',
   },
   very_low: {
-    title: 'Very Low - Scraping Likely',
+    title: 'Low - Scraping Likely',
     description: 'Water levels are significantly below normal. Expect frequent scraping, dragging, and possible portaging around shallow areas. Float times will be considerably longer than estimates. The experience may be more work than relaxation.',
     recommendation: 'Not recommended for beginners or large groups. Consider waiting for higher water or choosing a different river.',
-    icon: '⚠️⚠️',
+    icon: '⚠️',
   },
   high: {
     title: 'High Water - Experienced Only',
@@ -168,23 +168,23 @@ export default function AboutPage() {
                   <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 font-mono text-sm space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Dangerous:</span> ≥ 4.5 ft - River closed by NPS</span>
+                      <span><span className="font-semibold">Flood:</span> ≥ 4.5 ft - River closed by NPS</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
                       <span><span className="font-semibold">High:</span> 4.0 - 4.49 ft - Fast current, experienced only</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-600 flex-shrink-0"></span>
                       <span><span className="font-semibold">Optimal:</span> 2.0 - 3.5 ft - Ideal conditions</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-lime-500 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Low (Okay):</span> 1.5 - 1.99 ft - Floatable, some dragging</span>
+                      <span><span className="font-semibold">Okay:</span> 1.5 - 1.99 ft - Floatable, some dragging</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Very Low:</span> 1.0 - 1.49 ft - Frequent dragging</span>
+                      <span><span className="font-semibold">Low:</span> 1.0 - 1.49 ft - Frequent dragging</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-neutral-400 flex-shrink-0"></span>

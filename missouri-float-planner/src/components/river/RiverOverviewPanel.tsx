@@ -18,21 +18,21 @@ interface RiverOverviewPanelProps {
 }
 
 const conditionStyles: Record<ConditionCode, { bg: string; text: string; icon: string }> = {
-  optimal: { bg: 'bg-support-100', text: 'text-support-700', icon: '✓' },
-  low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '↓' },
-  very_low: { bg: 'bg-amber-100', text: 'text-amber-700', icon: '⚠' },
+  optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
+  low: { bg: 'bg-lime-100', text: 'text-lime-700', icon: '✓' },
+  very_low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⚠' },
   high: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '↑' },
-  too_low: { bg: 'bg-red-100', text: 'text-red-700', icon: '✕' },
+  too_low: { bg: 'bg-neutral-100', text: 'text-neutral-600', icon: '✕' },
   dangerous: { bg: 'bg-red-200', text: 'text-red-800', icon: '⚠' },
   unknown: { bg: 'bg-neutral-100', text: 'text-neutral-600', icon: '?' },
 };
 
-// Condition level explanations for the legend (ordered: Too Low → Low → Good → High → Flood)
+// Condition level explanations for the legend (ordered: Too Low → Low → Okay → Optimal → High → Flood)
 const CONDITION_LEGEND = [
   { code: 'too_low', label: 'Too Low', color: 'bg-neutral-400', description: 'Not recommended' },
   { code: 'very_low', label: 'Low', color: 'bg-yellow-500', description: 'Expect dragging' },
   { code: 'low', label: 'Okay', color: 'bg-lime-500', description: 'Floatable' },
-  { code: 'optimal', label: 'Optimal', color: 'bg-emerald-500', description: 'Ideal' },
+  { code: 'optimal', label: 'Optimal', color: 'bg-emerald-600', description: 'Ideal' },
   { code: 'high', label: 'High', color: 'bg-orange-500', description: 'Fast current' },
   { code: 'dangerous', label: 'Flood', color: 'bg-red-600', description: 'Do not float' },
 ];
@@ -56,7 +56,7 @@ function getGaugeConditionColor(gauge: GaugeStation, riverId: string): string {
   }
   if (threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null &&
       height >= threshold.levelOptimalMin && height <= threshold.levelOptimalMax) {
-    return 'bg-emerald-500';
+    return 'bg-emerald-600';
   }
   if (threshold.levelLow !== null && height >= threshold.levelLow) {
     return 'bg-lime-500';

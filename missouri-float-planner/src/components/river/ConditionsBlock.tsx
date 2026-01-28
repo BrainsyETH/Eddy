@@ -34,8 +34,8 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     summary: 'Ideal conditions for floating. Good current, clear navigation.',
     bgClass: 'bg-emerald-50',
     textClass: 'text-emerald-700',
-    dotClass: 'bg-emerald-500',
-    badgeBg: 'bg-emerald-500',
+    dotClass: 'bg-emerald-600',
+    badgeBg: 'bg-emerald-600',
   },
   low: {
     label: 'Okay',
