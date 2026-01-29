@@ -111,8 +111,8 @@ export default function PlannerPanel({
               <Image
                 src={EDDY_CANOE_IMAGE}
                 alt="Eddy the Otter in a canoe"
-                width={56}
-                height={56}
+                width={120}
+                height={120}
                 className="w-10 h-10 md:w-14 md:h-14 object-contain"
               />
               <h2 className="text-xl lg:text-2xl font-bold text-white">Plan Your Float</h2>

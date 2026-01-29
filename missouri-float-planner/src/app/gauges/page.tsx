@@ -232,9 +232,9 @@ export default function GaugesPage() {
             <Image
               src={EDDY_FLOOD_IMAGE}
               alt="Eddy the Otter"
-              width={160}
-              height={160}
-              className="mx-auto h-32 md:h-40 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+              width={400}
+              height={400}
+              className="mx-auto h-40 md:h-48 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
               priority
             />
           </div>

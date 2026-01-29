@@ -143,9 +143,9 @@ export default function AboutPage() {
             <Image
               src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20floatie.png"
               alt="Eddy the Otter in a floatie"
-              width={200}
-              height={200}
-              className="mx-auto h-48 md:h-56 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+              width={400}
+              height={400}
+              className="mx-auto h-40 md:h-48 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
               priority
             />
           </div>
