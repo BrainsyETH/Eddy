@@ -6,7 +6,7 @@
 import { Suspense, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Droplets, Clock, Waves, ChevronDown, Timer, ArrowRight } from 'lucide-react';
+import { MapPin, Droplets, Clock, Waves, ChevronDown, ArrowRight } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
@@ -97,14 +97,38 @@ function HomeContent() {
 
       {/* Main content */}
       <section className="flex-1 py-10 md:py-14">
-        <div className="max-w-5xl mx-auto px-4 space-y-12">
-          {/* Float Estimator */}
-          <FloatEstimator rivers={rivers || []} />
+        <div className="max-w-5xl mx-auto px-4 space-y-10">
+          {/* Top Row: Float Estimator + Check River Levels side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Float Estimator - Half width */}
+            <FloatEstimator rivers={rivers || []} />
 
-          {/* Plan Your Float */}
+            {/* Check River Levels - Half width */}
+            <Link
+              href="/gauges"
+              className="group flex flex-col glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10
+                         hover:border-primary-400/50 transition-all no-underline"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Waves className="w-7 h-7 text-primary-300" />
+                </div>
+                <h2 className="text-xl lg:text-2xl font-bold text-white">Check River Levels</h2>
+              </div>
+              <p className="text-sm text-primary-200 mb-4 flex-1">
+                Real-time USGS gauge data, flow trends, and current conditions for Ozark rivers.
+              </p>
+              <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                <span className="text-sm font-medium text-primary-300">View Dashboard</span>
+                <ArrowRight className="w-5 h-5 text-primary-300 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </Link>
+          </div>
+
+          {/* Rivers Section - Full width below */}
           <div>
             <h2 className="text-2xl font-heading font-bold text-neutral-900 mb-6">
-              Plan Your Float
+              Choose a River
             </h2>
 
             {isLoading && (
@@ -163,33 +187,6 @@ function HomeContent() {
               </div>
             )}
           </div>
-
-          {/* Check River Levels */}
-          <div>
-            <h2 className="text-2xl font-heading font-bold text-neutral-900 mb-6">
-              Check River Levels
-            </h2>
-            <Link
-              href="/gauges"
-              className="group block bg-white border-2 border-neutral-200 rounded-lg p-5 shadow-sm
-                         hover:border-primary-400 hover:shadow-md transition-all no-underline"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0 w-16 h-16 bg-primary-100 rounded-xl flex items-center justify-center">
-                  <Waves className="w-8 h-8 text-primary-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-neutral-900 group-hover:text-primary-700 transition-colors">
-                    River Levels Dashboard
-                  </h3>
-                  <p className="text-sm text-neutral-500 mt-1">
-                    Real-time USGS gauge data, flow trends, and current conditions for all Missouri rivers
-                  </p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-neutral-400 group-hover:text-primary-600 transition-colors" />
-              </div>
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -206,9 +203,6 @@ function HomeContent() {
 
 // Float Estimator Component
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
-
-// Default canoe/raft speed (mph) - based on typical casual paddling
-const DEFAULT_SPEED_MPH = 2.5;
 
 interface FloatEstimatorProps {
   rivers: Array<{
@@ -227,34 +221,6 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
 
   // Fetch access points for selected river
   const { data: accessPoints = [], isLoading: accessPointsLoading } = useAccessPoints(selectedRiverSlug || null);
-
-  // Calculate float distance and time estimate
-  const estimate = useMemo(() => {
-    if (!selectedPutIn || !selectedTakeOut) return null;
-
-    const putIn = accessPoints.find((ap) => ap.id === selectedPutIn);
-    const takeOut = accessPoints.find((ap) => ap.id === selectedTakeOut);
-
-    if (!putIn || !takeOut) return null;
-
-    const distance = Math.abs(takeOut.riverMile - putIn.riverMile);
-    if (distance === 0) return null;
-
-    // Use default canoe/raft speed
-    const timeHours = distance / DEFAULT_SPEED_MPH;
-
-    // Format time
-    const hours = Math.floor(timeHours);
-    const minutes = Math.round((timeHours - hours) * 60);
-
-    return {
-      distance: distance.toFixed(1),
-      timeHours: hours,
-      timeMinutes: minutes,
-      putInName: putIn.name,
-      takeOutName: takeOut.name,
-    };
-  }, [selectedPutIn, selectedTakeOut, accessPoints]);
 
   // Filter take-out options to only show points downstream of put-in
   const takeOutOptions = useMemo(() => {
@@ -277,8 +243,11 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
     setSelectedTakeOut('');
   };
 
+  // Check if form is complete
+  const canSubmit = selectedRiverSlug && selectedPutIn && selectedTakeOut;
+
   return (
-    <div className="glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10">
+    <div className="glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10 flex flex-col">
       {/* Header with Eddy */}
       <div className="flex items-center gap-3 mb-4">
         <Image
@@ -288,14 +257,11 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
           height={120}
           className="w-12 h-12 md:w-14 md:h-14 object-contain"
         />
-        <div>
-          <h2 className="text-xl lg:text-2xl font-bold text-white">Plan Your Float</h2>
-          <p className="text-sm text-primary-200">Quick estimate for canoe or raft</p>
-        </div>
+        <h2 className="text-xl lg:text-2xl font-bold text-white">Plan Your Float</h2>
       </div>
 
-      {/* Selectors */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Selectors - Stacked vertically for compact layout */}
+      <div className="space-y-3 flex-1">
         {/* River Select */}
         <div>
           <label className="block text-sm font-semibold text-white mb-1.5">River</label>
@@ -314,86 +280,71 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
           </div>
         </div>
 
-        {/* Put-In Select */}
-        <div>
-          <label className="block text-sm font-semibold text-white mb-1.5">Put-In</label>
-          <div className="relative">
-            <select
-              value={selectedPutIn}
-              onChange={(e) => handlePutInChange(e.target.value)}
-              disabled={!selectedRiverSlug || accessPointsLoading}
-              className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="" className="bg-neutral-800">{accessPointsLoading ? 'Loading...' : 'Select put-in...'}</option>
-              {accessPoints.map(ap => (
-                <option key={ap.id} value={ap.id} className="bg-neutral-800">
-                  {ap.name} (Mile {ap.riverMile.toFixed(1)})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+        {/* Put-In and Take-Out in a row */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Put-In Select */}
+          <div>
+            <label className="block text-sm font-semibold text-white mb-1.5">Put-In</label>
+            <div className="relative">
+              <select
+                value={selectedPutIn}
+                onChange={(e) => handlePutInChange(e.target.value)}
+                disabled={!selectedRiverSlug || accessPointsLoading}
+                className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                <option value="" className="bg-neutral-800">{accessPointsLoading ? 'Loading...' : 'Select...'}</option>
+                {accessPoints.map(ap => (
+                  <option key={ap.id} value={ap.id} className="bg-neutral-800">
+                    {ap.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+            </div>
           </div>
-        </div>
 
-        {/* Take-Out Select */}
-        <div>
-          <label className="block text-sm font-semibold text-white mb-1.5">Take-Out</label>
-          <div className="relative">
-            <select
-              value={selectedTakeOut}
-              onChange={(e) => setSelectedTakeOut(e.target.value)}
-              disabled={!selectedPutIn}
-              className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="" className="bg-neutral-800">Select take-out...</option>
-              {takeOutOptions.map(ap => (
-                <option key={ap.id} value={ap.id} className="bg-neutral-800">
-                  {ap.name} (Mile {ap.riverMile.toFixed(1)})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+          {/* Take-Out Select */}
+          <div>
+            <label className="block text-sm font-semibold text-white mb-1.5">Take-Out</label>
+            <div className="relative">
+              <select
+                value={selectedTakeOut}
+                onChange={(e) => setSelectedTakeOut(e.target.value)}
+                disabled={!selectedPutIn}
+                className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                <option value="" className="bg-neutral-800">Select...</option>
+                {takeOutOptions.map(ap => (
+                  <option key={ap.id} value={ap.id} className="bg-neutral-800">
+                    {ap.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Results */}
-      {estimate && (
-        <div className="mt-5 pt-5 border-t border-white/10">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-white/10 rounded-xl border border-white/20">
-                <MapPin className="w-5 h-5 text-primary-300" />
-                <span className="text-lg font-bold text-white">{estimate.distance} mi</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-white/10 rounded-xl border border-white/20">
-                <Timer className="w-5 h-5 text-primary-300" />
-                <span className="text-lg font-bold text-white">
-                  {estimate.timeHours > 0 && `${estimate.timeHours}h `}{estimate.timeMinutes}m
-                </span>
-              </div>
-            </div>
-            <Link
-              href={`/rivers/${selectedRiverSlug}?putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
-            >
-              View Full Plan
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </div>
-          <p className="mt-3 text-xs text-primary-200/80">
-            Estimate based on canoe/raft at optimal conditions. Actual time may vary.
-          </p>
-        </div>
-      )}
-
-      {/* Empty state hint */}
-      {!estimate && !selectedRiverSlug && (
-        <div className="mt-4 bg-primary-700/30 rounded-xl p-4 text-sm text-primary-200 border border-primary-600/30">
-          <p className="font-medium mb-1 text-white">Quick Trip Estimate</p>
-          <p>Select a river and access points to see estimated distance and float time.</p>
-        </div>
-      )}
+      {/* Submit Button */}
+      <div className="mt-4 pt-4 border-t border-white/10">
+        {canSubmit ? (
+          <Link
+            href={`/rivers/${selectedRiverSlug}?putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
+            className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
+          >
+            View Trip Details
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        ) : (
+          <button
+            disabled
+            className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-white/10 text-white/50 font-semibold rounded-xl cursor-not-allowed"
+          >
+            Select all options above
+          </button>
+        )}
+      </div>
     </div>
   );
 }
