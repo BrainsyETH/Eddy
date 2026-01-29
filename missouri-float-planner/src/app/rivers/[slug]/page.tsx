@@ -12,9 +12,7 @@ import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
 import ConditionsBlock from '@/components/river/ConditionsBlock';
-import DifficultyExperience from '@/components/river/DifficultyExperience';
-import LogisticsSection from '@/components/river/LogisticsSection';
-import PointsOfInterest from '@/components/river/PointsOfInterest';
+import RiverGuide from '@/components/river/RiverGuide';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRiver } from '@/hooks/useRivers';
@@ -320,17 +318,12 @@ export default function RiverPage() {
             isLoading={!allGaugeStations}
           />
 
-          {/* Difficulty & Experience */}
-          <DifficultyExperience river={river} />
-
-          {/* Logistics */}
-          <LogisticsSection
+          {/* River Guide - Access Points & POIs */}
+          <RiverGuide
             accessPoints={accessPoints || []}
+            riverSlug={slug}
             isLoading={accessPointsLoading}
           />
-
-          {/* Points of Interest */}
-          <PointsOfInterest riverSlug={slug} />
         </div>
       </div>
     </div>
