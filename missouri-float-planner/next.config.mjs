@@ -6,6 +6,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'q5skne5bn5nbyxfw.public.blob.vercel-storage.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'openweathermap.org',
+      },
     ],
   },
 };

@@ -539,15 +539,56 @@ export default function GaugesPage() {
                       {/* Expanded Content */}
                       {isExpanded && (
                         <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
-                          {/* Weather - At top */}
-                          <div className="mb-6">
-                            <GaugeWeather
-                              lat={gauge.coordinates.lat}
-                              lon={gauge.coordinates.lng}
-                              enabled={isExpanded}
-                            />
+                          {/* Top Row: Weather (left) + Current Readings (right) - matching widths */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Left Column - Weather */}
+                            <div>
+                              <GaugeWeather
+                                lat={gauge.coordinates.lat}
+                                lon={gauge.coordinates.lng}
+                                enabled={isExpanded}
+                              />
+                            </div>
+
+                            {/* Right Column - Current Readings */}
+                            <div>
+                              <h4 className="text-sm font-semibold text-neutral-700 mb-3 flex items-center gap-2">
+                                <Activity className="w-4 h-4" />
+                                Current Readings
+                              </h4>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Droplets className="w-4 h-4 text-primary-600" />
+                                    <span className="text-xs font-medium text-neutral-500 uppercase">Stage</span>
+                                  </div>
+                                  <div className="text-2xl font-bold text-neutral-900">
+                                    {gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
+                                  </div>
+                                </div>
+                                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Activity className="w-4 h-4 text-primary-600" />
+                                    <span className="text-xs font-medium text-neutral-500 uppercase">Flow</span>
+                                  </div>
+                                  <div className="text-2xl font-bold text-neutral-900">
+                                    {gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
+                                  </div>
+                                </div>
+                                <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
+                                  <Image
+                                    src={getEddyImageForCondition(gauge.condition.code)}
+                                    alt={`Eddy - ${gauge.condition.label}`}
+                                    width={80}
+                                    height={80}
+                                    className="w-16 h-16 object-contain"
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
+                          {/* Bottom Row: Chart (left) + Thresholds/Details (right) */}
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Left Column - Chart */}
                             <div>
@@ -562,42 +603,6 @@ export default function GaugesPage() {
 
                             {/* Right Column - Details */}
                             <div className="space-y-4">
-                              {/* Current Readings */}
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-700 mb-3 flex items-center gap-2">
-                                  <Activity className="w-4 h-4" />
-                                  Current Readings
-                                </h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                  <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Droplets className="w-4 h-4 text-primary-600" />
-                                      <span className="text-xs font-medium text-neutral-500 uppercase">Stage</span>
-                                    </div>
-                                    <div className="text-2xl font-bold text-neutral-900">
-                                      {gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
-                                    </div>
-                                  </div>
-                                  <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Activity className="w-4 h-4 text-primary-600" />
-                                      <span className="text-xs font-medium text-neutral-500 uppercase">Flow</span>
-                                    </div>
-                                    <div className="text-2xl font-bold text-neutral-900">
-                                      {gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
-                                    </div>
-                                  </div>
-                                  <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
-                                    <Image
-                                      src={getEddyImageForCondition(gauge.condition.code)}
-                                      alt={`Eddy - ${gauge.condition.label}`}
-                                      width={80}
-                                      height={80}
-                                      className="w-16 h-16 object-contain"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
 
                               {/* Thresholds */}
                               {gauge.primaryRiver && (
