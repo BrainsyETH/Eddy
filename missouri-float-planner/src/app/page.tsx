@@ -10,7 +10,6 @@ import { MapPin, Droplets, Clock, Waves, ChevronDown, Timer, ArrowRight } from '
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
-import { useVesselTypes } from '@/hooks/useVesselTypes';
 import type { ConditionCode } from '@/types/api';
 
 // Matches GaugeOverview labels and colors
@@ -100,12 +99,7 @@ function HomeContent() {
       <section className="flex-1 py-10 md:py-14">
         <div className="max-w-5xl mx-auto px-4 space-y-12">
           {/* Float Estimator */}
-          <div>
-            <h2 className="text-2xl font-heading font-bold text-neutral-900 mb-6">
-              Float Estimator
-            </h2>
-            <FloatEstimator rivers={rivers || []} />
-          </div>
+          <FloatEstimator rivers={rivers || []} />
 
           {/* Plan Your Float */}
           <div>
@@ -211,6 +205,11 @@ function HomeContent() {
 }
 
 // Float Estimator Component
+const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
+
+// Default canoe/raft speed (mph) - based on typical casual paddling
+const DEFAULT_SPEED_MPH = 2.5;
+
 interface FloatEstimatorProps {
   rivers: Array<{
     id: string;
@@ -225,30 +224,24 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
   const [selectedRiverSlug, setSelectedRiverSlug] = useState<string>('');
   const [selectedPutIn, setSelectedPutIn] = useState<string>('');
   const [selectedTakeOut, setSelectedTakeOut] = useState<string>('');
-  const [selectedVessel, setSelectedVessel] = useState<string>('');
 
   // Fetch access points for selected river
   const { data: accessPoints = [], isLoading: accessPointsLoading } = useAccessPoints(selectedRiverSlug || null);
 
-  // Fetch vessel types
-  const { data: vesselTypes = [] } = useVesselTypes();
-
   // Calculate float distance and time estimate
   const estimate = useMemo(() => {
-    if (!selectedPutIn || !selectedTakeOut || !selectedVessel) return null;
+    if (!selectedPutIn || !selectedTakeOut) return null;
 
     const putIn = accessPoints.find((ap) => ap.id === selectedPutIn);
     const takeOut = accessPoints.find((ap) => ap.id === selectedTakeOut);
-    const vessel = vesselTypes.find((v) => v.id === selectedVessel);
 
-    if (!putIn || !takeOut || !vessel) return null;
+    if (!putIn || !takeOut) return null;
 
     const distance = Math.abs(takeOut.riverMile - putIn.riverMile);
     if (distance === 0) return null;
 
-    // Use vessel's normal speed
-    const speedMph = vessel.speeds.normal;
-    const timeHours = distance / speedMph;
+    // Use default canoe/raft speed
+    const timeHours = distance / DEFAULT_SPEED_MPH;
 
     // Format time
     const hours = Math.floor(timeHours);
@@ -260,9 +253,8 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
       timeMinutes: minutes,
       putInName: putIn.name,
       takeOutName: takeOut.name,
-      vesselName: vessel.name,
     };
-  }, [selectedPutIn, selectedTakeOut, selectedVessel, accessPoints, vesselTypes]);
+  }, [selectedPutIn, selectedTakeOut, accessPoints]);
 
   // Filter take-out options to only show points downstream of put-in
   const takeOutOptions = useMemo(() => {
@@ -286,122 +278,121 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
   };
 
   return (
-    <div className="bg-white border-2 border-neutral-200 rounded-lg p-5 shadow-sm">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10">
+      {/* Header with Eddy */}
+      <div className="flex items-center gap-3 mb-4">
+        <Image
+          src={EDDY_CANOE_IMAGE}
+          alt="Eddy the Otter in a canoe"
+          width={120}
+          height={120}
+          className="w-12 h-12 md:w-14 md:h-14 object-contain"
+        />
+        <div>
+          <h2 className="text-xl lg:text-2xl font-bold text-white">Plan Your Float</h2>
+          <p className="text-sm text-primary-200">Quick estimate for canoe or raft</p>
+        </div>
+      </div>
+
+      {/* Selectors */}
+      <div className="grid gap-4 sm:grid-cols-3">
         {/* River Select */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1.5">River</label>
+          <label className="block text-sm font-semibold text-white mb-1.5">River</label>
           <div className="relative">
             <select
               value={selectedRiverSlug}
               onChange={(e) => handleRiverChange(e.target.value)}
-              className="w-full px-3 py-2.5 bg-white border border-neutral-300 rounded-lg text-neutral-900 appearance-none cursor-pointer focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm"
             >
-              <option value="">Select river...</option>
+              <option value="" className="bg-neutral-800">Select river...</option>
               {rivers.map(river => (
-                <option key={river.id} value={river.slug}>{river.name}</option>
+                <option key={river.id} value={river.slug} className="bg-neutral-800">{river.name}</option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
           </div>
         </div>
 
         {/* Put-In Select */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1.5">Put-In</label>
+          <label className="block text-sm font-semibold text-white mb-1.5">Put-In</label>
           <div className="relative">
             <select
               value={selectedPutIn}
               onChange={(e) => handlePutInChange(e.target.value)}
               disabled={!selectedRiverSlug || accessPointsLoading}
-              className="w-full px-3 py-2.5 bg-white border border-neutral-300 rounded-lg text-neutral-900 appearance-none cursor-pointer focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-neutral-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="">{accessPointsLoading ? 'Loading...' : 'Select put-in...'}</option>
+              <option value="" className="bg-neutral-800">{accessPointsLoading ? 'Loading...' : 'Select put-in...'}</option>
               {accessPoints.map(ap => (
-                <option key={ap.id} value={ap.id}>
+                <option key={ap.id} value={ap.id} className="bg-neutral-800">
                   {ap.name} (Mile {ap.riverMile.toFixed(1)})
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
           </div>
         </div>
 
         {/* Take-Out Select */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1.5">Take-Out</label>
+          <label className="block text-sm font-semibold text-white mb-1.5">Take-Out</label>
           <div className="relative">
             <select
               value={selectedTakeOut}
               onChange={(e) => setSelectedTakeOut(e.target.value)}
               disabled={!selectedPutIn}
-              className="w-full px-3 py-2.5 bg-white border border-neutral-300 rounded-lg text-neutral-900 appearance-none cursor-pointer focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-neutral-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="">Select take-out...</option>
+              <option value="" className="bg-neutral-800">Select take-out...</option>
               {takeOutOptions.map(ap => (
-                <option key={ap.id} value={ap.id}>
+                <option key={ap.id} value={ap.id} className="bg-neutral-800">
                   {ap.name} (Mile {ap.riverMile.toFixed(1)})
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Vessel Select */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1.5">Vessel</label>
-          <div className="relative">
-            <select
-              value={selectedVessel}
-              onChange={(e) => setSelectedVessel(e.target.value)}
-              className="w-full px-3 py-2.5 bg-white border border-neutral-300 rounded-lg text-neutral-900 appearance-none cursor-pointer focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Select vessel...</option>
-              {vesselTypes.map(vessel => (
-                <option key={vessel.id} value={vessel.id}>{vessel.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
           </div>
         </div>
       </div>
 
       {/* Results */}
       {estimate && (
-        <div className="mt-5 pt-5 border-t border-neutral-200">
+        <div className="mt-5 pt-5 border-t border-white/10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-lg">
-                <MapPin className="w-4 h-4 text-primary-600" />
-                <span className="text-sm font-medium text-primary-900">{estimate.distance} miles</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-white/10 rounded-xl border border-white/20">
+                <MapPin className="w-5 h-5 text-primary-300" />
+                <span className="text-lg font-bold text-white">{estimate.distance} mi</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-lg">
-                <Timer className="w-4 h-4 text-primary-600" />
-                <span className="text-sm font-medium text-primary-900">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-white/10 rounded-xl border border-white/20">
+                <Timer className="w-5 h-5 text-primary-300" />
+                <span className="text-lg font-bold text-white">
                   {estimate.timeHours > 0 && `${estimate.timeHours}h `}{estimate.timeMinutes}m
                 </span>
               </div>
             </div>
             <Link
-              href={`/rivers/${selectedRiverSlug}?putIn=${selectedPutIn}&takeOut=${selectedTakeOut}&vessel=${selectedVessel}`}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors"
+              href={`/rivers/${selectedRiverSlug}?putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
             >
-              Plan This Trip
-              <ArrowRight className="w-4 h-4" />
+              View Full Plan
+              <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
-          <p className="mt-3 text-xs text-neutral-500">
-            Estimate based on {estimate.vesselName} at optimal conditions. Actual time may vary based on water levels and stops.
+          <p className="mt-3 text-xs text-primary-200/80">
+            Estimate based on canoe/raft at optimal conditions. Actual time may vary.
           </p>
         </div>
       )}
 
       {/* Empty state hint */}
-      {!estimate && selectedRiverSlug && !accessPointsLoading && (
-        <p className="mt-4 text-sm text-neutral-500 text-center">
-          Select put-in, take-out, and vessel type to see your float estimate
-        </p>
+      {!estimate && !selectedRiverSlug && (
+        <div className="mt-4 bg-primary-700/30 rounded-xl p-4 text-sm text-primary-200 border border-primary-600/30">
+          <p className="font-medium mb-1 text-white">Quick Trip Estimate</p>
+          <p>Select a river and access points to see estimated distance and float time.</p>
+        </div>
       )}
     </div>
   );

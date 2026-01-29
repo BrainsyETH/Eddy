@@ -246,123 +246,149 @@ export default function GaugesPage() {
     return RIVER_SUMMARIES[slug] || null;
   }, [selectedRiver, rivers]);
 
+  // Get background gradient based on condition
+  const getConditionGradient = (code: ConditionCode) => {
+    switch (code) {
+      case 'optimal':
+        return 'from-emerald-500/10 via-emerald-500/5 to-transparent';
+      case 'low':
+        return 'from-lime-500/10 via-lime-500/5 to-transparent';
+      case 'very_low':
+        return 'from-yellow-500/10 via-yellow-500/5 to-transparent';
+      case 'high':
+        return 'from-orange-500/10 via-orange-500/5 to-transparent';
+      case 'dangerous':
+        return 'from-red-500/10 via-red-500/5 to-transparent';
+      default:
+        return 'from-neutral-500/10 via-neutral-500/5 to-transparent';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {/* Hero */}
+    <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
+      {/* Hero - More compact on desktop */}
       <section
-        className="relative py-12 md:py-16 text-white"
-        style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}
+        className="relative py-10 md:py-12 text-white overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
       >
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="-mb-1">
+        {/* Decorative water ripple effect */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute bottom-0 left-0 right-0 h-32"
+               style={{ background: 'repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 80px)' }} />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10">
             <Image
               src={EDDY_FLOOD_IMAGE}
               alt="Eddy the Otter"
               width={400}
               height={400}
-              className="mx-auto h-40 md:h-48 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+              className="h-32 md:h-40 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
               priority
             />
+            <div className="text-center md:text-left">
+              <h1
+                className="text-3xl md:text-5xl font-bold mb-2"
+                style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
+              >
+                River Levels
+              </h1>
+              <p className="text-base md:text-lg text-white/80 max-w-lg">
+                Real-time USGS gauge data for Ozark rivers. Check conditions before you float.
+              </p>
+            </div>
           </div>
-          <h1
-            className="text-3xl md:text-4xl font-bold mb-4"
-            style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
-          >
-            Gauge Dashboard
-          </h1>
-          <p className="text-base text-white/80 max-w-2xl mx-auto">
-            Real-time water levels and flow trends from USGS gauges across Missouri rivers.
-          </p>
         </div>
       </section>
 
       {/* Main content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:py-8">
         {loading ? (
-          <div className="bg-white border-2 border-neutral-200 rounded-xl p-12 text-center">
-            <div className="inline-block w-8 h-8 border-4 border-neutral-300 border-t-primary-500 rounded-full animate-spin"></div>
-            <p className="text-neutral-600 mt-4">Loading gauge stations...</p>
+          <div className="bg-white border-2 border-neutral-200 rounded-2xl p-12 text-center shadow-sm">
+            <div className="inline-block w-10 h-10 border-4 border-neutral-300 border-t-primary-500 rounded-full animate-spin"></div>
+            <p className="text-neutral-600 mt-4 font-medium">Loading gauge stations...</p>
           </div>
         ) : (
           <>
-            {/* Stats Overview - Ordered from Too Low to Flood (water level progression) */}
-            <div className="flex flex-wrap justify-center gap-3 mb-6">
+            {/* Stats Overview - Large colorful cards on desktop */}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 mb-6">
               <button
-                onClick={() => setSelectedCondition('too_low')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'too_low' ? 'border-neutral-500 ring-2 ring-neutral-200' : 'border-neutral-200'
+                onClick={() => setSelectedCondition(selectedCondition === 'too_low' ? 'all' : 'too_low')}
+                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
+                  selectedCondition === 'too_low'
+                    ? 'bg-neutral-600 text-white shadow-lg shadow-neutral-500/20 ring-2 ring-neutral-400'
+                    : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-neutral-400"></span>
-                  <span className="text-2xl font-bold text-neutral-600">{stats.tooLow}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Too Low</p>
+                <div className={`absolute inset-0 bg-gradient-to-br from-neutral-400/20 to-transparent ${selectedCondition !== 'too_low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'too_low' ? 'text-white' : 'text-neutral-600'}`}>{stats.tooLow}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'too_low' ? 'text-neutral-200' : 'text-neutral-500'}`}>Too Low</span>
               </button>
 
               <button
-                onClick={() => setSelectedCondition('very_low')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'very_low' ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-neutral-200'
+                onClick={() => setSelectedCondition(selectedCondition === 'very_low' ? 'all' : 'very_low')}
+                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
+                  selectedCondition === 'very_low'
+                    ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/20 ring-2 ring-yellow-400'
+                    : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
-                  <span className="text-2xl font-bold text-yellow-600">{stats.low}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Low</p>
+                <div className={`absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent ${selectedCondition !== 'very_low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'very_low' ? 'text-white' : 'text-yellow-600'}`}>{stats.low}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'very_low' ? 'text-yellow-100' : 'text-neutral-500'}`}>Low</span>
               </button>
 
               <button
-                onClick={() => setSelectedCondition('low')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'low' ? 'border-lime-500 ring-2 ring-lime-200' : 'border-neutral-200'
+                onClick={() => setSelectedCondition(selectedCondition === 'low' ? 'all' : 'low')}
+                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
+                  selectedCondition === 'low'
+                    ? 'bg-lime-500 text-white shadow-lg shadow-lime-500/20 ring-2 ring-lime-400'
+                    : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-lime-500"></span>
-                  <span className="text-2xl font-bold text-lime-600">{stats.okay}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Okay</p>
+                <div className={`absolute inset-0 bg-gradient-to-br from-lime-400/20 to-transparent ${selectedCondition !== 'low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'low' ? 'text-white' : 'text-lime-600'}`}>{stats.okay}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'low' ? 'text-lime-100' : 'text-neutral-500'}`}>Okay</span>
               </button>
 
               <button
-                onClick={() => setSelectedCondition('optimal')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'optimal' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-neutral-200'
+                onClick={() => setSelectedCondition(selectedCondition === 'optimal' ? 'all' : 'optimal')}
+                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
+                  selectedCondition === 'optimal'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-400'
+                    : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
-                  <span className="text-2xl font-bold text-emerald-600">{stats.optimal}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Optimal</p>
+                <div className={`absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-transparent ${selectedCondition !== 'optimal' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'optimal' ? 'text-white' : 'text-emerald-600'}`}>{stats.optimal}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'optimal' ? 'text-emerald-100' : 'text-neutral-500'}`}>Optimal</span>
               </button>
 
               <button
-                onClick={() => setSelectedCondition('high')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'high' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-neutral-200'
+                onClick={() => setSelectedCondition(selectedCondition === 'high' ? 'all' : 'high')}
+                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
+                  selectedCondition === 'high'
+                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20 ring-2 ring-orange-400'
+                    : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-                  <span className="text-2xl font-bold text-orange-600">{stats.high}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">High</p>
+                <div className={`absolute inset-0 bg-gradient-to-br from-orange-400/20 to-transparent ${selectedCondition !== 'high' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'high' ? 'text-white' : 'text-orange-600'}`}>{stats.high}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'high' ? 'text-orange-100' : 'text-neutral-500'}`}>High</span>
               </button>
 
               <button
-                onClick={() => setSelectedCondition('dangerous')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'dangerous' ? 'border-red-500 ring-2 ring-red-200' : 'border-neutral-200'
+                onClick={() => setSelectedCondition(selectedCondition === 'dangerous' ? 'all' : 'dangerous')}
+                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
+                  selectedCondition === 'dangerous'
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-500/20 ring-2 ring-red-400'
+                    : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="w-3 h-3 rounded-full bg-red-600"></span>
-                  <span className="text-2xl font-bold text-red-600">{stats.flood}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Flood</p>
+                <div className={`absolute inset-0 bg-gradient-to-br from-red-400/20 to-transparent ${selectedCondition !== 'dangerous' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'dangerous' ? 'text-white' : 'text-red-600'}`}>{stats.flood}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'dangerous' ? 'text-red-100' : 'text-neutral-500'}`}>Flood</span>
               </button>
             </div>
 
@@ -451,7 +477,7 @@ export default function GaugesPage() {
 
             {/* Gauge Cards Grid */}
             {processedGauges.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {processedGauges.map((gauge) => {
                   const isExpanded = expandedGaugeId === gauge.id;
                   const ageText = getAgeText(gauge);
@@ -459,59 +485,69 @@ export default function GaugesPage() {
                   return (
                     <div
                       key={gauge.id}
-                      className={`bg-white border-2 rounded-xl overflow-hidden transition-all ${
-                        isExpanded ? 'border-primary-400 shadow-lg col-span-1 md:col-span-2 lg:col-span-3' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-md'
+                      className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
+                        isExpanded
+                          ? 'border-2 border-primary-400 shadow-xl col-span-1 md:col-span-2 xl:col-span-3'
+                          : 'border border-neutral-200 hover:border-neutral-300 hover:shadow-lg'
                       }`}
                     >
+                      {/* Condition gradient overlay */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${getConditionGradient(gauge.condition.code)} pointer-events-none`} />
+
                       {/* Card Header */}
                       <button
                         onClick={() => setExpandedGaugeId(isExpanded ? null : gauge.id)}
-                        className="w-full p-4 text-left"
+                        className="relative w-full p-5 text-left"
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            {/* Condition Badge */}
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${gauge.condition.tailwindColor}`}>
+                            {/* Condition Badge + River Name */}
+                            <div className="flex items-center gap-3 mb-3">
+                              <span className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm ${gauge.condition.tailwindColor}`}>
                                 {gauge.condition.label}
                               </span>
-                              {ageText && (
-                                <span className="text-xs text-neutral-400">{ageText}</span>
-                              )}
+                              <span className="text-sm font-medium text-neutral-600">
+                                {gauge.primaryRiver?.riverName || 'Unknown River'}
+                              </span>
                             </div>
 
                             {/* Gauge Name */}
-                            <h3 className="font-bold text-neutral-900 truncate">{gauge.name}</h3>
+                            <h3 className="text-lg font-bold text-neutral-900 mb-1">{gauge.name}</h3>
 
-                            {/* River & ID */}
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-neutral-500">
-                                {gauge.primaryRiver?.riverName || 'Unknown River'}
-                              </span>
-                              <span className="text-neutral-300">•</span>
+                            {/* USGS ID + Age */}
+                            <div className="flex items-center gap-3 text-xs text-neutral-500">
                               <a
                                 href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
+                                className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                {gauge.usgsSiteId}
+                                #{gauge.usgsSiteId}
                                 <ExternalLink className="w-3 h-3" />
                               </a>
+                              {ageText && (
+                                <>
+                                  <span className="text-neutral-300">•</span>
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {ageText}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </div>
 
-                          {/* Stats */}
-                          <div className="flex flex-col items-end gap-1 text-right flex-shrink-0">
+                          {/* Large Water Level Display */}
+                          <div className="flex flex-col items-end text-right flex-shrink-0">
                             {gauge.gaugeHeightFt !== null && (
-                              <div>
-                                <span className="text-lg font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)}</span>
-                                <span className="text-xs text-neutral-500 ml-1">ft</span>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-3xl md:text-4xl font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)}</span>
+                                <span className="text-sm font-medium text-neutral-500">ft</span>
                               </div>
                             )}
                             {gauge.dischargeCfs !== null && (
-                              <div className="text-xs text-neutral-500">
+                              <div className="text-sm text-neutral-500 mt-1">
                                 {gauge.dischargeCfs.toLocaleString()} cfs
                               </div>
                             )}
@@ -519,8 +555,8 @@ export default function GaugesPage() {
                         </div>
 
                         {/* Expand indicator */}
-                        <div className="flex items-center justify-center mt-3 pt-3 border-t border-neutral-100">
-                          <span className="text-xs text-neutral-400 flex items-center gap-1">
+                        <div className="flex items-center justify-center mt-4 pt-3 border-t border-neutral-100">
+                          <span className="text-xs font-medium text-neutral-500 flex items-center gap-1.5 group-hover:text-primary-600 transition-colors">
                             {isExpanded ? (
                               <>
                                 <ChevronUp className="w-4 h-4" />
@@ -529,7 +565,7 @@ export default function GaugesPage() {
                             ) : (
                               <>
                                 <ChevronDown className="w-4 h-4" />
-                                View Chart & Details
+                                View Chart & Weather
                               </>
                             )}
                           </span>
