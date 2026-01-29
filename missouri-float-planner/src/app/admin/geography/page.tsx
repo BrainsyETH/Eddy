@@ -3,66 +3,33 @@
 // src/app/admin/geography/page.tsx
 // Admin geography editor page
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import MapContainer from '@/components/map/MapContainer';
 import GeographyEditor from '@/components/admin/GeographyEditor';
-
-const ADMIN_STORAGE_KEY = 'mfp_admin_auth';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { ArrowLeft, LogOut } from 'lucide-react';
 
 export default function AdminGeographyPage() {
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    // Check if already authorized in this session
-    const stored = sessionStorage.getItem(ADMIN_STORAGE_KEY);
-    if (stored === 'true') {
-      setIsAuthorized(true);
-    } else {
-      setIsAuthorized(false);
-    }
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Check against environment variable (set in .env.local)
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
-
-    if (!adminPassword) {
-      // No password configured - allow access (dev mode)
-      sessionStorage.setItem(ADMIN_STORAGE_KEY, 'true');
-      setIsAuthorized(true);
-      return;
-    }
-
-    if (password === adminPassword) {
-      sessionStorage.setItem(ADMIN_STORAGE_KEY, 'true');
-      setIsAuthorized(true);
-      setError('');
-    } else {
-      setError('Invalid password');
-    }
-  };
+  const { isAuthorized, password, setPassword, error, handleSubmit, logout } = useAdminAuth();
 
   if (isAuthorized === null) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-bluff-500">Loading...</div>
+      <div className="flex items-center justify-center h-screen bg-neutral-900">
+        <div className="text-neutral-400">Loading...</div>
       </div>
     );
   }
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-ozark-900 flex items-center justify-center">
-        <div className="bg-ozark-800 rounded-xl p-8 w-full max-w-md shadow-xl border border-ozark-700">
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
+        <div className="bg-neutral-800 rounded-xl p-8 w-full max-w-md shadow-xl border border-neutral-700">
           <h1 className="text-2xl font-bold text-white mb-2">Admin Access</h1>
-          <p className="text-river-300 text-sm mb-6">Enter password to access the geography editor</p>
+          <p className="text-neutral-400 text-sm mb-6">Enter password to access the geography editor</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-river-300 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-neutral-300 mb-1">
                 Password
               </label>
               <input
@@ -70,7 +37,7 @@ export default function AdminGeographyPage() {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-ozark-900 border border-ozark-600 rounded-lg text-white placeholder-bluff-500 focus:outline-none focus:ring-2 focus:ring-river-500"
+                className="w-full px-4 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="Enter admin password"
                 autoFocus
               />
@@ -82,7 +49,7 @@ export default function AdminGeographyPage() {
 
             <button
               type="submit"
-              className="w-full px-4 py-2 bg-river-500 text-white rounded-lg font-medium hover:bg-river-600 transition-colors"
+              className="w-full px-4 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
             >
               Sign In
             </button>
@@ -93,12 +60,31 @@ export default function AdminGeographyPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-ozark-900">
-      <header className="bg-ozark-800 border-b border-ozark-700 px-6 py-4">
-        <h1 className="text-2xl font-bold text-white">Geography Editor</h1>
-        <p className="text-sm text-river-300 mt-1">
-          Edit access point locations and river line geometries
-        </p>
+    <div className="h-screen flex flex-col bg-neutral-900">
+      <header className="bg-neutral-800 border-b border-neutral-700 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Admin</span>
+          </Link>
+          <div className="h-6 w-px bg-neutral-700" />
+          <div>
+            <h1 className="text-lg font-bold text-white">Geography Editor</h1>
+            <p className="text-xs text-neutral-400">
+              Edit access point locations and river geometries
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={logout}
+          className="flex items-center gap-2 px-3 py-1.5 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="text-sm">Sign Out</span>
+        </button>
       </header>
       <div className="flex-1 relative">
         <MapContainer>
