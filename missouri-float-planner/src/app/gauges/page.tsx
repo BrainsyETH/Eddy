@@ -572,25 +572,25 @@ export default function GaugesPage() {
                                 Current Readings
                               </h4>
                               <div className="grid grid-cols-3 gap-3">
-                                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                                <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-3">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <Droplets className="w-4 h-4 text-primary-600" />
+                                    <Droplets className="w-4 h-4 text-blue-600" />
                                     <span className="text-xs font-medium text-neutral-500 uppercase">Stage</span>
                                   </div>
                                   <div className="text-2xl font-bold text-neutral-900">
                                     {gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
                                   </div>
                                 </div>
-                                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                                <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-3">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <Activity className="w-4 h-4 text-primary-600" />
+                                    <Activity className="w-4 h-4 text-blue-600" />
                                     <span className="text-xs font-medium text-neutral-500 uppercase">Flow</span>
                                   </div>
                                   <div className="text-2xl font-bold text-neutral-900">
                                     {gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
                                   </div>
                                 </div>
-                                <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
+                                <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-3 flex items-center justify-center">
                                   <Image
                                     src={getEddyImageForCondition(gauge.condition.code)}
                                     alt={`Eddy - ${gauge.condition.label}`}
