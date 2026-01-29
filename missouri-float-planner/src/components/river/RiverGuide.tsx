@@ -146,20 +146,46 @@ export default function RiverGuide({ accessPoints, riverSlug, isLoading, default
 
             if (item.type === 'access_point') {
               const point = item.data as AccessPoint;
+              const hasImages = point.imageUrls && point.imageUrls.length > 0;
               return (
                 <div className="flex gap-4">
-                  {/* Image */}
-                  {point.imageUrl && (
-                    <div className="flex-shrink-0">
+                  {/* Images */}
+                  {hasImages && (
+                    <div className="flex-shrink-0 flex flex-col gap-1">
+                      {/* Main image */}
                       <div className="w-24 h-24 md:w-32 md:h-32 relative rounded-lg overflow-hidden bg-neutral-200">
                         <Image
-                          src={point.imageUrl}
+                          src={point.imageUrls[0]}
                           alt={point.name}
                           fill
                           className="object-cover"
                           sizes="(max-width: 768px) 96px, 128px"
                         />
                       </div>
+                      {/* Additional image thumbnails */}
+                      {point.imageUrls.length > 1 && (
+                        <div className="flex gap-1">
+                          {point.imageUrls.slice(1, 4).map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="w-7 h-7 md:w-10 md:h-10 relative rounded overflow-hidden bg-neutral-200"
+                            >
+                              <Image
+                                src={url}
+                                alt={`${point.name} ${idx + 2}`}
+                                fill
+                                className="object-cover"
+                                sizes="40px"
+                              />
+                            </div>
+                          ))}
+                          {point.imageUrls.length > 4 && (
+                            <div className="w-7 h-7 md:w-10 md:h-10 rounded bg-neutral-300 flex items-center justify-center text-xs text-neutral-600 font-medium">
+                              +{point.imageUrls.length - 4}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
