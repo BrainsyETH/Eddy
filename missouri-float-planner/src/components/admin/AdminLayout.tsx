@@ -12,7 +12,8 @@ import {
   Image as ImageIcon,
   LogOut,
   Menu,
-  X
+  X,
+  Navigation
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -24,6 +25,7 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: Home },
+  { href: '/admin/access-points', label: 'Access Points', icon: Navigation },
   { href: '/admin/geography', label: 'Geography Editor', icon: MapPin },
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },
 ];

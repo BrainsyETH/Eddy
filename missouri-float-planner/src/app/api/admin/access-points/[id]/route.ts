@@ -27,6 +27,7 @@ export async function PUT(
       directionsOverride,
       drivingLat,
       drivingLng,
+      imageUrls,
     } = body;
 
     const supabase = createAdminClient();
@@ -111,6 +112,11 @@ export async function PUT(
       updateData.driving_lng = drivingLng === '' || drivingLng === null ? null : parseFloat(drivingLng);
     }
 
+    // Handle imageUrls update (array of image URLs)
+    if (imageUrls !== undefined) {
+      updateData.image_urls = Array.isArray(imageUrls) ? imageUrls.filter((url: string) => url && url.trim()) : [];
+    }
+
     // Check if we have anything to update
     if (Object.keys(updateData).length === 1) {
       // Only updated_at, no actual changes
@@ -153,6 +159,7 @@ export async function PUT(
         directions_override,
         driving_lat,
         driving_lng,
+        image_urls,
         approved,
         rivers(id, name, slug)
       `)
@@ -228,6 +235,7 @@ export async function PUT(
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,
+      imageUrls: data.image_urls || [],
       approved: data.approved,
     };
 

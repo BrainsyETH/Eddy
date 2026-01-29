@@ -146,67 +146,111 @@ export default function RiverGuide({ accessPoints, riverSlug, isLoading, default
 
             if (item.type === 'access_point') {
               const point = item.data as AccessPoint;
+              const hasImages = point.imageUrls && point.imageUrls.length > 0;
               return (
-                <>
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-primary-500"></span>
-                        <p className="font-semibold text-neutral-900">{point.name}</p>
+                <div className="flex gap-4">
+                  {/* Images */}
+                  {hasImages && (
+                    <div className="flex-shrink-0 flex flex-col gap-1">
+                      {/* Main image */}
+                      <div className="w-24 h-24 md:w-32 md:h-32 relative rounded-lg overflow-hidden bg-neutral-200">
+                        <Image
+                          src={point.imageUrls[0]}
+                          alt={point.name}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 96px, 128px"
+                        />
                       </div>
-                      <p className="text-sm text-neutral-500 capitalize ml-4">
-                        {point.type.replace('_', ' ')} • Mile {point.riverMile.toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      {point.isPublic ? (
-                        <span className="px-2 py-1 bg-support-100 text-support-700 rounded text-xs font-medium">
-                          Public
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-neutral-200 text-neutral-600 rounded text-xs font-medium">
-                          Private
-                        </span>
+                      {/* Additional image thumbnails */}
+                      {point.imageUrls.length > 1 && (
+                        <div className="flex gap-1">
+                          {point.imageUrls.slice(1, 4).map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="w-7 h-7 md:w-10 md:h-10 relative rounded overflow-hidden bg-neutral-200"
+                            >
+                              <Image
+                                src={url}
+                                alt={`${point.name} ${idx + 2}`}
+                                fill
+                                className="object-cover"
+                                sizes="40px"
+                              />
+                            </div>
+                          ))}
+                          {point.imageUrls.length > 4 && (
+                            <div className="w-7 h-7 md:w-10 md:h-10 rounded bg-neutral-300 flex items-center justify-center text-xs text-neutral-600 font-medium">
+                              +{point.imageUrls.length - 4}
+                            </div>
+                          )}
+                        </div>
                       )}
-                      {point.feeRequired && (
-                        <span className="px-2 py-1 bg-accent-100 text-accent-700 rounded text-xs font-medium">
-                          Fee
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Amenities */}
-                  {point.amenities && point.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3 ml-4">
-                      {point.amenities.map((amenity, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-1 bg-white text-neutral-600 rounded text-xs border border-neutral-200"
-                        >
-                          {amenity}
-                        </span>
-                      ))}
                     </div>
                   )}
 
-                  {/* Additional info */}
-                  <div className="mt-3 space-y-1 text-sm ml-4">
-                    {point.parkingInfo && (
-                      <p className="text-neutral-600">
-                        <span className="font-medium">Parking:</span> {point.parkingInfo}
-                      </p>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-primary-500"></span>
+                          <p className="font-semibold text-neutral-900">{point.name}</p>
+                        </div>
+                        <p className="text-sm text-neutral-500 capitalize ml-4">
+                          {point.type.replace('_', ' ')} • Mile {point.riverMile.toFixed(1)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        {point.isPublic ? (
+                          <span className="px-2 py-1 bg-support-100 text-support-700 rounded text-xs font-medium">
+                            Public
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-neutral-200 text-neutral-600 rounded text-xs font-medium">
+                            Private
+                          </span>
+                        )}
+                        {point.feeRequired && (
+                          <span className="px-2 py-1 bg-accent-100 text-accent-700 rounded text-xs font-medium">
+                            Fee
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amenities */}
+                    {point.amenities && point.amenities.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3 ml-4">
+                        {point.amenities.map((amenity, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-white text-neutral-600 rounded text-xs border border-neutral-200"
+                          >
+                            {amenity}
+                          </span>
+                        ))}
+                      </div>
                     )}
-                    {point.feeRequired && point.feeNotes && (
-                      <p className="text-accent-600">
-                        <span className="font-medium">Fee:</span> {point.feeNotes}
-                      </p>
-                    )}
-                    {point.description && (
-                      <p className="text-neutral-600">{point.description}</p>
-                    )}
+
+                    {/* Additional info */}
+                    <div className="mt-3 space-y-1 text-sm ml-4">
+                      {point.parkingInfo && (
+                        <p className="text-neutral-600">
+                          <span className="font-medium">Parking:</span> {point.parkingInfo}
+                        </p>
+                      )}
+                      {point.feeRequired && point.feeNotes && (
+                        <p className="text-accent-600">
+                          <span className="font-medium">Fee:</span> {point.feeNotes}
+                        </p>
+                      )}
+                      {point.description && (
+                        <p className="text-neutral-600">{point.description}</p>
+                      )}
+                    </div>
                   </div>
-                </>
+                </div>
               );
             } else {
               const poi = item.data as POI;

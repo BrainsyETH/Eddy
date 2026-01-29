@@ -91,6 +91,7 @@ export async function GET(
           feeRequired: ap.fee_required,
           feeNotes: ap.fee_notes,
           directionsOverride: ap.directions_override,
+          imageUrls: ap.image_urls || [],
           coordinates: { lng, lat },
         };
       })

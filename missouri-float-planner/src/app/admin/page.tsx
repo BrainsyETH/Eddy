@@ -5,9 +5,16 @@
 
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { MapPin, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ExternalLink, Navigation } from 'lucide-react';
 
 const ADMIN_SECTIONS = [
+  {
+    title: 'Access Points',
+    description: 'Manage access point images and details',
+    href: '/admin/access-points',
+    icon: Navigation,
+    color: 'bg-teal-500',
+  },
   {
     title: 'Geography Editor',
     description: 'Edit access point locations and river line geometries',
