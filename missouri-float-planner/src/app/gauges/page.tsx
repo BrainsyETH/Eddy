@@ -14,7 +14,6 @@ import {
   ExternalLink,
   Activity,
   TrendingUp,
-  BarChart3,
   X
 } from 'lucide-react';
 
@@ -286,20 +285,7 @@ export default function GaugesPage() {
         ) : (
           <>
             {/* Stats Overview - Ordered from Too Low to Flood (water level progression) */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
-              <button
-                onClick={() => setSelectedCondition('all')}
-                className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
-                  selectedCondition === 'all' ? 'border-primary-500 ring-2 ring-primary-200' : 'border-neutral-200'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <BarChart3 className="w-5 h-5 text-neutral-500" />
-                  <span className="text-2xl font-bold text-neutral-900">{stats.total}</span>
-                </div>
-                <p className="text-xs text-neutral-500 font-medium">Total</p>
-              </button>
-
+            <div className="flex flex-wrap justify-center gap-3 mb-6">
               <button
                 onClick={() => setSelectedCondition('too_low')}
                 className={`bg-white border-2 rounded-xl p-4 text-center transition-all hover:shadow-md ${
@@ -381,7 +367,7 @@ export default function GaugesPage() {
 
             {/* Filter Bar */}
             <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 mb-6">
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center justify-center gap-4">
                 {/* River filter */}
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-neutral-600">River:</label>
@@ -437,11 +423,6 @@ export default function GaugesPage() {
                     Clear Filters
                   </button>
                 )}
-
-                {/* Results count */}
-                <div className="ml-auto text-sm text-neutral-500">
-                  Showing {processedGauges.length} of {stats.total} gauges
-                </div>
               </div>
             </div>
 
