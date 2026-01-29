@@ -539,6 +539,15 @@ export default function GaugesPage() {
                       {/* Expanded Content */}
                       {isExpanded && (
                         <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
+                          {/* Weather - At top */}
+                          <div className="mb-6">
+                            <GaugeWeather
+                              lat={gauge.coordinates.lat}
+                              lon={gauge.coordinates.lng}
+                              enabled={isExpanded}
+                            />
+                          </div>
+
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Left Column - Chart */}
                             <div>
@@ -674,13 +683,6 @@ export default function GaugesPage() {
                                   </div>
                                 </div>
                               )}
-
-                              {/* Weather */}
-                              <GaugeWeather
-                                lat={gauge.coordinates.lat}
-                                lon={gauge.coordinates.lng}
-                                enabled={isExpanded}
-                              />
 
                               {/* Location */}
                               <div className="flex items-center gap-2 text-xs text-neutral-500">
