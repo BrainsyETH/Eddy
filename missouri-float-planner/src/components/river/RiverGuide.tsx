@@ -4,10 +4,13 @@
 // Combined Access Points and Points of Interest section
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { AccessPoint } from '@/types/api';
+
+const EDDY_PLACEHOLDER = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png';
 
 interface RiverGuideProps {
   accessPoints: AccessPoint[];
@@ -238,7 +241,18 @@ export default function RiverGuide({ accessPoints, riverSlug, isLoading, default
       )}
 
       {allItems.length === 0 && (
-        <p className="text-sm text-neutral-500">No access points or points of interest available.</p>
+        <div className="flex flex-col items-center py-6">
+          <Image
+            src={EDDY_PLACEHOLDER}
+            alt="Eddy the Otter"
+            width={120}
+            height={120}
+            className="w-24 h-24 object-contain mb-3 opacity-60"
+          />
+          <p className="text-sm text-neutral-500 text-center">
+            No access points or points of interest available yet.
+          </p>
+        </div>
       )}
     </CollapsibleSection>
   );
