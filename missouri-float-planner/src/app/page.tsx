@@ -349,7 +349,7 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
             <select
               value={selectedRiverSlug}
               onChange={(e) => handleRiverChange(e.target.value)}
-              className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm"
+              className="w-full px-3 py-2.5 bg-white/25 border border-white/30 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm"
             >
               <option value="" className="bg-neutral-800">Select river...</option>
               {rivers.map(river => (
@@ -370,7 +370,7 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
                 value={selectedPutIn}
                 onChange={(e) => handlePutInChange(e.target.value)}
                 disabled={!selectedRiverSlug || accessPointsLoading}
-                className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="w-full px-3 py-2.5 bg-white/25 border border-white/30 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <option value="" className="bg-neutral-800">{accessPointsLoading ? 'Loading...' : 'Select...'}</option>
                 {accessPoints.map(ap => (
@@ -391,7 +391,7 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
                 value={selectedTakeOut}
                 onChange={(e) => setSelectedTakeOut(e.target.value)}
                 disabled={!selectedPutIn}
-                className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="w-full px-3 py-2.5 bg-white/25 border border-white/30 rounded-lg text-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <option value="" className="bg-neutral-800">Select...</option>
                 {takeOutOptions.map(ap => (

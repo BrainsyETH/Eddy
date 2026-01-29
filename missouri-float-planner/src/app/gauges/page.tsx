@@ -246,24 +246,6 @@ export default function GaugesPage() {
     return RIVER_SUMMARIES[slug] || null;
   }, [selectedRiver, rivers]);
 
-  // Get background gradient based on condition
-  const getConditionGradient = (code: ConditionCode) => {
-    switch (code) {
-      case 'optimal':
-        return 'from-emerald-500/10 via-emerald-500/5 to-transparent';
-      case 'low':
-        return 'from-lime-500/10 via-lime-500/5 to-transparent';
-      case 'very_low':
-        return 'from-yellow-500/10 via-yellow-500/5 to-transparent';
-      case 'high':
-        return 'from-orange-500/10 via-orange-500/5 to-transparent';
-      case 'dangerous':
-        return 'from-red-500/10 via-red-500/5 to-transparent';
-      default:
-        return 'from-neutral-500/10 via-neutral-500/5 to-transparent';
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
       {/* Hero - More compact on desktop */}
@@ -485,15 +467,12 @@ export default function GaugesPage() {
                   return (
                     <div
                       key={gauge.id}
-                      className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
+                      className={`bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
                         isExpanded
                           ? 'border-2 border-primary-400 shadow-xl col-span-1 md:col-span-2 xl:col-span-3'
                           : 'border border-neutral-200 hover:border-neutral-300 hover:shadow-lg'
                       }`}
                     >
-                      {/* Condition gradient overlay */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${getConditionGradient(gauge.condition.code)} pointer-events-none`} />
-
                       {/* Card Header */}
                       <button
                         onClick={() => setExpandedGaugeId(isExpanded ? null : gauge.id)}
