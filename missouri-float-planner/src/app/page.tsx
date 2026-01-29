@@ -59,7 +59,7 @@ function HomeContent() {
       {/* Hero */}
       <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <div className="-mb-1">
+          <div className="mb-2">
             <Image
               src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
               alt="Eddy the Otter"
@@ -72,12 +72,8 @@ function HomeContent() {
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
             Eddy
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 font-medium mb-3">
+          <p className="text-xl md:text-2xl text-white/90 font-medium mb-8">
             Your Ozark Float Trip Companion
-          </p>
-          <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
-            Real-time water conditions, access points, and float time estimates
-            for the best rivers in the Ozarks.
           </p>
 
           {/* Feature pills */}
