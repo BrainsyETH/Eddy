@@ -67,9 +67,9 @@ export default function GaugeWeather({ lat, lon, enabled = true }: GaugeWeatherP
       </h4>
       <div className="grid grid-cols-3 gap-3">
         {/* Temperature */}
-        <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-3">
+        <div className="bg-white border border-neutral-200 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-1">
-            <Cloud className="w-4 h-4 text-blue-600" />
+            <Cloud className="w-4 h-4 text-primary-600" />
             <span className="text-xs font-medium text-neutral-500 uppercase">Temp</span>
           </div>
           <div className="text-2xl font-bold text-neutral-900">
@@ -78,9 +78,9 @@ export default function GaugeWeather({ lat, lon, enabled = true }: GaugeWeatherP
           <div className="text-xs text-neutral-600 capitalize mt-0.5">{weather.condition}</div>
         </div>
         {/* Wind */}
-        <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-3">
+        <div className="bg-white border border-neutral-200 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-1">
-            <Wind className="w-4 h-4 text-blue-600" />
+            <Wind className="w-4 h-4 text-primary-600" />
             <span className="text-xs font-medium text-neutral-500 uppercase">Wind</span>
           </div>
           <div className="text-2xl font-bold text-neutral-900">
@@ -89,7 +89,7 @@ export default function GaugeWeather({ lat, lon, enabled = true }: GaugeWeatherP
           <div className="text-xs text-neutral-600 mt-0.5">{weather.windDirection}</div>
         </div>
         {/* Weather Icon */}
-        <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-lg p-3 flex items-center justify-center">
+        <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
           <Image
             src={getWeatherIconUrl(weather.conditionIcon)}
             alt={weather.condition}
