@@ -10,7 +10,6 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
   MapPin,
-  Image as ImageIcon,
   Plus,
   X,
   ChevronDown,
