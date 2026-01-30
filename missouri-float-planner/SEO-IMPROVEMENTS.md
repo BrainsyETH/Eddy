@@ -204,8 +204,12 @@ keywords: [
 
 ### This Week:
 1. ✅ Competitor research (DONE - 2026-01-29)
-2. [ ] Update layout.tsx with improved metadata
-3. [ ] Write first blog post: "Best Float Rivers in Missouri"
+2. ✅ Update layout.tsx with improved metadata (DONE - 2026-01-29)
+3. ✅ Write first blog post: "Best Float Rivers in Missouri" (DONE - 2026-01-29 18:56 CST)
+   - **Branch:** seo/blog-best-rivers-2026
+   - **PR needed:** https://github.com/BrainsyETH/Eddy/pull/new/seo/blog-best-rivers-2026
+   - **Word count:** ~4,000 words (12 min read)
+   - **Target keyword:** "best float rivers Missouri"
 4. [ ] Submit sitemap to Google Search Console
 
 ### Next Week:
