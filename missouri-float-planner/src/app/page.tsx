@@ -10,6 +10,7 @@ import { MapPin, Droplets, Clock, ChevronDown, ArrowRight, BookOpen } from 'luci
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
+import type { ConditionCode } from '@/types/api';
 
 const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
 
