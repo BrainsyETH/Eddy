@@ -352,8 +352,8 @@ export default function GeographyEditor() {
 
   return (
     <>
-      {/* Control Panel - z-50 to stay above map markers */}
-      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-50 min-w-[300px]">
+      {/* Control Panel - z-[3000] to stay above map markers (which can be up to z-2000) */}
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-[3000] min-w-[300px]">
         <div className="space-y-4">
           {refreshing && (
             <div className="flex items-center gap-2 text-sm text-bluff-600">
@@ -597,7 +597,7 @@ export default function GeographyEditor() {
 
       {/* River Visibility Editor Panel */}
       {editState.mode === 'river-visibility' && (
-        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 w-[320px] max-h-[calc(100vh-120px)] overflow-y-auto">
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-[3000] w-[320px] max-h-[calc(100vh-120px)] overflow-y-auto">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-bluff-200">
             <h3 className="font-semibold text-bluff-800 flex items-center gap-2">
               <Eye size={18} />
@@ -692,9 +692,9 @@ export default function GeographyEditor() {
         />
       )}
 
-      {/* Access Point Detail Panel */}
+      {/* Access Point Detail Panel - z-[3000] to stay above map markers (which can be up to z-2000) */}
       {selectedAccessPoint && editingDetails && (
-        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 w-[340px] max-h-[calc(100vh-120px)] overflow-y-auto">
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-[3000] w-[340px] max-h-[calc(100vh-120px)] overflow-y-auto">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-bluff-200">
             <h3 className="font-semibold text-bluff-800">Edit Access Point</h3>
             <button
