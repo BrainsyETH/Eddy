@@ -373,8 +373,8 @@ export default function GeographyEditor() {
                 }
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   editState.mode === 'access-points'
-                    ? 'bg-river-500 text-white'
-                    : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
                 Access Points
@@ -385,8 +385,8 @@ export default function GeographyEditor() {
                 }
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   editState.mode === 'rivers'
-                    ? 'bg-river-500 text-white'
-                    : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
                 River Lines
@@ -397,8 +397,8 @@ export default function GeographyEditor() {
                 }
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                   editState.mode === 'river-visibility'
-                    ? 'bg-river-500 text-white'
-                    : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
                 <Eye size={14} />
@@ -512,8 +512,8 @@ export default function GeographyEditor() {
                 onClick={() => setAddMode(!addMode)}
                 className={`w-full px-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                   addMode
-                    ? 'bg-river-500 text-white'
-                    : 'bg-bluff-100 text-bluff-700 hover:bg-bluff-200'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
                 {addMode ? (
@@ -553,7 +553,7 @@ export default function GeographyEditor() {
                 <button
                   onClick={handleCancel}
                   disabled={refreshing}
-                  className="px-3 py-1.5 bg-bluff-200 text-bluff-700 rounded text-sm font-medium hover:bg-bluff-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 bg-neutral-200 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -565,7 +565,7 @@ export default function GeographyEditor() {
             <button
               onClick={() => loadData(true)}
               disabled={refreshing}
-              className="w-full px-3 py-1.5 bg-bluff-100 text-bluff-700 rounded text-sm font-medium hover:bg-bluff-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-3 py-1.5 bg-neutral-200 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {refreshing ? 'Refreshing...' : 'Refresh Data'}
             </button>
@@ -883,56 +883,8 @@ export default function GeographyEditor() {
                   className="w-full px-2 py-1.5 border border-blue-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                 />
                 <p className="text-xs text-blue-500 mt-1">
-                  Place name or address for more accurate directions. Leave empty to use coordinates.
+                  Place name or address for more accurate directions.
                 </p>
-              </div>
-
-              {/* Driving Coordinates for Shuttle Time Calculation */}
-              <div className="mb-3 pt-2 border-t border-blue-200">
-                <label className="block text-xs text-blue-700 mb-1 font-medium">
-                  Driving Coordinates (for shuttle time)
-                </label>
-                <p className="text-xs text-blue-500 mb-2">
-                  Enter exact parking lot coordinates for accurate shuttle drive time calculation.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-blue-600 mb-0.5">Latitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={editingDetails.drivingLat ?? ''}
-                      onChange={(e) => setEditingDetails({
-                        ...editingDetails,
-                        drivingLat: e.target.value ? parseFloat(e.target.value) : null
-                      })}
-                      placeholder="e.g., 37.123456"
-                      className="w-full px-2 py-1.5 border border-blue-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-blue-600 mb-0.5">Longitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={editingDetails.drivingLng ?? ''}
-                      onChange={(e) => setEditingDetails({
-                        ...editingDetails,
-                        drivingLng: e.target.value ? parseFloat(e.target.value) : null
-                      })}
-                      placeholder="e.g., -91.123456"
-                      className="w-full px-2 py-1.5 border border-blue-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                    />
-                  </div>
-                </div>
-                {(editingDetails.drivingLat || editingDetails.drivingLng) && (
-                  <button
-                    onClick={() => setEditingDetails({ ...editingDetails, drivingLat: null, drivingLng: null })}
-                    className="mt-1 text-xs text-red-500 hover:text-red-700"
-                  >
-                    Clear driving coordinates
-                  </button>
-                )}
               </div>
 
               <div className="space-y-2 pt-2 border-t border-blue-200">
