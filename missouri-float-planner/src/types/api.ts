@@ -40,6 +40,7 @@ export interface AccessPoint {
   feeNotes: string | null;
   directionsOverride?: string | null;
   imageUrls: string[];
+  googleMapsUrl?: string | null;
   coordinates: {
     lng: number;
     lat: number;

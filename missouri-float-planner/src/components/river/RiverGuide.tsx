@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
+import { MapPin } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { AccessPoint } from '@/types/api';
@@ -247,6 +248,18 @@ export default function RiverGuide({ accessPoints, riverSlug, isLoading, default
                       )}
                       {point.description && (
                         <p className="text-neutral-600">{point.description}</p>
+                      )}
+                      {/* Google Maps Link */}
+                      {point.googleMapsUrl && (
+                        <a
+                          href={point.googleMapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          <MapPin size={14} />
+                          View on Google Maps
+                        </a>
                       )}
                     </div>
                   </div>

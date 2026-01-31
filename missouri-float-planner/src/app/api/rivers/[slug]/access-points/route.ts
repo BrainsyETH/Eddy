@@ -92,6 +92,7 @@ export async function GET(
           feeNotes: ap.fee_notes,
           directionsOverride: ap.directions_override,
           imageUrls: ap.image_urls || [],
+          googleMapsUrl: ap.google_maps_url,
           coordinates: { lng, lat },
         };
       })

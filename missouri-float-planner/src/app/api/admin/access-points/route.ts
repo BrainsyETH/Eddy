@@ -32,6 +32,8 @@ export async function GET() {
         directions_override,
         driving_lat,
         driving_lng,
+        image_urls,
+        google_maps_url,
         approved,
         rivers(id, name, slug)
       `)
@@ -102,6 +104,8 @@ export async function GET() {
           directionsOverride: ap.directions_override,
           drivingLat: ap.driving_lat ? parseFloat(ap.driving_lat) : null,
           drivingLng: ap.driving_lng ? parseFloat(ap.driving_lng) : null,
+          imageUrls: ap.image_urls || [],
+          googleMapsUrl: ap.google_maps_url,
           approved: ap.approved,
           hasInvalidCoords, // Flag for admin UI to show warning
           hasMissingCoords, // New flag for points without coordinates

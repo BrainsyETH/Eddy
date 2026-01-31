@@ -4,7 +4,7 @@
 // Main geography editor component with improved state management
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus } from 'lucide-react';
+import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
@@ -46,6 +46,7 @@ interface AccessPoint {
   drivingLat?: number | null;
   drivingLng?: number | null;
   imageUrls?: string[];
+  googleMapsUrl?: string | null;
   approved: boolean;
   riverName?: string;
   hasInvalidCoords?: boolean;
@@ -72,6 +73,8 @@ export default function GeographyEditor() {
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
   const [showTypeFilter, setShowTypeFilter] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [googleMapsInput, setGoogleMapsInput] = useState('');
+  const [parsingGoogleMaps, setParsingGoogleMaps] = useState(false);
 
   // Available access point types
   const ACCESS_POINT_TYPES = [
@@ -255,6 +258,7 @@ export default function GeographyEditor() {
           drivingLat: editingDetails.drivingLat,
           drivingLng: editingDetails.drivingLng,
           imageUrls: editingDetails.imageUrls,
+          googleMapsUrl: editingDetails.googleMapsUrl,
         }),
       });
 
@@ -308,6 +312,56 @@ export default function GeographyEditor() {
       setSavingDetails(false);
     }
   }, [selectedAccessPoint, loadData]);
+
+  // Handle parsing a Google Maps URL
+  const handleParseGoogleMaps = useCallback(async () => {
+    if (!googleMapsInput.trim() || !editingDetails) return;
+
+    setParsingGoogleMaps(true);
+    try {
+      const response = await fetch('/api/admin/parse-google-maps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: googleMapsInput.trim() }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to parse URL');
+      }
+
+      if (result.success && result.data) {
+        const updates: Partial<AccessPoint> = {
+          ...editingDetails,
+          googleMapsUrl: googleMapsInput.trim(),
+        };
+
+        // Update name if found and current name is empty or generic
+        if (result.data.name && (!editingDetails.name || editingDetails.name === 'New Access Point')) {
+          updates.name = result.data.name;
+        }
+
+        // Show what was parsed
+        let message = 'Parsed successfully!';
+        if (result.data.name) message += `\nName: ${result.data.name}`;
+        if (result.data.latitude && result.data.longitude) {
+          message += `\nCoords: ${result.data.latitude.toFixed(5)}, ${result.data.longitude.toFixed(5)}`;
+        }
+
+        setEditingDetails(updates);
+        setGoogleMapsInput('');
+        alert(message);
+      } else {
+        alert(result.message || 'Could not extract data from URL');
+      }
+    } catch (err) {
+      console.error('Error parsing Google Maps URL:', err);
+      alert(err instanceof Error ? err.message : 'Failed to parse URL');
+    } finally {
+      setParsingGoogleMaps(false);
+    }
+  }, [googleMapsInput, editingDetails]);
 
   if (loading) {
     return (
@@ -860,6 +914,62 @@ export default function GeographyEditor() {
               </div>
               <p className="text-xs text-purple-500 mt-1">
                 Add image URLs. Changes are saved when you click &quot;Save Changes&quot;.
+              </p>
+            </div>
+
+            {/* Google Maps URL Import */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <label className="block text-sm font-medium text-green-800 mb-2 flex items-center gap-2">
+                <Link2 size={14} />
+                Import from Google Maps
+              </label>
+
+              {/* Current Google Maps URL */}
+              {editingDetails.googleMapsUrl && (
+                <div className="mb-3 p-2 bg-white rounded border border-green-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <a
+                      href={editingDetails.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-green-600 hover:text-green-800 truncate flex-1"
+                    >
+                      {editingDetails.googleMapsUrl}
+                    </a>
+                    <button
+                      onClick={() => setEditingDetails({ ...editingDetails, googleMapsUrl: null })}
+                      className="p-1 text-red-500 hover:text-red-700"
+                      title="Remove link"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Google Maps URL Input */}
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={googleMapsInput}
+                  onChange={(e) => setGoogleMapsInput(e.target.value)}
+                  placeholder="Paste Google Maps link here..."
+                  className="flex-1 px-2 py-1.5 border border-green-200 rounded text-sm bg-white focus:ring-2 focus:ring-green-400 focus:border-green-400"
+                />
+                <button
+                  onClick={handleParseGoogleMaps}
+                  disabled={!googleMapsInput.trim() || parsingGoogleMaps}
+                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  {parsingGoogleMaps ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    'Parse'
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-green-600 mt-1">
+                Paste a Google Maps link to auto-fill name. Link will be shown in the river guide.
               </p>
             </div>
 
