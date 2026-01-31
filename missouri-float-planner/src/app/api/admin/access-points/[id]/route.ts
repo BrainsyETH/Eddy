@@ -22,6 +22,7 @@ export async function PUT(
       isPublic,
       ownership,
       description,
+      parkingInfo,
       feeRequired,
       riverId,
       directionsOverride,
@@ -88,6 +89,11 @@ export async function PUT(
     // Handle description update
     if (description !== undefined) {
       updateData.description = description === '' ? null : description;
+    }
+
+    // Handle parkingInfo update
+    if (parkingInfo !== undefined) {
+      updateData.parking_info = parkingInfo === '' ? null : parkingInfo;
     }
 
     // Handle feeRequired update
@@ -161,6 +167,7 @@ export async function PUT(
         is_public,
         ownership,
         description,
+        parking_info,
         fee_required,
         directions_override,
         driving_lat,
@@ -238,6 +245,7 @@ export async function PUT(
       isPublic: data.is_public,
       ownership: data.ownership,
       description: data.description,
+      parkingInfo: data.parking_info,
       feeRequired: data.fee_required,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,

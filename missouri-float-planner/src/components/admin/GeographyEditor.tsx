@@ -41,6 +41,7 @@ interface AccessPoint {
   isPublic: boolean;
   ownership: string | null;
   description: string | null;
+  parkingInfo?: string | null;
   feeRequired?: boolean;
   directionsOverride?: string | null;
   drivingLat?: number | null;
@@ -252,6 +253,7 @@ export default function GeographyEditor() {
           isPublic: editingDetails.isPublic,
           ownership: editingDetails.ownership,
           description: editingDetails.description,
+          parkingInfo: editingDetails.parkingInfo,
           feeRequired: editingDetails.feeRequired,
           riverId: editingDetails.riverId,
           directionsOverride: editingDetails.directionsOverride,
@@ -847,6 +849,18 @@ export default function GeographyEditor() {
                 rows={3}
                 placeholder="Additional details about this access point..."
                 className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
+              />
+            </div>
+
+            {/* Parking */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Parking Info</label>
+              <input
+                type="text"
+                value={editingDetails.parkingInfo || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, parkingInfo: e.target.value })}
+                placeholder="e.g., Gravel lot, 20 spaces, free"
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
               />
             </div>
 
