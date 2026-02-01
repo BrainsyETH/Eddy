@@ -651,9 +651,9 @@ export default function FloatPlanCard({
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
-  // Details collapsed by default - user can expand if needed
-  const [putInExpanded, setPutInExpanded] = useState(false);
-  const [takeOutExpanded, setTakeOutExpanded] = useState(false);
+  // Details expanded by default on desktop
+  const [putInExpanded, setPutInExpanded] = useState(true);
+  const [takeOutExpanded, setTakeOutExpanded] = useState(true);
 
   // Use parent's plan directly - vessel changes handled by parent
   const displayPlan = plan;
