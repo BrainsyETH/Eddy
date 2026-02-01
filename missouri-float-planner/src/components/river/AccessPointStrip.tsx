@@ -184,12 +184,18 @@ function ExpandedDetail({
         </div>
 
         {/* Quick info */}
-        <div className="text-sm text-neutral-600 space-y-1">
+        <div className="text-sm text-neutral-600 space-y-1.5">
+          {point.description && (
+            <p className="line-clamp-3">{point.description}</p>
+          )}
           {point.parkingInfo && (
             <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
           )}
-          {point.description && (
-            <p className="line-clamp-3">{point.description}</p>
+          {point.roadAccess && (
+            <p><span className="font-medium">Road Access:</span> {point.roadAccess}</p>
+          )}
+          {point.facilities && (
+            <p><span className="font-medium">Facilities:</span> {point.facilities}</p>
           )}
         </div>
 

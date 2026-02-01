@@ -24,6 +24,8 @@ export async function PUT(
       ownership,
       description,
       parkingInfo,
+      roadAccess,
+      facilities,
       feeRequired,
       riverMile,
       riverId,
@@ -109,6 +111,16 @@ export async function PUT(
       updateData.parking_info = parkingInfo === '' ? null : parkingInfo;
     }
 
+    // Handle roadAccess update
+    if (roadAccess !== undefined) {
+      updateData.road_access = roadAccess === '' ? null : roadAccess;
+    }
+
+    // Handle facilities update
+    if (facilities !== undefined) {
+      updateData.facilities = facilities === '' ? null : facilities;
+    }
+
     // Handle feeRequired update
     if (typeof feeRequired === 'boolean') {
       updateData.fee_required = feeRequired;
@@ -187,6 +199,8 @@ export async function PUT(
         ownership,
         description,
         parking_info,
+        road_access,
+        facilities,
         fee_required,
         directions_override,
         driving_lat,
@@ -266,6 +280,8 @@ export async function PUT(
       ownership: data.ownership,
       description: data.description,
       parkingInfo: data.parking_info,
+      roadAccess: data.road_access,
+      facilities: data.facilities,
       feeRequired: data.fee_required,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,

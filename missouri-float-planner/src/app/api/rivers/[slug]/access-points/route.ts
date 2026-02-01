@@ -89,6 +89,8 @@ export async function GET(
           description: ap.description,
           amenities: ap.amenities || [],
           parkingInfo: ap.parking_info,
+          roadAccess: ap.road_access,
+          facilities: ap.facilities,
           feeRequired: ap.fee_required,
           feeNotes: ap.fee_notes,
           directionsOverride: ap.directions_override,

@@ -43,6 +43,8 @@ interface AccessPoint {
   ownership: string | null;
   description: string | null;
   parkingInfo?: string | null;
+  roadAccess?: string | null;
+  facilities?: string | null;
   feeRequired?: boolean;
   directionsOverride?: string | null;
   drivingLat?: number | null;
@@ -257,6 +259,8 @@ export default function GeographyEditor() {
           ownership: editingDetails.ownership,
           description: editingDetails.description,
           parkingInfo: editingDetails.parkingInfo,
+          roadAccess: editingDetails.roadAccess,
+          facilities: editingDetails.facilities,
           feeRequired: editingDetails.feeRequired,
           riverMile: editingDetails.riverMile,
           riverId: editingDetails.riverId,
@@ -939,6 +943,30 @@ export default function GeographyEditor() {
                 onChange={(e) => setEditingDetails({ ...editingDetails, parkingInfo: e.target.value })}
                 placeholder="e.g., Gravel lot, 20 spaces, free"
                 className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              />
+            </div>
+
+            {/* Road Access */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Road Access</label>
+              <textarea
+                value={editingDetails.roadAccess || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, roadAccess: e.target.value })}
+                rows={2}
+                placeholder="e.g., Paved all the way via Hwy 19. Well-signed."
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
+              />
+            </div>
+
+            {/* Facilities */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Facilities</label>
+              <textarea
+                value={editingDetails.facilities || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, facilities: e.target.value })}
+                rows={2}
+                placeholder="e.g., Vault toilets, picnic tables, camping. No water."
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
               />
             </div>
 
