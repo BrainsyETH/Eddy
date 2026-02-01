@@ -258,15 +258,13 @@ export default function GeographyEditor() {
           description: editingDetails.description,
           parkingInfo: editingDetails.parkingInfo,
           feeRequired: editingDetails.feeRequired,
+          riverMile: editingDetails.riverMile,
           riverId: editingDetails.riverId,
           directionsOverride: editingDetails.directionsOverride,
           drivingLat: editingDetails.drivingLat,
           drivingLng: editingDetails.drivingLng,
           imageUrls: editingDetails.imageUrls,
           googleMapsUrl: editingDetails.googleMapsUrl,
-          // Include coordinates if they've been updated (e.g., from Google Maps URL parsing)
-          latitude: editingDetails.coordinates?.orig?.lat,
-          longitude: editingDetails.coordinates?.orig?.lng,
         }),
       });
 
@@ -350,23 +348,12 @@ export default function GeographyEditor() {
           updates.name = result.data.name;
         }
 
-        // Update coordinates if extracted from the URL
-        if (result.data.latitude && result.data.longitude) {
-          updates.coordinates = {
-            orig: {
-              lat: result.data.latitude,
-              lng: result.data.longitude,
-            },
-            snap: editingDetails.coordinates?.snap ?? null,
-          };
-        }
-
         // Show what was parsed
         let message = 'Parsed successfully!';
         if (result.data.name) message += `\nName: ${result.data.name}`;
         if (result.data.latitude && result.data.longitude) {
-          message += `\nCoords: ${result.data.latitude.toFixed(5)}, ${result.data.longitude.toFixed(5)}`;
-          message += `\n\nClick "Save Changes" to update the marker position.`;
+          message += `\nCoords found: ${result.data.latitude.toFixed(5)}, ${result.data.longitude.toFixed(5)}`;
+          message += `\n(Drag the marker on the map to update position)`;
         }
 
         setEditingDetails(updates);
@@ -1146,7 +1133,7 @@ export default function GeographyEditor() {
 
               <div className="space-y-2 pt-2 border-t border-blue-200">
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${editingDetails.coordinates?.orig?.lat ?? selectedAccessPoint.coordinates.orig.lat},${editingDetails.coordinates?.orig?.lng ?? selectedAccessPoint.coordinates.orig.lng}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${selectedAccessPoint.coordinates.orig.lat},${selectedAccessPoint.coordinates.orig.lng}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
@@ -1155,9 +1142,9 @@ export default function GeographyEditor() {
                   View on Google Maps
                 </a>
                 <a
-                  href={editingDetails.directionsOverride || selectedAccessPoint.directionsOverride
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(editingDetails.directionsOverride || selectedAccessPoint.directionsOverride || '')}`
-                    : `https://www.google.com/maps/dir/?api=1&destination=${editingDetails.coordinates?.orig?.lat ?? selectedAccessPoint.coordinates.orig.lat},${editingDetails.coordinates?.orig?.lng ?? selectedAccessPoint.coordinates.orig.lng}`
+                  href={selectedAccessPoint.directionsOverride
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedAccessPoint.directionsOverride)}`
+                    : `https://www.google.com/maps/dir/?api=1&destination=${selectedAccessPoint.coordinates.orig.lat},${selectedAccessPoint.coordinates.orig.lng}`
                   }
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1165,7 +1152,7 @@ export default function GeographyEditor() {
                 >
                   <Navigation size={14} />
                   Get Driving Directions
-                  {(editingDetails.directionsOverride || selectedAccessPoint.directionsOverride) && (
+                  {selectedAccessPoint.directionsOverride && (
                     <span className="text-xs bg-blue-200 px-1.5 py-0.5 rounded">custom</span>
                   )}
                 </a>
@@ -1205,26 +1192,26 @@ export default function GeographyEditor() {
               </div>
             </div>
 
+            {/* River Mile */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">River Mile</label>
+              <input
+                type="number"
+                step="0.1"
+                value={editingDetails.riverMile ?? ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, riverMile: e.target.value ? parseFloat(e.target.value) : null })}
+                placeholder="e.g., 15.5"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+              <p className="text-xs text-neutral-500 mt-1">
+                Distance from river mouth/end. Used for ordering access points.
+              </p>
+            </div>
+
             {/* Location Info */}
             <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
-              <div>River Mile: {selectedAccessPoint.riverMile?.toFixed(1) ?? 'N/A'}</div>
-              <div className="flex items-center gap-1">
-                <span>Coords:</span>
-                <span className={editingDetails.coordinates?.orig?.lat !== selectedAccessPoint.coordinates.orig.lat ||
-                  editingDetails.coordinates?.orig?.lng !== selectedAccessPoint.coordinates.orig.lng
-                  ? 'text-green-600 font-medium'
-                  : ''
-                }>
-                  {(editingDetails.coordinates?.orig?.lat ?? selectedAccessPoint.coordinates.orig.lat).toFixed(5)},
-                  {' '}
-                  {(editingDetails.coordinates?.orig?.lng ?? selectedAccessPoint.coordinates.orig.lng).toFixed(5)}
-                </span>
-                {(editingDetails.coordinates?.orig?.lat !== selectedAccessPoint.coordinates.orig.lat ||
-                  editingDetails.coordinates?.orig?.lng !== selectedAccessPoint.coordinates.orig.lng) && (
-                  <span className="text-green-600">(pending)</span>
-                )}
-              </div>
-              <div className="mt-1 text-neutral-400">Drag marker on map or import from Google Maps</div>
+              <div>Coords: {selectedAccessPoint.coordinates.orig.lat.toFixed(5)}, {selectedAccessPoint.coordinates.orig.lng.toFixed(5)}</div>
+              <div className="mt-1 text-neutral-400">Drag marker on map to change location</div>
             </div>
 
             {/* Actions */}
