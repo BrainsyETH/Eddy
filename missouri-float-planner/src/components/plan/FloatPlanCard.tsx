@@ -107,11 +107,20 @@ function ShareableCapture({
       className="absolute left-[-9999px] top-0 w-[400px] bg-white p-4"
       style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
-      {/* Header with branding */}
+      {/* Header with Eddy mascot and branding */}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-neutral-200">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">{riverName || 'Float Plan'}</h1>
-          <p className="text-sm text-neutral-500">eddy.fish</p>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/blog/planning-first-trip/eddy-reference.png"
+            alt="Eddy the Otter"
+            width={48}
+            height={48}
+            className="object-contain"
+          />
+          <div>
+            <h1 className="text-xl font-bold text-neutral-900">{riverName || 'Float Plan'}</h1>
+            <p className="text-sm text-neutral-500">eddy.guide</p>
+          </div>
         </div>
         <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass}`}>
           <span className={`text-sm font-bold ${conditionConfig.textClass}`}>
@@ -168,7 +177,7 @@ function ShareableCapture({
 
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-neutral-200 text-center">
-        <p className="text-xs text-neutral-400">Plan your float at eddy.fish</p>
+        <p className="text-xs text-neutral-400">Plan your float at eddy.guide</p>
       </div>
     </div>
   );
