@@ -8,7 +8,7 @@ UPDATE access_points SET
   parking_info = 'Large paved lots throughout the park. Ample parking year-round.',
   road_access = 'Paved all the way in via Hwy 119. Easy access from Salem (about 20 miles southwest).',
   facilities = 'Lodge with restaurant, general store, cabins, full-hookup campground, flush toilets, showers, fish cleaning stations, picnic areas.'
-WHERE name ILIKE '%Montauk%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Montauk%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Baptist Camp Access
 UPDATE access_points SET
@@ -16,7 +16,7 @@ UPDATE access_points SET
   parking_info = 'Gravel lot with ample parking. Gets crowded on summer weekends and during trout season.',
   road_access = 'Follow the gravel road out the back of Montauk State Park. It turns to blacktop, then take the first right at the MDC sign for Baptist Camp. The gravel road down to the access is passable for all vehicles but narrow.',
   facilities = 'Privy (outhouse) only. No water, no camping allowed at this access.'
-WHERE name ILIKE '%Baptist Camp%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Baptist Camp%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Cedargrove
 UPDATE access_points SET
@@ -24,7 +24,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel area near the low-water bridge. Limited - plan accordingly on busy weekends.',
   road_access = 'Off Hwy K via Hwy ZZ. The final stretch is a gravel county road. Passable for all vehicles in dry conditions. The low-water bridge may be impassable during high water.',
   facilities = 'Vault toilets (outhouses) only. No water, no showers. Backcountry camping ($10/night). Small store 1 mile up the road.'
-WHERE name ILIKE '%Cedargrove%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Cedargrove%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Welch Landing
 UPDATE access_points SET
@@ -32,7 +32,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel pulloff area. Very limited capacity.',
   road_access = 'Gravel road access off county roads. Can be tricky to find - follow signs carefully. Passable for standard vehicles in dry weather.',
   facilities = 'Minimal to none. No restrooms, no water, no camping at the landing itself.'
-WHERE name ILIKE '%Welch%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Welch%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Akers Ferry
 UPDATE access_points SET
@@ -40,7 +40,7 @@ UPDATE access_points SET
   parking_info = 'Gravel parking area near the ferry. Can get very crowded on summer weekends. Additional overflow parking available.',
   road_access = 'From Salem: Hwy 19 south 4 miles, then Hwy KK west 16 miles to the junction with Hwy K. Paved the entire way - one of the most accessible upper river launches.',
   facilities = 'NPS group campground (4 group sites, tent-only, up to 45 people per site). Vault toilets, potable water, trash collection. Seasonal camp store nearby with firewood, ice, snacks. Canoe/kayak rentals available on site.'
-WHERE name ILIKE '%Akers%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Akers%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Pulltite (also matches Pulltite Spring)
 UPDATE access_points SET
@@ -48,7 +48,7 @@ UPDATE access_points SET
   parking_info = 'Paved parking spurs in the campground. Separate day-use parking near the river access. Fills on peak weekends but generally adequate.',
   road_access = 'From Salem: Hwy 19 south 32 miles, then turn right onto Hwy EE to the end. Paved all the way. Well-signed.',
   facilities = 'NPS campground with ~55 sites ($16/night non-electric). Flush toilets and showers available April 15-Oct 15 (note: flood damage reverted facilities to vault toilet after Oct 2025 - check current status). Picnic tables, fire rings, grills. Current River Canoe Rental on site. Amphitheater.'
-WHERE name ILIKE '%Pulltite%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Pulltite%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Round Spring
 UPDATE access_points SET
@@ -56,7 +56,7 @@ UPDATE access_points SET
   parking_info = 'Paved parking throughout the campground and at the river access. Day-use parking near the spring. Good capacity.',
   road_access = 'Located directly on Hwy 19, about 13 miles north of Eminence. Fully paved, easy to find. One of the most highway-accessible points on the river.',
   facilities = 'NPS campground with ~60 sites including electric hookups (50-amp). Flush toilets and showers (April 15-Oct 15). Dump station. Ranger station. Picnic areas. Cave tours. Canoe rental (Carr''s Canoe Rental) nearby.'
-WHERE name ILIKE '%Round Spring%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Round Spring%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Jerktail Landing
 UPDATE access_points SET
@@ -64,7 +64,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel pulloff. Very limited capacity.',
   road_access = 'County gravel roads. Passable for most vehicles in dry conditions but remote and potentially confusing without GPS. Not recommended after heavy rain.',
   facilities = 'Minimal to none. Bring everything you need.'
-WHERE name ILIKE '%Jerktail%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Jerktail%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Two Rivers (Jacks Fork Confluence)
 UPDATE access_points SET
@@ -72,7 +72,7 @@ UPDATE access_points SET
   parking_info = 'Gravel and paved areas at the campground and access point. Adequate for most days.',
   road_access = 'Accessible via Hwy 106. Paved roads to the campground. Well-signed.',
   facilities = 'NPS campground with flush toilets and showers (seasonal). Picnic areas. Two Rivers Canoe Rental on site. Fire rings, picnic tables.'
-WHERE name ILIKE '%Two Rivers%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Two Rivers%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Powder Mill
 UPDATE access_points SET
@@ -80,7 +80,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel area. The approach through the gravel bar can be tricky - use caution to avoid getting stuck.',
   road_access = 'Near the Current River bridge on Hwy 106, about 14 miles west of Ellington or 13 miles east of Eminence. Paved highway access, but the final approach to the river is gravel.',
   facilities = 'NPS backcountry campground with 8 sites ($5/night). Concrete vault toilet (replaced flush restroom after 2017 floods). No showers. No water hookups.'
-WHERE name ILIKE '%Powder Mill%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Powder Mill%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Roberts Field
 UPDATE access_points SET
@@ -88,7 +88,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel area. Limited capacity but rarely an issue given low usage.',
   road_access = 'Gravel county roads. Remote but passable for standard vehicles in dry conditions.',
   facilities = 'Backcountry campground. Minimal facilities - vault toilet, fire rings. No water, no showers.'
-WHERE name ILIKE '%Roberts Field%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Roberts Field%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Log Yard
 UPDATE access_points SET
@@ -96,7 +96,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel area. Very limited but adequate for typical low usage.',
   road_access = 'Gravel county roads. Remote, passable for standard vehicles.',
   facilities = 'Backcountry campground. Vault toilet, fire rings. No water, no showers.'
-WHERE name ILIKE '%Log Yard%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Log Yard%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Waymeyer Access
 UPDATE access_points SET
@@ -104,7 +104,7 @@ UPDATE access_points SET
   parking_info = 'Gravel area. Limited space, especially with weekend restrictions channeling more users here on weekdays.',
   road_access = 'County Road M-151 off Hwy M. The final approach is gravel. Passable for all vehicles.',
   facilities = 'Basic river access only. No campground, no restrooms at the immediate access. Nearby facilities at Chilton Creek boat ramp area.'
-WHERE name ILIKE '%Waymeyer%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Waymeyer%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Van Buren (Riverfront Park or City Access)
 UPDATE access_points SET
@@ -112,7 +112,7 @@ UPDATE access_points SET
   parking_info = 'Paved town parking near the riverfront park. Generally adequate. Additional parking in town.',
   road_access = 'Right on US Hwy 60 - one of the best highway-accessible points on the entire river. Easy to find, easy to reach from any direction.',
   facilities = 'Town amenities: restaurants, gas station, coffee shop, lodging. The park itself has basic riverfront access. No campground at the park, but Big Spring Campground is 4 miles south.'
-WHERE name ILIKE '%Van Buren%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Van Buren%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Big Spring
 UPDATE access_points SET
@@ -120,7 +120,7 @@ UPDATE access_points SET
   parking_info = 'Large paved lots at the spring and throughout the campground. Plenty of parking including accessible spots.',
   road_access = 'From Van Buren: Hwy 60 west, then Hwy 103 south for 4 miles. Fully paved, well-signed. From Van Buren it''s a 10-minute drive.',
   facilities = 'Full-service NPS campground with electric and non-electric sites. Flush toilets, showers, picnic pavilions (recently rebuilt). Paved roads and sites. Hiking trails. Self-serve pay station. No on-site store - bring supplies from Van Buren.'
-WHERE name ILIKE '%Big Spring%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Big Spring%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Gooseneck
 UPDATE access_points SET
@@ -128,7 +128,7 @@ UPDATE access_points SET
   parking_info = 'Small gravel area at the campground.',
   road_access = 'Farm Road 3142/County Road C10 off Hwy C. Gravel, somewhat remote. Passable for standard vehicles in dry conditions.',
   facilities = 'Forest Service campground. Basic facilities - vault toilets, fire rings. No water, no showers.'
-WHERE name ILIKE '%Gooseneck%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE name ILIKE '%Gooseneck%' AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
 
 -- Doniphan / T.L. Wright Memorial Access
 UPDATE access_points SET
@@ -136,4 +136,4 @@ UPDATE access_points SET
   parking_info = 'Paved and gravel areas near the access. Adequate for typical usage.',
   road_access = 'Right off Hwy 160 in Doniphan. Fully paved, easy highway access.',
   facilities = 'River access with parking. Town of Doniphan nearby offers stores, meals, lodging, and gas. Private campgrounds in the area.'
-WHERE (name ILIKE '%Doniphan%' OR name ILIKE '%T.L. Wright%' OR name ILIKE '%TL Wright%') AND river_id IN (SELECT id FROM rivers WHERE slug = 'current-river');
+WHERE (name ILIKE '%Doniphan%' OR name ILIKE '%T.L. Wright%' OR name ILIKE '%TL Wright%') AND river_id IN (SELECT id FROM rivers WHERE slug = 'current');
