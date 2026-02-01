@@ -466,6 +466,10 @@ function MobileBottomSheet({
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState<number | null>(null);
 
+  const { data: vesselTypes } = useVesselTypes();
+  const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
+  const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
+
   // Heights for the sheet states
   const COLLAPSED_HEIGHT = 120;
   const EXPANDED_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600;
@@ -510,7 +514,9 @@ function MobileBottomSheet({
     dragRef.current = null;
   }, [sheetHeight, EXPANDED_HEIGHT]);
 
-  const conditionConfig = CONDITION_CONFIG[plan.condition.code || 'unknown'] || CONDITION_CONFIG.unknown;
+  const conditionCode: ConditionCode = plan.condition.code || 'unknown';
+  const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+  const isUpstream = plan.putIn.riverMile > plan.takeOut.riverMile;
 
   return (
     <div
@@ -558,44 +564,69 @@ function MobileBottomSheet({
 
       {/* Expanded Content */}
       <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 90px)` }}>
-        {/* Route Timeline */}
+        {/* Route Summary with Vessel Toggle */}
         <div className="bg-neutral-50 rounded-xl p-4 mb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-3">
             <div className="flex flex-col items-center">
-              <div className="w-4 h-4 rounded-full bg-support-500"></div>
-              <div className="w-0.5 h-8 bg-gradient-to-b from-support-400 to-accent-400"></div>
-              <div className="w-4 h-4 rounded-full bg-accent-500"></div>
+              <div className="w-3 h-3 rounded-full bg-support-500"></div>
+              <div className="w-0.5 h-6 bg-gradient-to-b from-support-400 to-accent-400"></div>
+              <div className="w-3 h-3 rounded-full bg-accent-500"></div>
             </div>
-            <div className="flex-1 space-y-4">
-              <div>
-                <p className="text-xs font-bold text-support-600 uppercase">Put-in</p>
-                <p className="font-bold text-neutral-900">{putInPoint.name}</p>
-                <p className="text-xs text-neutral-500">Mile {putInPoint.riverMile.toFixed(1)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-accent-600 uppercase">Take-out</p>
-                <p className="font-bold text-neutral-900">{takeOutPoint.name}</p>
-                <p className="text-xs text-neutral-500">Mile {takeOutPoint.riverMile.toFixed(1)}</p>
-              </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-neutral-700">{putInPoint.name}</p>
+              <p className="text-sm font-medium text-neutral-700 mt-1">{takeOutPoint.name}</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-              <p className="text-lg font-semibold text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
+              <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+              <p className="text-sm text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
             </div>
           </div>
+
+          {/* Vessel Toggle */}
+          {canoeVessel && raftVessel && (
+            <div className="flex justify-center pt-2 border-t border-neutral-200">
+              <div className="inline-flex items-center rounded-lg p-1 bg-white border border-neutral-200">
+                <button
+                  onClick={() => onVesselChange(canoeVessel.id)}
+                  disabled={isLoading}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    isLoading ? 'opacity-50' : ''
+                  } ${
+                    vesselTypeId === canoeVessel.id
+                      ? 'bg-primary-600 text-white'
+                      : 'text-neutral-600'
+                  }`}
+                >
+                  🛶 Canoe
+                </button>
+                <button
+                  onClick={() => onVesselChange(raftVessel.id)}
+                  disabled={isLoading}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    isLoading ? 'opacity-50' : ''
+                  } ${
+                    vesselTypeId === raftVessel.id
+                      ? 'bg-primary-600 text-white'
+                      : 'text-neutral-600'
+                  }`}
+                >
+                  🚣 Raft
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Journey Details */}
-        <JourneyCenter
-          plan={plan}
-          isLoading={isLoading}
-          selectedVesselTypeId={vesselTypeId}
-          onVesselChange={onVesselChange}
-          recalculating={isLoading}
-        />
+        {/* Upstream Warning */}
+        {isUpstream && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-4 text-xs">
+            <span className="text-red-500">⚠</span>
+            <span className="text-red-700 font-medium">Upstream route - paddling against current</span>
+          </div>
+        )}
 
-        {/* Access Point Details Accordions */}
-        <div className="space-y-3 mt-4">
+        {/* 1. Access Point Cards */}
+        <div className="space-y-3 mb-4">
           <AccessPointDetailCard
             point={putInPoint}
             isPutIn={true}
@@ -612,8 +643,113 @@ function MobileBottomSheet({
           />
         </div>
 
+        {/* 2. Directions */}
+        <div className="space-y-2 mb-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Directions</p>
+          <a
+            href={plan.putIn.directionsOverride
+              ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(plan.putIn.directionsOverride)}`
+              : `https://www.google.com/maps/dir/?api=1&destination=${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full bg-support-500 flex items-center justify-center">
+                <MapPin size={12} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-neutral-800">Directions to Put-in</span>
+            </div>
+            <ChevronRight size={16} className="text-neutral-400" />
+          </a>
+          <a
+            href={(() => {
+              const origin = plan.putIn.directionsOverride
+                ? encodeURIComponent(plan.putIn.directionsOverride)
+                : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
+              const dest = plan.takeOut.directionsOverride
+                ? encodeURIComponent(plan.takeOut.directionsOverride)
+                : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
+              return `https://www.google.com/maps/dir/${origin}/${dest}`;
+            })()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="5" cy="18" r="3"/>
+                  <circle cx="19" cy="6" r="3"/>
+                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
+                  <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-neutral-800">Shuttle Route</span>
+            </div>
+            <ChevronRight size={16} className="text-primary-400" />
+          </a>
+        </div>
+
+        {/* 3. River Conditions - Revamped Card */}
+        <div className="mb-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">River Conditions</p>
+          <div className={`rounded-2xl overflow-hidden ${conditionConfig.bgClass}`}>
+            {/* Main Status */}
+            <div className="px-4 py-4 text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 mb-2">
+                <span className="text-2xl">{conditionConfig.emoji}</span>
+              </div>
+              <p className={`text-xl font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+              {plan.condition.gaugeName && (
+                <p className={`text-xs ${conditionConfig.textClass} opacity-75 mt-1`}>
+                  {plan.condition.gaugeName}
+                </p>
+              )}
+            </div>
+
+            {/* Stats Row */}
+            <div className="bg-white/95 backdrop-blur px-4 py-3">
+              <div className="flex items-center justify-around">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-neutral-800">
+                    {plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">Feet</p>
+                </div>
+                <div className="w-px h-10 bg-neutral-200"></div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-neutral-800">
+                    {plan.condition.dischargeCfs?.toLocaleString() ?? '—'}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">CFS</p>
+                </div>
+                {plan.condition.usgsUrl && (
+                  <>
+                    <div className="w-px h-10 bg-neutral-200"></div>
+                    <a
+                      href={plan.condition.usgsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center text-primary-600 hover:text-primary-700"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                      <p className="text-[10px] uppercase tracking-wider font-medium mt-1">USGS</p>
+                    </a>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Share Buttons */}
-        <div className="flex gap-3 mt-4 pb-4">
+        <div className="flex gap-3 pb-4">
           <button
             onClick={onShare}
             className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
