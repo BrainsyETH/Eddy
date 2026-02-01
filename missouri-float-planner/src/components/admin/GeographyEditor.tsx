@@ -371,7 +371,7 @@ export default function GeographyEditor() {
   // Handle image file upload
   const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files || files.length === 0 || !editingDetails) return;
+    if (!files || files.length === 0) return;
 
     setUploadingImages(true);
     try {
@@ -391,12 +391,16 @@ export default function GeographyEditor() {
         throw new Error(result.error || 'Upload failed');
       }
 
-      // Add uploaded URLs to the existing images
+      // Add uploaded URLs to the existing images using functional update
+      // This ensures we always work with the current state, not a stale captured value
       if (result.urls && result.urls.length > 0) {
-        const currentUrls = editingDetails.imageUrls || [];
-        setEditingDetails({
-          ...editingDetails,
-          imageUrls: [...currentUrls, ...result.urls],
+        setEditingDetails(prev => {
+          if (!prev) return prev;
+          const currentUrls = prev.imageUrls || [];
+          return {
+            ...prev,
+            imageUrls: [...currentUrls, ...result.urls],
+          };
         });
 
         const message = result.urls.length === 1
@@ -416,7 +420,7 @@ export default function GeographyEditor() {
         fileInputRef.current.value = '';
       }
     }
-  }, [editingDetails]);
+  }, []);
 
   if (loading) {
     return (
@@ -957,8 +961,11 @@ export default function GeographyEditor() {
                       />
                       <button
                         onClick={() => {
-                          const newUrls = editingDetails.imageUrls?.filter((_, i) => i !== index) || [];
-                          setEditingDetails({ ...editingDetails, imageUrls: newUrls });
+                          setEditingDetails(prev => {
+                            if (!prev) return prev;
+                            const newUrls = prev.imageUrls?.filter((_, i) => i !== index) || [];
+                            return { ...prev, imageUrls: newUrls };
+                          });
                         }}
                         className="absolute top-0.5 right-0.5 p-0.5 bg-red-600 hover:bg-red-700 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove image"
@@ -1016,13 +1023,16 @@ export default function GeographyEditor() {
                   <button
                     onClick={() => {
                       if (newImageUrl.trim()) {
-                        const currentUrls = editingDetails.imageUrls || [];
-                        if (!currentUrls.includes(newImageUrl.trim())) {
-                          setEditingDetails({
-                            ...editingDetails,
-                            imageUrls: [...currentUrls, newImageUrl.trim()],
-                          });
-                        }
+                        const urlToAdd = newImageUrl.trim();
+                        setEditingDetails(prev => {
+                          if (!prev) return prev;
+                          const currentUrls = prev.imageUrls || [];
+                          if (currentUrls.includes(urlToAdd)) return prev;
+                          return {
+                            ...prev,
+                            imageUrls: [...currentUrls, urlToAdd],
+                          };
+                        });
                         setNewImageUrl('');
                       }
                     }}
