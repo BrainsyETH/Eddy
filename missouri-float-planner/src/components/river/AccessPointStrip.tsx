@@ -237,21 +237,13 @@ export default function AccessPointStrip({
     }
   }, [accessPoints]);
 
-  // Scroll to selected point when selection changes
+  // Auto-expand when selection changes (but don't scroll)
   useEffect(() => {
     const selectedId = selectedTakeOutId || selectedPutInId;
-    if (selectedId && scrollRef.current) {
-      const index = accessPoints.findIndex(ap => ap.id === selectedId);
-      if (index >= 0) {
-        const cardWidth = 144 + 8; // card width + gap
-        scrollRef.current.scrollTo({
-          left: Math.max(0, index * cardWidth - 50),
-          behavior: 'smooth',
-        });
-        setExpandedId(selectedId);
-      }
+    if (selectedId) {
+      setExpandedId(selectedId);
     }
-  }, [selectedPutInId, selectedTakeOutId, accessPoints]);
+  }, [selectedPutInId, selectedTakeOutId]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -281,24 +273,11 @@ export default function AccessPointStrip({
 
   return (
     <div className="relative">
-      {/* Expanded detail panel */}
-      {expandedPoint && (
-        <div className="mb-2 px-2">
-          <ExpandedDetail
-            point={expandedPoint}
-            isPutIn={expandedPoint.id === selectedPutInId}
-            isTakeOut={expandedPoint.id === selectedTakeOutId}
-            onClose={() => setExpandedId(null)}
-          />
-        </div>
-      )}
-
       {/* Scroll arrows */}
       {showLeftArrow && (
         <button
           onClick={() => scroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
-          style={{ top: expandedPoint ? 'calc(50% + 70px)' : '50%' }}
+          className="absolute left-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
         >
           <ChevronLeft size={20} className="text-neutral-600" />
         </button>
@@ -306,8 +285,7 @@ export default function AccessPointStrip({
       {showRightArrow && (
         <button
           onClick={() => scroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
-          style={{ top: expandedPoint ? 'calc(50% + 70px)' : '50%' }}
+          className="absolute right-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
         >
           <ChevronRight size={20} className="text-neutral-600" />
         </button>
@@ -329,6 +307,18 @@ export default function AccessPointStrip({
           />
         ))}
       </div>
+
+      {/* Expanded detail panel - below cards */}
+      {expandedPoint && (
+        <div className="mt-2 px-2">
+          <ExpandedDetail
+            point={expandedPoint}
+            isPutIn={expandedPoint.id === selectedPutInId}
+            isTakeOut={expandedPoint.id === selectedTakeOutId}
+            onClose={() => setExpandedId(null)}
+          />
+        </div>
+      )}
 
       {/* Hint text */}
       <p className="text-center text-xs text-neutral-400 mt-1">
