@@ -198,8 +198,13 @@ export default function RiverGuide({ accessPoints, riverSlug, isLoading, default
                           <span className="w-2 h-2 rounded-full bg-primary-500"></span>
                           <p className="font-semibold text-neutral-900">{point.name}</p>
                         </div>
-                        <p className="text-sm text-neutral-500 capitalize ml-4">
-                          {point.type.replace('_', ' ')} • Mile {point.riverMile.toFixed(1)}
+                        <p className="text-sm text-neutral-500 ml-4">
+                          <span className="capitalize">
+                            {(point.types && point.types.length > 0 ? point.types : [point.type])
+                              .map(t => t.replace('_', ' '))
+                              .join(' • ')}
+                          </span>
+                          {' • Mile '}{point.riverMile.toFixed(1)}
                         </p>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
