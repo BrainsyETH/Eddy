@@ -33,12 +33,15 @@ export default function AccessPointPopup({
     const popupContent = document.createElement('div');
     popupContent.className = 'access-point-popup';
     popupContent.innerHTML = `
-      <div class="p-2">
+      <div class="p-2 max-w-xs">
         <h3 class="font-semibold text-sm mb-1">${point.name}</h3>
         <p class="text-xs text-gray-600 mb-1">River Mile: ${point.riverMile.toFixed(1)}</p>
         <p class="text-xs text-gray-600 mb-1">Type: ${point.type.replace('_', ' ')}</p>
-        ${point.description ? `<p class="text-xs text-gray-500 mt-1">${point.description}</p>` : ''}
-        ${point.feeRequired ? `<p class="text-xs text-orange-600 mt-1">💰 Fee Required</p>` : ''}
+        ${point.description ? `<p class="text-xs text-gray-500 mt-2">${point.description}</p>` : ''}
+        ${point.parkingInfo ? `<p class="text-xs text-gray-600 mt-2"><strong>Parking:</strong> ${point.parkingInfo}</p>` : ''}
+        ${point.roadAccess ? `<p class="text-xs text-gray-600 mt-1"><strong>Road Access:</strong> ${point.roadAccess}</p>` : ''}
+        ${point.facilities ? `<p class="text-xs text-gray-600 mt-1"><strong>Facilities:</strong> ${point.facilities}</p>` : ''}
+        ${point.feeRequired ? `<p class="text-xs text-orange-600 mt-2">💰 Fee Required</p>` : ''}
       </div>
     `;
 

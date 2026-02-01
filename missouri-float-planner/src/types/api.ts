@@ -37,6 +37,8 @@ export interface AccessPoint {
   description: string | null;
   amenities: string[];
   parkingInfo: string | null;
+  roadAccess: string | null;
+  facilities: string | null;
   feeRequired: boolean;
   feeNotes: string | null;
   directionsOverride?: string | null;
@@ -314,6 +316,8 @@ export interface CreateAccessPointRequest {
   description?: string;
   amenities?: string[];
   parkingInfo?: string;
+  roadAccess?: string;
+  facilities?: string;
   feeRequired?: boolean;
   feeNotes?: string;
   approved?: boolean;
