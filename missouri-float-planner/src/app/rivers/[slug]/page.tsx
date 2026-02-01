@@ -12,7 +12,7 @@ import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
 import ConditionsBlock from '@/components/river/ConditionsBlock';
-import RiverGuide from '@/components/river/RiverGuide';
+import AccessPointStrip from '@/components/river/AccessPointStrip';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRiver } from '@/hooks/useRivers';
@@ -296,20 +296,23 @@ export default function RiverPage() {
                 )}
               </MapContainer>
             </div>
+
+            {/* Access Point Strip - horizontal scroll below map */}
+            {accessPoints && accessPoints.length > 0 && (
+              <div className="mt-3">
+                <AccessPointStrip
+                  accessPoints={accessPoints}
+                  selectedPutInId={selectedPutIn}
+                  selectedTakeOutId={selectedTakeOut}
+                  onSelect={handleMarkerClick}
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Info Sections - full width below planner/map, consistent on desktop and mobile */}
+        {/* Info Sections - full width below planner/map */}
         <div className="space-y-4 mt-6">
-          {/* River Guide - Access Points & POIs (first - most relevant when selecting points) */}
-          <RiverGuide
-            accessPoints={accessPoints || []}
-            riverSlug={slug}
-            isLoading={accessPointsLoading}
-            selectedPutInId={selectedPutIn}
-            selectedTakeOutId={selectedTakeOut}
-          />
-
           {/* River Conditions */}
           <ConditionsBlock
             riverId={river.id}
