@@ -3,9 +3,9 @@
 // src/components/plan/FloatPlanCard.tsx
 // Merged journey card showing put-in and take-out side by side with float details
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 
@@ -166,14 +166,25 @@ function AccessPointDetailCard({
         </div>
       )}
 
-      {/* Expandable Details */}
+      {/* Quick Stats & Expandable Toggle */}
       {showExpandToggle && (
         <button
           onClick={onToggleExpand}
-          className="w-full px-3 py-2 flex items-center justify-between text-sm text-neutral-600 hover:bg-neutral-50 border-t border-neutral-100"
+          className="w-full px-3 py-2 flex items-center justify-between text-sm hover:bg-neutral-50 border-t border-neutral-100"
         >
-          <span>{isExpanded ? 'Hide details' : 'View details'}</span>
-          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {!isExpanded ? (
+            <span className="flex items-center gap-2 text-xs text-neutral-500 truncate">
+              {point.parkingInfo && <span>🅿️ {point.parkingInfo.split(' ').slice(0, 2).join(' ')}</span>}
+              {point.facilities && <span>🚻</span>}
+              {point.feeRequired && <span className="text-amber-600">💰 Fee</span>}
+              {!point.parkingInfo && !point.facilities && !point.feeRequired && (
+                <span className="text-neutral-400">View details</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-neutral-600">Hide details</span>
+          )}
+          {isExpanded ? <ChevronUp size={16} className="text-neutral-400" /> : <ChevronDown size={16} className="text-neutral-400" />}
         </button>
       )}
 
@@ -437,6 +448,205 @@ function JourneyCenter({
   );
 }
 
+// Mobile Bottom Sheet Component
+function MobileBottomSheet({
+  plan,
+  putInPoint,
+  takeOutPoint,
+  onClearPutIn,
+  onClearTakeOut,
+  isLoading,
+  vesselTypeId,
+  onVesselChange,
+  onShare,
+  onDownloadImage,
+}: {
+  plan: FloatPlan;
+  putInPoint: AccessPoint;
+  takeOutPoint: AccessPoint;
+  onClearPutIn: () => void;
+  onClearTakeOut: () => void;
+  isLoading: boolean;
+  vesselTypeId: string | null;
+  onVesselChange: (id: string) => void;
+  onShare: () => void;
+  onDownloadImage: () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [putInExpanded, setPutInExpanded] = useState(false);
+  const [takeOutExpanded, setTakeOutExpanded] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const [sheetHeight, setSheetHeight] = useState<number | null>(null);
+
+  // Heights for the sheet states
+  const COLLAPSED_HEIGHT = 120;
+  const EXPANDED_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600;
+
+  // Reset height when expanded state changes
+  useEffect(() => {
+    setSheetHeight(isExpanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
+  }, [isExpanded, EXPANDED_HEIGHT]);
+
+  // Handle touch start for drag
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    dragRef.current = {
+      startY: touch.clientY,
+      startHeight: sheetHeight || (isExpanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT),
+    };
+  }, [sheetHeight, isExpanded, EXPANDED_HEIGHT]);
+
+  // Handle touch move for drag
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!dragRef.current) return;
+    const touch = e.touches[0];
+    const deltaY = dragRef.current.startY - touch.clientY;
+    const newHeight = Math.max(
+      COLLAPSED_HEIGHT,
+      Math.min(EXPANDED_HEIGHT, dragRef.current.startHeight + deltaY)
+    );
+    setSheetHeight(newHeight);
+  }, [EXPANDED_HEIGHT]);
+
+  // Handle touch end - snap to collapsed or expanded
+  const handleTouchEnd = useCallback(() => {
+    if (!dragRef.current || sheetHeight === null) return;
+    const threshold = (COLLAPSED_HEIGHT + EXPANDED_HEIGHT) / 2;
+    if (sheetHeight > threshold) {
+      setIsExpanded(true);
+      setSheetHeight(EXPANDED_HEIGHT);
+    } else {
+      setIsExpanded(false);
+      setSheetHeight(COLLAPSED_HEIGHT);
+    }
+    dragRef.current = null;
+  }, [sheetHeight, EXPANDED_HEIGHT]);
+
+  const conditionConfig = CONDITION_CONFIG[plan.condition.code || 'unknown'] || CONDITION_CONFIG.unknown;
+
+  return (
+    <div
+      ref={sheetRef}
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl border-t border-neutral-200 transition-[height] duration-300 ease-out overflow-hidden lg:hidden"
+      style={{ height: sheetHeight || COLLAPSED_HEIGHT }}
+    >
+      {/* Drag Handle */}
+      <div
+        className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <GripHorizontal size={24} className="text-neutral-300" />
+      </div>
+
+      {/* Summary Header - always visible */}
+      <div className="px-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
+            <p className="font-bold text-neutral-900 truncate">
+              {putInPoint.name} → {takeOutPoint.name}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+            <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
+            <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
+              {conditionConfig.label}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              className="p-1"
+            >
+              {isExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+      <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 90px)` }}>
+        {/* Route Timeline */}
+        <div className="bg-neutral-50 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center">
+              <div className="w-4 h-4 rounded-full bg-support-500"></div>
+              <div className="w-0.5 h-8 bg-gradient-to-b from-support-400 to-accent-400"></div>
+              <div className="w-4 h-4 rounded-full bg-accent-500"></div>
+            </div>
+            <div className="flex-1 space-y-4">
+              <div>
+                <p className="text-xs font-bold text-support-600 uppercase">Put-in</p>
+                <p className="font-bold text-neutral-900">{putInPoint.name}</p>
+                <p className="text-xs text-neutral-500">Mile {putInPoint.riverMile.toFixed(1)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-accent-600 uppercase">Take-out</p>
+                <p className="font-bold text-neutral-900">{takeOutPoint.name}</p>
+                <p className="text-xs text-neutral-500">Mile {takeOutPoint.riverMile.toFixed(1)}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+              <p className="text-lg font-semibold text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Journey Details */}
+        <JourneyCenter
+          plan={plan}
+          isLoading={isLoading}
+          selectedVesselTypeId={vesselTypeId}
+          onVesselChange={onVesselChange}
+          recalculating={isLoading}
+        />
+
+        {/* Access Point Details Accordions */}
+        <div className="space-y-3 mt-4">
+          <AccessPointDetailCard
+            point={putInPoint}
+            isPutIn={true}
+            onClear={onClearPutIn}
+            isExpanded={putInExpanded}
+            onToggleExpand={() => setPutInExpanded(!putInExpanded)}
+          />
+          <AccessPointDetailCard
+            point={takeOutPoint}
+            isPutIn={false}
+            onClear={onClearTakeOut}
+            isExpanded={takeOutExpanded}
+            onToggleExpand={() => setTakeOutExpanded(!takeOutExpanded)}
+          />
+        </div>
+
+        {/* Share Buttons */}
+        <div className="flex gap-3 mt-4 pb-4">
+          <button
+            onClick={onShare}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            <Share2 size={16} />
+            Share
+          </button>
+          <button
+            onClick={onDownloadImage}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-primary-200 bg-primary-50 text-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            <Download size={16} />
+            Image
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FloatPlanCard({
   plan,
   isLoading,
@@ -452,10 +662,9 @@ export default function FloatPlanCard({
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
-  // Details expanded by default for better UX
-  const [putInExpanded, setPutInExpanded] = useState(true);
-  const [takeOutExpanded, setTakeOutExpanded] = useState(true);
-  const [mobileDetailsExpanded, setMobileDetailsExpanded] = useState(false);
+  // Details collapsed by default - user can expand if needed
+  const [putInExpanded, setPutInExpanded] = useState(false);
+  const [takeOutExpanded, setTakeOutExpanded] = useState(false);
 
   // Use parent's plan directly - vessel changes handled by parent
   const displayPlan = plan;
@@ -570,129 +779,53 @@ export default function FloatPlanCard({
             />
           </div>
 
-          {/* Share Buttons */}
-          <div className="flex justify-center gap-3 mt-4 pt-4 border-t border-neutral-100">
+          {/* Actions Row */}
+          <div className="flex justify-between items-center mt-4 pt-4 border-t border-neutral-100">
+            {/* Expand/Collapse All */}
             <button
-              onClick={onShare}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+              onClick={() => {
+                const allExpanded = putInExpanded && takeOutExpanded;
+                setPutInExpanded(!allExpanded);
+                setTakeOutExpanded(!allExpanded);
+              }}
+              className="text-xs text-neutral-500 hover:text-neutral-700 transition-colors"
             >
-              <Share2 size={16} />
-              Share Link
+              {putInExpanded && takeOutExpanded ? 'Collapse all' : 'Expand all'}
             </button>
-            <button
-              onClick={onDownloadImage}
+
+            {/* Share Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={onShare}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                <Share2 size={16} />
+                Share Link
+              </button>
+              <button
+                onClick={onDownloadImage}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-primary-200 bg-primary-50 text-sm font-medium text-primary-700 hover:bg-primary-100 transition-colors"
             >
               <Download size={16} />
               Download Image
-            </button>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Layout */}
-        <div className="lg:hidden">
-          {/* Collapsed Summary */}
-          <button
-            onClick={() => setMobileDetailsExpanded(!mobileDetailsExpanded)}
-            className="w-full p-4 text-left"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan Ready</p>
-                <p className="font-bold text-neutral-900 mt-0.5">
-                  {putInPoint.name} → {takeOutPoint.name}
-                </p>
-                <p className="text-sm text-neutral-600">
-                  {displayPlan.distance.formatted} • {displayPlan.floatTime?.formatted || '--'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Condition badge */}
-                <span className={`px-2 py-1 rounded text-xs font-bold ${CONDITION_CONFIG[displayPlan.condition.code || 'unknown'].bgClass} ${CONDITION_CONFIG[displayPlan.condition.code || 'unknown'].textClass}`}>
-                  {CONDITION_CONFIG[displayPlan.condition.code || 'unknown'].label}
-                </span>
-                {mobileDetailsExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </div>
-            </div>
-          </button>
-
-          {/* Expanded Details */}
-          {mobileDetailsExpanded && (
-            <div className="px-4 pb-4 space-y-4 border-t border-neutral-100 pt-4">
-              {/* Route Timeline */}
-              <div className="bg-neutral-50 rounded-xl p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 rounded-full bg-support-500"></div>
-                    <div className="w-0.5 h-8 bg-gradient-to-b from-support-400 to-accent-400"></div>
-                    <div className="w-4 h-4 rounded-full bg-accent-500"></div>
-                  </div>
-                  <div className="flex-1 space-y-4">
-                    <div>
-                      <p className="text-xs font-bold text-support-600 uppercase">Put-in</p>
-                      <p className="font-bold text-neutral-900">{putInPoint.name}</p>
-                      <p className="text-xs text-neutral-500">Mile {putInPoint.riverMile.toFixed(1)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-accent-600 uppercase">Take-out</p>
-                      <p className="font-bold text-neutral-900">{takeOutPoint.name}</p>
-                      <p className="text-xs text-neutral-500">Mile {takeOutPoint.riverMile.toFixed(1)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-neutral-900">{displayPlan.distance.formatted}</p>
-                    <p className="text-lg font-semibold text-neutral-600">{displayPlan.floatTime?.formatted || '--'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Vessel Toggle */}
-              <JourneyCenter
-                plan={displayPlan}
-                isLoading={isLoading}
-                selectedVesselTypeId={vesselTypeId}
-                onVesselChange={onVesselChange}
-                recalculating={isLoading}
-              />
-
-              {/* Access Point Details Accordions */}
-              <div className="space-y-3">
-                <AccessPointDetailCard
-                  point={putInPoint}
-                  isPutIn={true}
-                                    onClear={onClearPutIn}
-                  isExpanded={putInExpanded}
-                  onToggleExpand={() => setPutInExpanded(!putInExpanded)}
-                />
-                <AccessPointDetailCard
-                  point={takeOutPoint}
-                  isPutIn={false}
-                                    onClear={onClearTakeOut}
-                  isExpanded={takeOutExpanded}
-                  onToggleExpand={() => setTakeOutExpanded(!takeOutExpanded)}
-                />
-              </div>
-
-              {/* Share Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={onShare}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  <Share2 size={16} />
-                  Share
-                </button>
-                <button
-                  onClick={onDownloadImage}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-primary-200 bg-primary-50 text-sm font-medium text-primary-700 hover:bg-primary-100"
-                >
-                  <Download size={16} />
-                  Image
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Mobile Bottom Sheet */}
+        <MobileBottomSheet
+          plan={displayPlan}
+          putInPoint={putInPoint}
+          takeOutPoint={takeOutPoint}
+          onClearPutIn={onClearPutIn}
+          onClearTakeOut={onClearTakeOut}
+          isLoading={isLoading}
+          vesselTypeId={vesselTypeId}
+          onVesselChange={onVesselChange}
+          onShare={onShare}
+          onDownloadImage={onDownloadImage}
+        />
       </div>
     );
   }

@@ -13,6 +13,7 @@ interface AccessPointStripProps {
   selectedPutInId: string | null;
   selectedTakeOutId: string | null;
   onSelect: (point: AccessPoint) => void;
+  onHover?: (point: AccessPoint) => void;
   hideExpandedDetails?: boolean;
 }
 
@@ -22,11 +23,13 @@ function AccessPointCard({
   isPutIn,
   isTakeOut,
   onClick,
+  onHover,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClick: () => void;
+  onHover?: () => void;
 }) {
   const hasImage = point.imageUrls && point.imageUrls.length > 0;
 
@@ -47,6 +50,7 @@ function AccessPointCard({
   return (
     <button
       onClick={onClick}
+      onMouseEnter={onHover}
       className={`flex-shrink-0 w-36 rounded-xl overflow-hidden shadow-sm ${borderClass} ${bgClass} transition-all hover:shadow-md active:scale-95`}
     >
       {/* Image or placeholder */}
@@ -222,6 +226,7 @@ export default function AccessPointStrip({
   selectedPutInId,
   selectedTakeOutId,
   onSelect,
+  onHover,
   hideExpandedDetails = false,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -301,6 +306,7 @@ export default function AccessPointStrip({
             isPutIn={point.id === selectedPutInId}
             isTakeOut={point.id === selectedTakeOutId}
             onClick={() => handleCardClick(point)}
+            onHover={onHover ? () => onHover(point) : undefined}
           />
         ))}
       </div>

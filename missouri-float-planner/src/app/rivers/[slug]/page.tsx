@@ -5,8 +5,9 @@
 // State is managed here to enable map/planner integration
 // URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
@@ -70,6 +71,12 @@ export default function RiverPage() {
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
+
+  // Ref for auto-scrolling to float plan card
+  const floatPlanCardRef = useRef<HTMLDivElement>(null);
+
+  // React Query client for prefetching
+  const queryClient = useQueryClient();
 
   // Update URL when state changes (without causing navigation)
   const updateUrl = useCallback((putIn: string | null, takeOut: string | null, vessel: string | null) => {
@@ -243,6 +250,60 @@ export default function RiverPage() {
     window.open(imageUrl, '_blank');
   }, [selectedPutIn, selectedTakeOut, river, plan]);
 
+  // Prefetch float plans on hover for instant loading
+  const handleAccessPointHover = useCallback((point: AccessPoint) => {
+    if (!river || !accessPoints || !selectedVesselTypeId) return;
+
+    // Find adjacent access points (by river mile order)
+    const sortedPoints = [...accessPoints].sort((a, b) => a.riverMile - b.riverMile);
+    const pointIndex = sortedPoints.findIndex(ap => ap.id === point.id);
+
+    if (selectedPutIn && !selectedTakeOut) {
+      // Put-in selected - prefetch plan with hovered point as take-out
+      queryClient.prefetchQuery({
+        queryKey: ['float-plan', river.id, selectedPutIn, point.id, selectedVesselTypeId, undefined],
+        queryFn: async () => {
+          const searchParams = new URLSearchParams({
+            riverId: river.id,
+            startId: selectedPutIn,
+            endId: point.id,
+            vesselTypeId: selectedVesselTypeId,
+          });
+          const response = await fetch(`/api/plan?${searchParams.toString()}`);
+          if (!response.ok) throw new Error('Failed to calculate float plan');
+          const data = await response.json();
+          return data.plan;
+        },
+        staleTime: 5 * 60 * 1000,
+      });
+    } else if (!selectedPutIn) {
+      // No put-in - prefetch plans with hovered point as put-in and nearby take-outs
+      const nearbyPoints = sortedPoints.slice(
+        Math.max(0, pointIndex + 1),
+        Math.min(sortedPoints.length, pointIndex + 4)
+      );
+
+      nearbyPoints.forEach(takeOut => {
+        queryClient.prefetchQuery({
+          queryKey: ['float-plan', river.id, point.id, takeOut.id, selectedVesselTypeId, undefined],
+          queryFn: async () => {
+            const searchParams = new URLSearchParams({
+              riverId: river.id,
+              startId: point.id,
+              endId: takeOut.id,
+              vesselTypeId: selectedVesselTypeId,
+            });
+            const response = await fetch(`/api/plan?${searchParams.toString()}`);
+            if (!response.ok) throw new Error('Failed to calculate float plan');
+            const data = await response.json();
+            return data.plan;
+          },
+          staleTime: 5 * 60 * 1000,
+        });
+      });
+    }
+  }, [river, accessPoints, selectedPutIn, selectedTakeOut, selectedVesselTypeId, queryClient]);
+
   // Get access point objects for FloatPlanCard
   const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn) || null;
   const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut) || null;
@@ -252,6 +313,17 @@ export default function RiverPage() {
     const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
     return () => clearTimeout(timeout);
   }, [upstreamWarning]);
+
+  // Auto-scroll to float plan card when both points are selected
+  useEffect(() => {
+    if (selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
+      // Small delay to allow card to render
+      const timeout = setTimeout(() => {
+        floatPlanCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [selectedPutIn, selectedTakeOut]);
 
   if (riverLoading) {
     return (
@@ -346,6 +418,7 @@ export default function RiverPage() {
                 selectedPutInId={selectedPutIn}
                 selectedTakeOutId={selectedTakeOut}
                 onSelect={handleMarkerClick}
+                onHover={handleAccessPointHover}
                 hideExpandedDetails={true}
               />
             </div>
@@ -361,7 +434,7 @@ export default function RiverPage() {
 
         {/* Float Plan Journey Card - shows when any access point is selected */}
         {(putInPoint || takeOutPoint) && (
-          <div className="mb-4">
+          <div ref={floatPlanCardRef} className="mb-4">
             <FloatPlanCard
               plan={plan || null}
               isLoading={planLoading}
