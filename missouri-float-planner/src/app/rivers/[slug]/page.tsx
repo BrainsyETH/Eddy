@@ -75,6 +75,9 @@ export default function RiverPage() {
   // Ref for auto-scrolling to float plan card
   const floatPlanCardRef = useRef<HTMLDivElement>(null);
 
+  // Ref for image capture
+  const captureRef = useRef<HTMLDivElement>(null);
+
   // React Query client for prefetching
   const queryClient = useQueryClient();
 
@@ -230,24 +233,38 @@ export default function RiverPage() {
     }
   }, [selectedPutIn, selectedTakeOut, selectedVesselTypeId, slug, river?.name]);
 
-  // Download shareable image handler
+  // Download shareable image handler using html2canvas
   const handleDownloadImage = useCallback(async () => {
-    if (!selectedPutIn || !selectedTakeOut || !river || !plan) return;
+    if (!selectedPutIn || !selectedTakeOut || !river || !plan || !captureRef.current) return;
 
-    // Build OG share image URL
-    const params = new URLSearchParams();
-    params.set('river', river.name);
-    params.set('putIn', plan.putIn.name);
-    params.set('takeOut', plan.takeOut.name);
-    params.set('distance', plan.distance.formatted);
-    params.set('time', plan.floatTime?.formatted || '');
-    params.set('condition', plan.condition.code || 'unknown');
-    if (plan.condition.gaugeHeightFt) params.set('gaugeHeight', plan.condition.gaugeHeightFt.toFixed(2));
+    try {
+      // Dynamically import html2canvas
+      const html2canvas = (await import('html2canvas')).default;
 
-    const imageUrl = `/api/og/share?${params.toString()}`;
+      // Capture the hidden shareable element
+      const canvas = await html2canvas(captureRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2, // Higher resolution
+        logging: false,
+        useCORS: true,
+      });
 
-    // Open in new tab (user can right-click to save)
-    window.open(imageUrl, '_blank');
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${river.name.toLowerCase().replace(/\s+/g, '-')}-float-plan.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    } catch (error) {
+      console.error('Error generating image:', error);
+      alert('Failed to generate image. Please try again.');
+    }
   }, [selectedPutIn, selectedTakeOut, river, plan]);
 
   // Prefetch float plans on hover for instant loading
@@ -448,8 +465,10 @@ export default function RiverPage() {
               onShare={handleShare}
               onDownloadImage={handleDownloadImage}
               riverSlug={slug}
+              riverName={river?.name}
               vesselTypeId={selectedVesselTypeId}
               onVesselChange={setSelectedVesselTypeId}
+              captureRef={captureRef}
             />
           </div>
         )}
