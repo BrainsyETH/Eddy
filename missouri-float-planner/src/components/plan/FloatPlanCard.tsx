@@ -3,12 +3,11 @@
 // src/components/plan/FloatPlanCard.tsx
 // Merged journey card showing put-in and take-out side by side with float details
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
-import { useFloatPlan } from '@/hooks/useFloatPlan';
 
 // Condition display config
 const CONDITION_CONFIG: Record<ConditionCode, {
@@ -80,6 +79,7 @@ interface FloatPlanCardProps {
   onDownloadImage: () => void;
   riverSlug: string;
   vesselTypeId: string | null;
+  onVesselChange: (id: string) => void;
 }
 
 // Access Point Detail Card (used in both single and dual selection states)
@@ -340,75 +340,98 @@ function JourneyCenter({
         </div>
       )}
 
-      {/* Conditions */}
-      <div className={`rounded-lg overflow-hidden border-2 ${conditionConfig.borderClass} mb-4`}>
-        <div className={`${conditionConfig.bgClass} ${conditionConfig.textClass} px-3 py-2`}>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{conditionConfig.emoji}</span>
-            <span className="font-bold">{conditionConfig.label}</span>
+      {/* Conditions - Clean card design */}
+      <div className="rounded-xl bg-white border border-neutral-200 shadow-sm overflow-hidden mb-3">
+        <div className={`${conditionConfig.bgClass} px-4 py-3`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{conditionConfig.emoji}</span>
+              <span className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</span>
+            </div>
+            {plan.condition.usgsUrl && (
+              <a
+                href={plan.condition.usgsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`text-xs ${conditionConfig.textClass} opacity-80 hover:opacity-100 underline`}
+              >
+                USGS →
+              </a>
+            )}
           </div>
         </div>
-        <div className="bg-neutral-50 px-3 py-2">
-          <div className="flex gap-4 text-sm">
-            <div>
-              <span className="font-bold text-neutral-800">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'}</span>
-              <span className="text-neutral-500 ml-1">cfs</span>
+        <div className="px-4 py-3 flex items-center justify-between bg-neutral-50/50">
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <p className="text-lg font-bold text-neutral-800">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}</p>
+              <p className="text-[10px] uppercase tracking-wide text-neutral-500">ft</p>
             </div>
-            <div>
-              <span className="font-bold text-neutral-800">{plan.condition.gaugeHeightFt?.toFixed(2) ?? '—'}</span>
-              <span className="text-neutral-500 ml-1">ft</span>
+            <div className="w-px h-8 bg-neutral-200"></div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-neutral-800">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'}</p>
+              <p className="text-[10px] uppercase tracking-wide text-neutral-500">cfs</p>
             </div>
           </div>
           {plan.condition.gaugeName && (
-            <p className="text-xs text-neutral-500 mt-1">{plan.condition.gaugeName}</p>
+            <p className="text-xs text-neutral-400 max-w-[120px] text-right truncate">{plan.condition.gaugeName}</p>
           )}
         </div>
       </div>
 
-      {/* Shuttle Section */}
-      <div className="rounded-lg border-2 border-neutral-200 p-3" style={{ backgroundColor: '#F4EFE7' }}>
-        <p className="text-xs font-bold uppercase tracking-wide text-neutral-600 mb-2 flex items-center gap-1">
-          <span>🚗</span> Shuttle
-        </p>
-        <div className="space-y-2">
-          <a
-            href={plan.putIn.directionsOverride
-              ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(plan.putIn.directionsOverride)}`
-              : `https://www.google.com/maps/dir/?api=1&destination=${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-xs font-bold transition-colors border-2 border-neutral-700 bg-support-500 text-white hover:bg-support-600"
-          >
-            <span className="flex items-center gap-1">
-              <span>🏠</span>
-              <span className="text-white/70">→</span>
-              <span className="w-2 h-2 rounded-full bg-white"></span>
-            </span>
-            <span className="truncate">Directions to Put-in</span>
-          </a>
-          <a
-            href={(() => {
-              const origin = plan.putIn.directionsOverride
-                ? encodeURIComponent(plan.putIn.directionsOverride)
-                : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
-              const dest = plan.takeOut.directionsOverride
-                ? encodeURIComponent(plan.takeOut.directionsOverride)
-                : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
-              return `https://www.google.com/maps/dir/${origin}/${dest}`;
-            })()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-xs font-bold transition-colors border-2 border-neutral-700 bg-primary-600 text-white hover:bg-primary-700"
-          >
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-support-400"></span>
-              <span className="text-white/70">→</span>
-              <span className="w-2 h-2 rounded-full bg-accent-400"></span>
-            </span>
-            <span className="truncate">Shuttle Route</span>
-          </a>
-        </div>
+      {/* Shuttle - Minimal button design */}
+      <div className="space-y-2">
+        <a
+          href={plan.putIn.directionsOverride
+            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(plan.putIn.directionsOverride)}`
+            : `https://www.google.com/maps/dir/?api=1&destination=${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-support-500 flex items-center justify-center">
+              <MapPin size={14} className="text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-neutral-800">Directions to Put-in</p>
+              <p className="text-xs text-neutral-500">Opens in Google Maps</p>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+        </a>
+        <a
+          href={(() => {
+            const origin = plan.putIn.directionsOverride
+              ? encodeURIComponent(plan.putIn.directionsOverride)
+              : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
+            const dest = plan.takeOut.directionsOverride
+              ? encodeURIComponent(plan.takeOut.directionsOverride)
+              : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
+            return `https://www.google.com/maps/dir/${origin}/${dest}`;
+          })()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="5" cy="18" r="3"/>
+                <circle cx="19" cy="6" r="3"/>
+                <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
+                <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-neutral-800">Shuttle Route</p>
+              <p className="text-xs text-neutral-500">
+                {plan.driveBack?.formatted ? `~${plan.driveBack.formatted}` : 'Drive between points'}
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-primary-400 group-hover:text-primary-600 transition-colors" />
+        </a>
       </div>
     </div>
   );
@@ -425,37 +448,17 @@ export default function FloatPlanCard({
   onDownloadImage,
   riverSlug: _riverSlug,
   vesselTypeId,
+  onVesselChange,
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
-  const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(vesselTypeId);
-  const [putInExpanded, setPutInExpanded] = useState(false);
-  const [takeOutExpanded, setTakeOutExpanded] = useState(false);
+  // Details expanded by default for better UX
+  const [putInExpanded, setPutInExpanded] = useState(true);
+  const [takeOutExpanded, setTakeOutExpanded] = useState(true);
   const [mobileDetailsExpanded, setMobileDetailsExpanded] = useState(false);
 
-  // Sync vessel type from props
-  useEffect(() => {
-    if (vesselTypeId && vesselTypeId !== selectedVesselTypeId) {
-      setSelectedVesselTypeId(vesselTypeId);
-    }
-  }, [vesselTypeId, selectedVesselTypeId]);
-
-  // Plan params for recalculation when vessel changes
-  const planParams = plan
-    ? {
-        riverId: plan.river.id,
-        startId: plan.putIn.id,
-        endId: plan.takeOut.id,
-        vesselTypeId: selectedVesselTypeId || undefined,
-      }
-    : null;
-
-  const { data: recalculatedPlan, isLoading: recalculating } = useFloatPlan(planParams);
-  const displayPlan = recalculatedPlan ?? plan;
-
-  const handleVesselChange = useCallback((id: string) => {
-    setSelectedVesselTypeId(id);
-  }, []);
+  // Use parent's plan directly - vessel changes handled by parent
+  const displayPlan = plan;
 
   const hasBothPoints = putInPoint && takeOutPoint;
   const hasSinglePoint = (putInPoint || takeOutPoint) && !hasBothPoints;
@@ -490,6 +493,48 @@ export default function FloatPlanCard({
     );
   }
 
+  // Both points selected but still loading - show skeleton
+  if (hasBothPoints && !displayPlan && isLoading) {
+    return (
+      <div className="bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
+        <div className="p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px,1fr] gap-4">
+            {/* Put-in Card Skeleton */}
+            <div className="animate-pulse">
+              <div className="h-6 bg-neutral-200 rounded w-20 mb-2"></div>
+              <div className="h-8 bg-neutral-200 rounded w-3/4 mb-2"></div>
+              <div className="h-40 bg-neutral-100 rounded mb-2"></div>
+              <div className="h-4 bg-neutral-200 rounded w-1/2"></div>
+            </div>
+
+            {/* Journey Center Skeleton */}
+            <div className="animate-pulse flex flex-col items-center justify-center">
+              <div className="h-4 bg-neutral-200 rounded w-20 mb-2"></div>
+              <div className="h-8 bg-neutral-200 rounded w-32 mb-3"></div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-3 h-3 rounded-full bg-support-200"></div>
+                <div className="w-16 h-1 bg-neutral-200 rounded"></div>
+                <div className="w-3 h-3 rounded-full bg-accent-200"></div>
+              </div>
+              <div className="h-10 bg-neutral-200 rounded w-full mb-3"></div>
+              <div className="h-24 bg-neutral-100 rounded w-full mb-3"></div>
+              <div className="h-12 bg-neutral-100 rounded w-full mb-2"></div>
+              <div className="h-12 bg-neutral-100 rounded w-full"></div>
+            </div>
+
+            {/* Take-out Card Skeleton */}
+            <div className="animate-pulse">
+              <div className="h-6 bg-neutral-200 rounded w-20 mb-2"></div>
+              <div className="h-8 bg-neutral-200 rounded w-3/4 mb-2"></div>
+              <div className="h-40 bg-neutral-100 rounded mb-2"></div>
+              <div className="h-4 bg-neutral-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Both points selected - full journey card
   if (hasBothPoints && displayPlan) {
     return (
@@ -510,9 +555,9 @@ export default function FloatPlanCard({
             <JourneyCenter
               plan={displayPlan}
               isLoading={isLoading}
-              selectedVesselTypeId={selectedVesselTypeId}
-              onVesselChange={handleVesselChange}
-              recalculating={recalculating}
+              selectedVesselTypeId={vesselTypeId}
+              onVesselChange={onVesselChange}
+              recalculating={isLoading}
             />
 
             {/* Take-out Card */}
@@ -605,9 +650,9 @@ export default function FloatPlanCard({
               <JourneyCenter
                 plan={displayPlan}
                 isLoading={isLoading}
-                selectedVesselTypeId={selectedVesselTypeId}
-                onVesselChange={handleVesselChange}
-                recalculating={recalculating}
+                selectedVesselTypeId={vesselTypeId}
+                onVesselChange={onVesselChange}
+                recalculating={isLoading}
               />
 
               {/* Access Point Details Accordions */}
