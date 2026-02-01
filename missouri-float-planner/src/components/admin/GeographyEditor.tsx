@@ -264,6 +264,9 @@ export default function GeographyEditor() {
           drivingLng: editingDetails.drivingLng,
           imageUrls: editingDetails.imageUrls,
           googleMapsUrl: editingDetails.googleMapsUrl,
+          // Include coordinates if they've been updated (e.g., from Google Maps URL parsing)
+          latitude: editingDetails.coordinates?.orig?.lat,
+          longitude: editingDetails.coordinates?.orig?.lng,
         }),
       });
 
@@ -347,11 +350,23 @@ export default function GeographyEditor() {
           updates.name = result.data.name;
         }
 
+        // Update coordinates if extracted from the URL
+        if (result.data.latitude && result.data.longitude) {
+          updates.coordinates = {
+            orig: {
+              lat: result.data.latitude,
+              lng: result.data.longitude,
+            },
+            snap: editingDetails.coordinates?.snap ?? null,
+          };
+        }
+
         // Show what was parsed
         let message = 'Parsed successfully!';
         if (result.data.name) message += `\nName: ${result.data.name}`;
         if (result.data.latitude && result.data.longitude) {
           message += `\nCoords: ${result.data.latitude.toFixed(5)}, ${result.data.longitude.toFixed(5)}`;
+          message += `\n\nMarker position has been updated.`;
         }
 
         setEditingDetails(updates);
