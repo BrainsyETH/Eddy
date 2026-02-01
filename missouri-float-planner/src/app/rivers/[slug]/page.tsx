@@ -13,6 +13,7 @@ import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
 import ConditionsBlock from '@/components/river/ConditionsBlock';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
+import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRiver } from '@/hooks/useRivers';
@@ -67,7 +68,6 @@ export default function RiverPage() {
     gauge.thresholds?.some(t => t.riverId === river?.id)
   );
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
-  const [showPlan, setShowPlan] = useState(false);
   const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
 
@@ -110,13 +110,6 @@ export default function RiverPage() {
       setUrlInitialized(true);
     }
   }, [vesselTypes, selectedVesselTypeId, urlVessel]);
-
-  // Auto-show plan when both selected (including from URL params)
-  useEffect(() => {
-    if (selectedPutIn && selectedTakeOut && !showPlan) {
-      setShowPlan(true);
-    }
-  }, [selectedPutIn, selectedTakeOut, showPlan]);
 
   // Validate URL params against actual access points
   useEffect(() => {
@@ -164,14 +157,12 @@ export default function RiverPage() {
     if (point.id === selectedPutIn) {
       setSelectedPutIn(null);
       setSelectedTakeOut(null); // Also clear take-out
-      setShowPlan(false);
       return;
     }
 
     // If clicking the current take-out, deselect it
     if (point.id === selectedTakeOut) {
       setSelectedTakeOut(null);
-      setShowPlan(false);
       return;
     }
 
@@ -199,6 +190,62 @@ export default function RiverPage() {
       setSelectedTakeOut(point.id);
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut]);
+
+  // Share link handler
+  const handleShare = useCallback(async () => {
+    if (!selectedPutIn || !selectedTakeOut) return;
+
+    const params = new URLSearchParams();
+    params.set('putIn', selectedPutIn);
+    params.set('takeOut', selectedTakeOut);
+    if (selectedVesselTypeId) params.set('vessel', selectedVesselTypeId);
+
+    const shareUrl = `${window.location.origin}/rivers/${slug}?${params.toString()}`;
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+
+    if (isMobile && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Float Plan - ${river?.name}`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // User cancelled or share failed, fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      alert('Link copied to clipboard!');
+    } catch {
+      window.prompt('Copy this link:', shareUrl);
+    }
+  }, [selectedPutIn, selectedTakeOut, selectedVesselTypeId, slug, river?.name]);
+
+  // Download shareable image handler
+  const handleDownloadImage = useCallback(async () => {
+    if (!selectedPutIn || !selectedTakeOut || !river || !plan) return;
+
+    // Build OG share image URL
+    const params = new URLSearchParams();
+    params.set('river', river.name);
+    params.set('putIn', plan.putIn.name);
+    params.set('takeOut', plan.takeOut.name);
+    params.set('distance', plan.distance.formatted);
+    params.set('time', plan.floatTime?.formatted || '');
+    params.set('condition', plan.condition.code || 'unknown');
+    if (plan.condition.gaugeHeightFt) params.set('gaugeHeight', plan.condition.gaugeHeightFt.toFixed(2));
+
+    const imageUrl = `/api/og/share?${params.toString()}`;
+
+    // Open in new tab (user can right-click to save)
+    window.open(imageUrl, '_blank');
+  }, [selectedPutIn, selectedTakeOut, river, plan]);
+
+  // Get access point objects for FloatPlanCard
+  const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn) || null;
+  const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut) || null;
 
   useEffect(() => {
     if (!upstreamWarning) return;
@@ -240,76 +287,91 @@ export default function RiverPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Planner - full width above map on desktop, below map on mobile */}
-        <div className="flex flex-col gap-4">
-          <div className="order-2 lg:order-1">
-            <PlannerPanel
-              river={river}
-              accessPoints={accessPoints || []}
-              isLoading={accessPointsLoading}
-              selectedPutIn={selectedPutIn}
-              selectedTakeOut={selectedTakeOut}
-              onPutInChange={setSelectedPutIn}
-              onTakeOutChange={setSelectedTakeOut}
+        {/* Planner Selectors - always at top */}
+        <div className="mb-4">
+          <PlannerPanel
+            river={river}
+            accessPoints={accessPoints || []}
+            isLoading={accessPointsLoading}
+            selectedPutIn={selectedPutIn}
+            selectedTakeOut={selectedTakeOut}
+            onPutInChange={setSelectedPutIn}
+            onTakeOutChange={setSelectedTakeOut}
+          />
+        </div>
+
+        {/* Map + Access Points */}
+        <div className="mb-4">
+          <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
+            {/* Weather Bug overlay */}
+            <WeatherBug riverSlug={slug} riverId={river.id} />
+
+            {upstreamWarning && (
+              <div className="absolute top-4 left-4 right-4 z-30">
+                <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
+                  {upstreamWarning}
+                </div>
+              </div>
+            )}
+
+            <MapContainer
+              initialBounds={river.bounds}
+              showLegend={true}
+              showGauges={showGauges}
+              onGaugeToggle={setShowGauges}
+            >
+              {accessPoints && (
+                <AccessPointMarkers
+                  accessPoints={accessPoints}
+                  selectedPutIn={selectedPutIn}
+                  selectedTakeOut={selectedTakeOut}
+                  onMarkerClick={handleMarkerClick}
+                />
+              )}
+              {showGauges && gaugeStations && (
+                <GaugeStationMarkers
+                  gauges={gaugeStations}
+                  selectedRiverId={river.id}
+                  nearestGaugeId={nearestGauge?.id}
+                />
+              )}
+            </MapContainer>
+          </div>
+
+          {/* Access Point Strip - horizontal scroll below map (no expanded details) */}
+          {accessPoints && accessPoints.length > 0 && (
+            <div className="mt-3">
+              <AccessPointStrip
+                accessPoints={accessPoints}
+                selectedPutInId={selectedPutIn}
+                selectedTakeOutId={selectedTakeOut}
+                onSelect={handleMarkerClick}
+                hideExpandedDetails={true}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Float Plan Journey Card - shows when any access point is selected */}
+        {(putInPoint || takeOutPoint) && (
+          <div className="mb-4">
+            <FloatPlanCard
               plan={plan || null}
-              planLoading={planLoading}
-              showPlan={showPlan}
-              onShowPlanChange={setShowPlan}
+              isLoading={planLoading}
+              putInPoint={putInPoint}
+              takeOutPoint={takeOutPoint}
+              onClearPutIn={() => {
+                setSelectedPutIn(null);
+                setSelectedTakeOut(null);
+              }}
+              onClearTakeOut={() => setSelectedTakeOut(null)}
+              onShare={handleShare}
+              onDownloadImage={handleDownloadImage}
+              riverSlug={slug}
               vesselTypeId={selectedVesselTypeId}
             />
           </div>
-
-          {/* Map */}
-          <div className="order-1 lg:order-2">
-            <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
-              {/* Weather Bug overlay */}
-              <WeatherBug riverSlug={slug} riverId={river.id} />
-
-              {upstreamWarning && (
-                <div className="absolute top-4 left-4 right-4 z-30">
-                  <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
-                    {upstreamWarning}
-                  </div>
-                </div>
-              )}
-
-              <MapContainer
-                initialBounds={river.bounds}
-                showLegend={true}
-                showGauges={showGauges}
-                onGaugeToggle={setShowGauges}
-              >
-                {accessPoints && (
-                  <AccessPointMarkers
-                    accessPoints={accessPoints}
-                    selectedPutIn={selectedPutIn}
-                    selectedTakeOut={selectedTakeOut}
-                    onMarkerClick={handleMarkerClick}
-                  />
-                )}
-                {showGauges && gaugeStations && (
-                  <GaugeStationMarkers
-                    gauges={gaugeStations}
-                    selectedRiverId={river.id}
-                    nearestGaugeId={nearestGauge?.id}
-                  />
-                )}
-              </MapContainer>
-            </div>
-
-            {/* Access Point Strip - horizontal scroll below map */}
-            {accessPoints && accessPoints.length > 0 && (
-              <div className="mt-3">
-                <AccessPointStrip
-                  accessPoints={accessPoints}
-                  selectedPutInId={selectedPutIn}
-                  selectedTakeOutId={selectedTakeOut}
-                  onSelect={handleMarkerClick}
-                />
-              </div>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Info Sections - full width below planner/map */}
         <div className="space-y-4 mt-6">
