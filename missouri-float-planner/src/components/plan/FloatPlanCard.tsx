@@ -425,9 +425,7 @@ function JourneyCenter({
             </div>
             <div>
               <p className="text-sm font-semibold text-neutral-800">Shuttle Route</p>
-              <p className="text-xs text-neutral-500">
-                {plan.driveBack?.formatted ? `~${plan.driveBack.formatted}` : 'Drive between points'}
-              </p>
+              <p className="text-xs text-neutral-500">View in Google Maps</p>
             </div>
           </div>
           <ChevronRight size={18} className="text-primary-400 group-hover:text-primary-600 transition-colors" />
