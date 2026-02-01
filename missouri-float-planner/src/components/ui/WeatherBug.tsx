@@ -1,15 +1,14 @@
 'use client';
 
 // src/components/ui/WeatherBug.tsx
-// Weather Bug widget - floating overlay showing weather and river conditions
+// Weather Bug widget - floating overlay showing weather conditions
 
 import { useState } from 'react';
-import { Sun, Cloud, CloudRain, Wind, Droplet, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sun, Cloud, CloudRain, Wind, ChevronDown, ChevronUp } from 'lucide-react';
+// Removed: Droplet icon (river gauge status removed from weather modal)
 import { useWeather } from '@/hooks/useWeather';
-import { useConditions } from '@/hooks/useConditions';
 import { getWindDirection, type WeatherData } from '@/lib/weather/openweather';
 import LoadingSpinner from './LoadingSpinner';
-import type { ConditionCode } from '@/types/api';
 
 interface WeatherBugProps {
   riverSlug: string | null;
@@ -28,45 +27,16 @@ function getConditionIcon(condition: string): React.ReactNode {
   }
 }
 
-function getRiverConditionStatus(conditionCode: ConditionCode | null): {
-  label: string;
-  color: string;
-} {
-  if (!conditionCode) {
-    return { label: 'Unknown', color: 'text-neutral-400' };
-  }
-
-  switch (conditionCode) {
-    case 'too_low':
-    case 'very_low':
-      return { label: 'Low', color: 'text-amber-400' };
-    case 'optimal':
-      return { label: 'Good', color: 'text-primary-400' };
-    case 'high':
-      return { label: 'High', color: 'text-orange-400' };
-    case 'dangerous':
-      return { label: 'Flood', color: 'text-red-400' };
-    case 'low':
-      return { label: 'Low', color: 'text-amber-400' };
-    default:
-      return { label: 'Check Conditions', color: 'text-neutral-400' };
-  }
-}
-
-export default function WeatherBug({ riverSlug, riverId, className = '' }: WeatherBugProps) {
+export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: weatherData, isLoading: weatherLoading, isError: hasWeatherError } = useWeather(riverSlug);
   const weather = weatherData as WeatherData | null | undefined;
-  const { data } = useConditions(riverId);
-  const condition = data?.condition ?? null;
 
-  if (!riverSlug || !riverId) {
+  if (!riverSlug) {
     return null;
   }
 
-  const riverStatus = getRiverConditionStatus(condition?.code || null);
-
-  // Collapsed view - just show temperature and river status
+  // Collapsed view - just show temperature
   // Positioned at top-left to avoid overlapping with map zoom controls
   if (!isExpanded) {
     return (
@@ -80,23 +50,10 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
           {weatherLoading ? (
             <LoadingSpinner size="sm" />
           ) : weather ? (
-            <>
-              <div className="flex items-center gap-1.5 text-white">
-                <span className="text-primary-400">{getConditionIcon(weather.condition)}</span>
-                <span className="font-medium">{weather.temp}°</span>
-              </div>
-              {condition && (
-                <>
-                  <span className="text-white/30">|</span>
-                  <div className="flex items-center gap-1.5">
-                    <Droplet className="w-3.5 h-3.5 text-primary-400" />
-                    <span className={`font-medium ${riverStatus.color}`}>
-                      {riverStatus.label}
-                    </span>
-                  </div>
-                </>
-              )}
-            </>
+            <div className="flex items-center gap-1.5 text-white">
+              <span className="text-primary-400">{getConditionIcon(weather.condition)}</span>
+              <span className="font-medium">{weather.temp}°</span>
+            </div>
           ) : (
             <span className="text-neutral-400">Weather unavailable</span>
           )}
@@ -154,28 +111,6 @@ export default function WeatherBug({ riverSlug, riverId, className = '' }: Weath
               {weather.windSpeed} mph {getWindDirection(weather.windDirection)}
             </span>
           </div>
-
-          {/* River Level */}
-          {condition && (
-            <div className="flex items-center gap-2 text-sm border-t border-white/10 pt-2">
-              <Droplet className="w-4 h-4 text-primary-400" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">River Level</span>
-                  {condition.gaugeHeightFt !== null && (
-                    <span className="text-white font-medium">
-                      {condition.gaugeHeightFt.toFixed(1)} ft
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1">
-                  <span className={`text-xs font-medium ${riverStatus.color}`}>
-                    {riverStatus.label}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* City info */}
           <div className="text-xs text-neutral-400 text-right pt-1 border-t border-white/10">

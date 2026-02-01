@@ -53,47 +53,35 @@ export default function PlannerPanel({
     : null;
 
   const handleShare = async () => {
-    if (!selectedPutIn || !selectedTakeOut || !vesselTypeId) return;
+    if (!selectedPutIn || !selectedTakeOut) return;
+
+    // Build URL with query params pointing to current page
+    const params = new URLSearchParams();
+    params.set('putIn', selectedPutIn);
+    params.set('takeOut', selectedTakeOut);
+    if (vesselTypeId) params.set('vessel', vesselTypeId);
+
+    const shareUrl = `${window.location.origin}/rivers/${river.slug}?${params.toString()}`;
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+
+    // Mobile: use native share sheet. Desktop: copy to clipboard.
+    if (isMobile && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Float Plan - ${river.name}`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // User cancelled or share failed, fall through to clipboard
+      }
+    }
 
     try {
-      const response = await fetch('/api/plan/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          riverId: river.id,
-          startId: selectedPutIn,
-          endId: selectedTakeOut,
-          vesselTypeId,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to save plan');
-
-      const { url } = await response.json();
-      const isMobile = window.matchMedia('(pointer: coarse)').matches;
-
-      // Mobile: use native share sheet. Desktop: copy to clipboard.
-      if (isMobile && navigator.share) {
-        try {
-          await navigator.share({
-            title: `Float Plan - ${river.name}`,
-            url,
-          });
-          return;
-        } catch {
-          // User cancelled or share failed, fall through to clipboard
-        }
-      }
-
-      try {
-        await navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard!');
-      } catch {
-        window.prompt('Copy this link:', url);
-      }
-    } catch (error) {
-      console.error('Error sharing plan:', error);
-      alert('Failed to create shareable link');
+      await navigator.clipboard.writeText(shareUrl);
+      alert('Link copied to clipboard!');
+    } catch {
+      window.prompt('Copy this link:', shareUrl);
     }
   };
 
