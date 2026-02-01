@@ -357,8 +357,8 @@ export default function RiverPage() {
         condition={condition}
       />
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Main Content - add bottom padding on mobile when bottom sheet is visible */}
+      <div className={`max-w-7xl mx-auto px-4 py-6 ${putInPoint && takeOutPoint ? 'pb-36 lg:pb-6' : ''}`}>
         {/* Planner Selectors - always at top */}
         <div className="mb-4">
           <PlannerPanel

@@ -173,12 +173,12 @@ function AccessPointDetailCard({
           className="w-full px-3 py-2 flex items-center justify-between text-sm hover:bg-neutral-50 border-t border-neutral-100"
         >
           {!isExpanded ? (
-            <span className="flex items-center gap-2 text-xs text-neutral-500 truncate">
-              {point.parkingInfo && <span>🅿️ {point.parkingInfo.split(' ').slice(0, 2).join(' ')}</span>}
-              {point.facilities && <span>🚻</span>}
-              {point.feeRequired && <span className="text-amber-600">💰 Fee</span>}
+            <span className="flex items-center gap-3 text-base">
+              {point.parkingInfo && <span title="Parking available">🅿️</span>}
+              {point.facilities && <span title="Restrooms">🚻</span>}
+              {point.feeRequired && <span title="Fee required" className="text-amber-600">💰</span>}
               {!point.parkingInfo && !point.facilities && !point.feeRequired && (
-                <span className="text-neutral-400">View details</span>
+                <span className="text-xs text-neutral-400">View details</span>
               )}
             </span>
           ) : (
