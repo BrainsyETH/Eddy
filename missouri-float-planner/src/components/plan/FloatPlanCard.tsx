@@ -78,8 +78,100 @@ interface FloatPlanCardProps {
   onShare: () => void;
   onDownloadImage: () => void;
   riverSlug: string;
+  riverName?: string;
   vesselTypeId: string | null;
   onVesselChange: (id: string) => void;
+  captureRef?: React.RefObject<HTMLDivElement>;
+}
+
+// Shareable capture component - optimized view for image export
+function ShareableCapture({
+  plan,
+  putInPoint,
+  takeOutPoint,
+  riverName,
+  captureRef,
+}: {
+  plan: FloatPlan;
+  putInPoint: AccessPoint;
+  takeOutPoint: AccessPoint;
+  riverName?: string;
+  captureRef: React.RefObject<HTMLDivElement>;
+}) {
+  const conditionCode: ConditionCode = plan.condition.code || 'unknown';
+  const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+
+  return (
+    <div
+      ref={captureRef}
+      className="absolute left-[-9999px] top-0 w-[400px] bg-white p-4"
+      style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+    >
+      {/* Header with branding */}
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-neutral-200">
+        <div>
+          <h1 className="text-xl font-bold text-neutral-900">{riverName || 'Float Plan'}</h1>
+          <p className="text-sm text-neutral-500">eddy.fish</p>
+        </div>
+        <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass}`}>
+          <span className={`text-sm font-bold ${conditionConfig.textClass}`}>
+            {conditionConfig.emoji} {conditionConfig.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Route Summary */}
+      <div className="bg-neutral-50 rounded-xl p-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center">
+            <div className="w-4 h-4 rounded-full bg-support-500"></div>
+            <div className="w-0.5 h-10 bg-gradient-to-b from-support-400 to-accent-400"></div>
+            <div className="w-4 h-4 rounded-full bg-accent-500"></div>
+          </div>
+          <div className="flex-1 space-y-3">
+            <div>
+              <p className="text-xs font-bold text-support-600 uppercase">Put-in</p>
+              <p className="font-bold text-neutral-900">{putInPoint.name}</p>
+              <p className="text-xs text-neutral-500">Mile {putInPoint.riverMile.toFixed(1)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-accent-600 uppercase">Take-out</p>
+              <p className="font-bold text-neutral-900">{takeOutPoint.name}</p>
+              <p className="text-xs text-neutral-500">Mile {takeOutPoint.riverMile.toFixed(1)}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+            <p className="text-lg text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Conditions */}
+      <div className={`rounded-xl overflow-hidden ${conditionConfig.bgClass}`}>
+        <div className="px-4 py-3 text-center">
+          <span className="text-2xl mr-2">{conditionConfig.emoji}</span>
+          <span className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</span>
+        </div>
+        <div className="bg-white/95 px-4 py-3 flex justify-around">
+          <div className="text-center">
+            <p className="text-xl font-bold text-neutral-800">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}</p>
+            <p className="text-[10px] uppercase text-neutral-500 font-medium">Feet</p>
+          </div>
+          <div className="w-px bg-neutral-200"></div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-neutral-800">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'}</p>
+            <p className="text-[10px] uppercase text-neutral-500 font-medium">CFS</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-4 pt-3 border-t border-neutral-200 text-center">
+        <p className="text-xs text-neutral-400">Plan your float at eddy.fish</p>
+      </div>
+    </div>
+  );
 }
 
 // Access Point Detail Card (used in both single and dual selection states)
@@ -780,8 +872,10 @@ export default function FloatPlanCard({
   onShare,
   onDownloadImage,
   riverSlug: _riverSlug,
+  riverName,
   vesselTypeId,
   onVesselChange,
+  captureRef,
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
@@ -937,6 +1031,17 @@ export default function FloatPlanCard({
           onShare={onShare}
           onDownloadImage={onDownloadImage}
         />
+
+        {/* Hidden capture component for image export */}
+        {captureRef && (
+          <ShareableCapture
+            plan={displayPlan}
+            putInPoint={putInPoint}
+            takeOutPoint={takeOutPoint}
+            riverName={riverName}
+            captureRef={captureRef}
+          />
+        )}
       </div>
     );
   }
