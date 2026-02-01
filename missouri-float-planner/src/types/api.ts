@@ -30,7 +30,8 @@ export interface AccessPoint {
   name: string;
   slug: string;
   riverMile: number;
-  type: AccessPointType;
+  type: AccessPointType; // Primary type (for backwards compatibility)
+  types: AccessPointType[]; // All types (new - supports multiple)
   isPublic: boolean;
   ownership: string | null;
   description: string | null;

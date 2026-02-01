@@ -83,6 +83,7 @@ export async function GET(
           slug: ap.slug,
           riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : 0,
           type: ap.type,
+          types: ap.types || (ap.type ? [ap.type] : []),
           isPublic: ap.is_public,
           ownership: ap.ownership,
           description: ap.description,

@@ -37,10 +37,12 @@ interface AccessPoint {
     snap: { lng: number; lat: number } | null;
   };
   riverMile: number | null;
-  type: string;
+  type: string; // Primary type (backwards compat)
+  types?: string[]; // Multiple types
   isPublic: boolean;
   ownership: string | null;
   description: string | null;
+  parkingInfo?: string | null;
   feeRequired?: boolean;
   directionsOverride?: string | null;
   drivingLat?: number | null;
@@ -248,10 +250,11 @@ export default function GeographyEditor() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editingDetails.name,
-          type: editingDetails.type,
+          types: editingDetails.types || (editingDetails.type ? [editingDetails.type] : []),
           isPublic: editingDetails.isPublic,
           ownership: editingDetails.ownership,
           description: editingDetails.description,
+          parkingInfo: editingDetails.parkingInfo,
           feeRequired: editingDetails.feeRequired,
           riverId: editingDetails.riverId,
           directionsOverride: editingDetails.directionsOverride,
@@ -787,21 +790,40 @@ export default function GeographyEditor() {
               </select>
             </div>
 
-            {/* Type */}
+            {/* Types (multiple selection) */}
             <div>
-              <label className="block text-sm font-medium text-bluff-700 mb-1">Type</label>
-              <select
-                value={editingDetails.type || 'access'}
-                onChange={(e) => setEditingDetails({ ...editingDetails, type: e.target.value })}
-                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
-              >
-                <option value="boat_ramp">Boat Ramp</option>
-                <option value="gravel_bar">Gravel Bar</option>
-                <option value="campground">Campground</option>
-                <option value="bridge">Bridge</option>
-                <option value="access">Access</option>
-                <option value="park">Park</option>
-              </select>
+              <label className="block text-sm font-medium text-bluff-700 mb-2">
+                Types <span className="text-bluff-500 font-normal">(select all that apply)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2 p-3 bg-bluff-50 rounded-lg border border-bluff-200">
+                {ACCESS_POINT_TYPES.map((typeOption) => {
+                  const currentTypes = editingDetails.types || (editingDetails.type ? [editingDetails.type] : []);
+                  const isChecked = currentTypes.includes(typeOption.value);
+                  return (
+                    <label key={typeOption.value} className="flex items-center gap-2 cursor-pointer hover:bg-bluff-100 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const newTypes = e.target.checked
+                            ? [...currentTypes, typeOption.value]
+                            : currentTypes.filter(t => t !== typeOption.value);
+                          setEditingDetails({
+                            ...editingDetails,
+                            types: newTypes,
+                            type: newTypes[0] || 'access' // Keep primary type for backwards compat
+                          });
+                        }}
+                        className="w-4 h-4 text-river-500 rounded focus:ring-river-500"
+                      />
+                      <span className="text-sm text-bluff-700">{typeOption.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {(editingDetails.types?.length || 0) === 0 && !editingDetails.type && (
+                <p className="text-xs text-amber-600 mt-1">Please select at least one type</p>
+              )}
             </div>
 
             {/* Public / Private */}
@@ -847,6 +869,18 @@ export default function GeographyEditor() {
                 rows={3}
                 placeholder="Additional details about this access point..."
                 className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
+              />
+            </div>
+
+            {/* Parking */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Parking Info</label>
+              <input
+                type="text"
+                value={editingDetails.parkingInfo || ''}
+                onChange={(e) => setEditingDetails({ ...editingDetails, parkingInfo: e.target.value })}
+                placeholder="e.g., Gravel lot, 20 spaces, free"
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
               />
             </div>
 

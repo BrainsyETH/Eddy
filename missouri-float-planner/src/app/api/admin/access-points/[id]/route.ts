@@ -19,9 +19,11 @@ export async function PUT(
       longitude,
       name,
       type,
+      types,
       isPublic,
       ownership,
       description,
+      parkingInfo,
       feeRequired,
       riverId,
       directionsOverride,
@@ -63,7 +65,7 @@ export async function PUT(
         .replace(/^-|-$/g, '');
     }
 
-    // Handle type update
+    // Handle type update (single - for backwards compatibility)
     if (typeof type === 'string') {
       const validTypes = ['boat_ramp', 'gravel_bar', 'campground', 'bridge', 'access', 'park'];
       if (!validTypes.includes(type)) {
@@ -73,6 +75,17 @@ export async function PUT(
         );
       }
       updateData.type = type;
+    }
+
+    // Handle types update (array - new multi-select)
+    if (Array.isArray(types)) {
+      const validTypes = ['boat_ramp', 'gravel_bar', 'campground', 'bridge', 'access', 'park'];
+      const filteredTypes = types.filter((t: string) => validTypes.includes(t));
+      updateData.types = filteredTypes;
+      // Also update primary type for backwards compatibility
+      if (filteredTypes.length > 0 && !updateData.type) {
+        updateData.type = filteredTypes[0];
+      }
     }
 
     // Handle isPublic update
@@ -88,6 +101,11 @@ export async function PUT(
     // Handle description update
     if (description !== undefined) {
       updateData.description = description === '' ? null : description;
+    }
+
+    // Handle parkingInfo update
+    if (parkingInfo !== undefined) {
+      updateData.parking_info = parkingInfo === '' ? null : parkingInfo;
     }
 
     // Handle feeRequired update
@@ -158,9 +176,11 @@ export async function PUT(
         location_snap,
         river_mile_downstream,
         type,
+        types,
         is_public,
         ownership,
         description,
+        parking_info,
         fee_required,
         directions_override,
         driving_lat,
@@ -235,9 +255,11 @@ export async function PUT(
       },
       riverMile: data.river_mile_downstream ? parseFloat(data.river_mile_downstream) : null,
       type: data.type,
+      types: data.types || (data.type ? [data.type] : []),
       isPublic: data.is_public,
       ownership: data.ownership,
       description: data.description,
+      parkingInfo: data.parking_info,
       feeRequired: data.fee_required,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,

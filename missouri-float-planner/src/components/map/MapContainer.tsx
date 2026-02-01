@@ -267,14 +267,14 @@ export default function MapContainer({
     if (!mapContainer.current || map.current) return;
 
     // Get saved style or use liberty (Natural) as default
-    // Use v2 migration key to force Natural as default for all users
+    // Use v3 migration key to force Natural as default for all users
     const savedStyle = localStorage.getItem('mapStyle') as MapStyleKey | null;
-    const migratedV2 = localStorage.getItem('mapStyleMigratedV2');
+    const migratedV3 = localStorage.getItem('mapStyleMigratedV3');
     let initialStyle: MapStyleKey = 'liberty';
 
-    if (!migratedV2) {
+    if (!migratedV3) {
       // Force migration to liberty (Natural) for all users
-      localStorage.setItem('mapStyleMigratedV2', '1');
+      localStorage.setItem('mapStyleMigratedV3', '1');
       localStorage.setItem('mapStyle', 'liberty');
     } else if (savedStyle && MAP_STYLES[savedStyle]) {
       initialStyle = savedStyle;
