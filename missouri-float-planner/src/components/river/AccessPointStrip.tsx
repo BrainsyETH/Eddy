@@ -106,104 +106,105 @@ function ExpandedDetail({
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
-      <div className="flex">
-        {/* Image section */}
-        {hasImages && (
-          <div className="relative w-40 h-32 flex-shrink-0">
-            <Image
-              src={point.imageUrls[currentImageIndex]}
-              alt={point.name}
-              fill
-              className="object-cover"
-              sizes="160px"
-            />
-            {point.imageUrls.length > 1 && (
-              <>
-                <button
-                  onClick={() => setCurrentImageIndex(i => (i - 1 + point.imageUrls.length) % point.imageUrls.length)}
-                  className="absolute left-1 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <button
-                  onClick={() => setCurrentImageIndex(i => (i + 1) % point.imageUrls.length)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full"
-                >
-                  <ChevronRight size={14} />
-                </button>
-                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded">
-                  {currentImageIndex + 1}/{point.imageUrls.length}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Content section */}
-        <div className="flex-1 p-3 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                {isPutIn && (
-                  <span className="px-1.5 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded">PUT-IN</span>
-                )}
-                {isTakeOut && (
-                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">TAKE-OUT</span>
-                )}
-                <h3 className="font-semibold text-neutral-900 text-sm truncate">{point.name}</h3>
-              </div>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                <span className="capitalize">
-                  {(point.types && point.types.length > 0 ? point.types : [point.type])
-                    .map(t => t.replace('_', ' '))
-                    .join(' / ')}
-                </span>
-                {' · Mile '}{point.riverMile.toFixed(1)}
-              </p>
+      {/* Header with title and close button */}
+      <div className="p-3 border-b border-neutral-100">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {isPutIn && (
+                <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded">PUT-IN</span>
+              )}
+              {isTakeOut && (
+                <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded">TAKE-OUT</span>
+              )}
+              <h3 className="font-semibold text-neutral-900 text-base">{point.name}</h3>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-neutral-100 rounded-full flex-shrink-0"
-            >
-              <X size={16} className="text-neutral-400" />
-            </button>
+            <p className="text-sm text-neutral-500 mt-0.5">
+              <span className="capitalize">
+                {(point.types && point.types.length > 0 ? point.types : [point.type])
+                  .map(t => t.replace('_', ' '))
+                  .join(' / ')}
+              </span>
+              {' · Mile '}{point.riverMile.toFixed(1)}
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-neutral-100 rounded-full flex-shrink-0"
+          >
+            <X size={18} className="text-neutral-400" />
+          </button>
+        </div>
+      </div>
 
-          {/* Badges */}
-          <div className="flex gap-1.5 mt-2">
-            {point.isPublic ? (
-              <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-medium rounded">Public</span>
-            ) : (
-              <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] font-medium rounded">Private</span>
-            )}
-            {point.feeRequired && (
-              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">Fee</span>
-            )}
-          </div>
-
-          {/* Quick info */}
-          <div className="mt-2 text-xs text-neutral-600 space-y-0.5">
-            {point.parkingInfo && (
-              <p className="truncate"><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
-            )}
-            {point.description && (
-              <p className="line-clamp-2">{point.description}</p>
-            )}
-          </div>
-
-          {/* Google Maps link */}
-          {point.googleMapsUrl && (
-            <a
-              href={point.googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:underline"
-            >
-              <MapPin size={12} />
-              View on Google Maps
-            </a>
+      {/* Enlarged centered image */}
+      {hasImages && (
+        <div className="relative w-full aspect-[16/9] bg-neutral-100">
+          <Image
+            src={point.imageUrls[currentImageIndex]}
+            alt={point.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 50vw"
+          />
+          {point.imageUrls.length > 1 && (
+            <>
+              <button
+                onClick={() => setCurrentImageIndex(i => (i - 1 + point.imageUrls.length) % point.imageUrls.length)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                onClick={() => setCurrentImageIndex(i => (i + 1) % point.imageUrls.length)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+              >
+                <ChevronRight size={20} />
+              </button>
+              <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 text-white text-xs rounded">
+                {currentImageIndex + 1} / {point.imageUrls.length}
+              </div>
+            </>
           )}
         </div>
+      )}
+
+      {/* Content section */}
+      <div className="p-3">
+        {/* Badges */}
+        <div className="flex gap-2 mb-2">
+          {point.isPublic ? (
+            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Public</span>
+          ) : (
+            <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-medium rounded">Private</span>
+          )}
+          {point.feeRequired && (
+            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Fee</span>
+          )}
+        </div>
+
+        {/* Quick info */}
+        <div className="text-sm text-neutral-600 space-y-1">
+          {point.parkingInfo && (
+            <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
+          )}
+          {point.description && (
+            <p className="line-clamp-3">{point.description}</p>
+          )}
+        </div>
+
+        {/* Google Maps link */}
+        {point.googleMapsUrl && (
+          <a
+            href={point.googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-3 text-sm text-blue-600 hover:underline font-medium"
+          >
+            <MapPin size={14} />
+            View on Google Maps
+          </a>
+        )}
       </div>
     </div>
   );
@@ -216,7 +217,6 @@ export default function AccessPointStrip({
   onSelect,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
 
@@ -237,14 +237,6 @@ export default function AccessPointStrip({
     }
   }, [accessPoints]);
 
-  // Auto-expand when selection changes (but don't scroll)
-  useEffect(() => {
-    const selectedId = selectedTakeOutId || selectedPutInId;
-    if (selectedId) {
-      setExpandedId(selectedId);
-    }
-  }, [selectedPutInId, selectedTakeOutId]);
-
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
     const scrollAmount = 300;
@@ -255,17 +247,14 @@ export default function AccessPointStrip({
   };
 
   const handleCardClick = (point: AccessPoint) => {
-    // Toggle expanded view
-    if (expandedId === point.id) {
-      setExpandedId(null);
-    } else {
-      setExpandedId(point.id);
-    }
-    // Also trigger selection
+    // Trigger selection (parent handles put-in/take-out logic)
     onSelect(point);
   };
 
-  const expandedPoint = expandedId ? accessPoints.find(ap => ap.id === expandedId) : null;
+  // Get both put-in and take-out points for side-by-side display
+  const putInPoint = selectedPutInId ? accessPoints.find(ap => ap.id === selectedPutInId) : null;
+  const takeOutPoint = selectedTakeOutId ? accessPoints.find(ap => ap.id === selectedTakeOutId) : null;
+  const hasBothSelected = putInPoint && takeOutPoint;
 
   if (accessPoints.length === 0) {
     return null;
@@ -308,15 +297,25 @@ export default function AccessPointStrip({
         ))}
       </div>
 
-      {/* Expanded detail panel - below cards */}
-      {expandedPoint && (
-        <div className="mt-2 px-2">
-          <ExpandedDetail
-            point={expandedPoint}
-            isPutIn={expandedPoint.id === selectedPutInId}
-            isTakeOut={expandedPoint.id === selectedTakeOutId}
-            onClose={() => setExpandedId(null)}
-          />
+      {/* Expanded detail panel - side by side on desktop when both selected */}
+      {(putInPoint || takeOutPoint) && (
+        <div className={`mt-2 px-2 ${hasBothSelected ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : ''}`}>
+          {putInPoint && (
+            <ExpandedDetail
+              point={putInPoint}
+              isPutIn={true}
+              isTakeOut={false}
+              onClose={() => onSelect(putInPoint)}
+            />
+          )}
+          {takeOutPoint && (
+            <ExpandedDetail
+              point={takeOutPoint}
+              isPutIn={false}
+              isTakeOut={true}
+              onClose={() => onSelect(takeOutPoint)}
+            />
+          )}
         </div>
       )}
 
