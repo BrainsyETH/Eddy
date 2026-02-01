@@ -86,7 +86,6 @@ interface FloatPlanCardProps {
 function AccessPointDetailCard({
   point,
   isPutIn,
-  isTakeOut,
   onClear,
   isExpanded,
   onToggleExpand,
@@ -94,7 +93,6 @@ function AccessPointDetailCard({
 }: {
   point: AccessPoint;
   isPutIn: boolean;
-  isTakeOut: boolean;
   onClear: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -425,9 +423,11 @@ export default function FloatPlanCard({
   onClearTakeOut,
   onShare,
   onDownloadImage,
-  riverSlug,
+  riverSlug: _riverSlug,
   vesselTypeId,
 }: FloatPlanCardProps) {
+  // riverSlug reserved for potential future use
+  void _riverSlug;
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(vesselTypeId);
   const [putInExpanded, setPutInExpanded] = useState(false);
   const [takeOutExpanded, setTakeOutExpanded] = useState(false);
@@ -474,8 +474,7 @@ export default function FloatPlanCard({
             <AccessPointDetailCard
               point={point!}
               isPutIn={isPutIn}
-              isTakeOut={!isPutIn}
-              onClear={onClear}
+                            onClear={onClear}
               isExpanded={true}
               onToggleExpand={() => {}}
               showExpandToggle={false}
@@ -502,8 +501,7 @@ export default function FloatPlanCard({
             <AccessPointDetailCard
               point={putInPoint}
               isPutIn={true}
-              isTakeOut={false}
-              onClear={onClearPutIn}
+                            onClear={onClearPutIn}
               isExpanded={putInExpanded}
               onToggleExpand={() => setPutInExpanded(!putInExpanded)}
             />
@@ -521,8 +519,7 @@ export default function FloatPlanCard({
             <AccessPointDetailCard
               point={takeOutPoint}
               isPutIn={false}
-              isTakeOut={true}
-              onClear={onClearTakeOut}
+                            onClear={onClearTakeOut}
               isExpanded={takeOutExpanded}
               onToggleExpand={() => setTakeOutExpanded(!takeOutExpanded)}
             />
@@ -618,16 +615,14 @@ export default function FloatPlanCard({
                 <AccessPointDetailCard
                   point={putInPoint}
                   isPutIn={true}
-                  isTakeOut={false}
-                  onClear={onClearPutIn}
+                                    onClear={onClearPutIn}
                   isExpanded={putInExpanded}
                   onToggleExpand={() => setPutInExpanded(!putInExpanded)}
                 />
                 <AccessPointDetailCard
                   point={takeOutPoint}
                   isPutIn={false}
-                  isTakeOut={true}
-                  onClear={onClearTakeOut}
+                                    onClear={onClearTakeOut}
                   isExpanded={takeOutExpanded}
                   onToggleExpand={() => setTakeOutExpanded(!takeOutExpanded)}
                 />

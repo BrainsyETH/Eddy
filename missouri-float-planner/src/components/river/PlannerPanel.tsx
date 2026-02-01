@@ -27,7 +27,7 @@ interface PlannerPanelProps {
 }
 
 export default function PlannerPanel({
-  river,
+  river: _river,
   accessPoints,
   isLoading,
   selectedPutIn,
@@ -35,6 +35,8 @@ export default function PlannerPanel({
   onPutInChange,
   onTakeOutChange,
 }: PlannerPanelProps) {
+  // river prop kept for interface compatibility
+  void _river;
   const selectedPutInPoint = selectedPutIn
     ? accessPoints.find((point) => point.id === selectedPutIn)
     : null;
