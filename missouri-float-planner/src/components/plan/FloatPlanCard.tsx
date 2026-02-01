@@ -447,18 +447,20 @@ function JourneyCenter({
       )}
 
       {/* Conditions - Revamped Card (matching mobile) */}
-      <div className={`rounded-xl overflow-hidden ${conditionConfig.bgClass} mb-3`}>
+      <div className={`rounded-2xl overflow-hidden ${conditionConfig.bgClass} mb-3`}>
         {/* Main Status */}
-        <div className="px-3 py-2 text-center">
-          <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 mb-1">
-            <span className="text-base">{conditionConfig.emoji}</span>
+        <div className="px-3 py-2 flex items-center justify-center gap-2">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+            <span className="text-xl">{conditionConfig.emoji}</span>
           </div>
-          <p className={`text-sm font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
-          {plan.condition.gaugeName && (
-            <p className={`text-[9px] ${conditionConfig.textClass} opacity-75 mt-0.5 truncate`}>
-              {plan.condition.gaugeName}
-            </p>
-          )}
+          <div>
+            <p className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+            {plan.condition.gaugeName && (
+              <p className={`text-[10px] ${conditionConfig.textClass} opacity-75 truncate max-w-[140px]`}>
+                {plan.condition.gaugeName}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Stats Row */}
