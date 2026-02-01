@@ -3,21 +3,145 @@
 // src/components/river/RiverGuide.tsx
 // Combined Access Points and Points of Interest section
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin } from 'lucide-react';
+import { MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { AccessPoint } from '@/types/api';
 
 const EDDY_PLACEHOLDER = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png';
 
+// Swipable Image Gallery Component
+function ImageGallery({ images, altPrefix }: { images: string[]; altPrefix: string }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  }, [images.length]);
+
+  const goToPrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+
+    const diff = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 50;
+
+    if (Math.abs(diff) > minSwipeDistance) {
+      if (diff > 0) {
+        goToNext();
+      } else {
+        goToPrev();
+      }
+    }
+
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  if (images.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      {/* Main image with touch support */}
+      <div
+        className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-neutral-200"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <Image
+          src={images[currentIndex]}
+          alt={`${altPrefix} - Image ${currentIndex + 1}`}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 400px"
+          priority={currentIndex === 0}
+        />
+
+        {/* Navigation arrows (only show if more than 1 image) */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                goToPrev();
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+              aria-label="Previous image"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                goToNext();
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+              aria-label="Next image"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
+
+        {/* Image counter */}
+        {images.length > 1 && (
+          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
+            {currentIndex + 1} / {images.length}
+          </div>
+        )}
+      </div>
+
+      {/* Thumbnail strip (only show if more than 1 image) */}
+      {images.length > 1 && (
+        <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+          {images.map((url, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`flex-shrink-0 w-14 h-14 relative rounded-lg overflow-hidden transition-all ${
+                idx === currentIndex
+                  ? 'ring-2 ring-primary-500 ring-offset-1'
+                  : 'opacity-60 hover:opacity-100'
+              }`}
+            >
+              <Image
+                src={url}
+                alt={`${altPrefix} thumbnail ${idx + 1}`}
+                fill
+                className="object-cover"
+                sizes="56px"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface RiverGuideProps {
   accessPoints: AccessPoint[];
   riverSlug: string;
   isLoading: boolean;
   defaultOpen?: boolean;
+  selectedPutInId?: string | null;
+  selectedTakeOutId?: string | null;
 }
 
 interface POI {
@@ -37,8 +161,31 @@ type MarkerItem = {
   data: AccessPoint | POI;
 };
 
-export default function RiverGuide({ accessPoints, riverSlug, isLoading, defaultOpen = false }: RiverGuideProps) {
+export default function RiverGuide({
+  accessPoints,
+  riverSlug,
+  isLoading,
+  defaultOpen = false,
+  selectedPutInId,
+  selectedTakeOutId,
+}: RiverGuideProps) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  // Auto-expand when put-in or take-out is selected
+  useEffect(() => {
+    // Prioritize the most recently changed selection
+    const newSelectedId = selectedTakeOutId || selectedPutInId;
+
+    // Only auto-expand if the selection changed
+    if (newSelectedId && newSelectedId !== lastSelectedId) {
+      setExpandedItem(newSelectedId);
+      setLastSelectedId(newSelectedId);
+    } else if (!newSelectedId && lastSelectedId) {
+      // Clear if both deselected
+      setLastSelectedId(null);
+    }
+  }, [selectedPutInId, selectedTakeOutId, lastSelectedId]);
 
   // Fetch POIs (hazards for now)
   const { data: pois, isLoading: poisLoading } = useQuery({
@@ -149,125 +296,88 @@ export default function RiverGuide({ accessPoints, riverSlug, isLoading, default
               const point = item.data as AccessPoint;
               const hasImages = point.imageUrls && point.imageUrls.length > 0;
               return (
-                <div className="flex gap-4">
-                  {/* Images */}
-                  {hasImages && (
-                    <div className="flex-shrink-0 flex flex-col gap-1">
-                      {/* Main image */}
-                      <div className="w-24 h-24 md:w-32 md:h-32 relative rounded-lg overflow-hidden bg-neutral-200">
-                        <Image
-                          src={point.imageUrls[0]}
-                          alt={point.name}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 96px, 128px"
-                        />
+                <div>
+                  {/* Header with title and badges */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-primary-500"></span>
+                        <p className="font-semibold text-neutral-900">{point.name}</p>
                       </div>
-                      {/* Additional image thumbnails */}
-                      {point.imageUrls.length > 1 && (
-                        <div className="flex gap-1">
-                          {point.imageUrls.slice(1, 4).map((url, idx) => (
-                            <div
-                              key={idx}
-                              className="w-7 h-7 md:w-10 md:h-10 relative rounded overflow-hidden bg-neutral-200"
-                            >
-                              <Image
-                                src={url}
-                                alt={`${point.name} ${idx + 2}`}
-                                fill
-                                className="object-cover"
-                                sizes="40px"
-                              />
-                            </div>
-                          ))}
-                          {point.imageUrls.length > 4 && (
-                            <div className="w-7 h-7 md:w-10 md:h-10 rounded bg-neutral-300 flex items-center justify-center text-xs text-neutral-600 font-medium">
-                              +{point.imageUrls.length - 4}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <p className="text-sm text-neutral-500 ml-4">
+                        <span className="capitalize">
+                          {(point.types && point.types.length > 0 ? point.types : [point.type])
+                            .map(t => t.replace('_', ' '))
+                            .join(' • ')}
+                        </span>
+                        {' • Mile '}{point.riverMile.toFixed(1)}
+                      </p>
                     </div>
-                  )}
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-primary-500"></span>
-                          <p className="font-semibold text-neutral-900">{point.name}</p>
-                        </div>
-                        <p className="text-sm text-neutral-500 ml-4">
-                          <span className="capitalize">
-                            {(point.types && point.types.length > 0 ? point.types : [point.type])
-                              .map(t => t.replace('_', ' '))
-                              .join(' • ')}
-                          </span>
-                          {' • Mile '}{point.riverMile.toFixed(1)}
-                        </p>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        {point.isPublic ? (
-                          <span className="px-2 py-1 bg-support-100 text-support-700 rounded text-xs font-medium">
-                            Public
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-neutral-200 text-neutral-600 rounded text-xs font-medium">
-                            Private
-                          </span>
-                        )}
-                        {point.feeRequired && (
-                          <span className="px-2 py-1 bg-accent-100 text-accent-700 rounded text-xs font-medium">
-                            Fee
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Amenities */}
-                    {point.amenities && point.amenities.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3 ml-4">
-                        {point.amenities.map((amenity, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-1 bg-white text-neutral-600 rounded text-xs border border-neutral-200"
-                          >
-                            {amenity}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Additional info */}
-                    <div className="mt-3 space-y-1 text-sm ml-4">
-                      {point.parkingInfo && (
-                        <p className="text-neutral-600">
-                          <span className="font-medium">Parking:</span> {point.parkingInfo}
-                        </p>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {point.isPublic ? (
+                        <span className="px-2 py-1 bg-support-100 text-support-700 rounded text-xs font-medium">
+                          Public
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-neutral-200 text-neutral-600 rounded text-xs font-medium">
+                          Private
+                        </span>
                       )}
-                      {point.feeRequired && point.feeNotes && (
-                        <p className="text-accent-600">
-                          <span className="font-medium">Fee:</span> {point.feeNotes}
-                        </p>
-                      )}
-                      {point.description && (
-                        <p className="text-neutral-600">{point.description}</p>
-                      )}
-                      {/* Google Maps Link */}
-                      {point.googleMapsUrl && (
-                        <a
-                          href={point.googleMapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          <MapPin size={14} />
-                          View on Google Maps
-                        </a>
+                      {point.feeRequired && (
+                        <span className="px-2 py-1 bg-accent-100 text-accent-700 rounded text-xs font-medium">
+                          Fee
+                        </span>
                       )}
                     </div>
                   </div>
+
+                  {/* Amenities */}
+                  {point.amenities && point.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3 ml-4">
+                      {point.amenities.map((amenity, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-white text-neutral-600 rounded text-xs border border-neutral-200"
+                        >
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Additional info */}
+                  <div className="mt-3 space-y-1 text-sm ml-4">
+                    {point.parkingInfo && (
+                      <p className="text-neutral-600">
+                        <span className="font-medium">Parking:</span> {point.parkingInfo}
+                      </p>
+                    )}
+                    {point.feeRequired && point.feeNotes && (
+                      <p className="text-accent-600">
+                        <span className="font-medium">Fee:</span> {point.feeNotes}
+                      </p>
+                    )}
+                    {point.description && (
+                      <p className="text-neutral-600">{point.description}</p>
+                    )}
+                    {/* Google Maps Link */}
+                    {point.googleMapsUrl && (
+                      <a
+                        href={point.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <MapPin size={14} />
+                        View on Google Maps
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Image Gallery - Below content */}
+                  {hasImages && (
+                    <ImageGallery images={point.imageUrls} altPrefix={point.name} />
+                  )}
                 </div>
               );
             } else {

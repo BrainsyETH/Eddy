@@ -301,6 +301,15 @@ export default function RiverPage() {
 
         {/* Info Sections - full width below planner/map, consistent on desktop and mobile */}
         <div className="space-y-4 mt-6">
+          {/* River Guide - Access Points & POIs (first - most relevant when selecting points) */}
+          <RiverGuide
+            accessPoints={accessPoints || []}
+            riverSlug={slug}
+            isLoading={accessPointsLoading}
+            selectedPutInId={selectedPutIn}
+            selectedTakeOutId={selectedTakeOut}
+          />
+
           {/* River Conditions */}
           <ConditionsBlock
             riverId={river.id}
@@ -316,13 +325,6 @@ export default function RiverPage() {
             gauges={gaugeStations}
             riverId={river.id}
             isLoading={!allGaugeStations}
-          />
-
-          {/* River Guide - Access Points & POIs */}
-          <RiverGuide
-            accessPoints={accessPoints || []}
-            riverSlug={slug}
-            isLoading={accessPointsLoading}
           />
         </div>
       </div>
