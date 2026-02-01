@@ -13,6 +13,7 @@ interface AccessPointStripProps {
   selectedPutInId: string | null;
   selectedTakeOutId: string | null;
   onSelect: (point: AccessPoint) => void;
+  hideExpandedDetails?: boolean;
 }
 
 // Compact card for the horizontal strip
@@ -221,6 +222,7 @@ export default function AccessPointStrip({
   selectedPutInId,
   selectedTakeOutId,
   onSelect,
+  hideExpandedDetails = false,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -304,7 +306,7 @@ export default function AccessPointStrip({
       </div>
 
       {/* Expanded detail panel - side by side on desktop when both selected */}
-      {(putInPoint || takeOutPoint) && (
+      {!hideExpandedDetails && (putInPoint || takeOutPoint) && (
         <div className={`mt-2 px-2 ${hasBothSelected ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : ''}`}>
           {putInPoint && (
             <ExpandedDetail
