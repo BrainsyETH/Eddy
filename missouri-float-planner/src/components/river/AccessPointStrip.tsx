@@ -327,10 +327,6 @@ export default function AccessPointStrip({
         </div>
       )}
 
-      {/* Hint text */}
-      <p className="text-center text-xs text-neutral-400 mt-1">
-        Tap to select put-in, tap again for take-out
-      </p>
     </div>
   );
 }

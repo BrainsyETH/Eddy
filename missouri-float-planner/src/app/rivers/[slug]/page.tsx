@@ -352,6 +352,13 @@ export default function RiverPage() {
           )}
         </div>
 
+        {/* Hint text - between map and cards */}
+        {!putInPoint && !takeOutPoint && (
+          <p className="text-center text-sm text-neutral-500 mb-4">
+            Tap an access point to select put-in, tap again for take-out
+          </p>
+        )}
+
         {/* Float Plan Journey Card - shows when any access point is selected */}
         {(putInPoint || takeOutPoint) && (
           <div className="mb-4">
@@ -369,6 +376,7 @@ export default function RiverPage() {
               onDownloadImage={handleDownloadImage}
               riverSlug={slug}
               vesselTypeId={selectedVesselTypeId}
+              onVesselChange={setSelectedVesselTypeId}
             />
           </div>
         )}
