@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
         is_public: isPublic,
         ownership,
         description,
-        approved: false, // New points start as unapproved
+        approved: true, // Auto-approve points created through admin panel
       })
       .select(`
         id,

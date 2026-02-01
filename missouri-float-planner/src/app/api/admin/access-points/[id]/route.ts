@@ -25,6 +25,7 @@ export async function PUT(
       description,
       parkingInfo,
       feeRequired,
+      riverMile,
       riverId,
       directionsOverride,
       drivingLat,
@@ -111,6 +112,11 @@ export async function PUT(
     // Handle feeRequired update
     if (typeof feeRequired === 'boolean') {
       updateData.fee_required = feeRequired;
+    }
+
+    // Handle riverMile update (manual override of calculated mile marker)
+    if (riverMile !== undefined) {
+      updateData.river_mile_downstream = riverMile === null || riverMile === '' ? null : parseFloat(String(riverMile));
     }
 
     // Handle riverId update
