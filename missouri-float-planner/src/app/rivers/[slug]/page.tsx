@@ -12,7 +12,6 @@ import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
-import ConditionsBlock from '@/components/river/ConditionsBlock';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import WeatherBug from '@/components/ui/WeatherBug';
@@ -500,20 +499,11 @@ export default function RiverPage() {
         {/* Info Sections - full width below planner/map */}
         <div className="space-y-4 mt-6">
           {/* River Conditions */}
-          <ConditionsBlock
-            riverId={river.id}
-            riverSlug={slug}
-            condition={condition}
-            nearestGauge={nearestGauge}
-            hasPutInSelected={!!selectedPutIn}
-            isLoading={conditionsLoading}
-          />
-
-          {/* Gauge Stations */}
           <GaugeOverview
             gauges={gaugeStations}
             riverId={river.id}
             isLoading={!allGaugeStations}
+            putInCoordinates={selectedPutInPoint?.coordinates || null}
           />
         </div>
       </div>
