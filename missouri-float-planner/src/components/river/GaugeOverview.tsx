@@ -477,20 +477,46 @@ export default function GaugeOverview({
     );
   }
 
-  // Get best condition for the badge
-  const conditions = gauges.map(g => getGaugeCondition(g, riverId));
-  const bestCondition = conditions.find(c => c.code === 'optimal') ||
-    conditions.find(c => c.code === 'low') ||
-    conditions.find(c => c.code === 'high') ||
-    conditions.find(c => c.code === 'very_low') ||
-    conditions.find(c => c.code === 'dangerous') ||
-    conditions[0];
+  // Condition order for range display (low water to high water)
+  const CONDITION_ORDER: ConditionCode[] = ['too_low', 'very_low', 'low', 'optimal', 'high', 'dangerous'];
 
-  const badge = bestCondition ? (
-    <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${bestCondition.color}`}>
-      {bestCondition.label}
-    </span>
-  ) : null;
+  // Get condition range for the badge
+  const conditions = gauges.map(g => getGaugeCondition(g, riverId));
+  const conditionCodes = conditions.map(c => c.code).filter(c => c !== 'unknown');
+
+  // Find min and max conditions based on order
+  const conditionIndices = conditionCodes.map(code => CONDITION_ORDER.indexOf(code)).filter(i => i !== -1);
+  const minIndex = Math.min(...conditionIndices);
+  const maxIndex = Math.max(...conditionIndices);
+
+  const minCondition = conditions.find(c => c.code === CONDITION_ORDER[minIndex]);
+  const maxCondition = conditions.find(c => c.code === CONDITION_ORDER[maxIndex]);
+
+  // Build badge - show range if different, single if same
+  let badge = null;
+  if (minCondition && maxCondition) {
+    if (minIndex === maxIndex) {
+      // All gauges have same condition
+      badge = (
+        <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${minCondition.color}`}>
+          {minCondition.label}
+        </span>
+      );
+    } else {
+      // Show range
+      badge = (
+        <span className="flex items-center gap-1 text-xs font-bold">
+          <span className={`px-1.5 py-0.5 rounded text-white ${minCondition.color}`}>
+            {minCondition.label}
+          </span>
+          <span className="text-neutral-400">→</span>
+          <span className={`px-1.5 py-0.5 rounded text-white ${maxCondition.color}`}>
+            {maxCondition.label}
+          </span>
+        </span>
+      );
+    }
+  }
 
   return (
     <CollapsibleSection title="River Conditions" defaultOpen={defaultOpen} badge={badge}>
