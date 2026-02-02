@@ -11,6 +11,7 @@ export interface ConditionThresholds {
   levelOptimalMax: number | null;
   levelHigh: number | null;
   levelDangerous: number | null;
+  thresholdUnit?: 'ft' | 'cfs';
 }
 
 export interface ConditionResult {
@@ -20,18 +21,34 @@ export interface ConditionResult {
 }
 
 /**
- * Determines condition code based on gauge height and thresholds
+ * Determines condition code based on gauge reading and thresholds
  * This is the single source of truth for condition calculation across the app
+ *
+ * Supports both ft (gauge height) and cfs (discharge) threshold units.
+ * Uses the appropriate value based on thresholdUnit, with automatic fallback.
  *
  * @param gaugeHeightFt - Current gauge height in feet
  * @param thresholds - River-specific gauge thresholds
+ * @param dischargeCfs - Current discharge in cubic feet per second (optional)
  * @returns Condition code, label, and color
  */
 export function computeCondition(
   gaugeHeightFt: number | null,
-  thresholds: ConditionThresholds
+  thresholds: ConditionThresholds,
+  dischargeCfs?: number | null
 ): ConditionResult {
-  if (gaugeHeightFt === null) {
+  // Determine which value to use based on threshold unit
+  const useCfs = thresholds.thresholdUnit === 'cfs';
+
+  // Use the preferred value, with fallback to the other if null
+  let compareValue: number | null;
+  if (useCfs) {
+    compareValue = dischargeCfs ?? gaugeHeightFt;
+  } else {
+    compareValue = gaugeHeightFt ?? dischargeCfs ?? null;
+  }
+
+  if (compareValue === null) {
     return {
       code: 'unknown',
       label: CONDITION_LABELS.unknown,
@@ -40,7 +57,7 @@ export function computeCondition(
   }
 
   // Check thresholds from highest to lowest (most dangerous first)
-  if (thresholds.levelDangerous !== null && gaugeHeightFt >= thresholds.levelDangerous) {
+  if (thresholds.levelDangerous !== null && compareValue >= thresholds.levelDangerous) {
     return {
       code: 'dangerous',
       label: CONDITION_LABELS.dangerous,
@@ -48,7 +65,7 @@ export function computeCondition(
     };
   }
 
-  if (thresholds.levelHigh !== null && gaugeHeightFt >= thresholds.levelHigh) {
+  if (thresholds.levelHigh !== null && compareValue >= thresholds.levelHigh) {
     return {
       code: 'high',
       label: CONDITION_LABELS.high,
@@ -59,8 +76,8 @@ export function computeCondition(
   if (
     thresholds.levelOptimalMin !== null &&
     thresholds.levelOptimalMax !== null &&
-    gaugeHeightFt >= thresholds.levelOptimalMin &&
-    gaugeHeightFt <= thresholds.levelOptimalMax
+    compareValue >= thresholds.levelOptimalMin &&
+    compareValue <= thresholds.levelOptimalMax
   ) {
     return {
       code: 'optimal',
@@ -69,7 +86,7 @@ export function computeCondition(
     };
   }
 
-  if (thresholds.levelLow !== null && gaugeHeightFt >= thresholds.levelLow) {
+  if (thresholds.levelLow !== null && compareValue >= thresholds.levelLow) {
     return {
       code: 'low',
       label: CONDITION_LABELS.low,
@@ -77,7 +94,7 @@ export function computeCondition(
     };
   }
 
-  if (thresholds.levelTooLow !== null && gaugeHeightFt >= thresholds.levelTooLow) {
+  if (thresholds.levelTooLow !== null && compareValue >= thresholds.levelTooLow) {
     return {
       code: 'very_low',
       label: CONDITION_LABELS.very_low,

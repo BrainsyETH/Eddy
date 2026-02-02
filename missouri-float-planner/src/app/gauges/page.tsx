@@ -111,7 +111,8 @@ export default function GaugesPage() {
     fetchGauges();
   }, []);
 
-  // Helper to get condition from gauge height and thresholds
+  // Helper to get condition from gauge reading and thresholds
+  // Supports both ft and cfs threshold units
   const getCondition = (gauge: GaugeStation) => {
     const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
     if (!primaryRiver) {
@@ -125,9 +126,10 @@ export default function GaugesPage() {
       levelOptimalMax: primaryRiver.levelOptimalMax,
       levelHigh: primaryRiver.levelHigh,
       levelDangerous: primaryRiver.levelDangerous,
+      thresholdUnit: primaryRiver.thresholdUnit,
     };
 
-    const result = computeCondition(gauge.gaugeHeightFt, thresholdsForCompute);
+    const result = computeCondition(gauge.gaugeHeightFt, thresholdsForCompute, gauge.dischargeCfs);
     return {
       code: result.code,
       label: getConditionShortLabel(result.code),
@@ -655,10 +657,17 @@ export default function GaugesPage() {
                             <div className="space-y-4">
 
                               {/* Thresholds */}
-                              {gauge.primaryRiver && (
+                              {gauge.primaryRiver && (() => {
+                                const unit = gauge.primaryRiver.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+                                const formatValue = (val: number | null) => {
+                                  if (val === null) return null;
+                                  return unit === 'cfs' ? val.toLocaleString() : val.toFixed(2);
+                                };
+                                return (
                                 <div>
                                   <h4 className="text-sm font-semibold text-neutral-700 mb-3">
                                     Thresholds for {gauge.primaryRiver.riverName}
+                                    {unit === 'cfs' && <span className="ml-2 text-xs font-normal text-primary-600">(using flow)</span>}
                                   </h4>
                                   <div className="bg-white border border-neutral-200 rounded-lg p-3">
                                     <div className="space-y-2 text-sm">
@@ -669,7 +678,7 @@ export default function GaugesPage() {
                                         </div>
                                         <span className="font-mono text-neutral-900">
                                           {gauge.primaryRiver.levelOptimalMin !== null && gauge.primaryRiver.levelOptimalMax !== null
-                                            ? `${gauge.primaryRiver.levelOptimalMin} - ${gauge.primaryRiver.levelOptimalMax} ft`
+                                            ? `${formatValue(gauge.primaryRiver.levelOptimalMin)} - ${formatValue(gauge.primaryRiver.levelOptimalMax)} ${unit}`
                                             : 'N/A'}
                                         </span>
                                       </div>
@@ -680,9 +689,9 @@ export default function GaugesPage() {
                                         </div>
                                         <span className="font-mono text-neutral-900">
                                           {gauge.primaryRiver.levelLow !== null && gauge.primaryRiver.levelOptimalMin !== null
-                                            ? `${gauge.primaryRiver.levelLow} - ${(gauge.primaryRiver.levelOptimalMin - 0.01).toFixed(2)} ft`
+                                            ? `${formatValue(gauge.primaryRiver.levelLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelOptimalMin - 1 : gauge.primaryRiver.levelOptimalMin - 0.01)} ${unit}`
                                             : gauge.primaryRiver.levelLow !== null
-                                            ? `≥ ${gauge.primaryRiver.levelLow} ft`
+                                            ? `≥ ${formatValue(gauge.primaryRiver.levelLow)} ${unit}`
                                             : 'N/A'}
                                         </span>
                                       </div>
@@ -693,9 +702,9 @@ export default function GaugesPage() {
                                         </div>
                                         <span className="font-mono text-neutral-900">
                                           {gauge.primaryRiver.levelTooLow !== null && gauge.primaryRiver.levelLow !== null
-                                            ? `${gauge.primaryRiver.levelTooLow} - ${(gauge.primaryRiver.levelLow - 0.01).toFixed(2)} ft`
+                                            ? `${formatValue(gauge.primaryRiver.levelTooLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelLow - 1 : gauge.primaryRiver.levelLow - 0.01)} ${unit}`
                                             : gauge.primaryRiver.levelTooLow !== null
-                                            ? `≥ ${gauge.primaryRiver.levelTooLow} ft`
+                                            ? `≥ ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
                                             : 'N/A'}
                                         </span>
                                       </div>
@@ -706,7 +715,7 @@ export default function GaugesPage() {
                                         </div>
                                         <span className="font-mono text-neutral-900">
                                           {gauge.primaryRiver.levelTooLow !== null
-                                            ? `< ${gauge.primaryRiver.levelTooLow} ft`
+                                            ? `< ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
                                             : 'N/A'}
                                         </span>
                                       </div>
@@ -717,9 +726,9 @@ export default function GaugesPage() {
                                         </div>
                                         <span className="font-mono text-neutral-900">
                                           {gauge.primaryRiver.levelHigh !== null && gauge.primaryRiver.levelDangerous !== null
-                                            ? `${gauge.primaryRiver.levelHigh} - ${(gauge.primaryRiver.levelDangerous - 0.01).toFixed(2)} ft`
+                                            ? `${formatValue(gauge.primaryRiver.levelHigh)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelDangerous - 1 : gauge.primaryRiver.levelDangerous - 0.01)} ${unit}`
                                             : gauge.primaryRiver.levelHigh !== null
-                                            ? `≥ ${gauge.primaryRiver.levelHigh} ft`
+                                            ? `≥ ${formatValue(gauge.primaryRiver.levelHigh)} ${unit}`
                                             : 'N/A'}
                                         </span>
                                       </div>
@@ -730,14 +739,15 @@ export default function GaugesPage() {
                                         </div>
                                         <span className="font-mono text-neutral-900">
                                           {gauge.primaryRiver.levelDangerous !== null
-                                            ? `≥ ${gauge.primaryRiver.levelDangerous} ft`
+                                            ? `≥ ${formatValue(gauge.primaryRiver.levelDangerous)} ${unit}`
                                             : 'N/A'}
                                         </span>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
-                              )}
+                                );
+                              })()}
 
                               {/* Location */}
                               <div className="flex items-center gap-2 text-xs text-neutral-500">
