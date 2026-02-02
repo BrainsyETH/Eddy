@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal, Flag } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 
@@ -82,6 +82,7 @@ interface FloatPlanCardProps {
   vesselTypeId: string | null;
   onVesselChange: (id: string) => void;
   captureRef?: React.RefObject<HTMLDivElement>;
+  onReportIssue?: (point: AccessPoint) => void;
 }
 
 // Shareable capture component - optimized view for image export
@@ -183,6 +184,40 @@ function ShareableCapture({
   );
 }
 
+// Collapsible section component for access point details
+function CollapsibleDetailSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-t border-neutral-100">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between py-2 text-left hover:bg-neutral-50 transition-colors"
+      >
+        <span className="text-sm font-medium text-neutral-700">{title}</span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-neutral-400" />
+        ) : (
+          <ChevronDown size={16} className="text-neutral-400" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="pb-3 text-sm text-neutral-600">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Access Point Detail Card (used in both single and dual selection states)
 function AccessPointDetailCard({
   point,
@@ -191,6 +226,7 @@ function AccessPointDetailCard({
   isExpanded,
   onToggleExpand,
   showExpandToggle = true,
+  onReportIssue,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
@@ -198,6 +234,7 @@ function AccessPointDetailCard({
   isExpanded: boolean;
   onToggleExpand: () => void;
   showExpandToggle?: boolean;
+  onReportIssue?: () => void;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasImages = point.imageUrls && point.imageUrls.length > 0;
@@ -280,9 +317,9 @@ function AccessPointDetailCard({
 
       {/* Details Content */}
       {(isExpanded || !showExpandToggle) && (
-        <div className="p-3 border-t border-neutral-100 space-y-2">
+        <div className="p-3 border-t border-neutral-100">
           {/* Badges */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap mb-3">
             {point.isPublic ? (
               <span className="px-2 py-0.5 bg-support-100 text-support-700 text-xs font-medium rounded">Public</span>
             ) : (
@@ -293,35 +330,57 @@ function AccessPointDetailCard({
             )}
           </div>
 
-          {/* Info */}
-          <div className="text-sm text-neutral-600 space-y-1.5">
-            {point.description && (
-              <p className="line-clamp-3">{point.description}</p>
-            )}
-            {point.parkingInfo && (
-              <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
-            )}
-            {point.roadAccess && (
-              <p><span className="font-medium">Road:</span> {point.roadAccess}</p>
-            )}
-            {point.facilities && (
-              <p><span className="font-medium">Facilities:</span> {point.facilities}</p>
+          {/* Description section - expanded by default if exists */}
+          {point.description && (
+            <CollapsibleDetailSection title="Description" defaultOpen={true}>
+              <p>{point.description}</p>
+            </CollapsibleDetailSection>
+          )}
+
+          {/* Details section - collapsed by default */}
+          {(point.parkingInfo || point.roadAccess || point.facilities) && (
+            <CollapsibleDetailSection title="Details" defaultOpen={false}>
+              <div className="space-y-1.5">
+                {point.parkingInfo && (
+                  <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
+                )}
+                {point.roadAccess && (
+                  <p><span className="font-medium">Road:</span> {point.roadAccess}</p>
+                )}
+                {point.facilities && (
+                  <p><span className="font-medium">Facilities:</span> {point.facilities}</p>
+                )}
+              </div>
+            </CollapsibleDetailSection>
+          )}
+
+          {/* Footer links */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
+            {/* Directions Link */}
+            <a
+              href={point.directionsOverride
+                ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(point.directionsOverride)}`
+                : `https://www.google.com/maps/dir/?api=1&destination=${point.coordinates.lat},${point.coordinates.lng}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              <MapPin size={14} />
+              Get Directions
+            </a>
+
+            {/* Report Issue link */}
+            {onReportIssue && (
+              <button
+                onClick={onReportIssue}
+                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
+              >
+                <Flag size={12} />
+                Report Issue
+              </button>
             )}
           </div>
-
-          {/* Directions Link */}
-          <a
-            href={point.directionsOverride
-              ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(point.directionsOverride)}`
-              : `https://www.google.com/maps/dir/?api=1&destination=${point.coordinates.lat},${point.coordinates.lng}`
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
-          >
-            <MapPin size={14} />
-            Get Directions
-          </a>
         </div>
       )}
     </div>
@@ -570,6 +629,7 @@ function MobileBottomSheet({
   onVesselChange,
   onShare,
   onDownloadImage,
+  onReportIssue,
 }: {
   plan: FloatPlan;
   putInPoint: AccessPoint;
@@ -581,6 +641,7 @@ function MobileBottomSheet({
   onVesselChange: (id: string) => void;
   onShare: () => void;
   onDownloadImage: () => void;
+  onReportIssue?: (point: AccessPoint) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [putInExpanded, setPutInExpanded] = useState(false);
@@ -756,6 +817,7 @@ function MobileBottomSheet({
             onClear={onClearPutIn}
             isExpanded={putInExpanded}
             onToggleExpand={() => setPutInExpanded(!putInExpanded)}
+            onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
           />
           <AccessPointDetailCard
             point={takeOutPoint}
@@ -763,6 +825,7 @@ function MobileBottomSheet({
             onClear={onClearTakeOut}
             isExpanded={takeOutExpanded}
             onToggleExpand={() => setTakeOutExpanded(!takeOutExpanded)}
+            onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
           />
         </div>
 
@@ -907,6 +970,7 @@ export default function FloatPlanCard({
   vesselTypeId,
   onVesselChange,
   captureRef,
+  onReportIssue,
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
@@ -934,10 +998,11 @@ export default function FloatPlanCard({
             <AccessPointDetailCard
               point={point!}
               isPutIn={isPutIn}
-                            onClear={onClear}
+              onClear={onClear}
               isExpanded={true}
               onToggleExpand={() => {}}
               showExpandToggle={false}
+              onReportIssue={onReportIssue ? () => onReportIssue(point!) : undefined}
             />
 
             {/* CTA for other point */}
@@ -1003,9 +1068,10 @@ export default function FloatPlanCard({
             <AccessPointDetailCard
               point={putInPoint}
               isPutIn={true}
-                            onClear={onClearPutIn}
+              onClear={onClearPutIn}
               isExpanded={putInExpanded}
               onToggleExpand={() => setPutInExpanded(!putInExpanded)}
+              onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
             />
 
             {/* Journey Center */}
@@ -1021,9 +1087,10 @@ export default function FloatPlanCard({
             <AccessPointDetailCard
               point={takeOutPoint}
               isPutIn={false}
-                            onClear={onClearTakeOut}
+              onClear={onClearTakeOut}
               isExpanded={takeOutExpanded}
               onToggleExpand={() => setTakeOutExpanded(!takeOutExpanded)}
+              onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
             />
           </div>
 
@@ -1061,6 +1128,7 @@ export default function FloatPlanCard({
           onVesselChange={onVesselChange}
           onShare={onShare}
           onDownloadImage={onDownloadImage}
+          onReportIssue={onReportIssue}
         />
 
         {/* Hidden capture component for image export */}

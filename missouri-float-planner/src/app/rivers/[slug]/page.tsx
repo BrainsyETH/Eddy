@@ -492,6 +492,7 @@ export default function RiverPage() {
               vesselTypeId={selectedVesselTypeId}
               onVesselChange={setSelectedVesselTypeId}
               captureRef={captureRef}
+              onReportIssue={handleReportAccessPointIssue}
             />
           </div>
         )}
