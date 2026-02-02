@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { MapPin, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { MapPin, ChevronLeft, ChevronRight, X, Flag } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
 interface AccessPointStripProps {
@@ -14,6 +14,7 @@ interface AccessPointStripProps {
   selectedTakeOutId: string | null;
   onSelect: (point: AccessPoint) => void;
   onHover?: (point: AccessPoint) => void;
+  onReportIssue?: (point: AccessPoint) => void;
   hideExpandedDetails?: boolean;
 }
 
@@ -24,12 +25,14 @@ function AccessPointCard({
   isTakeOut,
   onClick,
   onHover,
+  onReportIssue,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClick: () => void;
   onHover?: () => void;
+  onReportIssue?: () => void;
 }) {
   const hasImage = point.imageUrls && point.imageUrls.length > 0;
 
@@ -84,11 +87,24 @@ function AccessPointCard({
       {/* Info */}
       <div className="p-2">
         <p className="text-xs font-semibold text-neutral-900 truncate">{point.name}</p>
-        <p className="text-[10px] text-neutral-500 capitalize truncate">
-          {(point.types && point.types.length > 0 ? point.types : [point.type])
-            .map(t => t.replace('_', ' '))
-            .join(' / ')}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] text-neutral-500 capitalize truncate">
+            {(point.types && point.types.length > 0 ? point.types : [point.type])
+              .map(t => t.replace('_', ' '))
+              .join(' / ')}
+          </p>
+          {onReportIssue && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onReportIssue();
+              }}
+              className="text-[10px] text-neutral-400 hover:text-accent-500 flex items-center gap-0.5 transition-colors flex-shrink-0 ml-1"
+            >
+              <Flag className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
       </div>
     </button>
   );
@@ -227,6 +243,7 @@ export default function AccessPointStrip({
   selectedTakeOutId,
   onSelect,
   onHover,
+  onReportIssue,
   hideExpandedDetails = false,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -307,6 +324,7 @@ export default function AccessPointStrip({
             isTakeOut={point.id === selectedTakeOutId}
             onClick={() => handleCardClick(point)}
             onHover={onHover ? () => onHover(point) : undefined}
+            onReportIssue={onReportIssue ? () => onReportIssue(point) : undefined}
           />
         ))}
       </div>

@@ -438,7 +438,6 @@ export default function RiverPage() {
                   selectedPutIn={selectedPutIn}
                   selectedTakeOut={selectedTakeOut}
                   onMarkerClick={handleMarkerClick}
-                  onReportIssue={handleReportAccessPointIssue}
                 />
               )}
               {showGauges && gaugeStations && (
@@ -460,6 +459,7 @@ export default function RiverPage() {
                 selectedTakeOutId={selectedTakeOut}
                 onSelect={handleMarkerClick}
                 onHover={handleAccessPointHover}
+                onReportIssue={handleReportAccessPointIssue}
                 hideExpandedDetails={true}
               />
             </div>
