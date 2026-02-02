@@ -162,23 +162,19 @@ export default function AccessPointMarkers({
       }
 
       const popupContent = `
-        <div style="padding: 12px; min-width: 180px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
-          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff;">
+        <div style="padding: 12px; min-width: 180px; max-width: 220px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); overflow: hidden;">
+          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             ${point.name}
           </h3>
           <p style="margin: 0 0 8px 0; font-size: 12px; color: #c7b8a6;">
             Mile ${point.riverMile.toFixed(1)} • ${point.type.replace('_', ' ')}
           </p>
-          ${point.isPublic 
+          ${point.isPublic
             ? '<span style="display: inline-block; padding: 3px 10px; background: #478559; color: #ffffff; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #478559;">Public Access</span>'
             : '<span style="display: inline-block; padding: 3px 10px; background: #c7b8a6; color: #161748; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #c7b8a6;">Private</span>'
           }
-          ${point.feeRequired 
+          ${point.feeRequired
             ? '<span style="display: inline-block; margin-left: 4px; padding: 3px 10px; background: #f95d9b; color: #ffffff; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #f95d9b;">Fee Required</span>'
-            : ''
-          }
-          ${point.description 
-            ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #c7b8a6;">${point.description}</p>`
             : ''
           }
           ${isUpstreamChoice

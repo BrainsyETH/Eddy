@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { MapPin, ChevronLeft, ChevronRight, X, Flag } from 'lucide-react';
+import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
 interface AccessPointStripProps {
@@ -25,14 +25,12 @@ function AccessPointCard({
   isTakeOut,
   onClick,
   onHover,
-  onReportIssue,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClick: () => void;
   onHover?: () => void;
-  onReportIssue?: () => void;
 }) {
   const hasImage = point.imageUrls && point.imageUrls.length > 0;
 
@@ -87,26 +85,47 @@ function AccessPointCard({
       {/* Info */}
       <div className="p-2">
         <p className="text-xs font-semibold text-neutral-900 truncate">{point.name}</p>
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] text-neutral-500 capitalize truncate">
-            {(point.types && point.types.length > 0 ? point.types : [point.type])
-              .map(t => t.replace('_', ' '))
-              .join(' / ')}
-          </p>
-          {onReportIssue && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onReportIssue();
-              }}
-              className="text-[10px] text-neutral-400 hover:text-accent-500 flex items-center gap-0.5 transition-colors flex-shrink-0 ml-1"
-            >
-              <Flag className="w-2.5 h-2.5" />
-            </button>
-          )}
-        </div>
+        <p className="text-[10px] text-neutral-500 capitalize truncate">
+          {(point.types && point.types.length > 0 ? point.types : [point.type])
+            .map(t => t.replace('_', ' '))
+            .join(' / ')}
+        </p>
       </div>
     </button>
+  );
+}
+
+// Collapsible section component
+function CollapsibleDetailSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-t border-neutral-100">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between py-2 text-left hover:bg-neutral-50 transition-colors"
+      >
+        <span className="text-sm font-medium text-neutral-700">{title}</span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-neutral-400" />
+        ) : (
+          <ChevronDown size={16} className="text-neutral-400" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="pb-3 text-sm text-neutral-600">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -116,14 +135,17 @@ function ExpandedDetail({
   isPutIn,
   isTakeOut,
   onClose,
+  onReportIssue,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClose: () => void;
+  onReportIssue?: () => void;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasImages = point.imageUrls && point.imageUrls.length > 0;
+  const hasDetails = point.parkingInfo || point.roadAccess || point.facilities;
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
@@ -193,7 +215,7 @@ function ExpandedDetail({
       {/* Content section */}
       <div className="p-3">
         {/* Badges */}
-        <div className="flex gap-2 mb-2">
+        <div className="flex gap-2 mb-3">
           {point.isPublic ? (
             <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Public</span>
           ) : (
@@ -204,34 +226,58 @@ function ExpandedDetail({
           )}
         </div>
 
-        {/* Quick info */}
-        <div className="text-sm text-neutral-600 space-y-1.5">
-          {point.description && (
-            <p className="line-clamp-3">{point.description}</p>
+        {/* Description section - expanded by default if exists */}
+        {point.description && (
+          <CollapsibleDetailSection title="Description" defaultOpen={true}>
+            <p>{point.description}</p>
+          </CollapsibleDetailSection>
+        )}
+
+        {/* Details section - collapsed by default */}
+        {hasDetails && (
+          <CollapsibleDetailSection title="Details" defaultOpen={false}>
+            <div className="space-y-1.5">
+              {point.parkingInfo && (
+                <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
+              )}
+              {point.roadAccess && (
+                <p><span className="font-medium">Road Access:</span> {point.roadAccess}</p>
+              )}
+              {point.facilities && (
+                <p><span className="font-medium">Facilities:</span> {point.facilities}</p>
+              )}
+            </div>
+          </CollapsibleDetailSection>
+        )}
+
+        {/* Footer links */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
+          {/* Google Maps link */}
+          {point.googleMapsUrl ? (
+            <a
+              href={point.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"
+            >
+              <MapPin size={14} />
+              View on Google Maps
+            </a>
+          ) : (
+            <span />
           )}
-          {point.parkingInfo && (
-            <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
-          )}
-          {point.roadAccess && (
-            <p><span className="font-medium">Road Access:</span> {point.roadAccess}</p>
-          )}
-          {point.facilities && (
-            <p><span className="font-medium">Facilities:</span> {point.facilities}</p>
+
+          {/* Report Issue link */}
+          {onReportIssue && (
+            <button
+              onClick={onReportIssue}
+              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
+            >
+              <Flag size={12} />
+              Report Issue
+            </button>
           )}
         </div>
-
-        {/* Google Maps link */}
-        {point.googleMapsUrl && (
-          <a
-            href={point.googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3 text-sm text-blue-600 hover:underline font-medium"
-          >
-            <MapPin size={14} />
-            View on Google Maps
-          </a>
-        )}
       </div>
     </div>
   );
@@ -324,7 +370,6 @@ export default function AccessPointStrip({
             isTakeOut={point.id === selectedTakeOutId}
             onClick={() => handleCardClick(point)}
             onHover={onHover ? () => onHover(point) : undefined}
-            onReportIssue={onReportIssue ? () => onReportIssue(point) : undefined}
           />
         ))}
       </div>
@@ -338,6 +383,7 @@ export default function AccessPointStrip({
               isPutIn={true}
               isTakeOut={false}
               onClose={() => onSelect(putInPoint)}
+              onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
             />
           )}
           {takeOutPoint && (
@@ -346,6 +392,7 @@ export default function AccessPointStrip({
               isPutIn={false}
               isTakeOut={true}
               onClose={() => onSelect(takeOutPoint)}
+              onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
             />
           )}
         </div>
