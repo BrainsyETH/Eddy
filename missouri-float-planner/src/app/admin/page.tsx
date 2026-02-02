@@ -5,9 +5,16 @@
 
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { MapPin, Image as ImageIcon, ExternalLink, Navigation } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag } from 'lucide-react';
 
 const ADMIN_SECTIONS = [
+  {
+    title: 'Feedback',
+    description: 'Review user-submitted feedback and data reports',
+    href: '/admin/feedback',
+    icon: Flag,
+    color: 'bg-accent-500',
+  },
   {
     title: 'Access Points',
     description: 'Manage access point images and details',

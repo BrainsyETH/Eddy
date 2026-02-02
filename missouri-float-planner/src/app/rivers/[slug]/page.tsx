@@ -17,13 +17,14 @@ import AccessPointStrip from '@/components/river/AccessPointStrip';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import FeedbackModal from '@/components/ui/FeedbackModal';
 import { useRiver } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
-import type { AccessPoint } from '@/types/api';
+import type { AccessPoint, FeedbackContext } from '@/types/api';
 
 // Dynamic imports for map
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -53,6 +54,10 @@ export default function RiverPage() {
 
   // Gauge visibility state - default to OFF for cleaner map view
   const [showGauges, setShowGauges] = useState(false);
+
+  // Feedback modal state
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
@@ -200,6 +205,24 @@ export default function RiverPage() {
       setSelectedTakeOut(point.id);
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut]);
+
+  // Handle report issue for access point
+  const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
+    setFeedbackContext({
+      type: 'access_point',
+      id: point.id,
+      name: point.name,
+      data: {
+        accessPointId: point.id,
+        accessPointName: point.name,
+        riverName: river?.name,
+        riverMile: point.riverMile,
+        type: point.type,
+        coordinates: point.coordinates,
+      },
+    });
+    setFeedbackModalOpen(true);
+  }, [river?.name]);
 
   // Share link handler
   const handleShare = useCallback(async () => {
@@ -415,6 +438,7 @@ export default function RiverPage() {
                   selectedPutIn={selectedPutIn}
                   selectedTakeOut={selectedTakeOut}
                   onMarkerClick={handleMarkerClick}
+                  onReportIssue={handleReportAccessPointIssue}
                 />
               )}
               {showGauges && gaugeStations && (
@@ -493,6 +517,13 @@ export default function RiverPage() {
           />
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        context={feedbackContext}
+      />
     </div>
   );
 }

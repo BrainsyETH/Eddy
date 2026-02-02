@@ -615,6 +615,62 @@ export interface Database {
           is_dropoff?: boolean;
         };
       };
+      feedback: {
+        Row: {
+          id: string;
+          feedback_type: 'inaccurate_data' | 'missing_access_point' | 'suggestion' | 'bug_report' | 'other';
+          user_name: string | null;
+          user_email: string;
+          message: string;
+          image_url: string | null;
+          context_type: 'gauge' | 'access_point' | 'river' | 'general' | null;
+          context_id: string | null;
+          context_name: string | null;
+          context_data: Json | null;
+          status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          admin_notes: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          feedback_type: 'inaccurate_data' | 'missing_access_point' | 'suggestion' | 'bug_report' | 'other';
+          user_name?: string | null;
+          user_email: string;
+          message: string;
+          image_url?: string | null;
+          context_type?: 'gauge' | 'access_point' | 'river' | 'general' | null;
+          context_id?: string | null;
+          context_name?: string | null;
+          context_data?: Json | null;
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          admin_notes?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          feedback_type?: 'inaccurate_data' | 'missing_access_point' | 'suggestion' | 'bug_report' | 'other';
+          user_name?: string | null;
+          user_email?: string;
+          message?: string;
+          image_url?: string | null;
+          context_type?: 'gauge' | 'access_point' | 'river' | 'general' | null;
+          context_id?: string | null;
+          context_name?: string | null;
+          context_data?: Json | null;
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          admin_notes?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Functions: {
       snap_to_river: {
