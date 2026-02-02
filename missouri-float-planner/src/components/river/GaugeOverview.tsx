@@ -70,17 +70,27 @@ function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
 }
 
-// Determine condition based on gauge height and thresholds
+// Determine condition based on gauge reading and thresholds
+// Supports both ft (gauge height) and cfs (discharge) threshold units
 function getGaugeCondition(gauge: GaugeStation, riverId: string): {
   code: ConditionCode;
   label: string;
   color: string;
 } {
-  const height = gauge.gaugeHeightFt;
   const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
     || gauge.thresholds?.find(t => t.riverId === riverId);
 
-  if (height === null || !threshold) {
+  if (!threshold) {
+    return { code: 'unknown', label: 'Unknown', color: 'bg-neutral-400' };
+  }
+
+  // Check if we have the required reading based on threshold unit
+  const useCfs = threshold.thresholdUnit === 'cfs';
+  const hasReading = useCfs
+    ? (gauge.dischargeCfs !== null || gauge.gaugeHeightFt !== null)
+    : (gauge.gaugeHeightFt !== null || gauge.dischargeCfs !== null);
+
+  if (!hasReading) {
     return { code: 'unknown', label: 'Unknown', color: 'bg-neutral-400' };
   }
 
@@ -91,9 +101,10 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
     levelOptimalMax: threshold.levelOptimalMax,
     levelHigh: threshold.levelHigh,
     levelDangerous: threshold.levelDangerous,
+    thresholdUnit: threshold.thresholdUnit,
   };
 
-  const result = computeCondition(height, thresholdsForCompute);
+  const result = computeCondition(gauge.gaugeHeightFt, thresholdsForCompute, gauge.dischargeCfs);
 
   return {
     code: result.code,
@@ -316,89 +327,106 @@ function GaugeExpandedDetail({
         {/* Right Column - Details */}
         <div className="space-y-4">
           {/* Thresholds */}
-          {threshold && (
-            <div>
-              <h4 className="text-sm font-semibold text-neutral-700 mb-3">
-                Condition Thresholds
-              </h4>
-              <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                      <span className="text-neutral-600">Optimal</span>
+          {threshold && (() => {
+            const unit = threshold.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+            const formatValue = (val: number) => {
+              if (unit === 'cfs') {
+                return val.toLocaleString();
+              }
+              return val.toFixed(2);
+            };
+            const formatRange = (min: number, max: number) => {
+              if (unit === 'cfs') {
+                return `${min.toLocaleString()} - ${max.toLocaleString()} ${unit}`;
+              }
+              return `${min} - ${max} ${unit}`;
+            };
+            const decrementValue = unit === 'cfs' ? 1 : 0.01;
+
+            return (
+              <div>
+                <h4 className="text-sm font-semibold text-neutral-700 mb-3">
+                  Condition Thresholds {unit === 'cfs' && <span className="font-normal text-neutral-500">(using flow)</span>}
+                </h4>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                        <span className="text-neutral-600">Optimal</span>
+                      </div>
+                      <span className="font-mono text-neutral-900">
+                        {threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null
+                          ? formatRange(threshold.levelOptimalMin, threshold.levelOptimalMax)
+                          : 'N/A'}
+                      </span>
                     </div>
-                    <span className="font-mono text-neutral-900">
-                      {threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null
-                        ? `${threshold.levelOptimalMin} - ${threshold.levelOptimalMax} ft`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
-                      <span className="text-neutral-600">Okay</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
+                        <span className="text-neutral-600">Okay</span>
+                      </div>
+                      <span className="font-mono text-neutral-900">
+                        {threshold.levelLow !== null && threshold.levelOptimalMin !== null
+                          ? `${formatValue(threshold.levelLow)} - ${formatValue(threshold.levelOptimalMin - decrementValue)} ${unit}`
+                          : threshold.levelLow !== null
+                          ? `≥ ${formatValue(threshold.levelLow)} ${unit}`
+                          : 'N/A'}
+                      </span>
                     </div>
-                    <span className="font-mono text-neutral-900">
-                      {threshold.levelLow !== null && threshold.levelOptimalMin !== null
-                        ? `${threshold.levelLow} - ${(threshold.levelOptimalMin - 0.01).toFixed(2)} ft`
-                        : threshold.levelLow !== null
-                        ? `≥ ${threshold.levelLow} ft`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                      <span className="text-neutral-600">Low</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+                        <span className="text-neutral-600">Low</span>
+                      </div>
+                      <span className="font-mono text-neutral-900">
+                        {threshold.levelTooLow !== null && threshold.levelLow !== null
+                          ? `${formatValue(threshold.levelTooLow)} - ${formatValue(threshold.levelLow - decrementValue)} ${unit}`
+                          : threshold.levelTooLow !== null
+                          ? `≥ ${formatValue(threshold.levelTooLow)} ${unit}`
+                          : 'N/A'}
+                      </span>
                     </div>
-                    <span className="font-mono text-neutral-900">
-                      {threshold.levelTooLow !== null && threshold.levelLow !== null
-                        ? `${threshold.levelTooLow} - ${(threshold.levelLow - 0.01).toFixed(2)} ft`
-                        : threshold.levelTooLow !== null
-                        ? `≥ ${threshold.levelTooLow} ft`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
-                      <span className="text-neutral-600">Too Low</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
+                        <span className="text-neutral-600">Too Low</span>
+                      </div>
+                      <span className="font-mono text-neutral-900">
+                        {threshold.levelTooLow !== null
+                          ? `< ${formatValue(threshold.levelTooLow)} ${unit}`
+                          : 'N/A'}
+                      </span>
                     </div>
-                    <span className="font-mono text-neutral-900">
-                      {threshold.levelTooLow !== null
-                        ? `< ${threshold.levelTooLow} ft`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                      <span className="text-neutral-600">High</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                        <span className="text-neutral-600">High</span>
+                      </div>
+                      <span className="font-mono text-neutral-900">
+                        {threshold.levelHigh !== null && threshold.levelDangerous !== null
+                          ? `${formatValue(threshold.levelHigh)} - ${formatValue(threshold.levelDangerous - decrementValue)} ${unit}`
+                          : threshold.levelHigh !== null
+                          ? `≥ ${formatValue(threshold.levelHigh)} ${unit}`
+                          : 'N/A'}
+                      </span>
                     </div>
-                    <span className="font-mono text-neutral-900">
-                      {threshold.levelHigh !== null && threshold.levelDangerous !== null
-                        ? `${threshold.levelHigh} - ${(threshold.levelDangerous - 0.01).toFixed(2)} ft`
-                        : threshold.levelHigh !== null
-                        ? `≥ ${threshold.levelHigh} ft`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                      <span className="text-neutral-600">Flood</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                        <span className="text-neutral-600">Flood</span>
+                      </div>
+                      <span className="font-mono text-neutral-900">
+                        {threshold.levelDangerous !== null
+                          ? `≥ ${formatValue(threshold.levelDangerous)} ${unit}`
+                          : 'N/A'}
+                      </span>
                     </div>
-                    <span className="font-mono text-neutral-900">
-                      {threshold.levelDangerous !== null
-                        ? `≥ ${threshold.levelDangerous} ft`
-                        : 'N/A'}
-                    </span>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Location */}
           <div className="flex items-center gap-2 text-xs text-neutral-500">
