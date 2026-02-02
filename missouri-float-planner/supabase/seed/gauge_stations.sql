@@ -330,12 +330,12 @@ SELECT
     true,
     5.0,
     'ft',
-    1.8,
-    2.5,
-    3.2,
-    5.5,
-    7.5,
-    11.0
+    1.0,    -- Too low - scraping likely (MSR avg: 1.7 ft)
+    1.5,    -- Low - floatable but some dragging
+    2.0,    -- Optimal min - good conditions
+    3.5,    -- Optimal max - ideal floating
+    4.0,    -- High - suggest another day, murky/muddy
+    5.0     -- Dangerous - Forest Service closes river
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'eleven-point' AND gs.usgs_site_id = '07071500'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
