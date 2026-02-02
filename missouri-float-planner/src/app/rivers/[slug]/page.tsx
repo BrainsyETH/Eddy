@@ -61,7 +61,7 @@ export default function RiverPage() {
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
   const { data: accessPoints, isLoading: accessPointsLoading } = useAccessPoints(slug);
-  const { data: conditionData, isLoading: conditionsLoading } = useConditions(river?.id || null, {
+  const { data: conditionData } = useConditions(river?.id || null, {
     putInAccessPointId: selectedPutIn,
   });
   const condition = conditionData?.condition ?? null;
