@@ -83,6 +83,74 @@ const RIVER_SUMMARIES: Record<string, { title: string; summary: string; tip: str
   },
 };
 
+// Gauge-specific threshold descriptions (local knowledge)
+// Keys are USGS site IDs
+type ThresholdDescriptions = {
+  tooLow: string;
+  low: string;
+  okay: string;
+  optimal: string;
+  high: string;
+  flood: string;
+};
+
+const GAUGE_THRESHOLD_DESCRIPTIONS: Record<string, ThresholdDescriptions> = {
+  // Doniphan - uses CFS thresholds due to datum issues
+  '07068000': {
+    tooLow: 'Genuinely scrapy, ~1,000 cfs',
+    low: 'Floatable but slow, some dragging',
+    okay: 'Decent conditions, typical summer levels',
+    optimal: 'Good flow, 2,000-4,000 cfs, clear water likely',
+    high: 'Fast and muddy, experienced only',
+    flood: 'Dangerous conditions, do not float',
+  },
+  // Akers - primary Current River gauge
+  '07064533': {
+    tooLow: 'Significant dragging, walking your boat',
+    low: 'May scrape in riffles, especially loaded',
+    okay: 'Floatable with some dragging',
+    optimal: 'Good floating, minimal dragging',
+    high: 'River closes at NPS flood level',
+    flood: 'Dangerous, river closed',
+  },
+  // Van Buren
+  '07067000': {
+    tooLow: 'Very shallow, not recommended',
+    low: 'Marginal floating',
+    okay: 'Floatable, just below average',
+    optimal: 'Tubes best below 4.0, good floating',
+    high: 'Motor vessels only beyond this',
+    flood: 'Flood level, do not float',
+  },
+  // Montauk
+  '07064440': {
+    tooLow: 'Constant dragging, walking boat',
+    low: 'Floatable but scrapy',
+    okay: 'Decent, some dragging above Welch Spring',
+    optimal: 'Sweet spot, avg 1.8 ft, best clarity',
+    high: 'Fast and likely muddy',
+    flood: 'Dangerous, rises extremely fast',
+  },
+  // Eleven Point - Bardley
+  '07071500': {
+    tooLow: 'Scraping likely, below avg 1.7 ft',
+    low: 'Floatable but some dragging',
+    okay: 'Decent conditions',
+    optimal: 'Good floating, ideal range',
+    high: 'Suggest another day, murky/muddy',
+    flood: 'Forest Service closes, do not float',
+  },
+  // Jacks Fork - Alley Spring
+  '07065200': {
+    tooLow: 'Significant dragging',
+    low: 'Some dragging expected',
+    okay: 'Average level, minimal dragging',
+    optimal: 'Good conditions',
+    high: 'River closes here',
+    flood: 'Flood level, dangerous',
+  },
+};
+
 export default function GaugesPage() {
   const [gaugeData, setGaugeData] = useState<GaugesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -663,6 +731,7 @@ export default function GaugesPage() {
                                   if (val === null) return null;
                                   return unit === 'cfs' ? val.toLocaleString() : val.toFixed(2);
                                 };
+                                const descriptions = GAUGE_THRESHOLD_DESCRIPTIONS[gauge.usgsSiteId];
                                 return (
                                 <div>
                                   <h4 className="text-sm font-semibold text-neutral-700 mb-3">
@@ -670,78 +739,108 @@ export default function GaugesPage() {
                                     {unit === 'cfs' && <span className="ml-2 text-xs font-normal text-primary-600">(using flow)</span>}
                                   </h4>
                                   <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                    <div className="space-y-2 text-sm">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                    <div className="space-y-3 text-sm">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                                          <span className="text-neutral-600">Optimal</span>
+                                          <span className="text-neutral-600 font-medium">Optimal</span>
                                         </div>
-                                        <span className="font-mono text-neutral-900">
-                                          {gauge.primaryRiver.levelOptimalMin !== null && gauge.primaryRiver.levelOptimalMax !== null
-                                            ? `${formatValue(gauge.primaryRiver.levelOptimalMin)} - ${formatValue(gauge.primaryRiver.levelOptimalMax)} ${unit}`
-                                            : 'N/A'}
-                                        </span>
+                                        <div className="text-right">
+                                          <span className="font-mono text-neutral-900">
+                                            {gauge.primaryRiver.levelOptimalMin !== null && gauge.primaryRiver.levelOptimalMax !== null
+                                              ? `${formatValue(gauge.primaryRiver.levelOptimalMin)} - ${formatValue(gauge.primaryRiver.levelOptimalMax)} ${unit}`
+                                              : 'N/A'}
+                                          </span>
+                                          {descriptions?.optimal && (
+                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.optimal}</p>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
-                                          <span className="text-neutral-600">Okay</span>
+                                          <span className="text-neutral-600 font-medium">Okay</span>
                                         </div>
-                                        <span className="font-mono text-neutral-900">
-                                          {gauge.primaryRiver.levelLow !== null && gauge.primaryRiver.levelOptimalMin !== null
-                                            ? `${formatValue(gauge.primaryRiver.levelLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelOptimalMin - 1 : gauge.primaryRiver.levelOptimalMin - 0.01)} ${unit}`
-                                            : gauge.primaryRiver.levelLow !== null
-                                            ? `≥ ${formatValue(gauge.primaryRiver.levelLow)} ${unit}`
-                                            : 'N/A'}
-                                        </span>
+                                        <div className="text-right">
+                                          <span className="font-mono text-neutral-900">
+                                            {gauge.primaryRiver.levelLow !== null && gauge.primaryRiver.levelOptimalMin !== null
+                                              ? `${formatValue(gauge.primaryRiver.levelLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelOptimalMin - 1 : gauge.primaryRiver.levelOptimalMin - 0.01)} ${unit}`
+                                              : gauge.primaryRiver.levelLow !== null
+                                              ? `≥ ${formatValue(gauge.primaryRiver.levelLow)} ${unit}`
+                                              : 'N/A'}
+                                          </span>
+                                          {descriptions?.okay && (
+                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.okay}</p>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                                          <span className="text-neutral-600">Low</span>
+                                          <span className="text-neutral-600 font-medium">Low</span>
                                         </div>
-                                        <span className="font-mono text-neutral-900">
-                                          {gauge.primaryRiver.levelTooLow !== null && gauge.primaryRiver.levelLow !== null
-                                            ? `${formatValue(gauge.primaryRiver.levelTooLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelLow - 1 : gauge.primaryRiver.levelLow - 0.01)} ${unit}`
-                                            : gauge.primaryRiver.levelTooLow !== null
-                                            ? `≥ ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
-                                            : 'N/A'}
-                                        </span>
+                                        <div className="text-right">
+                                          <span className="font-mono text-neutral-900">
+                                            {gauge.primaryRiver.levelTooLow !== null && gauge.primaryRiver.levelLow !== null
+                                              ? `${formatValue(gauge.primaryRiver.levelTooLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelLow - 1 : gauge.primaryRiver.levelLow - 0.01)} ${unit}`
+                                              : gauge.primaryRiver.levelTooLow !== null
+                                              ? `≥ ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
+                                              : 'N/A'}
+                                          </span>
+                                          {descriptions?.low && (
+                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.low}</p>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
-                                          <span className="text-neutral-600">Too Low</span>
+                                          <span className="text-neutral-600 font-medium">Too Low</span>
                                         </div>
-                                        <span className="font-mono text-neutral-900">
-                                          {gauge.primaryRiver.levelTooLow !== null
-                                            ? `< ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
-                                            : 'N/A'}
-                                        </span>
+                                        <div className="text-right">
+                                          <span className="font-mono text-neutral-900">
+                                            {gauge.primaryRiver.levelTooLow !== null
+                                              ? `< ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
+                                              : 'N/A'}
+                                          </span>
+                                          {descriptions?.tooLow && (
+                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.tooLow}</p>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                                          <span className="text-neutral-600">High</span>
+                                          <span className="text-neutral-600 font-medium">High</span>
                                         </div>
-                                        <span className="font-mono text-neutral-900">
-                                          {gauge.primaryRiver.levelHigh !== null && gauge.primaryRiver.levelDangerous !== null
-                                            ? `${formatValue(gauge.primaryRiver.levelHigh)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelDangerous - 1 : gauge.primaryRiver.levelDangerous - 0.01)} ${unit}`
-                                            : gauge.primaryRiver.levelHigh !== null
-                                            ? `≥ ${formatValue(gauge.primaryRiver.levelHigh)} ${unit}`
-                                            : 'N/A'}
-                                        </span>
+                                        <div className="text-right">
+                                          <span className="font-mono text-neutral-900">
+                                            {gauge.primaryRiver.levelHigh !== null && gauge.primaryRiver.levelDangerous !== null
+                                              ? `${formatValue(gauge.primaryRiver.levelHigh)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelDangerous - 1 : gauge.primaryRiver.levelDangerous - 0.01)} ${unit}`
+                                              : gauge.primaryRiver.levelHigh !== null
+                                              ? `≥ ${formatValue(gauge.primaryRiver.levelHigh)} ${unit}`
+                                              : 'N/A'}
+                                          </span>
+                                          {descriptions?.high && (
+                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.high}</p>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                                          <span className="text-neutral-600">Flood</span>
+                                          <span className="text-neutral-600 font-medium">Flood</span>
                                         </div>
-                                        <span className="font-mono text-neutral-900">
-                                          {gauge.primaryRiver.levelDangerous !== null
-                                            ? `≥ ${formatValue(gauge.primaryRiver.levelDangerous)} ${unit}`
-                                            : 'N/A'}
-                                        </span>
+                                        <div className="text-right">
+                                          <span className="font-mono text-neutral-900">
+                                            {gauge.primaryRiver.levelDangerous !== null
+                                              ? `≥ ${formatValue(gauge.primaryRiver.levelDangerous)} ${unit}`
+                                              : 'N/A'}
+                                          </span>
+                                          {descriptions?.flood && (
+                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.flood}</p>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
