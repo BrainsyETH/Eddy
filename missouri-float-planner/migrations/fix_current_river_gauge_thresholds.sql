@@ -28,7 +28,9 @@ BEGIN
   RAISE NOTICE 'Current River ID: %', current_river_id;
 
   -- Montauk State Park (07064440) - Upper river, mile 0
-  -- Average ~1.8 ft, spring-fed headwaters
+  -- Tiny headwater gauge - 58.8 sq mi drainage, spring-fed
+  -- Average ~1.8 ft (MSR), normal 1.5-2.0 ft (fly fishing guides)
+  -- Rises and falls FAST - can spike from 1.8 to 4+ in hours
   INSERT INTO river_gauges (
     gauge_station_id,
     river_id,
@@ -44,12 +46,12 @@ BEGIN
     gs.id,
     current_river_id,
     false,  -- Not primary
-    1.0,    -- Too low - very shallow
-    1.3,    -- Low - may scrape
-    1.5,    -- Optimal min
-    2.5,    -- Optimal max
-    3.0,    -- High - suggest another day
-    4.0     -- Dangerous - river likely closed
+    1.0,    -- Too low - constant dragging, walking boat
+    1.3,    -- Low - floatable but scrapy, MSR reports floating at 1.28 ft
+    1.5,    -- Optimal min - sweet spot begins, avg is 1.8 ft
+    2.5,    -- Optimal max - above 2.0 may indicate recent rain/murkiness
+    2.5,    -- High - fast and likely muddy (cautious, same as optimal_max)
+    4.0     -- Dangerous - NPS flood stage at Akers is 4.0, Montauk even swifter
   FROM gauge_stations gs
   WHERE gs.usgs_site_id = '07064440'
   ON CONFLICT (gauge_station_id, river_id)

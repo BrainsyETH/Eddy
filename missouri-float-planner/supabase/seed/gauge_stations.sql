@@ -280,9 +280,11 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_dangerous = EXCLUDED.level_dangerous;
 
 -- Current River - Doniphan Gauge (Secondary)
+-- NOTE: Gauge datum causes negative readings at normal flow!
+-- Average ~1.0 ft per MSR, but frequently reads negative. NWS flood stage: 13 ft
 INSERT INTO river_gauges (
-    river_id, 
-    gauge_station_id, 
+    river_id,
+    gauge_station_id,
     is_primary,
     distance_from_section_miles,
     threshold_unit,
@@ -293,22 +295,28 @@ INSERT INTO river_gauges (
     level_high,
     level_dangerous
 )
-SELECT 
+SELECT
     r.id,
     gs.id,
     false,
     10.0,
     'ft',
-    2.5,
-    3.5,
-    4.5,
-    8.0,
-    10.0,
-    15.0
+    -1.0,   -- River rarely drops below; ~1,000 cfs, genuinely scrapy
+    -0.25,  -- Floatable but slow, some dragging on riffles
+    0.5,    -- Good flow begins, ~1,800+ cfs
+    3.0,    -- Solid flow, ~3,000+ cfs, clear water likely
+    3.0,    -- Fast and muddy, experienced only (cautious threshold)
+    10.0    -- NWS flood stage is 13.0 ft; 10 ft safety buffer
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'current' AND gs.usgs_site_id = '07068000'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
-    is_primary = EXCLUDED.is_primary;
+    is_primary = EXCLUDED.is_primary,
+    level_too_low = EXCLUDED.level_too_low,
+    level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min,
+    level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high,
+    level_dangerous = EXCLUDED.level_dangerous;
 
 -- Eleven Point River - Bardley Gauge (Primary)
 INSERT INTO river_gauges (
