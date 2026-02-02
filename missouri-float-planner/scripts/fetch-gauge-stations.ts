@@ -65,7 +65,7 @@ const GAUGE_STATIONS = [
     },
   },
   {
-    usgs_site_id: '07066000',
+    usgs_site_id: '07068000',
     name: 'Current River at Doniphan, MO',
     river_slug: 'current',
     latitude: 36.6206,

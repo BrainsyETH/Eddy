@@ -54,7 +54,7 @@ VALUES (
 
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
-    '07066000',
+    '07068000',
     'Current River at Doniphan, MO',
     ST_SetSRID(ST_MakePoint(-90.8239, 36.6206), 4326),
     true
@@ -306,7 +306,7 @@ SELECT
     10.0,
     15.0
 FROM rivers r, gauge_stations gs
-WHERE r.slug = 'current' AND gs.usgs_site_id = '07066000'
+WHERE r.slug = 'current' AND gs.usgs_site_id = '07068000'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary;
 
