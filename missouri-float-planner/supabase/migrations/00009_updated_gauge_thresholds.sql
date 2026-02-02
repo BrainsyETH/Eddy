@@ -31,7 +31,7 @@ WHERE rg.river_id = r.id
   AND gs.usgs_site_id = '07067000';
 
 -- ============================================
--- CURRENT RIVER - DONIPHAN GAUGE (07066000)
+-- CURRENT RIVER - DONIPHAN GAUGE (07068000)
 -- ============================================
 -- Lower Current River - wider, deeper, needs more water
 -- Different characteristics than upper river
@@ -47,7 +47,7 @@ FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
   AND r.slug = 'current'
-  AND gs.usgs_site_id = '07066000';
+  AND gs.usgs_site_id = '07068000';
 
 -- ============================================
 -- JACKS FORK - ALLEY SPRING GAUGE (07065200)

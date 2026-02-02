@@ -41,7 +41,7 @@ Based on detailed feedback from Missouri Scenic Rivers website and local paddler
 - Tubes best below 4.0 ft (can go to 4.5 with caution)
 - Flood level: 5.0 ft
 
-### Doniphan Gauge (07066000) - Lower Current River
+### Doniphan Gauge (07068000) - Lower Current River
 **Source**: https://missouriscenicrivers.com/current-river-levels
 
 | Threshold | Old Value | New Value | Rationale |
