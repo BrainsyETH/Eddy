@@ -101,6 +101,7 @@ export interface GaugeStation {
     riverId: string;
     riverName: string;
     isPrimary: boolean;
+    thresholdUnit: 'ft' | 'cfs';
     levelTooLow: number | null;
     levelLow: number | null;
     levelOptimalMin: number | null;
@@ -227,6 +228,7 @@ export async function GET() {
         gauge_station_id,
         river_id,
         is_primary,
+        threshold_unit,
         level_too_low,
         level_low,
         level_optimal_min,
@@ -253,6 +255,7 @@ export async function GET() {
           riverId: river.id,
           riverName: river.name,
           isPrimary: rg.is_primary,
+          thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
           levelTooLow: rg.level_too_low,
           levelLow: rg.level_low,
           levelOptimalMin: rg.level_optimal_min,

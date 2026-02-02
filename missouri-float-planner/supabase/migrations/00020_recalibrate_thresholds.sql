@@ -56,18 +56,23 @@ WHERE rg.river_id = r.id
 -- ============================================
 -- CURRENT RIVER - DONIPHAN GAUGE (07068000)
 -- ============================================
--- Lower Current River near confluence
--- Average: ~1.0 ft
--- Much lower readings than Van Buren due to wider channel
--- Flood stage: 13 ft
+-- Lower Current River below Big Spring - wider, deeper, slower
+-- Drainage: 2,038 sq mi, massive spring inputs (Big Spring ~280M gal/day)
+-- Gradient: only 3.2 ft/mile from Big Spring to Doniphan
+-- IMPORTANT: Gauge datum causes negative readings at normal flow!
+-- Current reading: -0.41 ft at 1,410 cfs (Feb) - floatable but slow
+-- Average stage: ~1.0 ft (MSR), but gauge frequently reads negative
+-- NWS flood stage: 13.0 ft
+--
+-- Sources: MSR, moherp.org, Army Corps, NWS
 UPDATE river_gauges rg
 SET
-    level_too_low = 0.5,        -- Very low water
-    level_low = 0.8,            -- Marginal
-    level_optimal_min = 1.0,    -- Average level, good floating
-    level_optimal_max = 2.5,    -- Upper comfortable range
-    level_high = 4.0,           -- High water
-    level_dangerous = 6.0       -- Approaching flood conditions (stage at 13)
+    level_too_low = -1.0,       -- River rarely drops below; ~1,000 cfs, genuinely scrapy
+    level_low = -0.25,          -- Floatable but slow, some dragging on riffles
+    level_optimal_min = 0.5,    -- Good flow begins, ~1,800+ cfs
+    level_optimal_max = 3.0,    -- Solid flow, ~3,000+ cfs, clear water likely
+    level_high = 3.0,           -- Fast and muddy, experienced only (cautious threshold)
+    level_dangerous = 10.0      -- NWS flood stage is 13.0 ft; 10 ft safety buffer
 FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
@@ -110,21 +115,21 @@ WHERE rg.river_id = r.id
 -- ============================================
 -- ELEVEN POINT RIVER - BARDLEY GAUGE (07071500)
 -- ============================================
--- Fed by Greer Spring (2nd largest in MO)
--- Average: ~3.0 ft
--- Optimal: 3.0-3.5 ft
--- 4+ ft: undesirable (murky/muddy from rain)
--- 4-5 ft: experienced floaters only
--- 5 ft: Forest Service closes river (highest outfitters will put in)
--- Action level: 8 ft
--- Flood stage: 10 ft
+-- Fed by Greer Spring (2nd largest in MO), 16 mi downstream
+-- Average: ~1.7 ft (MSR data - NOT 3.0 ft as previously thought!)
+-- Below 1.7 ft: may drag canoe
+-- 2+ ft above average: undesirable, muddy from rain
+-- 5 ft: Forest Service closes river, outfitters won't put in
+-- NWS flood stage: 10 ft
+--
+-- Sources: MSR, moherp.org, NWS
 UPDATE river_gauges rg
 SET
-    level_too_low = 2.5,        -- Too shallow
-    level_low = 2.8,            -- Marginal
-    level_optimal_min = 3.0,    -- Average, good conditions
-    level_optimal_max = 3.5,    -- Upper optimal range per feedback
-    level_high = 4.5,           -- Undesirable, experienced only (4-5 ft range)
+    level_too_low = 1.0,        -- Scraping likely, below average
+    level_low = 1.5,            -- Floatable but some dragging
+    level_optimal_min = 2.0,    -- Good conditions begin
+    level_optimal_max = 3.5,    -- Ideal floating range
+    level_high = 4.0,           -- Suggest another day, murky/muddy
     level_dangerous = 5.0       -- Forest Service closes, do not float
 FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
