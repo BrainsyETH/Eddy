@@ -11,6 +11,12 @@
 -- 4. If preferred value is NULL, fall back to the other unit
 
 -- ============================================
+-- DROP EXISTING FUNCTIONS (return type changed)
+-- ============================================
+DROP FUNCTION IF EXISTS get_river_condition(UUID);
+DROP FUNCTION IF EXISTS get_river_condition_segment(UUID, GEOMETRY, NUMERIC);
+
+-- ============================================
 -- UPDATE get_river_condition FUNCTION
 -- ============================================
 CREATE OR REPLACE FUNCTION get_river_condition(p_river_id UUID)
