@@ -14,7 +14,6 @@ import type { AccessPoint } from '@/types/api';
 interface AccessPointMarkersProps {
   accessPoints: AccessPoint[];
   onMarkerClick?: (point: AccessPoint) => void;
-  onReportIssue?: (point: AccessPoint) => void;
   selectedPutIn?: string | null;
   selectedTakeOut?: string | null;
 }
@@ -22,7 +21,6 @@ interface AccessPointMarkersProps {
 export default function AccessPointMarkers({
   accessPoints,
   onMarkerClick,
-  onReportIssue,
   selectedPutIn,
   selectedTakeOut,
 }: AccessPointMarkersProps) {
@@ -188,13 +186,6 @@ export default function AccessPointMarkers({
             : ''
           }
           ${selectionPrompt}
-          ${onReportIssue
-            ? `<button class="report-issue-btn" data-point-id="${point.id}" style="margin-top: 8px; padding: 4px 8px; font-size: 11px; color: #9ca3af; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
-                Report Issue
-              </button>`
-            : ''
-          }
         </div>
       `;
 
@@ -206,22 +197,6 @@ export default function AccessPointMarkers({
         className: 'access-point-popup',
         // No anchor specified - MapLibre will auto-position to keep popup in view
       }).setHTML(popupContent);
-
-      // Add click handler for Report Issue button
-      if (onReportIssue) {
-        popup.on('open', () => {
-          const popupEl = popup.getElement();
-          const reportBtn = popupEl?.querySelector('.report-issue-btn');
-          if (reportBtn) {
-            reportBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              popup.remove();
-              onReportIssue(point);
-            });
-          }
-        });
-      }
 
       // Show popup on hover for hover-capable devices
       if (supportsHoverRef.current) {
@@ -275,7 +250,7 @@ export default function AccessPointMarkers({
       popupsRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, accessPoints, onMarkerClick, onReportIssue, selectedPutIn, selectedTakeOut]);
+  }, [map, accessPoints, onMarkerClick, selectedPutIn, selectedTakeOut]);
 
   return null;
 }
