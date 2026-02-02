@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Activity,
   TrendingUp,
-  X
+  X,
+  Flag
 } from 'lucide-react';
 
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
@@ -22,6 +23,8 @@ import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 import type { ConditionCode } from '@/types/api';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import GaugeWeather from '@/components/ui/GaugeWeather';
+import FeedbackModal from '@/components/ui/FeedbackModal';
+import type { FeedbackContext } from '@/types/api';
 
 const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
 
@@ -88,6 +91,8 @@ export default function GaugesPage() {
   const [selectedCondition, setSelectedCondition] = useState<ConditionCode | 'all'>('all');
   const [dateRange, setDateRange] = useState(7);
   const [onsrOnly, setOnsrOnly] = useState(true); // ONSR filter on by default
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
 
   useEffect(() => {
     async function fetchGauges() {
@@ -229,6 +234,26 @@ export default function GaugesPage() {
   };
 
   const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || !onsrOnly;
+
+  // Open feedback modal with gauge context
+  const openFeedbackModal = (gauge: GaugeStation & { condition: { code: ConditionCode; label: string; tailwindColor: string }; primaryRiver: NonNullable<GaugeStation['thresholds']>[0] | undefined }) => {
+    setFeedbackContext({
+      type: 'gauge',
+      id: gauge.usgsSiteId,
+      name: gauge.name,
+      data: {
+        usgsSiteId: gauge.usgsSiteId,
+        gaugeName: gauge.name,
+        riverName: gauge.primaryRiver?.riverName,
+        gaugeHeightFt: gauge.gaugeHeightFt,
+        dischargeCfs: gauge.dischargeCfs,
+        condition: gauge.condition.label,
+        readingTimestamp: gauge.readingTimestamp,
+        coordinates: gauge.coordinates,
+      },
+    });
+    setFeedbackModalOpen(true);
+  };
 
   // Get river summary if a specific river is selected
   const selectedRiverSummary = useMemo(() => {
@@ -533,8 +558,18 @@ export default function GaugesPage() {
                           </div>
                         </div>
 
-                        {/* Expand indicator */}
-                        <div className="flex items-center justify-center mt-4 pt-3 border-t border-neutral-100">
+                        {/* Expand indicator and Report Issue */}
+                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFeedbackModal(gauge);
+                            }}
+                            className="text-xs text-neutral-400 hover:text-accent-500 flex items-center gap-1 transition-colors"
+                          >
+                            <Flag className="w-3 h-3" />
+                            Report Issue
+                          </button>
                           <span className="text-xs font-medium text-neutral-500 flex items-center gap-1.5 group-hover:text-primary-600 transition-colors">
                             {isExpanded ? (
                               <>
@@ -774,6 +809,13 @@ export default function GaugesPage() {
           </p>
         </div>
       </footer>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        context={feedbackContext}
+      />
     </div>
   );
 }

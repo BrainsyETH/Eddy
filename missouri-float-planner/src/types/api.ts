@@ -326,3 +326,60 @@ export interface CreateAccessPointRequest {
 export interface UpdateAccessPointRequest extends Partial<CreateAccessPointRequest> {
   id: string;
 }
+
+// Feedback types
+export type FeedbackType = 'inaccurate_data' | 'missing_access_point' | 'suggestion' | 'bug_report' | 'other';
+export type FeedbackContextType = 'gauge' | 'access_point' | 'river' | 'general';
+export type FeedbackStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+
+export interface FeedbackContext {
+  type: FeedbackContextType;
+  id?: string;
+  name?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface Feedback {
+  id: string;
+  feedbackType: FeedbackType;
+  userName: string | null;
+  userEmail: string;
+  message: string;
+  imageUrl: string | null;
+  contextType: FeedbackContextType | null;
+  contextId: string | null;
+  contextName: string | null;
+  contextData: Record<string, unknown> | null;
+  status: FeedbackStatus;
+  adminNotes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFeedbackRequest {
+  feedbackType: FeedbackType;
+  userName?: string;
+  userEmail: string;
+  message: string;
+  imageUrl?: string;
+  context?: FeedbackContext;
+}
+
+export interface FeedbackResponse {
+  success: boolean;
+  id?: string;
+  error?: string;
+}
+
+export interface FeedbackListResponse {
+  feedback: Feedback[];
+  total: number;
+}
+
+export interface UpdateFeedbackRequest {
+  id: string;
+  status?: FeedbackStatus;
+  adminNotes?: string;
+}
