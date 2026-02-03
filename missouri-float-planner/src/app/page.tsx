@@ -6,7 +6,7 @@
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Droplets, Clock, ChevronDown, ArrowRight, BookOpen } from 'lucide-react';
+import { MapPin, Droplets, Clock, ChevronDown, ArrowRight } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
@@ -184,74 +184,6 @@ function HomeContent() {
             </Link>
           </div>
 
-          {/* Eddy's Thoughts Section */}
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-heading font-bold" style={{ color: '#F07052' }}>
-                Eddy&apos;s Thoughts
-              </h2>
-              <Link
-                href="/blog"
-                className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
-              >
-                View all
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Featured Blog Post */}
-              <Link
-                href="/blog/best-float-rivers-missouri-2026"
-                className="group block bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm
-                           hover:border-primary-400 hover:shadow-md transition-all no-underline"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 rounded-lg bg-primary-100">
-                    <BookOpen className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-700">
-                    Guide
-                  </span>
-                  <span className="text-xs text-neutral-500">12 min read</span>
-                </div>
-
-                <h3 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-primary-700 transition-colors">
-                  Best Float Rivers in Missouri: Complete Guide 2026
-                </h3>
-
-                <p className="text-sm text-neutral-600 mb-4">
-                  Discover the top 8 float rivers in Missouri, from beginner-friendly creeks to scenic Ozark waterways. Compare difficulty, scenery, and access points.
-                </p>
-
-                <div className="flex items-center gap-1 text-sm font-medium text-primary-600 group-hover:text-primary-700">
-                  Read more
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </Link>
-
-              {/* More Posts CTA */}
-              <Link
-                href="/blog"
-                className="group flex flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 border-2 border-primary-200 rounded-xl p-6
-                           hover:border-primary-400 hover:shadow-md transition-all no-underline min-h-[200px]"
-              >
-                <div className="p-3 rounded-full bg-primary-200 mb-4">
-                  <BookOpen className="w-8 h-8 text-primary-600" />
-                </div>
-                <h3 className="text-lg font-bold text-primary-800 mb-2">
-                  Explore All Posts
-                </h3>
-                <p className="text-sm text-primary-600 text-center mb-4">
-                  Tips, tricks, and everything you need for your next float trip
-                </p>
-                <span className="flex items-center gap-1 text-sm font-semibold text-primary-700 group-hover:gap-2 transition-all">
-                  Browse posts
-                  <ArrowRight className="w-4 h-4" />
-                </span>
-              </Link>
-            </div>
-          </div>
         </div>
       </section>
 
