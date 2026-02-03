@@ -60,7 +60,7 @@ export default async function Image() {
         >
           <span
             style={{
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 42,
               fontWeight: 700,
               color: 'white',
@@ -71,7 +71,7 @@ export default async function Image() {
           </span>
           <span
             style={{
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 42,
               fontWeight: 700,
               color: BRAND_COLORS.bluewater,
@@ -85,7 +85,7 @@ export default async function Image() {
         {/* Tagline */}
         <span
           style={{
-            fontFamily: 'Inter',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 18,
             fontWeight: 400,
             color: 'rgba(255,255,255,0.7)',
@@ -112,7 +112,7 @@ export default async function Image() {
               border: '1px solid rgba(57,160,202,0.3)',
               borderRadius: 100,
               padding: '6px 14px',
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -130,7 +130,7 @@ export default async function Image() {
               border: '1px solid rgba(71,133,89,0.3)',
               borderRadius: 100,
               padding: '6px 14px',
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -148,7 +148,7 @@ export default async function Image() {
               border: '1px solid rgba(240,112,82,0.25)',
               borderRadius: 100,
               padding: '6px 14px',
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -201,7 +201,7 @@ export default async function Image() {
             position: 'absolute',
             bottom: 24,
             right: 48,
-            fontFamily: 'Space Grotesk',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 14,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',

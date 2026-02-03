@@ -1,46 +1,12 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
 
-import { readFile } from 'fs/promises';
-import { join } from 'path';
-
+// Note: Using system fonts since @vercel/og doesn't support woff2 format
+// and fetching TTF fonts from external sources is unreliable during build
 export async function loadOGFonts() {
-  const fontsDir = join(process.cwd(), 'src/app/fonts');
-
-  const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
-    await Promise.all([
-      readFile(join(fontsDir, 'SpaceGrotesk-Bold.woff2')),
-      readFile(join(fontsDir, 'SpaceGrotesk-SemiBold.woff2')),
-      readFile(join(fontsDir, 'Inter-Regular.woff2')),
-      readFile(join(fontsDir, 'Inter-Medium.woff2')),
-    ]);
-
-  return [
-    {
-      name: 'Space Grotesk',
-      data: spaceGroteskBold,
-      weight: 700 as const,
-      style: 'normal' as const,
-    },
-    {
-      name: 'Space Grotesk',
-      data: spaceGroteskSemiBold,
-      weight: 600 as const,
-      style: 'normal' as const,
-    },
-    {
-      name: 'Inter',
-      data: interRegular,
-      weight: 400 as const,
-      style: 'normal' as const,
-    },
-    {
-      name: 'Inter',
-      data: interMedium,
-      weight: 500 as const,
-      style: 'normal' as const,
-    },
-  ];
+  // Return empty array - we'll use system-ui fonts in the OG images
+  // This is the same approach as the original working implementation
+  return [];
 }
 
 // Load Eddy avatar as base64 for use in ImageResponse
