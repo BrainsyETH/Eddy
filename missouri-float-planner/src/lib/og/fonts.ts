@@ -1,21 +1,18 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
 
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+
 export async function loadOGFonts() {
+  const fontsDir = join(process.cwd(), 'src/app/fonts');
+
   const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
     await Promise.all([
-      fetch(
-        new URL('../../app/fonts/SpaceGrotesk-Bold.ttf', import.meta.url)
-      ).then((res) => res.arrayBuffer()),
-      fetch(
-        new URL('../../app/fonts/SpaceGrotesk-SemiBold.ttf', import.meta.url)
-      ).then((res) => res.arrayBuffer()),
-      fetch(
-        new URL('../../app/fonts/Inter-Regular.ttf', import.meta.url)
-      ).then((res) => res.arrayBuffer()),
-      fetch(
-        new URL('../../app/fonts/Inter-Medium.ttf', import.meta.url)
-      ).then((res) => res.arrayBuffer()),
+      readFile(join(fontsDir, 'SpaceGrotesk-Bold.ttf')),
+      readFile(join(fontsDir, 'SpaceGrotesk-SemiBold.ttf')),
+      readFile(join(fontsDir, 'Inter-Regular.ttf')),
+      readFile(join(fontsDir, 'Inter-Medium.ttf')),
     ]);
 
   return [
