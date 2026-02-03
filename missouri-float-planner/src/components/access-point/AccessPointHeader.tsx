@@ -11,19 +11,21 @@ interface AccessPointHeaderProps {
 }
 
 export default function AccessPointHeader({ accessPoint, gaugeStatus }: AccessPointHeaderProps) {
-  // Determine use type label
+  // Determine use type label based on AccessPointType
+  // Valid types: 'boat_ramp', 'gravel_bar', 'campground', 'bridge', 'access', 'park'
   const useTypes = accessPoint.types || [];
-  let useLabel = 'Access';
-  if (useTypes.includes('put_in') && useTypes.includes('take_out')) {
-    useLabel = 'Put-in / Take-out';
-  } else if (useTypes.includes('put_in')) {
-    useLabel = 'Put-in';
-  } else if (useTypes.includes('take_out')) {
-    useLabel = 'Take-out';
-  } else if (useTypes.includes('campground')) {
+  let useLabel = 'Put-in / Take-out'; // Default - any access point can be used as either
+
+  if (useTypes.includes('campground')) {
     useLabel = 'Campground';
   } else if (useTypes.includes('boat_ramp')) {
     useLabel = 'Boat Ramp';
+  } else if (useTypes.includes('gravel_bar')) {
+    useLabel = 'Gravel Bar';
+  } else if (useTypes.includes('bridge')) {
+    useLabel = 'Bridge Access';
+  } else if (useTypes.includes('park')) {
+    useLabel = 'Park';
   }
 
   // Parking label
