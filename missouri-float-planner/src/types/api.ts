@@ -58,6 +58,99 @@ export type AccessPointType =
   | 'access'
   | 'park';
 
+// ─────────────────────────────────────────────────────────────
+// Access Point Detail Types (for enhanced detail pages)
+// ─────────────────────────────────────────────────────────────
+
+/** Road surface options for access point roads */
+export type RoadSurface =
+  | 'paved'
+  | 'gravel_maintained'
+  | 'gravel_unmaintained'
+  | 'dirt'
+  | 'seasonal'
+  | '4wd_required';
+
+/** Managing agency options for facilities */
+export type ManagingAgency =
+  | 'MDC'
+  | 'NPS'
+  | 'USFS'
+  | 'COE'
+  | 'State Park'
+  | 'County'
+  | 'Municipal'
+  | 'Private';
+
+/** Parking capacity options for quick stats */
+export type ParkingCapacity =
+  | '5' | '10' | '15' | '20' | '25' | '30' | '50+'
+  | 'roadside' | 'limited' | 'unknown';
+
+/** Nearby service type (outfitter, campground, etc.) */
+export type NearbyServiceType =
+  | 'outfitter'
+  | 'campground'
+  | 'canoe_rental'
+  | 'shuttle'
+  | 'lodging';
+
+/** Nearby service (outfitter, campground, etc.) */
+export interface NearbyService {
+  name: string;
+  type: NearbyServiceType;
+  phone?: string;
+  website?: string;
+  distance?: string;  // "2 mi", "0.5 mi"
+  notes?: string;     // "Weekends only after Labor Day"
+}
+
+/** Gauge status for access point detail page */
+export interface AccessPointGaugeStatus {
+  level: ConditionCode;
+  cfs: number | null;
+  heightFt: number | null;
+  label: string;  // "Optimal for floating"
+  trend: 'rising' | 'falling' | 'steady' | null;
+  lastUpdated: string | null;  // ISO timestamp
+  gaugeId: string;
+  gaugeName: string;
+  usgsId: string;
+}
+
+/** Simplified access point for "nearby" list */
+export interface NearbyAccessPoint {
+  id: string;
+  name: string;
+  slug: string;
+  direction: 'upstream' | 'downstream';
+  distanceMiles: number;
+  estimatedFloatTime: string | null;  // "~1.5 hr"
+  riverMile: number;
+}
+
+/** Extended access point for detail page */
+export interface AccessPointDetail extends AccessPoint {
+  // New detail fields
+  roadSurface: RoadSurface[];
+  parkingCapacity: ParkingCapacity | null;
+  managingAgency: ManagingAgency | null;
+  officialSiteUrl: string | null;
+  localTips: string | null;  // HTML from TipTap
+  nearbyServices: NearbyService[];
+
+  // Driving coordinates (for nav deep links)
+  drivingLat: number | null;
+  drivingLng: number | null;
+
+  // River context
+  river: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+}
+
 export interface VesselType {
   id: string;
   name: string;
@@ -382,4 +475,47 @@ export interface UpdateFeedbackRequest {
   id: string;
   status?: FeedbackStatus;
   adminNotes?: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Access Point Detail API Types
+// ─────────────────────────────────────────────────────────────
+
+/** Response for access point detail page */
+export interface AccessPointDetailResponse {
+  accessPoint: AccessPointDetail;
+  nearbyAccessPoints: NearbyAccessPoint[];
+  gaugeStatus: AccessPointGaugeStatus | null;
+}
+
+/** Request to update access point detail fields (admin) */
+export interface UpdateAccessPointDetailRequest {
+  id: string;
+  // Basic info
+  name?: string;
+  slug?: string;
+  types?: AccessPointType[];
+  description?: string;
+  isPublic?: boolean;
+  ownership?: string;
+  feeRequired?: boolean;
+  feeNotes?: string;
+  // Road
+  roadSurface?: RoadSurface[];
+  roadAccess?: string;
+  // Parking
+  parkingCapacity?: ParkingCapacity | null;
+  parkingInfo?: string;
+  // Facilities
+  facilities?: string;
+  managingAgency?: ManagingAgency | null;
+  officialSiteUrl?: string;
+  // Navigation
+  drivingLat?: number | null;
+  drivingLng?: number | null;
+  directionsOverride?: string;
+  // Content
+  localTips?: string;
+  nearbyServices?: NearbyService[];
+  imageUrls?: string[];
 }
