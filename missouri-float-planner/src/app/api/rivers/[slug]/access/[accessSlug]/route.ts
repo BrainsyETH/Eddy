@@ -140,8 +140,8 @@ export async function GET(
       }
     }
 
-    // Get gauge status for this river/access point
-    const gaugeStatus = await getGaugeStatus(supabase, river.id, ap.id);
+    // Get gauge status for this river
+    const gaugeStatus = await getGaugeStatus(supabase, river.id);
 
     // Format the access point detail
     const accessPoint: AccessPointDetail = {
@@ -208,11 +208,10 @@ function estimateFloatTime(miles: number): string | null {
   return `~${Math.round(hours * 10) / 10} hr`;
 }
 
-// Helper to get gauge status for the access point
+// Helper to get gauge status for the river
 async function getGaugeStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  riverId: string,
-  _accessPointId: string // Reserved for future: find nearest gauge to access point
+  riverId: string
 ): Promise<AccessPointGaugeStatus | null> {
   try {
     // Get the primary gauge for this river
