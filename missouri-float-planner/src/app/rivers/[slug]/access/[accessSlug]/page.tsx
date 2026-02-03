@@ -10,7 +10,6 @@ import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import AccessPointHeader from '@/components/access-point/AccessPointHeader';
 import AccessPointNav from '@/components/access-point/AccessPointNav';
-import AccessPointGauge from '@/components/access-point/AccessPointGauge';
 import AccessPointSection from '@/components/access-point/AccessPointSection';
 import NearbyAccessPoints from '@/components/access-point/NearbyAccessPoints';
 import RoadAccessSection from '@/components/access-point/sections/RoadAccessSection';

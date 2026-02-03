@@ -3,7 +3,6 @@
 
 import type { AccessPointDetail } from '@/types/api';
 import { formatRoadSurface } from '@/lib/navigation';
-import EddyTip from '../EddyTip';
 
 interface RoadAccessSectionProps {
   accessPoint: AccessPointDetail;

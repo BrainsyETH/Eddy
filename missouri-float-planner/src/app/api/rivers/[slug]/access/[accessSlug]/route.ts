@@ -245,14 +245,20 @@ async function getGaugeStatus(
       return null;
     }
 
-    const gauge = riverGauge.gauge_stations as {
+    // Supabase returns joined relations - handle both array and single object cases
+    const gaugeData = riverGauge.gauge_stations;
+    const gauge = (Array.isArray(gaugeData) ? gaugeData[0] : gaugeData) as {
       id: string;
       usgs_site_id: string;
       name: string;
       latest_reading_cfs: number | null;
       latest_reading_height_ft: number | null;
       latest_reading_at: string | null;
-    };
+    } | undefined;
+
+    if (!gauge) {
+      return null;
+    }
 
     const cfs = gauge.latest_reading_cfs;
 
@@ -262,7 +268,7 @@ async function getGaugeStatus(
 
     if (cfs !== null) {
       if (riverGauge.dangerous_above && cfs >= riverGauge.dangerous_above) {
-        level = 'flood';
+        level = 'dangerous';
         label = 'Flood stage - Do not float';
       } else if (riverGauge.high_above && cfs >= riverGauge.high_above) {
         level = 'high';
