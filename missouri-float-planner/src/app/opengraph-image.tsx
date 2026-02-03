@@ -40,10 +40,12 @@ export default async function Image() {
             marginBottom: 24,
           }}
         >
+{/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={eddyAvatar}
             width={64}
             height={64}
+            alt=""
             style={{ objectFit: 'cover' }}
           />
         </div>
@@ -90,7 +92,7 @@ export default async function Image() {
             marginBottom: 32,
           }}
         >
-          Missouri's Ozark rivers — live gauges, access points, and trip planning
+          Missouri&apos;s Ozark rivers — live gauges, access points, and trip planning
         </span>
 
         {/* Feature Pills */}
