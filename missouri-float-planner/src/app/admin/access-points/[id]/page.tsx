@@ -4,7 +4,7 @@
 // Comprehensive access point editor with all detail fields
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -109,7 +109,6 @@ const SERVICE_TYPE_OPTIONS = [
 
 export default function AdminAccessPointEditPage() {
   const params = useParams();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const id = params.id as string;
 
