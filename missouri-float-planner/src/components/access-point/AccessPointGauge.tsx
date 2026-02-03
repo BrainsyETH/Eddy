@@ -88,12 +88,13 @@ export default function AccessPointGauge({ gaugeStatus }: AccessPointGaugeProps)
 }
 
 function getGaugeColors(level: AccessPointGaugeStatus['level']) {
-  const colorMap = {
+  const colorMap: Record<string, { bg: string; bar: string; border: string; text: string }> = {
     'too_low': { bg: '#fef3e0', bar: '#d4a244', border: '#d4a24433', text: '#8a6a1e' },
+    'very_low': { bg: '#fef3e0', bar: '#d4a244', border: '#d4a24433', text: '#8a6a1e' },
     'low': { bg: '#fef3e0', bar: '#d4a244', border: '#d4a24433', text: '#8a6a1e' },
     'optimal': { bg: '#e0f0e4', bar: '#3d7c47', border: '#3d7c4733', text: '#1e5428' },
     'high': { bg: '#fff3e0', bar: '#f57c00', border: '#f57c0033', text: '#e65100' },
-    'flood': { bg: '#ffebee', bar: '#d32f2f', border: '#d32f2f33', text: '#b71c1c' },
+    'dangerous': { bg: '#ffebee', bar: '#d32f2f', border: '#d32f2f33', text: '#b71c1c' },
     'unknown': { bg: '#f5f5f5', bar: '#9e9e9e', border: '#9e9e9e33', text: '#616161' },
   };
   return colorMap[level] || colorMap.unknown;

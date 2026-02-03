@@ -268,7 +268,7 @@ async function getGaugeStatus(
 
     if (cfs !== null) {
       if (riverGauge.dangerous_above && cfs >= riverGauge.dangerous_above) {
-        level = 'flood';
+        level = 'dangerous';
         label = 'Flood stage - Do not float';
       } else if (riverGauge.high_above && cfs >= riverGauge.high_above) {
         level = 'high';
