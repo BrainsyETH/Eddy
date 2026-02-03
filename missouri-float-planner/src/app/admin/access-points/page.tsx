@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Link from 'next/link';
 import {
   MapPin,
   Plus,
@@ -15,7 +16,8 @@ import {
   ChevronDown,
   Search,
   ExternalLink,
-  Trash2
+  Trash2,
+  Pencil,
 } from 'lucide-react';
 
 interface River {
@@ -204,9 +206,18 @@ export default function AdminAccessPointsPage() {
                           Mile {point.riverMile.toFixed(1)} • {point.type.replace('_', ' ')}
                         </p>
                       </div>
-                      <span className="text-xs text-neutral-500">
-                        {point.imageUrls.length} image{point.imageUrls.length !== 1 ? 's' : ''}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-neutral-500">
+                          {point.imageUrls.length} image{point.imageUrls.length !== 1 ? 's' : ''}
+                        </span>
+                        <Link
+                          href={`/admin/access-points/${point.id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white text-sm rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </Link>
+                      </div>
                     </div>
 
                     {/* Images Gallery */}
