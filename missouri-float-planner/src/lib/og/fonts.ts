@@ -9,10 +9,10 @@ export async function loadOGFonts() {
 
   const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
     await Promise.all([
-      readFile(join(fontsDir, 'SpaceGrotesk-Bold.ttf')),
-      readFile(join(fontsDir, 'SpaceGrotesk-SemiBold.ttf')),
-      readFile(join(fontsDir, 'Inter-Regular.ttf')),
-      readFile(join(fontsDir, 'Inter-Medium.ttf')),
+      readFile(join(fontsDir, 'SpaceGrotesk-Bold.woff2')),
+      readFile(join(fontsDir, 'SpaceGrotesk-SemiBold.woff2')),
+      readFile(join(fontsDir, 'Inter-Regular.woff2')),
+      readFile(join(fontsDir, 'Inter-Medium.woff2')),
     ]);
 
   return [
