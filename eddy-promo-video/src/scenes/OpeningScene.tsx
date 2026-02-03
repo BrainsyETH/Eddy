@@ -47,7 +47,8 @@ export const OpeningScene: React.FC = () => {
         }}
       />
 
-      {/* Screenshot background with Ken Burns */}
+      {/* Screenshot background with Ken Burns (optional - run npm run capture to generate) */}
+      {/* Uncomment when screenshots are available:
       <div style={{ ...useKenBurns(1.05, 1.15, 0, -2, 0, 2), opacity: 0.3 }}>
         <Img
           src={staticFile("screenshots/homepage.png")}
@@ -58,6 +59,7 @@ export const OpeningScene: React.FC = () => {
           }}
         />
       </div>
+      */}
 
       {/* Floating particles */}
       <FloatingParticles color={COLORS.shallowBlue} />

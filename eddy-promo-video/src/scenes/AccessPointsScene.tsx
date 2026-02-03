@@ -37,7 +37,18 @@ export const AccessPointsScene: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ opacity: fadeIn * fadeOut }}>
-      {/* Screenshot background */}
+      {/* Background gradient (screenshot optional - run npm run capture) */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `radial-gradient(ellipse at 60% 40%, ${COLORS.riverBlue} 0%, ${COLORS.deepWater} 70%)`,
+        }}
+      />
+      {/* Uncomment when screenshots are available:
       <div
         style={{
           position: "absolute",
@@ -57,7 +68,6 @@ export const AccessPointsScene: React.FC = () => {
             transformOrigin: "center center",
           }}
         />
-        {/* Dark overlay */}
         <div
           style={{
             position: "absolute",
@@ -69,6 +79,7 @@ export const AccessPointsScene: React.FC = () => {
           }}
         />
       </div>
+      */}
 
       {/* Animated pins */}
       {pins.map((pin, i) => {

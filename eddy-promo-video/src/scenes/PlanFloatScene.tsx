@@ -206,15 +206,30 @@ export const PlanFloatScene: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Screenshot */}
+        {/* Right: Map preview (screenshot optional - run npm run capture) */}
         <div
           style={{
             flex: 1,
             overflow: "hidden",
             borderRadius: "40px 0 0 40px",
             boxShadow: "-20px 0 60px rgba(0, 0, 0, 0.4)",
+            background: `linear-gradient(180deg, ${COLORS.skyBlue}40 0%, ${COLORS.riverBlue} 100%)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
+          {/* Placeholder map graphic */}
+          <Img
+            src={EDDY_IMAGES.main}
+            style={{
+              width: 300,
+              height: 300,
+              objectFit: "contain",
+              opacity: 0.9,
+            }}
+          />
+          {/* Uncomment when screenshots are available:
           <Img
             src={staticFile("screenshots/river-takeout.png")}
             style={{
@@ -224,6 +239,7 @@ export const PlanFloatScene: React.FC = () => {
               transform: `scale(${scale})`,
             }}
           />
+          */}
         </div>
       </div>
     </AbsoluteFill>

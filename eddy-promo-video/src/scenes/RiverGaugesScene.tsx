@@ -37,7 +37,18 @@ export const RiverGaugesScene: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ opacity: fadeIn * fadeOut }}>
-      {/* Screenshot background */}
+      {/* Background gradient (screenshot optional - run npm run capture) */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `linear-gradient(135deg, ${COLORS.deepWater} 0%, ${COLORS.riverBlue} 50%, ${COLORS.eddyTeal} 100%)`,
+        }}
+      />
+      {/* Uncomment when screenshots are available:
       <div
         style={{
           position: "absolute",
@@ -56,7 +67,6 @@ export const RiverGaugesScene: React.FC = () => {
             transform: `scale(${scale}) translateX(${translateX}%)`,
           }}
         />
-        {/* Overlay gradient */}
         <div
           style={{
             position: "absolute",
@@ -68,6 +78,7 @@ export const RiverGaugesScene: React.FC = () => {
           }}
         />
       </div>
+      */}
 
       {/* Left panel with gauges */}
       <div
