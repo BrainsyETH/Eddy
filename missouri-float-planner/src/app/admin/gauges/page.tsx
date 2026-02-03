@@ -3,7 +3,7 @@
 // src/app/admin/gauges/page.tsx
 // Admin page for managing gauge thresholds and descriptions
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   Activity,
@@ -15,6 +15,8 @@ import {
   CheckCircle,
   Info,
   ExternalLink,
+  Filter,
+  X,
 } from 'lucide-react';
 
 interface ThresholdDescriptions {
@@ -79,6 +81,7 @@ export default function AdminGaugesPage() {
   const [expandedGauges, setExpandedGauges] = useState<Set<string>>(new Set());
   const [expandedRivers, setExpandedRivers] = useState<Set<string>>(new Set());
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [selectedRiverFilter, setSelectedRiverFilter] = useState<string>('all');
 
   // Local edit state
   const [editedGauges, setEditedGauges] = useState<Map<string, Partial<Gauge>>>(new Map());
@@ -308,6 +311,54 @@ export default function AdminGaugesPage() {
     return (river?.[field] as T) ?? fallback;
   };
 
+  // Get unique rivers from gauge associations for the filter dropdown
+  const riverOptions = useMemo(() => {
+    const riverMap = new Map<string, string>();
+    gauges.forEach(gauge => {
+      gauge.riverAssociations.forEach(assoc => {
+        if (assoc.riverId && assoc.riverName) {
+          riverMap.set(assoc.riverId, assoc.riverName);
+        }
+      });
+    });
+    return Array.from(riverMap.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]));
+  }, [gauges]);
+
+  // Filter and sort gauges by river
+  const filteredGauges = useMemo(() => {
+    let result = gauges;
+
+    // Filter by selected river
+    if (selectedRiverFilter !== 'all') {
+      result = result.filter(gauge =>
+        gauge.riverAssociations.some(assoc => assoc.riverId === selectedRiverFilter)
+      );
+    }
+
+    // Sort: gauges with selected river as primary first, then by name
+    return result.sort((a, b) => {
+      if (selectedRiverFilter !== 'all') {
+        const aIsPrimary = a.riverAssociations.some(
+          assoc => assoc.riverId === selectedRiverFilter && assoc.isPrimary
+        );
+        const bIsPrimary = b.riverAssociations.some(
+          assoc => assoc.riverId === selectedRiverFilter && assoc.isPrimary
+        );
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [gauges, selectedRiverFilter]);
+
+  // Get the selected river name for display
+  const selectedRiverName = useMemo(() => {
+    if (selectedRiverFilter === 'all') return null;
+    const river = riverOptions.find(([id]) => id === selectedRiverFilter);
+    return river ? river[1] : null;
+  }, [selectedRiverFilter, riverOptions]);
+
   return (
     <AdminLayout
       title="Gauge Thresholds"
@@ -334,13 +385,49 @@ export default function AdminGaugesPage() {
           <>
             {/* Gauges Section */}
             <section>
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Gauge Stations ({gauges.length})
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  Gauge Stations ({filteredGauges.length}{selectedRiverFilter !== 'all' ? ` of ${gauges.length}` : ''})
+                </h2>
+
+                {/* River Filter */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-neutral-400" />
+                  <select
+                    value={selectedRiverFilter}
+                    onChange={(e) => setSelectedRiverFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="all">All Rivers</option>
+                    {riverOptions.map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))}
+                  </select>
+                  {selectedRiverFilter !== 'all' && (
+                    <button
+                      onClick={() => setSelectedRiverFilter('all')}
+                      className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-colors"
+                      title="Clear filter"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Selected river info banner */}
+              {selectedRiverName && (
+                <div className="mb-4 p-3 bg-primary-900/30 border border-primary-700/50 rounded-lg">
+                  <p className="text-sm text-primary-200">
+                    Showing gauges associated with <strong className="text-white">{selectedRiverName}</strong>.
+                    Primary gauges for this river are shown first.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-4">
-                {gauges.map(gauge => (
+                {filteredGauges.map(gauge => (
                   <div
                     key={gauge.id}
                     className="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden"
