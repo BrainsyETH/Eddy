@@ -212,7 +212,7 @@ function estimateFloatTime(miles: number): string | null {
 async function getGaugeStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
   riverId: string,
-  accessPointId: string
+  _accessPointId: string // Reserved for future: find nearest gauge to access point
 ): Promise<AccessPointGaugeStatus | null> {
   try {
     // Get the primary gauge for this river
