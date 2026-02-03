@@ -33,10 +33,12 @@ export function EddyMark({
           overflow: 'hidden',
         }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={avatarSrc}
           width={size - 4}
           height={size - 4}
+          alt=""
           style={{ objectFit: 'cover' }}
         />
       </div>

@@ -30,7 +30,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   let riverName = 'Missouri River';
   let accessPointCount = 0;
   let gaugeReading: number | null = null;
-  let gaugeUnit = 'ft';
+  const gaugeUnit = 'ft';
   let status: ConditionCode = 'unknown';
 
   if (slug) {
@@ -117,7 +117,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               overflow: 'hidden',
             }}
           >
-            <img src={eddyAvatar} width={24} height={24} style={{ objectFit: 'cover' }} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={eddyAvatar} width={24} height={24} alt="" style={{ objectFit: 'cover' }} />
           </div>
           <span
             style={{

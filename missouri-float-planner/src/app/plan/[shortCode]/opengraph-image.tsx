@@ -4,7 +4,6 @@
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
 import { loadOGFonts, loadConditionOtter } from '@/lib/og/fonts';
-import { getStatusStyles } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
 
 export const alt = 'Float Plan on eddy.guide';
@@ -109,10 +108,12 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           }}
         >
           {/* Otter */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={otterImage}
             width={100}
             height={100}
+            alt=""
             style={{ objectFit: 'contain', marginRight: 20 }}
           />
 
