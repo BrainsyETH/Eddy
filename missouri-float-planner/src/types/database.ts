@@ -671,6 +671,56 @@ export interface Database {
           updated_at?: string;
         };
       };
+      blog_posts: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          description: string | null;
+          content: string | null;
+          category: 'Guides' | 'Tips' | 'News' | 'Safety' | 'River Profiles' | 'Gear Reviews' | 'Trip Reports';
+          featured_image_url: string | null;
+          og_image_url: string | null;
+          meta_keywords: string[] | null;
+          read_time_minutes: number | null;
+          status: 'draft' | 'published' | 'scheduled';
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          description?: string | null;
+          content?: string | null;
+          category?: 'Guides' | 'Tips' | 'News' | 'Safety' | 'River Profiles' | 'Gear Reviews' | 'Trip Reports';
+          featured_image_url?: string | null;
+          og_image_url?: string | null;
+          meta_keywords?: string[] | null;
+          read_time_minutes?: number | null;
+          status?: 'draft' | 'published' | 'scheduled';
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          title?: string;
+          description?: string | null;
+          content?: string | null;
+          category?: 'Guides' | 'Tips' | 'News' | 'Safety' | 'River Profiles' | 'Gear Reviews' | 'Trip Reports';
+          featured_image_url?: string | null;
+          og_image_url?: string | null;
+          meta_keywords?: string[] | null;
+          read_time_minutes?: number | null;
+          status?: 'draft' | 'published' | 'scheduled';
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Functions: {
       snap_to_river: {
