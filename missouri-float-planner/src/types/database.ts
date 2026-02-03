@@ -29,6 +29,8 @@ export interface Database {
           nhd_feature_id: string | null;
           smoothed_geometries: Json | null; // Pre-processed bezier-smoothed geometry
           active: boolean; // Whether river is visible in public app
+          float_summary: string | null;
+          float_tip: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -46,6 +48,8 @@ export interface Database {
           nhd_feature_id?: string | null;
           smoothed_geometries?: Json | null;
           active?: boolean;
+          float_summary?: string | null;
+          float_tip?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -63,6 +67,8 @@ export interface Database {
           nhd_feature_id?: string | null;
           smoothed_geometries?: Json | null;
           active?: boolean;
+          float_summary?: string | null;
+          float_tip?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -75,6 +81,8 @@ export interface Database {
           location: unknown;
           active: boolean;
           high_frequency_flag: boolean;
+          threshold_descriptions: Json | null;
+          notes: string | null;
           created_at: string;
         };
         Insert: {
@@ -84,6 +92,8 @@ export interface Database {
           location: unknown;
           active?: boolean;
           high_frequency_flag?: boolean;
+          threshold_descriptions?: Json | null;
+          notes?: string | null;
           created_at?: string;
         };
         Update: {
@@ -93,6 +103,8 @@ export interface Database {
           location?: unknown;
           active?: boolean;
           high_frequency_flag?: boolean;
+          threshold_descriptions?: Json | null;
+          notes?: string | null;
           created_at?: string;
         };
       };

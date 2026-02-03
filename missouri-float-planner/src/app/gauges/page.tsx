@@ -731,7 +731,8 @@ export default function GaugesPage() {
                                   if (val === null) return null;
                                   return unit === 'cfs' ? val.toLocaleString() : val.toFixed(2);
                                 };
-                                const descriptions = GAUGE_THRESHOLD_DESCRIPTIONS[gauge.usgsSiteId];
+                                // Use descriptions from database (fallback to hardcoded for backwards compatibility)
+                                const descriptions = gauge.thresholdDescriptions || GAUGE_THRESHOLD_DESCRIPTIONS[gauge.usgsSiteId];
                                 return (
                                 <div>
                                   <h4 className="text-sm font-semibold text-neutral-700 mb-3">

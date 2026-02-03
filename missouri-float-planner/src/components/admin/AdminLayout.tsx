@@ -15,7 +15,8 @@ import {
   X,
   Navigation,
   Flag,
-  FileText
+  FileText,
+  Activity
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,6 +29,7 @@ interface AdminLayoutProps {
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: Home },
   { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
+  { href: '/admin/gauges', label: 'Gauge Thresholds', icon: Activity },
   { href: '/admin/feedback', label: 'Feedback', icon: Flag },
   { href: '/admin/access-points', label: 'Access Points', icon: Navigation },
   { href: '/admin/geography', label: 'Geography Editor', icon: MapPin },
