@@ -82,6 +82,15 @@ function hexToDouble(hex: string, littleEndian: boolean): number {
   return view.getFloat64(0, false); // false = big-endian (we already reversed)
 }
 
+export interface ThresholdDescriptions {
+  tooLow?: string;
+  low?: string;
+  okay?: string;
+  optimal?: string;
+  high?: string;
+  flood?: string;
+}
+
 export interface GaugeStation {
   id: string;
   usgsSiteId: string;
@@ -96,6 +105,8 @@ export interface GaugeStation {
   dischargeCfs: number | null;
   readingTimestamp: string | null;
   readingAgeHours: number | null;
+  // Threshold descriptions (from gauge_stations table)
+  thresholdDescriptions: ThresholdDescriptions | null;
   // Thresholds (from primary river association if exists)
   thresholds: {
     riverId: string;
@@ -135,7 +146,8 @@ export async function GET() {
           usgs_site_id,
           name,
           location,
-          active
+          active,
+          threshold_descriptions
         `)
         .eq('active', true);
 
@@ -332,6 +344,7 @@ export async function GET() {
         dischargeCfs: reading?.dischargeCfs ?? null,
         readingTimestamp: reading?.readingTimestamp ?? null,
         readingAgeHours,
+        thresholdDescriptions: station.threshold_descriptions ?? null,
         thresholds,
       };
     });
