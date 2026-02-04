@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import Image from 'next/image';
 import { ChevronDown } from 'lucide-react';
 
 interface Badge {
@@ -13,6 +14,7 @@ interface Badge {
 
 interface AccessPointSectionProps {
   icon: string;
+  iconUrl?: string;
   title: string;
   badge?: Badge | null;
   defaultOpen?: boolean;
@@ -21,6 +23,7 @@ interface AccessPointSectionProps {
 
 export default function AccessPointSection({
   icon,
+  iconUrl,
   title,
   badge,
   defaultOpen = false,
@@ -42,7 +45,13 @@ export default function AccessPointSection({
           isOpen ? 'bg-neutral-50' : 'hover:bg-neutral-50'
         }`}
       >
-        <span className="text-lg w-6 text-center flex-shrink-0">{icon}</span>
+        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+          {iconUrl ? (
+            <Image src={iconUrl} alt="" width={20} height={20} className="object-contain" />
+          ) : (
+            <span className="text-lg">{icon}</span>
+          )}
+        </div>
         <span className="flex-1 text-sm font-semibold text-neutral-900">
           {title}
         </span>

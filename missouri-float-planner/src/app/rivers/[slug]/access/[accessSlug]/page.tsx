@@ -19,6 +19,13 @@ import OutfittersSection from '@/components/access-point/sections/OutfittersSect
 import RiverNotesSection from '@/components/access-point/sections/RiverNotesSection';
 import { useCallback, useState } from 'react';
 
+// Detail section icon URLs from Vercel blob storage
+const DETAIL_ICONS = {
+  road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
+  parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
+  facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
+};
+
 export default function AccessPointDetailPage() {
   const params = useParams();
   const riverSlug = params.slug as string;
@@ -130,18 +137,20 @@ export default function AccessPointDetailPage() {
         <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden divide-y divide-neutral-200">
           <AccessPointSection
             icon="🚗"
+            iconUrl={DETAIL_ICONS.road}
             title="Road Access"
             badge={accessPoint.roadSurface.length > 0 ? getRoadBadge(accessPoint.roadSurface) : null}
           >
             <RoadAccessSection accessPoint={accessPoint} />
           </AccessPointSection>
 
-          <AccessPointSection icon="🅿️" title="Parking">
+          <AccessPointSection icon="🅿️" iconUrl={DETAIL_ICONS.parking} title="Parking">
             <ParkingSection accessPoint={accessPoint} />
           </AccessPointSection>
 
           <AccessPointSection
             icon="🏕️"
+            iconUrl={DETAIL_ICONS.facilities}
             title="Facilities"
             badge={accessPoint.managingAgency ? { label: accessPoint.managingAgency, variant: 'success' } : null}
           >
