@@ -538,52 +538,52 @@ function AccessPointDetailCard({
               </div>
             </CollapsibleDetailSection>
           )}
-
-          {/* Navigation Apps */}
-          <div className="mt-3 pt-3 border-t border-neutral-100">
-            <div className="grid grid-cols-4 gap-1.5">
-              {generateNavLinks(
-                { lat: point.coordinates.lat, lng: point.coordinates.lng, label: point.name },
-                point.directionsOverride
-              ).map((link: NavLink) => (
-                <button
-                  key={link.app}
-                  onClick={() => handleNavClick(link, detectPlatform())}
-                  className="flex flex-col items-center justify-center gap-1 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[56px]"
-                >
-                  <div className="flex items-center justify-center w-6 h-6">
-                    {NAV_APP_ICONS[link.app] ? (
-                      <Image
-                        src={NAV_APP_ICONS[link.app]}
-                        alt={link.label}
-                        width={24}
-                        height={24}
-                        className="rounded object-contain"
-                      />
-                    ) : (
-                      <span className="text-base">{link.icon}</span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-medium text-neutral-700 text-center">{link.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Report Issue link */}
-            {onReportIssue && (
-              <div className="mt-2 text-right">
-                <button
-                  onClick={onReportIssue}
-                  className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
-                >
-                  <Flag size={12} />
-                  Report Issue
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       )}
+
+      {/* Navigation Apps - Always visible */}
+      <div className="p-3 border-t border-neutral-100">
+        <div className="grid grid-cols-4 gap-1.5">
+          {generateNavLinks(
+            { lat: point.coordinates.lat, lng: point.coordinates.lng, label: point.name },
+            point.directionsOverride
+          ).map((link: NavLink) => (
+            <button
+              key={link.app}
+              onClick={() => handleNavClick(link, detectPlatform())}
+              className="flex flex-col items-center justify-center gap-1 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[56px]"
+            >
+              <div className="flex items-center justify-center w-6 h-6">
+                {NAV_APP_ICONS[link.app] ? (
+                  <Image
+                    src={NAV_APP_ICONS[link.app]}
+                    alt={link.label}
+                    width={24}
+                    height={24}
+                    className="rounded object-contain"
+                  />
+                ) : (
+                  <span className="text-base">{link.icon}</span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium text-neutral-700 text-center">{link.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Report Issue link */}
+        {onReportIssue && (
+          <div className="mt-2 text-right">
+            <button
+              onClick={onReportIssue}
+              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
+            >
+              <Flag size={12} />
+              Report Issue
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
