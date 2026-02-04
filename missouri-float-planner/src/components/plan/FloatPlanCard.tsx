@@ -246,10 +246,12 @@ function ShareableCapture({
 // Collapsible section component for access point details
 function CollapsibleDetailSection({
   title,
+  iconUrl,
   defaultOpen = false,
   children,
 }: {
   title: string;
+  iconUrl?: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
@@ -261,7 +263,12 @@ function CollapsibleDetailSection({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between py-2 text-left hover:bg-neutral-50 transition-colors"
       >
-        <span className="text-sm font-medium text-neutral-700">{title}</span>
+        <div className="flex items-center gap-2">
+          {iconUrl && (
+            <Image src={iconUrl} alt="" width={16} height={16} className="opacity-70" />
+          )}
+          <span className="text-sm font-medium text-neutral-700">{title}</span>
+        </div>
         {isOpen ? (
           <ChevronUp size={16} className="text-neutral-400" />
         ) : (
@@ -398,11 +405,10 @@ function AccessPointDetailCard({
 
           {/* Road Access section */}
           {((point.roadSurface && point.roadSurface.length > 0) || point.roadAccess) && (
-            <CollapsibleDetailSection title="Road Access" defaultOpen={false}>
+            <CollapsibleDetailSection title="Road Access" iconUrl={DETAIL_ICONS.road} defaultOpen={false}>
               <div className="space-y-2">
                 {point.roadSurface && point.roadSurface.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 items-center">
-                    <Image src={DETAIL_ICONS.road} alt="" width={16} height={16} className="opacity-60" />
                     {point.roadSurface.map((surface, idx) => (
                       <span
                         key={idx}
@@ -427,13 +433,10 @@ function AccessPointDetailCard({
 
           {/* Parking section */}
           {(point.parkingCapacity || point.parkingInfo) && (
-            <CollapsibleDetailSection title="Parking" defaultOpen={false}>
+            <CollapsibleDetailSection title="Parking" iconUrl={DETAIL_ICONS.parking} defaultOpen={false}>
               <div className="space-y-1.5">
                 {point.parkingCapacity && (
-                  <div className="flex items-center gap-1.5">
-                    <Image src={DETAIL_ICONS.parking} alt="" width={16} height={16} className="opacity-60" />
-                    <span className="text-sm font-medium">{formatParkingCapacity(point.parkingCapacity)}</span>
-                  </div>
+                  <span className="text-sm font-medium">{formatParkingCapacity(point.parkingCapacity)}</span>
                 )}
                 {point.parkingInfo && (
                   <p className="text-sm">{point.parkingInfo}</p>
@@ -444,7 +447,7 @@ function AccessPointDetailCard({
 
           {/* Facilities section */}
           {point.facilities && (
-            <CollapsibleDetailSection title="Facilities" defaultOpen={false}>
+            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={false}>
               <p>{point.facilities}</p>
             </CollapsibleDetailSection>
           )}
