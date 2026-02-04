@@ -8,6 +8,12 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal, Flag, Car, ParkingCircle, Store, Lightbulb } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import {
+  generateNavLinks,
+  handleNavClick,
+  detectPlatform,
+  type NavLink,
+} from '@/lib/navigation';
 
 // Condition display config
 const CONDITION_CONFIG: Record<ConditionCode, {
@@ -478,31 +484,36 @@ function AccessPointDetailCard({
             </CollapsibleDetailSection>
           )}
 
-          {/* Footer links */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
-            {/* Directions Link */}
-            <a
-              href={point.directionsOverride
-                ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(point.directionsOverride)}`
-                : `https://www.google.com/maps/dir/?api=1&destination=${point.coordinates.lat},${point.coordinates.lng}`
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
-            >
-              <MapPin size={14} />
-              Get Directions
-            </a>
+          {/* Navigation Apps */}
+          <div className="mt-3 pt-3 border-t border-neutral-100">
+            <p className="text-xs text-neutral-500 mb-2">Open in:</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {generateNavLinks(
+                { lat: point.coordinates.lat, lng: point.coordinates.lng, label: point.name },
+                point.directionsOverride
+              ).map((link: NavLink) => (
+                <button
+                  key={link.app}
+                  onClick={() => handleNavClick(link, detectPlatform())}
+                  className="flex flex-col items-center gap-0.5 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                >
+                  <span className="text-base">{link.icon}</span>
+                  <span className="text-[10px] font-medium text-neutral-700">{link.label}</span>
+                </button>
+              ))}
+            </div>
 
             {/* Report Issue link */}
             {onReportIssue && (
-              <button
-                onClick={onReportIssue}
-                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
-              >
-                <Flag size={12} />
-                Report Issue
-              </button>
+              <div className="mt-2 text-right">
+                <button
+                  onClick={onReportIssue}
+                  className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
+                >
+                  <Flag size={12} />
+                  Report Issue
+                </button>
+              </div>
             )}
           </div>
         </div>
