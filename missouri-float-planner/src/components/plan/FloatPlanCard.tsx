@@ -30,6 +30,32 @@ const DETAIL_ICONS = {
   facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
 };
 
+// Eddy the Otter condition images from Vercel blob storage
+const EDDY_CONDITION_IMAGES: Record<string, string> = {
+  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
+  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
+  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
+  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
+};
+
+// Get the appropriate Eddy image for a condition code
+function getEddyImageForCondition(code: ConditionCode): string {
+  switch (code) {
+    case 'optimal':
+    case 'low':
+      return EDDY_CONDITION_IMAGES.green;
+    case 'very_low':
+      return EDDY_CONDITION_IMAGES.yellow;
+    case 'high':
+    case 'dangerous':
+      return EDDY_CONDITION_IMAGES.red;
+    case 'too_low':
+    case 'unknown':
+    default:
+      return EDDY_CONDITION_IMAGES.flag;
+  }
+}
+
 // Condition display config
 const CONDITION_CONFIG: Record<ConditionCode, {
   label: string;
@@ -182,9 +208,15 @@ function ShareableCapture({
             <p className="text-sm text-neutral-500">eddy.guide</p>
           </div>
         </div>
-        <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass}`}>
+        <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass} flex items-center gap-1.5`}>
+          <Image
+            src={getEddyImageForCondition(conditionCode)}
+            alt={conditionConfig.label}
+            width={24}
+            height={24}
+          />
           <span className={`text-sm font-bold ${conditionConfig.textClass}`}>
-            {conditionConfig.emoji} {conditionConfig.label}
+            {conditionConfig.label}
           </span>
         </div>
       </div>
@@ -218,8 +250,13 @@ function ShareableCapture({
 
       {/* Conditions */}
       <div className={`rounded-xl overflow-hidden ${conditionConfig.bgClass}`}>
-        <div className="px-4 py-3 text-center">
-          <span className="text-2xl mr-2">{conditionConfig.emoji}</span>
+        <div className="px-4 py-3 flex items-center justify-center gap-2">
+          <Image
+            src={getEddyImageForCondition(conditionCode)}
+            alt={conditionConfig.label}
+            width={40}
+            height={40}
+          />
           <span className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</span>
         </div>
         <div className="bg-white/95 px-4 py-3 flex justify-around">
@@ -398,7 +435,7 @@ function AccessPointDetailCard({
 
           {/* Description section - expanded by default if exists */}
           {point.description && (
-            <CollapsibleDetailSection title="Description" defaultOpen={true}>
+            <CollapsibleDetailSection title="Description" defaultOpen={false}>
               <p>{point.description}</p>
             </CollapsibleDetailSection>
           )}
@@ -673,9 +710,13 @@ function JourneyCenter({
       <div className={`rounded-2xl overflow-hidden ${conditionConfig.bgClass} mb-3`}>
         {/* Main Status */}
         <div className="px-3 py-2 flex items-center justify-center gap-2">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 flex-shrink-0">
-            <span className="text-xl">{conditionConfig.emoji}</span>
-          </div>
+          <Image
+            src={getEddyImageForCondition(conditionCode)}
+            alt={conditionConfig.label}
+            width={48}
+            height={48}
+            className="flex-shrink-0"
+          />
           <div>
             <p className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
             {plan.condition.gaugeName && (
@@ -1011,9 +1052,13 @@ function MobileBottomSheet({
           <div className={`rounded-2xl overflow-hidden ${conditionConfig.bgClass}`}>
             {/* Main Status */}
             <div className="px-4 py-4 text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 mb-2">
-                <span className="text-2xl">{conditionConfig.emoji}</span>
-              </div>
+              <Image
+                src={getEddyImageForCondition(conditionCode)}
+                alt={conditionConfig.label}
+                width={64}
+                height={64}
+                className="mx-auto mb-2"
+              />
               <p className={`text-xl font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
               {plan.condition.gaugeName && (
                 <p className={`text-xs ${conditionConfig.textClass} opacity-75 mt-1`}>
