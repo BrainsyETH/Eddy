@@ -5,8 +5,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag } from 'lucide-react';
-import type { AccessPoint } from '@/types/api';
+import Link from 'next/link';
+import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink, Car, ParkingCircle, Store, Lightbulb } from 'lucide-react';
+import type { AccessPoint, NearbyService } from '@/types/api';
 
 interface AccessPointStripProps {
   accessPoints: AccessPoint[];
@@ -16,6 +17,7 @@ interface AccessPointStripProps {
   onHover?: (point: AccessPoint) => void;
   onReportIssue?: (point: AccessPoint) => void;
   hideExpandedDetails?: boolean;
+  riverSlug: string;
 }
 
 // Compact card for the horizontal strip
@@ -95,6 +97,44 @@ function AccessPointCard({
   );
 }
 
+// Format road surface for display
+function formatRoadSurface(surface: string): string {
+  const mapping: Record<string, string> = {
+    'paved': 'Paved',
+    'gravel_maintained': 'Gravel (maintained)',
+    'gravel_unmaintained': 'Gravel (unmaintained)',
+    'dirt': 'Dirt',
+    'seasonal': 'Seasonal',
+    '4wd_required': '4WD Required',
+  };
+  return mapping[surface] || surface.replace('_', ' ');
+}
+
+// Format parking capacity for display
+function formatParkingCapacity(capacity: string | null): string {
+  if (!capacity) return 'Unknown';
+  const mapping: Record<string, string> = {
+    'roadside': 'Roadside only',
+    'limited': 'Limited',
+    'unknown': 'Unknown',
+    '50+': '50+ vehicles',
+  };
+  if (mapping[capacity]) return mapping[capacity];
+  return `${capacity} vehicles`;
+}
+
+// Format nearby service type
+function formatServiceType(type: string): string {
+  const mapping: Record<string, string> = {
+    'outfitter': 'Outfitter',
+    'campground': 'Campground',
+    'canoe_rental': 'Canoe Rental',
+    'shuttle': 'Shuttle Service',
+    'lodging': 'Lodging',
+  };
+  return mapping[type] || type.replace('_', ' ');
+}
+
 // Collapsible section component
 function CollapsibleDetailSection({
   title,
@@ -136,16 +176,21 @@ function ExpandedDetail({
   isTakeOut,
   onClose,
   onReportIssue,
+  riverSlug,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClose: () => void;
   onReportIssue?: () => void;
+  riverSlug: string;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasImages = point.imageUrls && point.imageUrls.length > 0;
-  const hasDetails = point.parkingInfo || point.roadAccess || point.facilities;
+  const hasRoadInfo = (point.roadSurface && point.roadSurface.length > 0) || point.roadAccess;
+  const hasParkingInfo = point.parkingCapacity || point.parkingInfo;
+  const hasNearbyServices = point.nearbyServices && point.nearbyServices.length > 0;
+  const hasLocalTips = point.localTips;
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
@@ -233,50 +278,149 @@ function ExpandedDetail({
           </CollapsibleDetailSection>
         )}
 
-        {/* Details section - collapsed by default */}
-        {hasDetails && (
-          <CollapsibleDetailSection title="Details" defaultOpen={false}>
-            <div className="space-y-1.5">
-              {point.parkingInfo && (
-                <p><span className="font-medium">Parking:</span> {point.parkingInfo}</p>
+        {/* Road Access section */}
+        {hasRoadInfo && (
+          <CollapsibleDetailSection title="Road Access" defaultOpen={false}>
+            <div className="space-y-2">
+              {point.roadSurface && point.roadSurface.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <Car size={14} className="text-neutral-400 mt-0.5" />
+                  {point.roadSurface.map((surface, idx) => (
+                    <span
+                      key={idx}
+                      className={`px-2 py-0.5 text-xs rounded ${
+                        surface === 'paved' ? 'bg-green-100 text-green-700' :
+                        surface === '4wd_required' ? 'bg-amber-100 text-amber-700' :
+                        surface === 'seasonal' ? 'bg-blue-100 text-blue-700' :
+                        'bg-neutral-100 text-neutral-600'
+                      }`}
+                    >
+                      {formatRoadSurface(surface)}
+                    </span>
+                  ))}
+                </div>
               )}
               {point.roadAccess && (
-                <p><span className="font-medium">Road Access:</span> {point.roadAccess}</p>
-              )}
-              {point.facilities && (
-                <p><span className="font-medium">Facilities:</span> {point.facilities}</p>
+                <p className="text-sm">{point.roadAccess}</p>
               )}
             </div>
           </CollapsibleDetailSection>
         )}
 
+        {/* Parking section */}
+        {hasParkingInfo && (
+          <CollapsibleDetailSection title="Parking" defaultOpen={false}>
+            <div className="space-y-1.5">
+              {point.parkingCapacity && (
+                <div className="flex items-center gap-1.5">
+                  <ParkingCircle size={14} className="text-neutral-400" />
+                  <span className="text-sm font-medium">{formatParkingCapacity(point.parkingCapacity)}</span>
+                </div>
+              )}
+              {point.parkingInfo && (
+                <p className="text-sm">{point.parkingInfo}</p>
+              )}
+            </div>
+          </CollapsibleDetailSection>
+        )}
+
+        {/* Facilities section */}
+        {point.facilities && (
+          <CollapsibleDetailSection title="Facilities" defaultOpen={false}>
+            <p>{point.facilities}</p>
+          </CollapsibleDetailSection>
+        )}
+
+        {/* Nearby Services section */}
+        {hasNearbyServices && (
+          <CollapsibleDetailSection title="Nearby Services" defaultOpen={false}>
+            <div className="space-y-2">
+              {point.nearbyServices!.map((service: NearbyService, idx: number) => (
+                <div key={idx} className="flex items-start gap-2 p-2 bg-neutral-50 rounded-lg">
+                  <Store size={14} className="text-neutral-400 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{service.name}</span>
+                      <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
+                        {formatServiceType(service.type)}
+                      </span>
+                      {service.distance && (
+                        <span className="text-xs text-neutral-400">{service.distance}</span>
+                      )}
+                    </div>
+                    {service.phone && (
+                      <a href={`tel:${service.phone}`} className="text-xs text-blue-600 hover:underline block mt-0.5">
+                        {service.phone}
+                      </a>
+                    )}
+                    {service.website && (
+                      <a href={service.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline block mt-0.5">
+                        Website
+                      </a>
+                    )}
+                    {service.notes && (
+                      <p className="text-xs text-neutral-500 mt-0.5">{service.notes}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CollapsibleDetailSection>
+        )}
+
+        {/* Local Tips section */}
+        {hasLocalTips && (
+          <CollapsibleDetailSection title="Local Tips" defaultOpen={false}>
+            <div className="flex items-start gap-2">
+              <Lightbulb size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+              <div
+                className="prose prose-sm max-w-none text-neutral-600"
+                dangerouslySetInnerHTML={{ __html: point.localTips! }}
+              />
+            </div>
+          </CollapsibleDetailSection>
+        )}
+
         {/* Footer links */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
-          {/* Google Maps link */}
-          {point.googleMapsUrl ? (
-            <a
-              href={point.googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-neutral-100">
+          {/* View Full Details link */}
+          {point.slug && (
+            <Link
+              href={`/rivers/${riverSlug}/access/${point.slug}`}
+              className="inline-flex items-center justify-center gap-2 w-full py-2 px-4 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg font-medium text-sm transition-colors"
             >
-              <MapPin size={14} />
-              View on Google Maps
-            </a>
-          ) : (
-            <span />
+              <ExternalLink size={14} />
+              View Full Details
+            </Link>
           )}
 
-          {/* Report Issue link */}
-          {onReportIssue && (
-            <button
-              onClick={onReportIssue}
-              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
-            >
-              <Flag size={12} />
-              Report Issue
-            </button>
-          )}
+          <div className="flex items-center justify-between">
+            {/* Google Maps link */}
+            {point.googleMapsUrl ? (
+              <a
+                href={point.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"
+              >
+                <MapPin size={14} />
+                View on Google Maps
+              </a>
+            ) : (
+              <span />
+            )}
+
+            {/* Report Issue link */}
+            {onReportIssue && (
+              <button
+                onClick={onReportIssue}
+                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
+              >
+                <Flag size={12} />
+                Report Issue
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -291,6 +435,7 @@ export default function AccessPointStrip({
   onHover,
   onReportIssue,
   hideExpandedDetails = false,
+  riverSlug,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -384,6 +529,7 @@ export default function AccessPointStrip({
               isTakeOut={false}
               onClose={() => onSelect(putInPoint)}
               onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
+              riverSlug={riverSlug}
             />
           )}
           {takeOutPoint && (
@@ -393,6 +539,7 @@ export default function AccessPointStrip({
               isTakeOut={true}
               onClose={() => onSelect(takeOutPoint)}
               onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
+              riverSlug={riverSlug}
             />
           )}
         </div>
