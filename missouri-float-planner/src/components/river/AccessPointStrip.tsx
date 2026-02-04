@@ -5,7 +5,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag } from 'lucide-react';
+import Link from 'next/link';
+import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
 interface AccessPointStripProps {
@@ -16,6 +17,7 @@ interface AccessPointStripProps {
   onHover?: (point: AccessPoint) => void;
   onReportIssue?: (point: AccessPoint) => void;
   hideExpandedDetails?: boolean;
+  riverSlug: string;
 }
 
 // Compact card for the horizontal strip
@@ -136,12 +138,14 @@ function ExpandedDetail({
   isTakeOut,
   onClose,
   onReportIssue,
+  riverSlug,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClose: () => void;
   onReportIssue?: () => void;
+  riverSlug: string;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasImages = point.imageUrls && point.imageUrls.length > 0;
@@ -251,32 +255,45 @@ function ExpandedDetail({
         )}
 
         {/* Footer links */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100">
-          {/* Google Maps link */}
-          {point.googleMapsUrl ? (
-            <a
-              href={point.googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-neutral-100">
+          {/* View Full Details link */}
+          {point.slug && (
+            <Link
+              href={`/rivers/${riverSlug}/access/${point.slug}`}
+              className="inline-flex items-center justify-center gap-2 w-full py-2 px-4 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg font-medium text-sm transition-colors"
             >
-              <MapPin size={14} />
-              View on Google Maps
-            </a>
-          ) : (
-            <span />
+              <ExternalLink size={14} />
+              View Full Details
+            </Link>
           )}
 
-          {/* Report Issue link */}
-          {onReportIssue && (
-            <button
-              onClick={onReportIssue}
-              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
-            >
-              <Flag size={12} />
-              Report Issue
-            </button>
-          )}
+          <div className="flex items-center justify-between">
+            {/* Google Maps link */}
+            {point.googleMapsUrl ? (
+              <a
+                href={point.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium"
+              >
+                <MapPin size={14} />
+                View on Google Maps
+              </a>
+            ) : (
+              <span />
+            )}
+
+            {/* Report Issue link */}
+            {onReportIssue && (
+              <button
+                onClick={onReportIssue}
+                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-accent-500 transition-colors"
+              >
+                <Flag size={12} />
+                Report Issue
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -291,6 +308,7 @@ export default function AccessPointStrip({
   onHover,
   onReportIssue,
   hideExpandedDetails = false,
+  riverSlug,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -384,6 +402,7 @@ export default function AccessPointStrip({
               isTakeOut={false}
               onClose={() => onSelect(putInPoint)}
               onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
+              riverSlug={riverSlug}
             />
           )}
           {takeOutPoint && (
@@ -393,6 +412,7 @@ export default function AccessPointStrip({
               isTakeOut={true}
               onClose={() => onSelect(takeOutPoint)}
               onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
+              riverSlug={riverSlug}
             />
           )}
         </div>
