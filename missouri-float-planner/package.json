@@ -48,6 +48,8 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/space-grotesk": "^5.2.10",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^20",
     "@types/react": "^18",

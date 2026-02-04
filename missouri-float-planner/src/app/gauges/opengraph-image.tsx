@@ -18,7 +18,7 @@ export default async function Image() {
           width: '100%',
           height: '100%',
           display: 'flex',
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
         }}
@@ -82,7 +82,7 @@ export default async function Image() {
           {/* Subtitle */}
           <span
             style={{
-              fontFamily: 'Inter',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 22,
               color: 'rgba(255,255,255,0.7)',
               lineHeight: 1.4,

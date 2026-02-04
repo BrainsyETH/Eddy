@@ -93,7 +93,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
           padding: '32px 40px',
           position: 'relative',
@@ -234,7 +234,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
             >
               <span
                 style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'system-ui, sans-serif',
                   fontSize: 12,
                   fontWeight: 600,
                   color: '#72B5C4',
@@ -294,7 +294,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           >
             <span
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 14,
                 fontWeight: 600,
                 color: '#A3D1DB',

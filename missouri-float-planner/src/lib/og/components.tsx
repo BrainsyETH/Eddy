@@ -44,7 +44,7 @@ export function EddyMark({
       </div>
       <span
         style={{
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           fontSize: 13,
           fontWeight: 600,
           color: 'rgba(255,255,255,0.5)',
@@ -96,7 +96,7 @@ export function StatusBadge({
       />
       <span
         style={{
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           fontSize: config.fontSize,
           fontWeight: 700,
           color: styles.text,
@@ -144,7 +144,7 @@ export function MetadataItem({
     >
       <span
         style={{
-          fontFamily: 'Inter',
+          fontFamily: 'system-ui, sans-serif',
           fontSize: 11,
           fontWeight: 600,
           color: 'rgba(255,255,255,0.5)',
@@ -156,7 +156,7 @@ export function MetadataItem({
       </span>
       <span
         style={{
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           fontSize: 20,
           fontWeight: 700,
           color: 'white',
@@ -206,7 +206,7 @@ export function FeaturePill({
         border: `1px solid ${colors.border}`,
         borderRadius: 100,
         padding: '6px 14px',
-        fontFamily: 'Space Grotesk',
+        fontFamily: 'system-ui, sans-serif',
         fontSize: 12,
         fontWeight: 600,
       }}
@@ -228,7 +228,7 @@ export function RiverChip({ name }: { name: string }) {
         border: '1px solid rgba(57,160,202,0.25)',
         borderRadius: 100,
         padding: '5px 14px',
-        fontFamily: 'Space Grotesk',
+        fontFamily: 'system-ui, sans-serif',
         fontSize: 12,
         fontWeight: 600,
       }}
@@ -246,7 +246,7 @@ export function Tagline({ position = 'right' }: { position?: 'left' | 'right' })
         position: 'absolute',
         bottom: 16,
         [position]: 24,
-        fontFamily: 'Space Grotesk',
+        fontFamily: 'system-ui, sans-serif',
         fontSize: 12,
         fontWeight: 500,
         color: 'rgba(255,255,255,0.4)',
@@ -265,7 +265,7 @@ export function DomainWatermark() {
         position: 'absolute',
         bottom: 16,
         right: 24,
-        fontFamily: 'Space Grotesk',
+        fontFamily: 'system-ui, sans-serif',
         fontSize: 14,
         fontWeight: 600,
         color: 'rgba(255,255,255,0.5)',
