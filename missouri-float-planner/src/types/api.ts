@@ -48,6 +48,13 @@ export interface AccessPoint {
     lng: number;
     lat: number;
   };
+  // Optional detail fields (available when fetched with detail data)
+  roadSurface?: string[];
+  parkingCapacity?: string | null;
+  managingAgency?: string | null;
+  officialSiteUrl?: string | null;
+  localTips?: string | null;
+  nearbyServices?: NearbyService[];
 }
 
 export type AccessPointType =

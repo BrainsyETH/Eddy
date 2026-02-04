@@ -97,6 +97,13 @@ export async function GET(
           imageUrls: ap.image_urls || [],
           googleMapsUrl: ap.google_maps_url,
           coordinates: { lng, lat },
+          // New detail fields
+          roadSurface: ap.road_surface || [],
+          parkingCapacity: ap.parking_capacity || null,
+          managingAgency: ap.managing_agency || null,
+          officialSiteUrl: ap.official_site_url || null,
+          localTips: ap.local_tips || null,
+          nearbyServices: ap.nearby_services || [],
         };
       })
       .filter((ap): ap is NonNullable<typeof ap> => ap !== null);
