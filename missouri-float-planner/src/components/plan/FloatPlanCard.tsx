@@ -302,7 +302,7 @@ function CollapsibleDetailSection({
       >
         <div className="flex items-center gap-2">
           {iconUrl && (
-            <Image src={iconUrl} alt="" width={16} height={16} className="opacity-70" />
+            <Image src={iconUrl} alt="" width={16} height={16} />
           )}
           <span className="text-sm font-medium text-neutral-700">{title}</span>
         </div>

@@ -140,8 +140,8 @@ export async function GET(
       }
     }
 
-    // Get gauge status for this river
-    const gaugeStatus = await getGaugeStatus(supabase, river.id);
+    // Get gauge status for this river (using access point's river mile for segment-aware selection)
+    const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
 
     // Format the access point detail
     const accessPoint: AccessPointDetail = {
@@ -208,38 +208,84 @@ function estimateFloatTime(miles: number): string | null {
   return `~${Math.round(hours * 10) / 10} hr`;
 }
 
-// Helper to get gauge status for the river
+// Helper to get gauge status for the river (segment-aware based on access point river mile)
 async function getGaugeStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  riverId: string
+  riverId: string,
+  accessPointRiverMile: number
 ): Promise<AccessPointGaugeStatus | null> {
   try {
-    // Get the primary gauge for this river
-    const { data: riverGauge } = await supabase
-      .from('river_gauges')
-      .select(
+    // First, try to find the nearest gauge at or upstream of the access point
+    // (largest river_mile that is <= access point's river mile)
+    let riverGauge = null;
+
+    if (accessPointRiverMile > 0) {
+      const { data: nearestGauge } = await supabase
+        .from('river_gauges')
+        .select(
+          `
+          gauge_station_id,
+          is_primary,
+          river_mile,
+          too_low_below,
+          low_below,
+          optimal_min,
+          optimal_max,
+          high_above,
+          dangerous_above,
+          gauge_stations (
+            id,
+            usgs_site_id,
+            name,
+            latest_reading_cfs,
+            latest_reading_height_ft,
+            latest_reading_at
+          )
         `
-        gauge_station_id,
-        is_primary,
-        too_low_below,
-        low_below,
-        optimal_min,
-        optimal_max,
-        high_above,
-        dangerous_above,
-        gauge_stations (
-          id,
-          usgs_site_id,
-          name,
-          latest_reading_cfs,
-          latest_reading_height_ft,
-          latest_reading_at
         )
-      `
-      )
-      .eq('river_id', riverId)
-      .eq('is_primary', true)
-      .single();
+        .eq('river_id', riverId)
+        .not('river_mile', 'is', null)
+        .lte('river_mile', accessPointRiverMile)
+        .order('river_mile', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (nearestGauge) {
+        riverGauge = nearestGauge;
+      }
+    }
+
+    // Fall back to primary gauge if no segment-specific gauge found
+    if (!riverGauge) {
+      const { data: primaryGauge } = await supabase
+        .from('river_gauges')
+        .select(
+          `
+          gauge_station_id,
+          is_primary,
+          river_mile,
+          too_low_below,
+          low_below,
+          optimal_min,
+          optimal_max,
+          high_above,
+          dangerous_above,
+          gauge_stations (
+            id,
+            usgs_site_id,
+            name,
+            latest_reading_cfs,
+            latest_reading_height_ft,
+            latest_reading_at
+          )
+        `
+        )
+        .eq('river_id', riverId)
+        .eq('is_primary', true)
+        .single();
+
+      riverGauge = primaryGauge;
+    }
 
     if (!riverGauge || !riverGauge.gauge_stations) {
       return null;
