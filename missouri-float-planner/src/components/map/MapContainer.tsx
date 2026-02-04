@@ -282,8 +282,7 @@ export default function MapContainer({
 
     setMapStyle(initialStyle);
     // Use custom style object for satellite, URL for others
-    const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
-      (initialStyle === 'satellite' ? SATELLITE_STYLE : MAP_STYLES[initialStyle].url);
+    const mapStyleUrl = initialStyle === 'satellite' ? SATELLITE_STYLE : MAP_STYLES[initialStyle].url;
 
     // Reset mapLoaded when creating a new map instance (important for bounds changes)
     setMapLoaded(false);
