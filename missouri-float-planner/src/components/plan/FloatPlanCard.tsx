@@ -15,6 +15,14 @@ import {
   type NavLink,
 } from '@/lib/navigation';
 
+// Navigation app icon URLs from Vercel blob storage
+const NAV_APP_ICONS: Record<string, string> = {
+  onx: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/onx.png',
+  gaia: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/gaia.jpeg',
+  google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Logo-google-map-design-on-transparent-background.png',
+  apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
+};
+
 // Condition display config
 const CONDITION_CONFIG: Record<ConditionCode, {
   label: string;
@@ -486,7 +494,6 @@ function AccessPointDetailCard({
 
           {/* Navigation Apps */}
           <div className="mt-3 pt-3 border-t border-neutral-100">
-            <p className="text-xs text-neutral-500 mb-2">Open in:</p>
             <div className="grid grid-cols-4 gap-1.5">
               {generateNavLinks(
                 { lat: point.coordinates.lat, lng: point.coordinates.lng, label: point.name },
@@ -497,7 +504,17 @@ function AccessPointDetailCard({
                   onClick={() => handleNavClick(link, detectPlatform())}
                   className="flex flex-col items-center gap-0.5 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors"
                 >
-                  <span className="text-base">{link.icon}</span>
+                  {NAV_APP_ICONS[link.app] ? (
+                    <Image
+                      src={NAV_APP_ICONS[link.app]}
+                      alt={link.label}
+                      width={24}
+                      height={24}
+                      className="rounded"
+                    />
+                  ) : (
+                    <span className="text-base">{link.icon}</span>
+                  )}
                   <span className="text-[10px] font-medium text-neutral-700">{link.label}</span>
                 </button>
               ))}
