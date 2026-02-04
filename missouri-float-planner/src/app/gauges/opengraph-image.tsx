@@ -2,15 +2,15 @@
 // OG image for the gauges dashboard page
 
 import { ImageResponse } from 'next/og';
-import { loadOGFonts } from '@/lib/og/fonts';
 
 export const alt = 'River Gauges - Real-time water levels on eddy.guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export default async function Image() {
-  const fonts = await loadOGFonts();
+// Force dynamic to avoid static prerendering issues
+export const dynamic = 'force-dynamic';
 
+export default async function Image() {
   return new ImageResponse(
     (
       <div
@@ -18,7 +18,7 @@ export default async function Image() {
           width: '100%',
           height: '100%',
           display: 'flex',
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
         }}
@@ -82,7 +82,6 @@ export default async function Image() {
           {/* Subtitle */}
           <span
             style={{
-              fontFamily: 'Inter',
               fontSize: 22,
               color: 'rgba(255,255,255,0.7)',
               lineHeight: 1.4,
@@ -162,7 +161,6 @@ export default async function Image() {
     ),
     {
       ...size,
-      fonts,
     }
   );
 }
