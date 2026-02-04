@@ -1,46 +1,72 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
+// Fetches fonts from Google Fonts CDN at runtime
 
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+// Cache fonts in memory to avoid re-fetching
+let cachedFonts: Array<{
+  name: string;
+  data: ArrayBuffer;
+  weight: 400 | 500 | 600 | 700;
+  style: 'normal';
+}> | null = null;
 
 export async function loadOGFonts() {
-  const fontsDir = join(process.cwd(), 'src/app/fonts');
+  // Return cached fonts if available
+  if (cachedFonts) {
+    return cachedFonts;
+  }
 
-  const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
-    await Promise.all([
-      readFile(join(fontsDir, 'SpaceGrotesk-Bold.ttf')),
-      readFile(join(fontsDir, 'SpaceGrotesk-SemiBold.ttf')),
-      readFile(join(fontsDir, 'Inter-Regular.ttf')),
-      readFile(join(fontsDir, 'Inter-Medium.ttf')),
-    ]);
+  // Fetch fonts from Google Fonts CDN
+  // These URLs are stable and serve TTF files
+  const fontUrls = {
+    spaceGroteskBold: 'https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.ttf',
+    spaceGroteskSemiBold: 'https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPbF4DPk3HqUtEw.ttf',
+    interRegular: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.ttf',
+    interMedium: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hjp-Ek-_EeA.ttf',
+  };
 
-  return [
-    {
-      name: 'Space Grotesk',
-      data: spaceGroteskBold,
-      weight: 700 as const,
-      style: 'normal' as const,
-    },
-    {
-      name: 'Space Grotesk',
-      data: spaceGroteskSemiBold,
-      weight: 600 as const,
-      style: 'normal' as const,
-    },
-    {
-      name: 'Inter',
-      data: interRegular,
-      weight: 400 as const,
-      style: 'normal' as const,
-    },
-    {
-      name: 'Inter',
-      data: interMedium,
-      weight: 500 as const,
-      style: 'normal' as const,
-    },
-  ];
+  try {
+    const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
+      await Promise.all([
+        fetch(fontUrls.spaceGroteskBold).then((res) => res.arrayBuffer()),
+        fetch(fontUrls.spaceGroteskSemiBold).then((res) => res.arrayBuffer()),
+        fetch(fontUrls.interRegular).then((res) => res.arrayBuffer()),
+        fetch(fontUrls.interMedium).then((res) => res.arrayBuffer()),
+      ]);
+
+    cachedFonts = [
+      {
+        name: 'Space Grotesk',
+        data: spaceGroteskBold,
+        weight: 700 as const,
+        style: 'normal' as const,
+      },
+      {
+        name: 'Space Grotesk',
+        data: spaceGroteskSemiBold,
+        weight: 600 as const,
+        style: 'normal' as const,
+      },
+      {
+        name: 'Inter',
+        data: interRegular,
+        weight: 400 as const,
+        style: 'normal' as const,
+      },
+      {
+        name: 'Inter',
+        data: interMedium,
+        weight: 500 as const,
+        style: 'normal' as const,
+      },
+    ];
+
+    return cachedFonts;
+  } catch (error) {
+    console.error('Failed to load OG fonts:', error);
+    // Return empty array - OG images will use system fonts as fallback
+    return [];
+  }
 }
 
 // Load Eddy avatar as base64 for use in ImageResponse
