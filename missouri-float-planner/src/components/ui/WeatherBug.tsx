@@ -42,7 +42,7 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
     return (
       <button
         onClick={() => setIsExpanded(true)}
-        className={`absolute top-4 left-4 z-10 glass-card-dark rounded-lg px-3 py-2
+        className={`absolute top-4 left-4 z-20 glass-card-dark rounded-lg px-3 py-2
                     backdrop-blur-md border border-primary-600/30 shadow-lg
                     hover:border-primary-500/50 transition-colors ${className}`}
       >
@@ -65,7 +65,7 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
 
   return (
     <div
-      className={`absolute top-4 left-4 z-10 glass-card-dark rounded-lg p-4
+      className={`absolute top-4 left-4 z-20 glass-card-dark rounded-lg p-4
                   backdrop-blur-md border border-primary-600/30 shadow-lg
                   min-w-[240px] ${className}`}
     >
