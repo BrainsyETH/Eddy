@@ -3,7 +3,7 @@
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadOGFonts, loadEddyAvatar } from '@/lib/og/fonts';
+import { loadEddyAvatar } from '@/lib/og/fonts';
 import { getStatusStyles, getStatusGradient } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
 
@@ -23,8 +23,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const resolvedParams = await params;
   const slug = resolvedParams?.slug;
 
-  // Load fonts and avatar in parallel
-  const [fonts, eddyAvatar] = await Promise.all([loadOGFonts(), loadEddyAvatar()]);
+  // Load avatar
+  const eddyAvatar = await loadEddyAvatar();
 
   // Default fallback data
   let riverName = 'Missouri River';
@@ -122,7 +122,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           </div>
           <span
             style={{
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 13,
               fontWeight: 600,
               color: 'rgba(255,255,255,0.5)',
@@ -135,7 +135,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         {/* River Name */}
         <span
           style={{
-            fontFamily: 'Space Grotesk',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 48,
             fontWeight: 700,
             color: 'white',
@@ -158,7 +158,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 11,
                 fontWeight: 600,
                 color: 'rgba(255,255,255,0.5)',
@@ -170,7 +170,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             </span>
             <span
               style={{
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 20,
                 fontWeight: 700,
                 color: 'white',
@@ -184,7 +184,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 11,
                 fontWeight: 600,
                 color: 'rgba(255,255,255,0.5)',
@@ -196,7 +196,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             </span>
             <span
               style={{
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 20,
                 fontWeight: 700,
                 color: 'white',
@@ -230,7 +230,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           />
           <span
             style={{
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 16,
               fontWeight: 700,
               color: statusStyles.text,
@@ -246,7 +246,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             position: 'absolute',
             bottom: 16,
             right: 24,
-            fontFamily: 'Space Grotesk',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 12,
             fontWeight: 500,
             color: 'rgba(255,255,255,0.4)',
@@ -270,7 +270,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     ),
     {
       ...size,
-      fonts,
     }
   );
 }

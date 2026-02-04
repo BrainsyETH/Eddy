@@ -3,7 +3,7 @@
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadOGFonts, loadConditionOtter } from '@/lib/og/fonts';
+import { loadConditionOtter } from '@/lib/og/fonts';
 import type { ConditionCode } from '@/lib/og/types';
 
 export const alt = 'Float Plan on eddy.guide';
@@ -35,9 +35,6 @@ function getConditionDisplay(condition: ConditionCode) {
 export default async function Image({ params }: { params: Promise<{ shortCode: string }> }) {
   const resolvedParams = await params;
   const shortCode = resolvedParams?.shortCode;
-
-  // Load fonts
-  const fonts = await loadOGFonts();
 
   // Default fallback data
   let riverName = 'Missouri River';
@@ -93,7 +90,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          fontFamily: 'Space Grotesk',
+          fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
           padding: '32px 40px',
           position: 'relative',
@@ -234,7 +231,6 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
             >
               <span
                 style={{
-                  fontFamily: 'Inter',
                   fontSize: 12,
                   fontWeight: 600,
                   color: '#72B5C4',
@@ -294,7 +290,6 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           >
             <span
               style={{
-                fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: 600,
                 color: '#A3D1DB',
@@ -319,7 +314,6 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
     ),
     {
       ...size,
-      fonts,
     }
   );
 }
