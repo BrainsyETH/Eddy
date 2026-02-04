@@ -11,18 +11,19 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 const INFO_ICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/information-icon.png';
 
 // River-specific floating summaries (local knowledge - SAFETY FIRST)
+// Keys match river slugs from database: 'current', 'eleven-point', 'jacks-fork'
 const RIVER_SUMMARIES: Record<string, { title: string; summary: string; tip: string }> = {
-  'current-river': {
+  'current': {
     title: 'Current River',
     summary: 'The Akers gauge is the primary reference. 2.0–3.0 ft is optimal. The Current is spring-fed and forgiving, but above 3.5 ft conditions deteriorate. At 4.0 ft the river closes. Below 1.5 ft you\'ll drag in riffles. Van Buren (lower river) runs higher—optimal 3.0–4.0 ft, closes at 5.0 ft.',
     tip: 'Spring rains can cause rapid rises. If the gauge is climbing, consider another day. The upper Current (Montauk to Akers) needs slightly more water than lower sections.',
   },
-  'eleven-point-river': {
+  'eleven-point': {
     title: 'Eleven Point River',
     summary: 'The Bardley gauge (16 mi downstream from Greer) is the key reference. 3.0–3.5 ft is optimal. Average is ~3.0 ft. Above 4 ft we recommend another day—water gets murky and conditions deteriorate. At 5 ft, outfitters stop and Forest Service closes the river.',
     tip: 'Mid-June through mid-September offers the best floating with clear water. Spring rains (March–May) cause rapid rises and muddy conditions. When in doubt, wait it out.',
   },
-  'jacks-fork-river': {
+  'jacks-fork': {
     title: 'Jacks Fork River',
     summary: 'The Jacks Fork is shallower and more rain-dependent. At Alley Spring (primary), 2.5–3.0 ft is ideal. Above 3.5 ft we recommend another day—river closes at 4.0 ft. Below 2.0 ft you\'ll drag with gear. At Eminence (lower), 2.0–3.0 ft is good; average is ~1.5 ft but may drag loaded.',
     tip: 'The Jacks Fork rises and falls FAST after rain. Flash floods are a serious concern. If rain is forecast or the gauge is rising, postpone your trip.',
