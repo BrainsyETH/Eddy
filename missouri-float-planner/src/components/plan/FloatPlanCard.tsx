@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal, Flag, Car, ParkingCircle, Store, Lightbulb } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import {
@@ -21,6 +21,13 @@ const NAV_APP_ICONS: Record<string, string> = {
   gaia: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/gaia.jpeg',
   google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/google-maps.png',
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
+};
+
+// Detail section icon URLs from Vercel blob storage
+const DETAIL_ICONS = {
+  road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
+  parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
+  facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
 };
 
 // Condition display config
@@ -394,8 +401,8 @@ function AccessPointDetailCard({
             <CollapsibleDetailSection title="Road Access" defaultOpen={false}>
               <div className="space-y-2">
                 {point.roadSurface && point.roadSurface.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    <Car size={14} className="text-neutral-400 mt-0.5" />
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <Image src={DETAIL_ICONS.road} alt="" width={16} height={16} className="opacity-60" />
                     {point.roadSurface.map((surface, idx) => (
                       <span
                         key={idx}
@@ -424,7 +431,7 @@ function AccessPointDetailCard({
               <div className="space-y-1.5">
                 {point.parkingCapacity && (
                   <div className="flex items-center gap-1.5">
-                    <ParkingCircle size={14} className="text-neutral-400" />
+                    <Image src={DETAIL_ICONS.parking} alt="" width={16} height={16} className="opacity-60" />
                     <span className="text-sm font-medium">{formatParkingCapacity(point.parkingCapacity)}</span>
                   </div>
                 )}
