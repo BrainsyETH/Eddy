@@ -19,7 +19,7 @@ import {
 const NAV_APP_ICONS: Record<string, string> = {
   onx: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/onx.png',
   gaia: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/gaia.jpeg',
-  google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Logo-google-map-design-on-transparent-background.png',
+  google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/google-maps.png',
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
 
@@ -502,20 +502,22 @@ function AccessPointDetailCard({
                 <button
                   key={link.app}
                   onClick={() => handleNavClick(link, detectPlatform())}
-                  className="flex flex-col items-center gap-0.5 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                  className="flex flex-col items-center justify-center gap-1 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[56px]"
                 >
-                  {NAV_APP_ICONS[link.app] ? (
-                    <Image
-                      src={NAV_APP_ICONS[link.app]}
-                      alt={link.label}
-                      width={24}
-                      height={24}
-                      className="rounded"
-                    />
-                  ) : (
-                    <span className="text-base">{link.icon}</span>
-                  )}
-                  <span className="text-[10px] font-medium text-neutral-700">{link.label}</span>
+                  <div className="flex items-center justify-center w-6 h-6">
+                    {NAV_APP_ICONS[link.app] ? (
+                      <Image
+                        src={NAV_APP_ICONS[link.app]}
+                        alt={link.label}
+                        width={24}
+                        height={24}
+                        className="rounded object-contain"
+                      />
+                    ) : (
+                      <span className="text-base">{link.icon}</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-medium text-neutral-700 text-center">{link.label}</span>
                 </button>
               ))}
             </div>
