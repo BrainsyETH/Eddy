@@ -2,15 +2,18 @@
 // Homepage OG image
 
 import { ImageResponse } from 'next/og';
-import { loadOGFonts, loadEddyAvatar } from '@/lib/og/fonts';
+import { loadEddyAvatar } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 
 export const alt = 'Plan your float trip with Eddy — Missouri Ozark river trip planner';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
+// Force dynamic to avoid static prerendering issues with font loading
+export const dynamic = 'force-dynamic';
+
 export default async function Image() {
-  const [fonts, eddyAvatar] = await Promise.all([loadOGFonts(), loadEddyAvatar()]);
+  const eddyAvatar = await loadEddyAvatar();
 
   return new ImageResponse(
     (
@@ -60,7 +63,7 @@ export default async function Image() {
         >
           <span
             style={{
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 42,
               fontWeight: 700,
               color: 'white',
@@ -71,7 +74,7 @@ export default async function Image() {
           </span>
           <span
             style={{
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 42,
               fontWeight: 700,
               color: BRAND_COLORS.bluewater,
@@ -85,7 +88,7 @@ export default async function Image() {
         {/* Tagline */}
         <span
           style={{
-            fontFamily: 'Inter',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 18,
             fontWeight: 400,
             color: 'rgba(255,255,255,0.7)',
@@ -112,7 +115,7 @@ export default async function Image() {
               border: '1px solid rgba(57,160,202,0.3)',
               borderRadius: 100,
               padding: '6px 14px',
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -130,7 +133,7 @@ export default async function Image() {
               border: '1px solid rgba(71,133,89,0.3)',
               borderRadius: 100,
               padding: '6px 14px',
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -148,7 +151,7 @@ export default async function Image() {
               border: '1px solid rgba(240,112,82,0.25)',
               borderRadius: 100,
               padding: '6px 14px',
-              fontFamily: 'Space Grotesk',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -201,7 +204,7 @@ export default async function Image() {
             position: 'absolute',
             bottom: 24,
             right: 48,
-            fontFamily: 'Space Grotesk',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 14,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',
@@ -213,7 +216,6 @@ export default async function Image() {
     ),
     {
       ...size,
-      fonts,
     }
   );
 }
