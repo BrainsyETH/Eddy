@@ -449,7 +449,7 @@ export default function RiverPage() {
             </MapContainer>
           </div>
 
-          {/* Access Point Strip - horizontal scroll below map with expanded details */}
+          {/* Access Point Strip - horizontal scroll below map (no expanded details) */}
           {accessPoints && accessPoints.length > 0 && (
             <div className="mt-3">
               <AccessPointStrip
@@ -459,6 +459,7 @@ export default function RiverPage() {
                 onSelect={handleMarkerClick}
                 onHover={handleAccessPointHover}
                 onReportIssue={handleReportAccessPointIssue}
+                hideExpandedDetails={true}
                 riverSlug={slug}
               />
             </div>
