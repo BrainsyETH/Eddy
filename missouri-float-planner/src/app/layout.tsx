@@ -55,27 +55,13 @@ export const metadata: Metadata = {
     title: "Eddy - Missouri River Float Trip Planner",
     description: "Real-time water conditions, float times, access points, and weather for Missouri's best float rivers. Check before you go!",
     url: BASE_URL,
-    images: [
-      {
-        url: `${BASE_URL}/api/og`,
-        width: 1200,
-        height: 630,
-        type: "image/png",
-        alt: "Eddy - Plan Your Missouri Float Trip",
-      },
-    ],
+    // OG image is auto-discovered from opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
     title: "Eddy - Missouri River Float Trip Planner",
     description: "Real-time water conditions, float times, access points, and weather for Missouri's best float rivers.",
-    images: [
-      {
-        url: `${BASE_URL}/api/og`,
-        width: 1200,
-        height: 630,
-      },
-    ],
+    // Twitter image is auto-discovered from twitter-image.tsx
   },
 };
 
