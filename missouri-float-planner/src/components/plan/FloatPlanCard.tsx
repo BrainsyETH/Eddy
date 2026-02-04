@@ -727,26 +727,6 @@ function JourneyCenter({
       {/* Shuttle - Minimal button design */}
       <div className="space-y-2">
         <a
-          href={plan.putIn.directionsOverride
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(plan.putIn.directionsOverride)}`
-            : `https://www.google.com/maps/dir/?api=1&destination=${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-support-500 flex items-center justify-center">
-              <MapPin size={14} className="text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-neutral-800">Directions to Put-in</p>
-              <p className="text-xs text-neutral-500">Opens in Google Maps</p>
-            </div>
-          </div>
-          <ChevronRight size={18} className="text-neutral-400 group-hover:text-neutral-600 transition-colors" />
-        </a>
-        <a
           href={(() => {
             const origin = plan.putIn.directionsOverride
               ? encodeURIComponent(plan.putIn.directionsOverride)
@@ -993,26 +973,9 @@ function MobileBottomSheet({
           />
         </div>
 
-        {/* 2. Directions */}
+        {/* 2. Shuttle */}
         <div className="space-y-2 mb-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Directions</p>
-          <a
-            href={plan.putIn.directionsOverride
-              ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(plan.putIn.directionsOverride)}`
-              : `https://www.google.com/maps/dir/?api=1&destination=${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full bg-support-500 flex items-center justify-center">
-                <MapPin size={12} className="text-white" />
-              </div>
-              <span className="text-sm font-medium text-neutral-800">Directions to Put-in</span>
-            </div>
-            <ChevronRight size={16} className="text-neutral-400" />
-          </a>
+          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Shuttle</p>
           <a
             href={(() => {
               const origin = plan.putIn.directionsOverride
