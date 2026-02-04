@@ -1187,12 +1187,12 @@ export default function FloatPlanCard({
     );
   }
 
-  // Both points selected but still loading - show skeleton
+  // Both points selected but still loading - show skeleton (desktop only)
   if (hasBothPoints && !displayPlan && isLoading) {
     return (
-      <div className="bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
         <div className="p-4">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px,1fr] gap-4">
+          <div className="grid grid-cols-[1fr,280px,1fr] gap-4">
             {/* Put-in Card Skeleton */}
             <div className="animate-pulse">
               <div className="h-6 bg-neutral-200 rounded w-20 mb-2"></div>
@@ -1232,9 +1232,9 @@ export default function FloatPlanCard({
   // Both points selected - full journey card
   if (hasBothPoints && displayPlan) {
     return (
-      <div className="bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
-        {/* Desktop Layout */}
-        <div className="hidden lg:block p-4">
+      <>
+        {/* Desktop Layout - hidden on mobile */}
+        <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden p-4">
           <div className="grid grid-cols-[1fr,280px,1fr] gap-4">
             {/* Put-in Card */}
             <AccessPointDetailCard
@@ -1286,9 +1286,20 @@ export default function FloatPlanCard({
               </button>
             </div>
           </div>
+
+          {/* Hidden capture component for image export */}
+          {captureRef && (
+            <ShareableCapture
+              plan={displayPlan}
+              putInPoint={putInPoint}
+              takeOutPoint={takeOutPoint}
+              riverName={riverName}
+              captureRef={captureRef}
+            />
+          )}
         </div>
 
-        {/* Mobile Bottom Sheet */}
+        {/* Mobile Bottom Sheet - renders as fixed overlay, outside desktop container */}
         <MobileBottomSheet
           plan={displayPlan}
           putInPoint={putInPoint}
@@ -1302,18 +1313,7 @@ export default function FloatPlanCard({
           onDownloadImage={onDownloadImage}
           onReportIssue={onReportIssue}
         />
-
-        {/* Hidden capture component for image export */}
-        {captureRef && (
-          <ShareableCapture
-            plan={displayPlan}
-            putInPoint={putInPoint}
-            takeOutPoint={takeOutPoint}
-            riverName={riverName}
-            captureRef={captureRef}
-          />
-        )}
-      </div>
+      </>
     );
   }
 
