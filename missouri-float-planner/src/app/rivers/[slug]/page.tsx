@@ -460,6 +460,7 @@ export default function RiverPage() {
                 onHover={handleAccessPointHover}
                 onReportIssue={handleReportAccessPointIssue}
                 hideExpandedDetails={true}
+                riverSlug={slug}
               />
             </div>
           )}
