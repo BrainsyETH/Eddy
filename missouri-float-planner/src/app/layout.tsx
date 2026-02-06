@@ -7,24 +7,18 @@ import "./globals.css";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
-// Using local Geist fonts with CSS variables that match the design system
-// In production, these can be swapped for Google Fonts (Space Grotesk, Inter, JetBrains Mono)
+// Font configuration - Geist for body/headings, Geist Mono for code
+// Both body and heading use the same font (Geist) but with different CSS variables
+// for flexibility if we want to swap heading font later
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
-  variable: "--font-body",
+  variable: "--font-geist-sans",
   weight: "100 900",
 });
 
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-mono",
-  weight: "100 900",
-});
-
-// Heading font uses body font for now - in production can use Space Grotesk
-const geistHeading = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-heading",
   weight: "100 900",
 });
 
@@ -73,7 +67,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} ${fredoka.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fredoka.variable} antialiased`}
+        style={{
+          // Map our single font to both body and heading CSS variables
+          '--font-body': 'var(--font-geist-sans)',
+          '--font-heading': 'var(--font-geist-sans)',
+        } as React.CSSProperties}
       >
         <Providers>
           <SiteHeader />

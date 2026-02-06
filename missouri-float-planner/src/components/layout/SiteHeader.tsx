@@ -9,18 +9,8 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { useRivers } from '@/hooks/useRivers';
+import { CONDITION_BG_CLASSES } from '@/constants';
 import type { ConditionCode } from '@/types/api';
-
-// Matches GaugeOverview colors
-const conditionColors: Record<ConditionCode, string> = {
-  optimal: 'bg-emerald-500',
-  low: 'bg-lime-500',
-  very_low: 'bg-yellow-500',
-  high: 'bg-orange-500',
-  too_low: 'bg-neutral-400',
-  dangerous: 'bg-red-600',
-  unknown: 'bg-neutral-400',
-};
 
 export default function SiteHeader() {
   const pathname = usePathname();
@@ -54,7 +44,7 @@ export default function SiteHeader() {
   const activeRiver = rivers?.find(r => r.slug === activeRiverSlug);
 
   return (
-    <header className="sticky top-0 z-50 border-b-2 border-neutral-900" style={{ backgroundColor: '#163F4A' }}>
+    <header className="sticky top-0 z-50 border-b-2 border-neutral-900 bg-primary-800">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center h-14">
           {/* Logo */}
@@ -66,7 +56,7 @@ export default function SiteHeader() {
               height={32}
               className="w-8 h-8 rounded-md"
             />
-            <span className="text-xl font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
+            <span className="text-xl font-semibold text-accent-500" style={{ fontFamily: 'var(--font-display)' }}>
               Eddy
             </span>
           </Link>
@@ -104,7 +94,7 @@ export default function SiteHeader() {
                               <span className="font-semibold text-neutral-900">{river.name}</span>
                               {river.currentCondition && (
                                 <span
-                                  className={`w-2 h-2 rounded-full ${conditionColors[river.currentCondition.code]}`}
+                                  className={`w-2 h-2 rounded-full ${CONDITION_BG_CLASSES[river.currentCondition.code]}`}
                                   title={river.currentCondition.label}
                                 />
                               )}
@@ -167,10 +157,10 @@ export default function SiteHeader() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
+        <div className="md:hidden border-t border-white/10 bg-primary-900">
           <div className="px-4 py-3">
             {/* Plan Your Float section first */}
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#72B5C4' }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-primary-300">
               Plan Your Float
             </p>
             <div className="space-y-0.5 mb-3">
@@ -189,11 +179,11 @@ export default function SiteHeader() {
                       <span className="font-medium">{river.name}</span>
                       {river.currentCondition && (
                         <span
-                          className={`w-2 h-2 rounded-full ${conditionColors[river.currentCondition.code]}`}
+                          className={`w-2 h-2 rounded-full ${CONDITION_BG_CLASSES[river.currentCondition.code]}`}
                         />
                       )}
                     </div>
-                    <span className="text-xs" style={{ color: '#72B5C4' }}>
+                    <span className="text-xs text-primary-300">
                       {river.lengthMiles.toFixed(1)} mi &middot; {river.difficultyRating}
                     </span>
                   </div>

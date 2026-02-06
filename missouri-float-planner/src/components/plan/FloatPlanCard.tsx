@@ -7,66 +7,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Download, X, GripHorizontal, Flag } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
+import { getConditionConfig, MOBILE_SHEET_COLLAPSED_HEIGHT } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
-
-// Condition display config
-const CONDITION_CONFIG: Record<ConditionCode, {
-  label: string;
-  emoji: string;
-  bgClass: string;
-  textClass: string;
-  borderClass: string;
-}> = {
-  optimal: {
-    label: 'Optimal',
-    emoji: '✓',
-    bgClass: 'bg-emerald-500',
-    textClass: 'text-white',
-    borderClass: 'border-emerald-400',
-  },
-  low: {
-    label: 'Okay',
-    emoji: '✓',
-    bgClass: 'bg-lime-500',
-    textClass: 'text-white',
-    borderClass: 'border-lime-400',
-  },
-  very_low: {
-    label: 'Low',
-    emoji: '↓',
-    bgClass: 'bg-yellow-500',
-    textClass: 'text-neutral-900',
-    borderClass: 'border-yellow-400',
-  },
-  too_low: {
-    label: 'Too Low',
-    emoji: '⚠',
-    bgClass: 'bg-neutral-400',
-    textClass: 'text-white',
-    borderClass: 'border-neutral-300',
-  },
-  high: {
-    label: 'High',
-    emoji: '⚡',
-    bgClass: 'bg-orange-500',
-    textClass: 'text-white',
-    borderClass: 'border-orange-400',
-  },
-  dangerous: {
-    label: 'Flood',
-    emoji: '🚫',
-    bgClass: 'bg-red-600',
-    textClass: 'text-white',
-    borderClass: 'border-red-400',
-  },
-  unknown: {
-    label: 'Unknown',
-    emoji: '?',
-    bgClass: 'bg-neutral-500',
-    textClass: 'text-white',
-    borderClass: 'border-neutral-400',
-  },
-};
+import VesselToggle from './VesselToggle';
+import ConditionCard from './ConditionCard';
+import DirectionsLinks from './DirectionsLinks';
 
 interface FloatPlanCardProps {
   plan: FloatPlan | null;
@@ -100,7 +45,7 @@ function ShareableCapture({
   captureRef: React.RefObject<HTMLDivElement>;
 }) {
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
-  const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+  const conditionConfig = getConditionConfig(conditionCode);
 
   return (
     <div
@@ -125,7 +70,7 @@ function ShareableCapture({
         </div>
         <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass}`}>
           <span className={`text-sm font-bold ${conditionConfig.textClass}`}>
-            {conditionConfig.emoji} {conditionConfig.label}
+            {conditionConfig.icon} {conditionConfig.shortLabel}
           </span>
         </div>
       </div>
@@ -160,8 +105,8 @@ function ShareableCapture({
       {/* Conditions */}
       <div className={`rounded-xl overflow-hidden ${conditionConfig.bgClass}`}>
         <div className="px-4 py-3 text-center">
-          <span className="text-2xl mr-2">{conditionConfig.emoji}</span>
-          <span className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</span>
+          <span className="text-2xl mr-2">{conditionConfig.icon}</span>
+          <span className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.shortLabel}</span>
         </div>
         <div className="bg-white/95 px-4 py-3 flex justify-around">
           <div className="text-center">
@@ -427,7 +372,7 @@ function JourneyCenter({
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
-  const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+  const conditionConfig = getConditionConfig(conditionCode);
 
   // Check if upstream route
   const isUpstream = plan.putIn.riverMile > plan.takeOut.riverMile;
@@ -510,10 +455,10 @@ function JourneyCenter({
         {/* Main Status */}
         <div className="px-3 py-2 flex items-center justify-center gap-2">
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 flex-shrink-0">
-            <span className="text-xl">{conditionConfig.emoji}</span>
+            <span className="text-xl">{conditionConfig.icon}</span>
           </div>
           <div>
-            <p className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+            <p className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.shortLabel}</p>
             {plan.condition.gaugeName && (
               <p className={`text-[10px] ${conditionConfig.textClass} opacity-75`}>
                 {plan.condition.gaugeName}
@@ -655,7 +600,7 @@ function MobileBottomSheet({
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
   // Heights for the sheet states
-  const COLLAPSED_HEIGHT = 120;
+  const COLLAPSED_HEIGHT = MOBILE_SHEET_COLLAPSED_HEIGHT;
   const EXPANDED_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600;
 
   // Reset height when expanded state changes
@@ -699,7 +644,7 @@ function MobileBottomSheet({
   }, [sheetHeight, EXPANDED_HEIGHT]);
 
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
-  const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+  const conditionConfig = getConditionConfig(conditionCode);
   const isUpstream = plan.putIn.riverMile > plan.takeOut.riverMile;
 
   return (
@@ -731,7 +676,7 @@ function MobileBottomSheet({
           <div className="flex items-center gap-2 flex-shrink-0 ml-3">
             <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
             <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-              {conditionConfig.label}
+              {conditionConfig.shortLabel}
             </span>
             <button
               onClick={(e) => {
@@ -885,9 +830,9 @@ function MobileBottomSheet({
             {/* Main Status */}
             <div className="px-4 py-4 text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 mb-2">
-                <span className="text-2xl">{conditionConfig.emoji}</span>
+                <span className="text-2xl">{conditionConfig.icon}</span>
               </div>
-              <p className={`text-xl font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+              <p className={`text-xl font-bold ${conditionConfig.textClass}`}>{conditionConfig.shortLabel}</p>
               {plan.condition.gaugeName && (
                 <p className={`text-xs ${conditionConfig.textClass} opacity-75 mt-1`}>
                   {plan.condition.gaugeName}

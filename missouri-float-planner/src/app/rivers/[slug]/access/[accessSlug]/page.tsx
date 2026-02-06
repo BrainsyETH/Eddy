@@ -87,8 +87,8 @@ export default function AccessPointDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      {/* Sticky Header Bar */}
-      <div className="sticky top-0 z-50 bg-white border-b border-neutral-200">
+      {/* Sticky Header Bar - positioned below global site header (h-14 = 3.5rem) */}
+      <div className="sticky top-14 z-40 bg-white border-b border-neutral-200">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link
             href={`/rivers/${riverSlug}`}
