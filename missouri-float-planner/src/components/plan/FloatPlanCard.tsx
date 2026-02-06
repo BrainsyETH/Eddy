@@ -9,9 +9,6 @@ import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Share2, Down
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getConditionConfig, MOBILE_SHEET_COLLAPSED_HEIGHT } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
-import VesselToggle from './VesselToggle';
-import ConditionCard from './ConditionCard';
-import DirectionsLinks from './DirectionsLinks';
 
 interface FloatPlanCardProps {
   plan: FloatPlan | null;
@@ -606,7 +603,7 @@ function MobileBottomSheet({
   // Reset height when expanded state changes
   useEffect(() => {
     setSheetHeight(isExpanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
-  }, [isExpanded, EXPANDED_HEIGHT]);
+  }, [isExpanded, EXPANDED_HEIGHT, COLLAPSED_HEIGHT]);
 
   // Handle touch start for drag
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -615,7 +612,7 @@ function MobileBottomSheet({
       startY: touch.clientY,
       startHeight: sheetHeight || (isExpanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT),
     };
-  }, [sheetHeight, isExpanded, EXPANDED_HEIGHT]);
+  }, [sheetHeight, isExpanded, EXPANDED_HEIGHT, COLLAPSED_HEIGHT]);
 
   // Handle touch move for drag
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -627,7 +624,7 @@ function MobileBottomSheet({
       Math.min(EXPANDED_HEIGHT, dragRef.current.startHeight + deltaY)
     );
     setSheetHeight(newHeight);
-  }, [EXPANDED_HEIGHT]);
+  }, [EXPANDED_HEIGHT, COLLAPSED_HEIGHT]);
 
   // Handle touch end - snap to collapsed or expanded
   const handleTouchEnd = useCallback(() => {
@@ -641,7 +638,7 @@ function MobileBottomSheet({
       setSheetHeight(COLLAPSED_HEIGHT);
     }
     dragRef.current = null;
-  }, [sheetHeight, EXPANDED_HEIGHT]);
+  }, [sheetHeight, EXPANDED_HEIGHT, COLLAPSED_HEIGHT]);
 
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
   const conditionConfig = getConditionConfig(conditionCode);

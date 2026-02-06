@@ -10,7 +10,6 @@ import Image from 'next/image';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { useRivers } from '@/hooks/useRivers';
 import { CONDITION_BG_CLASSES } from '@/constants';
-import type { ConditionCode } from '@/types/api';
 
 export default function SiteHeader() {
   const pathname = usePathname();
