@@ -488,7 +488,7 @@ function AccessPointDetailCard({
 
           {/* Facilities section (with NPS campground nested inside) */}
           {(point.facilities || nps) && (
-            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={!!nps}>
+            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={false}>
               <div className="space-y-3">
                 {point.facilities && (
                   <p>{point.facilities}</p>
