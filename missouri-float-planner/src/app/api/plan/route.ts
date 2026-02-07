@@ -11,7 +11,7 @@ import {
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
-import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS } from '@/lib/calculations/conditions';
+import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 
 // Helper to compute condition from gauge height and DB thresholds (snake_case)
