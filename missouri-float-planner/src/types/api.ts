@@ -156,6 +156,41 @@ export interface AccessPointDetail extends AccessPoint {
     name: string;
     slug: string;
   };
+
+  // NPS campground data (available when access point is linked to an NPS campground)
+  npsCampground: NPSCampgroundInfo | null;
+}
+
+/** NPS campground data enrichment for access point detail */
+export interface NPSCampgroundInfo {
+  npsId: string;
+  name: string;
+  npsUrl: string | null;
+  reservationInfo: string | null;
+  reservationUrl: string | null;
+  fees: { cost: string; description: string; title: string }[];
+  totalSites: number;
+  sitesReservable: number;
+  sitesFirstCome: number;
+  sitesGroup: number;
+  sitesTentOnly: number;
+  sitesElectrical: number;
+  sitesRvOnly: number;
+  sitesWalkBoatTo: number;
+  amenities: {
+    toilets: string[];
+    showers: string[];
+    cellPhoneReception: string;
+    potableWater: string[];
+    campStore: string;
+    firewoodForSale: string;
+    dumpStation: string;
+    trashCollection: string;
+  };
+  operatingHours: { description: string; name: string }[];
+  classification: string | null;
+  weatherOverview: string | null;
+  images: { url: string; title: string; altText: string; caption: string; credit: string }[];
 }
 
 export interface VesselType {

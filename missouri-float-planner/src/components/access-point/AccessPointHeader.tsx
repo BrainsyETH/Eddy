@@ -67,15 +67,21 @@ export default function AccessPointHeader({ accessPoint, gaugeStatus }: AccessPo
           />
         </svg>
 
-        {/* Hero Image (if available) */}
-        {accessPoint.imageUrls && accessPoint.imageUrls.length > 0 && (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${accessPoint.imageUrls[0]})` }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-          </div>
-        )}
+        {/* Hero Image (prefer existing images, fall back to NPS images) */}
+        {(() => {
+          const heroImageUrl =
+            accessPoint.imageUrls?.[0] ||
+            accessPoint.npsCampground?.images?.[0]?.url ||
+            null;
+          return heroImageUrl ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${heroImageUrl})` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            </div>
+          ) : null;
+        })()}
 
         <div className="relative z-10">
           <h1 className="text-xl font-bold text-white drop-shadow-md">

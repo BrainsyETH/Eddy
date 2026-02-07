@@ -8,6 +8,7 @@ import type {
   AccessPointDetailResponse,
   NearbyAccessPoint,
   AccessPointGaugeStatus,
+  NPSCampgroundInfo,
   RoadSurface,
   ManagingAgency,
   ParkingCapacity,
@@ -143,6 +144,12 @@ export async function GET(
     // Get gauge status for this river (using access point's river mile for segment-aware selection)
     const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
 
+    // Get NPS campground data if linked
+    let npsCampground: NPSCampgroundInfo | null = null;
+    if (ap.nps_campground_id) {
+      npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id);
+    }
+
     // Format the access point detail
     const accessPoint: AccessPointDetail = {
       id: ap.id,
@@ -179,6 +186,7 @@ export async function GET(
         name: river.name,
         slug: river.slug,
       },
+      npsCampground,
     };
 
     const response: AccessPointDetailResponse = {
@@ -355,6 +363,79 @@ async function getGaugeStatus(
     };
   } catch (error) {
     console.error('Error fetching gauge status:', error);
+    return null;
+  }
+}
+
+// Helper to get NPS campground info for an access point
+async function getNPSCampgroundInfo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  npsCampgroundId: string
+): Promise<NPSCampgroundInfo | null> {
+  try {
+    const { data: cg, error } = await supabase
+      .from('nps_campgrounds')
+      .select('*')
+      .eq('id', npsCampgroundId)
+      .single();
+
+    if (error || !cg) return null;
+
+    const amenitiesData = typeof cg.amenities === 'string'
+      ? JSON.parse(cg.amenities)
+      : cg.amenities || {};
+
+    const feesData = typeof cg.fees === 'string'
+      ? JSON.parse(cg.fees)
+      : cg.fees || [];
+
+    const imagesData = typeof cg.images === 'string'
+      ? JSON.parse(cg.images)
+      : cg.images || [];
+
+    const operatingHoursData = typeof cg.operating_hours === 'string'
+      ? JSON.parse(cg.operating_hours)
+      : cg.operating_hours || [];
+
+    return {
+      npsId: cg.nps_id,
+      name: cg.name,
+      npsUrl: cg.nps_url,
+      reservationInfo: cg.reservation_info,
+      reservationUrl: cg.reservation_url,
+      fees: feesData.map((f: { cost?: string; description?: string; title?: string }) => ({
+        cost: f.cost || '0.00',
+        description: f.description || '',
+        title: f.title || 'Camping Fee',
+      })),
+      totalSites: cg.total_sites || 0,
+      sitesReservable: cg.sites_reservable || 0,
+      sitesFirstCome: cg.sites_first_come || 0,
+      sitesGroup: cg.sites_group || 0,
+      sitesTentOnly: cg.sites_tent_only || 0,
+      sitesElectrical: cg.sites_electrical || 0,
+      sitesRvOnly: cg.sites_rv_only || 0,
+      sitesWalkBoatTo: cg.sites_walk_boat_to || 0,
+      amenities: {
+        toilets: amenitiesData.toilets || [],
+        showers: amenitiesData.showers || [],
+        cellPhoneReception: amenitiesData.cellPhoneReception || 'Unknown',
+        potableWater: amenitiesData.potableWater || [],
+        campStore: amenitiesData.campStore || 'No',
+        firewoodForSale: amenitiesData.firewoodForSale || 'No',
+        dumpStation: amenitiesData.dumpStation || 'No',
+        trashCollection: amenitiesData.trashRecyclingCollection || 'Unknown',
+      },
+      operatingHours: operatingHoursData.map((oh: { description?: string; name?: string }) => ({
+        description: oh.description || '',
+        name: oh.name || '',
+      })),
+      classification: cg.classification,
+      weatherOverview: cg.weather_overview,
+      images: imagesData,
+    };
+  } catch (error) {
+    console.error('Error fetching NPS campground info:', error);
     return null;
   }
 }
