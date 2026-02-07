@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import {
@@ -340,7 +340,12 @@ function AccessPointDetailCard({
   onReportIssue?: () => void;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const hasImages = point.imageUrls && point.imageUrls.length > 0;
+  const allImages = [
+    ...(point.imageUrls || []),
+    ...(point.npsCampground?.images?.map(img => img.url) || []),
+  ];
+  const hasImages = allImages.length > 0;
+  const nps = point.npsCampground;
 
   const labelColor = isPutIn ? 'bg-support-500' : 'bg-accent-500';
   const labelText = isPutIn ? 'PUT-IN' : 'TAKE-OUT';
@@ -379,28 +384,28 @@ function AccessPointDetailCard({
       {hasImages && (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
           <Image
-            src={point.imageUrls[currentImageIndex]}
+            src={allImages[currentImageIndex]}
             alt={point.name}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 33vw"
           />
-          {point.imageUrls.length > 1 && (
+          {allImages.length > 1 && (
             <>
               <button
-                onClick={() => setCurrentImageIndex(i => (i - 1 + point.imageUrls.length) % point.imageUrls.length)}
+                onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
                 className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
-                onClick={() => setCurrentImageIndex(i => (i + 1) % point.imageUrls.length)}
+                onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
               >
                 <ChevronRight size={16} />
               </button>
               <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 text-white text-xs rounded">
-                {currentImageIndex + 1} / {point.imageUrls.length}
+                {currentImageIndex + 1} / {allImages.length}
               </div>
             </>
           )}
@@ -477,6 +482,89 @@ function AccessPointDetailCard({
                 )}
                 {point.parkingInfo && (
                   <p className="text-sm">{point.parkingInfo}</p>
+                )}
+              </div>
+            </CollapsibleDetailSection>
+          )}
+
+          {/* NPS Campground section */}
+          {nps && (
+            <CollapsibleDetailSection title="NPS Campground Info" defaultOpen={true}>
+              <div className="space-y-3">
+                {nps.fees.length > 0 && (
+                  <div className="space-y-1">
+                    {nps.fees.map((fee, i) => (
+                      <div key={i} className="flex justify-between items-start gap-3">
+                        <span className="text-sm text-neutral-600">{fee.title}</span>
+                        <span className="text-sm text-neutral-900 font-semibold whitespace-nowrap">
+                          ${parseFloat(fee.cost).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {nps.reservationUrl && (
+                  <a
+                    href={nps.reservationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                  >
+                    <span className="text-sm text-primary-700 font-medium">Reserve on Recreation.gov</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600 flex-shrink-0">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </a>
+                )}
+                {nps.totalSites > 0 && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+                    <div className="flex justify-between"><span className="text-neutral-500">Total sites</span><span className="font-medium">{nps.totalSites}</span></div>
+                    {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
+                    {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
+                    {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {nps.amenities.toilets.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                      <Tent className="w-3 h-3" />
+                      {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
+                       nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
+                    </span>
+                  )}
+                  {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                      <Droplets className="w-3 h-3" />Water
+                    </span>
+                  )}
+                  {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                      <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
+                    </span>
+                  )}
+                  {nps.amenities.firewoodForSale === 'Yes' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                      <Flame className="w-3 h-3" />Firewood
+                    </span>
+                  )}
+                  {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                      <Trash2 className="w-3 h-3" />Trash
+                    </span>
+                  )}
+                </div>
+                {nps.npsUrl && (
+                  <a
+                    href={nps.npsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    View on NPS.gov
+                  </a>
                 )}
               </div>
             </CollapsibleDetailSection>
