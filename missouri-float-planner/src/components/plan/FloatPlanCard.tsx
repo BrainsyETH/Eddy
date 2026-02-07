@@ -28,6 +28,7 @@ const DETAIL_ICONS = {
   road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
   parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
   facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
+  camping: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/camping-icon.png',
 };
 
 // Eddy the Otter condition images from Vercel blob storage
@@ -412,13 +413,13 @@ function AccessPointDetailCard({
         </div>
       )}
 
-      {/* Expandable Toggle */}
-      {showExpandToggle && (
+      {/* Description as the expandable toggle (replaces Hide/Show details) */}
+      {point.description && showExpandToggle && (
         <button
           onClick={onToggleExpand}
           className="w-full px-3 py-1.5 flex items-center justify-between text-xs hover:bg-neutral-50 border-t border-neutral-100"
         >
-          <span className="text-neutral-500">{isExpanded ? 'Hide details' : 'View details'}</span>
+          <span className="text-neutral-500 font-medium">Description</span>
           {isExpanded ? <ChevronUp size={14} className="text-neutral-400" /> : <ChevronDown size={14} className="text-neutral-400" />}
         </button>
       )}
@@ -426,23 +427,21 @@ function AccessPointDetailCard({
       {/* Details Content */}
       {(isExpanded || !showExpandToggle) && (
         <div className="p-3 border-t border-neutral-100">
-          {/* Badges */}
-          <div className="flex gap-2 flex-wrap mb-3">
-            {point.isPublic ? (
-              <span className="px-2 py-0.5 bg-support-100 text-support-700 text-xs font-medium rounded">Public</span>
-            ) : (
-              <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-medium rounded">Private</span>
-            )}
-            {point.feeRequired && (
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Fee Required</span>
-            )}
-          </div>
+          {/* Badges - only show non-public and fee */}
+          {(!point.isPublic || point.feeRequired) && (
+            <div className="flex gap-2 flex-wrap mb-3">
+              {!point.isPublic && (
+                <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-medium rounded">Private</span>
+              )}
+              {point.feeRequired && (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Fee Required</span>
+              )}
+            </div>
+          )}
 
-          {/* Description section - expanded by default if exists */}
+          {/* Description text */}
           {point.description && (
-            <CollapsibleDetailSection title="Description" defaultOpen={false}>
-              <p>{point.description}</p>
-            </CollapsibleDetailSection>
+            <p className="text-sm text-neutral-600 mb-3">{point.description}</p>
           )}
 
           {/* Road Access section */}
@@ -487,93 +486,97 @@ function AccessPointDetailCard({
             </CollapsibleDetailSection>
           )}
 
-          {/* NPS Campground section */}
-          {nps && (
-            <CollapsibleDetailSection title="NPS Campground Info" defaultOpen={true}>
+          {/* Facilities section (with NPS campground nested inside) */}
+          {(point.facilities || nps) && (
+            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={!!nps}>
               <div className="space-y-3">
-                {nps.fees.length > 0 && (
-                  <div className="space-y-1">
-                    {nps.fees.map((fee, i) => (
-                      <div key={i} className="flex justify-between items-start gap-3">
-                        <span className="text-sm text-neutral-600">{fee.title}</span>
-                        <span className="text-sm text-neutral-900 font-semibold whitespace-nowrap">
-                          ${parseFloat(fee.cost).toFixed(2)}
-                        </span>
+                {point.facilities && (
+                  <p>{point.facilities}</p>
+                )}
+
+                {/* NPS Campground Info nested inside Facilities */}
+                {nps && (
+                  <CollapsibleDetailSection title="NPS Campground Info" iconUrl={DETAIL_ICONS.camping} defaultOpen={true}>
+                    <div className="space-y-3">
+                      {nps.fees.length > 0 && (
+                        <div className="space-y-1">
+                          {nps.fees.map((fee, i) => (
+                            <div key={i} className="flex justify-between items-start gap-3">
+                              <span className="text-sm text-neutral-600">{fee.title}</span>
+                              <span className="text-sm text-neutral-900 font-semibold whitespace-nowrap">
+                                ${parseFloat(fee.cost).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {nps.reservationUrl && (
+                        <a
+                          href={nps.reservationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                        >
+                          <span className="text-sm text-primary-700 font-medium">Reserve on Recreation.gov</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600 flex-shrink-0">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                          </svg>
+                        </a>
+                      )}
+                      {nps.totalSites > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+                          <div className="flex justify-between"><span className="text-neutral-500">Total sites</span><span className="font-medium">{nps.totalSites}</span></div>
+                          {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
+                          {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
+                          {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {nps.amenities.toilets.length > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Tent className="w-3 h-3" />
+                            {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
+                             nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
+                          </span>
+                        )}
+                        {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Droplets className="w-3 h-3" />Water
+                          </span>
+                        )}
+                        {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
+                          </span>
+                        )}
+                        {nps.amenities.firewoodForSale === 'Yes' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Flame className="w-3 h-3" />Firewood
+                          </span>
+                        )}
+                        {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Trash2 className="w-3 h-3" />Trash
+                          </span>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-                {nps.reservationUrl && (
-                  <a
-                    href={nps.reservationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                  >
-                    <span className="text-sm text-primary-700 font-medium">Reserve on Recreation.gov</span>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600 flex-shrink-0">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                    </svg>
-                  </a>
-                )}
-                {nps.totalSites > 0 && (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
-                    <div className="flex justify-between"><span className="text-neutral-500">Total sites</span><span className="font-medium">{nps.totalSites}</span></div>
-                    {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
-                    {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
-                    {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1.5">
-                  {nps.amenities.toilets.length > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                      <Tent className="w-3 h-3" />
-                      {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
-                       nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
-                    </span>
-                  )}
-                  {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                      <Droplets className="w-3 h-3" />Water
-                    </span>
-                  )}
-                  {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                      <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
-                    </span>
-                  )}
-                  {nps.amenities.firewoodForSale === 'Yes' && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                      <Flame className="w-3 h-3" />Firewood
-                    </span>
-                  )}
-                  {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                      <Trash2 className="w-3 h-3" />Trash
-                    </span>
-                  )}
-                </div>
-                {nps.npsUrl && (
-                  <a
-                    href={nps.npsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                    </svg>
-                    View on NPS.gov
-                  </a>
+                      {nps.npsUrl && (
+                        <a
+                          href={nps.npsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                          </svg>
+                          View on NPS.gov
+                        </a>
+                      )}
+                    </div>
+                  </CollapsibleDetailSection>
                 )}
               </div>
-            </CollapsibleDetailSection>
-          )}
-
-          {/* Facilities section */}
-          {point.facilities && (
-            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={false}>
-              <p>{point.facilities}</p>
             </CollapsibleDetailSection>
           )}
 
