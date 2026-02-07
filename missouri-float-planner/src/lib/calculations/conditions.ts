@@ -55,3 +55,48 @@ export function getConditionColorClass(code: ConditionCode): string {
 export function isFloatable(code: ConditionCode): boolean {
   return code === 'optimal' || code === 'high' || code === 'low' || code === 'very_low';
 }
+
+/**
+ * Maps threshold-based condition codes to flow ratings for display.
+ * Single source of truth — used by both /api/plan and /api/conditions endpoints.
+ *
+ * Note: 'low' condition code means "above level_low threshold" = floatable = 'good' rating
+ */
+export function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
+  switch (code) {
+    case 'optimal': return 'good';
+    case 'low': return 'good';
+    case 'very_low': return 'low';
+    case 'too_low': return 'poor';
+    case 'high': return 'high';
+    case 'dangerous': return 'flood';
+    default: return 'unknown';
+  }
+}
+
+export type FlowRating = 'flood' | 'high' | 'good' | 'low' | 'poor' | 'unknown';
+
+/** Flow descriptions keyed by rating */
+export const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
+  flood: 'Dangerous flooding - do not float',
+  high: 'Fast current - experienced paddlers only',
+  good: 'Good conditions - minimal dragging expected',
+  low: 'Expect some dragging in the shallow areas',
+  poor: 'Frequent dragging and portaging may occur',
+  unknown: 'Current conditions unavailable',
+};
+
+/**
+ * Gets description for threshold-based condition code.
+ */
+export function getThresholdBasedDescription(code: ConditionCode): string {
+  switch (code) {
+    case 'optimal': return 'Ideal conditions for floating';
+    case 'low': return 'Good conditions - minimal dragging expected';
+    case 'very_low': return 'Expect some dragging in shallow areas';
+    case 'too_low': return 'Frequent dragging and portaging likely';
+    case 'high': return 'Fast current - experienced paddlers only';
+    case 'dangerous': return 'Dangerous conditions - do not float';
+    default: return 'Conditions unknown';
+  }
+}

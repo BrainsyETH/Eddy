@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { CreateFeedbackRequest, FeedbackResponse, Feedback, FeedbackListResponse } from '@/types/api';
 
 // Force dynamic rendering
@@ -11,6 +12,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 10 feedback submissions per IP per 15 minutes
+    const rateLimitResult = rateLimit(`feedback:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const body = await request.json() as CreateFeedbackRequest;
 
     const { feedbackType, userName, userEmail, message, imageUrl, context } = body;
@@ -26,6 +31,28 @@ export async function POST(request: NextRequest) {
     if (!message?.trim()) {
       return NextResponse.json(
         { success: false, error: 'Message is required' } as FeedbackResponse,
+        { status: 400 }
+      );
+    }
+
+    // Length validation to prevent abuse
+    if (message.length > 5000) {
+      return NextResponse.json(
+        { success: false, error: 'Message is too long (max 5000 characters)' } as FeedbackResponse,
+        { status: 400 }
+      );
+    }
+
+    if (userName && userName.length > 200) {
+      return NextResponse.json(
+        { success: false, error: 'Name is too long (max 200 characters)' } as FeedbackResponse,
+        { status: 400 }
+      );
+    }
+
+    if (userEmail.length > 320) {
+      return NextResponse.json(
+        { success: false, error: 'Email is too long' } as FeedbackResponse,
         { status: 400 }
       );
     }

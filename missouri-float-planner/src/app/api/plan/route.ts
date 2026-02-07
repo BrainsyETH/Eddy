@@ -10,32 +10,11 @@ import {
   fetchDailyStatistics,
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
-import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode, FlowRating } from '@/types/api';
+import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS } from '@/lib/calculations/conditions';
+import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 
-const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
-  flood: 'Dangerous flooding - do not float',
-  high: 'Fast current - experienced paddlers only',
-  good: 'Good conditions - minimal dragging expected',
-  low: 'Expect some dragging in the shallow areas',
-  poor: 'Frequent dragging and portaging may occur',
-  unknown: 'Current conditions unavailable',
-};
-
-// Map threshold-based condition codes to flow ratings
-// Note: 'low' condition code means "above level_low threshold" = floatable = 'good' rating
-function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
-  switch (code) {
-    case 'optimal': return 'good';
-    case 'low': return 'good';      // 'low' condition = floatable = good
-    case 'very_low': return 'low';  // 'very_low' = some dragging = low
-    case 'too_low': return 'poor';
-    case 'high': return 'high';
-    case 'dangerous': return 'flood';
-    default: return 'unknown';
-  }
-}
-
-// Helper to compute condition from gauge height and thresholds
+// Helper to compute condition from gauge height and DB thresholds (snake_case)
 function computeConditionFromReading(
   gaugeHeightFt: number | null,
   thresholds: {
@@ -47,31 +26,16 @@ function computeConditionFromReading(
     level_dangerous: number | null;
   }
 ): { label: string; code: ConditionCode } {
-  if (gaugeHeightFt === null) {
-    return { label: 'Unknown Conditions', code: 'unknown' };
-  }
-
-  if (thresholds.level_dangerous !== null && gaugeHeightFt >= thresholds.level_dangerous) {
-    return { label: 'Dangerous - Do Not Float', code: 'dangerous' };
-  }
-  if (thresholds.level_high !== null && gaugeHeightFt >= thresholds.level_high) {
-    return { label: 'High Water - Experienced Only', code: 'high' };
-  }
-  if (
-    thresholds.level_optimal_min !== null &&
-    thresholds.level_optimal_max !== null &&
-    gaugeHeightFt >= thresholds.level_optimal_min &&
-    gaugeHeightFt <= thresholds.level_optimal_max
-  ) {
-    return { label: 'Optimal Conditions', code: 'optimal' };
-  }
-  if (thresholds.level_low !== null && gaugeHeightFt >= thresholds.level_low) {
-    return { label: 'Low - Floatable', code: 'low' };
-  }
-  if (thresholds.level_too_low !== null && gaugeHeightFt >= thresholds.level_too_low) {
-    return { label: 'Very Low - Scraping Likely', code: 'very_low' };
-  }
-  return { label: 'Too Low - Not Recommended', code: 'too_low' };
+  const t: ConditionThresholds = {
+    levelTooLow: thresholds.level_too_low,
+    levelLow: thresholds.level_low,
+    levelOptimalMin: thresholds.level_optimal_min,
+    levelOptimalMax: thresholds.level_optimal_max,
+    levelHigh: thresholds.level_high,
+    levelDangerous: thresholds.level_dangerous,
+  };
+  const result = computeCondition(gaugeHeightFt, t);
+  return { label: result.label, code: result.code };
 }
 
 // Force dynamic rendering (uses cookies and searchParams)
@@ -182,19 +146,19 @@ export async function GET(request: NextRequest) {
     }
 
     const segmentData = segment[0];
-    const distanceMiles = parseFloat(segmentData.distance_miles);
-    const putInMile = parseFloat(segmentData.start_river_mile);
+    const distanceMiles = segmentData.distance_miles != null ? parseFloat(segmentData.distance_miles) : NaN;
+    const putInMile = segmentData.start_river_mile != null ? parseFloat(segmentData.start_river_mile) : NaN;
+
+    if (isNaN(distanceMiles) || distanceMiles <= 0) {
+      return NextResponse.json(
+        { error: 'Could not calculate distance between access points' },
+        { status: 500 }
+      );
+    }
 
     // Get put-in coordinates for segment-aware gauge selection (fallback)
     // Use location_orig first — location_snap is snapped to simplified seed geometry
     const putInCoords = putIn.location_orig?.coordinates || putIn.location_snap?.coordinates;
-
-    // Debug logging for gauge selection
-    console.log('[Plan API] Segment-aware gauge selection:', {
-      putInName: putIn.name,
-      putInMile,
-      putInCoords,
-    });
 
     // Get river condition using position-based gauge selection
     // Logic: Use gauge at or upstream of put-in mile
@@ -205,14 +169,6 @@ export async function GET(request: NextRequest) {
       p_put_in_point: putInCoords
         ? `SRID=4326;POINT(${putInCoords[0]} ${putInCoords[1]})`
         : null,
-    });
-
-    // Debug logging for condition result
-    console.log('[Plan API] Condition result:', {
-      error: conditionError,
-      gaugeName: conditionData?.[0]?.gauge_name,
-      gaugeUsgsId: conditionData?.[0]?.gauge_usgs_id,
-      gaugeRiverMile: conditionData?.[0]?.gauge_river_mile,
     });
 
     let condition = conditionData?.[0];

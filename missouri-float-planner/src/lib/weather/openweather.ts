@@ -34,14 +34,16 @@ export async function fetchWeather(
 ): Promise<WeatherData> {
   const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
   
-  const response = await fetch(url);
-  
+  const response = await fetch(url, {
+    next: { revalidate: 600 }, // Cache current weather for 10 minutes
+  });
+
   if (!response.ok) {
     throw new Error(`Weather API error: ${response.statusText}`);
   }
-  
+
   const data = await response.json();
-  
+
   return {
     temp: Math.round(data.main.temp),
     condition: data.weather[0].main,
@@ -91,7 +93,9 @@ export async function fetchForecast(
 ): Promise<ForecastData> {
   const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    next: { revalidate: 3600 }, // Cache forecast for 1 hour
+  });
 
   if (!response.ok) {
     throw new Error(`Forecast API error: ${response.statusText}`);

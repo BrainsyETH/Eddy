@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth } from '@/lib/admin-auth';
+import { sanitizeRichText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +15,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const { id } = await params;
     const supabase = createAdminClient();
 
@@ -68,6 +73,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const { id } = await params;
     const body = await request.json();
     const {
@@ -114,7 +122,7 @@ export async function PUT(
     }
 
     if (content !== undefined) {
-      updateData.content = content === '' ? null : content;
+      updateData.content = content === '' ? null : sanitizeRichText(content);
     }
 
     if (category !== undefined) {
@@ -234,6 +242,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const { id } = await params;
     const supabase = createAdminClient();
 
