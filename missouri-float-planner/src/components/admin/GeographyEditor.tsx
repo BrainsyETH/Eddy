@@ -9,6 +9,7 @@ import Image from 'next/image';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
+import { adminFetch } from '@/hooks/useAdminAuth';
 
 type EditMode = 'access-points' | 'rivers' | 'river-visibility';
 
@@ -115,8 +116,8 @@ export default function GeographyEditor() {
       setError(null);
 
       const [riversRes, accessPointsRes] = await Promise.all([
-        fetch('/api/admin/rivers'),
-        fetch('/api/admin/access-points'),
+        adminFetch('/api/admin/rivers'),
+        adminFetch('/api/admin/access-points'),
       ]);
 
       if (!riversRes.ok || !accessPointsRes.ok) {
@@ -210,7 +211,7 @@ export default function GeographyEditor() {
     ownership: string | null;
     description: string | null;
   }) => {
-    const response = await fetch('/api/admin/access-points', {
+    const response = await adminFetch('/api/admin/access-points', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -228,7 +229,7 @@ export default function GeographyEditor() {
 
   const handleApprovalChange = useCallback(async (id: string, approved: boolean) => {
     const method = approved ? 'POST' : 'DELETE';
-    const response = await fetch(`/api/admin/access-points/${id}/approve`, { method });
+    const response = await adminFetch(`/api/admin/access-points/${id}/approve`, { method });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -249,7 +250,7 @@ export default function GeographyEditor() {
 
     setSavingDetails(true);
     try {
-      const response = await fetch(`/api/admin/access-points/${selectedAccessPoint.id}`, {
+      const response = await adminFetch(`/api/admin/access-points/${selectedAccessPoint.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -301,7 +302,7 @@ export default function GeographyEditor() {
 
     setSavingDetails(true);
     try {
-      const response = await fetch(`/api/admin/access-points/${selectedAccessPoint.id}`, {
+      const response = await adminFetch(`/api/admin/access-points/${selectedAccessPoint.id}`, {
         method: 'DELETE',
       });
 
@@ -329,7 +330,7 @@ export default function GeographyEditor() {
 
     setParsingGoogleMaps(true);
     try {
-      const response = await fetch('/api/admin/parse-google-maps', {
+      const response = await adminFetch('/api/admin/parse-google-maps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: googleMapsInput.trim() }),
@@ -386,7 +387,7 @@ export default function GeographyEditor() {
         formData.append('files', files[i]);
       }
 
-      const response = await fetch('/api/admin/upload', {
+      const response = await adminFetch('/api/admin/upload', {
         method: 'POST',
         body: formData,
       });
@@ -751,7 +752,7 @@ export default function GeographyEditor() {
                 <button
                   onClick={async () => {
                     try {
-                      const response = await fetch(`/api/admin/rivers/${river.id}/visibility`, {
+                      const response = await adminFetch(`/api/admin/rivers/${river.id}/visibility`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ active: !river.active }),

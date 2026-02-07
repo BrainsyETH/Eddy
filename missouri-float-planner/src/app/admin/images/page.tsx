@@ -6,6 +6,7 @@
 import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
@@ -55,7 +56,7 @@ export default function AdminImagesPage() {
   const { data, isLoading, error } = useQuery<ImagesResponse>({
     queryKey: ['admin-images'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/images');
+      const response = await adminFetch('/api/admin/images');
       if (!response.ok) throw new Error('Failed to fetch images');
       return response.json();
     },
@@ -68,7 +69,7 @@ export default function AdminImagesPage() {
       formData.append('file', file);
       formData.append('category', uploadCategory);
 
-      const response = await fetch('/api/admin/images', {
+      const response = await adminFetch('/api/admin/images', {
         method: 'POST',
         body: formData,
       });
@@ -92,7 +93,7 @@ export default function AdminImagesPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (imageId: string) => {
-      const response = await fetch(`/api/admin/images/${encodeURIComponent(imageId)}`, {
+      const response = await adminFetch(`/api/admin/images/${encodeURIComponent(imageId)}`, {
         method: 'DELETE',
       });
 

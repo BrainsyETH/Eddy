@@ -8,6 +8,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 import { MapPin } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import React from 'react';
 
 interface AccessPoint {
@@ -331,7 +332,7 @@ export default function AccessPointEditor({
         });
 
         try {
-          const response = await fetch(`/api/admin/access-points/${point.id}`, {
+          const response = await adminFetch(`/api/admin/access-points/${point.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -4,6 +4,7 @@
 // Admin page for managing gauge thresholds and descriptions
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   Activity,
@@ -91,7 +92,7 @@ export default function AdminGaugesPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/gauges');
+      const response = await adminFetch('/api/admin/gauges');
       if (!response.ok) {
         throw new Error('Failed to fetch gauges');
       }
@@ -195,7 +196,7 @@ export default function AdminGaugesPage() {
       setSaving(gauge.id);
       setError(null);
 
-      const response = await fetch(`/api/admin/gauges/${gauge.id}`, {
+      const response = await adminFetch(`/api/admin/gauges/${gauge.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -244,7 +245,7 @@ export default function AdminGaugesPage() {
       setSaving(river.id);
       setError(null);
 
-      const response = await fetch(`/api/admin/rivers/${river.id}`, {
+      const response = await adminFetch(`/api/admin/rivers/${river.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(edits),
