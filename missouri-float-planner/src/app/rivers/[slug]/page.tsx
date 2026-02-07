@@ -14,6 +14,7 @@ import LocalKnowledge from '@/components/river/LocalKnowledge';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
+import PointsOfInterest from '@/components/river/PointsOfInterest';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -24,6 +25,7 @@ import { useConditions } from '@/hooks/useConditions';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
+import { usePOIs } from '@/hooks/usePOIs';
 import type { AccessPoint, FeedbackContext } from '@/types/api';
 
 // Dynamic imports for map
@@ -37,6 +39,7 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
+const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
 
 export default function RiverPage() {
   const params = useParams();
@@ -68,6 +71,7 @@ export default function RiverPage() {
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
   const { data: allGaugeStations } = useGaugeStations();
+  const { data: pois } = usePOIs(slug);
 
   // Filter gauge stations to only show those linked to this river
   const gaugeStations = allGaugeStations?.filter(gauge =>
@@ -456,6 +460,9 @@ export default function RiverPage() {
                   nearestGaugeId={nearestGauge?.id}
                 />
               )}
+              {pois && pois.length > 0 && (
+                <POIMarkers pois={pois} />
+              )}
             </MapContainer>
           </div>
 
@@ -516,6 +523,12 @@ export default function RiverPage() {
             riverId={river.id}
             isLoading={!allGaugeStations}
             putInCoordinates={selectedPutInPoint?.coordinates || null}
+          />
+
+          {/* Points of Interest */}
+          <PointsOfInterest
+            riverSlug={slug}
+            defaultOpen={false}
           />
         </div>
       </div>
