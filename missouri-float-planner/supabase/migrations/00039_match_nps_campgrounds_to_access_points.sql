@@ -1,8 +1,12 @@
 -- Migration: Permanently link NPS campgrounds to access points by name
--- Run the SELECT first to verify matches, then uncomment the UPDATE block.
+-- Handles edge cases like "Cedargrove" vs "Cedar Grove Campground"
+
+-- Helper: strip suffix and normalize campground name
+-- e.g. "Cedar Grove Campground" → "cedar grove"
+--      "Akers Group Campground" → "akers"
 
 -- ─────────────────────────────────────────────────────────────
--- STEP 1: Preview matches (run this first to confirm)
+-- STEP 1: Preview matches
 -- ─────────────────────────────────────────────────────────────
 SELECT
   cg.name AS nps_campground,
@@ -11,7 +15,7 @@ SELECT
   cg.id AS nps_campground_id
 FROM nps_campgrounds cg
 JOIN access_points ap ON (
-  -- Exact match after stripping "Campground" / "Group Campground" suffix
+  -- Match after stripping suffix
   LOWER(TRIM(ap.name)) = LOWER(TRIM(
     REGEXP_REPLACE(
       REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
@@ -19,7 +23,15 @@ JOIN access_points ap ON (
     )
   ))
   OR
-  -- Access point name is contained in campground name (minus suffix)
+  -- Match with ALL spaces removed (handles "Cedargrove" vs "Cedar Grove")
+  REPLACE(LOWER(TRIM(ap.name)), ' ', '') = REPLACE(LOWER(TRIM(
+    REGEXP_REPLACE(
+      REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+      '\s+Campground$', '', 'i'
+    )
+  )), ' ', '')
+  OR
+  -- Contains match (campground name minus suffix contains access point name)
   LOWER(TRIM(
     REGEXP_REPLACE(
       REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
@@ -27,7 +39,7 @@ JOIN access_points ap ON (
     )
   )) LIKE '%' || LOWER(TRIM(ap.name)) || '%'
   OR
-  -- Campground name (minus suffix) is contained in access point name
+  -- Contains match (access point name contains campground name minus suffix)
   LOWER(TRIM(ap.name)) LIKE '%' || LOWER(TRIM(
     REGEXP_REPLACE(
       REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
@@ -39,7 +51,7 @@ WHERE ap.approved = true
 ORDER BY cg.name;
 
 -- ─────────────────────────────────────────────────────────────
--- STEP 2: Apply the matches (run after confirming STEP 1)
+-- STEP 2: Apply the matches
 -- ─────────────────────────────────────────────────────────────
 UPDATE access_points ap
 SET nps_campground_id = match.nps_campground_id
@@ -55,6 +67,13 @@ FROM (
         '\s+Campground$', '', 'i'
       )
     ))
+    OR
+    REPLACE(LOWER(TRIM(ap2.name)), ' ', '') = REPLACE(LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )), ' ', '')
     OR
     LOWER(TRIM(
       REGEXP_REPLACE(

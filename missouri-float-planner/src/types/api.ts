@@ -55,6 +55,8 @@ export interface AccessPoint {
   officialSiteUrl?: string | null;
   localTips?: string | null;
   nearbyServices?: NearbyService[];
+  // NPS campground data (when linked)
+  npsCampground?: NPSCampgroundInfo | null;
 }
 
 export type AccessPointType =
