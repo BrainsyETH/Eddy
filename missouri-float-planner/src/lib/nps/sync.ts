@@ -154,31 +154,67 @@ async function upsertCampground(supabase: SupabaseClient, cg: NPSCampgroundRaw):
 }
 
 /**
- * Match synced campgrounds to existing access points using proximity + name
+ * Match synced campgrounds to existing access points by name.
+ * NPS campground names are practically identical to access point names,
+ * so we match by normalized name comparison (case-insensitive, trimmed).
  */
 async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise<number> {
-  // Get all campgrounds that have coordinates
-  const { data: campgrounds, error } = await supabase
+  const { data: campgrounds, error: cgError } = await supabase
     .from('nps_campgrounds')
-    .select('id, nps_id, name, latitude, longitude')
-    .not('latitude', 'is', null)
-    .not('longitude', 'is', null);
+    .select('id, name');
 
-  if (error || !campgrounds) return 0;
+  if (cgError || !campgrounds) return 0;
+
+  // Get all approved access points (campground types most likely, but check all)
+  const { data: accessPoints, error: apError } = await supabase
+    .from('access_points')
+    .select('id, name')
+    .eq('approved', true);
+
+  if (apError || !accessPoints) return 0;
+
+  // Normalize name for matching: lowercase, trim, remove common suffixes
+  const normalize = (name: string) =>
+    name.toLowerCase()
+      .trim()
+      .replace(/\s+campground$/i, '')
+      .replace(/\s+camp$/i, '')
+      .replace(/\s+/g, ' ');
 
   let matched = 0;
 
   for (const cg of campgrounds) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase.rpc as any)('match_nps_campground_to_access_point', {
-      p_nps_campground_id: cg.id,
-      p_lat: cg.latitude,
-      p_lng: cg.longitude,
-      p_name: cg.name,
-      p_max_distance_meters: 2000,
-    });
+    const cgNorm = normalize(cg.name);
 
-    if (data) matched++;
+    // Try exact normalized match first
+    let match = accessPoints.find(ap => normalize(ap.name) === cgNorm);
+
+    // Try if access point name contains the campground name or vice versa
+    if (!match) {
+      match = accessPoints.find(ap => {
+        const apNorm = normalize(ap.name);
+        return apNorm.includes(cgNorm) || cgNorm.includes(apNorm);
+      });
+    }
+
+    // Try matching on the first significant word (e.g., "Akers" matches "Akers Campground")
+    if (!match) {
+      const cgFirstWord = cgNorm.split(' ')[0];
+      if (cgFirstWord.length >= 4) {
+        match = accessPoints.find(ap =>
+          normalize(ap.name).split(' ')[0] === cgFirstWord
+        );
+      }
+    }
+
+    if (match) {
+      const { error: updateError } = await supabase
+        .from('access_points')
+        .update({ nps_campground_id: cg.id })
+        .eq('id', match.id);
+
+      if (!updateError) matched++;
+    }
   }
 
   return matched;
