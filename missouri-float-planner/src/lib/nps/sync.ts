@@ -8,11 +8,9 @@ import { fetchNPSCampgrounds, fetchNPSPlaces } from './client';
 interface SyncResult {
   campgroundsSynced: number;
   placesSynced: number;
-  campgroundsMatched: number;
   poisCreated: number;
   errors: number;
   errorDetails: string[];
-  debug?: Record<string, unknown>;
 }
 
 /**
@@ -22,13 +20,12 @@ export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult>
   const result: SyncResult = {
     campgroundsSynced: 0,
     placesSynced: 0,
-    campgroundsMatched: 0,
     poisCreated: 0,
     errors: 0,
     errorDetails: [],
   };
 
-  // 1. Sync campgrounds
+  // 1. Sync campgrounds (matching to access points is done via SQL migration)
   try {
     const campgrounds = await fetchNPSCampgrounds();
     for (const cg of campgrounds) {
@@ -40,12 +37,6 @@ export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult>
         result.errorDetails.push(`Campground ${cg.name}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-
-    // 2. Match campgrounds to access points
-    const debug: Record<string, unknown> = {};
-    const matchCount = await matchCampgroundsToAccessPoints(supabase, debug);
-    result.campgroundsMatched = matchCount;
-    result.debug = debug;
   } catch (err) {
     result.errors++;
     result.errorDetails.push(`Campground fetch: ${err instanceof Error ? err.message : String(err)}`);
@@ -154,103 +145,6 @@ async function upsertCampground(supabase: SupabaseClient, cg: NPSCampgroundRaw):
         .eq('nps_id', cg.id);
     }
   }
-}
-
-/**
- * Match synced campgrounds to existing access points by name.
- * NPS campground names are practically identical to access point names,
- * so we match by normalized name comparison (case-insensitive, trimmed).
- */
-async function matchCampgroundsToAccessPoints(
-  supabase: SupabaseClient,
-  debug: Record<string, unknown> = {}
-): Promise<number> {
-  const { data: campgrounds, error: cgError } = await supabase
-    .from('nps_campgrounds')
-    .select('id, name');
-
-  debug.campgroundCount = campgrounds?.length ?? 0;
-  debug.campgroundError = cgError?.message ?? null;
-
-  if (cgError || !campgrounds) return 0;
-
-  // Get all approved access points (campground types most likely, but check all)
-  const { data: accessPoints, error: apError } = await supabase
-    .from('access_points')
-    .select('id, name')
-    .eq('approved', true);
-
-  debug.accessPointCount = accessPoints?.length ?? 0;
-  debug.accessPointError = apError?.message ?? null;
-
-  if (apError || !accessPoints) return 0;
-
-  // Normalize name for matching: lowercase, trim, remove common suffixes
-  const normalize = (name: string) =>
-    name.toLowerCase()
-      .trim()
-      .replace(/\s+campground$/i, '')
-      .replace(/\s+camp$/i, '')
-      .replace(/\s+/g, ' ');
-
-  debug.sampleCampgrounds = campgrounds.slice(0, 5).map(cg => ({
-    name: cg.name,
-    normalized: normalize(cg.name),
-  }));
-  debug.sampleAccessPoints = accessPoints.slice(0, 5).map(ap => ({
-    name: ap.name,
-    normalized: normalize(ap.name),
-  }));
-
-  let matched = 0;
-  const matchLog: { cg: string; ap: string | null; method: string }[] = [];
-
-  for (const cg of campgrounds) {
-    const cgNorm = normalize(cg.name);
-
-    // Try exact normalized match first
-    let match = accessPoints.find(ap => normalize(ap.name) === cgNorm);
-    let method = 'exact';
-
-    // Try if access point name contains the campground name or vice versa
-    if (!match) {
-      match = accessPoints.find(ap => {
-        const apNorm = normalize(ap.name);
-        return apNorm.includes(cgNorm) || cgNorm.includes(apNorm);
-      });
-      method = 'contains';
-    }
-
-    // Try matching on the first significant word (e.g., "Akers" matches "Akers Campground")
-    if (!match) {
-      const cgFirstWord = cgNorm.split(' ')[0];
-      if (cgFirstWord.length >= 4) {
-        match = accessPoints.find(ap =>
-          normalize(ap.name).split(' ')[0] === cgFirstWord
-        );
-        method = 'first-word';
-      }
-    }
-
-    if (match) {
-      const { error: updateError } = await supabase
-        .from('access_points')
-        .update({ nps_campground_id: cg.id })
-        .eq('id', match.id);
-
-      if (!updateError) {
-        matched++;
-        matchLog.push({ cg: cg.name, ap: match.name, method });
-      } else {
-        matchLog.push({ cg: cg.name, ap: `ERROR: ${updateError.message}`, method: 'update-failed' });
-      }
-    } else {
-      matchLog.push({ cg: cg.name, ap: null, method: 'no-match' });
-    }
-  }
-
-  debug.matchLog = matchLog;
-  return matched;
 }
 
 // Places that are informational pages, not physical locations
