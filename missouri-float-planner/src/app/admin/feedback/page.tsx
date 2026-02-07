@@ -4,6 +4,7 @@
 // Admin page for reviewing user feedback
 
 import { useEffect, useState, useCallback } from 'react';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   Flag,
@@ -78,7 +79,7 @@ export default function FeedbackAdminPage() {
     setUpdating(id);
 
     try {
-      const response = await fetch(`/api/feedback/${id}`, {
+      const response = await adminFetch(`/api/admin/feedback/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, adminNotes }),

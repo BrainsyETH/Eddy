@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     // Get rivers for names
     const { data: rivers, error: riversError } = await supabase
       .from('rivers')
-      .select('id, name, slug, float_summary, float_tip');
+      .select('id, name, slug, float_summary, float_tip, description, difficulty_rating, region');
 
     if (riversError) {
       console.error('Error fetching rivers:', riversError);
@@ -130,6 +130,9 @@ export async function GET(request: NextRequest) {
       slug: river.slug,
       floatSummary: river.float_summary,
       floatTip: river.float_tip,
+      description: river.description,
+      difficultyRating: river.difficulty_rating,
+      region: river.region,
     }));
 
     return NextResponse.json({ gauges, rivers: formattedRivers });

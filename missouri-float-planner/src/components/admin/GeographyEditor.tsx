@@ -4,8 +4,9 @@
 // Main geography editor component with improved state management
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2, Upload } from 'lucide-react';
+import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2, Upload, Pencil } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import AccessPointEditor from './AccessPointEditor';
 import RiverLineEditor from './RiverLineEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
@@ -1242,6 +1243,15 @@ export default function GeographyEditor() {
               <div>Coords: {selectedAccessPoint.coordinates.orig.lat.toFixed(5)}, {selectedAccessPoint.coordinates.orig.lng.toFixed(5)}</div>
               <div className="mt-1 text-neutral-400">Drag marker on map to change location</div>
             </div>
+
+            {/* Full Editor Link */}
+            <Link
+              href={`/admin/access-points/${selectedAccessPoint.id}`}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+            >
+              <Pencil size={16} />
+              Open Full Editor
+            </Link>
 
             {/* Actions */}
             <div className="flex gap-2 pt-2 border-t border-neutral-200">
