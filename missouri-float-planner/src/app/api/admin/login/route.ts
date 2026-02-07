@@ -18,18 +18,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const apiSecret = process.env.ADMIN_API_SECRET;
+    // Support both new ADMIN_PASSWORD and legacy NEXT_PUBLIC_ADMIN_PASSWORD
+    const adminPassword = process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    // ADMIN_API_SECRET is the token returned to the client; fall back to password if not set
+    const apiSecret = process.env.ADMIN_API_SECRET || adminPassword;
 
-    if (!adminPassword || !apiSecret) {
-      // In development without secrets, allow access
-      if (process.env.NODE_ENV === 'development') {
-        return NextResponse.json({
-          success: true,
-          token: 'dev-token',
-        });
-      }
-      console.error('[Admin Login] ADMIN_PASSWORD or ADMIN_API_SECRET not configured');
+    if (!adminPassword) {
+      console.error('[Admin Login] Neither ADMIN_PASSWORD nor NEXT_PUBLIC_ADMIN_PASSWORD is configured');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }

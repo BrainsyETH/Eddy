@@ -13,15 +13,16 @@ import { NextRequest, NextResponse } from 'next/server';
  *   if (authError) return authError;
  */
 export function requireAdminAuth(request: NextRequest): NextResponse | null {
-  const secret = process.env.ADMIN_API_SECRET;
+  // Support both new ADMIN_API_SECRET and legacy NEXT_PUBLIC_ADMIN_PASSWORD
+  const secret = process.env.ADMIN_API_SECRET || process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
 
   if (!secret) {
     // In development without a secret configured, allow access with a warning
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[Admin Auth] ADMIN_API_SECRET not set — allowing request in development mode');
+      console.warn('[Admin Auth] No admin secret configured — allowing request in development mode');
       return null;
     }
-    console.error('[Admin Auth] ADMIN_API_SECRET is not configured');
+    console.error('[Admin Auth] No admin secret configured (ADMIN_API_SECRET, ADMIN_PASSWORD, or NEXT_PUBLIC_ADMIN_PASSWORD)');
     return NextResponse.json(
       { error: 'Server configuration error' },
       { status: 500 }
