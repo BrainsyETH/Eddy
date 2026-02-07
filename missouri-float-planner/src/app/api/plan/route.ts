@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
     // Get river condition using position-based gauge selection
     // Logic: Use gauge at or upstream of put-in mile
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conditionData, error: conditionError } = await (supabase.rpc as any)('get_river_condition_segment', {
+    const { data: conditionData } = await (supabase.rpc as any)('get_river_condition_segment', {
       p_river_id: riverId,
       p_put_in_mile: putInMile,
       p_put_in_point: putInCoords

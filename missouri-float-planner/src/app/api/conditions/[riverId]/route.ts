@@ -7,7 +7,6 @@ import {
   fetchGaugeReadings,
   fetchDailyStatistics,
   calculateDischargePercentile,
-  type DailyStatistics,
 } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import {
