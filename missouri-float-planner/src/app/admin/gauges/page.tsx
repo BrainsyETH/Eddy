@@ -62,6 +62,9 @@ interface River {
   slug: string;
   floatSummary: string | null;
   floatTip: string | null;
+  description: string | null;
+  difficultyRating: string | null;
+  region: string | null;
 }
 
 const THRESHOLD_LABELS = [
@@ -644,6 +647,56 @@ export default function AdminGaugesPage() {
 
                     {expandedRivers.has(river.id) && (
                       <div className="border-t border-neutral-700 p-4 space-y-4">
+                        {/* River Metadata */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-neutral-300 mb-2">
+                              Difficulty Rating
+                            </label>
+                            <select
+                              value={getRiverDisplayValue(river.id, 'difficultyRating', '') || ''}
+                              onChange={e => updateRiverField(river.id, 'difficultyRating', e.target.value)}
+                              className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            >
+                              <option value="">Not set</option>
+                              <option value="Class I">Class I</option>
+                              <option value="Class I-II">Class I-II</option>
+                              <option value="Class II">Class II</option>
+                              <option value="Class II-III">Class II-III</option>
+                              <option value="Class III">Class III</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-neutral-300 mb-2">
+                              Region
+                            </label>
+                            <select
+                              value={getRiverDisplayValue(river.id, 'region', '') || ''}
+                              onChange={e => updateRiverField(river.id, 'region', e.target.value)}
+                              className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            >
+                              <option value="">Not set</option>
+                              <option value="Ozarks">Ozarks</option>
+                              <option value="Central Missouri">Central Missouri</option>
+                              <option value="Southeast Missouri">Southeast Missouri</option>
+                              <option value="Southwest Missouri">Southwest Missouri</option>
+                              <option value="Northwest Missouri">Northwest Missouri</option>
+                              <option value="Northeast Missouri">Northeast Missouri</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-300 mb-2">
+                            River Description
+                          </label>
+                          <textarea
+                            value={getRiverDisplayValue(river.id, 'description', '') || ''}
+                            onChange={e => updateRiverField(river.id, 'description', e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="General description of the river (scenery, character, highlights)..."
+                          />
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-neutral-300 mb-2">
                             Float Summary

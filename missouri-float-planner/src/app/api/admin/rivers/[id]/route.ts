@@ -17,7 +17,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { geometry, floatSummary, floatTip } = body;
+    const { geometry, floatSummary, floatTip, description, difficultyRating, region } = body;
 
     const supabase = createAdminClient();
 
@@ -89,8 +89,8 @@ export async function PUT(
       });
     }
 
-    // If updating float summary/tip (without geometry)
-    if (floatSummary !== undefined || floatTip !== undefined) {
+    // If updating river metadata (without geometry)
+    if (floatSummary !== undefined || floatTip !== undefined || description !== undefined || difficultyRating !== undefined || region !== undefined) {
       const updateData: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
@@ -101,12 +101,21 @@ export async function PUT(
       if (floatTip !== undefined) {
         updateData.float_tip = floatTip || null;
       }
+      if (description !== undefined) {
+        updateData.description = description || null;
+      }
+      if (difficultyRating !== undefined) {
+        updateData.difficulty_rating = difficultyRating || null;
+      }
+      if (region !== undefined) {
+        updateData.region = region || null;
+      }
 
       const { data, error } = await supabase
         .from('rivers')
         .update(updateData)
         .eq('id', id)
-        .select('id, name, slug, float_summary, float_tip')
+        .select('id, name, slug, float_summary, float_tip, description, difficulty_rating, region')
         .single();
 
       if (error) {
@@ -124,6 +133,9 @@ export async function PUT(
           slug: data.slug,
           floatSummary: data.float_summary,
           floatTip: data.float_tip,
+          description: data.description,
+          difficultyRating: data.difficulty_rating,
+          region: data.region,
         },
       });
     }
