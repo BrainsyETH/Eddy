@@ -9,12 +9,13 @@ export const DEFAULT_MAP_CENTER = {
 
 export const DEFAULT_MAP_ZOOM = 7;
 
-// Missouri bounding box (approximate)
+// Missouri bounding box — single source of truth for all coordinate validation.
+// Includes buffer for border access points.
 export const MISSOURI_BOUNDS = {
-  minLng: -95.77,
-  minLat: 35.99,
-  maxLng: -89.10,
-  maxLat: 40.61,
+  minLng: -96.5,
+  minLat: 35.9,
+  maxLng: -88.9,
+  maxLat: 40.7,
 } as const;
 
 // Access point types with labels

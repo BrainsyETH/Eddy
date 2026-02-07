@@ -1,13 +1,17 @@
 // src/app/api/admin/gauges/route.ts
 // GET /api/admin/gauges - List all gauges with their thresholds and descriptions
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const supabase = createAdminClient();
 
     // Get all gauge stations with their river associations

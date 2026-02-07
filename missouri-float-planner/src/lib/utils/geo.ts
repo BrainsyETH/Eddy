@@ -3,6 +3,7 @@
 
 import type { GeoJSON } from 'geojson';
 import type { BBox, Coordinates } from '@/types/geo';
+import { MISSOURI_BOUNDS } from '@/constants';
 
 /**
  * Calculates bounding box from a LineString geometry
@@ -62,15 +63,8 @@ export function pointToCoordinates(point: GeoJSON.Point): Coordinates {
   return { lng, lat };
 }
 
-/**
- * Missouri bounds with buffer for border points
- */
-export const MISSOURI_BOUNDS = {
-  minLat: 35.9,
-  maxLat: 40.7,
-  minLng: -96.5,
-  maxLng: -88.9,
-} as const;
+// Re-export MISSOURI_BOUNDS from constants for backwards compatibility
+export { MISSOURI_BOUNDS } from '@/constants';
 
 /**
  * Validates coordinates are within Missouri bounds
