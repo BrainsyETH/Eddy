@@ -12,6 +12,7 @@ interface SyncResult {
   poisCreated: number;
   errors: number;
   errorDetails: string[];
+  debug?: Record<string, unknown>;
 }
 
 /**
@@ -41,8 +42,10 @@ export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult>
     }
 
     // 2. Match campgrounds to access points
-    const matchCount = await matchCampgroundsToAccessPoints(supabase);
+    const debug: Record<string, unknown> = {};
+    const matchCount = await matchCampgroundsToAccessPoints(supabase, debug);
     result.campgroundsMatched = matchCount;
+    result.debug = debug;
   } catch (err) {
     result.errors++;
     result.errorDetails.push(`Campground fetch: ${err instanceof Error ? err.message : String(err)}`);
@@ -158,10 +161,16 @@ async function upsertCampground(supabase: SupabaseClient, cg: NPSCampgroundRaw):
  * NPS campground names are practically identical to access point names,
  * so we match by normalized name comparison (case-insensitive, trimmed).
  */
-async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise<number> {
+async function matchCampgroundsToAccessPoints(
+  supabase: SupabaseClient,
+  debug: Record<string, unknown> = {}
+): Promise<number> {
   const { data: campgrounds, error: cgError } = await supabase
     .from('nps_campgrounds')
     .select('id, name');
+
+  debug.campgroundCount = campgrounds?.length ?? 0;
+  debug.campgroundError = cgError?.message ?? null;
 
   if (cgError || !campgrounds) return 0;
 
@@ -170,6 +179,9 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
     .from('access_points')
     .select('id, name')
     .eq('approved', true);
+
+  debug.accessPointCount = accessPoints?.length ?? 0;
+  debug.accessPointError = apError?.message ?? null;
 
   if (apError || !accessPoints) return 0;
 
@@ -181,13 +193,24 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
       .replace(/\s+camp$/i, '')
       .replace(/\s+/g, ' ');
 
+  debug.sampleCampgrounds = campgrounds.slice(0, 5).map(cg => ({
+    name: cg.name,
+    normalized: normalize(cg.name),
+  }));
+  debug.sampleAccessPoints = accessPoints.slice(0, 5).map(ap => ({
+    name: ap.name,
+    normalized: normalize(ap.name),
+  }));
+
   let matched = 0;
+  const matchLog: { cg: string; ap: string | null; method: string }[] = [];
 
   for (const cg of campgrounds) {
     const cgNorm = normalize(cg.name);
 
     // Try exact normalized match first
     let match = accessPoints.find(ap => normalize(ap.name) === cgNorm);
+    let method = 'exact';
 
     // Try if access point name contains the campground name or vice versa
     if (!match) {
@@ -195,6 +218,7 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
         const apNorm = normalize(ap.name);
         return apNorm.includes(cgNorm) || cgNorm.includes(apNorm);
       });
+      method = 'contains';
     }
 
     // Try matching on the first significant word (e.g., "Akers" matches "Akers Campground")
@@ -204,6 +228,7 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
         match = accessPoints.find(ap =>
           normalize(ap.name).split(' ')[0] === cgFirstWord
         );
+        method = 'first-word';
       }
     }
 
@@ -213,10 +238,18 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
         .update({ nps_campground_id: cg.id })
         .eq('id', match.id);
 
-      if (!updateError) matched++;
+      if (!updateError) {
+        matched++;
+        matchLog.push({ cg: cg.name, ap: match.name, method });
+      } else {
+        matchLog.push({ cg: cg.name, ap: `ERROR: ${updateError.message}`, method: 'update-failed' });
+      }
+    } else {
+      matchLog.push({ cg: cg.name, ap: null, method: 'no-match' });
     }
   }
 
+  debug.matchLog = matchLog;
   return matched;
 }
 
