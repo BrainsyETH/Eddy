@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Image() {
   const [fonts, otterImage] = await Promise.all([
-    Promise.resolve(loadFredokaFont()),
+    loadFredokaFont(),
     loadOtterImage(OTTER_URLS.standard),
   ]);
 
