@@ -3,14 +3,9 @@
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { formatFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
+import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
-
-// new URL() in the route file so webpack bundles the font into this serverless function
-const fredokaFont = fetch(
-  new URL('../../fonts/Fredoka-SemiBold.ttf', import.meta.url),
-).then((res) => res.arrayBuffer());
 
 export const alt = 'River conditions on eddy.guide';
 export const size = { width: 1200, height: 630 };
@@ -80,11 +75,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const statusStyles = getStatusStyles(status);
   const [gradientStart, gradientEnd] = getStatusGradient(status);
 
-  const [fontData, otterImage] = await Promise.all([
-    fredokaFont,
-    loadConditionOtter(status),
-  ]);
-  const fonts = formatFredokaFont(fontData);
+  const fonts = loadFredokaFont();
+  const otterImage = await loadConditionOtter(status);
 
   return new ImageResponse(
     (
@@ -225,7 +217,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             />
             <span
               style={{
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 16,
                 fontWeight: 700,
                 color: statusStyles.text,
@@ -242,7 +234,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             position: 'absolute',
             bottom: 24,
             right: 40,
-            fontFamily: 'Space Grotesk',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 14,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',

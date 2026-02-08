@@ -2,13 +2,8 @@
 // OG image for the gauges dashboard — Flood otter + "River Levels" in Fredoka coral
 
 import { ImageResponse } from 'next/og';
-import { formatFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
+import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
-
-// new URL() in the route file so webpack bundles the font into this serverless function
-const fredokaFont = fetch(
-  new URL('../fonts/Fredoka-SemiBold.ttf', import.meta.url),
-).then((res) => res.arrayBuffer());
 
 export const alt = 'River Levels — Real-time water levels on eddy.guide';
 export const size = { width: 1200, height: 630 };
@@ -17,11 +12,8 @@ export const contentType = 'image/png';
 export const dynamic = 'force-dynamic';
 
 export default async function Image() {
-  const [fontData, otterImage] = await Promise.all([
-    fredokaFont,
-    loadOtterImage(OTTER_URLS.flood),
-  ]);
-  const fonts = formatFredokaFont(fontData);
+  const fonts = loadFredokaFont();
+  const otterImage = await loadOtterImage(OTTER_URLS.flood);
 
   return new ImageResponse(
     (

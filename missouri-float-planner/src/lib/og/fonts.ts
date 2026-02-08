@@ -1,9 +1,9 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
+// Fredoka SemiBold is embedded as base64 to avoid all bundler/file-system issues
 
-// Format raw Fredoka font data into the array Satori expects.
-// Each OG route file creates its own `new URL('./fonts/Fredoka-SemiBold.ttf', import.meta.url)`
-// so webpack traces the asset from the route entry point and bundles it correctly.
+import { FREDOKA_SEMIBOLD_BASE64 } from './fredoka-font-data';
+
 export type OGFont = {
   name: string;
   data: ArrayBuffer;
@@ -11,11 +11,26 @@ export type OGFont = {
   style: 'normal';
 };
 
-export function formatFredokaFont(data: ArrayBuffer): OGFont[] {
+// Decode the embedded base64 font data once, then cache it
+let cachedFontData: ArrayBuffer | null = null;
+
+function getFredokaFontData(): ArrayBuffer {
+  if (!cachedFontData) {
+    const binaryString = atob(FREDOKA_SEMIBOLD_BASE64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    cachedFontData = bytes.buffer;
+  }
+  return cachedFontData;
+}
+
+export function loadFredokaFont(): OGFont[] {
   return [
     {
       name: 'Fredoka',
-      data,
+      data: getFredokaFontData(),
       weight: 600 as const,
       style: 'normal' as const,
     },
