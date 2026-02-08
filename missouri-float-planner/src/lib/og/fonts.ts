@@ -1,6 +1,9 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
-// Fetches fonts from Google Fonts CDN at runtime
+// Fetches fonts from Google Fonts CDN at runtime, Fredoka loaded locally
+
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 // Cache fonts in memory to avoid re-fetching
 let cachedFonts: Array<{
@@ -23,18 +26,23 @@ export async function loadOGFonts() {
     spaceGroteskSemiBold: 'https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPbF4DPk3HqUtEw.ttf',
     interRegular: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.ttf',
     interMedium: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hjp-Ek-_EeA.ttf',
-    // Fredoka variable font (wdth,wght axes) - the Eddy brand display font
-    fredoka: 'https://raw.githubusercontent.com/google/fonts/main/ofl/fredoka/Fredoka%5Bwdth%2Cwght%5D.ttf',
   };
 
   try {
-    const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium, fredoka] =
+    // Load Fredoka locally (bundled in the project to avoid network issues during build)
+    const fredokaPath = join(process.cwd(), 'src/app/fonts/Fredoka-Variable.ttf');
+    const fredokaBuffer = readFileSync(fredokaPath);
+    const fredoka = fredokaBuffer.buffer.slice(
+      fredokaBuffer.byteOffset,
+      fredokaBuffer.byteOffset + fredokaBuffer.byteLength
+    );
+
+    const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
       await Promise.all([
         fetch(fontUrls.spaceGroteskBold).then((res) => res.arrayBuffer()),
         fetch(fontUrls.spaceGroteskSemiBold).then((res) => res.arrayBuffer()),
         fetch(fontUrls.interRegular).then((res) => res.arrayBuffer()),
         fetch(fontUrls.interMedium).then((res) => res.arrayBuffer()),
-        fetch(fontUrls.fredoka).then((res) => res.arrayBuffer()),
       ]);
 
     cachedFonts = [
