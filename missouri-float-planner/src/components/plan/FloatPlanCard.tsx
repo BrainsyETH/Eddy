@@ -1100,54 +1100,65 @@ function MobileBottomSheet({
       }`}
       style={{ height: sheetHeight || COLLAPSED_HEIGHT }}
     >
-      {/* Drag Handle */}
-      <div
-        className="flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <GripHorizontal size={20} className={isExpanded ? 'text-neutral-300' : 'text-white/40'} />
-      </div>
+      {isExpanded ? (
+        <>
+          {/* Drag Handle - expanded */}
+          <div
+            className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onClick={() => setIsExpanded(false)}
+          >
+            <GripHorizontal size={24} className="text-neutral-300" />
+          </div>
 
-      {/* Summary Header - always visible */}
-      <div className="px-4 pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            {isExpanded ? (
-              <>
+          {/* Summary Header - expanded */}
+          <div className="px-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
                 <p className="font-bold text-neutral-900 truncate">
                   {putInPoint.name} → {takeOutPoint.name}
                 </p>
-              </>
-            ) : (
-              <p className="text-sm font-bold text-white">Your Float Plan</p>
-            )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
+                  {conditionConfig.label}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(false);
+                  }}
+                  className="p-1"
+                >
+                  <ChevronDown size={20} className="text-neutral-900" />
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-            <span className={`text-lg font-bold ${isExpanded ? 'text-neutral-900' : 'text-white'}`}>{plan.distance.formatted}</span>
-            {isExpanded && (
-              <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-                {conditionConfig.label}
-              </span>
-            )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="p-1"
-            >
-              {isExpanded
-                ? <ChevronDown size={20} className="text-neutral-900" />
-                : <ChevronUp size={20} className="text-white/70" />
-              }
-            </button>
+        </>
+      ) : (
+        /* Collapsed: single compact row with drag pill + text + mileage + chevron */
+        <div
+          className="flex flex-col items-center cursor-grab active:cursor-grabbing touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onClick={() => setIsExpanded(true)}
+        >
+          <div className="w-10 h-1 rounded-full bg-white/30 mt-2.5 mb-2" />
+          <div className="flex items-center justify-between w-full px-4 pb-2">
+            <span className="text-sm font-bold text-white">Your Float Plan</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white/80">{plan.distance.formatted}</span>
+              <ChevronUp size={18} className="text-white/70" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Expanded Content */}
       <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 90px)` }}>
