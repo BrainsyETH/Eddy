@@ -13,6 +13,7 @@ import type { PointOfInterest } from '@/types/nps';
 
 interface POIMarkersProps {
   pois: PointOfInterest[];
+  activeMileRange?: { min: number; max: number } | null;
 }
 
 const POI_ICONS: Record<string, LucideIcon> = {
@@ -29,7 +30,7 @@ const POI_ICONS: Record<string, LucideIcon> = {
 const POI_COLOR = '#0d9488'; // teal-600
 const POI_COLOR_DARK = '#0f766e'; // teal-700
 
-export default function POIMarkers({ pois }: POIMarkersProps) {
+export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const popupsRef = useRef<maplibregl.Popup[]>([]);
@@ -60,20 +61,35 @@ export default function POIMarkers({ pois }: POIMarkersProps) {
 
       const IconComponent = POI_ICONS[poi.type] || POI_ICONS.other;
 
+      // Determine if this POI is within the active route
+      const isOnRoute = activeMileRange && poi.riverMile !== null
+        ? poi.riverMile >= activeMileRange.min && poi.riverMile <= activeMileRange.max
+        : false;
+      const hasActiveRoute = !!activeMileRange;
+
+      // Highlighted: larger, glowing; Dimmed: smaller, transparent
+      const markerSize = hasActiveRoute && isOnRoute ? baseSize + 6 : baseSize;
+      const opacity = hasActiveRoute && !isOnRoute ? '0.35' : '1';
+      const border = hasActiveRoute && isOnRoute ? '3px solid #ffffff' : '2px solid #ffffff';
+      const shadow = hasActiveRoute && isOnRoute
+        ? `0 4px 16px rgba(0,0,0,0.35), 0 0 12px rgba(13, 148, 136, 0.5)`
+        : '0 2px 8px rgba(0,0,0,0.25)';
+
       const el = document.createElement('div');
       el.className = 'poi-marker';
       el.style.cssText = `
         background: linear-gradient(135deg, ${POI_COLOR} 0%, ${POI_COLOR_DARK} 100%);
-        width: ${baseSize}px;
-        height: ${baseSize}px;
+        width: ${markerSize}px;
+        height: ${markerSize}px;
         border-radius: 50%;
-        border: 2px solid #ffffff;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        border: ${border};
+        box-shadow: ${shadow};
+        opacity: ${opacity};
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: box-shadow 0.2s ease;
+        transition: box-shadow 0.2s ease, opacity 0.3s ease;
         pointer-events: auto;
         box-sizing: border-box;
         touch-action: manipulation;
@@ -162,7 +178,7 @@ export default function POIMarkers({ pois }: POIMarkersProps) {
       popupsRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, pois]);
+  }, [map, pois, activeMileRange]);
 
   return null;
 }

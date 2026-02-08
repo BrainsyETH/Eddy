@@ -16,6 +16,7 @@ import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import PointsOfInterest from '@/components/river/PointsOfInterest';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
+import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
@@ -352,6 +353,57 @@ export default function RiverPage() {
   const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn) || null;
   const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut) || null;
 
+  // Compute points along route (intermediate access points + POIs between put-in and take-out)
+  const pointsAlongRoute: RouteItem[] = (() => {
+    if (!putInPoint || !takeOutPoint) return [];
+    const minMile = Math.min(putInPoint.riverMile, takeOutPoint.riverMile);
+    const maxMile = Math.max(putInPoint.riverMile, takeOutPoint.riverMile);
+
+    // Intermediate access points (exclude put-in and take-out themselves)
+    const intermediateAPs: RouteItem[] = (accessPoints || [])
+      .filter(ap =>
+        ap.id !== putInPoint.id &&
+        ap.id !== takeOutPoint.id &&
+        ap.riverMile > minMile &&
+        ap.riverMile < maxMile
+      )
+      .map(ap => ({
+        id: ap.id,
+        name: ap.name,
+        riverMile: ap.riverMile,
+        type: 'access_point' as const,
+        subType: ap.types?.[0] || ap.type || 'access',
+        description: ap.description,
+        imageUrl: ap.imageUrls?.[0] || null,
+      }));
+
+    // POIs with valid river miles between the route
+    const routePOIs: RouteItem[] = (pois || [])
+      .filter(poi =>
+        poi.riverMile !== null &&
+        poi.riverMile > minMile &&
+        poi.riverMile < maxMile
+      )
+      .map(poi => ({
+        id: poi.id,
+        name: poi.name,
+        riverMile: poi.riverMile!,
+        type: 'poi' as const,
+        subType: poi.type,
+        description: poi.description,
+        imageUrl: poi.images?.[0]?.url || null,
+        npsUrl: poi.npsUrl,
+      }));
+
+    // Combine and sort by river mile
+    return [...intermediateAPs, ...routePOIs].sort((a, b) => a.riverMile - b.riverMile);
+  })();
+
+  // Mile range for map highlighting
+  const activeMileRange = putInPoint && takeOutPoint
+    ? { min: Math.min(putInPoint.riverMile, takeOutPoint.riverMile), max: Math.max(putInPoint.riverMile, takeOutPoint.riverMile) }
+    : null;
+
   useEffect(() => {
     if (!upstreamWarning) return;
     const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
@@ -461,7 +513,7 @@ export default function RiverPage() {
                 />
               )}
               {pois && pois.length > 0 && (
-                <POIMarkers pois={pois} />
+                <POIMarkers pois={pois} activeMileRange={activeMileRange} />
               )}
             </MapContainer>
           </div>
@@ -511,6 +563,7 @@ export default function RiverPage() {
               onVesselChange={setSelectedVesselTypeId}
               captureRef={captureRef}
               onReportIssue={handleReportAccessPointIssue}
+              pointsAlongRoute={pointsAlongRoute}
             />
           </div>
         )}
