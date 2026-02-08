@@ -3,8 +3,9 @@
 // src/app/gauges/page.tsx
 // Dashboard-style gauge stations page with charts, filters, and engaging cards
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import {
   ChevronDown,
   ChevronUp,
@@ -15,7 +16,9 @@ import {
   Activity,
   TrendingUp,
   X,
-  Flag
+  Flag,
+  Share2,
+  Check
 } from 'lucide-react';
 
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
@@ -152,6 +155,7 @@ const GAUGE_THRESHOLD_DESCRIPTIONS: Record<string, ThresholdDescriptions> = {
 };
 
 export default function GaugesPage() {
+  const searchParams = useSearchParams();
   const [gaugeData, setGaugeData] = useState<GaugesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedGaugeId, setExpandedGaugeId] = useState<string | null>(null);
@@ -161,6 +165,8 @@ export default function GaugesPage() {
   const [onsrOnly, setOnsrOnly] = useState(true); // ONSR filter on by default
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
+  const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
+  const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     async function fetchGauges() {
@@ -177,6 +183,56 @@ export default function GaugesPage() {
       }
     }
     fetchGauges();
+  }, []);
+
+  // Deep-link: auto-expand and scroll to gauge from ?gauge= query param
+  useEffect(() => {
+    const gaugeParam = searchParams.get('gauge');
+    if (!gaugeParam || !gaugeData?.gauges) return;
+
+    // Find gauge by USGS site ID
+    const targetGauge = gaugeData.gauges.find(g => g.usgsSiteId === gaugeParam);
+    if (!targetGauge) return;
+
+    // Clear filters so the gauge is visible
+    setOnsrOnly(false);
+    setSelectedRiver('all');
+    setSelectedCondition('all');
+
+    // Expand the gauge card
+    setExpandedGaugeId(targetGauge.id);
+
+    // Scroll to it after a brief delay for rendering
+    setTimeout(() => {
+      const el = gaugeCardRefs.current[targetGauge.id];
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  }, [searchParams, gaugeData]);
+
+  // Share a gauge link
+  const handleShareGauge = useCallback(async (e: React.MouseEvent, usgsSiteId: string) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/gauges?gauge=${usgsSiteId}`;
+
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+    if (isMobile && navigator.share) {
+      try {
+        await navigator.share({ title: 'Gauge Station', url: shareUrl });
+        return;
+      } catch {
+        // User cancelled or share failed, fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedGaugeId(usgsSiteId);
+      setTimeout(() => setCopiedGaugeId(null), 2000);
+    } catch {
+      window.prompt('Copy this link:', shareUrl);
+    }
   }, []);
 
   // Helper to get condition from gauge reading and thresholds
@@ -562,6 +618,7 @@ export default function GaugesPage() {
                   return (
                     <div
                       key={gauge.id}
+                      ref={(el) => { gaugeCardRefs.current[gauge.id] = el; }}
                       className={`bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
                         isExpanded
                           ? 'border-2 border-primary-400 shadow-xl col-span-1 md:col-span-2 xl:col-span-3'
@@ -628,18 +685,36 @@ export default function GaugesPage() {
                           </div>
                         </div>
 
-                        {/* Expand indicator and Report Issue */}
+                        {/* Expand indicator, Share, and Report Issue */}
                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openFeedbackModal(gauge);
-                            }}
-                            className="text-xs text-neutral-400 hover:text-accent-500 flex items-center gap-1 transition-colors"
-                          >
-                            <Flag className="w-3 h-3" />
-                            Report Issue
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFeedbackModal(gauge);
+                              }}
+                              className="text-xs text-neutral-400 hover:text-accent-500 flex items-center gap-1 transition-colors"
+                            >
+                              <Flag className="w-3 h-3" />
+                              Report Issue
+                            </button>
+                            <button
+                              onClick={(e) => handleShareGauge(e, gauge.usgsSiteId)}
+                              className="text-xs text-neutral-400 hover:text-primary-600 flex items-center gap-1 transition-colors"
+                            >
+                              {copiedGaugeId === gauge.usgsSiteId ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                  <span className="text-emerald-500">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="w-3 h-3" />
+                                  Share
+                                </>
+                              )}
+                            </button>
+                          </div>
                           <span className="text-xs font-medium text-neutral-500 flex items-center gap-1.5 group-hover:text-primary-600 transition-colors">
                             {isExpanded ? (
                               <>

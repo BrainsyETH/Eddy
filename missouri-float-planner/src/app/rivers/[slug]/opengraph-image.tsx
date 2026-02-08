@@ -1,17 +1,16 @@
 // src/app/rivers/[slug]/opengraph-image.tsx
-// Dynamic OG image for river pages
+// Dynamic OG image for river pages — Condition otter + river name in Fredoka coral
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadEddyAvatar } from '@/lib/og/fonts';
-import { getStatusStyles, getStatusGradient } from '@/lib/og/colors';
+import { loadOGFonts, loadConditionOtter } from '@/lib/og/fonts';
+import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
 
 export const alt = 'River conditions on eddy.guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-// Revalidate every 5 minutes for fresh gauge data
 export const revalidate = 300;
 
 function truncate(text: string, maxLength: number): string {
@@ -22,9 +21,6 @@ function truncate(text: string, maxLength: number): string {
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
   const slug = resolvedParams?.slug;
-
-  // Load avatar
-  const eddyAvatar = await loadEddyAvatar();
 
   // Default fallback data
   let riverName = 'Missouri River';
@@ -37,7 +33,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     try {
       const supabase = await createClient();
 
-      // Fetch river info
       const { data: river } = await supabase
         .from('rivers')
         .select('id, name')
@@ -47,7 +42,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
       if (river) {
         riverName = river.name;
 
-        // Fetch access point count
         const { count } = await supabase
           .from('access_points')
           .select('*', { count: 'exact', head: true })
@@ -56,7 +50,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
         accessPointCount = count || 0;
 
-        // Fetch conditions
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: conditionData } = await (supabase.rpc as any)('get_river_condition', {
@@ -82,180 +75,177 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const statusStyles = getStatusStyles(status);
   const [gradientStart, gradientEnd] = getStatusGradient(status);
 
+  const [fonts, otterImage] = await Promise.all([
+    loadOGFonts(),
+    loadConditionOtter(status),
+  ]);
+
   return new ImageResponse(
     (
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
           width: '100%',
           height: '100%',
+          fontFamily: 'Inter, system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
-          padding: 40,
           position: 'relative',
         }}
       >
-        {/* Eddy Brand Mark */}
+        {/* LEFT — Condition Otter */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 20,
+            justifyContent: 'center',
+            width: 480,
+            padding: 40,
           }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={otterImage}
+            width={380}
+            height={380}
+            alt=""
+            style={{ objectFit: 'contain' }}
+          />
+        </div>
+
+        {/* RIGHT — River info */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            padding: '60px 60px 60px 0',
+            justifyContent: 'center',
+          }}
+        >
+          {/* River name in Fredoka coral */}
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: riverName.length > 16 ? 56 : 72,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              lineHeight: 1,
+              letterSpacing: -1,
+              marginBottom: 24,
+            }}
+          >
+            {truncate(riverName, 24)}
+          </span>
+
+          {/* Metadata Row */}
           <div
             style={{
               display: 'flex',
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #478559 0%, #81B29A 100%)',
-              border: '2px solid rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
+              gap: 32,
+              marginBottom: 24,
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={eddyAvatar} width={24} height={24} alt="" style={{ objectFit: 'cover' }} />
-          </div>
-          <span
-            style={{
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.5)',
-            }}
-          >
-            eddy.guide
-          </span>
-        </div>
+            {/* Access Points */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'rgba(255,255,255,0.5)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                }}
+              >
+                ACCESS POINTS
+              </span>
+              <span
+                style={{
+                  fontFamily: 'Space Grotesk',
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: 'white',
+                }}
+              >
+                {accessPointCount}
+              </span>
+            </div>
 
-        {/* River Name */}
-        <span
-          style={{
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 48,
-            fontWeight: 700,
-            color: 'white',
-            letterSpacing: -0.5,
-            marginBottom: 24,
-          }}
-        >
-          {truncate(riverName, 20)}
-        </span>
-
-        {/* Metadata Row */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 32,
-            marginBottom: 28,
-          }}
-        >
-          {/* Access Points */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span
-              style={{
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 11,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.5)',
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-              }}
-            >
-              ACCESS POINTS
-            </span>
-            <span
-              style={{
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 20,
-                fontWeight: 700,
-                color: 'white',
-              }}
-            >
-              {accessPointCount}
-            </span>
+            {/* Gauge Level */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'rgba(255,255,255,0.5)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                }}
+              >
+                GAUGE LEVEL
+              </span>
+              <span
+                style={{
+                  fontFamily: 'Space Grotesk',
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: 'white',
+                }}
+              >
+                {gaugeReading !== null ? `${gaugeReading.toFixed(1)} ${gaugeUnit}` : 'N/A'}
+              </span>
+            </div>
           </div>
 
-          {/* Gauge Level */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span
-              style={{
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 11,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.5)',
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-              }}
-            >
-              GAUGE LEVEL
-            </span>
-            <span
-              style={{
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 20,
-                fontWeight: 700,
-                color: 'white',
-              }}
-            >
-              {gaugeReading !== null ? `${gaugeReading.toFixed(1)} ${gaugeUnit}` : 'N/A'}
-            </span>
-          </div>
-        </div>
-
-        {/* Status Badge */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            backgroundColor: statusStyles.bg,
-            border: `1px solid ${statusStyles.border}`,
-            borderRadius: 100,
-            padding: '10px 20px',
-            alignSelf: 'flex-start',
-          }}
-        >
+          {/* Status Badge */}
           <div
             style={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              backgroundColor: statusStyles.solid,
-            }}
-          />
-          <span
-            style={{
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 16,
-              fontWeight: 700,
-              color: statusStyles.text,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              backgroundColor: statusStyles.bg,
+              border: `1px solid ${statusStyles.border}`,
+              borderRadius: 100,
+              padding: '10px 20px',
+              alignSelf: 'flex-start',
             }}
           >
-            {statusStyles.label}
-          </span>
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                backgroundColor: statusStyles.solid,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'Space Grotesk',
+                fontSize: 16,
+                fontWeight: 700,
+                color: statusStyles.text,
+              }}
+            >
+              {statusStyles.label}
+            </span>
+          </div>
         </div>
 
-        {/* Tagline */}
+        {/* Domain watermark */}
         <span
           style={{
             position: 'absolute',
-            bottom: 16,
-            right: 24,
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 12,
-            fontWeight: 500,
-            color: 'rgba(255,255,255,0.4)',
+            bottom: 24,
+            right: 40,
+            fontFamily: 'Space Grotesk',
+            fontSize: 14,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.5)',
           }}
         >
-          Plan your float trip with Eddy
+          eddy.guide
         </span>
 
-        {/* Bottom Accent Bar */}
+        {/* Bottom accent bar with condition gradient */}
         <div
           style={{
             position: 'absolute',
@@ -270,6 +260,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     ),
     {
       ...size,
+      fonts,
     }
   );
 }
