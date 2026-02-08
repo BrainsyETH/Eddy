@@ -8,7 +8,6 @@ import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation,
 import Image from 'next/image';
 import Link from 'next/link';
 import AccessPointEditor from './AccessPointEditor';
-import RiverLineEditor from './RiverLineEditor';
 import POIEditor from './POIEditor';
 import type { POI } from './POIEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
@@ -16,7 +15,7 @@ import CreatePOIModal from './CreatePOIModal';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import { POI_TYPES } from '@/constants';
 
-type EditMode = 'access-points' | 'rivers' | 'river-visibility' | 'pois';
+type EditMode = 'access-points' | 'river-visibility' | 'pois';
 
 interface EditState {
   mode: EditMode;
@@ -601,10 +600,6 @@ export default function GeographyEditor() {
     return true;
   });
 
-  const filteredRivers = editState.selectedRiverId
-    ? rivers.filter((r) => r.id === editState.selectedRiverId)
-    : rivers;
-
   return (
     <>
       {/* Control Panel - z-[3000] to stay above map markers (which can be up to z-2000) */}
@@ -633,18 +628,6 @@ export default function GeographyEditor() {
                 }`}
               >
                 Access Points
-              </button>
-              <button
-                onClick={() =>
-                  setEditState((prev) => ({ ...prev, mode: 'rivers' }))
-                }
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  editState.mode === 'rivers'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
-                }`}
-              >
-                River Lines
               </button>
               <button
                 onClick={() =>
@@ -848,9 +831,6 @@ export default function GeographyEditor() {
                 </div>
               </>
             )}
-            {editState.mode === 'rivers' && (
-              <>Showing {filteredRivers.length} river{filteredRivers.length !== 1 ? 's' : ''}</>
-            )}
           </div>
 
           {/* Add Mode Toggle */}
@@ -943,14 +923,6 @@ export default function GeographyEditor() {
           onMapClick={handlePOIMapClick}
           onSelectPOI={handleSelectPOI}
           selectedPOIId={selectedPOI?.id}
-        />
-      )}
-
-      {editState.mode === 'rivers' && (
-        <RiverLineEditor
-          rivers={filteredRivers}
-          onUpdate={handleUpdate}
-          onRefresh={handleRefresh}
         />
       )}
 
