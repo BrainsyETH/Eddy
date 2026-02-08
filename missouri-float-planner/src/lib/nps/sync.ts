@@ -288,8 +288,28 @@ async function assignRiversToPOIs(supabase: SupabaseClient): Promise<void> {
         .update({
           river_id: nearest.river_id,
           is_on_water: true,
+          active: true,
         })
         .eq('id', poi.id);
+
+      // Compute river_mile by projecting POI onto river line
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: mileData } = await (supabase.rpc as any)('compute_poi_river_mile', {
+          p_poi_id: poi.id,
+          p_river_id: nearest.river_id,
+          p_lat: poi.latitude,
+          p_lng: poi.longitude,
+        });
+        if (mileData?.[0]?.river_mile != null) {
+          await supabase
+            .from('points_of_interest')
+            .update({ river_mile: mileData[0].river_mile })
+            .eq('id', poi.id);
+        }
+      } catch {
+        // RPC may not exist — river_mile can be computed via SQL migration instead
+      }
     } else {
       // Too far from river — mark as not on water
       await supabase
