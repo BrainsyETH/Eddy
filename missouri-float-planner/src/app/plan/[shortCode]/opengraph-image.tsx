@@ -75,8 +75,10 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
 
   const condDisplay = getConditionDisplay(condition);
 
-  const fonts = loadFredokaFont();
-  const otterImage = await loadConditionOtter(condition);
+  const [fonts, otterImage] = await Promise.all([
+    loadFredokaFont(),
+    loadConditionOtter(condition),
+  ]);
 
   return new ImageResponse(
     (

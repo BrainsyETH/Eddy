@@ -75,8 +75,10 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const statusStyles = getStatusStyles(status);
   const [gradientStart, gradientEnd] = getStatusGradient(status);
 
-  const fonts = loadFredokaFont();
-  const otterImage = await loadConditionOtter(status);
+  const [fonts, otterImage] = await Promise.all([
+    loadFredokaFont(),
+    loadConditionOtter(status),
+  ]);
 
   return new ImageResponse(
     (
