@@ -2,7 +2,7 @@
 // OG image for the gauges dashboard — Flood otter + "River Levels" in Fredoka coral
 
 import { ImageResponse } from 'next/og';
-import { loadOGFonts, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
+import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 
 export const alt = 'River Levels — Real-time water levels on eddy.guide';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Image() {
   const [fonts, otterImage] = await Promise.all([
-    loadOGFonts(),
+    Promise.resolve(loadFredokaFont()),
     loadOtterImage(OTTER_URLS.flood),
   ]);
 
@@ -24,7 +24,7 @@ export default async function Image() {
           display: 'flex',
           width: '100%',
           height: '100%',
-          fontFamily: 'Inter, system-ui, sans-serif',
+          fontFamily: 'system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
         }}
@@ -104,7 +104,6 @@ export default async function Image() {
                 border: '1px solid rgba(57,160,202,0.3)',
                 borderRadius: 100,
                 padding: '8px 16px',
-                fontFamily: 'Space Grotesk',
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -120,7 +119,6 @@ export default async function Image() {
                 border: '1px solid rgba(71,133,89,0.3)',
                 borderRadius: 100,
                 padding: '8px 16px',
-                fontFamily: 'Space Grotesk',
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -136,7 +134,6 @@ export default async function Image() {
             position: 'absolute',
             bottom: 24,
             right: 40,
-            fontFamily: 'Space Grotesk',
             fontSize: 14,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',

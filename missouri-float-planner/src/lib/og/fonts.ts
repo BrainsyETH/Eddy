@@ -5,85 +5,34 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// Cache fonts in memory to avoid re-fetching
-let cachedFonts: Array<{
+// Cache Fredoka font in memory
+let cachedFredoka: ArrayBuffer | null = null;
+
+// Load only the Fredoka brand font (local file, no network calls)
+// All other text in OG images uses system-ui which Satori provides by default
+export function loadFredokaFont(): Array<{
   name: string;
   data: ArrayBuffer;
-  weight: 400 | 500 | 600 | 700;
+  weight: number;
   style: 'normal';
-}> | null = null;
-
-export async function loadOGFonts() {
-  // Return cached fonts if available
-  if (cachedFonts) {
-    return cachedFonts;
-  }
-
-  // Fetch fonts from Google Fonts CDN
-  // These URLs are stable and serve TTF files
-  const fontUrls = {
-    spaceGroteskBold: 'https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.ttf',
-    spaceGroteskSemiBold: 'https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPbF4DPk3HqUtEw.ttf',
-    interRegular: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.ttf',
-    interMedium: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hjp-Ek-_EeA.ttf',
-  };
-
-  try {
-    // Load Fredoka locally (bundled in the project to avoid network issues during build)
+}> {
+  if (!cachedFredoka) {
     const fredokaPath = join(process.cwd(), 'src/app/fonts/Fredoka-Variable.ttf');
     const fredokaBuffer = readFileSync(fredokaPath);
-    const fredoka = fredokaBuffer.buffer.slice(
+    cachedFredoka = fredokaBuffer.buffer.slice(
       fredokaBuffer.byteOffset,
       fredokaBuffer.byteOffset + fredokaBuffer.byteLength
     );
-
-    const [spaceGroteskBold, spaceGroteskSemiBold, interRegular, interMedium] =
-      await Promise.all([
-        fetch(fontUrls.spaceGroteskBold).then((res) => res.arrayBuffer()),
-        fetch(fontUrls.spaceGroteskSemiBold).then((res) => res.arrayBuffer()),
-        fetch(fontUrls.interRegular).then((res) => res.arrayBuffer()),
-        fetch(fontUrls.interMedium).then((res) => res.arrayBuffer()),
-      ]);
-
-    cachedFonts = [
-      {
-        name: 'Space Grotesk',
-        data: spaceGroteskBold,
-        weight: 700 as const,
-        style: 'normal' as const,
-      },
-      {
-        name: 'Space Grotesk',
-        data: spaceGroteskSemiBold,
-        weight: 600 as const,
-        style: 'normal' as const,
-      },
-      {
-        name: 'Inter',
-        data: interRegular,
-        weight: 400 as const,
-        style: 'normal' as const,
-      },
-      {
-        name: 'Inter',
-        data: interMedium,
-        weight: 500 as const,
-        style: 'normal' as const,
-      },
-      {
-        name: 'Fredoka',
-        data: fredoka,
-        weight: 600 as const,
-        style: 'normal' as const,
-      },
-    ];
-
-    return cachedFonts;
-  } catch (error) {
-    console.error('Failed to load OG fonts:', error);
-    // Return empty array - OG images will use system fonts as fallback
-    return [];
   }
+
+  return [
+    {
+      name: 'Fredoka',
+      data: cachedFredoka,
+      weight: 600,
+      style: 'normal' as const,
+    },
+  ];
 }
 
 // Load Eddy avatar as base64 for use in ImageResponse

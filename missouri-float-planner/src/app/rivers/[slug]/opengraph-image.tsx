@@ -3,7 +3,7 @@
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadOGFonts, loadConditionOtter } from '@/lib/og/fonts';
+import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
 
@@ -75,10 +75,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const statusStyles = getStatusStyles(status);
   const [gradientStart, gradientEnd] = getStatusGradient(status);
 
-  const [fonts, otterImage] = await Promise.all([
-    loadOGFonts(),
-    loadConditionOtter(status),
-  ]);
+  const fonts = loadFredokaFont();
+  const otterImage = await loadConditionOtter(status);
 
   return new ImageResponse(
     (
@@ -87,7 +85,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           display: 'flex',
           width: '100%',
           height: '100%',
-          fontFamily: 'Inter, system-ui, sans-serif',
+          fontFamily: 'system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
         }}
@@ -160,7 +158,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               </span>
               <span
                 style={{
-                  fontFamily: 'Space Grotesk',
+                  fontFamily: 'system-ui, sans-serif',
                   fontSize: 24,
                   fontWeight: 700,
                   color: 'white',
@@ -185,7 +183,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               </span>
               <span
                 style={{
-                  fontFamily: 'Space Grotesk',
+                  fontFamily: 'system-ui, sans-serif',
                   fontSize: 24,
                   fontWeight: 700,
                   color: 'white',

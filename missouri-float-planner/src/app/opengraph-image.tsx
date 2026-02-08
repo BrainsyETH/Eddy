@@ -2,7 +2,7 @@
 // Homepage OG image — Eddy otter + brand title in Fredoka coral
 
 import { ImageResponse } from 'next/og';
-import { loadOGFonts, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
+import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 
 export const alt = 'Eddy — Missouri River Float Trip Planner';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Image() {
   const [fonts, otterImage] = await Promise.all([
-    loadOGFonts(),
+    Promise.resolve(loadFredokaFont()),
     loadOtterImage(OTTER_URLS.standard),
   ]);
 
@@ -76,7 +76,7 @@ export default async function Image() {
           {/* Subtitle */}
           <span
             style={{
-              fontFamily: 'Inter',
+              fontFamily: 'system-ui, sans-serif',
               fontSize: 24,
               fontWeight: 400,
               color: 'rgba(255,255,255,0.7)',
@@ -104,7 +104,7 @@ export default async function Image() {
                 border: '1px solid rgba(57,160,202,0.3)',
                 borderRadius: 100,
                 padding: '8px 16px',
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -120,7 +120,7 @@ export default async function Image() {
                 border: '1px solid rgba(71,133,89,0.3)',
                 borderRadius: 100,
                 padding: '8px 16px',
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -136,7 +136,7 @@ export default async function Image() {
                 border: '1px solid rgba(240,112,82,0.25)',
                 borderRadius: 100,
                 padding: '8px 16px',
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -152,7 +152,7 @@ export default async function Image() {
             position: 'absolute',
             bottom: 24,
             right: 48,
-            fontFamily: 'Space Grotesk',
+            fontFamily: 'system-ui, sans-serif',
             fontSize: 14,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',

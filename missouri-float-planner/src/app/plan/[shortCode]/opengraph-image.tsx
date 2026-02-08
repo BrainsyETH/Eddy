@@ -3,7 +3,7 @@
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadOGFonts, loadConditionOtter } from '@/lib/og/fonts';
+import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
 
@@ -75,10 +75,8 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
 
   const condDisplay = getConditionDisplay(condition);
 
-  const [fonts, otterImage] = await Promise.all([
-    loadOGFonts(),
-    loadConditionOtter(condition),
-  ]);
+  const fonts = loadFredokaFont();
+  const otterImage = await loadConditionOtter(condition);
 
   return new ImageResponse(
     (
@@ -87,7 +85,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           display: 'flex',
           width: '100%',
           height: '100%',
-          fontFamily: 'Inter, system-ui, sans-serif',
+          fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
           position: 'relative',
         }}
@@ -208,7 +206,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           >
             <span
               style={{
-                fontFamily: 'Space Grotesk',
+                fontFamily: 'system-ui, sans-serif',
                 fontSize: 48,
                 fontWeight: 700,
                 color: condDisplay.textColor,
@@ -240,7 +238,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
               </span>
               <span
                 style={{
-                  fontFamily: 'Space Grotesk',
+                  fontFamily: 'system-ui, sans-serif',
                   fontSize: 36,
                   fontWeight: 700,
                   color: 'white',
