@@ -13,7 +13,7 @@ let cachedFredoka: ArrayBuffer | null = null;
 export function loadFredokaFont(): Array<{
   name: string;
   data: ArrayBuffer;
-  weight: number;
+  weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
   style: 'normal';
 }> {
   if (!cachedFredoka) {
@@ -29,7 +29,7 @@ export function loadFredokaFont(): Array<{
     {
       name: 'Fredoka',
       data: cachedFredoka,
-      weight: 600,
+      weight: 600 as const,
       style: 'normal' as const,
     },
   ];
