@@ -60,12 +60,12 @@ export default async function Image() {
           <span
             style={{
               fontFamily: 'Fredoka',
-              fontSize: 96,
+              fontSize: 128,
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               lineHeight: 1,
-              letterSpacing: -1,
-              marginBottom: 16,
+              letterSpacing: -2,
+              marginBottom: 20,
             }}
           >
             Eddy
@@ -75,11 +75,11 @@ export default async function Image() {
           <span
             style={{
               fontFamily: 'system-ui, sans-serif',
-              fontSize: 24,
+              fontSize: 32,
               fontWeight: 400,
               color: 'rgba(255,255,255,0.7)',
               lineHeight: 1.4,
-              maxWidth: 480,
+              maxWidth: 540,
             }}
           >
             Missouri River Float Trip Planner
@@ -89,8 +89,8 @@ export default async function Image() {
           <div
             style={{
               display: 'flex',
-              gap: 8,
-              marginTop: 32,
+              gap: 10,
+              marginTop: 36,
             }}
           >
             <div
@@ -101,9 +101,9 @@ export default async function Image() {
                 color: '#39a0ca',
                 border: '1px solid rgba(57,160,202,0.3)',
                 borderRadius: 100,
-                padding: '8px 16px',
+                padding: '10px 20px',
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: 600,
               }}
             >
@@ -117,9 +117,9 @@ export default async function Image() {
                 color: '#81B29A',
                 border: '1px solid rgba(71,133,89,0.3)',
                 borderRadius: 100,
-                padding: '8px 16px',
+                padding: '10px 20px',
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: 600,
               }}
             >
@@ -133,9 +133,9 @@ export default async function Image() {
                 color: '#F07052',
                 border: '1px solid rgba(240,112,82,0.25)',
                 borderRadius: 100,
-                padding: '8px 16px',
+                padding: '10px 20px',
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: 600,
               }}
             >
@@ -151,7 +151,7 @@ export default async function Image() {
             bottom: 24,
             right: 48,
             fontFamily: 'system-ui, sans-serif',
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',
           }}

@@ -61,12 +61,12 @@ export default async function Image() {
           <span
             style={{
               fontFamily: 'Fredoka',
-              fontSize: 80,
+              fontSize: 108,
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               lineHeight: 1,
-              letterSpacing: -1,
-              marginBottom: 16,
+              letterSpacing: -2,
+              marginBottom: 20,
             }}
           >
             River Levels
@@ -75,11 +75,11 @@ export default async function Image() {
           {/* Subtitle */}
           <span
             style={{
-              fontSize: 22,
+              fontSize: 30,
               fontWeight: 400,
               color: 'rgba(255,255,255,0.7)',
               lineHeight: 1.4,
-              maxWidth: 480,
+              maxWidth: 540,
             }}
           >
             Real-time USGS water levels and flow trends across Missouri
@@ -89,8 +89,8 @@ export default async function Image() {
           <div
             style={{
               display: 'flex',
-              gap: 8,
-              marginTop: 28,
+              gap: 10,
+              marginTop: 32,
             }}
           >
             <div
@@ -101,8 +101,8 @@ export default async function Image() {
                 color: '#39a0ca',
                 border: '1px solid rgba(57,160,202,0.3)',
                 borderRadius: 100,
-                padding: '8px 16px',
-                fontSize: 14,
+                padding: '10px 20px',
+                fontSize: 18,
                 fontWeight: 600,
               }}
             >
@@ -116,8 +116,8 @@ export default async function Image() {
                 color: '#81B29A',
                 border: '1px solid rgba(71,133,89,0.3)',
                 borderRadius: 100,
-                padding: '8px 16px',
-                fontSize: 14,
+                padding: '10px 20px',
+                fontSize: 18,
                 fontWeight: 600,
               }}
             >
@@ -132,7 +132,7 @@ export default async function Image() {
             position: 'absolute',
             bottom: 24,
             right: 40,
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',
           }}
