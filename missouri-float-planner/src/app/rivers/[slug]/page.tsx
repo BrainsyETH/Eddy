@@ -79,7 +79,7 @@ export default function RiverPage() {
     gauge.thresholds?.some(t => t.riverId === river?.id)
   );
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
-  const [upstreamWarning, setUpstreamWarning] = useState<string | null>(null);
+  const [upstreamWarning] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
 
   // Ref for auto-scrolling to float plan card
@@ -145,6 +145,17 @@ export default function RiverPage() {
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
 
+  // Auto-swap: ensure put-in is always upstream (higher mile) of take-out
+  useEffect(() => {
+    if (!accessPoints || !selectedPutIn || !selectedTakeOut) return;
+    const putIn = accessPoints.find(ap => ap.id === selectedPutIn);
+    const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
+    if (putIn && takeOut && putIn.riverMile < takeOut.riverMile) {
+      setSelectedPutIn(selectedTakeOut);
+      setSelectedTakeOut(selectedPutIn);
+    }
+  }, [accessPoints, selectedPutIn, selectedTakeOut]);
+
   // Calculate plan
   const planParams = (river && selectedPutIn && selectedTakeOut)
     ? {
@@ -172,6 +183,7 @@ export default function RiverPage() {
     : null;
 
   // Handle map marker click - set as put-in or take-out
+  // Auto-swap effect ensures put-in is always upstream of take-out
   const handleMarkerClick = useCallback((point: AccessPoint) => {
     // If clicking the current put-in, deselect it (keep take-out)
     if (point.id === selectedPutIn) {
@@ -189,26 +201,13 @@ export default function RiverPage() {
       // No put-in selected - set this as put-in
       setSelectedPutIn(point.id);
     } else if (!selectedTakeOut) {
-      // Put-in selected but no take-out - set this as take-out
-      // Show warning if upstream, but still allow selection
-      if (accessPoints) {
-        const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
-        if (putInPoint && point.riverMile < putInPoint.riverMile) {
-          setUpstreamWarning('This take-out is upstream of your put-in. You will be paddling against the current.');
-        }
-      }
+      // Put-in selected but no take-out - set as take-out (auto-swap corrects if needed)
       setSelectedTakeOut(point.id);
     } else {
-      // Both selected - clicking a new point changes the take-out
-      if (accessPoints) {
-        const putInPoint = accessPoints.find((ap) => ap.id === selectedPutIn);
-        if (putInPoint && point.riverMile < putInPoint.riverMile) {
-          setUpstreamWarning('This take-out is upstream of your put-in. You will be paddling against the current.');
-        }
-      }
+      // Both selected - clicking a new point changes the take-out (auto-swap corrects if needed)
       setSelectedTakeOut(point.id);
     }
-  }, [accessPoints, selectedPutIn, selectedTakeOut]);
+  }, [selectedPutIn, selectedTakeOut]);
 
   // Handle report issue for access point
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
@@ -402,12 +401,6 @@ export default function RiverPage() {
   const activeMileRange = putInPoint && takeOutPoint
     ? { min: Math.min(putInPoint.riverMile, takeOutPoint.riverMile), max: Math.max(putInPoint.riverMile, takeOutPoint.riverMile) }
     : null;
-
-  useEffect(() => {
-    if (!upstreamWarning) return;
-    const timeout = setTimeout(() => setUpstreamWarning(null), 4000);
-    return () => clearTimeout(timeout);
-  }, [upstreamWarning]);
 
   // Auto-scroll to float plan card when both points are selected
   useEffect(() => {
