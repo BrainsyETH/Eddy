@@ -2,8 +2,13 @@
 // Homepage OG image — Eddy otter + brand title in Fredoka coral
 
 import { ImageResponse } from 'next/og';
-import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
+import { formatFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
+
+// new URL() in the route file so webpack bundles the font into this serverless function
+const fredokaFont = fetch(
+  new URL('./fonts/Fredoka-SemiBold.ttf', import.meta.url),
+).then((res) => res.arrayBuffer());
 
 export const alt = 'Eddy — Missouri River Float Trip Planner';
 export const size = { width: 1200, height: 630 };
@@ -12,10 +17,11 @@ export const contentType = 'image/png';
 export const dynamic = 'force-dynamic';
 
 export default async function Image() {
-  const [fonts, otterImage] = await Promise.all([
-    loadFredokaFont(),
+  const [fontData, otterImage] = await Promise.all([
+    fredokaFont,
     loadOtterImage(OTTER_URLS.standard),
   ]);
+  const fonts = formatFredokaFont(fontData);
 
   return new ImageResponse(
     (
