@@ -1,16 +1,16 @@
 // src/app/plan/[shortCode]/opengraph-image.tsx
-// Dynamic OG image for shared float plans
+// Dynamic OG image for shared float plans — Condition otter + river name in Fredoka coral
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadConditionOtter } from '@/lib/og/fonts';
+import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
+import { BRAND_COLORS } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
 
 export const alt = 'Float Plan on eddy.guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-// Revalidate every 5 minutes for fresh gauge data
 export const revalidate = 300;
 
 function truncate(text: string, maxLength: number): string {
@@ -18,7 +18,6 @@ function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 1).trim() + '...';
 }
 
-// Get condition display info
 function getConditionDisplay(condition: ConditionCode) {
   const displays: Record<ConditionCode, { label: string; textColor: string; bg: string }> = {
     optimal: { label: 'OPTIMAL', textColor: '#1A3D23', bg: '#059669' },
@@ -41,14 +40,12 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
   let putInName = 'Start';
   let takeOutName = 'End';
   let condition: ConditionCode = 'unknown';
-  let gaugeName = 'USGS Gauge';
   let gaugeHeight = '';
 
   if (shortCode) {
     try {
       const supabase = await createClient();
 
-      // Fetch the saved plan
       const { data: savedPlan } = await supabase
         .from('float_plans')
         .select('*')
@@ -56,7 +53,6 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
         .single();
 
       if (savedPlan) {
-        // Fetch river and access points in parallel
         const [riverResult, putInResult, takeOutResult] = await Promise.all([
           supabase.from('rivers').select('name').eq('id', savedPlan.river_id).single(),
           supabase.from('access_points').select('name').eq('id', savedPlan.start_access_id).single(),
@@ -66,7 +62,6 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
         riverName = riverResult.data?.name || riverName;
         putInName = putInResult.data?.name || putInName;
         takeOutName = takeOutResult.data?.name || takeOutName;
-        gaugeName = savedPlan.gauge_name_at_creation || gaugeName;
         condition = (savedPlan.condition_at_creation || 'unknown') as ConditionCode;
 
         if (savedPlan.gauge_reading_at_creation) {
@@ -78,155 +73,156 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
     }
   }
 
-  // Load condition-specific otter image
-  const otterImage = await loadConditionOtter(condition);
   const condDisplay = getConditionDisplay(condition);
+
+  const fonts = loadFredokaFont();
+  const otterImage = await loadConditionOtter(condition);
 
   return new ImageResponse(
     (
       <div
         style={{
+          display: 'flex',
           width: '100%',
           height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
-          padding: '32px 40px',
           position: 'relative',
         }}
       >
-        {/* TOP - Otter + River name */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            marginBottom: 12,
-          }}
-        >
-          {/* Otter */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={otterImage}
-            width={100}
-            height={100}
-            alt=""
-            style={{ objectFit: 'contain', marginRight: 20 }}
-          />
-
-          {/* River name */}
-          <span
-            style={{
-              fontSize: 52,
-              fontWeight: 700,
-              color: 'white',
-              letterSpacing: -1,
-              lineHeight: 1,
-              marginTop: 20,
-            }}
-          >
-            {truncate(riverName.toUpperCase(), 20)}
-          </span>
-        </div>
-
-        {/* Put-in / Take-out row */}
+        {/* LEFT — Condition Otter */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            marginBottom: 24,
-            marginLeft: 120,
+            justifyContent: 'center',
+            width: 420,
+            padding: 40,
           }}
         >
-          {/* Put-in */}
-          <div
-            style={{
-              width: 18,
-              height: 18,
-              background: '#4EB86B',
-              marginRight: 8,
-              flexShrink: 0,
-            }}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={otterImage}
+            width={340}
+            height={340}
+            alt=""
+            style={{ objectFit: 'contain' }}
           />
-          <span
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: 'white',
-              marginRight: 28,
-            }}
-          >
-            {truncate(putInName, 15)}
-          </span>
-
-          {/* Arrow */}
-          <span
-            style={{
-              fontSize: 20,
-              color: 'rgba(255,255,255,0.5)',
-              marginRight: 28,
-            }}
-          >
-            →
-          </span>
-
-          {/* Take-out */}
-          <div
-            style={{
-              width: 18,
-              height: 18,
-              background: '#F07052',
-              marginRight: 8,
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: 'white',
-            }}
-          >
-            {truncate(takeOutName, 15)}
-          </span>
         </div>
 
-        {/* Condition banner */}
-        <div
-          style={{
-            display: 'flex',
-            padding: '20px 32px',
-            background: condDisplay.bg,
-            border: '4px solid #000',
-            marginBottom: 24,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 64,
-              fontWeight: 700,
-              color: condDisplay.textColor,
-              letterSpacing: -1,
-            }}
-          >
-            {condDisplay.label}
-          </span>
-        </div>
-
-        {/* Gauge data */}
+        {/* RIGHT — Plan info */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
+            padding: '48px 48px 48px 0',
+            justifyContent: 'center',
           }}
         >
+          {/* River name in Fredoka coral */}
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: riverName.length > 16 ? 52 : 64,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              lineHeight: 1,
+              letterSpacing: -1,
+              marginBottom: 20,
+            }}
+          >
+            {truncate(riverName, 24)}
+          </span>
+
+          {/* Put-in → Take-out */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 24,
+            }}
+          >
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                background: '#4EB86B',
+                marginRight: 8,
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 20,
+                fontWeight: 600,
+                color: 'white',
+                marginRight: 20,
+              }}
+            >
+              {truncate(putInName, 15)}
+            </span>
+
+            <span
+              style={{
+                fontSize: 20,
+                color: 'rgba(255,255,255,0.5)',
+                marginRight: 20,
+              }}
+            >
+              →
+            </span>
+
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                background: BRAND_COLORS.accentCoral,
+                marginRight: 8,
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 20,
+                fontWeight: 600,
+                color: 'white',
+              }}
+            >
+              {truncate(takeOutName, 15)}
+            </span>
+          </div>
+
+          {/* Condition banner */}
+          <div
+            style={{
+              display: 'flex',
+              padding: '16px 28px',
+              background: condDisplay.bg,
+              border: '3px solid #000',
+              marginBottom: 20,
+              alignSelf: 'flex-start',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: 48,
+                fontWeight: 700,
+                color: condDisplay.textColor,
+                letterSpacing: -1,
+              }}
+            >
+              {condDisplay.label}
+            </span>
+          </div>
+
+          {/* Gauge height */}
           {gaugeHeight && (
             <div
               style={{
                 display: 'flex',
-                flexDirection: 'column',
-                marginBottom: 12,
+                alignItems: 'baseline',
               }}
             >
               <span
@@ -235,85 +231,55 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
                   fontWeight: 600,
                   color: '#72B5C4',
                   letterSpacing: 1,
-                  marginBottom: 4,
+                  marginRight: 12,
                 }}
               >
                 GAUGE HEIGHT
               </span>
-              <div
+              <span
                 style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
+                  fontFamily: 'system-ui, sans-serif',
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: 'white',
+                  letterSpacing: -1,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 44,
-                    fontWeight: 700,
-                    color: 'white',
-                    letterSpacing: -1,
-                  }}
-                >
-                  {gaugeHeight}
-                </span>
-                <span
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: '#A3D1DB',
-                    marginLeft: 8,
-                  }}
-                >
-                  ft
-                </span>
-              </div>
+                {gaugeHeight}
+              </span>
+              <span
+                style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: '#A3D1DB',
+                  marginLeft: 6,
+                }}
+              >
+                ft
+              </span>
             </div>
           )}
         </div>
 
-        {/* Bottom row - Gauge name + watermark */}
-        <div
+        {/* Domain watermark */}
+        <span
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
+            position: 'absolute',
+            bottom: 24,
+            right: 40,
+            fontFamily: 'Space Grotesk',
+            fontSize: 14,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.5)',
           }}
         >
-          {/* Gauge name chip */}
-          <div
-            style={{
-              display: 'flex',
-              padding: '8px 14px',
-              background: 'rgba(255,255,255,0.08)',
-              border: '2px solid rgba(255,255,255,0.15)',
-            }}
-          >
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#A3D1DB',
-              }}
-            >
-              {gaugeName}
-            </span>
-          </div>
-
-          {/* Watermark */}
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.5)',
-            }}
-          >
-            eddy.guide
-          </span>
-        </div>
+          eddy.guide
+        </span>
       </div>
     ),
     {
       ...size,
+      fonts,
     }
   );
 }

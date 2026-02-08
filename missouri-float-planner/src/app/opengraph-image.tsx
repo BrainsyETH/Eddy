@@ -1,204 +1,152 @@
 // src/app/opengraph-image.tsx
-// Homepage OG image
+// Homepage OG image — Eddy otter + brand title in Fredoka coral
 
 import { ImageResponse } from 'next/og';
-import { loadEddyAvatar } from '@/lib/og/fonts';
+import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 
-export const alt = 'Plan your float trip with Eddy — Missouri Ozark river trip planner';
+export const alt = 'Eddy — Missouri River Float Trip Planner';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-// Force dynamic to avoid static prerendering issues with font loading
 export const dynamic = 'force-dynamic';
 
 export default async function Image() {
-  const eddyAvatar = await loadEddyAvatar();
+  const [fonts, otterImage] = await Promise.all([
+    Promise.resolve(loadFredokaFont()),
+    loadOtterImage(OTTER_URLS.standard),
+  ]);
 
   return new ImageResponse(
     (
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
           width: '100%',
           height: '100%',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
-          padding: 48,
           position: 'relative',
         }}
       >
-        {/* Eddy Avatar */}
+        {/* LEFT — Eddy Otter */}
         <div
           style={{
             display: 'flex',
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: `linear-gradient(135deg, ${BRAND_COLORS.greenTreeline} 0%, ${BRAND_COLORS.mossGreen} 100%)`,
-            border: '3px solid rgba(255,255,255,0.2)',
             alignItems: 'center',
             justifyContent: 'center',
-            overflow: 'hidden',
-            marginBottom: 24,
+            width: 480,
+            padding: 40,
           }}
         >
-{/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={eddyAvatar}
-            width={64}
-            height={64}
+            src={otterImage}
+            width={380}
+            height={380}
             alt=""
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'contain' }}
           />
         </div>
 
-        {/* Title */}
+        {/* RIGHT — Title */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            marginBottom: 16,
+            flex: 1,
+            padding: '80px 60px 80px 0',
+            justifyContent: 'center',
           }}
         >
+          {/* Brand name in Fredoka coral */}
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: 96,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              lineHeight: 1,
+              letterSpacing: -1,
+              marginBottom: 16,
+            }}
+          >
+            Eddy
+          </span>
+
+          {/* Subtitle */}
           <span
             style={{
               fontFamily: 'system-ui, sans-serif',
-              fontSize: 42,
-              fontWeight: 700,
-              color: 'white',
-              lineHeight: 1.1,
+              fontSize: 24,
+              fontWeight: 400,
+              color: 'rgba(255,255,255,0.7)',
+              lineHeight: 1.4,
+              maxWidth: 480,
             }}
           >
-            Plan your float trip
+            Missouri River Float Trip Planner
           </span>
-          <span
-            style={{
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 42,
-              fontWeight: 700,
-              color: BRAND_COLORS.bluewater,
-              lineHeight: 1.1,
-            }}
-          >
-            with Eddy
-          </span>
-        </div>
 
-        {/* Tagline */}
-        <span
-          style={{
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 18,
-            fontWeight: 400,
-            color: 'rgba(255,255,255,0.7)',
-            marginBottom: 32,
-          }}
-        >
-          Missouri&apos;s Ozark rivers — live gauges, access points, and trip planning
-        </span>
-
-        {/* Feature Pills */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-          }}
-        >
-          {/* Live USGS Data - Blue */}
+          {/* Feature pills */}
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              backgroundColor: 'rgba(57,160,202,0.2)',
-              color: '#39a0ca',
-              border: '1px solid rgba(57,160,202,0.3)',
-              borderRadius: 100,
-              padding: '6px 14px',
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 12,
-              fontWeight: 600,
+              gap: 8,
+              marginTop: 32,
             }}
           >
-            Live USGS Data
-          </div>
-
-          {/* 30+ Access Points - Green */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              backgroundColor: 'rgba(71,133,89,0.2)',
-              color: '#81B29A',
-              border: '1px solid rgba(71,133,89,0.3)',
-              borderRadius: 100,
-              padding: '6px 14px',
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            30+ Access Points
-          </div>
-
-          {/* Float Times - Coral */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              backgroundColor: 'rgba(240,112,82,0.15)',
-              color: '#F07052',
-              border: '1px solid rgba(240,112,82,0.25)',
-              borderRadius: 100,
-              padding: '6px 14px',
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            Float Times
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'rgba(57,160,202,0.2)',
+                color: '#39a0ca',
+                border: '1px solid rgba(57,160,202,0.3)',
+                borderRadius: 100,
+                padding: '8px 16px',
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              Live USGS Data
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'rgba(71,133,89,0.2)',
+                color: '#81B29A',
+                border: '1px solid rgba(71,133,89,0.3)',
+                borderRadius: 100,
+                padding: '8px 16px',
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              30+ Access Points
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'rgba(240,112,82,0.15)',
+                color: '#F07052',
+                border: '1px solid rgba(240,112,82,0.25)',
+                borderRadius: 100,
+                padding: '8px 16px',
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              Float Times
+            </div>
           </div>
         </div>
 
-        {/* Wave Lines */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'absolute',
-            bottom: 60,
-            left: 48,
-            right: 200,
-            gap: 8,
-          }}
-        >
-          <div
-            style={{
-              height: 2,
-              background:
-                'linear-gradient(90deg, transparent 0%, rgba(57,160,202,0.4) 30%, rgba(57,160,202,0.4) 70%, transparent 100%)',
-              borderRadius: 1,
-            }}
-          />
-          <div
-            style={{
-              height: 2,
-              background:
-                'linear-gradient(90deg, transparent 0%, rgba(57,160,202,0.3) 25%, rgba(57,160,202,0.3) 75%, transparent 100%)',
-              borderRadius: 1,
-            }}
-          />
-          <div
-            style={{
-              height: 2,
-              background:
-                'linear-gradient(90deg, transparent 0%, rgba(57,160,202,0.2) 20%, rgba(57,160,202,0.2) 80%, transparent 100%)',
-              borderRadius: 1,
-            }}
-          />
-        </div>
-
-        {/* Domain Watermark */}
+        {/* Domain watermark */}
         <span
           style={{
             position: 'absolute',
@@ -212,10 +160,23 @@ export default async function Image() {
         >
           eddy.guide
         </span>
+
+        {/* Bottom accent bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 4,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral} 0%, ${BRAND_COLORS.bluewater} 100%)`,
+          }}
+        />
       </div>
     ),
     {
       ...size,
+      fonts,
     }
   );
 }
