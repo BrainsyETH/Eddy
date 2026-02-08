@@ -145,17 +145,25 @@ export default function RiverPage() {
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
 
-  // Auto-swap: ensure put-in is always upstream (lower mile) of take-out
-  // River miles count downstream from headwaters, so put-in should have lower mile
-  useEffect(() => {
-    if (!accessPoints || !selectedPutIn || !selectedTakeOut) return;
-    const putIn = accessPoints.find(ap => ap.id === selectedPutIn);
-    const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
-    if (putIn && takeOut && putIn.riverMile > takeOut.riverMile) {
-      setSelectedPutIn(selectedTakeOut);
-      setSelectedTakeOut(selectedPutIn);
+  // Helper: assign two points so put-in is always upstream (lower mile).
+  // river_mile_downstream counts from headwaters so lower = upstream.
+  const setBothPoints = useCallback((idA: string, idB: string) => {
+    if (!accessPoints) {
+      setSelectedPutIn(idA);
+      setSelectedTakeOut(idB);
+      return;
     }
-  }, [accessPoints, selectedPutIn, selectedTakeOut]);
+    const a = accessPoints.find(ap => ap.id === idA);
+    const b = accessPoints.find(ap => ap.id === idB);
+    if (a && b && a.riverMile > b.riverMile) {
+      // A is downstream of B — swap so B (lower mile) is put-in
+      setSelectedPutIn(idB);
+      setSelectedTakeOut(idA);
+    } else {
+      setSelectedPutIn(idA);
+      setSelectedTakeOut(idB);
+    }
+  }, [accessPoints]);
 
   // Calculate plan
   const planParams = (river && selectedPutIn && selectedTakeOut)
@@ -183,32 +191,59 @@ export default function RiverPage() {
         : null
     : null;
 
-  // Handle map marker click - set as put-in or take-out
-  // Auto-swap effect ensures put-in is always upstream of take-out
+  // Handle map / strip click — setBothPoints ensures correct put-in/take-out order
   const handleMarkerClick = useCallback((point: AccessPoint) => {
-    // If clicking the current put-in, deselect it (keep take-out)
+    // Clicking the current put-in → deselect it (keep take-out)
     if (point.id === selectedPutIn) {
       setSelectedPutIn(null);
       return;
     }
 
-    // If clicking the current take-out, deselect it
+    // Clicking the current take-out → deselect it
     if (point.id === selectedTakeOut) {
       setSelectedTakeOut(null);
       return;
     }
 
-    if (!selectedPutIn) {
-      // No put-in selected - set this as put-in
+    if (!selectedPutIn && !selectedTakeOut) {
+      // Nothing selected — first pick becomes put-in
       setSelectedPutIn(point.id);
-    } else if (!selectedTakeOut) {
-      // Put-in selected but no take-out - set as take-out (auto-swap corrects if needed)
-      setSelectedTakeOut(point.id);
-    } else {
-      // Both selected - clicking a new point changes the take-out (auto-swap corrects if needed)
-      setSelectedTakeOut(point.id);
+    } else if (selectedPutIn && !selectedTakeOut) {
+      // Put-in set, no take-out — assign both with auto-swap
+      setBothPoints(selectedPutIn, point.id);
+    } else if (!selectedPutIn && selectedTakeOut) {
+      // Take-out set, no put-in — assign both with auto-swap
+      setBothPoints(point.id, selectedTakeOut);
+    } else if (selectedPutIn && selectedTakeOut) {
+      // Both set — replace take-out, auto-swap if needed
+      setBothPoints(selectedPutIn, point.id);
     }
-  }, [selectedPutIn, selectedTakeOut]);
+  }, [selectedPutIn, selectedTakeOut, setBothPoints]);
+
+  // PlannerPanel callbacks — auto-swap when both points would be in wrong order
+  const handlePutInChange = useCallback((id: string | null) => {
+    if (!id) {
+      setSelectedPutIn(null);
+      return;
+    }
+    if (selectedTakeOut) {
+      setBothPoints(id, selectedTakeOut);
+    } else {
+      setSelectedPutIn(id);
+    }
+  }, [selectedTakeOut, setBothPoints]);
+
+  const handleTakeOutChange = useCallback((id: string | null) => {
+    if (!id) {
+      setSelectedTakeOut(null);
+      return;
+    }
+    if (selectedPutIn) {
+      setBothPoints(selectedPutIn, id);
+    } else {
+      setSelectedTakeOut(id);
+    }
+  }, [selectedPutIn, setBothPoints]);
 
   // Handle report issue for access point
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
@@ -456,8 +491,8 @@ export default function RiverPage() {
             isLoading={accessPointsLoading}
             selectedPutIn={selectedPutIn}
             selectedTakeOut={selectedTakeOut}
-            onPutInChange={setSelectedPutIn}
-            onTakeOutChange={setSelectedTakeOut}
+            onPutInChange={handlePutInChange}
+            onTakeOutChange={handleTakeOutChange}
           />
         </div>
 
