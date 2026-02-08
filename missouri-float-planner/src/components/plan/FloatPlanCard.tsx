@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
-import { POI_TYPES } from '@/constants';
+import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
 import {
   generateNavLinks,
   handleNavClick,
@@ -116,6 +116,15 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     borderClass: 'border-neutral-400',
   },
 };
+
+// Sort types by canonical display order
+function sortTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const ai = ACCESS_POINT_TYPE_ORDER.indexOf(a as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    const bi = ACCESS_POINT_TYPE_ORDER.indexOf(b as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+}
 
 // Format road surface for display
 function formatRoadSurface(surface: string): string {
@@ -467,7 +476,7 @@ function AccessPointDetailCard({
             </div>
             <h3 className="font-bold text-neutral-900 text-base mt-1 truncate">{point.name}</h3>
             <p className="text-sm text-neutral-500 capitalize">
-              {(point.types && point.types.length > 0 ? point.types : [point.type])
+              {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
                 .map(t => t.replace('_', ' '))
                 .join(' / ')}
             </p>

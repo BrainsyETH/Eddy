@@ -28,6 +28,16 @@ export const ACCESS_POINT_TYPES = {
   park: 'Park',
 } as const;
 
+// Canonical display order for access point types
+export const ACCESS_POINT_TYPE_ORDER: (keyof typeof ACCESS_POINT_TYPES)[] = [
+  'access',
+  'campground',
+  'boat_ramp',
+  'gravel_bar',
+  'bridge',
+  'park',
+];
+
 // Hazard types with labels
 export const HAZARD_TYPES = {
   low_water_dam: 'Low-Water Dam',

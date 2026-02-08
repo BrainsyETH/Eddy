@@ -42,29 +42,29 @@ export default function PlannerPanel({
     : null;
 
   return (
-    <div className="glass-card-dark rounded-2xl p-4 lg:p-5 border border-white/10">
+    <div className="glass-card-dark rounded-2xl p-3 lg:p-4 border border-white/10">
       {isLoading ? (
-        <div className="flex items-center justify-center py-6">
+        <div className="flex items-center justify-center py-4">
           <LoadingSpinner size="md" />
         </div>
       ) : (
-        <div className="lg:flex lg:items-end lg:gap-4">
+        <div className="lg:flex lg:items-end lg:gap-3">
           {/* Header */}
-          <div className="flex items-center gap-2 mb-3 lg:mb-0 lg:shrink-0">
+          <div className="flex items-center gap-2 mb-2 lg:mb-0 lg:shrink-0">
             <Image
               src={EDDY_CANOE_IMAGE}
               alt="Eddy the Otter in a canoe"
               width={120}
               height={120}
-              className="w-10 h-10 md:w-12 md:h-12 object-contain"
+              className="w-8 h-8 md:w-10 md:h-10 object-contain"
             />
-            <h2 className="text-lg lg:text-xl font-bold text-white">Plan Your Float</h2>
+            <h2 className="text-base lg:text-lg font-bold text-white">Plan Your Float</h2>
           </div>
 
           {/* Selectors */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:flex-1">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 lg:flex-1">
             <div>
-              <label className="block text-xs font-semibold text-white/80 mb-1">
+              <label className="block text-[11px] font-semibold text-white/80 mb-0.5">
                 Put-in Point
               </label>
               <AccessPointSelector
@@ -72,10 +72,11 @@ export default function PlannerPanel({
                 selectedId={selectedPutIn}
                 onSelect={onPutInChange}
                 placeholder="Select put-in..."
+                compact
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-white/80 mb-1">
+              <label className="block text-[11px] font-semibold text-white/80 mb-0.5">
                 Take-out Point
               </label>
               <AccessPointSelector
@@ -86,6 +87,7 @@ export default function PlannerPanel({
                 excludeId={selectedPutIn}
                 referenceMile={selectedPutInPoint?.riverMile ?? null}
                 warnUpstream={Boolean(selectedPutInPoint)}
+                compact
               />
             </div>
           </div>

@@ -5,16 +5,32 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { AccessPoint } from '@/types/api';
+import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
 
-// Available access point types
-const ACCESS_POINT_TYPES = [
-  { value: 'boat_ramp', label: 'Boat Ramp', emoji: '🚤' },
-  { value: 'gravel_bar', label: 'Gravel Bar', emoji: '🪨' },
-  { value: 'campground', label: 'Campground', emoji: '🏕️' },
-  { value: 'bridge', label: 'Bridge', emoji: '🌉' },
-  { value: 'access', label: 'Access', emoji: '📍' },
-  { value: 'park', label: 'Park', emoji: '🌲' },
-];
+// Available access point types - ordered by canonical display order
+const ACCESS_POINT_TYPE_EMOJI: Record<string, string> = {
+  access: '📍',
+  campground: '🏕️',
+  boat_ramp: '🚤',
+  gravel_bar: '🪨',
+  bridge: '🌉',
+  park: '🌲',
+};
+
+const ACCESS_POINT_TYPE_LABEL: Record<string, string> = {
+  access: 'Access',
+  campground: 'Campground',
+  boat_ramp: 'Boat Ramp',
+  gravel_bar: 'Gravel Bar',
+  bridge: 'Bridge',
+  park: 'Park',
+};
+
+const ACCESS_POINT_TYPES = ACCESS_POINT_TYPE_ORDER.map(value => ({
+  value,
+  label: ACCESS_POINT_TYPE_LABEL[value],
+  emoji: ACCESS_POINT_TYPE_EMOJI[value],
+}));
 
 interface AccessPointSelectorProps {
   accessPoints: AccessPoint[];
@@ -24,6 +40,7 @@ interface AccessPointSelectorProps {
   excludeId?: string | null;
   referenceMile?: number | null;
   warnUpstream?: boolean;
+  compact?: boolean;
 }
 
 export default function AccessPointSelector({
@@ -34,6 +51,7 @@ export default function AccessPointSelector({
   excludeId,
   referenceMile = null,
   warnUpstream = false,
+  compact = false,
 }: AccessPointSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,28 +120,29 @@ export default function AccessPointSelector({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full px-4 py-3 bg-white border-2 border-neutral-200 rounded-lg
+        className={`w-full bg-white border-2 border-neutral-200 rounded-lg
                    shadow-sm hover:shadow-md hover:border-primary-400
-                   flex items-center justify-between gap-3 transition-all duration-200
-                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                   flex items-center justify-between transition-all duration-200
+                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+                   ${compact ? 'px-3 py-2 gap-2' : 'px-4 py-3 gap-3'}`}
       >
-        <div className="flex items-center gap-3 flex-1 text-left">
+        <div className={`flex items-center flex-1 text-left ${compact ? 'gap-2' : 'gap-3'}`}>
           {selectedPoint ? (
             <>
-              <span className="text-xl">
+              <span className={compact ? 'text-base' : 'text-xl'}>
                 {selectedPoint.type === 'boat_ramp' ? '🚤' :
                  selectedPoint.type === 'campground' ? '🏕️' :
                  selectedPoint.type === 'bridge' ? '🌉' : '📍'}
               </span>
               <div>
-                <p className="font-medium text-neutral-900">{selectedPoint.name}</p>
-                <p className="text-sm text-neutral-500">
+                <p className={`font-medium text-neutral-900 ${compact ? 'text-sm' : ''}`}>{selectedPoint.name}</p>
+                <p className={`text-neutral-500 ${compact ? 'text-xs' : 'text-sm'}`}>
                   Mile {selectedPoint.riverMile.toFixed(1)} • {selectedPoint.type.replace('_', ' ')}
                 </p>
               </div>
             </>
           ) : (
-            <span className="text-neutral-500">{placeholder}</span>
+            <span className={`text-neutral-500 ${compact ? 'text-sm' : ''}`}>{placeholder}</span>
           )}
         </div>
         {selectedPoint && (
