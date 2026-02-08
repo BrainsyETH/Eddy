@@ -931,7 +931,7 @@ function JourneyCenter({
         </div>
 
         {/* Stats Row */}
-        <div className="bg-white/95 backdrop-blur px-3 py-2.5">
+        <div className="bg-white rounded-b-2xl px-3 py-2.5">
           <div className="flex items-center justify-around">
             <div className="text-center">
               <p className="text-lg font-bold text-neutral-800">
@@ -1313,7 +1313,7 @@ function MobileBottomSheet({
             </div>
 
             {/* Stats Row */}
-            <div className="bg-white/95 backdrop-blur px-4 py-3">
+            <div className="bg-white rounded-b-2xl px-4 py-3">
               <div className="flex items-center justify-around">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-neutral-800">

@@ -94,9 +94,10 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
 
               {/* NPS image thumbnail */}
               {poi.images && poi.images.length > 0 && (
-                <div
-                  className="mt-2 h-24 rounded-md bg-cover bg-center"
-                  style={{ backgroundImage: `url(${poi.images[0].url})` }}
+                <img
+                  src={poi.images[0].url}
+                  alt={poi.name}
+                  className="mt-2 w-full rounded-md object-contain"
                 />
               )}
 
