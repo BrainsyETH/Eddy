@@ -1,46 +1,58 @@
 'use client';
 
 // src/components/river/PointsOfInterest.tsx
-// Curated points of interest along the river
+// Points of interest along the river (NPS places)
 
 import { useQuery } from '@tanstack/react-query';
+import Image from 'next/image';
+import { ExternalLink } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import type { PointOfInterest } from '@/types/nps';
 
 interface PointsOfInterestProps {
   riverSlug: string;
   defaultOpen?: boolean;
 }
 
-interface POI {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  riverMile: number;
-  coordinates: { lng: number; lat: number } | null;
-}
+const POI_TYPE_LABELS: Record<string, string> = {
+  spring: 'Spring',
+  cave: 'Cave',
+  historical_site: 'Historic Site',
+  scenic_viewpoint: 'Scenic Viewpoint',
+  waterfall: 'Waterfall',
+  geological: 'Geological Feature',
+  other: 'Point of Interest',
+};
+
+const POI_TYPE_COLORS: Record<string, string> = {
+  spring: 'bg-blue-100 text-blue-700',
+  cave: 'bg-amber-100 text-amber-700',
+  historical_site: 'bg-orange-100 text-orange-700',
+  scenic_viewpoint: 'bg-emerald-100 text-emerald-700',
+  waterfall: 'bg-cyan-100 text-cyan-700',
+  geological: 'bg-purple-100 text-purple-700',
+  other: 'bg-neutral-100 text-neutral-700',
+};
 
 export default function PointsOfInterest({ riverSlug, defaultOpen = false }: PointsOfInterestProps) {
-  // For MVP, we'll use hazards as POIs (can be expanded later with dedicated POI table)
-  const { data: hazards, isLoading } = useQuery({
-    queryKey: ['hazards', riverSlug],
+  const { data: pois, isLoading } = useQuery({
+    queryKey: ['pois', riverSlug],
     queryFn: async () => {
-      const response = await fetch(`/api/rivers/${riverSlug}/hazards`);
+      const response = await fetch(`/api/rivers/${riverSlug}/pois`);
       if (!response.ok) return [];
 
       const data = await response.json();
-      return (data.hazards || []) as POI[];
+      return (data.pois || []) as PointOfInterest[];
     },
     enabled: !!riverSlug,
   });
 
-  // For MVP, show a placeholder - POIs can be added as a separate feature
-  const pois: POI[] = hazards || [];
+  const poiList = pois || [];
 
-  const badge = pois.length > 0 ? (
+  const badge = poiList.length > 0 ? (
     <span className="px-2 py-0.5 rounded text-xs font-medium bg-neutral-200 text-neutral-700">
-      {pois.length}
+      {poiList.length}
     </span>
   ) : null;
 
@@ -57,19 +69,56 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
 
   return (
     <CollapsibleSection title="Points of Interest" defaultOpen={defaultOpen} badge={badge}>
-      {pois.length > 0 ? (
+      {poiList.length > 0 ? (
         <div className="space-y-3">
-          {pois.map((poi) => (
+          {poiList.map((poi) => (
             <div key={poi.id} className="bg-neutral-50 rounded-lg p-4">
               <div className="flex items-start justify-between mb-2">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold text-neutral-900">{poi.name}</p>
-                  <p className="text-sm text-neutral-500 capitalize">{poi.type}</p>
+                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${POI_TYPE_COLORS[poi.type] || POI_TYPE_COLORS.other}`}>
+                    {POI_TYPE_LABELS[poi.type] || poi.type}
+                  </span>
                 </div>
-                <span className="text-xs text-neutral-500">Mile {poi.riverMile.toFixed(1)}</span>
+                {poi.riverMile !== null && (
+                  <span className="text-xs text-neutral-500 ml-2 flex-shrink-0">
+                    Mile {poi.riverMile.toFixed(1)}
+                  </span>
+                )}
               </div>
+
               {poi.description && (
-                <p className="text-sm text-neutral-600 mt-2">{poi.description}</p>
+                <p className="text-sm text-neutral-600 mt-2 line-clamp-3">
+                  {poi.description}
+                </p>
+              )}
+
+              {/* NPS image thumbnail */}
+              {poi.images && poi.images.length > 0 && (
+                <div className="relative mt-2 w-full">
+                  <Image
+                    src={poi.images[0].url}
+                    alt={poi.name}
+                    width={600}
+                    height={400}
+                    className="w-full h-auto rounded-md object-contain"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    unoptimized
+                  />
+                </div>
+              )}
+
+              {/* NPS link */}
+              {poi.npsUrl && (
+                <a
+                  href={poi.npsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Learn more on NPS.gov
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               )}
             </div>
           ))}
@@ -77,7 +126,7 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
       ) : (
         <div className="bg-neutral-50 rounded-lg p-6 text-center">
           <p className="text-sm text-neutral-500">
-            Points of interest will be added soon. Check back for springs, bluffs, caves, and other landmarks!
+            No points of interest have been added for this river yet.
           </p>
         </div>
       )}

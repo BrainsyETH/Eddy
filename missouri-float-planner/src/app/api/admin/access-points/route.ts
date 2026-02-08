@@ -4,11 +4,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     // Use admin client to bypass RLS and see all access points including unapproved
     const supabase = createAdminClient();
 
@@ -133,6 +137,9 @@ export async function GET() {
 // POST - Create a new access point
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const {
       name,

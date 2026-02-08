@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Link from 'next/link';
@@ -82,7 +83,7 @@ export default function AdminAccessPointsPage() {
   const { data: imagesData } = useQuery<{ images: ImageItem[] }>({
     queryKey: ['admin-images'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/images');
+      const response = await adminFetch('/api/admin/images');
       if (!response.ok) throw new Error('Failed to fetch images');
       return response.json();
     },
@@ -91,7 +92,7 @@ export default function AdminAccessPointsPage() {
   // Update access point images
   const updateImagesMutation = useMutation({
     mutationFn: async ({ id, imageUrls }: { id: string; imageUrls: string[] }) => {
-      const response = await fetch(`/api/admin/access-points/${id}`, {
+      const response = await adminFetch(`/api/admin/access-points/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageUrls }),

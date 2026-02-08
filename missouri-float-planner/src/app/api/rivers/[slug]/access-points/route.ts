@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { AccessPointsResponse } from '@/types/api';
+import type { AccessPointsResponse, NPSCampgroundInfo } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -47,6 +47,68 @@ export async function GET(
         { error: 'Could not fetch access points' },
         { status: 500 }
       );
+    }
+
+    // Batch-fetch NPS campground data for linked access points
+    const npsIds = (accessPoints || [])
+      .map(ap => ap.nps_campground_id)
+      .filter((id): id is string => !!id);
+
+    const npsMap = new Map<string, NPSCampgroundInfo>();
+    if (npsIds.length > 0) {
+      const { data: campgrounds } = await supabase
+        .from('nps_campgrounds')
+        .select('*')
+        .in('id', npsIds);
+
+      for (const cg of campgrounds || []) {
+        const amenitiesData = typeof cg.amenities === 'string'
+          ? JSON.parse(cg.amenities) : cg.amenities || {};
+        const feesData = typeof cg.fees === 'string'
+          ? JSON.parse(cg.fees) : cg.fees || [];
+        const imagesData = typeof cg.images === 'string'
+          ? JSON.parse(cg.images) : cg.images || [];
+        const operatingHoursData = typeof cg.operating_hours === 'string'
+          ? JSON.parse(cg.operating_hours) : cg.operating_hours || [];
+
+        npsMap.set(cg.id, {
+          npsId: cg.nps_id,
+          name: cg.name,
+          npsUrl: cg.nps_url,
+          reservationInfo: cg.reservation_info,
+          reservationUrl: cg.reservation_url,
+          fees: feesData.map((f: { cost?: string; description?: string; title?: string }) => ({
+            cost: f.cost || '0.00',
+            description: f.description || '',
+            title: f.title || 'Camping Fee',
+          })),
+          totalSites: cg.total_sites || 0,
+          sitesReservable: cg.sites_reservable || 0,
+          sitesFirstCome: cg.sites_first_come || 0,
+          sitesGroup: cg.sites_group || 0,
+          sitesTentOnly: cg.sites_tent_only || 0,
+          sitesElectrical: cg.sites_electrical || 0,
+          sitesRvOnly: cg.sites_rv_only || 0,
+          sitesWalkBoatTo: cg.sites_walk_boat_to || 0,
+          amenities: {
+            toilets: amenitiesData.toilets || [],
+            showers: amenitiesData.showers || [],
+            cellPhoneReception: amenitiesData.cellPhoneReception || 'Unknown',
+            potableWater: amenitiesData.potableWater || [],
+            campStore: amenitiesData.campStore || 'No',
+            firewoodForSale: amenitiesData.firewoodForSale || 'No',
+            dumpStation: amenitiesData.dumpStation || 'No',
+            trashCollection: amenitiesData.trashRecyclingCollection || 'Unknown',
+          },
+          operatingHours: operatingHoursData.map((oh: { description?: string; name?: string }) => ({
+            description: oh.description || '',
+            name: oh.name || '',
+          })),
+          classification: cg.classification,
+          weatherOverview: cg.weather_overview,
+          images: imagesData,
+        });
+      }
     }
 
     // Filter and format access points, excluding those with invalid coordinates
@@ -104,6 +166,10 @@ export async function GET(
           officialSiteUrl: ap.official_site_url || null,
           localTips: ap.local_tips || null,
           nearbyServices: ap.nearby_services || [],
+          // NPS campground data
+          npsCampground: ap.nps_campground_id
+            ? npsMap.get(ap.nps_campground_id) || null
+            : null,
         };
       })
       .filter((ap): ap is NonNullable<typeof ap> => ap !== null);

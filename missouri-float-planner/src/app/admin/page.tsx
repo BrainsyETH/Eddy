@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag, FileText, Activity } from 'lucide-react';
 
 const ADMIN_SECTIONS = [
   {
@@ -28,6 +28,20 @@ const ADMIN_SECTIONS = [
     href: '/admin/geography',
     icon: MapPin,
     color: 'bg-blue-500',
+  },
+  {
+    title: 'Blog Posts',
+    description: 'Create and manage blog posts and river guides',
+    href: '/admin/blog',
+    icon: FileText,
+    color: 'bg-orange-500',
+  },
+  {
+    title: 'Gauge Thresholds',
+    description: 'Configure water level thresholds and floating descriptions',
+    href: '/admin/gauges',
+    icon: Activity,
+    color: 'bg-green-500',
   },
   {
     title: 'Image Library',

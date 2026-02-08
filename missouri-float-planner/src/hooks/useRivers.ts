@@ -15,6 +15,7 @@ export function useRivers() {
       const data = (await response.json()) as RiversResponse;
       return data.rivers;
     },
+    staleTime: 10 * 60 * 1000, // 10 minutes — rivers rarely change
   });
 }
 

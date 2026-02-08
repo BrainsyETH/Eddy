@@ -1,13 +1,17 @@
 // src/app/api/admin/gauges/route.ts
 // GET /api/admin/gauges - List all gauges with their thresholds and descriptions
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const supabase = createAdminClient();
 
     // Get all gauge stations with their river associations
@@ -54,7 +58,7 @@ export async function GET() {
     // Get rivers for names
     const { data: rivers, error: riversError } = await supabase
       .from('rivers')
-      .select('id, name, slug, float_summary, float_tip');
+      .select('id, name, slug, float_summary, float_tip, description, difficulty_rating, region');
 
     if (riversError) {
       console.error('Error fetching rivers:', riversError);
@@ -126,6 +130,9 @@ export async function GET() {
       slug: river.slug,
       floatSummary: river.float_summary,
       floatTip: river.float_tip,
+      description: river.description,
+      difficultyRating: river.difficulty_rating,
+      region: river.region,
     }));
 
     return NextResponse.json({ gauges, rivers: formattedRivers });

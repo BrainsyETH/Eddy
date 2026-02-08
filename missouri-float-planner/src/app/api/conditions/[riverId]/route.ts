@@ -7,109 +7,40 @@ import {
   fetchGaugeReadings,
   fetchDailyStatistics,
   calculateDischargePercentile,
-  type DailyStatistics,
 } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
-import type { ConditionCode, ConditionGauge, ConditionResponse, RiverCondition, FlowRating } from '@/types/api';
-
-// Flow rating descriptions for user display
-const FLOW_RATING_INFO: Record<FlowRating, { label: string; description: string }> = {
-  flood: { label: 'Flood', description: 'Dangerous flooding - do not float' },
-  high: { label: 'High', description: 'Fast current - experienced paddlers only' },
-  good: { label: 'Okay', description: 'Ideal conditions - minimal dragging' },
-  low: { label: 'Low', description: 'Low - Floatable' },
-  poor: { label: 'Too Low', description: 'Frequent dragging and portaging may occur' },
-  unknown: { label: 'Unknown', description: 'Current conditions unavailable' },
-};
+import {
+  conditionCodeToFlowRating,
+  getThresholdBasedDescription,
+} from '@/lib/calculations/conditions';
+import type { ConditionCode, ConditionGauge, ConditionResponse, RiverCondition } from '@/types/api';
 
 /**
- * Determines flow rating from percentile
- */
-function getFlowRatingFromPercentile(percentile: number | null): FlowRating {
-  if (percentile === null) return 'unknown';
-  if (percentile <= 10) return 'poor';
-  if (percentile <= 25) return 'low';
-  if (percentile <= 75) return 'good';
-  if (percentile <= 90) return 'high';
-  return 'flood';
-}
-
-/**
- * Fetches statistics and calculates percentile for a gauge reading
+ * Fetches statistics and calculates percentile for a gauge reading.
+ * Used as supplementary info only — primary rating comes from threshold-based condition code.
  */
 async function enrichWithStatistics(
   usgsSiteId: string,
   dischargeCfs: number | null
 ): Promise<{
   percentile: number | null;
-  flowRating: FlowRating;
-  flowDescription: string;
   medianDischargeCfs: number | null;
-  stats: DailyStatistics | null;
 }> {
   if (dischargeCfs === null) {
-    return {
-      percentile: null,
-      flowRating: 'unknown',
-      flowDescription: FLOW_RATING_INFO.unknown.description,
-      medianDischargeCfs: null,
-      stats: null,
-    };
+    return { percentile: null, medianDischargeCfs: null };
   }
 
   const stats = await fetchDailyStatistics(usgsSiteId);
-
   if (!stats) {
-    return {
-      percentile: null,
-      flowRating: 'unknown',
-      flowDescription: 'Historical data unavailable for comparison',
-      medianDischargeCfs: null,
-      stats: null,
-    };
+    return { percentile: null, medianDischargeCfs: null };
   }
 
   const percentile = calculateDischargePercentile(dischargeCfs, stats);
-  const flowRating = getFlowRatingFromPercentile(percentile);
-
-  return {
-    percentile,
-    flowRating,
-    flowDescription: FLOW_RATING_INFO[flowRating].description,
-    medianDischargeCfs: stats.p50,
-    stats,
-  };
+  return { percentile, medianDischargeCfs: stats.p50 };
 }
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
-
-// Map threshold-based condition codes to flow ratings for display
-// Note: 'low' condition code means "above level_low threshold" = floatable = 'good' rating
-function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
-  switch (code) {
-    case 'optimal': return 'good';
-    case 'low': return 'good';      // 'low' condition = floatable = good
-    case 'very_low': return 'low';  // 'very_low' = some dragging = low
-    case 'too_low': return 'poor';
-    case 'high': return 'high';
-    case 'dangerous': return 'flood';
-    default: return 'unknown';
-  }
-}
-
-// Get description for threshold-based flow rating
-function getThresholdBasedDescription(code: ConditionCode): string {
-  switch (code) {
-    case 'optimal': return 'Ideal conditions for floating';
-    case 'low': return 'Good conditions - minimal dragging expected';
-    case 'very_low': return 'Expect some dragging in shallow areas';
-    case 'too_low': return 'Frequent dragging and portaging likely';
-    case 'high': return 'Fast current - experienced paddlers only';
-    case 'dangerous': return 'Dangerous conditions - do not float';
-    default: return 'Conditions unknown';
-  }
-}
 
 // Helper to determine condition from gauge height and thresholds
 // Uses shared condition computation logic from @/lib/conditions
@@ -150,6 +81,13 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const putInAccessPointId = searchParams.get('putInAccessPointId');
     
+    // --- Phase 1: Start independent database queries in parallel ---
+    // Kick off linked gauges query immediately (resolves while we process access point)
+    const linkedGaugesPromise = supabase
+      .from('river_gauges')
+      .select('id, is_primary, gauge_station_id, gauge_stations(id, name, usgs_site_id)')
+      .eq('river_id', riverId);
+
     // Get put-in coordinates if access point ID provided
     let putInPoint: string | null = null;
     if (putInAccessPointId) {
@@ -159,7 +97,7 @@ export async function GET(
         .eq('id', putInAccessPointId)
         .eq('river_id', riverId)
         .single();
-      
+
       if (accessPoint) {
         const coords = accessPoint.location_snap?.coordinates || accessPoint.location_orig?.coordinates;
         if (coords) {
@@ -168,19 +106,45 @@ export async function GET(
       }
     }
 
-    // Call the database function to get river condition (segment-aware if put-in provided)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.rpc as any)(
-      putInPoint ? 'get_river_condition_segment' : 'get_river_condition',
-      putInPoint
-        ? {
-            p_river_id: riverId,
-            p_put_in_point: putInPoint,
-          }
-        : {
-            p_river_id: riverId,
-          }
+    // Await linked gauges (likely already resolved while access point query ran)
+    const { data: linkedGauges } = await linkedGaugesPromise;
+
+    const usgsSiteIds = (linkedGauges || [])
+      .map((gauge) => {
+        const gaugeStation = Array.isArray(gauge.gauge_stations)
+          ? gauge.gauge_stations[0]
+          : gauge.gauge_stations;
+        return gaugeStation?.usgs_site_id ?? null;
+      })
+      .filter((siteId): siteId is string => !!siteId);
+
+    // --- Phase 2: Run RPC, USGS fetch, and DB gauge readings in parallel ---
+    const gaugeReadingsPromises = (linkedGauges || []).map((gauge) =>
+      supabase
+        .from('gauge_readings')
+        .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
+        .eq('gauge_station_id', gauge.gauge_station_id)
+        .order('reading_timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle()
     );
+
+    const [rpcResult, usgsReadings, latestReadingResults] = await Promise.all([
+      // Database condition function (segment-aware if put-in provided)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.rpc as any)(
+        putInPoint ? 'get_river_condition_segment' : 'get_river_condition',
+        putInPoint
+          ? { p_river_id: riverId, p_put_in_point: putInPoint }
+          : { p_river_id: riverId }
+      ),
+      // Live USGS gauge readings (external API — typically the slowest call)
+      usgsSiteIds.length > 0 ? fetchGaugeReadings(usgsSiteIds) : Promise.resolve([]),
+      // Latest DB reading for each gauge station (batched in parallel)
+      Promise.all(gaugeReadingsPromises),
+    ]);
+
+    const { data, error } = rpcResult;
 
     if (error) {
       console.error('[Conditions API] Database function error:', {
@@ -190,8 +154,7 @@ export async function GET(
         details: error.details,
         hint: error.hint,
       });
-      
-      // Return error response with diagnostic info
+
       return NextResponse.json<ConditionResponse>(
         {
           condition: null,
@@ -203,69 +166,47 @@ export async function GET(
       );
     }
 
-    const { data: linkedGauges } = await supabase
-      .from('river_gauges')
-      .select('id, is_primary, gauge_station_id, gauge_stations(id, name, usgs_site_id)')
-      .eq('river_id', riverId);
-
-    const usgsSiteIds = (linkedGauges || [])
-      .map((gauge) => {
-        const gaugeStation = Array.isArray(gauge.gauge_stations)
-          ? gauge.gauge_stations[0]
-          : gauge.gauge_stations;
-        return gaugeStation?.usgs_site_id ?? null;
-      })
-      .filter((siteId): siteId is string => !!siteId);
-
-    const usgsReadings = usgsSiteIds.length > 0 ? await fetchGaugeReadings(usgsSiteIds) : [];
+    // Build gauge summaries from pre-fetched data (synchronous — no more N+1 queries)
     const usgsReadingMap = new Map(usgsReadings.map((reading) => [reading.siteId, reading]));
 
-    const gaugeSummaries: ConditionGauge[] = await Promise.all(
-      (linkedGauges || []).map(async (gauge) => {
-        const gaugeStation = Array.isArray(gauge.gauge_stations)
-          ? gauge.gauge_stations[0]
-          : gauge.gauge_stations;
-        const usgsReading = gaugeStation?.usgs_site_id
-          ? usgsReadingMap.get(gaugeStation.usgs_site_id)
-          : undefined;
-        const { data: latestReading } = await supabase
-          .from('gauge_readings')
-          .select('gauge_height_ft, discharge_cfs, reading_timestamp')
-          .eq('gauge_station_id', gauge.gauge_station_id)
-          .order('reading_timestamp', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    const gaugeSummaries: ConditionGauge[] = (linkedGauges || []).map((gauge, index) => {
+      const gaugeStation = Array.isArray(gauge.gauge_stations)
+        ? gauge.gauge_stations[0]
+        : gauge.gauge_stations;
+      const usgsReading = gaugeStation?.usgs_site_id
+        ? usgsReadingMap.get(gaugeStation.usgs_site_id)
+        : undefined;
+      const latestReading = latestReadingResults[index]?.data ?? null;
 
-        const dbTimestamp = latestReading?.reading_timestamp ?? null;
-        const usgsTimestamp = usgsReading?.readingTimestamp ?? null;
-        const readingTimestamp =
-          dbTimestamp && usgsTimestamp
-            ? new Date(dbTimestamp) >= new Date(usgsTimestamp)
-              ? dbTimestamp
-              : usgsTimestamp
-            : dbTimestamp ?? usgsTimestamp ?? null;
-        const readingAgeHours = readingTimestamp
-          ? (Date.now() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60)
-          : null;
+      const dbTimestamp = latestReading?.reading_timestamp ?? null;
+      const usgsTimestamp = usgsReading?.readingTimestamp ?? null;
+      const readingTimestamp =
+        dbTimestamp && usgsTimestamp
+          ? new Date(dbTimestamp) >= new Date(usgsTimestamp)
+            ? dbTimestamp
+            : usgsTimestamp
+          : dbTimestamp ?? usgsTimestamp ?? null;
+      const readingAgeHours = readingTimestamp
+        ? (Date.now() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60)
+        : null;
 
-        return {
-          id: gauge.gauge_station_id,
-          name: gaugeStation?.name ?? null,
-          usgsSiteId: gaugeStation?.usgs_site_id ?? null,
-          isPrimary: gauge.is_primary ?? false,
-          gaugeHeightFt:
-            readingTimestamp === dbTimestamp
-              ? latestReading?.gauge_height_ft ?? null
-              : usgsReading?.gaugeHeightFt ?? null,
-          dischargeCfs:
-            readingTimestamp === dbTimestamp
-              ? latestReading?.discharge_cfs ?? null
-              : usgsReading?.dischargeCfs ?? null,
-          readingTimestamp,
-          readingAgeHours,
-        };
-      })
-    );
+      return {
+        id: gauge.gauge_station_id,
+        name: gaugeStation?.name ?? null,
+        usgsSiteId: gaugeStation?.usgs_site_id ?? null,
+        isPrimary: gauge.is_primary ?? false,
+        gaugeHeightFt:
+          readingTimestamp === dbTimestamp
+            ? latestReading?.gauge_height_ft ?? null
+            : usgsReading?.gaugeHeightFt ?? null,
+        dischargeCfs:
+          readingTimestamp === dbTimestamp
+            ? latestReading?.discharge_cfs ?? null
+            : usgsReading?.dischargeCfs ?? null,
+        readingTimestamp,
+        readingAgeHours,
+      };
+    });
 
     if (!data || data.length === 0) {
       console.warn('[Conditions API] No condition data returned for river:', riverId);

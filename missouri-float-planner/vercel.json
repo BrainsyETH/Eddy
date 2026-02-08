@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/update-gauges",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-nps",
+      "schedule": "0 8 * * 0"
     }
   ]
 }

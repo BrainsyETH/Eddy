@@ -36,7 +36,8 @@ interface LocalKnowledgeProps {
   defaultOpen?: boolean;
 }
 
-export default function LocalKnowledge({ riverSlug, riverName, defaultOpen = false }: LocalKnowledgeProps) {
+export default function LocalKnowledge({ riverSlug, riverName: _riverName, defaultOpen = false }: LocalKnowledgeProps) {
+  void _riverName;
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   // Get summary for this river
@@ -48,44 +49,39 @@ export default function LocalKnowledge({ riverSlug, riverName, defaultOpen = fal
   }
 
   return (
-    <div className="bg-gradient-to-r from-primary-50 to-accent-50 border-2 border-primary-200 rounded-xl overflow-hidden">
+    <div className="bg-gradient-to-r from-primary-50 to-accent-50 border border-primary-200 rounded-xl overflow-hidden">
       {/* Header - Always visible, clickable to expand/collapse */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 text-left hover:bg-primary-100/50 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-primary-100/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 w-7 h-7 bg-primary-500 rounded-full flex items-center justify-center">
             <Image
               src={INFO_ICON_URL}
               alt="Information"
-              width={20}
-              height={20}
+              width={14}
+              height={14}
               className="invert"
             />
           </div>
-          <div>
-            <h3 className="font-bold text-neutral-900">
-              {riverName} — Local Knowledge
-            </h3>
-            {!isOpen && (
-              <p className="text-xs text-neutral-500 mt-0.5">Tap to learn about optimal conditions</p>
-            )}
-          </div>
+          <h3 className="text-sm font-bold text-neutral-900">
+            View Local Knowledge
+          </h3>
         </div>
         <div className="flex-shrink-0 ml-2">
           {isOpen ? (
-            <ChevronUp size={20} className="text-neutral-500" />
+            <ChevronUp size={18} className="text-neutral-500" />
           ) : (
-            <ChevronDown size={20} className="text-neutral-500" />
+            <ChevronDown size={18} className="text-neutral-500" />
           )}
         </div>
       </button>
 
       {/* Expandable Content */}
       {isOpen && (
-        <div className="px-4 pb-4 pt-0">
-          <div className="pl-13">
+        <div className="px-3 pb-3 pt-0">
+          <div className="pl-9">
             <p className="text-sm text-neutral-700 mb-3">
               {summary.summary}
             </p>

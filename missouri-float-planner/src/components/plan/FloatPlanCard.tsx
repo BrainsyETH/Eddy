@@ -5,9 +5,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
 import {
   generateNavLinks,
   handleNavClick,
@@ -28,6 +29,7 @@ const DETAIL_ICONS = {
   road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
   parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
   facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
+  camping: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/camping-icon.png',
 };
 
 // Eddy the Otter condition images from Vercel blob storage
@@ -115,6 +117,15 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   },
 };
 
+// Sort types by canonical display order
+function sortTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const ai = ACCESS_POINT_TYPE_ORDER.indexOf(a as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    const bi = ACCESS_POINT_TYPE_ORDER.indexOf(b as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+}
+
 // Format road surface for display
 function formatRoadSurface(surface: string): string {
   const mapping: Record<string, string> = {
@@ -168,6 +179,7 @@ interface FloatPlanCardProps {
   onVesselChange: (id: string) => void;
   captureRef?: React.RefObject<HTMLDivElement>;
   onReportIssue?: (point: AccessPoint) => void;
+  pointsAlongRoute?: RouteItem[];
 }
 
 // Shareable capture component - optimized view for image export
@@ -321,6 +333,105 @@ function CollapsibleDetailSection({
   );
 }
 
+// Unified route item type for along-your-route display
+export type RouteItem = {
+  id: string;
+  name: string;
+  riverMile: number;
+  type: 'access_point' | 'poi';
+  subType: string; // access point type or POI type
+  description: string | null;
+  imageUrl: string | null;
+  npsUrl?: string | null;
+};
+
+// POI icon lookup
+const POI_ICON_MAP: Record<string, React.ComponentType<{ size?: string | number; className?: string }>> = {
+  spring: Droplets,
+  cave: Mountain,
+  historical_site: Landmark,
+  scenic_viewpoint: Eye,
+  waterfall: Droplets,
+  geological: CircleDot,
+  other: Star,
+};
+
+// Along Your Route section — shared between desktop and mobile
+function AlongYourRoute({ items }: { items: RouteItem[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Along Your Route</p>
+      <div className="space-y-1.5">
+        {items.map((item) => {
+          const isExpanded = expandedId === item.id;
+          const isPOI = item.type === 'poi';
+          const IconComponent = isPOI ? (POI_ICON_MAP[item.subType] || Star) : MapPin;
+          const typeLabel = isPOI
+            ? (POI_TYPES as Record<string, string>)[item.subType] || 'Point of Interest'
+            : item.subType.replace('_', ' ');
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => setExpandedId(isExpanded ? null : item.id)}
+              className="w-full text-left rounded-lg border border-neutral-100 hover:border-neutral-200 bg-white transition-colors overflow-hidden"
+            >
+              <div className="flex items-center gap-2.5 px-3 py-2">
+                {/* Icon */}
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  isPOI ? 'bg-teal-100' : 'bg-neutral-100'
+                }`}>
+                  <IconComponent size={14} className={isPOI ? 'text-teal-600' : 'text-neutral-500'} />
+                </div>
+
+                {/* Name + type */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-neutral-800 truncate">{item.name}</p>
+                  <p className="text-[11px] text-neutral-400 capitalize">{typeLabel}</p>
+                </div>
+
+                {/* Mile badge */}
+                <span className="text-[11px] font-medium text-neutral-400 flex-shrink-0 tabular-nums">
+                  Mi {item.riverMile.toFixed(1)}
+                </span>
+
+                {/* Expand chevron */}
+                {item.description && (
+                  isExpanded
+                    ? <ChevronUp size={14} className="text-neutral-300 flex-shrink-0" />
+                    : <ChevronDown size={14} className="text-neutral-300 flex-shrink-0" />
+                )}
+              </div>
+
+              {/* Expanded detail */}
+              {isExpanded && item.description && (
+                <div className="px-3 pb-2.5 pt-0">
+                  <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{item.description}</p>
+                  {item.npsUrl && (
+                    <a
+                      href={item.npsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1.5"
+                    >
+                      View on NPS.gov
+                    </a>
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Access Point Detail Card (used in both single and dual selection states)
 function AccessPointDetailCard({
   point,
@@ -340,7 +451,12 @@ function AccessPointDetailCard({
   onReportIssue?: () => void;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const hasImages = point.imageUrls && point.imageUrls.length > 0;
+  const allImages = [
+    ...(point.imageUrls || []),
+    ...(point.npsCampground?.images?.map(img => img.url) || []),
+  ];
+  const hasImages = allImages.length > 0;
+  const nps = point.npsCampground;
 
   const labelColor = isPutIn ? 'bg-support-500' : 'bg-accent-500';
   const labelText = isPutIn ? 'PUT-IN' : 'TAKE-OUT';
@@ -360,7 +476,7 @@ function AccessPointDetailCard({
             </div>
             <h3 className="font-bold text-neutral-900 text-base mt-1 truncate">{point.name}</h3>
             <p className="text-sm text-neutral-500 capitalize">
-              {(point.types && point.types.length > 0 ? point.types : [point.type])
+              {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
                 .map(t => t.replace('_', ' '))
                 .join(' / ')}
             </p>
@@ -379,41 +495,41 @@ function AccessPointDetailCard({
       {hasImages && (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
           <Image
-            src={point.imageUrls[currentImageIndex]}
+            src={allImages[currentImageIndex]}
             alt={point.name}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 33vw"
           />
-          {point.imageUrls.length > 1 && (
+          {allImages.length > 1 && (
             <>
               <button
-                onClick={() => setCurrentImageIndex(i => (i - 1 + point.imageUrls.length) % point.imageUrls.length)}
+                onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
                 className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
-                onClick={() => setCurrentImageIndex(i => (i + 1) % point.imageUrls.length)}
+                onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
               >
                 <ChevronRight size={16} />
               </button>
               <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 text-white text-xs rounded">
-                {currentImageIndex + 1} / {point.imageUrls.length}
+                {currentImageIndex + 1} / {allImages.length}
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* Expandable Toggle */}
-      {showExpandToggle && (
+      {/* Description as the expandable toggle (replaces Hide/Show details) */}
+      {point.description && showExpandToggle && (
         <button
           onClick={onToggleExpand}
           className="w-full px-3 py-1.5 flex items-center justify-between text-xs hover:bg-neutral-50 border-t border-neutral-100"
         >
-          <span className="text-neutral-500">{isExpanded ? 'Hide details' : 'View details'}</span>
+          <span className="text-neutral-500 font-medium">Description</span>
           {isExpanded ? <ChevronUp size={14} className="text-neutral-400" /> : <ChevronDown size={14} className="text-neutral-400" />}
         </button>
       )}
@@ -421,23 +537,21 @@ function AccessPointDetailCard({
       {/* Details Content */}
       {(isExpanded || !showExpandToggle) && (
         <div className="p-3 border-t border-neutral-100">
-          {/* Badges */}
-          <div className="flex gap-2 flex-wrap mb-3">
-            {point.isPublic ? (
-              <span className="px-2 py-0.5 bg-support-100 text-support-700 text-xs font-medium rounded">Public</span>
-            ) : (
-              <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-medium rounded">Private</span>
-            )}
-            {point.feeRequired && (
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Fee Required</span>
-            )}
-          </div>
+          {/* Badges - only show non-public and fee */}
+          {(!point.isPublic || point.feeRequired) && (
+            <div className="flex gap-2 flex-wrap mb-3">
+              {!point.isPublic && (
+                <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-medium rounded">Private</span>
+              )}
+              {point.feeRequired && (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Fee Required</span>
+              )}
+            </div>
+          )}
 
-          {/* Description section - expanded by default if exists */}
+          {/* Description text */}
           {point.description && (
-            <CollapsibleDetailSection title="Description" defaultOpen={false}>
-              <p>{point.description}</p>
-            </CollapsibleDetailSection>
+            <p className="text-sm text-neutral-600 mb-3">{point.description}</p>
           )}
 
           {/* Road Access section */}
@@ -482,10 +596,97 @@ function AccessPointDetailCard({
             </CollapsibleDetailSection>
           )}
 
-          {/* Facilities section */}
-          {point.facilities && (
+          {/* Facilities section (with NPS campground nested inside) */}
+          {(point.facilities || nps) && (
             <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={false}>
-              <p>{point.facilities}</p>
+              <div className="space-y-3">
+                {point.facilities && (
+                  <p>{point.facilities}</p>
+                )}
+
+                {/* NPS Campground Info nested inside Facilities */}
+                {nps && (
+                  <CollapsibleDetailSection title="NPS Campground Info" iconUrl={DETAIL_ICONS.camping} defaultOpen={true}>
+                    <div className="space-y-3">
+                      {nps.fees.length > 0 && (
+                        <div className="space-y-1">
+                          {nps.fees.map((fee, i) => (
+                            <div key={i} className="flex justify-between items-start gap-3">
+                              <span className="text-sm text-neutral-600">{fee.title}</span>
+                              <span className="text-sm text-neutral-900 font-semibold whitespace-nowrap">
+                                ${parseFloat(fee.cost).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {nps.reservationUrl && (
+                        <a
+                          href={nps.reservationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                        >
+                          <span className="text-sm text-primary-700 font-medium">Reserve on Recreation.gov</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600 flex-shrink-0">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                          </svg>
+                        </a>
+                      )}
+                      {nps.totalSites > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+                          <div className="flex justify-between"><span className="text-neutral-500">Total sites</span><span className="font-medium">{nps.totalSites}</span></div>
+                          {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
+                          {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
+                          {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {nps.amenities.toilets.length > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Tent className="w-3 h-3" />
+                            {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
+                             nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
+                          </span>
+                        )}
+                        {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Droplets className="w-3 h-3" />Water
+                          </span>
+                        )}
+                        {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
+                          </span>
+                        )}
+                        {nps.amenities.firewoodForSale === 'Yes' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Flame className="w-3 h-3" />Firewood
+                          </span>
+                        )}
+                        {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                            <Trash2 className="w-3 h-3" />Trash
+                          </span>
+                        )}
+                      </div>
+                      {nps.npsUrl && (
+                        <a
+                          href={nps.npsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                          </svg>
+                          View on NPS.gov
+                        </a>
+                      )}
+                    </div>
+                  </CollapsibleDetailSection>
+                )}
+              </div>
             </CollapsibleDetailSection>
           )}
 
@@ -616,12 +817,14 @@ function JourneyCenter({
   selectedVesselTypeId,
   onVesselChange,
   recalculating,
+  pointsAlongRoute = [],
 }: {
   plan: FloatPlan;
   isLoading: boolean;
   selectedVesselTypeId: string | null;
   onVesselChange: (id: string) => void;
   recalculating: boolean;
+  pointsAlongRoute?: RouteItem[];
 }) {
   const { data: vesselTypes } = useVesselTypes();
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
@@ -728,7 +931,7 @@ function JourneyCenter({
         </div>
 
         {/* Stats Row */}
-        <div className="bg-white/95 backdrop-blur px-3 py-2.5">
+        <div className="bg-white rounded-b-2xl px-3 py-2.5">
           <div className="flex items-center justify-around">
             <div className="text-center">
               <p className="text-lg font-bold text-neutral-800">
@@ -798,6 +1001,13 @@ function JourneyCenter({
           <ChevronRight size={18} className="text-primary-400 group-hover:text-primary-600 transition-colors" />
         </a>
       </div>
+
+      {/* Along Your Route */}
+      {pointsAlongRoute.length > 0 && (
+        <div className="mt-3">
+          <AlongYourRoute items={pointsAlongRoute} />
+        </div>
+      )}
     </div>
   );
 }
@@ -815,6 +1025,7 @@ function MobileBottomSheet({
   onShare,
   onDownloadImage,
   onReportIssue,
+  pointsAlongRoute = [],
 }: {
   plan: FloatPlan;
   putInPoint: AccessPoint;
@@ -827,6 +1038,7 @@ function MobileBottomSheet({
   onShare: () => void;
   onDownloadImage: () => void;
   onReportIssue?: (point: AccessPoint) => void;
+  pointsAlongRoute?: RouteItem[];
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [putInExpanded, setPutInExpanded] = useState(false);
@@ -840,7 +1052,7 @@ function MobileBottomSheet({
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
   // Heights for the sheet states
-  const COLLAPSED_HEIGHT = 120;
+  const COLLAPSED_HEIGHT = 65;
   const EXPANDED_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600;
 
   // Reset height when expanded state changes
@@ -890,46 +1102,72 @@ function MobileBottomSheet({
   return (
     <div
       ref={sheetRef}
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl border-t border-neutral-200 transition-[height] duration-300 ease-out overflow-hidden lg:hidden"
+      className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl shadow-2xl transition-all duration-300 ease-out overflow-hidden lg:hidden ${
+        isExpanded
+          ? 'bg-white border-t border-neutral-200'
+          : 'bg-[#1e3a5f] border-t border-[#2a4d7a]'
+      }`}
       style={{ height: sheetHeight || COLLAPSED_HEIGHT }}
     >
-      {/* Drag Handle */}
-      <div
-        className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <GripHorizontal size={24} className="text-neutral-300" />
-      </div>
-
-      {/* Summary Header - always visible */}
-      <div className="px-4 pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
-            <p className="font-bold text-neutral-900 truncate">
-              {putInPoint.name} → {takeOutPoint.name}
-            </p>
+      {isExpanded ? (
+        <>
+          {/* Drag Handle - expanded */}
+          <div
+            className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onClick={() => setIsExpanded(false)}
+          >
+            <GripHorizontal size={24} className="text-neutral-300" />
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-            <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
-            <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-              {conditionConfig.label}
-            </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="p-1"
-            >
-              {isExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-            </button>
+
+          {/* Summary Header - expanded */}
+          <div className="px-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
+                <p className="font-bold text-neutral-900 truncate">
+                  {putInPoint.name} → {takeOutPoint.name}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
+                  {conditionConfig.label}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(false);
+                  }}
+                  className="p-1"
+                >
+                  <ChevronDown size={20} className="text-neutral-900" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Collapsed: single compact row with drag pill + text + mileage + chevron */
+        <div
+          className="flex flex-col items-center cursor-grab active:cursor-grabbing touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onClick={() => setIsExpanded(true)}
+        >
+          <div className="w-10 h-1 rounded-full bg-white/30 mt-2.5 mb-2" />
+          <div className="flex items-center justify-between w-full px-4 pb-2">
+            <span className="text-sm font-bold text-white">Your Float Plan</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white/80">{plan.distance.formatted}</span>
+              <ChevronUp size={18} className="text-white/70" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Expanded Content */}
       <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 90px)` }}>
@@ -1046,6 +1284,13 @@ function MobileBottomSheet({
           </a>
         </div>
 
+        {/* Along Your Route */}
+        {pointsAlongRoute.length > 0 && (
+          <div className="mb-4">
+            <AlongYourRoute items={pointsAlongRoute} />
+          </div>
+        )}
+
         {/* 3. River Conditions - Revamped Card */}
         <div className="mb-4">
           <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">River Conditions</p>
@@ -1068,7 +1313,7 @@ function MobileBottomSheet({
             </div>
 
             {/* Stats Row */}
-            <div className="bg-white/95 backdrop-blur px-4 py-3">
+            <div className="bg-white rounded-b-2xl px-4 py-3">
               <div className="flex items-center justify-around">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-neutral-800">
@@ -1143,6 +1388,7 @@ export default function FloatPlanCard({
   onVesselChange,
   captureRef,
   onReportIssue,
+  pointsAlongRoute = [],
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
@@ -1157,30 +1403,38 @@ export default function FloatPlanCard({
   const hasSinglePoint = (putInPoint || takeOutPoint) && !hasBothPoints;
 
   // Single point selected - show card with CTA
+  // Always show put-in side (left/top) then take-out side (right/bottom)
   if (hasSinglePoint) {
     const point = putInPoint || takeOutPoint;
     const isPutIn = !!putInPoint;
     const onClear = isPutIn ? onClearPutIn : onClearTakeOut;
 
+    const pointCard = (
+      <AccessPointDetailCard
+        point={point!}
+        isPutIn={isPutIn}
+        onClear={onClear}
+        isExpanded={true}
+        onToggleExpand={() => {}}
+        showExpandToggle={false}
+        onReportIssue={onReportIssue ? () => onReportIssue(point!) : undefined}
+      />
+    );
+
+    const ctaCard = (
+      <div className="lg:w-48">
+        <SelectOtherPointCTA type={isPutIn ? 'take-out' : 'put-in'} />
+      </div>
+    );
+
     return (
       <div className="bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
         <div className="p-4">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4">
-            {/* Main Point Card */}
-            <AccessPointDetailCard
-              point={point!}
-              isPutIn={isPutIn}
-              onClear={onClear}
-              isExpanded={true}
-              onToggleExpand={() => {}}
-              showExpandToggle={false}
-              onReportIssue={onReportIssue ? () => onReportIssue(point!) : undefined}
-            />
-
-            {/* CTA for other point */}
-            <div className="lg:w-48">
-              <SelectOtherPointCTA type={isPutIn ? 'take-out' : 'put-in'} />
-            </div>
+            {/* Put-in side always first (left on desktop, top on mobile) */}
+            {isPutIn ? pointCard : ctaCard}
+            {/* Take-out side always second */}
+            {isPutIn ? ctaCard : pointCard}
           </div>
         </div>
       </div>
@@ -1253,6 +1507,7 @@ export default function FloatPlanCard({
               selectedVesselTypeId={vesselTypeId}
               onVesselChange={onVesselChange}
               recalculating={isLoading}
+              pointsAlongRoute={pointsAlongRoute}
             />
 
             {/* Take-out Card */}
@@ -1312,6 +1567,7 @@ export default function FloatPlanCard({
           onShare={onShare}
           onDownloadImage={onDownloadImage}
           onReportIssue={onReportIssue}
+          pointsAlongRoute={pointsAlongRoute}
         />
       </>
     );

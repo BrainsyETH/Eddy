@@ -2,6 +2,7 @@
 // POST /api/admin/parse-google-maps - Parse Google Maps URL to extract name and coordinates
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,6 +109,9 @@ function extractPlaceId(url: string): string | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const { url } = body;
 

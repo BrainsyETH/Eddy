@@ -4,11 +4,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth } from '@/lib/admin-auth';
+import { sanitizeRichText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const supabase = createAdminClient();
 
     const { data: posts, error } = await supabase
@@ -54,6 +59,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const {
       title,
@@ -108,7 +116,7 @@ export async function POST(request: NextRequest) {
       title: title.trim(),
       slug: finalSlug,
       description: description || null,
-      content: content || null,
+      content: sanitizeRichText(content) || null,
       category,
       featured_image_url: featuredImageUrl || null,
       og_image_url: ogImageUrl || null,

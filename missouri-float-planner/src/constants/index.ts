@@ -9,12 +9,13 @@ export const DEFAULT_MAP_CENTER = {
 
 export const DEFAULT_MAP_ZOOM = 7;
 
-// Missouri bounding box (approximate)
+// Missouri bounding box — single source of truth for all coordinate validation.
+// Includes buffer for border access points.
 export const MISSOURI_BOUNDS = {
-  minLng: -95.77,
-  minLat: 35.99,
-  maxLng: -89.10,
-  maxLat: 40.61,
+  minLng: -96.5,
+  minLat: 35.9,
+  maxLng: -88.9,
+  maxLat: 40.7,
 } as const;
 
 // Access point types with labels
@@ -26,6 +27,16 @@ export const ACCESS_POINT_TYPES = {
   access: 'River Access',
   park: 'Park',
 } as const;
+
+// Canonical display order for access point types
+export const ACCESS_POINT_TYPE_ORDER: (keyof typeof ACCESS_POINT_TYPES)[] = [
+  'access',
+  'campground',
+  'boat_ramp',
+  'gravel_bar',
+  'bridge',
+  'park',
+];
 
 // Hazard types with labels
 export const HAZARD_TYPES = {
@@ -68,6 +79,17 @@ export const CONDITION_LABELS = {
   high: 'High Water - Experienced Only',
   dangerous: 'Flood - Do Not Float',
   unknown: 'Unknown',
+} as const;
+
+// POI types with labels
+export const POI_TYPES = {
+  spring: 'Spring',
+  cave: 'Cave',
+  historical_site: 'Historical Site',
+  scenic_viewpoint: 'Scenic Viewpoint',
+  waterfall: 'Waterfall',
+  geological: 'Geological Feature',
+  other: 'Other',
 } as const;
 
 // Amenity icons/labels

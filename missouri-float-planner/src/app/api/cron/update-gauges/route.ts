@@ -14,26 +14,24 @@ const RAPID_CHANGE_THRESHOLD = 0.5;
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify cron secret (bypass in development for easy testing)
-    const isDev = process.env.NODE_ENV === 'development';
+    // Verify cron secret — always required, including in development.
+    // Use `curl -X POST -H "Authorization: Bearer $CRON_SECRET"` for local testing.
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (!isDev) {
-      if (!cronSecret) {
-        console.error('CRON_SECRET not configured');
-        return NextResponse.json(
-          { error: 'Cron secret not configured' },
-          { status: 500 }
-        );
-      }
+    if (!cronSecret) {
+      console.error('CRON_SECRET not configured');
+      return NextResponse.json(
+        { error: 'Cron secret not configured' },
+        { status: 500 }
+      );
+    }
 
-      if (authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const supabase = createAdminClient();
@@ -190,7 +188,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Also allow GET for manual testing (with auth)
-export async function GET(request: NextRequest) {
-  return POST(request);
-}
+// GET removed — cron endpoints should only accept POST.
+// For manual testing: curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/update-gauges

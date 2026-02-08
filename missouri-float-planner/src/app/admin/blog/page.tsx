@@ -4,6 +4,7 @@
 // Admin blog management page with list and editor
 
 import { useState, useEffect, useCallback } from 'react';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import {
@@ -73,7 +74,7 @@ export default function AdminBlogPage() {
   const fetchPosts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/blog');
+      const response = await adminFetch('/api/admin/blog');
       if (!response.ok) {
         throw new Error('Failed to fetch posts');
       }
@@ -177,7 +178,7 @@ export default function AdminBlogPage() {
         : '/api/admin/blog';
       const method = editingPost ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -203,7 +204,7 @@ export default function AdminBlogPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/blog/${post.id}`, {
+      const response = await adminFetch(`/api/admin/blog/${post.id}`, {
         method: 'DELETE',
       });
 
@@ -233,7 +234,7 @@ export default function AdminBlogPage() {
           const formData = new FormData();
           formData.append('files', file);
 
-          const response = await fetch('/api/admin/upload', {
+          const response = await adminFetch('/api/admin/upload', {
             method: 'POST',
             body: formData,
           });

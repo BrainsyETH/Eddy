@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
@@ -121,7 +122,7 @@ export default function AdminAccessPointEditPage() {
   const { data, isLoading, error } = useQuery<{ accessPoint: AccessPointData }>({
     queryKey: ['admin-access-point', id],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/access-points/${id}`);
+      const response = await adminFetch(`/api/admin/access-points/${id}`);
       if (!response.ok) throw new Error('Failed to fetch access point');
       return response.json();
     },
@@ -139,7 +140,7 @@ export default function AdminAccessPointEditPage() {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (updates: Record<string, unknown>) => {
-      const response = await fetch(`/api/admin/access-points/${id}`, {
+      const response = await adminFetch(`/api/admin/access-points/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),

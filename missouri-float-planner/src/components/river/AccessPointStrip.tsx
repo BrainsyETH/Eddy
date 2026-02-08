@@ -6,8 +6,18 @@
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink, Car, ParkingCircle, Store, Lightbulb } from 'lucide-react';
+import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink, Car, ParkingCircle, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
+import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
+
+// Sort types by canonical display order
+function sortTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const ai = ACCESS_POINT_TYPE_ORDER.indexOf(a as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    const bi = ACCESS_POINT_TYPE_ORDER.indexOf(b as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+}
 
 interface AccessPointStripProps {
   accessPoints: AccessPoint[];
@@ -34,7 +44,8 @@ function AccessPointCard({
   onClick: () => void;
   onHover?: () => void;
 }) {
-  const hasImage = point.imageUrls && point.imageUrls.length > 0;
+  const heroImage = point.imageUrls?.[0] || point.npsCampground?.images?.[0]?.url || null;
+  const hasImage = !!heroImage;
 
   let borderClass = 'border-neutral-200';
   let bgClass = 'bg-white';
@@ -60,7 +71,7 @@ function AccessPointCard({
       <div className="relative h-20 bg-neutral-100">
         {hasImage ? (
           <Image
-            src={point.imageUrls[0]}
+            src={heroImage!}
             alt={point.name}
             fill
             className="object-cover"
@@ -71,24 +82,25 @@ function AccessPointCard({
             <MapPin className="w-8 h-8 text-neutral-300" />
           </div>
         )}
-        {/* Selection label */}
-        {labelText && (
+        {/* Selection label with mile marker */}
+        {labelText ? (
           <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
             isPutIn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}>
-            {labelText}
+            {labelText} · Mile {point.riverMile.toFixed(1)}
+          </div>
+        ) : (
+          /* Mile marker badge - only when not selected */
+          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
+            Mile {point.riverMile.toFixed(1)}
           </div>
         )}
-        {/* Mile marker badge */}
-        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
-          Mile {point.riverMile.toFixed(1)}
-        </div>
       </div>
       {/* Info */}
       <div className="p-2">
         <p className="text-xs font-semibold text-neutral-900 truncate">{point.name}</p>
         <p className="text-[10px] text-neutral-500 capitalize truncate">
-          {(point.types && point.types.length > 0 ? point.types : [point.type])
+          {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
             .map(t => t.replace('_', ' '))
             .join(' / ')}
         </p>
@@ -186,11 +198,16 @@ function ExpandedDetail({
   riverSlug: string;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const hasImages = point.imageUrls && point.imageUrls.length > 0;
+  const allImages = [
+    ...(point.imageUrls || []),
+    ...(point.npsCampground?.images?.map(img => img.url) || []),
+  ];
+  const hasImages = allImages.length > 0;
   const hasRoadInfo = (point.roadSurface && point.roadSurface.length > 0) || point.roadAccess;
   const hasParkingInfo = point.parkingCapacity || point.parkingInfo;
   const hasNearbyServices = point.nearbyServices && point.nearbyServices.length > 0;
   const hasLocalTips = point.localTips;
+  const nps = point.npsCampground;
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
@@ -209,7 +226,7 @@ function ExpandedDetail({
             </div>
             <p className="text-sm text-neutral-500 mt-0.5">
               <span className="capitalize">
-                {(point.types && point.types.length > 0 ? point.types : [point.type])
+                {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
                   .map(t => t.replace('_', ' '))
                   .join(' / ')}
               </span>
@@ -229,28 +246,28 @@ function ExpandedDetail({
       {hasImages && (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
           <Image
-            src={point.imageUrls[currentImageIndex]}
+            src={allImages[currentImageIndex]}
             alt={point.name}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 50vw"
           />
-          {point.imageUrls.length > 1 && (
+          {allImages.length > 1 && (
             <>
               <button
-                onClick={() => setCurrentImageIndex(i => (i - 1 + point.imageUrls.length) % point.imageUrls.length)}
+                onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
                 className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
-                onClick={() => setCurrentImageIndex(i => (i + 1) % point.imageUrls.length)}
+                onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
               >
                 <ChevronRight size={20} />
               </button>
               <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 text-white text-xs rounded">
-                {currentImageIndex + 1} / {point.imageUrls.length}
+                {currentImageIndex + 1} / {allImages.length}
               </div>
             </>
           )}
@@ -319,6 +336,94 @@ function ExpandedDetail({
               )}
               {point.parkingInfo && (
                 <p className="text-sm">{point.parkingInfo}</p>
+              )}
+            </div>
+          </CollapsibleDetailSection>
+        )}
+
+        {/* NPS Campground section */}
+        {nps && (
+          <CollapsibleDetailSection title="NPS Campground Info" defaultOpen={true}>
+            <div className="space-y-3">
+              {/* Fees */}
+              {nps.fees.length > 0 && (
+                <div className="space-y-1">
+                  {nps.fees.map((fee, i) => (
+                    <div key={i} className="flex justify-between items-start gap-3">
+                      <span className="text-sm text-neutral-600">{fee.title}</span>
+                      <span className="text-sm text-neutral-900 font-semibold whitespace-nowrap">
+                        ${parseFloat(fee.cost).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Reservation link */}
+              {nps.reservationUrl && (
+                <a
+                  href={nps.reservationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors group"
+                >
+                  <span className="text-sm text-primary-700 font-medium">Reserve on Recreation.gov</span>
+                  <ExternalLink className="w-4 h-4 text-primary-600 flex-shrink-0" />
+                </a>
+              )}
+
+              {/* Site counts */}
+              {nps.totalSites > 0 && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+                  <div className="flex justify-between"><span className="text-neutral-500">Total</span><span className="font-medium">{nps.totalSites}</span></div>
+                  {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
+                  {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
+                  {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
+                </div>
+              )}
+
+              {/* Amenity chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {nps.amenities.toilets.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                    <Tent className="w-3 h-3" />
+                    {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
+                     nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
+                  </span>
+                )}
+                {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                    <Droplets className="w-3 h-3" />Water
+                  </span>
+                )}
+                {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                    <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
+                  </span>
+                )}
+                {nps.amenities.firewoodForSale === 'Yes' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                    <Flame className="w-3 h-3" />Firewood
+                  </span>
+                )}
+                {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                    <Trash2 className="w-3 h-3" />Trash
+                  </span>
+                )}
+              </div>
+
+              {/* NPS link */}
+              {nps.npsUrl && (
+                <a
+                  href={nps.npsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline"
+                >
+                  <ExternalLink size={14} />
+                  View on NPS.gov
+                </a>
               )}
             </div>
           </CollapsibleDetailSection>
