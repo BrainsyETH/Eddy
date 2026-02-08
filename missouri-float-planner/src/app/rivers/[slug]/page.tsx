@@ -145,12 +145,13 @@ export default function RiverPage() {
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
 
-  // Auto-swap: ensure put-in is always upstream (higher mile) of take-out
+  // Auto-swap: ensure put-in is always upstream (lower mile) of take-out
+  // River miles count downstream from headwaters, so put-in should have lower mile
   useEffect(() => {
     if (!accessPoints || !selectedPutIn || !selectedTakeOut) return;
     const putIn = accessPoints.find(ap => ap.id === selectedPutIn);
     const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
-    if (putIn && takeOut && putIn.riverMile < takeOut.riverMile) {
+    if (putIn && takeOut && putIn.riverMile > takeOut.riverMile) {
       setSelectedPutIn(selectedTakeOut);
       setSelectedTakeOut(selectedPutIn);
     }
