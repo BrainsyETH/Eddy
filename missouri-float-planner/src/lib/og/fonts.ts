@@ -1,31 +1,21 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
-// Fredoka is loaded locally via bundler-friendly import.meta.url
 
-// Use new URL() with import.meta.url so the bundler includes the font file
-// in the serverless function output. This is the Next.js-recommended pattern.
-const fredokaFontUrl = new URL('../../app/fonts/Fredoka-Variable.ttf', import.meta.url);
-
-// Cache Fredoka font in memory
-let cachedFredoka: ArrayBuffer | null = null;
-
-// Load only the Fredoka brand font (local bundled file)
-// All other text in OG images uses system-ui which Satori provides by default
-export async function loadFredokaFont(): Promise<Array<{
+// Format raw Fredoka font data into the array Satori expects.
+// Each OG route file creates its own `new URL('./fonts/Fredoka-SemiBold.ttf', import.meta.url)`
+// so webpack traces the asset from the route entry point and bundles it correctly.
+export type OGFont = {
   name: string;
   data: ArrayBuffer;
   weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
   style: 'normal';
-}>> {
-  if (!cachedFredoka) {
-    const res = await fetch(fredokaFontUrl);
-    cachedFredoka = await res.arrayBuffer();
-  }
+};
 
+export function formatFredokaFont(data: ArrayBuffer): OGFont[] {
   return [
     {
       name: 'Fredoka',
-      data: cachedFredoka,
+      data,
       weight: 600 as const,
       style: 'normal' as const,
     },

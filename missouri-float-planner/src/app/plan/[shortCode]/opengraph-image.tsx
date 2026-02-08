@@ -3,9 +3,14 @@
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
+import { formatFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 import type { ConditionCode } from '@/lib/og/types';
+
+// new URL() in the route file so webpack bundles the font into this serverless function
+const fredokaFont = fetch(
+  new URL('../../fonts/Fredoka-SemiBold.ttf', import.meta.url),
+).then((res) => res.arrayBuffer());
 
 export const alt = 'Float Plan on eddy.guide';
 export const size = { width: 1200, height: 630 };
@@ -75,10 +80,11 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
 
   const condDisplay = getConditionDisplay(condition);
 
-  const [fonts, otterImage] = await Promise.all([
-    loadFredokaFont(),
+  const [fontData, otterImage] = await Promise.all([
+    fredokaFont,
     loadConditionOtter(condition),
   ]);
+  const fonts = formatFredokaFont(fontData);
 
   return new ImageResponse(
     (
