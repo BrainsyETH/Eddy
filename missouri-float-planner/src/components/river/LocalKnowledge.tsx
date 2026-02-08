@@ -36,7 +36,8 @@ interface LocalKnowledgeProps {
   defaultOpen?: boolean;
 }
 
-export default function LocalKnowledge({ riverSlug, riverName, defaultOpen = false }: LocalKnowledgeProps) {
+export default function LocalKnowledge({ riverSlug, riverName: _riverName, defaultOpen = false }: LocalKnowledgeProps) {
+  void _riverName;
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   // Get summary for this river

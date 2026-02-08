@@ -4,6 +4,7 @@
 // Points of interest along the river (NPS places)
 
 import { useQuery } from '@tanstack/react-query';
+import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -94,11 +95,17 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
 
               {/* NPS image thumbnail */}
               {poi.images && poi.images.length > 0 && (
-                <img
-                  src={poi.images[0].url}
-                  alt={poi.name}
-                  className="mt-2 w-full rounded-md object-contain"
-                />
+                <div className="relative mt-2 w-full">
+                  <Image
+                    src={poi.images[0].url}
+                    alt={poi.name}
+                    width={600}
+                    height={400}
+                    className="w-full h-auto rounded-md object-contain"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    unoptimized
+                  />
+                </div>
               )}
 
               {/* NPS link */}
