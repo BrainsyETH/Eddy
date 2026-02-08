@@ -5,9 +5,11 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
+import type { PointOfInterest } from '@/types/nps';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { POI_TYPES } from '@/constants';
 import {
   generateNavLinks,
   handleNavClick,
@@ -169,6 +171,7 @@ interface FloatPlanCardProps {
   onVesselChange: (id: string) => void;
   captureRef?: React.RefObject<HTMLDivElement>;
   onReportIssue?: (point: AccessPoint) => void;
+  pointsAlongRoute?: RouteItem[];
 }
 
 // Shareable capture component - optimized view for image export
@@ -318,6 +321,105 @@ function CollapsibleDetailSection({
           {children}
         </div>
       )}
+    </div>
+  );
+}
+
+// Unified route item type for along-your-route display
+export type RouteItem = {
+  id: string;
+  name: string;
+  riverMile: number;
+  type: 'access_point' | 'poi';
+  subType: string; // access point type or POI type
+  description: string | null;
+  imageUrl: string | null;
+  npsUrl?: string | null;
+};
+
+// POI icon lookup
+const POI_ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  spring: Droplets,
+  cave: Mountain,
+  historical_site: Landmark,
+  scenic_viewpoint: Eye,
+  waterfall: Droplets,
+  geological: CircleDot,
+  other: Star,
+};
+
+// Along Your Route section — shared between desktop and mobile
+function AlongYourRoute({ items }: { items: RouteItem[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Along Your Route</p>
+      <div className="space-y-1.5">
+        {items.map((item) => {
+          const isExpanded = expandedId === item.id;
+          const isPOI = item.type === 'poi';
+          const IconComponent = isPOI ? (POI_ICON_MAP[item.subType] || Star) : MapPin;
+          const typeLabel = isPOI
+            ? (POI_TYPES as Record<string, string>)[item.subType] || 'Point of Interest'
+            : item.subType.replace('_', ' ');
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => setExpandedId(isExpanded ? null : item.id)}
+              className="w-full text-left rounded-lg border border-neutral-100 hover:border-neutral-200 bg-white transition-colors overflow-hidden"
+            >
+              <div className="flex items-center gap-2.5 px-3 py-2">
+                {/* Icon */}
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  isPOI ? 'bg-teal-100' : 'bg-neutral-100'
+                }`}>
+                  <IconComponent size={14} className={isPOI ? 'text-teal-600' : 'text-neutral-500'} />
+                </div>
+
+                {/* Name + type */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-neutral-800 truncate">{item.name}</p>
+                  <p className="text-[11px] text-neutral-400 capitalize">{typeLabel}</p>
+                </div>
+
+                {/* Mile badge */}
+                <span className="text-[11px] font-medium text-neutral-400 flex-shrink-0 tabular-nums">
+                  Mi {item.riverMile.toFixed(1)}
+                </span>
+
+                {/* Expand chevron */}
+                {item.description && (
+                  isExpanded
+                    ? <ChevronUp size={14} className="text-neutral-300 flex-shrink-0" />
+                    : <ChevronDown size={14} className="text-neutral-300 flex-shrink-0" />
+                )}
+              </div>
+
+              {/* Expanded detail */}
+              {isExpanded && item.description && (
+                <div className="px-3 pb-2.5 pt-0">
+                  <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{item.description}</p>
+                  {item.npsUrl && (
+                    <a
+                      href={item.npsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1.5"
+                    >
+                      View on NPS.gov
+                    </a>
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -707,12 +809,14 @@ function JourneyCenter({
   selectedVesselTypeId,
   onVesselChange,
   recalculating,
+  pointsAlongRoute = [],
 }: {
   plan: FloatPlan;
   isLoading: boolean;
   selectedVesselTypeId: string | null;
   onVesselChange: (id: string) => void;
   recalculating: boolean;
+  pointsAlongRoute?: RouteItem[];
 }) {
   const { data: vesselTypes } = useVesselTypes();
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
@@ -889,6 +993,13 @@ function JourneyCenter({
           <ChevronRight size={18} className="text-primary-400 group-hover:text-primary-600 transition-colors" />
         </a>
       </div>
+
+      {/* Along Your Route */}
+      {pointsAlongRoute.length > 0 && (
+        <div className="mt-3">
+          <AlongYourRoute items={pointsAlongRoute} />
+        </div>
+      )}
     </div>
   );
 }
@@ -906,6 +1017,7 @@ function MobileBottomSheet({
   onShare,
   onDownloadImage,
   onReportIssue,
+  pointsAlongRoute = [],
 }: {
   plan: FloatPlan;
   putInPoint: AccessPoint;
@@ -918,6 +1030,7 @@ function MobileBottomSheet({
   onShare: () => void;
   onDownloadImage: () => void;
   onReportIssue?: (point: AccessPoint) => void;
+  pointsAlongRoute?: RouteItem[];
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [putInExpanded, setPutInExpanded] = useState(false);
@@ -1137,6 +1250,13 @@ function MobileBottomSheet({
           </a>
         </div>
 
+        {/* Along Your Route */}
+        {pointsAlongRoute.length > 0 && (
+          <div className="mb-4">
+            <AlongYourRoute items={pointsAlongRoute} />
+          </div>
+        )}
+
         {/* 3. River Conditions - Revamped Card */}
         <div className="mb-4">
           <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">River Conditions</p>
@@ -1234,6 +1354,7 @@ export default function FloatPlanCard({
   onVesselChange,
   captureRef,
   onReportIssue,
+  pointsAlongRoute = [],
 }: FloatPlanCardProps) {
   // riverSlug reserved for potential future use
   void _riverSlug;
@@ -1344,6 +1465,7 @@ export default function FloatPlanCard({
               selectedVesselTypeId={vesselTypeId}
               onVesselChange={onVesselChange}
               recalculating={isLoading}
+              pointsAlongRoute={pointsAlongRoute}
             />
 
             {/* Take-out Card */}
@@ -1403,6 +1525,7 @@ export default function FloatPlanCard({
           onShare={onShare}
           onDownloadImage={onDownloadImage}
           onReportIssue={onReportIssue}
+          pointsAlongRoute={pointsAlongRoute}
         />
       </>
     );
