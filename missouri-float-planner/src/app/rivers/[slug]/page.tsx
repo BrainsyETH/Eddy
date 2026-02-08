@@ -173,10 +173,9 @@ export default function RiverPage() {
 
   // Handle map marker click - set as put-in or take-out
   const handleMarkerClick = useCallback((point: AccessPoint) => {
-    // If clicking the current put-in, deselect it
+    // If clicking the current put-in, deselect it (keep take-out)
     if (point.id === selectedPutIn) {
       setSelectedPutIn(null);
-      setSelectedTakeOut(null); // Also clear take-out
       return;
     }
 
@@ -550,10 +549,7 @@ export default function RiverPage() {
               isLoading={planLoading}
               putInPoint={putInPoint}
               takeOutPoint={takeOutPoint}
-              onClearPutIn={() => {
-                setSelectedPutIn(null);
-                setSelectedTakeOut(null);
-              }}
+              onClearPutIn={() => setSelectedPutIn(null)}
               onClearTakeOut={() => setSelectedTakeOut(null)}
               onShare={handleShare}
               onDownloadImage={handleDownloadImage}

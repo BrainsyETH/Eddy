@@ -8,6 +8,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink, Car, ParkingCircle, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
+import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
+
+// Sort types by canonical display order
+function sortTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const ai = ACCESS_POINT_TYPE_ORDER.indexOf(a as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    const bi = ACCESS_POINT_TYPE_ORDER.indexOf(b as typeof ACCESS_POINT_TYPE_ORDER[number]);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+}
 
 interface AccessPointStripProps {
   accessPoints: AccessPoint[];
@@ -89,7 +99,7 @@ function AccessPointCard({
       <div className="p-2">
         <p className="text-xs font-semibold text-neutral-900 truncate">{point.name}</p>
         <p className="text-[10px] text-neutral-500 capitalize truncate">
-          {(point.types && point.types.length > 0 ? point.types : [point.type])
+          {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
             .map(t => t.replace('_', ' '))
             .join(' / ')}
         </p>
@@ -215,7 +225,7 @@ function ExpandedDetail({
             </div>
             <p className="text-sm text-neutral-500 mt-0.5">
               <span className="capitalize">
-                {(point.types && point.types.length > 0 ? point.types : [point.type])
+                {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
                   .map(t => t.replace('_', ' '))
                   .join(' / ')}
               </span>
