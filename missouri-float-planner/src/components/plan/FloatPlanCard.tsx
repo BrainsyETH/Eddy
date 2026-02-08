@@ -1403,30 +1403,38 @@ export default function FloatPlanCard({
   const hasSinglePoint = (putInPoint || takeOutPoint) && !hasBothPoints;
 
   // Single point selected - show card with CTA
+  // Always show put-in side (left/top) then take-out side (right/bottom)
   if (hasSinglePoint) {
     const point = putInPoint || takeOutPoint;
     const isPutIn = !!putInPoint;
     const onClear = isPutIn ? onClearPutIn : onClearTakeOut;
 
+    const pointCard = (
+      <AccessPointDetailCard
+        point={point!}
+        isPutIn={isPutIn}
+        onClear={onClear}
+        isExpanded={true}
+        onToggleExpand={() => {}}
+        showExpandToggle={false}
+        onReportIssue={onReportIssue ? () => onReportIssue(point!) : undefined}
+      />
+    );
+
+    const ctaCard = (
+      <div className="lg:w-48">
+        <SelectOtherPointCTA type={isPutIn ? 'take-out' : 'put-in'} />
+      </div>
+    );
+
     return (
       <div className="bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
         <div className="p-4">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4">
-            {/* Main Point Card */}
-            <AccessPointDetailCard
-              point={point!}
-              isPutIn={isPutIn}
-              onClear={onClear}
-              isExpanded={true}
-              onToggleExpand={() => {}}
-              showExpandToggle={false}
-              onReportIssue={onReportIssue ? () => onReportIssue(point!) : undefined}
-            />
-
-            {/* CTA for other point */}
-            <div className="lg:w-48">
-              <SelectOtherPointCTA type={isPutIn ? 'take-out' : 'put-in'} />
-            </div>
+            {/* Put-in side always first (left on desktop, top on mobile) */}
+            {isPutIn ? pointCard : ctaCard}
+            {/* Take-out side always second */}
+            {isPutIn ? ctaCard : pointCard}
           </div>
         </div>
       </div>

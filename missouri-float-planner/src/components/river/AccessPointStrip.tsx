@@ -82,18 +82,19 @@ function AccessPointCard({
             <MapPin className="w-8 h-8 text-neutral-300" />
           </div>
         )}
-        {/* Selection label */}
-        {labelText && (
+        {/* Selection label with mile marker */}
+        {labelText ? (
           <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
             isPutIn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}>
-            {labelText}
+            {labelText} · Mile {point.riverMile.toFixed(1)}
+          </div>
+        ) : (
+          /* Mile marker badge - only when not selected */
+          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
+            Mile {point.riverMile.toFixed(1)}
           </div>
         )}
-        {/* Mile marker badge */}
-        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
-          Mile {point.riverMile.toFixed(1)}
-        </div>
       </div>
       {/* Info */}
       <div className="p-2">
