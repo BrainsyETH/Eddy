@@ -4,15 +4,18 @@
 // Main geography editor component with improved state management
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2, Upload, Pencil } from 'lucide-react';
+import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2, Upload, Pencil, Landmark } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import AccessPointEditor from './AccessPointEditor';
-import RiverLineEditor from './RiverLineEditor';
+import POIEditor from './POIEditor';
+import type { POI } from './POIEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
+import CreatePOIModal from './CreatePOIModal';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import { POI_TYPES } from '@/constants';
 
-type EditMode = 'access-points' | 'rivers' | 'river-visibility';
+type EditMode = 'access-points' | 'river-visibility' | 'pois';
 
 interface EditState {
   mode: EditMode;
@@ -84,6 +87,18 @@ export default function GeographyEditor() {
   const [uploadingImages, setUploadingImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // POI state
+  const [pois, setPois] = useState<POI[]>([]);
+  const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
+  const [editingPOIDetails, setEditingPOIDetails] = useState<Partial<POI> | null>(null);
+  const [savingPOIDetails, setSavingPOIDetails] = useState(false);
+  const [deletePOIConfirm, setDeletePOIConfirm] = useState(false);
+  const [pendingPOICoords, setPendingPOICoords] = useState<{ lng: number; lat: number } | null>(null);
+  const [selectedPOITypes, setSelectedPOITypes] = useState<Set<string>>(new Set());
+  const [showPOITypeFilter, setShowPOITypeFilter] = useState(false);
+
+  const POI_TYPE_LIST = Object.entries(POI_TYPES).map(([value, label]) => ({ value, label }));
+
   // Available access point types
   const ACCESS_POINT_TYPES = [
     { value: 'boat_ramp', label: 'Boat Ramp' },
@@ -116,9 +131,10 @@ export default function GeographyEditor() {
       }
       setError(null);
 
-      const [riversRes, accessPointsRes] = await Promise.all([
+      const [riversRes, accessPointsRes, poisRes] = await Promise.all([
         adminFetch('/api/admin/rivers'),
         adminFetch('/api/admin/access-points'),
+        adminFetch('/api/admin/pois'),
       ]);
 
       if (!riversRes.ok || !accessPointsRes.ok) {
@@ -130,6 +146,11 @@ export default function GeographyEditor() {
 
       setRivers(riversData.rivers || []);
       setAccessPoints(accessPointsData.accessPoints || []);
+
+      if (poisRes.ok) {
+        const poisData = await poisRes.json();
+        setPois(poisData.pois || []);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('Error loading data:', err);
@@ -325,6 +346,108 @@ export default function GeographyEditor() {
     }
   }, [selectedAccessPoint, loadData]);
 
+  // ─── POI handlers ─────────────────────────────────────────────────
+  const handleSelectPOI = useCallback((poi: POI | null) => {
+    setSelectedPOI(poi);
+    setEditingPOIDetails(poi ? { ...poi } : null);
+    setDeletePOIConfirm(false);
+  }, []);
+
+  const handlePOIMapClick = useCallback((coords: { lng: number; lat: number }) => {
+    if (addMode && editState.mode === 'pois') {
+      setPendingPOICoords(coords);
+    }
+  }, [addMode, editState.mode]);
+
+  const handleCreatePOI = useCallback(async (data: {
+    name: string;
+    riverId: string | null;
+    latitude: number;
+    longitude: number;
+    type: string;
+    description: string | null;
+    active: boolean;
+    isOnWater: boolean;
+  }) => {
+    const response = await adminFetch('/api/admin/pois', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create POI');
+    }
+
+    await loadData(true);
+    setAddMode(false);
+  }, [loadData]);
+
+  const handleSavePOIDetails = useCallback(async () => {
+    if (!selectedPOI || !editingPOIDetails) return;
+
+    setSavingPOIDetails(true);
+    try {
+      const response = await adminFetch(`/api/admin/pois/${selectedPOI.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingPOIDetails.name,
+          type: editingPOIDetails.type,
+          riverId: editingPOIDetails.riverId,
+          description: editingPOIDetails.description,
+          active: editingPOIDetails.active,
+          isOnWater: editingPOIDetails.isOnWater,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save changes');
+      }
+
+      const responseData = await response.json();
+      if (responseData.poi) {
+        setSelectedPOI(responseData.poi);
+        setEditingPOIDetails({ ...responseData.poi });
+      }
+
+      loadData(true);
+    } catch (err) {
+      console.error('Error saving POI:', err);
+      alert(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSavingPOIDetails(false);
+    }
+  }, [selectedPOI, editingPOIDetails, loadData]);
+
+  const handleDeletePOI = useCallback(async () => {
+    if (!selectedPOI) return;
+
+    setSavingPOIDetails(true);
+    try {
+      const response = await adminFetch(`/api/admin/pois/${selectedPOI.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete POI');
+      }
+
+      setSelectedPOI(null);
+      setEditingPOIDetails(null);
+      setDeletePOIConfirm(false);
+      await loadData(true);
+    } catch (err) {
+      console.error('Error deleting POI:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete POI');
+    } finally {
+      setSavingPOIDetails(false);
+    }
+  }, [selectedPOI, loadData]);
+
   // Handle parsing a Google Maps URL
   const handleParseGoogleMaps = useCallback(async () => {
     if (!googleMapsInput.trim() || !editingDetails) return;
@@ -467,9 +590,15 @@ export default function GeographyEditor() {
     return true;
   });
 
-  const filteredRivers = editState.selectedRiverId
-    ? rivers.filter((r) => r.id === editState.selectedRiverId)
-    : rivers;
+  const filteredPois = pois.filter((poi) => {
+    if (editState.selectedRiverId && poi.riverId !== editState.selectedRiverId) {
+      return false;
+    }
+    if (selectedPOITypes.size > 0 && !selectedPOITypes.has(poi.type)) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <>
@@ -502,15 +631,16 @@ export default function GeographyEditor() {
               </button>
               <button
                 onClick={() =>
-                  setEditState((prev) => ({ ...prev, mode: 'rivers' }))
+                  setEditState((prev) => ({ ...prev, mode: 'pois' }))
                 }
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  editState.mode === 'rivers'
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  editState.mode === 'pois'
                     ? 'bg-primary-600 text-white'
                     : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
-                River Lines
+                <Landmark size={14} />
+                POIs
               </button>
               <button
                 onClick={() =>
@@ -605,6 +735,67 @@ export default function GeographyEditor() {
             </div>
           )}
 
+          {/* POI Type Filter */}
+          {editState.mode === 'pois' && (
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-2">
+                Filter by Type
+              </label>
+              <button
+                onClick={() => setShowPOITypeFilter(!showPOITypeFilter)}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm text-left bg-white hover:bg-bluff-50 flex items-center justify-between"
+              >
+                <span className="text-bluff-700">
+                  {selectedPOITypes.size === 0
+                    ? 'All Types'
+                    : `${selectedPOITypes.size} type${selectedPOITypes.size > 1 ? 's' : ''} selected`}
+                </span>
+                <span className="text-bluff-400">{showPOITypeFilter ? '▲' : '▼'}</span>
+              </button>
+              {showPOITypeFilter && (
+                <div className="mt-2 border border-bluff-200 rounded-lg p-2 bg-white shadow-sm">
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-bluff-100">
+                    <button
+                      onClick={() => setSelectedPOITypes(new Set(POI_TYPE_LIST.map(t => t.value)))}
+                      className="text-xs text-river-600 hover:text-river-700"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setSelectedPOITypes(new Set())}
+                      className="text-xs text-bluff-500 hover:text-bluff-700"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {POI_TYPE_LIST.map((type) => (
+                      <label
+                        key={type.value}
+                        className="flex items-center gap-2 cursor-pointer hover:bg-bluff-50 p-1 rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPOITypes.has(type.value)}
+                          onChange={() => {
+                            setSelectedPOITypes(prev => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(type.value)) newSet.delete(type.value);
+                              else newSet.add(type.value);
+                              return newSet;
+                            });
+                          }}
+                          className="w-3.5 h-3.5 text-river-500 rounded focus:ring-river-500"
+                        />
+                        <span className="text-xs text-bluff-700">{type.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="text-xs text-bluff-500">
             {editState.mode === 'access-points' && (
               <>
@@ -621,13 +812,29 @@ export default function GeographyEditor() {
                 </div>
               </>
             )}
-            {editState.mode === 'rivers' && (
-              <>Showing {filteredRivers.length} river{filteredRivers.length !== 1 ? 's' : ''}</>
+            {editState.mode === 'pois' && (
+              <>
+                <div>Showing {filteredPois.length} POI{filteredPois.length !== 1 ? 's' : ''}</div>
+                <div className="flex gap-3 mt-1">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    {filteredPois.filter(p => p.active).length} active
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                    {filteredPois.filter(p => !p.active).length} inactive
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    {filteredPois.filter(p => p.source === 'nps').length} NPS
+                  </span>
+                </div>
+              </>
             )}
           </div>
 
           {/* Add Mode Toggle */}
-          {editState.mode === 'access-points' && (
+          {(editState.mode === 'access-points' || editState.mode === 'pois') && (
             <div className="pt-2 border-t border-bluff-200">
               <button
                 onClick={() => setAddMode(!addMode)}
@@ -645,13 +852,13 @@ export default function GeographyEditor() {
                 ) : (
                   <>
                     <Plus size={16} />
-                    Add New Point
+                    {editState.mode === 'pois' ? 'Add New POI' : 'Add New Point'}
                   </>
                 )}
               </button>
               {addMode && (
                 <p className="text-xs text-river-600 mt-2 text-center">
-                  Click anywhere on the map to add a new access point
+                  Click anywhere on the map to add a new {editState.mode === 'pois' ? 'point of interest' : 'access point'}
                 </p>
               )}
             </div>
@@ -708,11 +915,14 @@ export default function GeographyEditor() {
         />
       )}
 
-      {editState.mode === 'rivers' && (
-        <RiverLineEditor
-          rivers={filteredRivers}
-          onUpdate={handleUpdate}
+      {editState.mode === 'pois' && (
+        <POIEditor
+          pois={filteredPois}
           onRefresh={handleRefresh}
+          addMode={addMode}
+          onMapClick={handlePOIMapClick}
+          onSelectPOI={handleSelectPOI}
+          selectedPOIId={selectedPOI?.id}
         />
       )}
 
@@ -810,6 +1020,17 @@ export default function GeographyEditor() {
           selectedRiverId={editState.selectedRiverId}
           onClose={() => setPendingCoords(null)}
           onSave={handleCreateAccessPoint}
+        />
+      )}
+
+      {/* Create POI Modal */}
+      {pendingPOICoords && (
+        <CreatePOIModal
+          coordinates={pendingPOICoords}
+          rivers={rivers}
+          selectedRiverId={editState.selectedRiverId}
+          onClose={() => setPendingPOICoords(null)}
+          onSave={handleCreatePOI}
         />
       )}
 
@@ -1274,6 +1495,160 @@ export default function GeographyEditor() {
                 <button
                   onClick={handleDeleteAccessPoint}
                   disabled={savingDetails}
+                  className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                >
+                  Confirm Delete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* POI Detail Panel */}
+      {selectedPOI && editingPOIDetails && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-[3000] w-[340px] max-h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-bluff-200">
+            <h3 className="font-semibold text-bluff-800 flex items-center gap-2">
+              <Landmark size={16} />
+              Edit POI
+            </h3>
+            <button
+              onClick={() => handleSelectPOI(null)}
+              className="p-1 hover:bg-bluff-100 rounded transition-colors"
+            >
+              <X size={18} className="text-bluff-500" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Source badge */}
+            {selectedPOI.source === 'nps' && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <span className="text-xs font-medium text-emerald-700">NPS Synced</span>
+                {selectedPOI.npsUrl && (
+                  <a
+                    href={selectedPOI.npsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-emerald-600 hover:text-emerald-800 underline ml-auto"
+                  >
+                    View on NPS.gov
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Name</label>
+              <input
+                type="text"
+                value={editingPOIDetails.name || ''}
+                onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, name: e.target.value })}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              />
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Type</label>
+              <select
+                value={editingPOIDetails.type || 'other'}
+                onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, type: e.target.value })}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              >
+                {POI_TYPE_LIST.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* River */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">River</label>
+              <select
+                value={editingPOIDetails.riverId || ''}
+                onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, riverId: e.target.value || null })}
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              >
+                <option value="">No river assigned</option>
+                {rivers.map((river) => (
+                  <option key={river.id} value={river.id}>{river.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">Description</label>
+              <textarea
+                value={editingPOIDetails.description || ''}
+                onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, description: e.target.value })}
+                rows={3}
+                placeholder="Description of this point of interest..."
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
+              />
+            </div>
+
+            {/* Active / On Water toggles */}
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingPOIDetails.active ?? true}
+                  onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, active: e.target.checked })}
+                  className="w-4 h-4 text-river-500 rounded focus:ring-river-500"
+                />
+                <span className="text-sm text-bluff-700">Active</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingPOIDetails.isOnWater ?? true}
+                  onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, isOnWater: e.target.checked })}
+                  className="w-4 h-4 text-river-500 rounded focus:ring-river-500"
+                />
+                <span className="text-sm text-bluff-700">On Water</span>
+              </label>
+            </div>
+
+            {/* Active Status */}
+            <div className={`p-3 rounded-lg ${selectedPOI.active ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'}`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${selectedPOI.active ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+                <span className={`text-sm font-medium ${selectedPOI.active ? 'text-green-700' : 'text-orange-700'}`}>
+                  {selectedPOI.active ? 'Active - Visible in App' : 'Inactive - Hidden from App'}
+                </span>
+              </div>
+            </div>
+
+            {/* Location Info */}
+            <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
+              <div>Coords: {selectedPOI.latitude?.toFixed(5)}, {selectedPOI.longitude?.toFixed(5)}</div>
+              <div className="mt-1 text-neutral-400">Drag marker on map to change location</div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2 border-t border-neutral-200">
+              <button
+                onClick={handleSavePOIDetails}
+                disabled={savingPOIDetails}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save size={16} />
+                {savingPOIDetails ? 'Saving...' : 'Save Changes'}
+              </button>
+              {!deletePOIConfirm ? (
+                <button
+                  onClick={() => setDeletePOIConfirm(true)}
+                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200"
+                >
+                  <Trash2 size={16} />
+                </button>
+              ) : (
+                <button
+                  onClick={handleDeletePOI}
+                  disabled={savingPOIDetails}
                   className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
                 >
                   Confirm Delete

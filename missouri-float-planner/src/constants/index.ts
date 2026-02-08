@@ -71,6 +71,17 @@ export const CONDITION_LABELS = {
   unknown: 'Unknown',
 } as const;
 
+// POI types with labels
+export const POI_TYPES = {
+  spring: 'Spring',
+  cave: 'Cave',
+  historical_site: 'Historical Site',
+  scenic_viewpoint: 'Scenic Viewpoint',
+  waterfall: 'Waterfall',
+  geological: 'Geological Feature',
+  other: 'Other',
+} as const;
+
 // Amenity icons/labels
 export const AMENITIES = {
   parking: 'Parking',
