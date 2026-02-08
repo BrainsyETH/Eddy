@@ -1043,7 +1043,7 @@ function MobileBottomSheet({
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
   // Heights for the sheet states
-  const COLLAPSED_HEIGHT = 120;
+  const COLLAPSED_HEIGHT = 65;
   const EXPANDED_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600;
 
   // Reset height when expanded state changes
@@ -1093,34 +1093,46 @@ function MobileBottomSheet({
   return (
     <div
       ref={sheetRef}
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl border-t border-neutral-200 transition-[height] duration-300 ease-out overflow-hidden lg:hidden"
+      className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl shadow-2xl transition-all duration-300 ease-out overflow-hidden lg:hidden ${
+        isExpanded
+          ? 'bg-white border-t border-neutral-200'
+          : 'bg-[#1e3a5f] border-t border-[#2a4d7a]'
+      }`}
       style={{ height: sheetHeight || COLLAPSED_HEIGHT }}
     >
       {/* Drag Handle */}
       <div
-        className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+        className="flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <GripHorizontal size={24} className="text-neutral-300" />
+        <GripHorizontal size={20} className={isExpanded ? 'text-neutral-300' : 'text-white/40'} />
       </div>
 
       {/* Summary Header - always visible */}
-      <div className="px-4 pb-3">
+      <div className="px-4 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
-            <p className="font-bold text-neutral-900 truncate">
-              {putInPoint.name} → {takeOutPoint.name}
-            </p>
+            {isExpanded ? (
+              <>
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
+                <p className="font-bold text-neutral-900 truncate">
+                  {putInPoint.name} → {takeOutPoint.name}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm font-bold text-white">Your Float Plan</p>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-            <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
-            <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-              {conditionConfig.label}
-            </span>
+            <span className={`text-lg font-bold ${isExpanded ? 'text-neutral-900' : 'text-white'}`}>{plan.distance.formatted}</span>
+            {isExpanded && (
+              <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
+                {conditionConfig.label}
+              </span>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1128,7 +1140,10 @@ function MobileBottomSheet({
               }}
               className="p-1"
             >
-              {isExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+              {isExpanded
+                ? <ChevronDown size={20} className="text-neutral-900" />
+                : <ChevronUp size={20} className="text-white/70" />
+              }
             </button>
           </div>
         </div>
