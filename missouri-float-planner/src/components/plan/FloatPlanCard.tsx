@@ -337,7 +337,7 @@ export type RouteItem = {
 };
 
 // POI icon lookup
-const POI_ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const POI_ICON_MAP: Record<string, React.ComponentType<{ size?: string | number; className?: string }>> = {
   spring: Droplets,
   cave: Mountain,
   historical_site: Landmark,
