@@ -124,12 +124,12 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <span
             style={{
               fontFamily: 'Fredoka',
-              fontSize: riverName.length > 16 ? 56 : 72,
+              fontSize: riverName.length > 16 ? 72 : 96,
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               lineHeight: 1,
-              letterSpacing: -1,
-              marginBottom: 24,
+              letterSpacing: -2,
+              marginBottom: 28,
             }}
           >
             {truncate(riverName, 24)}
@@ -147,7 +147,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   fontWeight: 600,
                   color: 'rgba(255,255,255,0.5)',
                   textTransform: 'uppercase',
@@ -159,7 +159,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               <span
                 style={{
                   fontFamily: 'system-ui, sans-serif',
-                  fontSize: 24,
+                  fontSize: 32,
                   fontWeight: 700,
                   color: 'white',
                 }}
@@ -172,7 +172,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   fontWeight: 600,
                   color: 'rgba(255,255,255,0.5)',
                   textTransform: 'uppercase',
@@ -184,7 +184,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               <span
                 style={{
                   fontFamily: 'system-ui, sans-serif',
-                  fontSize: 24,
+                  fontSize: 32,
                   fontWeight: 700,
                   color: 'white',
                 }}
@@ -199,18 +199,18 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 10,
               backgroundColor: statusStyles.bg,
               border: `1px solid ${statusStyles.border}`,
               borderRadius: 100,
-              padding: '10px 20px',
+              padding: '12px 24px',
               alignSelf: 'flex-start',
             }}
           >
             <div
               style={{
-                width: 10,
-                height: 10,
+                width: 12,
+                height: 12,
                 borderRadius: '50%',
                 backgroundColor: statusStyles.solid,
               }}
@@ -218,7 +218,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             <span
               style={{
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 16,
+                fontSize: 20,
                 fontWeight: 700,
                 color: statusStyles.text,
               }}
@@ -235,7 +235,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             bottom: 24,
             right: 40,
             fontFamily: 'system-ui, sans-serif',
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',
           }}

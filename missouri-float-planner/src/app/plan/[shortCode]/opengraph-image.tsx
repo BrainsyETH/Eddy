@@ -124,12 +124,12 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           <span
             style={{
               fontFamily: 'Fredoka',
-              fontSize: riverName.length > 16 ? 52 : 64,
+              fontSize: riverName.length > 16 ? 68 : 88,
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               lineHeight: 1,
-              letterSpacing: -1,
-              marginBottom: 20,
+              letterSpacing: -2,
+              marginBottom: 24,
             }}
           >
             {truncate(riverName, 24)}
@@ -145,19 +145,19 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           >
             <div
               style={{
-                width: 16,
-                height: 16,
+                width: 20,
+                height: 20,
                 background: '#4EB86B',
-                marginRight: 8,
+                marginRight: 10,
                 flexShrink: 0,
               }}
             />
             <span
               style={{
-                fontSize: 20,
+                fontSize: 26,
                 fontWeight: 600,
                 color: 'white',
-                marginRight: 20,
+                marginRight: 24,
               }}
             >
               {truncate(putInName, 15)}
@@ -165,9 +165,9 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
 
             <span
               style={{
-                fontSize: 20,
+                fontSize: 26,
                 color: 'rgba(255,255,255,0.5)',
-                marginRight: 20,
+                marginRight: 24,
               }}
             >
               →
@@ -175,16 +175,16 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
 
             <div
               style={{
-                width: 16,
-                height: 16,
+                width: 20,
+                height: 20,
                 background: BRAND_COLORS.accentCoral,
-                marginRight: 8,
+                marginRight: 10,
                 flexShrink: 0,
               }}
             />
             <span
               style={{
-                fontSize: 20,
+                fontSize: 26,
                 fontWeight: 600,
                 color: 'white',
               }}
@@ -197,7 +197,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
           <div
             style={{
               display: 'flex',
-              padding: '16px 28px',
+              padding: '18px 32px',
               background: condDisplay.bg,
               border: '3px solid #000',
               marginBottom: 20,
@@ -207,7 +207,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
             <span
               style={{
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 48,
+                fontSize: 56,
                 fontWeight: 700,
                 color: condDisplay.textColor,
                 letterSpacing: -1,
@@ -227,11 +227,11 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
             >
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 16,
                   fontWeight: 600,
                   color: '#72B5C4',
                   letterSpacing: 1,
-                  marginRight: 12,
+                  marginRight: 14,
                 }}
               >
                 GAUGE HEIGHT
@@ -239,7 +239,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
               <span
                 style={{
                   fontFamily: 'system-ui, sans-serif',
-                  fontSize: 36,
+                  fontSize: 44,
                   fontWeight: 700,
                   color: 'white',
                   letterSpacing: -1,
@@ -249,10 +249,10 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
               </span>
               <span
                 style={{
-                  fontSize: 16,
+                  fontSize: 20,
                   fontWeight: 600,
                   color: '#A3D1DB',
-                  marginLeft: 6,
+                  marginLeft: 8,
                 }}
               >
                 ft
@@ -268,7 +268,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
             bottom: 24,
             right: 40,
             fontFamily: 'system-ui, sans-serif',
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.5)',
           }}
