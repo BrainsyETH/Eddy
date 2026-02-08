@@ -47,24 +47,32 @@ export async function GET(
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const formattedPois = (pois || []).map((poi: any) => ({
-      id: poi.id,
-      riverId: poi.river_id,
-      name: poi.name,
-      slug: poi.slug,
-      description: poi.description,
-      bodyText: poi.body_text,
-      type: poi.type,
-      source: poi.source,
-      npsUrl: poi.nps_url,
-      latitude: poi.latitude,
-      longitude: poi.longitude,
-      riverMile: poi.river_mile,
-      images: poi.images,
-      amenities: poi.amenities,
-      active: poi.active,
-      isOnWater: poi.is_on_water,
-    }));
+    const formattedPois = (pois || []).map((poi: any) => {
+      // images may be stored as JSON string — parse if needed
+      let images = poi.images || [];
+      if (typeof images === 'string') {
+        try { images = JSON.parse(images); } catch { images = []; }
+      }
+
+      return {
+        id: poi.id,
+        riverId: poi.river_id,
+        name: poi.name,
+        slug: poi.slug,
+        description: poi.description,
+        bodyText: poi.body_text,
+        type: poi.type,
+        source: poi.source,
+        npsUrl: poi.nps_url,
+        latitude: poi.latitude,
+        longitude: poi.longitude,
+        riverMile: poi.river_mile,
+        images,
+        amenities: poi.amenities,
+        active: poi.active,
+        isOnWater: poi.is_on_water,
+      };
+    });
 
     return NextResponse.json({ pois: formattedPois });
   } catch (error) {
