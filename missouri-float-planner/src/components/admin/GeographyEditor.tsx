@@ -399,6 +399,7 @@ export default function GeographyEditor() {
           description: editingPOIDetails.description,
           active: editingPOIDetails.active,
           isOnWater: editingPOIDetails.isOnWater,
+          riverMile: editingPOIDetails.riverMile,
         }),
       });
 
@@ -447,6 +448,47 @@ export default function GeographyEditor() {
       setSavingPOIDetails(false);
     }
   }, [selectedPOI, loadData]);
+
+  const handleComputePOIMile = useCallback(async () => {
+    if (!selectedPOI || !editingPOIDetails?.riverId || !selectedPOI.latitude || !selectedPOI.longitude) return;
+
+    setSavingPOIDetails(true);
+    try {
+      // First save the current river assignment, then ask the API to compute mile
+      const response = await adminFetch(`/api/admin/pois/${selectedPOI.id}/compute-mile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          riverId: editingPOIDetails.riverId,
+          latitude: selectedPOI.latitude,
+          longitude: selectedPOI.longitude,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.riverMile != null) {
+          setEditingPOIDetails(prev => prev ? { ...prev, riverMile: data.riverMile } : prev);
+          // Also save it immediately
+          await adminFetch(`/api/admin/pois/${selectedPOI.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ riverMile: data.riverMile }),
+          });
+          loadData(true);
+        } else {
+          alert('Could not compute river mile. Make sure the POI has a river assigned and the river has geometry data.');
+        }
+      } else {
+        alert('Failed to compute river mile');
+      }
+    } catch (err) {
+      console.error('Error computing POI mile:', err);
+      alert('Failed to compute river mile');
+    } finally {
+      setSavingPOIDetails(false);
+    }
+  }, [selectedPOI, editingPOIDetails, loadData]);
 
   // Handle parsing a Google Maps URL
   const handleParseGoogleMaps = useCallback(async () => {
@@ -1588,6 +1630,32 @@ export default function GeographyEditor() {
                 placeholder="Description of this point of interest..."
                 className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
               />
+            </div>
+
+            {/* River Mile */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1">River Mile</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={editingPOIDetails.riverMile ?? ''}
+                  onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, riverMile: e.target.value ? parseFloat(e.target.value) : null })}
+                  placeholder="e.g., 12.5"
+                  className="flex-1 px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+                />
+                <button
+                  onClick={handleComputePOIMile}
+                  disabled={savingPOIDetails || !editingPOIDetails.riverId}
+                  title={!editingPOIDetails.riverId ? 'Assign a river first' : 'Auto-compute from coordinates'}
+                  className="px-3 py-2 bg-teal-100 text-teal-700 rounded-lg text-xs font-medium hover:bg-teal-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  Compute
+                </button>
+              </div>
+              {!editingPOIDetails.riverId && (
+                <p className="text-xs text-amber-600 mt-1">Assign a river to enable auto-compute</p>
+              )}
             </div>
 
             {/* Active / On Water toggles */}

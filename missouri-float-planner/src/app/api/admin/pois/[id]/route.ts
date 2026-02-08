@@ -110,6 +110,7 @@ export async function PUT(
     if (body.images !== undefined) updates.images = JSON.stringify(body.images);
     if (body.amenities !== undefined) updates.amenities = body.amenities;
     if (body.npsUrl !== undefined) updates.nps_url = body.npsUrl;
+    if (body.riverMile !== undefined) updates.river_mile = body.riverMile;
 
     // Handle coordinate updates
     if (body.latitude !== undefined && body.longitude !== undefined) {
