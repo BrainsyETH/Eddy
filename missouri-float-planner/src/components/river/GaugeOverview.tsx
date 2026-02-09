@@ -114,7 +114,24 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
 }
 
 // Flow trend chart component
-function FlowTrendChart({ gaugeSiteId, days }: { gaugeSiteId: string; days: number }) {
+interface ThresholdLines {
+  levelTooLow: number | null;
+  levelLow: number | null;
+  levelOptimalMin: number | null;
+  levelOptimalMax: number | null;
+  levelHigh: number | null;
+  levelDangerous: number | null;
+}
+
+const THRESHOLD_LINE_CONFIG: { key: keyof ThresholdLines; label: string; color: string; dash?: string }[] = [
+  { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
+  { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
+  { key: 'levelLow', label: 'Low', color: '#84cc16', dash: '3,3' },
+  { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
+  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
+];
+
+function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string; days: number; thresholds?: ThresholdLines | null }) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
 
   const chartData = useMemo(() => {
@@ -123,8 +140,28 @@ function FlowTrendChart({ gaugeSiteId, days }: { gaugeSiteId: string; days: numb
     const readings = history.readings;
     const stats = history.stats;
 
-    const minVal = stats.minDischarge ?? 0;
-    const maxVal = stats.maxDischarge ?? 100;
+    // Expand Y-axis range to include threshold lines if they fall outside the data range
+    let minVal = stats.minDischarge ?? 0;
+    let maxVal = stats.maxDischarge ?? 100;
+
+    if (thresholds) {
+      const thresholdValues = [
+        thresholds.levelTooLow, thresholds.levelLow,
+        thresholds.levelOptimalMin, thresholds.levelOptimalMax,
+        thresholds.levelHigh, thresholds.levelDangerous,
+      ].filter((v): v is number => v !== null);
+
+      for (const tv of thresholdValues) {
+        if (tv < minVal) minVal = tv;
+        if (tv > maxVal) maxVal = tv;
+      }
+    }
+
+    // Add 5% padding so lines don't sit on edges
+    const padding = (maxVal - minVal) * 0.05 || 5;
+    minVal = Math.max(0, minVal - padding);
+    maxVal = maxVal + padding;
+
     const range = maxVal - minVal || 1;
 
     const sampleStep = Math.max(1, Math.floor(readings.length / 50));
@@ -141,6 +178,19 @@ function FlowTrendChart({ gaugeSiteId, days }: { gaugeSiteId: string; days: numb
     const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
     const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
 
+    // Compute threshold line Y positions
+    const thresholdLineData = thresholds
+      ? THRESHOLD_LINE_CONFIG
+          .filter(t => thresholds[t.key] !== null)
+          .map(t => ({
+            ...t,
+            value: thresholds[t.key]!,
+            y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
+          }))
+          // Deduplicate overlapping lines (e.g., optimalMin/Max at same value)
+          .filter((t, i, arr) => i === arr.findIndex(o => Math.abs(o.y - t.y) < 0.5))
+      : [];
+
     return {
       points,
       pathD,
@@ -150,8 +200,9 @@ function FlowTrendChart({ gaugeSiteId, days }: { gaugeSiteId: string; days: numb
       currentVal: readings[readings.length - 1]?.dischargeCfs,
       startDate: new Date(readings[0].timestamp),
       endDate: new Date(readings[readings.length - 1].timestamp),
+      thresholdLineData,
     };
-  }, [history]);
+  }, [history, thresholds]);
 
   if (isLoading) {
     return (
@@ -200,6 +251,35 @@ function FlowTrendChart({ gaugeSiteId, days }: { gaugeSiteId: string; days: numb
               <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
             </linearGradient>
           </defs>
+          {/* Optimal range shaded band */}
+          {chartData.thresholdLineData.length > 0 && (() => {
+            const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
+            const optMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
+            if (optMin && optMax) {
+              return (
+                <rect
+                  x="0" width="100"
+                  y={Math.min(optMin.y, optMax.y)}
+                  height={Math.abs(optMax.y - optMin.y)}
+                  fill="#059669" fillOpacity="0.08"
+                />
+              );
+            }
+            return null;
+          })()}
+          {/* Threshold reference lines */}
+          {chartData.thresholdLineData.map((t) => (
+            <line
+              key={t.key}
+              x1="0" x2="100"
+              y1={t.y} y2={t.y}
+              stroke={t.color}
+              strokeWidth="1"
+              strokeDasharray={t.dash || 'none'}
+              vectorEffect="non-scaling-stroke"
+              opacity="0.6"
+            />
+          ))}
           <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
           <path d={chartData.pathD} fill="none" stroke="rgb(45, 120, 137)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
           {chartData.points.length > 0 && (
@@ -214,10 +294,25 @@ function FlowTrendChart({ gaugeSiteId, days }: { gaugeSiteId: string; days: numb
             />
           )}
         </svg>
+        {/* Y-axis labels */}
         <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-400 -ml-1">
           <span>{formatCfs(chartData.maxVal)}</span>
           <span>{formatCfs(chartData.minVal)}</span>
         </div>
+        {/* Threshold labels on right side */}
+        {chartData.thresholdLineData.map((t) => (
+          <div
+            key={`label-${t.key}`}
+            className="absolute right-0 text-[9px] font-medium -mr-1 leading-none"
+            style={{
+              top: `${t.y}%`,
+              color: t.color,
+              transform: 'translateY(-50%)',
+            }}
+          >
+            {t.label}
+          </div>
+        ))}
       </div>
 
       <div className="flex justify-between text-[10px] text-neutral-400 mt-1 px-2">
@@ -336,7 +431,18 @@ function GaugeExpandedDetail({
             </div>
           </div>
           <div className="bg-neutral-900 rounded-xl overflow-hidden">
-            <FlowTrendChart gaugeSiteId={gauge.usgsSiteId} days={dateRange} />
+            <FlowTrendChart
+              gaugeSiteId={gauge.usgsSiteId}
+              days={dateRange}
+              thresholds={threshold?.thresholdUnit === 'cfs' ? {
+                levelTooLow: threshold.levelTooLow,
+                levelLow: threshold.levelLow,
+                levelOptimalMin: threshold.levelOptimalMin,
+                levelOptimalMax: threshold.levelOptimalMax,
+                levelHigh: threshold.levelHigh,
+                levelDangerous: threshold.levelDangerous,
+              } : null}
+            />
           </div>
         </div>
 
