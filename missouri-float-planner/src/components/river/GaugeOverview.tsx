@@ -264,9 +264,9 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-white">Flow (cfs)</span>
+        <span className="text-sm font-semibold text-neutral-700">Flow (cfs)</span>
         {chartData.currentVal !== null && (
-          <span className="text-xs text-primary-400 font-medium">
+          <span className="text-xs text-primary-600 font-medium">
             Current: {formatCfs(chartData.currentVal)} cfs
           </span>
         )}
@@ -276,7 +276,7 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
           <defs>
             <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.4" />
+              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
               <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
             </linearGradient>
           </defs>
@@ -290,7 +290,7 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
                   x="0" width="100"
                   y={Math.min(optMin.y, optMax.y)}
                   height={Math.abs(optMax.y - optMin.y)}
-                  fill="#059669" fillOpacity="0.08"
+                  fill="#059669" fillOpacity="0.1"
                 />
               );
             }
@@ -306,7 +306,7 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
               strokeWidth="1"
               strokeDasharray={t.dash || 'none'}
               vectorEffect="non-scaling-stroke"
-              opacity="0.6"
+              opacity="0.5"
             />
           ))}
           <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
@@ -317,14 +317,14 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
               cy={chartData.points[chartData.points.length - 1].y}
               r="4"
               fill="rgb(45, 120, 137)"
-              stroke="white"
+              stroke="#f5f5f5"
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
           )}
         </svg>
         {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-400 -ml-1">
+        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-500 -ml-1">
           <span>{formatCfs(chartData.maxVal)}</span>
           <span>{formatCfs(chartData.minVal)}</span>
         </div>
@@ -344,7 +344,7 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
         ))}
       </div>
 
-      <div className="flex justify-between text-[10px] text-neutral-400 mt-1 px-2">
+      <div className="flex justify-between text-[10px] text-neutral-500 mt-1 px-2">
         <span>{formatDate(chartData.startDate)}</span>
         <span>{formatDate(chartData.endDate)}</span>
       </div>
@@ -459,7 +459,7 @@ function GaugeExpandedDetail({
               ))}
             </div>
           </div>
-          <div className="bg-neutral-900 rounded-xl overflow-hidden">
+          <div className="bg-neutral-50 border border-neutral-200 rounded-xl overflow-hidden">
             <FlowTrendChart
               gaugeSiteId={gauge.usgsSiteId}
               days={dateRange}
