@@ -555,14 +555,26 @@ export default function AdminGaugesPage() {
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm text-neutral-400">Unit:</span>
-                                    <select
-                                      value={getAssocDisplayValue(assoc.id, 'thresholdUnit', 'ft')}
-                                      onChange={e => updateAssociationField(assoc.id, 'thresholdUnit', e.target.value)}
-                                      className="px-2 py-1 bg-neutral-800 border border-neutral-600 rounded text-sm text-white"
-                                    >
-                                      <option value="ft">ft (gauge height)</option>
-                                      <option value="cfs">cfs (discharge)</option>
-                                    </select>
+                                    <div className="flex rounded-lg overflow-hidden border border-neutral-600">
+                                      {(['ft', 'cfs'] as const).map(unit => {
+                                        const currentUnit = getAssocDisplayValue<string>(assoc.id, 'thresholdUnit', 'ft');
+                                        const isActive = currentUnit === unit;
+                                        return (
+                                          <button
+                                            key={unit}
+                                            type="button"
+                                            onClick={() => updateAssociationField(assoc.id, 'thresholdUnit', unit)}
+                                            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                                              isActive
+                                                ? 'bg-primary-600 text-white'
+                                                : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
+                                            }`}
+                                          >
+                                            {unit === 'ft' ? 'ft (gauge height)' : 'cfs (discharge)'}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 </div>
 

@@ -1097,11 +1097,17 @@ function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestCfs }: { 
     const readings = history.readings;
     const stats = history.stats;
 
-    // Expand Y-axis range to include threshold lines if they fall outside the data range
-    let minVal = stats.minDischarge ?? 0;
-    let maxVal = stats.maxDischarge ?? 100;
+    // Smart Y-axis zoom: only expand to include thresholds near the actual data range
+    const dataMin = stats.minDischarge ?? 0;
+    const dataMax = stats.maxDischarge ?? 100;
+    const dataRange = dataMax - dataMin || 1;
+
+    let minVal = dataMin;
+    let maxVal = dataMax;
 
     if (thresholds) {
+      // Only include thresholds within 1.5x the data range above/below
+      const expansionLimit = dataRange * 1.5;
       const thresholdValues = [
         thresholds.levelTooLow, thresholds.levelLow,
         thresholds.levelOptimalMin, thresholds.levelOptimalMax,
@@ -1109,8 +1115,10 @@ function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestCfs }: { 
       ].filter((v): v is number => v !== null);
 
       for (const tv of thresholdValues) {
-        if (tv < minVal) minVal = tv;
-        if (tv > maxVal) maxVal = tv;
+        if (tv >= dataMin - expansionLimit && tv <= dataMax + expansionLimit) {
+          if (tv < minVal) minVal = tv;
+          if (tv > maxVal) maxVal = tv;
+        }
       }
     }
 
@@ -1140,7 +1148,7 @@ function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestCfs }: { 
     // Create area path (fill under the line)
     const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
 
-    // Compute threshold line Y positions (for SVG lines)
+    // Compute threshold line Y positions, filtering out lines outside visible range
     const allThresholdLines = thresholds
       ? CHART_THRESHOLD_LINE_CONFIG
           .filter(t => thresholds[t.key] !== null)
@@ -1149,6 +1157,7 @@ function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestCfs }: { 
             value: thresholds[t.key]!,
             y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
           }))
+          .filter(t => t.y >= -5 && t.y <= 105) // Only show lines within visible chart area
       : [];
 
     // Build label list: merge optimal min/max into one centered label,

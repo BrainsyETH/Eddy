@@ -44,7 +44,7 @@ export default function CollapsibleSection({
 
       <div
         className={`transition-all duration-200 ease-in-out ${
-          isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+          isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
         }`}
       >
         <div className="px-4 pb-4">

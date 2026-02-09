@@ -400,6 +400,8 @@ export default function GeographyEditor() {
           active: editingPOIDetails.active,
           isOnWater: editingPOIDetails.isOnWater,
           riverMile: editingPOIDetails.riverMile,
+          npsUrl: editingPOIDetails.npsUrl,
+          images: editingPOIDetails.images,
         }),
       });
 
@@ -1630,6 +1632,160 @@ export default function GeographyEditor() {
                 placeholder="Description of this point of interest..."
                 className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500 resize-none"
               />
+            </div>
+
+            {/* Website URL */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1 flex items-center gap-1">
+                <Link2 size={14} />
+                Website URL
+              </label>
+              <input
+                type="url"
+                value={editingPOIDetails.npsUrl || ''}
+                onChange={(e) => setEditingPOIDetails({ ...editingPOIDetails, npsUrl: e.target.value || null })}
+                placeholder="https://..."
+                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:ring-2 focus:ring-river-500 focus:border-river-500"
+              />
+              {editingPOIDetails.npsUrl && (
+                <a
+                  href={editingPOIDetails.npsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-1 text-xs text-river-600 hover:text-river-800"
+                >
+                  Open link <ExternalLink size={10} />
+                </a>
+              )}
+            </div>
+
+            {/* Images */}
+            <div>
+              <label className="block text-sm font-medium text-bluff-700 mb-1 flex items-center gap-1">
+                <ImagePlus size={14} />
+                Images ({editingPOIDetails.images?.length || 0})
+              </label>
+
+              {/* Existing images */}
+              {editingPOIDetails.images && editingPOIDetails.images.length > 0 && (
+                <div className="space-y-2 mb-2">
+                  {editingPOIDetails.images.map((img, idx) => (
+                    <div key={idx} className="flex items-start gap-2 bg-neutral-50 rounded-lg p-2 border border-neutral-200">
+                      <div className="w-16 h-12 rounded overflow-hidden flex-shrink-0 bg-neutral-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={img.url}
+                          alt={img.altText || img.title || 'POI image'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-bluff-700 font-medium truncate">{img.title || img.caption || 'Image'}</p>
+                        {img.credit && <p className="text-[10px] text-neutral-500 truncate">{img.credit}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = [...(editingPOIDetails.images || [])];
+                          newImages.splice(idx, 1);
+                          setEditingPOIDetails({ ...editingPOIDetails, images: newImages });
+                        }}
+                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                        title="Remove image"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add image by URL */}
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="Paste image URL..."
+                  className="flex-1 px-3 py-1.5 border border-bluff-300 rounded-lg text-xs focus:ring-2 focus:ring-river-500 focus:border-river-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const input = e.currentTarget;
+                      const url = input.value.trim();
+                      if (url) {
+                        const newImages = [...(editingPOIDetails.images || [])];
+                        newImages.push({ url, title: '', altText: '', caption: '', credit: '' });
+                        setEditingPOIDetails({ ...editingPOIDetails, images: newImages });
+                        input.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement;
+                    const url = input?.value?.trim();
+                    if (url) {
+                      const newImages = [...(editingPOIDetails.images || [])];
+                      newImages.push({ url, title: '', altText: '', caption: '', credit: '' });
+                      setEditingPOIDetails({ ...editingPOIDetails, images: newImages });
+                      input.value = '';
+                    }
+                  }}
+                  className="px-2 py-1.5 bg-bluff-100 text-bluff-700 rounded-lg text-xs font-medium hover:bg-bluff-200"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Upload image button */}
+              <div className="mt-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  className="hidden"
+                  id="poi-image-upload"
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files || files.length === 0) return;
+
+                    const formData = new FormData();
+                    for (let i = 0; i < files.length; i++) {
+                      formData.append('files', files[i]);
+                    }
+
+                    try {
+                      const response = await adminFetch('/api/admin/upload', {
+                        method: 'POST',
+                        body: formData,
+                      });
+                      const result = await response.json();
+
+                      if (response.ok && result.urls?.length > 0) {
+                        const newImages = [...(editingPOIDetails.images || [])];
+                        for (const url of result.urls) {
+                          newImages.push({ url, title: '', altText: '', caption: '', credit: '' });
+                        }
+                        setEditingPOIDetails({ ...editingPOIDetails, images: newImages });
+                      }
+                      if (result.errors?.length) {
+                        alert('Upload issues:\n' + result.errors.join('\n'));
+                      }
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : 'Failed to upload');
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('poi-image-upload')?.click()}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-bluff-300 rounded-lg text-xs text-bluff-600 hover:border-river-400 hover:text-river-600 transition-colors"
+                >
+                  <Upload size={14} />
+                  Upload Images
+                </button>
+              </div>
             </div>
 
             {/* River Mile */}
