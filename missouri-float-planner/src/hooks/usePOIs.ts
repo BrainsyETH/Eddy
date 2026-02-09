@@ -15,5 +15,7 @@ export function usePOIs(riverSlug: string | null) {
       return (data.pois || []) as PointOfInterest[];
     },
     enabled: !!riverSlug,
+    staleTime: 30 * 1000, // 30s - pick up admin edits faster
+    refetchOnWindowFocus: true,
   });
 }

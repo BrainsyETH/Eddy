@@ -108,7 +108,7 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
                 </div>
               )}
 
-              {/* NPS link */}
+              {/* External link */}
               {poi.npsUrl && (
                 <a
                   href={poi.npsUrl}
@@ -116,7 +116,14 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium"
                 >
-                  Learn more on NPS.gov
+                  {(() => {
+                    try {
+                      const hostname = new URL(poi.npsUrl).hostname.replace(/^www\./, '');
+                      return `Learn more on ${hostname}`;
+                    } catch {
+                      return 'Learn more';
+                    }
+                  })()}
                   <ExternalLink className="w-3 h-3" />
                 </a>
               )}

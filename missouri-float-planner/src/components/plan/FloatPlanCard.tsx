@@ -419,7 +419,14 @@ function AlongYourRoute({ items }: { items: RouteItem[] }) {
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1.5"
                     >
-                      View on NPS.gov
+                      {(() => {
+                        try {
+                          const hostname = new URL(item.npsUrl).hostname.replace(/^www\./, '');
+                          return `View on ${hostname}`;
+                        } catch {
+                          return 'View website';
+                        }
+                      })()}
                     </a>
                   )}
                 </div>
