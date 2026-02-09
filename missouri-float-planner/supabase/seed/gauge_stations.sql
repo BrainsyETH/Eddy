@@ -204,6 +204,8 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary;
 
 -- Current River - Akers Gauge (Upper section)
+-- Uses CFS thresholds: narrow stage range at Akers makes CFS more intuitive
+-- Local paddlers reference ~300 cfs as "comfortably floatable"
 INSERT INTO river_gauges (
     river_id,
     gauge_station_id,
@@ -224,13 +226,13 @@ SELECT
     false,
     0.5,
     10.0,
-    'ft',
-    1.5,
-    2.0,
-    2.5,
-    4.0,
-    5.0,
-    7.0
+    'cfs',
+    150,
+    200,
+    300,
+    400,
+    550,
+    1000
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'current' AND gs.usgs_site_id = '07064533'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
