@@ -262,35 +262,51 @@ function GaugeExpandedDetail({
             <Activity className="w-4 h-4" />
             Current Readings
           </h4>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-neutral-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Droplets className="w-4 h-4 text-primary-600" />
-                <span className="text-xs font-medium text-neutral-500 uppercase">Stage</span>
+          {(() => {
+            const useCfs = threshold?.thresholdUnit === 'cfs';
+            const primaryLabel = useCfs ? 'Flow' : 'Stage';
+            const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
+            const primaryValue = useCfs
+              ? (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A')
+              : (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A');
+            const secondaryLabel = useCfs ? 'Stage' : 'Flow';
+            const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-400" /> : <Activity className="w-4 h-4 text-neutral-400" />;
+            const secondaryValue = useCfs
+              ? (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A')
+              : (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A');
+
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white border-2 border-primary-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    {primaryIcon}
+                    <span className="text-xs font-medium text-primary-600 uppercase">{primaryLabel}</span>
+                  </div>
+                  <div className="text-2xl font-bold text-neutral-900">
+                    {primaryValue}
+                  </div>
+                </div>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    {secondaryIcon}
+                    <span className="text-xs font-medium text-neutral-500 uppercase">{secondaryLabel}</span>
+                  </div>
+                  <div className="text-lg text-neutral-600">
+                    {secondaryValue}
+                  </div>
+                </div>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
+                  <Image
+                    src={getEddyImageForCondition(condition.code)}
+                    alt={`Eddy - ${condition.label}`}
+                    width={80}
+                    height={80}
+                    className="w-16 h-16 object-contain"
+                  />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-neutral-900">
-                {gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
-              </div>
-            </div>
-            <div className="bg-white border border-neutral-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Activity className="w-4 h-4 text-primary-600" />
-                <span className="text-xs font-medium text-neutral-500 uppercase">Flow</span>
-              </div>
-              <div className="text-2xl font-bold text-neutral-900">
-                {gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
-              </div>
-            </div>
-            <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
-              <Image
-                src={getEddyImageForCondition(condition.code)}
-                alt={`Eddy - ${condition.label}`}
-                width={80}
-                height={80}
-                className="w-16 h-16 object-contain"
-              />
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -598,18 +614,42 @@ export default function GaugeOverview({
 
                   {/* Right side - Readings and expand */}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {gauge.gaugeHeightFt !== null && (
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)} ft</p>
-                        <p className="text-[10px] text-neutral-500">Stage</p>
-                      </div>
-                    )}
-                    {gauge.dischargeCfs !== null && (
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-neutral-900">{gauge.dischargeCfs.toLocaleString()}</p>
-                        <p className="text-[10px] text-neutral-500">cfs</p>
-                      </div>
-                    )}
+                    {(() => {
+                      const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
+                        || gauge.thresholds?.find(t => t.riverId === riverId);
+                      const useCfs = threshold?.thresholdUnit === 'cfs';
+
+                      // Show primary unit first, secondary second
+                      const primaryReading = useCfs
+                        ? gauge.dischargeCfs !== null ? (
+                            <div className="text-right" key="primary">
+                              <p className="text-sm font-bold text-neutral-900">{gauge.dischargeCfs.toLocaleString()} <span className="text-xs font-medium">cfs</span></p>
+                              <p className="text-[10px] text-primary-600 font-medium">Flow</p>
+                            </div>
+                          ) : null
+                        : gauge.gaugeHeightFt !== null ? (
+                            <div className="text-right" key="primary">
+                              <p className="text-sm font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)} <span className="text-xs font-medium">ft</span></p>
+                              <p className="text-[10px] text-primary-600 font-medium">Stage</p>
+                            </div>
+                          ) : null;
+
+                      const secondaryReading = useCfs
+                        ? gauge.gaugeHeightFt !== null ? (
+                            <div className="text-right" key="secondary">
+                              <p className="text-xs text-neutral-500">{gauge.gaugeHeightFt.toFixed(2)} ft</p>
+                              <p className="text-[10px] text-neutral-400">Stage</p>
+                            </div>
+                          ) : null
+                        : gauge.dischargeCfs !== null ? (
+                            <div className="text-right" key="secondary">
+                              <p className="text-xs text-neutral-500">{gauge.dischargeCfs.toLocaleString()} cfs</p>
+                              <p className="text-[10px] text-neutral-400">Flow</p>
+                            </div>
+                          ) : null;
+
+                      return <>{primaryReading}{secondaryReading}</>;
+                    })()}
                     <div className={`px-2 py-1 rounded text-xs font-bold ${condition.color} text-white`}>
                       {condition.label}
                     </div>
