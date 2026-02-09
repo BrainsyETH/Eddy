@@ -178,8 +178,8 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
     const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
     const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
 
-    // Compute threshold line Y positions
-    const thresholdLineData = thresholds
+    // Compute threshold line Y positions (for SVG lines)
+    const allThresholdLines = thresholds
       ? THRESHOLD_LINE_CONFIG
           .filter(t => thresholds[t.key] !== null)
           .map(t => ({
@@ -187,9 +187,37 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
             value: thresholds[t.key]!,
             y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
           }))
-          // Deduplicate overlapping lines (e.g., optimalMin/Max at same value)
-          .filter((t, i, arr) => i === arr.findIndex(o => Math.abs(o.y - t.y) < 0.5))
       : [];
+
+    // Build label list: merge optimal min/max into one centered label,
+    // then remove labels that are too close vertically (< 8% of chart height)
+    const MIN_LABEL_GAP = 8;
+    const labelCandidates: typeof allThresholdLines = [];
+    const optMin = allThresholdLines.find(t => t.key === 'levelOptimalMin');
+    const optMax = allThresholdLines.find(t => t.key === 'levelOptimalMax');
+    if (optMin && optMax) {
+      // Single "Optimal" label centered between the two lines
+      labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
+    } else if (optMin) {
+      labelCandidates.push(optMin);
+    } else if (optMax) {
+      labelCandidates.push(optMax);
+    }
+    // Add non-optimal labels
+    for (const t of allThresholdLines) {
+      if (t.key !== 'levelOptimalMin' && t.key !== 'levelOptimalMax') {
+        labelCandidates.push(t);
+      }
+    }
+    // Sort by Y position and remove overlapping labels
+    labelCandidates.sort((a, b) => a.y - b.y);
+    const thresholdLabels: typeof labelCandidates = [];
+    for (const candidate of labelCandidates) {
+      const tooClose = thresholdLabels.some(placed => Math.abs(placed.y - candidate.y) < MIN_LABEL_GAP);
+      if (!tooClose) {
+        thresholdLabels.push(candidate);
+      }
+    }
 
     return {
       points,
@@ -200,7 +228,8 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
       currentVal: readings[readings.length - 1]?.dischargeCfs,
       startDate: new Date(readings[0].timestamp),
       endDate: new Date(readings[readings.length - 1].timestamp),
-      thresholdLineData,
+      thresholdLineData: allThresholdLines,
+      thresholdLabels,
     };
   }, [history, thresholds]);
 
@@ -299,8 +328,8 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
           <span>{formatCfs(chartData.maxVal)}</span>
           <span>{formatCfs(chartData.minVal)}</span>
         </div>
-        {/* Threshold labels on right side */}
-        {chartData.thresholdLineData.map((t) => (
+        {/* Threshold labels on right side (de-overlapped) */}
+        {chartData.thresholdLabels.map((t) => (
           <div
             key={`label-${t.key}`}
             className="absolute right-0 text-[9px] font-medium -mr-1 leading-none"
