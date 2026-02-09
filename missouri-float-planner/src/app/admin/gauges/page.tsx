@@ -566,28 +566,36 @@ export default function AdminGaugesPage() {
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                                  {[
-                                    { field: 'levelTooLow', label: 'Too Low', color: 'border-gray-500' },
-                                    { field: 'levelLow', label: 'Low', color: 'border-yellow-500' },
-                                    { field: 'levelOptimalMin', label: 'Optimal Min', color: 'border-green-500' },
-                                    { field: 'levelOptimalMax', label: 'Optimal Max', color: 'border-green-500' },
-                                    { field: 'levelHigh', label: 'High', color: 'border-orange-500' },
-                                    { field: 'levelDangerous', label: 'Flood', color: 'border-red-500' },
-                                  ].map(({ field, label, color }) => (
-                                    <div key={field}>
-                                      <label className="block text-xs text-neutral-400 mb-1">{label}</label>
-                                      <input
-                                        type="number"
-                                        step="0.1"
-                                        value={getAssocDisplayValue(assoc.id, field as keyof RiverAssociation, '') ?? ''}
-                                        onChange={e => updateAssociationField(assoc.id, field as keyof RiverAssociation, e.target.value)}
-                                        className={`w-full px-2 py-1.5 bg-neutral-800 border-l-4 ${color} border-y border-r border-neutral-600 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500`}
-                                        placeholder="—"
-                                      />
+                                {(() => {
+                                  const currentUnit = getAssocDisplayValue(assoc.id, 'thresholdUnit', 'ft');
+                                  const unitLabel = currentUnit === 'cfs' ? 'cfs' : 'ft';
+                                  const stepSize = currentUnit === 'cfs' ? '1' : '0.1';
+
+                                  return (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                      {[
+                                        { field: 'levelTooLow', label: 'Too Low', color: 'border-gray-500' },
+                                        { field: 'levelLow', label: 'Low', color: 'border-yellow-500' },
+                                        { field: 'levelOptimalMin', label: 'Optimal Min', color: 'border-green-500' },
+                                        { field: 'levelOptimalMax', label: 'Optimal Max', color: 'border-green-500' },
+                                        { field: 'levelHigh', label: 'High', color: 'border-orange-500' },
+                                        { field: 'levelDangerous', label: 'Flood', color: 'border-red-500' },
+                                      ].map(({ field, label, color }) => (
+                                        <div key={field}>
+                                          <label className="block text-xs text-neutral-400 mb-1">{label} ({unitLabel})</label>
+                                          <input
+                                            type="number"
+                                            step={stepSize}
+                                            value={getAssocDisplayValue(assoc.id, field as keyof RiverAssociation, '') ?? ''}
+                                            onChange={e => updateAssociationField(assoc.id, field as keyof RiverAssociation, e.target.value)}
+                                            className={`w-full px-2 py-1.5 bg-neutral-800 border-l-4 ${color} border-y border-r border-neutral-600 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500`}
+                                            placeholder="—"
+                                          />
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
+                                  );
+                                })()}
                               </div>
                             ))}
                           </div>
