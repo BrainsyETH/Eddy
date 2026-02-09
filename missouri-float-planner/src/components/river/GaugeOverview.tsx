@@ -124,14 +124,14 @@ interface ThresholdLines {
 }
 
 const THRESHOLD_LINE_CONFIG: { key: keyof ThresholdLines; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Okay', color: '#84cc16', dash: '3,3' },
+  { key: 'levelLow', label: 'Okay', color: '#65a30d', dash: '3,3' },
   { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
   { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
   { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
 
-function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string; days: number; thresholds?: ThresholdLines | null }) {
+function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSiteId: string; days: number; thresholds?: ThresholdLines | null; latestCfs?: number | null }) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
 
   const chartData = useMemo(() => {
@@ -265,9 +265,9 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string
     <div className="p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-neutral-700">Flow (cfs)</span>
-        {chartData.currentVal !== null && (
+        {(latestCfs ?? chartData.currentVal) !== null && (
           <span className="text-xs text-primary-600 font-medium">
-            Current: {formatCfs(chartData.currentVal)} cfs
+            Current: {formatCfs((latestCfs ?? chartData.currentVal)!)} cfs
           </span>
         )}
       </div>
@@ -463,6 +463,7 @@ function GaugeExpandedDetail({
             <FlowTrendChart
               gaugeSiteId={gauge.usgsSiteId}
               days={dateRange}
+              latestCfs={gauge.dischargeCfs}
               thresholds={threshold?.thresholdUnit === 'cfs' ? {
                 levelTooLow: threshold.levelTooLow,
                 levelLow: threshold.levelLow,

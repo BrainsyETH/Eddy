@@ -821,14 +821,32 @@ export default function GaugesPage() {
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Left Column - Chart */}
                             <div>
-                              <h4 className="text-sm font-semibold text-neutral-700 mb-3 flex items-center gap-2">
-                                <TrendingUp className="w-4 h-4" />
-                                {dateRange}-Day Flow Trend
-                              </h4>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
+                                  <TrendingUp className="w-4 h-4" />
+                                  {dateRange}-Day Flow Trend
+                                </h4>
+                                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                                  {DATE_RANGES.map(range => (
+                                    <button
+                                      key={range.days}
+                                      onClick={(e) => { e.stopPropagation(); setDateRange(range.days); }}
+                                      className={`px-2 py-1 text-xs font-medium transition-colors ${
+                                        dateRange === range.days
+                                          ? 'bg-primary-500 text-white'
+                                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                                      }`}
+                                    >
+                                      {range.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                               <div className="bg-neutral-50 border border-neutral-200 rounded-xl overflow-hidden">
                                 <FlowTrendChartWithDays
                                   gaugeSiteId={gauge.usgsSiteId}
                                   days={dateRange}
+                                  latestCfs={gauge.dischargeCfs}
                                   thresholds={gauge.primaryRiver?.thresholdUnit === 'cfs' ? {
                                     levelTooLow: gauge.primaryRiver.levelTooLow,
                                     levelLow: gauge.primaryRiver.levelLow,
@@ -1061,7 +1079,7 @@ interface ChartThresholdLines {
 }
 
 const CHART_THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Okay', color: '#84cc16', dash: '3,3' },
+  { key: 'levelLow', label: 'Okay', color: '#65a30d', dash: '3,3' },
   { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
   { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
   { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
@@ -1069,7 +1087,7 @@ const CHART_THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: stri
 ];
 
 // Wrapper component to use the hook with custom days
-function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string; days: number; thresholds?: ChartThresholdLines | null }) {
+function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSiteId: string; days: number; thresholds?: ChartThresholdLines | null; latestCfs?: number | null }) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
 
   // Process data for the chart
@@ -1207,9 +1225,9 @@ function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds }: { gaugeSiteId
     <div className="p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-neutral-700">Flow (cfs)</span>
-        {chartData.currentVal !== null && (
+        {(latestCfs ?? chartData.currentVal) !== null && (
           <span className="text-xs text-primary-600 font-medium">
-            Current: {formatCfs(chartData.currentVal)} cfs
+            Current: {formatCfs((latestCfs ?? chartData.currentVal)!)} cfs
           </span>
         )}
       </div>
