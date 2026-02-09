@@ -669,18 +669,36 @@ export default function GaugesPage() {
                             </div>
                           </div>
 
-                          {/* Large Water Level Display */}
+                          {/* Large Water Level Display - primary unit shown prominently */}
                           <div className="flex flex-col items-end text-right flex-shrink-0">
-                            {gauge.gaugeHeightFt !== null && (
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-3xl md:text-4xl font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)}</span>
-                                <span className="text-sm font-medium text-neutral-500">ft</span>
-                              </div>
-                            )}
-                            {gauge.dischargeCfs !== null && (
-                              <div className="text-sm text-neutral-500 mt-1">
-                                {gauge.dischargeCfs.toLocaleString()} cfs
-                              </div>
+                            {gauge.primaryRiver?.thresholdUnit === 'cfs' ? (
+                              <>
+                                {gauge.dischargeCfs !== null && (
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl md:text-4xl font-bold text-neutral-900">{gauge.dischargeCfs.toLocaleString()}</span>
+                                    <span className="text-sm font-medium text-neutral-500">cfs</span>
+                                  </div>
+                                )}
+                                {gauge.gaugeHeightFt !== null && (
+                                  <div className="text-sm text-neutral-500 mt-1">
+                                    {gauge.gaugeHeightFt.toFixed(2)} ft
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {gauge.gaugeHeightFt !== null && (
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl md:text-4xl font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)}</span>
+                                    <span className="text-sm font-medium text-neutral-500">ft</span>
+                                  </div>
+                                )}
+                                {gauge.dischargeCfs !== null && (
+                                  <div className="text-sm text-neutral-500 mt-1">
+                                    {gauge.dischargeCfs.toLocaleString()} cfs
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -751,35 +769,51 @@ export default function GaugesPage() {
                                 <Activity className="w-4 h-4" />
                                 Current Readings
                               </h4>
-                              <div className="grid grid-cols-3 gap-3">
-                                <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <Droplets className="w-4 h-4 text-primary-600" />
-                                    <span className="text-xs font-medium text-neutral-500 uppercase">Stage</span>
+                              {(() => {
+                                const useCfs = gauge.primaryRiver?.thresholdUnit === 'cfs';
+                                const primaryLabel = useCfs ? 'Flow' : 'Stage';
+                                const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
+                                const primaryValue = useCfs
+                                  ? (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A')
+                                  : (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A');
+                                const secondaryLabel = useCfs ? 'Stage' : 'Flow';
+                                const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-400" /> : <Activity className="w-4 h-4 text-neutral-400" />;
+                                const secondaryValue = useCfs
+                                  ? (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A')
+                                  : (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A');
+
+                                return (
+                                  <div className="grid grid-cols-3 gap-3">
+                                    <div className="bg-white border-2 border-primary-200 rounded-lg p-3">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        {primaryIcon}
+                                        <span className="text-xs font-medium text-primary-600 uppercase">{primaryLabel}</span>
+                                      </div>
+                                      <div className="text-2xl font-bold text-neutral-900">
+                                        {primaryValue}
+                                      </div>
+                                    </div>
+                                    <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        {secondaryIcon}
+                                        <span className="text-xs font-medium text-neutral-500 uppercase">{secondaryLabel}</span>
+                                      </div>
+                                      <div className="text-lg text-neutral-600">
+                                        {secondaryValue}
+                                      </div>
+                                    </div>
+                                    <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
+                                      <Image
+                                        src={getEddyImageForCondition(gauge.condition.code)}
+                                        alt={`Eddy - ${gauge.condition.label}`}
+                                        width={80}
+                                        height={80}
+                                        className="w-16 h-16 object-contain"
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="text-2xl font-bold text-neutral-900">
-                                    {gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
-                                  </div>
-                                </div>
-                                <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <Activity className="w-4 h-4 text-primary-600" />
-                                    <span className="text-xs font-medium text-neutral-500 uppercase">Flow</span>
-                                  </div>
-                                  <div className="text-2xl font-bold text-neutral-900">
-                                    {gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
-                                  </div>
-                                </div>
-                                <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
-                                  <Image
-                                    src={getEddyImageForCondition(gauge.condition.code)}
-                                    alt={`Eddy - ${gauge.condition.label}`}
-                                    width={80}
-                                    height={80}
-                                    className="w-16 h-16 object-contain"
-                                  />
-                                </div>
-                              </div>
+                                );
+                              })()}
                             </div>
                           </div>
 
@@ -792,7 +826,18 @@ export default function GaugesPage() {
                                 {dateRange}-Day Flow Trend
                               </h4>
                               <div className="bg-neutral-900 rounded-xl overflow-hidden">
-                                <FlowTrendChartWithDays gaugeSiteId={gauge.usgsSiteId} days={dateRange} />
+                                <FlowTrendChartWithDays
+                                  gaugeSiteId={gauge.usgsSiteId}
+                                  days={dateRange}
+                                  thresholds={gauge.primaryRiver?.thresholdUnit === 'cfs' ? {
+                                    levelTooLow: gauge.primaryRiver.levelTooLow,
+                                    levelLow: gauge.primaryRiver.levelLow,
+                                    levelOptimalMin: gauge.primaryRiver.levelOptimalMin,
+                                    levelOptimalMax: gauge.primaryRiver.levelOptimalMax,
+                                    levelHigh: gauge.primaryRiver.levelHigh,
+                                    levelDangerous: gauge.primaryRiver.levelDangerous,
+                                  } : null}
+                                />
                               </div>
                             </div>
 
@@ -1005,8 +1050,26 @@ export default function GaugesPage() {
   );
 }
 
+// Threshold line configuration for CFS-based gauges
+interface ChartThresholdLines {
+  levelTooLow: number | null;
+  levelLow: number | null;
+  levelOptimalMin: number | null;
+  levelOptimalMax: number | null;
+  levelHigh: number | null;
+  levelDangerous: number | null;
+}
+
+const CHART_THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
+  { key: 'levelLow', label: 'Okay', color: '#84cc16', dash: '3,3' },
+  { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
+  { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
+  { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
+  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
+];
+
 // Wrapper component to use the hook with custom days
-function FlowTrendChartWithDays({ gaugeSiteId, days }: { gaugeSiteId: string; days: number }) {
+function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds }: { gaugeSiteId: string; days: number; thresholds?: ChartThresholdLines | null }) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
 
   // Process data for the chart
@@ -1016,9 +1079,28 @@ function FlowTrendChartWithDays({ gaugeSiteId, days }: { gaugeSiteId: string; da
     const readings = history.readings;
     const stats = history.stats;
 
-    // Get min/max for scaling
-    const minVal = stats.minDischarge ?? 0;
-    const maxVal = stats.maxDischarge ?? 100;
+    // Expand Y-axis range to include threshold lines if they fall outside the data range
+    let minVal = stats.minDischarge ?? 0;
+    let maxVal = stats.maxDischarge ?? 100;
+
+    if (thresholds) {
+      const thresholdValues = [
+        thresholds.levelTooLow, thresholds.levelLow,
+        thresholds.levelOptimalMin, thresholds.levelOptimalMax,
+        thresholds.levelHigh, thresholds.levelDangerous,
+      ].filter((v): v is number => v !== null);
+
+      for (const tv of thresholdValues) {
+        if (tv < minVal) minVal = tv;
+        if (tv > maxVal) maxVal = tv;
+      }
+    }
+
+    // Add 5% padding so lines don't sit on edges
+    const padding = (maxVal - minVal) * 0.05 || 5;
+    minVal = Math.max(0, minVal - padding);
+    maxVal = maxVal + padding;
+
     const range = maxVal - minVal || 1;
 
     // Sample points for the SVG path (max ~50 points for smooth chart)
@@ -1040,6 +1122,18 @@ function FlowTrendChartWithDays({ gaugeSiteId, days }: { gaugeSiteId: string; da
     // Create area path (fill under the line)
     const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
 
+    // Compute threshold line Y positions
+    const thresholdLineData = thresholds
+      ? CHART_THRESHOLD_LINE_CONFIG
+          .filter(t => thresholds[t.key] !== null)
+          .map(t => ({
+            ...t,
+            value: thresholds[t.key]!,
+            y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
+          }))
+          .filter((t, i, arr) => i === arr.findIndex(o => Math.abs(o.y - t.y) < 0.5))
+      : [];
+
     return {
       points,
       pathD,
@@ -1049,8 +1143,9 @@ function FlowTrendChartWithDays({ gaugeSiteId, days }: { gaugeSiteId: string; da
       currentVal: readings[readings.length - 1]?.dischargeCfs,
       startDate: new Date(readings[0].timestamp),
       endDate: new Date(readings[readings.length - 1].timestamp),
+      thresholdLineData,
     };
-  }, [history]);
+  }, [history, thresholds]);
 
   if (isLoading) {
     return (
@@ -1107,6 +1202,37 @@ function FlowTrendChartWithDays({ gaugeSiteId, days }: { gaugeSiteId: string; da
             </linearGradient>
           </defs>
 
+          {/* Optimal range shaded band */}
+          {chartData.thresholdLineData.length > 0 && (() => {
+            const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
+            const optMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
+            if (optMin && optMax) {
+              return (
+                <rect
+                  x="0" width="100"
+                  y={Math.min(optMin.y, optMax.y)}
+                  height={Math.abs(optMax.y - optMin.y)}
+                  fill="#059669" fillOpacity="0.08"
+                />
+              );
+            }
+            return null;
+          })()}
+
+          {/* Threshold reference lines */}
+          {chartData.thresholdLineData.map((t) => (
+            <line
+              key={t.key}
+              x1="0" x2="100"
+              y1={t.y} y2={t.y}
+              stroke={t.color}
+              strokeWidth="1"
+              strokeDasharray={t.dash || 'none'}
+              vectorEffect="non-scaling-stroke"
+              opacity="0.6"
+            />
+          ))}
+
           {/* Area fill */}
           <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
 
@@ -1138,6 +1264,21 @@ function FlowTrendChartWithDays({ gaugeSiteId, days }: { gaugeSiteId: string; da
           <span>{formatCfs(chartData.maxVal)}</span>
           <span>{formatCfs(chartData.minVal)}</span>
         </div>
+
+        {/* Threshold labels on right side */}
+        {chartData.thresholdLineData.map((t) => (
+          <div
+            key={`label-${t.key}`}
+            className="absolute right-0 text-[9px] font-medium -mr-1 leading-none"
+            style={{
+              top: `${t.y}%`,
+              color: t.color,
+              transform: 'translateY(-50%)',
+            }}
+          >
+            {t.label}
+          </div>
+        ))}
       </div>
 
       {/* X-axis labels */}
