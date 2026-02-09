@@ -400,7 +400,7 @@ function AlongYourRoute({ items }: { items: RouteItem[] }) {
                 </span>
 
                 {/* Expand chevron */}
-                {item.description && (
+                {(item.description || item.npsUrl) && (
                   isExpanded
                     ? <ChevronUp size={14} className="text-neutral-300 flex-shrink-0" />
                     : <ChevronDown size={14} className="text-neutral-300 flex-shrink-0" />
@@ -408,9 +408,11 @@ function AlongYourRoute({ items }: { items: RouteItem[] }) {
               </div>
 
               {/* Expanded detail */}
-              {isExpanded && item.description && (
+              {isExpanded && (item.description || item.npsUrl) && (
                 <div className="px-3 pb-2.5 pt-0">
-                  <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{item.description}</p>
+                  {item.description && (
+                    <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{item.description}</p>
+                  )}
                   {item.npsUrl && (
                     <a
                       href={item.npsUrl}
