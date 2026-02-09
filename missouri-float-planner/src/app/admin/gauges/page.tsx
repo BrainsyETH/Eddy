@@ -567,7 +567,7 @@ export default function AdminGaugesPage() {
                                 </div>
 
                                 {(() => {
-                                  const currentUnit = getAssocDisplayValue(assoc.id, 'thresholdUnit', 'ft');
+                                  const currentUnit = getAssocDisplayValue<string>(assoc.id, 'thresholdUnit', 'ft');
                                   const unitLabel = currentUnit === 'cfs' ? 'cfs' : 'ft';
                                   const stepSize = currentUnit === 'cfs' ? '1' : '0.1';
 
