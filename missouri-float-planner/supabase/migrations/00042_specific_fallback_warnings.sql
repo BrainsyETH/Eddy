@@ -7,6 +7,12 @@
 --   "Gauge height unavailable, using flow (cfs) for comparison"
 
 -- ============================================
+-- DROP EXISTING FUNCTIONS (return type may differ)
+-- ============================================
+DROP FUNCTION IF EXISTS get_river_condition(UUID);
+DROP FUNCTION IF EXISTS get_river_condition_segment(UUID, GEOMETRY, NUMERIC);
+
+-- ============================================
 -- UPDATE get_river_condition FUNCTION
 -- ============================================
 -- Adds fallback support (previously returned 'Unknown' when preferred unit was null)
