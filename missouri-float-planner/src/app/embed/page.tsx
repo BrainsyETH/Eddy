@@ -89,7 +89,7 @@ export default function EmbedPage() {
   src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
   width="100%"
   height="320"
-  style="border: none; border-radius: 12px; max-width: 400px;"
+  style="border: none; border-radius: 12px; max-width: 600px;"
   title="${selectedRiverName} - River Conditions from Eddy"
   loading="lazy"
 ></iframe>`;
@@ -103,7 +103,7 @@ export default function EmbedPage() {
   src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
   width="100%"
   height="320"
-  style="border: none; border-radius: 12px; max-width: 400px;"
+  style="border: none; border-radius: 12px; max-width: 600px;"
   title="Plan Your Float - Eddy"
   loading="lazy"
 ></iframe>`;
@@ -115,7 +115,7 @@ export default function EmbedPage() {
         className="relative py-12 md:py-16 text-white"
         style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}
       >
-        <div className="max-w-3xl mx-auto px-4 text-center">
+        <div className="max-w-4xl mx-auto px-4 text-center">
           <div className="-mb-1">
             <Image
               src={EDDY_CANOE_IMAGE}
@@ -139,7 +139,7 @@ export default function EmbedPage() {
         </div>
       </section>
 
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
+      <div className="max-w-4xl mx-auto px-4 py-10 space-y-10">
 
         {/* How it works intro */}
         <section className="bg-white border-2 border-neutral-200 rounded-2xl p-6 md:p-8">
@@ -255,7 +255,7 @@ export default function EmbedPage() {
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
                 <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 400 }}>
+                  <div style={{ maxWidth: 600 }}>
                     <iframe
                       src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
                       width="100%"
@@ -340,7 +340,7 @@ export default function EmbedPage() {
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
                 <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 400 }}>
+                  <div style={{ maxWidth: 600 }}>
                     <iframe
                       src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
                       width="100%"
@@ -521,7 +521,7 @@ export default function EmbedPage() {
 
       {/* Footer */}
       <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-16">
-        <div className="max-w-3xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center">
           <p className="text-primary-200 mb-2">
             Eddy &middot; Missouri River Float Trip Planner
           </p>
