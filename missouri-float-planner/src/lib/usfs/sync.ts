@@ -100,9 +100,8 @@ export async function syncUSFSData(supabase: SupabaseClient): Promise<USFSSyncRe
     return result;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const riverMap = new Map<string, { id: string; name: string }>(
-    rivers.map((r: any) => [r.slug, { id: r.id, name: r.name }])
+    rivers.map((r: { slug: string; id: string; name: string }) => [r.slug, { id: r.id, name: r.name }])
   );
 
   // 2. Collect unique facilities across all rivers (dedupe by FacilityID)
