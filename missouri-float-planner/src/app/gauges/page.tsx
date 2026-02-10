@@ -184,6 +184,7 @@ export default function GaugesPage() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
+  const [displayUnit, setDisplayUnit] = useState<'auto' | 'ft' | 'cfs'>('auto');
   const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -301,6 +302,13 @@ export default function GaugesPage() {
       label: getConditionShortLabel(result.code),
       tailwindColor: getConditionTailwindColor(result.code),
     };
+  };
+
+  // Resolve effective display unit for a gauge
+  const getEffectiveUnit = (gauge: GaugeStation): 'ft' | 'cfs' => {
+    if (displayUnit !== 'auto') return displayUnit;
+    const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
+    return primaryRiver?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
   };
 
   // Get unique rivers for filter
@@ -598,6 +606,30 @@ export default function GaugesPage() {
                   ONSR
                 </button>
 
+                {/* Unit toggle */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-neutral-600">Unit:</label>
+                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                    {([
+                      { value: 'auto', label: 'Auto' },
+                      { value: 'ft', label: 'Gauge Ht' },
+                      { value: 'cfs', label: 'CFS' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setDisplayUnit(opt.value)}
+                        className={`px-3 py-2 text-sm font-medium transition-colors ${
+                          displayUnit === opt.value
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Date range for charts */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                   {DATE_RANGES.map(range => (
@@ -713,7 +745,7 @@ export default function GaugesPage() {
 
                           {/* Large Water Level Display - primary unit shown prominently */}
                           <div className="flex flex-col items-end text-right flex-shrink-0">
-                            {gauge.primaryRiver?.thresholdUnit === 'cfs' ? (
+                            {getEffectiveUnit(gauge) === 'cfs' ? (
                               <>
                                 {gauge.dischargeCfs !== null && (
                                   <div className="flex items-baseline gap-1">
@@ -812,7 +844,7 @@ export default function GaugesPage() {
                                 Current Readings
                               </h4>
                               {(() => {
-                                const useCfs = gauge.primaryRiver?.thresholdUnit === 'cfs';
+                                const useCfs = getEffectiveUnit(gauge) === 'cfs';
                                 const primaryLabel = useCfs ? 'Flow' : 'Stage';
                                 const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
                                 const primaryValue = useCfs
