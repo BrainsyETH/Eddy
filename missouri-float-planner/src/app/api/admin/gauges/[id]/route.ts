@@ -40,36 +40,33 @@ export async function GET(
     }
 
     // Get river associations with thresholds
-    const { data: riverGauges, error: rgError } = await supabase
-      .from('river_gauges')
-      .select(`
-        id,
-        river_id,
-        is_primary,
-        threshold_unit,
-        level_too_low,
-        level_low,
-        level_optimal_min,
-        level_optimal_max,
-        level_high,
-        level_dangerous,
-        alt_level_too_low,
-        alt_level_low,
-        alt_level_optimal_min,
-        alt_level_optimal_max,
-        alt_level_high,
-        alt_level_dangerous,
-        distance_from_section_miles,
-        accuracy_warning_threshold_miles
-      `)
-      .eq('gauge_station_id', id);
+    // Fall back without alt columns if migration hasn't run yet
+    const baseCols = `id, river_id, is_primary, threshold_unit,
+        level_too_low, level_low, level_optimal_min, level_optimal_max,
+        level_high, level_dangerous,`;
+    const altCols = `alt_level_too_low, alt_level_low, alt_level_optimal_min,
+        alt_level_optimal_max, alt_level_high, alt_level_dangerous,`;
+    const tailCols = `distance_from_section_miles, accuracy_warning_threshold_miles`;
 
-    if (rgError) {
-      console.error('Error fetching river gauges:', rgError);
+    let riverGauges: Record<string, unknown>[] | null = null;
+    {
+      const { data, error: err } = await supabase
+        .from('river_gauges')
+        .select(baseCols + altCols + tailCols)
+        .eq('gauge_station_id', id);
+      if (err) {
+        const { data: fb } = await supabase
+          .from('river_gauges')
+          .select(baseCols + tailCols)
+          .eq('gauge_station_id', id);
+        riverGauges = fb as unknown as Record<string, unknown>[] | null;
+      } else {
+        riverGauges = data as unknown as Record<string, unknown>[] | null;
+      }
     }
 
     // Get river names
-    const riverIds = (riverGauges || []).map(rg => rg.river_id).filter(Boolean);
+    const riverIds = (riverGauges || []).map(rg => rg.river_id as string).filter(Boolean);
     let rivers: Array<{ id: string; name: string; slug: string }> = [];
 
     if (riverIds.length > 0) {
@@ -90,7 +87,7 @@ export async function GET(
       thresholdDescriptions: gauge.threshold_descriptions,
       notes: gauge.notes,
       riverAssociations: (riverGauges || []).map(rg => {
-        const river = riverMap.get(rg.river_id);
+        const river = riverMap.get(rg.river_id as string);
         return {
           id: rg.id,
           riverId: rg.river_id,
@@ -98,20 +95,20 @@ export async function GET(
           riverSlug: river?.slug || '',
           isPrimary: rg.is_primary,
           thresholdUnit: rg.threshold_unit,
-          levelTooLow: rg.level_too_low,
-          levelLow: rg.level_low,
-          levelOptimalMin: rg.level_optimal_min,
-          levelOptimalMax: rg.level_optimal_max,
-          levelHigh: rg.level_high,
-          levelDangerous: rg.level_dangerous,
-          altLevelTooLow: rg.alt_level_too_low,
-          altLevelLow: rg.alt_level_low,
-          altLevelOptimalMin: rg.alt_level_optimal_min,
-          altLevelOptimalMax: rg.alt_level_optimal_max,
-          altLevelHigh: rg.alt_level_high,
-          altLevelDangerous: rg.alt_level_dangerous,
-          distanceFromSectionMiles: rg.distance_from_section_miles,
-          accuracyWarningThresholdMiles: rg.accuracy_warning_threshold_miles,
+          levelTooLow: (rg.level_too_low as number) ?? null,
+          levelLow: (rg.level_low as number) ?? null,
+          levelOptimalMin: (rg.level_optimal_min as number) ?? null,
+          levelOptimalMax: (rg.level_optimal_max as number) ?? null,
+          levelHigh: (rg.level_high as number) ?? null,
+          levelDangerous: (rg.level_dangerous as number) ?? null,
+          altLevelTooLow: (rg.alt_level_too_low as number) ?? null,
+          altLevelLow: (rg.alt_level_low as number) ?? null,
+          altLevelOptimalMin: (rg.alt_level_optimal_min as number) ?? null,
+          altLevelOptimalMax: (rg.alt_level_optimal_max as number) ?? null,
+          altLevelHigh: (rg.alt_level_high as number) ?? null,
+          altLevelDangerous: (rg.alt_level_dangerous as number) ?? null,
+          distanceFromSectionMiles: (rg.distance_from_section_miles as number) ?? null,
+          accuracyWarningThresholdMiles: (rg.accuracy_warning_threshold_miles as number) ?? 0,
         };
       }),
     };

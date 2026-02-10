@@ -233,9 +233,19 @@ export async function GET() {
     }
 
     // Get river-gauge associations with thresholds
-    const { data: riverGauges, error: riverGaugesError } = await supabase
-      .from('river_gauges')
-      .select(`
+    // Try with alt columns first; fall back without them if they don't exist yet
+    let riverGauges: Record<string, unknown>[] | null = null;
+    let riverGaugesError: { message: string } | null = null;
+
+    const altColumns = `
+        alt_level_too_low,
+        alt_level_low,
+        alt_level_optimal_min,
+        alt_level_optimal_max,
+        alt_level_high,
+        alt_level_dangerous,`;
+
+    const baseSelect = (includeAlt: boolean) => `
         gauge_station_id,
         river_id,
         is_primary,
@@ -245,19 +255,30 @@ export async function GET() {
         level_optimal_min,
         level_optimal_max,
         level_high,
-        level_dangerous,
-        alt_level_too_low,
-        alt_level_low,
-        alt_level_optimal_min,
-        alt_level_optimal_max,
-        alt_level_high,
-        alt_level_dangerous,
+        level_dangerous,${includeAlt ? altColumns : ''}
         rivers!inner (
           id,
           name
-        )
-      `)
+        )`;
+
+    const { data: rgData, error: rgError } = await supabase
+      .from('river_gauges')
+      .select(baseSelect(true))
       .in('gauge_station_id', gaugeIds);
+
+    if (rgError) {
+      // Alt columns may not exist yet — retry without them
+      console.warn('river_gauges query failed (alt columns may not exist), retrying without:', rgError.message);
+      const { data: rgFallback, error: rgFallbackError } = await supabase
+        .from('river_gauges')
+        .select(baseSelect(false))
+        .in('gauge_station_id', gaugeIds);
+
+      riverGauges = rgFallback as unknown as Record<string, unknown>[] | null;
+      riverGaugesError = rgFallbackError;
+    } else {
+      riverGauges = rgData as unknown as Record<string, unknown>[] | null;
+    }
 
     if (riverGaugesError) {
       console.error('Error fetching river gauges:', riverGaugesError);
@@ -271,27 +292,28 @@ export async function GET() {
         const threshold = {
           riverId: river.id,
           riverName: river.name,
-          isPrimary: rg.is_primary,
-          thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
-          levelTooLow: rg.level_too_low,
-          levelLow: rg.level_low,
-          levelOptimalMin: rg.level_optimal_min,
-          levelOptimalMax: rg.level_optimal_max,
-          levelHigh: rg.level_high,
-          levelDangerous: rg.level_dangerous,
-          altLevelTooLow: rg.alt_level_too_low,
-          altLevelLow: rg.alt_level_low,
-          altLevelOptimalMin: rg.alt_level_optimal_min,
-          altLevelOptimalMax: rg.alt_level_optimal_max,
-          altLevelHigh: rg.alt_level_high,
-          altLevelDangerous: rg.alt_level_dangerous,
+          isPrimary: rg.is_primary as boolean,
+          thresholdUnit: ((rg.threshold_unit as string) || 'ft') as 'ft' | 'cfs',
+          levelTooLow: (rg.level_too_low as number) ?? null,
+          levelLow: (rg.level_low as number) ?? null,
+          levelOptimalMin: (rg.level_optimal_min as number) ?? null,
+          levelOptimalMax: (rg.level_optimal_max as number) ?? null,
+          levelHigh: (rg.level_high as number) ?? null,
+          levelDangerous: (rg.level_dangerous as number) ?? null,
+          altLevelTooLow: (rg.alt_level_too_low as number) ?? null,
+          altLevelLow: (rg.alt_level_low as number) ?? null,
+          altLevelOptimalMin: (rg.alt_level_optimal_min as number) ?? null,
+          altLevelOptimalMax: (rg.alt_level_optimal_max as number) ?? null,
+          altLevelHigh: (rg.alt_level_high as number) ?? null,
+          altLevelDangerous: (rg.alt_level_dangerous as number) ?? null,
         };
 
-        const existing = thresholdsByGauge.get(rg.gauge_station_id);
+        const gaugeStationId = rg.gauge_station_id as string;
+        const existing = thresholdsByGauge.get(gaugeStationId);
         if (existing) {
           existing.push(threshold);
         } else {
-          thresholdsByGauge.set(rg.gauge_station_id, [threshold]);
+          thresholdsByGauge.set(gaugeStationId, [threshold]);
         }
       }
     }
