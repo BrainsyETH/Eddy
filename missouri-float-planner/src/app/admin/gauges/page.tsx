@@ -69,7 +69,7 @@ interface River {
 
 const THRESHOLD_LABELS = [
   { key: 'tooLow', label: 'Too Low', color: 'bg-gray-500' },
-  { key: 'okay', label: 'Low', color: 'bg-yellow-500' },
+  { key: 'low', label: 'Low', color: 'bg-yellow-500' },
   { key: 'okay', label: 'Okay', color: 'bg-blue-500' },
   { key: 'optimal', label: 'Optimal', color: 'bg-green-500' },
   { key: 'high', label: 'High', color: 'bg-orange-500' },
