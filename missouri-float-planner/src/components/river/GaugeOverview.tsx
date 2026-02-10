@@ -366,10 +366,12 @@ function GaugeExpandedDetail({
   gauge,
   riverId,
   condition,
+  effectiveUnit,
 }: {
   gauge: GaugeStation;
   riverId: string;
   condition: { code: ConditionCode; label: string; color: string };
+  effectiveUnit: 'ft' | 'cfs';
 }) {
   const [dateRange, setDateRange] = useState(7);
 
@@ -398,7 +400,7 @@ function GaugeExpandedDetail({
             Current Readings
           </h4>
           {(() => {
-            const useCfs = threshold?.thresholdUnit === 'cfs';
+            const useCfs = effectiveUnit === 'cfs';
             const primaryLabel = useCfs ? 'Flow' : 'Stage';
             const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
             const primaryValue = useCfs
@@ -655,6 +657,15 @@ export default function GaugeOverview({
   putInCoordinates,
 }: GaugeOverviewProps) {
   const [expandedGaugeId, setExpandedGaugeId] = useState<string | null>(null);
+  const [displayUnit, setDisplayUnit] = useState<'auto' | 'ft' | 'cfs'>('auto');
+
+  // Resolve effective display unit for a gauge
+  const getEffectiveUnit = (gauge: GaugeStation): 'ft' | 'cfs' => {
+    if (displayUnit !== 'auto') return displayUnit;
+    const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
+      || gauge.thresholds?.find(t => t.riverId === riverId);
+    return threshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+  };
 
   // Find the gauge closest to put-in
   const closestGaugeId = useMemo(() => {
@@ -741,6 +752,30 @@ export default function GaugeOverview({
 
   return (
     <CollapsibleSection title="River Conditions" defaultOpen={defaultOpen} badge={badge}>
+      {/* Unit toggle */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-medium text-neutral-500">Display:</span>
+        <div className="flex rounded-md border border-neutral-200 overflow-hidden">
+          {([
+            { value: 'auto', label: 'Auto' },
+            { value: 'ft', label: 'Gauge Ht' },
+            { value: 'cfs', label: 'CFS' },
+          ] as const).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setDisplayUnit(opt.value)}
+              className={`px-2 py-1 text-xs font-medium transition-colors ${
+                displayUnit === opt.value
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-2">
         {gauges.map((gauge) => {
           const condition = getGaugeCondition(gauge, riverId);
@@ -792,9 +827,7 @@ export default function GaugeOverview({
                   {/* Right side - Readings and expand */}
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {(() => {
-                      const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
-                        || gauge.thresholds?.find(t => t.riverId === riverId);
-                      const useCfs = threshold?.thresholdUnit === 'cfs';
+                      const useCfs = getEffectiveUnit(gauge) === 'cfs';
 
                       // Show primary unit first, secondary second
                       const primaryReading = useCfs
@@ -845,6 +878,7 @@ export default function GaugeOverview({
                   gauge={gauge}
                   riverId={riverId}
                   condition={condition}
+                  effectiveUnit={getEffectiveUnit(gauge)}
                 />
               )}
             </div>

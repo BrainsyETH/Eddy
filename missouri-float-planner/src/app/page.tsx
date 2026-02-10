@@ -45,11 +45,13 @@ interface RiverConditionRow {
   conditionCode: ConditionCode;
   conditionLabel: string;
   gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
 }
 
 function HomeContent() {
   const { data: rivers } = useRivers();
   const { data: gauges } = useGaugeStations();
+  const [homeUnit, setHomeUnit] = useState<'ft' | 'cfs'>('ft');
 
   // Compute per-river conditions from gauge data
   const riverConditions = useMemo((): RiverConditionRow[] => {
@@ -70,6 +72,7 @@ function HomeContent() {
           conditionCode: (river.currentCondition?.code ?? 'unknown') as ConditionCode,
           conditionLabel: getConditionShortLabel((river.currentCondition?.code ?? 'unknown') as ConditionCode),
           gaugeHeightFt: null,
+          dischargeCfs: null,
         };
       }
 
@@ -81,6 +84,7 @@ function HomeContent() {
           conditionCode: 'unknown' as ConditionCode,
           conditionLabel: 'Unknown',
           gaugeHeightFt: primaryGauge.gaugeHeightFt,
+          dischargeCfs: primaryGauge.dischargeCfs,
         };
       }
 
@@ -92,6 +96,7 @@ function HomeContent() {
         conditionCode: condition.code,
         conditionLabel: getConditionShortLabel(condition.code),
         gaugeHeightFt: primaryGauge.gaugeHeightFt,
+        dischargeCfs: primaryGauge.dischargeCfs,
       };
     });
   }, [rivers, gauges]);
@@ -146,15 +151,39 @@ function HomeContent() {
 
             {/* Check River Levels - Half width */}
             <div className="flex flex-col glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10">
-              <div className="flex items-center gap-3 mb-4">
-                <Image
-                  src={EDDY_FLOOD_IMAGE}
-                  alt="Eddy the Otter checking water levels"
-                  width={120}
-                  height={120}
-                  className="w-12 h-12 md:w-14 md:h-14 object-contain"
-                />
-                <h2 className="text-xl lg:text-2xl font-bold text-white">River Conditions</h2>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src={EDDY_FLOOD_IMAGE}
+                    alt="Eddy the Otter checking water levels"
+                    width={120}
+                    height={120}
+                    className="w-12 h-12 md:w-14 md:h-14 object-contain"
+                  />
+                  <h2 className="text-xl lg:text-2xl font-bold text-white">River Conditions</h2>
+                </div>
+                <div className="flex rounded-md overflow-hidden border border-white/20">
+                  <button
+                    onClick={() => setHomeUnit('ft')}
+                    className={`px-2 py-1 text-xs font-medium transition-colors ${
+                      homeUnit === 'ft'
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/50 hover:text-white/70'
+                    }`}
+                  >
+                    ft
+                  </button>
+                  <button
+                    onClick={() => setHomeUnit('cfs')}
+                    className={`px-2 py-1 text-xs font-medium transition-colors ${
+                      homeUnit === 'cfs'
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/50 hover:text-white/70'
+                    }`}
+                  >
+                    cfs
+                  </button>
+                </div>
               </div>
 
               {/* Per-River Condition Rows */}
@@ -183,8 +212,11 @@ function HomeContent() {
                         >
                           {rc.conditionLabel}
                         </span>
-                        <span className="text-sm font-bold text-white/70 tabular-nums w-14 text-right">
-                          {rc.gaugeHeightFt !== null ? `${rc.gaugeHeightFt.toFixed(1)} ft` : '--'}
+                        <span className="text-sm font-bold text-white/70 tabular-nums w-20 text-right">
+                          {homeUnit === 'cfs'
+                            ? (rc.dischargeCfs !== null ? `${rc.dischargeCfs.toLocaleString()} cfs` : '--')
+                            : (rc.gaugeHeightFt !== null ? `${rc.gaugeHeightFt.toFixed(1)} ft` : '--')
+                          }
                         </span>
                       </div>
                     </Link>
