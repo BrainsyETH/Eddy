@@ -365,6 +365,27 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 -- JACKS FORK RIVER ACCESS POINTS
 -- ============================================
 
+-- Blue Spring (Jacks Fork) — river mile 9.6; NPS campground here; needed for NPS "Blue Spring Campground" link
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, is_public, ownership,
+    description, amenities, parking_info, fee_required, approved
+)
+SELECT 
+    r.id,
+    'Blue Spring',
+    'blue-spring',
+    ST_SetSRID(ST_MakePoint(-91.63707, 37.05355), 4326),
+    'campground',
+    true,
+    'NPS',
+    'Blue Spring is a beautiful, cold-water spring that feeds into the Jacks Fork from river right. The NPS campground here is small and peaceful - a great base camp for exploring the upper valley.',
+    ARRAY['parking', 'restrooms', 'camping'],
+    'Small NPS gravel lot off Hwy OO. Fits ~10 vehicles.',
+    false,
+    true
+FROM rivers r WHERE r.slug = 'jacks-fork'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
 -- Alley Spring
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
