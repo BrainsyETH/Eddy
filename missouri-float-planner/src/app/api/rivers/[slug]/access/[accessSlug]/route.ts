@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type {
   AccessPointDetail,
   AccessPointDetailResponse,
@@ -235,19 +236,17 @@ async function getGaugeStatus(
           gauge_station_id,
           is_primary,
           river_mile,
-          too_low_below,
-          low_below,
-          optimal_min,
-          optimal_max,
-          high_above,
-          dangerous_above,
+          threshold_unit,
+          level_too_low,
+          level_low,
+          level_optimal_min,
+          level_optimal_max,
+          level_high,
+          level_dangerous,
           gauge_stations (
             id,
             usgs_site_id,
-            name,
-            latest_reading_cfs,
-            latest_reading_height_ft,
-            latest_reading_at
+            name
           )
         `
         )
@@ -272,19 +271,17 @@ async function getGaugeStatus(
           gauge_station_id,
           is_primary,
           river_mile,
-          too_low_below,
-          low_below,
-          optimal_min,
-          optimal_max,
-          high_above,
-          dangerous_above,
+          threshold_unit,
+          level_too_low,
+          level_low,
+          level_optimal_min,
+          level_optimal_max,
+          level_high,
+          level_dangerous,
           gauge_stations (
             id,
             usgs_site_id,
-            name,
-            latest_reading_cfs,
-            latest_reading_height_ft,
-            latest_reading_at
+            name
           )
         `
         )
@@ -305,58 +302,44 @@ async function getGaugeStatus(
       id: string;
       usgs_site_id: string;
       name: string;
-      latest_reading_cfs: number | null;
-      latest_reading_height_ft: number | null;
-      latest_reading_at: string | null;
     } | undefined;
 
     if (!gauge) {
       return null;
     }
 
-    const cfs = gauge.latest_reading_cfs;
+    // Fetch the latest reading for this gauge from gauge_readings
+    const { data: latestReading } = await supabase
+      .from('gauge_readings')
+      .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+      .eq('gauge_station_id', gauge.id)
+      .order('reading_timestamp', { ascending: false })
+      .limit(1)
+      .single();
 
-    // Determine level based on thresholds
-    let level: AccessPointGaugeStatus['level'] = 'unknown';
-    let label = 'Unknown conditions';
+    const heightFt = latestReading?.gauge_height_ft ?? null;
+    const cfs = latestReading?.discharge_cfs ?? null;
 
-    if (cfs !== null) {
-      if (riverGauge.dangerous_above && cfs >= riverGauge.dangerous_above) {
-        level = 'dangerous';
-        label = 'Flood stage - Do not float';
-      } else if (riverGauge.high_above && cfs >= riverGauge.high_above) {
-        level = 'high';
-        label = 'High water - Use caution';
-      } else if (
-        riverGauge.optimal_min &&
-        riverGauge.optimal_max &&
-        cfs >= riverGauge.optimal_min &&
-        cfs <= riverGauge.optimal_max
-      ) {
-        level = 'optimal';
-        label = 'Optimal for floating';
-      } else if (riverGauge.low_below && cfs <= riverGauge.low_below) {
-        level = 'okay';
-        label = 'Low water - Expect to walk';
-      } else if (riverGauge.too_low_below && cfs <= riverGauge.too_low_below) {
-        level = 'too_low';
-        label = 'Too low to float';
-      } else if (riverGauge.optimal_min && cfs < riverGauge.optimal_min) {
-        level = 'okay';
-        label = 'Below optimal';
-      } else if (riverGauge.optimal_max && cfs > riverGauge.optimal_max) {
-        level = 'high';
-        label = 'Above optimal';
-      }
-    }
+    // Use computeCondition for consistent condition evaluation
+    const thresholds: ConditionThresholds = {
+      levelTooLow: riverGauge.level_too_low,
+      levelLow: riverGauge.level_low,
+      levelOptimalMin: riverGauge.level_optimal_min,
+      levelOptimalMax: riverGauge.level_optimal_max,
+      levelHigh: riverGauge.level_high,
+      levelDangerous: riverGauge.level_dangerous,
+      thresholdUnit: (riverGauge.threshold_unit || 'ft') as 'ft' | 'cfs',
+    };
+
+    const condition = computeCondition(heightFt, thresholds, cfs);
 
     return {
-      level,
+      level: condition.code,
       cfs,
-      heightFt: gauge.latest_reading_height_ft,
-      label,
-      trend: null, // TODO: Calculate trend from historical data
-      lastUpdated: gauge.latest_reading_at,
+      heightFt,
+      label: getConditionShortLabel(condition.code),
+      trend: null,
+      lastUpdated: latestReading?.reading_timestamp ?? null,
       gaugeId: gauge.id,
       gaugeName: gauge.name,
       usgsId: gauge.usgs_site_id,
