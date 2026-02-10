@@ -267,29 +267,51 @@ async function upsertPlace(supabase: SupabaseClient, place: NPSPlaceRaw): Promis
 
 /**
  * Match NPS campgrounds to access points using geographic proximity + name.
- * Uses the match_nps_campground_to_access_point RPC (created in migration 00038)
- * which finds the closest approved access point within 2km, preferring name matches.
+ * Uses the batch_match_campgrounds_to_access_points RPC (created in migration 00044)
+ * which does all matching in a single SQL operation.
  *
- * This runs after every sync to catch newly synced campgrounds and fix any
- * access points that lost their link. The RPC is idempotent — re-running it
- * produces the same result.
+ * Falls back to the per-campground RPC (migration 00038) if the batch
+ * function doesn't exist yet.
  */
 async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise<number> {
-  // Get all campgrounds with valid coordinates
-  const { data: campgrounds, error } = await supabase
+  // Try the batch function first (migration 00044)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)('batch_match_campgrounds_to_access_points', {
+      p_max_distance_meters: 5000,
+    });
+
+    if (!error && data) {
+      const matches = Array.isArray(data) ? data : [data];
+      console.log(`Batch campground matching: ${matches.length} matches found`);
+      for (const m of matches) {
+        console.log(`  ${m.campground_name} → ${m.access_point_name} (${Math.round(m.distance_meters)}m, ${m.match_type})`);
+      }
+      return matches.length;
+    }
+
+    if (error) {
+      console.warn('Batch matching RPC error, falling back to per-campground matching:', error.message);
+    }
+  } catch {
+    // Batch function may not exist yet — fall back
+  }
+
+  // Fallback: per-campground matching via match_nps_campground_to_access_point
+  const { data: campgrounds, error: fetchError } = await supabase
     .from('nps_campgrounds')
     .select('id, name, latitude, longitude')
     .not('latitude', 'is', null)
     .not('longitude', 'is', null);
 
-  if (error || !campgrounds) return 0;
+  if (fetchError || !campgrounds) return 0;
 
   let matched = 0;
 
   for (const cg of campgrounds) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.rpc as any)('match_nps_campground_to_access_point', {
+      const { data, error } = await (supabase.rpc as any)('match_nps_campground_to_access_point', {
         p_nps_campground_id: cg.id,
         p_lat: cg.latitude,
         p_lng: cg.longitude,
@@ -297,9 +319,14 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
         p_max_distance_meters: 5000,
       });
 
-      if (data) matched++;
-    } catch {
-      // RPC may not exist in older schemas — skip silently
+      if (error) {
+        console.warn(`  Match failed for "${cg.name}": ${error.message}`);
+      } else if (data) {
+        console.log(`  Matched "${cg.name}" → access point ${data}`);
+        matched++;
+      }
+    } catch (err) {
+      console.warn(`  Match exception for "${cg.name}":`, err instanceof Error ? err.message : String(err));
     }
   }
 
