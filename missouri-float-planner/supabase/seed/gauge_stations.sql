@@ -73,12 +73,33 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
--- Jacks Fork River Gauge
+-- Jacks Fork River Gauges (USGS official names)
+-- 07065200 = upper (Mountain View); 07065495 = Alley Spring (primary); 07066000 = Eminence (lower)
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
     '07065200',
-    'Jacks Fork at Alley Spring, MO',
+    'Jacks Fork near Mountain View, MO',
     ST_SetSRID(ST_MakePoint(-91.4461, 37.1444), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '07065495',
+    'Jacks Fork at Alley Spring, MO',
+    ST_SetSRID(ST_MakePoint(-91.4447, 37.1537), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '07066000',
+    'Jacks Fork at Eminence, MO',
+    ST_SetSRID(ST_MakePoint(-91.3578, 37.1506), 4326),
     true
 ) ON CONFLICT (usgs_site_id) DO UPDATE SET
     name = EXCLUDED.name,
@@ -357,42 +378,46 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_high = EXCLUDED.level_high,
     level_dangerous = EXCLUDED.level_dangerous;
 
--- Jacks Fork River - Alley Spring Gauge (Primary)
+-- Jacks Fork River - three gauges: Mountain View (upper), Alley Spring (primary), Eminence (lower)
+-- 07065200 = Mountain View (upper); 07065495 = Alley Spring (primary); 07066000 = Eminence
 INSERT INTO river_gauges (
-    river_id, 
-    gauge_station_id, 
-    is_primary,
-    distance_from_section_miles,
-    threshold_unit,
-    level_too_low,
-    level_low,
-    level_optimal_min,
-    level_optimal_max,
-    level_high,
-    level_dangerous
+    river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous
 )
-SELECT 
-    r.id,
-    gs.id,
-    true,
-    0.0,
-    'ft',
-    1.5,
-    2.2,
-    3.0,
-    5.0,
-    7.0,
-    10.0
+SELECT r.id, gs.id, false, 0.0, 'ft', 1.0, 1.3, 1.5, 3.0, 3.5, 4.0
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'jacks-fork' AND gs.usgs_site_id = '07065200'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
-    level_too_low = EXCLUDED.level_too_low,
-    level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min,
-    level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high,
-    level_dangerous = EXCLUDED.level_dangerous;
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
+
+INSERT INTO river_gauges (
+    river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous
+)
+SELECT r.id, gs.id, true, 0.0, 'ft', 1.5, 2.0, 2.5, 3.0, 3.5, 4.0
+FROM rivers r, gauge_stations gs
+WHERE r.slug = 'jacks-fork' AND gs.usgs_site_id = '07065495'
+ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
+
+INSERT INTO river_gauges (
+    river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous
+)
+SELECT r.id, gs.id, false, 0.0, 'ft', 1.0, 1.5, 2.0, 3.0, 3.5, 4.0
+FROM rivers r, gauge_stations gs
+WHERE r.slug = 'jacks-fork' AND gs.usgs_site_id = '07066000'
+ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
 
 -- Niangua River - Hartville Gauge (Primary)
 INSERT INTO river_gauges (

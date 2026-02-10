@@ -143,7 +143,7 @@ const GAUGE_THRESHOLD_DESCRIPTIONS: Record<string, ThresholdDescriptions> = {
     high: 'Suggest another day, murky/muddy',
     flood: 'Forest Service closes, do not float',
   },
-  // Jacks Fork - Alley Spring
+  // Jacks Fork - Mountain View (upper)
   '07065200': {
     tooLow: 'Significant dragging',
     low: 'Some dragging expected',
@@ -151,6 +151,24 @@ const GAUGE_THRESHOLD_DESCRIPTIONS: Record<string, ThresholdDescriptions> = {
     optimal: 'Good conditions',
     high: 'River closes here',
     flood: 'Flood level, dangerous',
+  },
+  // Jacks Fork - Alley Spring (primary)
+  '07065495': {
+    tooLow: 'Significant dragging',
+    low: 'Some dragging expected',
+    okay: 'Average level, minimal dragging',
+    optimal: 'Good conditions',
+    high: 'River closes here',
+    flood: 'Flood level, dangerous',
+  },
+  // Jacks Fork - Eminence (lower)
+  '07066000': {
+    tooLow: 'Very low, may drag loaded',
+    low: 'Average ~1.5 ft, may drag',
+    okay: 'Floatable',
+    optimal: 'Good conditions',
+    high: 'Suggest another day',
+    flood: 'River closes',
   },
 };
 

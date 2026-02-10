@@ -97,10 +97,10 @@ const GAUGE_STATIONS = [
       dangerous: 11.0,
     },
   },
-  // Jacks Fork River
+  // Jacks Fork River (07065200 = Mountain View, 07065495 = Alley Spring, 07066000 = Eminence)
   {
     usgs_site_id: '07065200',
-    name: 'Jacks Fork at Alley Spring, MO',
+    name: 'Jacks Fork near Mountain View, MO',
     river_slug: 'jacks-fork',
     latitude: 37.1444,
     longitude: -91.4461,
