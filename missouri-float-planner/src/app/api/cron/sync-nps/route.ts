@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       sync_type: 'full',
       park_code: 'ozar',
       campgrounds_synced: result.campgroundsSynced,
+      campgrounds_matched: result.campgroundsMatched,
       places_synced: result.placesSynced,
       pois_created: result.poisCreated,
       errors: result.errors,
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
 
     console.log(
       `NPS sync complete: ${result.campgroundsSynced} campgrounds, ` +
+      `${result.campgroundsMatched} matched to access points, ` +
       `${result.placesSynced} places, ` +
       `${result.poisCreated} POIs created, ${result.errors} errors ` +
       `(${durationMs}ms)`
