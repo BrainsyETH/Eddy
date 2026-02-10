@@ -112,7 +112,6 @@ export default function PrivacyPage() {
             <li>We do not collect your name, email, phone number, or address</li>
             <li>We do not collect your precise location (GPS)</li>
             <li>We do not sell or share any data with advertisers</li>
-            <li>We do not use tracking pixels or third-party ad networks</li>
           </ul>
         </section>
 
