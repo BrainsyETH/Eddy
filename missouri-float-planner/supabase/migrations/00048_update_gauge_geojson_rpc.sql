@@ -2,6 +2,9 @@
 -- Update RPC to include threshold_descriptions and notes columns
 -- (added in migration 00033 but the RPC was never updated)
 
+-- Must drop first because return type is changing (adding new OUT columns)
+DROP FUNCTION IF EXISTS get_gauge_stations_with_geojson();
+
 CREATE OR REPLACE FUNCTION get_gauge_stations_with_geojson()
 RETURNS TABLE (
     id UUID,
