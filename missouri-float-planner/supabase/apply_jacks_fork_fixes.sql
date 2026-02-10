@@ -1,15 +1,16 @@
 -- ═══════════════════════════════════════════════════════════════
--- CONSOLIDATED JACKS FORK FIXES
+-- CONSOLIDATED NPS DATA FIXES
 -- ═══════════════════════════════════════════════════════════════
 -- Paste this entire script into the Supabase SQL Editor and run it.
--- Combines migrations 00043, 00044, and 00045 into one script.
+-- Combines migrations 00043, 00044, 00045, and 00046 into one script.
 --
 -- What this does:
 --   1. Fixes gauge station names to match USGS official names
 --   2. Fixes Blue Spring access point coordinates (verified NPS API data)
 --   3. Adds Jacks Fork POIs (Blue Spring, Jam Up Cave, Ebb & Flow, Alley Spring)
---   4. Creates batch campground matching function
---   5. Runs campground-to-access-point matching
+--   4. Creates batch campground matching function (name-only)
+--   5. Creates missing access points from NPS campground data
+--   6. Runs campground-to-access-point name matching
 -- ═══════════════════════════════════════════════════════════════
 
 
@@ -331,7 +332,128 @@ WHERE ap.id = match.ap_id;
 
 
 -- ─────────────────────────────────────────────────────────────
--- PART 6: Verification queries
+-- PART 6: Create missing access points from NPS campgrounds (from migration 00046)
+-- ─────────────────────────────────────────────────────────────
+-- For every NPS campground that has no matching access point, create one.
+-- Coordinates come directly from the nps_campgrounds table (NPS API data).
+-- Skips "Group Campground" variants (they share a location with the main campground).
+
+INSERT INTO access_points (
+  river_id,
+  name,
+  slug,
+  location_orig,
+  type,
+  is_public,
+  ownership,
+  description,
+  amenities,
+  fee_required,
+  approved,
+  nps_campground_id
+)
+SELECT
+  nearest_river.river_id,
+  TRIM(REGEXP_REPLACE(
+    REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+    '\s+Campground$', '', 'i'
+  )) AS name,
+  LOWER(REGEXP_REPLACE(
+    REGEXP_REPLACE(
+      TRIM(REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )),
+      '[^a-zA-Z0-9]+', '-', 'g'
+    ),
+    '^-+|-+$', '', 'g'
+  )) AS slug,
+  ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326) AS location_orig,
+  'campground' AS type,
+  true AS is_public,
+  'NPS' AS ownership,
+  COALESCE(cg.description, 'NPS campground within Ozark National Scenic Riverways.') AS description,
+  CASE
+    WHEN cg.total_sites > 20 THEN ARRAY['parking', 'restrooms', 'camping']
+    ELSE ARRAY['parking', 'camping']
+  END AS amenities,
+  CASE WHEN COALESCE((cg.fees->0->>'cost')::numeric, 0) > 0 THEN true ELSE false END AS fee_required,
+  true AS approved,
+  cg.id AS nps_campground_id
+FROM nps_campgrounds cg
+CROSS JOIN LATERAL (
+  SELECT r.id AS river_id
+  FROM rivers r
+  WHERE r.active = true
+    AND r.geom IS NOT NULL
+  ORDER BY ST_Distance(
+    r.geom::geography,
+    ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326)::geography
+  )
+  LIMIT 1
+) nearest_river
+WHERE cg.latitude IS NOT NULL
+  AND cg.longitude IS NOT NULL
+  AND cg.name !~* '\sGroup\s+Campground$'
+  AND NOT EXISTS (
+    SELECT 1 FROM access_points ap
+    WHERE ap.approved = true
+      AND (
+        LOWER(TRIM(ap.name)) LIKE '%' || LOWER(TRIM(
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+            '\s+Campground$', '', 'i'
+          )
+        )) || '%'
+        OR
+        LOWER(TRIM(
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+            '\s+Campground$', '', 'i'
+          )
+        )) LIKE '%' || LOWER(TRIM(ap.name)) || '%'
+      )
+  )
+ON CONFLICT (river_id, slug) DO NOTHING;
+
+-- Now run name matching for ALL campgrounds (catches newly created access points)
+UPDATE access_points ap
+SET nps_campground_id = match.cg_id
+FROM (
+  SELECT DISTINCT ON (cg.id)
+    cg.id AS cg_id,
+    ap2.id AS ap_id
+  FROM nps_campgrounds cg
+  JOIN access_points ap2 ON ap2.approved = true
+  WHERE (
+    LOWER(TRIM(ap2.name)) LIKE '%' || LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )) || '%'
+    OR
+    LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )) LIKE '%' || LOWER(TRIM(ap2.name)) || '%'
+  )
+  ORDER BY cg.id,
+    CASE WHEN LOWER(TRIM(ap2.name)) = LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )) THEN 0 ELSE 1 END
+) match
+WHERE ap.id = match.ap_id
+  AND ap.nps_campground_id IS NULL;
+
+
+-- ─────────────────────────────────────────────────────────────
+-- PART 7: Verification queries
 -- ─────────────────────────────────────────────────────────────
 
 -- Verify gauge stations
@@ -354,6 +476,19 @@ JOIN rivers r ON ap.river_id = r.id
 LEFT JOIN nps_campgrounds cg ON ap.nps_campground_id = cg.id
 WHERE r.slug = 'jacks-fork'
 ORDER BY ap.river_mile_downstream;
+
+-- Verify all campground matches (including newly created access points)
+SELECT
+  cg.name AS nps_campground,
+  ap.name AS access_point,
+  r.name AS river,
+  ap.river_mile_downstream AS mile,
+  ROUND(ST_Y(ap.location_orig)::numeric, 4) AS lat,
+  ROUND(ST_X(ap.location_orig)::numeric, 4) AS lng
+FROM nps_campgrounds cg
+LEFT JOIN access_points ap ON ap.nps_campground_id = cg.id
+LEFT JOIN rivers r ON ap.river_id = r.id
+ORDER BY r.name NULLS LAST, ap.river_mile_downstream NULLS LAST;
 
 -- Verify POIs
 SELECT
