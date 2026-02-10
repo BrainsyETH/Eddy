@@ -12,14 +12,14 @@ const EDDY_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 const RIVER_OPTIONS = [
-  { slug: 'meramec-river', name: 'Meramec River' },
-  { slug: 'current-river', name: 'Current River' },
-  { slug: 'eleven-point-river', name: 'Eleven Point River' },
+  { slug: 'meramec', name: 'Meramec River' },
+  { slug: 'current', name: 'Current River' },
+  { slug: 'eleven-point', name: 'Eleven Point River' },
   { slug: 'jacks-fork', name: 'Jacks Fork' },
-  { slug: 'niangua-river', name: 'Niangua River' },
-  { slug: 'big-piney-river', name: 'Big Piney River' },
-  { slug: 'huzzah-creek', name: 'Huzzah Creek' },
-  { slug: 'courtois-creek', name: 'Courtois Creek' },
+  { slug: 'niangua', name: 'Niangua River' },
+  { slug: 'big-piney', name: 'Big Piney River' },
+  { slug: 'huzzah', name: 'Huzzah Creek' },
+  { slug: 'courtois', name: 'Courtois Creek' },
 ];
 
 function CopyButton({ text, large = false }: { text: string; large?: boolean }) {
@@ -79,7 +79,7 @@ function FAQ({ question, children }: { question: string; children: React.ReactNo
 }
 
 export default function EmbedPage() {
-  const [selectedRiver, setSelectedRiver] = useState('current-river');
+  const [selectedRiver, setSelectedRiver] = useState('current');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';

@@ -2,7 +2,8 @@
 
 // src/app/embed/widget/[slug]/page.tsx
 // Embeddable widget for displaying river conditions in an iframe
-// Designed to be lightweight and self-contained for external sites
+// Designed to be lightweight, compact, and self-contained for external sites
+// SiteHeader is hidden via pathname check in SiteHeader component
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -70,7 +71,7 @@ export default function EmbedWidgetPage() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: bg }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 180, background: bg }}>
         <div
           style={{
             width: 20,
@@ -88,7 +89,7 @@ export default function EmbedWidgetPage() {
 
   if (!river) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 180, background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
         River not found
       </div>
     );
@@ -98,7 +99,7 @@ export default function EmbedWidgetPage() {
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
   const eddyImage = getEddyImage(conditionCode);
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
 
   return (
     <div
@@ -106,12 +107,13 @@ export default function EmbedWidgetPage() {
         fontFamily: 'system-ui, -apple-system, sans-serif',
         background: bg,
         color: textPrimary,
-        height: '100vh',
+        height: 180,
         padding: '14px 16px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         boxSizing: 'border-box',
+        overflow: 'hidden',
       }}
     >
       {/* Top: River name + Eddy mascot */}
@@ -134,7 +136,7 @@ export default function EmbedWidgetPage() {
       </div>
 
       {/* Middle: Condition badge */}
-      <div style={{ margin: '10px 0' }}>
+      <div>
         <div
           style={{
             display: 'inline-flex',
@@ -168,7 +170,7 @@ export default function EmbedWidgetPage() {
           alignItems: 'center',
           justifyContent: 'space-between',
           borderTop: `1px solid ${borderColor}`,
-          paddingTop: 10,
+          paddingTop: 8,
         }}
       >
         <a
@@ -185,7 +187,7 @@ export default function EmbedWidgetPage() {
           View full details &rarr;
         </a>
         <a
-          href={origin || 'https://eddy.guide'}
+          href={origin}
           target="_blank"
           rel="noopener noreferrer"
           style={{
