@@ -2,6 +2,11 @@
 // USFS data sync logic — fetches RIDB facilities near Missouri rivers
 // and upserts campgrounds as pending POIs in Supabase.
 // Admins can then review and optionally promote to access points.
+//
+// Key improvement: Uses PostGIS river geometry (find_nearest_river RPC)
+// to post-filter RIDB results, ensuring only facilities actually near
+// a river are synced. Search radius tightened to 5 miles, then verified
+// against river geometry within 1.5km.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RIDBFacility } from '@/types/ridb';
@@ -12,8 +17,13 @@ import {
   getReservationURL,
 } from './ridb';
 
-// Search radius in miles from each gauge station
-const SEARCH_RADIUS_MILES = 15;
+// Search radius in miles from each gauge station (tightened from 15)
+const SEARCH_RADIUS_MILES = 5;
+
+// Max distance from river geometry (meters) to accept a facility.
+// 1500m ≈ ~1 mile — generous enough for campgrounds with river access
+// but filters out facilities that happen to be in the same county.
+const RIVER_PROXIMITY_METERS = 1500;
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -33,12 +43,14 @@ export interface USFSSyncFacility {
   reservationUrl: string | null;
   activities: string[];
   nearestRiver: string;
+  distanceFromRiverMeters: number | null;
   outcome?: string;
 }
 
 export interface USFSSyncResult {
   facilitiesFetched: number;
   facilitiesFiltered: number;
+  facilitiesNearRiver: number;
   campgroundsSynced: number;
   campgroundsMatched: number;
   poisCreated: number;
@@ -129,12 +141,58 @@ function extractCoords(location: unknown): { lat: number; lng: number } | null {
 }
 
 // ─────────────────────────────────────────────────────────────
+// River proximity check via PostGIS
+// ─────────────────────────────────────────────────────────────
+
+interface RiverProximityResult {
+  nearRiver: boolean;
+  riverId?: string;
+  riverName?: string;
+  distanceMeters?: number;
+}
+
+/**
+ * Check if a point is near any active river's geometry using PostGIS.
+ * Uses the find_nearest_river() RPC (migration 00038) which does
+ * ST_DWithin on river geometries.
+ */
+async function checkRiverProximity(
+  supabase: SupabaseClient,
+  lat: number,
+  lng: number,
+  maxDistanceMeters: number = RIVER_PROXIMITY_METERS
+): Promise<RiverProximityResult> {
+  try {
+    const { data, error } = await supabase.rpc('find_nearest_river', {
+      p_lat: lat,
+      p_lng: lng,
+      p_max_distance_meters: maxDistanceMeters,
+    });
+
+    if (error || !data || data.length === 0) {
+      return { nearRiver: false };
+    }
+
+    return {
+      nearRiver: true,
+      riverId: data[0].river_id,
+      riverName: data[0].river_name,
+      distanceMeters: data[0].distance_meters,
+    };
+  } catch {
+    // RPC not available — skip proximity check
+    return { nearRiver: false };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Main sync function
 // ─────────────────────────────────────────────────────────────
 
 /**
  * Full USFS data sync: fetch RIDB facilities near all rivers,
- * filter to USFS-managed campgrounds, and sync as pending POIs.
+ * filter to USFS-managed campgrounds that are within 1.5km of
+ * actual river geometry, and sync as pending POIs.
  * Items are created with active=false so admins can review them.
  *
  * @param dryRun If true, fetches and filters but does not write to DB
@@ -148,6 +206,7 @@ export async function syncUSFSData(
   const result: USFSSyncResult = {
     facilitiesFetched: 0,
     facilitiesFiltered: 0,
+    facilitiesNearRiver: 0,
     campgroundsSynced: 0,
     campgroundsMatched: 0,
     poisCreated: 0,
@@ -171,6 +230,11 @@ export async function syncUSFSData(
 
   const riverMap = new Map<string, { id: string; name: string }>(
     rivers.map((r: { slug: string; id: string; name: string }) => [r.slug, { id: r.id, name: r.name }])
+  );
+
+  // Build river ID to name map for proximity results
+  const riverIdMap = new Map<string, string>(
+    rivers.map((r: { id: string; name: string }) => [r.id, r.name])
   );
 
   // 2. Get search points from actual gauge station locations
@@ -221,17 +285,29 @@ export async function syncUSFSData(
     }
   }
 
-  // 4. Process each USFS facility
+  // 4. Post-filter: check each facility against actual river geometry
   for (const [, { facility, riverSlug }] of Array.from(allFacilities)) {
-    const river = riverMap.get(riverSlug);
-    if (!river) continue;
+    const fallbackRiver = riverMap.get(riverSlug);
+    if (!fallbackRiver) continue;
+
+    const lat = facility.FacilityLatitude;
+    const lng = facility.FacilityLongitude;
+
+    // Check proximity to actual river geometry via PostGIS
+    const proximity = await checkRiverProximity(supabase, lat, lng, RIVER_PROXIMITY_METERS);
+
+    // Use the actual nearest river from PostGIS if available, otherwise fall back
+    const actualRiverId = proximity.nearRiver ? proximity.riverId! : fallbackRiver.id;
+    const actualRiverName = proximity.nearRiver
+      ? (riverIdMap.get(proximity.riverId!) || proximity.riverName || fallbackRiver.name)
+      : fallbackRiver.name;
 
     const facilityInfo: USFSSyncFacility = {
       facilityId: facility.FacilityID,
       name: facility.FacilityName,
       type: facility.FacilityTypeDescription || 'Unknown',
-      lat: facility.FacilityLatitude,
-      lng: facility.FacilityLongitude,
+      lat,
+      lng,
       isCampground: isCampground(facility),
       isUSFS: true,
       reservable: facility.Reservable,
@@ -239,24 +315,34 @@ export async function syncUSFSData(
       description: stripHtml(facility.FacilityDescription || '').substring(0, 200),
       reservationUrl: getReservationURL(facility),
       activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
-      nearestRiver: river.name,
+      nearestRiver: actualRiverName,
+      distanceFromRiverMeters: proximity.distanceMeters ?? null,
     };
 
+    // Skip facilities not near any river geometry
+    if (!proximity.nearRiver) {
+      facilityInfo.outcome = `skipped (${RIVER_PROXIMITY_METERS}m+ from river geometry)`;
+      result.facilities.push(facilityInfo);
+      continue;
+    }
+
+    result.facilitiesNearRiver++;
+
     if (!isCampground(facility)) {
-      facilityInfo.outcome = 'skipped (not campground)';
+      facilityInfo.outcome = `skipped (not campground, ${Math.round(proximity.distanceMeters!)}m from ${actualRiverName})`;
       result.facilities.push(facilityInfo);
       continue;
     }
 
     if (dryRun) {
-      facilityInfo.outcome = 'dry run — would sync as pending POI';
+      facilityInfo.outcome = `dry run — would sync (${Math.round(proximity.distanceMeters!)}m from ${actualRiverName})`;
       result.campgroundsSynced++;
       result.facilities.push(facilityInfo);
       continue;
     }
 
     try {
-      const syncOutcome = await syncCampgroundAsPOI(supabase, facility, river.id);
+      const syncOutcome = await syncCampgroundAsPOI(supabase, facility, actualRiverId);
       result.campgroundsSynced++;
       facilityInfo.outcome = syncOutcome;
       if (syncOutcome === 'created') result.poisCreated++;
