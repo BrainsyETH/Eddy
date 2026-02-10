@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, ChevronDown, Database, Waves } from 'lucide-react';
+import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, ChevronDown, Database, Waves, Code2 } from 'lucide-react';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 
@@ -433,6 +433,44 @@ export default function AboutPage() {
                 </a>
               </div>
             </div>
+          </div>
+        </CollapsibleSection>
+
+        {/* Developers */}
+        <CollapsibleSection
+          title="Developers"
+          icon={<Code2 className="w-6 h-6 text-white" />}
+          defaultExpanded={false}
+        >
+          <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
+            <p className="text-neutral-700 leading-relaxed mb-4">
+              Want to show live river conditions on your own website? Eddy offers free embeddable
+              widgets and a simple API that you can add to any site in minutes — no coding
+              experience required.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <h3 className="font-bold text-neutral-900 mb-1">Embeddable Widgets</h3>
+                <p className="text-neutral-700 mb-2">
+                  Drop a live conditions widget, a link button, or a full float trip planner onto
+                  your site with a simple copy-paste. Supports light and dark themes.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-bold text-neutral-900 mb-1">API Access</h3>
+                <p className="text-neutral-700 mb-2">
+                  Fetch river condition data directly as JSON to build your own custom displays.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/embed"
+              className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-lg text-white text-sm font-semibold no-underline transition-colors"
+              style={{ backgroundColor: '#2D7889' }}
+            >
+              <Code2 className="w-4 h-4" />
+              View Embed Guide & API Docs
+            </Link>
           </div>
         </CollapsibleSection>
 
