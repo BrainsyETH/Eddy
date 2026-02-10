@@ -1,12 +1,11 @@
--- 00044_jacks_fork_nps_campground_links.sql
+-- One-time: link NPS campgrounds to Jacks Fork access points
+-- Run this in Supabase SQL Editor AFTER you have:
+--   1. Run the NPS sync (POST /api/cron/sync-nps) so nps_campgrounds is populated
+--   2. Jacks Fork access points exist (Blue Spring, Alley Spring, etc.)
 --
--- Re-run Jacks Fork NPS campground → access point matching so that any
--- Jacks Fork access points that exist but have nps_campground_id NULL
--- get linked (e.g. Blue Spring after it was added to seed).
--- Same logic as 00043 Step 1b; idempotent (only updates NULL links).
--- Proximity: 15km (NPS coords can be approximate; Current River Blue Spring
--- is ~19km away so stays excluded).
+-- If nothing links, run the diagnostic below to see distances/names.
 
+-- Apply links (same logic as 00044 / seed jacks_fork_nps_links)
 UPDATE access_points ap
 SET nps_campground_id = match.nps_campground_id
 FROM (
@@ -70,3 +69,18 @@ FROM (
 ) match
 WHERE ap.id = match.access_point_id
   AND ap.nps_campground_id IS NULL;
+
+-- Show result: Jacks Fork access points and their NPS link
+SELECT
+  ap.name AS access_point,
+  ap.nps_campground_id,
+  cg.name AS nps_campground,
+  ROUND((ST_Distance(
+    COALESCE(ap.location_snap, ap.location_orig)::geography,
+    cg.location::geography
+  ) / 1000.0)::numeric, 2) AS distance_km
+FROM access_points ap
+JOIN rivers r ON r.id = ap.river_id AND r.slug = 'jacks-fork'
+LEFT JOIN nps_campgrounds cg ON cg.id = ap.nps_campground_id
+WHERE ap.approved = true
+ORDER BY ap.name;

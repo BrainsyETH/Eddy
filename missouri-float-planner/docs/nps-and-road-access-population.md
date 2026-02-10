@@ -18,9 +18,11 @@
 2. Ensure `CRON_SECRET` is set in the environment.
 3. After sync, **link campgrounds to access points** so the UI can show “NPS Campground Info”:
    - Migrations 00039 and 00043 (and 00044) set `access_points.nps_campground_id` by name + proximity.
-   - If you added the Blue Spring access point in seed after those ran, run the UPDATE in `00044_jacks_fork_nps_campground_links.sql` so Jacks Fork points (including Blue Spring) get linked.
+   - **One-time (existing DB):** In Supabase SQL Editor run `supabase/scripts/link_jacks_fork_nps_campgrounds.sql`
+   - **New/reseeded DBs:** Seed runs `seed/jacks_fork_nps_links.sql` after access points.
+   - If a site still has no NPS data, run `supabase/scripts/diagnose_jacks_fork_nps_links.sql`; links require the campground to be within 5 km of the access point.
 
-So: **NPS data is empty until the sync cron runs and links are applied.**
+So: **NPS data appears after sync; Jacks Fork sites get it after the link script runs once (or reseed).**
 
 ---
 

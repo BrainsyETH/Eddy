@@ -19,3 +19,9 @@
 -- Access Points (references rivers)
 -- ============================================
 \ir seed/access_points.sql
+
+-- ============================================
+-- Jacks Fork NPS campground links
+-- (run after access_points; links when nps_campgrounds is populated)
+-- ============================================
+\ir seed/jacks_fork_nps_links.sql

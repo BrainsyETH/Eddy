@@ -1,11 +1,6 @@
--- 00044_jacks_fork_nps_campground_links.sql
---
--- Re-run Jacks Fork NPS campground → access point matching so that any
--- Jacks Fork access points that exist but have nps_campground_id NULL
--- get linked (e.g. Blue Spring after it was added to seed).
--- Same logic as 00043 Step 1b; idempotent (only updates NULL links).
--- Proximity: 15km (NPS coords can be approximate; Current River Blue Spring
--- is ~19km away so stays excluded).
+-- Link NPS campgrounds to Jacks Fork access points by name + proximity.
+-- Run after access_points seed (and after nps_campgrounds is populated by sync).
+-- Idempotent: only sets nps_campground_id where it is NULL.
 
 UPDATE access_points ap
 SET nps_campground_id = match.nps_campground_id
