@@ -88,7 +88,7 @@ export default function EmbedPage() {
   const widgetCode = `<iframe
   src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
   width="100%"
-  height="180"
+  height="320"
   style="border: none; border-radius: 12px; max-width: 400px;"
   title="${selectedRiverName} - River Conditions from Eddy"
   loading="lazy"
@@ -259,7 +259,7 @@ export default function EmbedPage() {
                     <iframe
                       src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
                       width="100%"
-                      height="180"
+                      height="320"
                       style={{ border: 'none', borderRadius: '12px' }}
                       title="Widget preview"
                     />
@@ -462,7 +462,7 @@ export default function EmbedPage() {
             <FAQ question="Can I change the size of the widget?">
               <p>
                 Yes. In the code you copied, you can change the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">height</code> number
-                (currently 180) to make it taller or shorter. The <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">max-width</code> value
+                (currently 320) to make it taller or shorter. The <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">max-width</code> value
                 (currently 400px) controls how wide it gets. Feel free to adjust these numbers until it looks right on your page.
               </p>
             </FAQ>
