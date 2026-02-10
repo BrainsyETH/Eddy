@@ -95,14 +95,14 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
 
               {/* NPS image thumbnail */}
               {poi.images && poi.images.length > 0 && (
-                <div className="relative mt-2 w-full">
+                <div className="relative mt-2 w-full max-h-48 md:max-h-56 overflow-hidden rounded-md">
                   <Image
                     src={poi.images[0].url}
                     alt={poi.name}
                     width={600}
                     height={400}
-                    className="w-full h-auto rounded-md object-contain"
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="w-full h-full rounded-md object-cover"
+                    sizes="(max-width: 768px) 100vw, 400px"
                     unoptimized
                   />
                 </div>

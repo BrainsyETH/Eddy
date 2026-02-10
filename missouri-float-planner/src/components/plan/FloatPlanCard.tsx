@@ -847,46 +847,9 @@ function JourneyCenter({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Float Summary Card */}
-      <div className="bg-neutral-50 rounded-xl p-3 mb-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-support-500"></div>
-            <div className="w-8 h-0.5 bg-gradient-to-r from-support-400 to-accent-400"></div>
-            <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
-          </div>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-neutral-400">Your Float</span>
-        </div>
-        <div className="flex items-baseline justify-center gap-3">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
-          </div>
-          <span className="text-neutral-300 text-lg">|</span>
-          <div className="text-center">
-            {isLoading || recalculating ? (
-              <div className="flex items-center justify-center h-8">
-                <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : (
-              <p className="text-2xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
-            )}
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Est. Time</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Upstream Warning */}
-      {isUpstream && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-3 text-xs">
-          <span className="text-red-500">⚠</span>
-          <span className="text-red-700 font-medium">Upstream route - you&apos;ll paddle against current</span>
-        </div>
-      )}
-
-      {/* Vessel Toggle */}
+      {/* Vessel Toggle - above estimator */}
       {canoeVessel && raftVessel && (
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-3">
           <div className="inline-flex items-center rounded-lg p-1 border-2 border-neutral-200 bg-neutral-100">
             <button
               onClick={() => onVesselChange(canoeVessel.id)}
@@ -915,6 +878,40 @@ function JourneyCenter({
               🚣 Raft
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Float Summary Card */}
+      <div className="bg-neutral-50 rounded-xl p-3 mb-3">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <div className="w-3 h-3 rounded-full bg-support-500"></div>
+          <div className="w-24 h-1 rounded-full bg-gradient-to-r from-support-400 to-accent-400"></div>
+          <div className="w-3 h-3 rounded-full bg-accent-500"></div>
+        </div>
+        <div className="flex items-baseline justify-center gap-3">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
+          </div>
+          <span className="text-neutral-300 text-lg">|</span>
+          <div className="text-center">
+            {isLoading || recalculating ? (
+              <div className="flex items-center justify-center h-8">
+                <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <p className="text-2xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
+            )}
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Est. Time</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Upstream Warning */}
+      {isUpstream && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-3 text-xs">
+          <span className="text-red-500">⚠</span>
+          <span className="text-red-700 font-medium">Upstream route - you&apos;ll paddle against current</span>
         </div>
       )}
 
