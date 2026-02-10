@@ -203,6 +203,30 @@ export default function GaugesPage() {
     fetchGauges();
   }, []);
 
+  // Deep-link: auto-select river from ?river= query param (slug-based)
+  useEffect(() => {
+    const riverSlug = searchParams.get('river');
+    if (!riverSlug || !gaugeData?.gauges) return;
+
+    // Fetch rivers API to resolve slug → river UUID
+    async function resolveRiverSlug() {
+      try {
+        const res = await fetch('/api/rivers');
+        if (!res.ok) return;
+        const data = await res.json();
+        const match = data.rivers?.find((r: { slug: string; id: string }) => r.slug === riverSlug);
+        if (match) {
+          setSelectedRiver(match.id);
+          setOnsrOnly(false);
+          setSelectedCondition('all');
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    resolveRiverSlug();
+  }, [searchParams, gaugeData]);
+
   // Deep-link: auto-expand and scroll to gauge from ?gauge= query param
   useEffect(() => {
     const gaugeParam = searchParams.get('gauge');
