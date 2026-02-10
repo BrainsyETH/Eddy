@@ -46,18 +46,29 @@ WHERE gauge_station_id IN (SELECT id FROM gauge_stations WHERE usgs_site_id = '0
 
 
 -- ─────────────────────────────────────────────────────────────
--- PART 2: Fix Blue Spring access point coordinates (from migration 00045)
+-- PART 2: Link Blue Spring access point to NPS campground (from migration 00045)
 -- ─────────────────────────────────────────────────────────────
--- The import script interpolated coordinates from the simplified river geometry,
--- placing Blue Spring near Winona (~21km away from reality).
--- Only fixing Blue Spring — it has verified NPS API coordinates.
+-- Match by name, then copy coordinates from the nps_campgrounds table.
 
-UPDATE access_points
-SET location_orig = ST_SetSRID(ST_MakePoint(-91.6326, 37.0519), 4326),
+-- Link
+UPDATE access_points ap
+SET nps_campground_id = cg.id
+FROM nps_campgrounds cg
+WHERE cg.name ILIKE '%Blue Spring%Campground%'
+  AND ap.river_id IN (SELECT id FROM rivers WHERE slug = 'jacks-fork')
+  AND (ap.slug = 'blue-spring' OR ap.name ILIKE '%Blue Spring%')
+  AND ap.river_mile_downstream BETWEEN 9 AND 11;
+
+-- Copy NPS coordinates to fix the access point location
+UPDATE access_points ap
+SET location_orig = ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326),
     location_snap = NULL
-WHERE (slug = 'blue-spring' OR name ILIKE '%Blue Spring%')
-  AND river_id IN (SELECT id FROM rivers WHERE slug = 'jacks-fork')
-  AND river_mile_downstream BETWEEN 9 AND 11;
+FROM nps_campgrounds cg
+WHERE ap.nps_campground_id = cg.id
+  AND ap.river_id IN (SELECT id FROM rivers WHERE slug = 'jacks-fork')
+  AND (ap.slug = 'blue-spring' OR ap.name ILIKE '%Blue Spring%')
+  AND cg.latitude IS NOT NULL
+  AND cg.longitude IS NOT NULL;
 
 
 -- ─────────────────────────────────────────────────────────────
