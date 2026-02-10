@@ -88,43 +88,43 @@ const conditionDescriptions: Record<ConditionCode, {
 }> = {
   too_low: {
     title: 'Too Low - Not Recommended',
-    description: 'Water levels are extremely low, making floating impractical or impossible. You\'ll spend more time walking and dragging your vessel than actually floating. Many sections may be unnavigable.',
-    recommendation: 'Do not float. Wait for rain or choose a different river with better conditions.',
+    description: 'Water levels are well below what\'s generally needed for floating. Depending on the river section, you may encounter long stretches of exposed gravel bars, shallow riffles, and areas where floating simply isn\'t practical. Upper and lower sections of a river may vary.',
+    recommendation: 'Generally not recommended. Wait for rain or try a different river. Some deeper sections may still be passable — check with local outfitters.',
     icon: '🚫',
   },
   very_low: {
     title: 'Low - Scraping Likely',
-    description: 'Water levels are significantly below normal. Expect frequent scraping, dragging, and possible portaging around shallow areas. Float times will be considerably longer than estimates. The experience may be more work than relaxation.',
-    recommendation: 'Not recommended for beginners or large groups. Consider waiting for higher water or choosing a different river.',
+    description: 'Water levels are below normal for most sections. Expect shallow areas, frequent scraping, and possible portaging — though conditions can differ between upper and lower stretches of the same river. Float times will likely be longer than estimated.',
+    recommendation: 'Not ideal for beginners or large groups. Some river sections may float better than others — consider checking with local outfitters for section-specific advice.',
     icon: '⚠️',
   },
   low: {
     title: 'Okay - Floatable',
-    description: 'Water levels are below optimal but still floatable. You may encounter some shallow areas and occasional scraping on gravel bars, especially in wider sections. Float times may be slightly longer than estimated.',
-    recommendation: 'Suitable for most paddlers. Be prepared for some shallow sections and possibly dragging your vessel occasionally.',
+    description: 'Water levels are below optimal but generally floatable across most sections. You may encounter some shallow spots, especially in wider or upper sections, but most of the river should have enough water. Float times may run a bit longer than estimates.',
+    recommendation: 'Suitable for most paddlers. Be prepared for occasional shallow spots — conditions can vary by section.',
     icon: '✓',
   },
   optimal: {
     title: 'Optimal Conditions',
-    description: 'Water levels are ideal for floating. This is the sweet spot where you\'ll have plenty of depth to avoid scraping, but flows aren\'t dangerously fast. Most paddlers will find these conditions enjoyable and safe.',
-    recommendation: 'A great time to float! Always check conditions before floating, though.',
+    description: 'Water levels are in the ideal range for floating. Most river sections will have good depth without dangerously fast currents. This is generally the best time to be on the water, though conditions may still vary somewhat between sections.',
+    recommendation: 'Great conditions for floating. Always check local conditions before heading out.',
     icon: '🎯',
   },
   high: {
     title: 'High Water - Experienced Only',
-    description: 'Water levels are elevated with faster currents and increased hazards. Strainers, sweepers, and hydraulics become more dangerous. Navigation requires skill and quick decision-making. Float times will be faster than normal.',
-    recommendation: 'It is recommended to try another day.',
+    description: 'Water levels are elevated across most sections with faster currents and increased hazards. Strainers, sweepers, and hydraulics pose greater risks. Some sections may be more affected than others depending on the river\'s geography.',
+    recommendation: 'It is recommended to try another day. If you do go out, know your skill level and check section-specific conditions.',
     icon: '🌊',
   },
   dangerous: {
     title: 'Flood - Do Not Float',
-    description: 'Water levels are at or near flood stage. Currents are extremely swift and hazards are severe. Debris, trees, and submerged obstacles create life-threatening conditions. Even experienced paddlers should not attempt to float.',
+    description: 'Water levels are at or near flood stage. Currents are extremely swift with severe hazards including debris, submerged obstacles, and powerful hydraulics. All river sections should be considered dangerous.',
     recommendation: 'DO NOT FLOAT under any circumstances. Stay off the water until levels drop significantly.',
     icon: '🛑',
   },
   unknown: {
     title: 'Unknown',
-    description: 'Current conditions cannot be determined due to gauge malfunction, missing data, or lack of recent readings. This may occur during equipment maintenance or communication issues.',
+    description: 'Current conditions cannot be determined due to gauge issues, missing data, or lack of recent readings. This may affect some sections more than others if multiple gauges are involved.',
     recommendation: 'Exercise caution. Check alternate gauges, contact local outfitters, or wait until data becomes available.',
     icon: '❓',
   },
@@ -388,28 +388,49 @@ export default function AboutPage() {
             <div className="space-y-4">
               <div>
                 <h3 className="font-bold text-neutral-900 mb-1">USGS Water Services</h3>
-                <p className="text-neutral-700">
+                <p className="text-neutral-700 mb-1">
                   Real-time and historical gauge data from the United States Geological Survey&apos;s
                   National Water Information System.
                 </p>
+                <a href="https://waterservices.usgs.gov/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  waterservices.usgs.gov &rarr;
+                </a>
               </div>
               <div>
                 <h3 className="font-bold text-neutral-900 mb-1">National Hydrography Dataset (NHD)</h3>
-                <p className="text-neutral-700">
+                <p className="text-neutral-700 mb-1">
                   River geometry and hydrological network data from USGS.
                 </p>
+                <a href="https://www.usgs.gov/national-hydrography/national-hydrography-dataset" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  usgs.gov/national-hydrography &rarr;
+                </a>
               </div>
               <div>
                 <h3 className="font-bold text-neutral-900 mb-1">Missouri Department of Conservation</h3>
-                <p className="text-neutral-700">
+                <p className="text-neutral-700 mb-1">
                   Access point information, facility details, and river management data.
                 </p>
+                <a href="https://mdc.mo.gov/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  mdc.mo.gov &rarr;
+                </a>
               </div>
               <div>
                 <h3 className="font-bold text-neutral-900 mb-1">National Park Service</h3>
-                <p className="text-neutral-700">
+                <p className="text-neutral-700 mb-1">
                   Data for rivers within National Scenic Riverways (Current, Jacks Fork, Eleven Point).
                 </p>
+                <a href="https://www.nps.gov/ozar/index.htm" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  nps.gov/ozar &rarr;
+                </a>
+              </div>
+              <div>
+                <h3 className="font-bold text-neutral-900 mb-1">Recreation.gov</h3>
+                <p className="text-neutral-700 mb-1">
+                  Campground reservations and recreation area information for NPS sites.
+                </p>
+                <a href="https://www.recreation.gov/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  recreation.gov &rarr;
+                </a>
               </div>
             </div>
           </div>

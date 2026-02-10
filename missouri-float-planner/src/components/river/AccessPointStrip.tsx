@@ -10,6 +10,8 @@ import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, Ext
 import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
 
+const EDDY_OTTER_FALLBACK = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
+
 // Sort types by canonical display order
 function sortTypes(types: string[]): string[] {
   return [...types].sort((a, b) => {
@@ -78,8 +80,14 @@ function AccessPointCard({
             sizes="144px"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <MapPin className="w-8 h-8 text-neutral-300" />
+          <div className="w-full h-full flex items-center justify-center bg-neutral-50">
+            <Image
+              src={EDDY_OTTER_FALLBACK}
+              alt="Eddy the Otter"
+              width={64}
+              height={64}
+              className="w-12 h-12 object-contain opacity-60"
+            />
           </div>
         )}
         {/* Selection label with mile marker */}
@@ -243,7 +251,7 @@ function ExpandedDetail({
       </div>
 
       {/* Enlarged centered image */}
-      {hasImages && (
+      {hasImages ? (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
           <Image
             src={allImages[currentImageIndex]}
@@ -271,6 +279,16 @@ function ExpandedDetail({
               </div>
             </>
           )}
+        </div>
+      ) : (
+        <div className="w-full aspect-[16/9] bg-neutral-50 flex items-center justify-center">
+          <Image
+            src={EDDY_OTTER_FALLBACK}
+            alt="Eddy the Otter"
+            width={120}
+            height={120}
+            className="w-20 h-20 object-contain opacity-40"
+          />
         </div>
       )}
 
