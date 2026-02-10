@@ -573,21 +573,11 @@ function GaugeExpandedDetail({
                   </span>
                 </h4>
                 <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                        <span className="text-neutral-600 font-medium">Optimal</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-neutral-900">
-                          {threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null
-                            ? formatRange(threshold.levelOptimalMin, threshold.levelOptimalMax)
-                            : 'N/A'}
-                        </span>
-                        {descriptions?.optimal && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.optimal}</p>
-                        )}
+                        <span className="text-neutral-600">Optimal</span>
                       </div>
                       <span className="font-mono text-neutral-900">
                         {tv.levelOptimalMin !== null && tv.levelOptimalMax !== null
@@ -595,22 +585,10 @@ function GaugeExpandedDetail({
                           : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
-                        <span className="text-neutral-600 font-medium">Okay</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-neutral-900">
-                          {threshold.levelLow !== null && threshold.levelOptimalMin !== null
-                            ? `${formatValue(threshold.levelLow)} - ${formatValue(threshold.levelOptimalMin - decrementValue)} ${unit}`
-                            : threshold.levelLow !== null
-                            ? `≥ ${formatValue(threshold.levelLow)} ${unit}`
-                            : 'N/A'}
-                        </span>
-                        {descriptions?.okay && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.okay}</p>
-                        )}
+                        <span className="text-neutral-600">Okay</span>
                       </div>
                       <span className="font-mono text-neutral-900">
                         {tv.levelLow !== null && tv.levelOptimalMin !== null
@@ -620,22 +598,10 @@ function GaugeExpandedDetail({
                           : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                        <span className="text-neutral-600 font-medium">Low</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-neutral-900">
-                          {threshold.levelTooLow !== null && threshold.levelLow !== null
-                            ? `${formatValue(threshold.levelTooLow)} - ${formatValue(threshold.levelLow - decrementValue)} ${unit}`
-                            : threshold.levelTooLow !== null
-                            ? `≥ ${formatValue(threshold.levelTooLow)} ${unit}`
-                            : 'N/A'}
-                        </span>
-                        {descriptions?.low && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.low}</p>
-                        )}
+                        <span className="text-neutral-600">Low</span>
                       </div>
                       <span className="font-mono text-neutral-900">
                         {tv.levelTooLow !== null && tv.levelLow !== null
@@ -645,20 +611,10 @@ function GaugeExpandedDetail({
                           : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
-                        <span className="text-neutral-600 font-medium">Too Low</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-neutral-900">
-                          {threshold.levelTooLow !== null
-                            ? `< ${formatValue(threshold.levelTooLow)} ${unit}`
-                            : 'N/A'}
-                        </span>
-                        {descriptions?.tooLow && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.tooLow}</p>
-                        )}
+                        <span className="text-neutral-600">Too Low</span>
                       </div>
                       <span className="font-mono text-neutral-900">
                         {tv.levelTooLow !== null
@@ -666,22 +622,10 @@ function GaugeExpandedDetail({
                           : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                        <span className="text-neutral-600 font-medium">High</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-neutral-900">
-                          {threshold.levelHigh !== null && threshold.levelDangerous !== null
-                            ? `${formatValue(threshold.levelHigh)} - ${formatValue(threshold.levelDangerous - decrementValue)} ${unit}`
-                            : threshold.levelHigh !== null
-                            ? `≥ ${formatValue(threshold.levelHigh)} ${unit}`
-                            : 'N/A'}
-                        </span>
-                        {descriptions?.high && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.high}</p>
-                        )}
+                        <span className="text-neutral-600">High</span>
                       </div>
                       <span className="font-mono text-neutral-900">
                         {tv.levelHigh !== null && tv.levelDangerous !== null
@@ -691,20 +635,10 @@ function GaugeExpandedDetail({
                           : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                        <span className="text-neutral-600 font-medium">Flood</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-neutral-900">
-                          {threshold.levelDangerous !== null
-                            ? `≥ ${formatValue(threshold.levelDangerous)} ${unit}`
-                            : 'N/A'}
-                        </span>
-                        {descriptions?.flood && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.flood}</p>
-                        )}
+                        <span className="text-neutral-600">Flood</span>
                       </div>
                       <span className="font-mono text-neutral-900">
                         {tv.levelDangerous !== null
