@@ -1,6 +1,6 @@
 // src/app/api/cron/update-gauges/route.ts
-// POST /api/cron/update-gauges - Update gauge readings from USGS
-// Called by Vercel Cron every hour (or every 15 minutes for high-frequency gauges)
+// GET/POST /api/cron/update-gauges - Update gauge readings from USGS
+// Vercel Cron uses GET; POST supported for manual testing.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,33 +12,32 @@ export const dynamic = 'force-dynamic';
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
 
-export async function POST(request: NextRequest) {
+async function runUpdate(request: NextRequest) {
+  // Verify cron secret — always required, including in development.
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    console.error('CRON_SECRET not configured');
+    return NextResponse.json(
+      { error: 'Cron secret not configured' },
+      { status: 500 }
+    );
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  const supabase = createAdminClient();
+
+  // Check if this is a high-frequency poll (triggered every 15 minutes)
+  const isHighFrequencyPoll = request.headers.get('x-high-frequency') === 'true';
+
   try {
-    // Verify cron secret — always required, including in development.
-    // Use `curl -X POST -H "Authorization: Bearer $CRON_SECRET"` for local testing.
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-      console.error('CRON_SECRET not configured');
-      return NextResponse.json(
-        { error: 'Cron secret not configured' },
-        { status: 500 }
-      );
-    }
-
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const supabase = createAdminClient();
-
-    // Check if this is a high-frequency poll (triggered every 15 minutes)
-    const isHighFrequencyPoll = request.headers.get('x-high-frequency') === 'true';
-
     // Get gauge stations based on poll type
     let stationsQuery = supabase
       .from('gauge_stations')
@@ -188,5 +187,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET removed — cron endpoints should only accept POST.
-// For manual testing: curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/update-gauges
+/** Vercel Cron uses GET. */
+export async function GET(request: NextRequest) {
+  return runUpdate(request);
+}
+
+/** For manual testing: curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app/api/cron/update-gauges */
+export async function POST(request: NextRequest) {
+  return runUpdate(request);
+}
