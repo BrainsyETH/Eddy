@@ -29,9 +29,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all river_gauges (thresholds) with river info
-    const { data: riverGauges, error: rgError } = await supabase
-      .from('river_gauges')
-      .select(`
+    // Try with alt columns first; fall back without them if migration hasn't run
+    const baseRgCols = `
         id,
         river_id,
         gauge_station_id,
@@ -42,23 +41,41 @@ export async function GET(request: NextRequest) {
         level_optimal_min,
         level_optimal_max,
         level_high,
-        level_dangerous,
+        level_dangerous,`;
+    const altRgCols = `
         alt_level_too_low,
         alt_level_low,
         alt_level_optimal_min,
         alt_level_optimal_max,
         alt_level_high,
-        alt_level_dangerous,
+        alt_level_dangerous,`;
+    const tailRgCols = `
         distance_from_section_miles,
-        accuracy_warning_threshold_miles
-      `);
+        accuracy_warning_threshold_miles`;
 
-    if (rgError) {
-      console.error('Error fetching river gauges:', rgError);
-      return NextResponse.json(
-        { error: 'Could not fetch river gauges' },
-        { status: 500 }
-      );
+    let riverGauges: Record<string, unknown>[] | null = null;
+    {
+      const { data, error } = await supabase
+        .from('river_gauges')
+        .select(baseRgCols + altRgCols + tailRgCols);
+
+      if (error) {
+        console.warn('Admin river_gauges query failed (alt columns may not exist), retrying:', error.message);
+        const { data: fallback, error: fallbackError } = await supabase
+          .from('river_gauges')
+          .select(baseRgCols + tailRgCols);
+
+        if (fallbackError) {
+          console.error('Error fetching river gauges:', fallbackError);
+          return NextResponse.json(
+            { error: 'Could not fetch river gauges' },
+            { status: 500 }
+          );
+        }
+        riverGauges = fallback as unknown as Record<string, unknown>[] | null;
+      } else {
+        riverGauges = data as unknown as Record<string, unknown>[] | null;
+      }
     }
 
     // Get rivers for names
@@ -100,34 +117,35 @@ export async function GET(request: NextRequest) {
     for (const rg of riverGauges || []) {
       if (!rg.gauge_station_id) continue;
 
-      const river = riverMap.get(rg.river_id);
+      const river = riverMap.get(rg.river_id as string);
       const entry = {
-        id: rg.id,
-        riverId: rg.river_id,
+        id: rg.id as string,
+        riverId: rg.river_id as string,
         riverName: river?.name || 'Unknown River',
         riverSlug: river?.slug || '',
-        isPrimary: rg.is_primary,
-        thresholdUnit: rg.threshold_unit,
-        levelTooLow: rg.level_too_low,
-        levelLow: rg.level_low,
-        levelOptimalMin: rg.level_optimal_min,
-        levelOptimalMax: rg.level_optimal_max,
-        levelHigh: rg.level_high,
-        levelDangerous: rg.level_dangerous,
-        altLevelTooLow: rg.alt_level_too_low,
-        altLevelLow: rg.alt_level_low,
-        altLevelOptimalMin: rg.alt_level_optimal_min,
-        altLevelOptimalMax: rg.alt_level_optimal_max,
-        altLevelHigh: rg.alt_level_high,
-        altLevelDangerous: rg.alt_level_dangerous,
-        distanceFromSectionMiles: rg.distance_from_section_miles,
-        accuracyWarningThresholdMiles: rg.accuracy_warning_threshold_miles,
+        isPrimary: rg.is_primary as boolean,
+        thresholdUnit: rg.threshold_unit as string,
+        levelTooLow: (rg.level_too_low as number) ?? null,
+        levelLow: (rg.level_low as number) ?? null,
+        levelOptimalMin: (rg.level_optimal_min as number) ?? null,
+        levelOptimalMax: (rg.level_optimal_max as number) ?? null,
+        levelHigh: (rg.level_high as number) ?? null,
+        levelDangerous: (rg.level_dangerous as number) ?? null,
+        altLevelTooLow: (rg.alt_level_too_low as number) ?? null,
+        altLevelLow: (rg.alt_level_low as number) ?? null,
+        altLevelOptimalMin: (rg.alt_level_optimal_min as number) ?? null,
+        altLevelOptimalMax: (rg.alt_level_optimal_max as number) ?? null,
+        altLevelHigh: (rg.alt_level_high as number) ?? null,
+        altLevelDangerous: (rg.alt_level_dangerous as number) ?? null,
+        distanceFromSectionMiles: (rg.distance_from_section_miles as number) ?? null,
+        accuracyWarningThresholdMiles: (rg.accuracy_warning_threshold_miles as number) ?? 0,
       };
 
-      if (!gaugeThresholds.has(rg.gauge_station_id)) {
-        gaugeThresholds.set(rg.gauge_station_id, []);
+      const gsId = rg.gauge_station_id as string;
+      if (!gaugeThresholds.has(gsId)) {
+        gaugeThresholds.set(gsId, []);
       }
-      gaugeThresholds.get(rg.gauge_station_id)!.push(entry);
+      gaugeThresholds.get(gsId)!.push(entry);
     }
 
     // Format response
