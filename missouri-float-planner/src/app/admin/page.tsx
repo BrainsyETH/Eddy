@@ -45,7 +45,7 @@ const ADMIN_SECTIONS = [
   },
   {
     title: 'Data Sync',
-    description: 'Sync USFS campground data from Recreation.gov (RIDB)',
+    description: 'Sync USFS campgrounds as pending POIs from Recreation.gov (RIDB)',
     href: '/admin/data-sync',
     icon: RefreshCw,
     color: 'bg-emerald-500',

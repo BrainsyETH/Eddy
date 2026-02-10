@@ -1,6 +1,7 @@
 // src/lib/usfs/sync.ts
 // USFS data sync logic — fetches RIDB facilities near Missouri rivers
-// and upserts campgrounds/recreation sites into Supabase
+// and upserts campgrounds as pending POIs in Supabase.
+// Admins can then review and optionally promote to access points.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RIDBFacility } from '@/types/ridb';
@@ -40,8 +41,8 @@ export interface USFSSyncResult {
   facilitiesFiltered: number;
   campgroundsSynced: number;
   campgroundsMatched: number;
-  accessPointsCreated: number;
-  accessPointsUpdated: number;
+  poisCreated: number;
+  poisUpdated: number;
   errors: number;
   errorDetails: string[];
   facilities: USFSSyncFacility[];
@@ -133,7 +134,8 @@ function extractCoords(location: unknown): { lat: number; lng: number } | null {
 
 /**
  * Full USFS data sync: fetch RIDB facilities near all rivers,
- * filter to USFS-managed campgrounds, and sync to database.
+ * filter to USFS-managed campgrounds, and sync as pending POIs.
+ * Items are created with active=false so admins can review them.
  *
  * @param dryRun If true, fetches and filters but does not write to DB
  */
@@ -148,8 +150,8 @@ export async function syncUSFSData(
     facilitiesFiltered: 0,
     campgroundsSynced: 0,
     campgroundsMatched: 0,
-    accessPointsCreated: 0,
-    accessPointsUpdated: 0,
+    poisCreated: 0,
+    poisUpdated: 0,
     errors: 0,
     errorDetails: [],
     facilities: [],
@@ -247,18 +249,18 @@ export async function syncUSFSData(
     }
 
     if (dryRun) {
-      facilityInfo.outcome = 'dry run — would sync';
+      facilityInfo.outcome = 'dry run — would sync as pending POI';
       result.campgroundsSynced++;
       result.facilities.push(facilityInfo);
       continue;
     }
 
     try {
-      const syncOutcome = await syncCampground(supabase, facility, river.id);
+      const syncOutcome = await syncCampgroundAsPOI(supabase, facility, river.id);
       result.campgroundsSynced++;
       facilityInfo.outcome = syncOutcome;
-      if (syncOutcome === 'created') result.accessPointsCreated++;
-      if (syncOutcome === 'updated') result.accessPointsUpdated++;
+      if (syncOutcome === 'created') result.poisCreated++;
+      if (syncOutcome === 'updated') result.poisUpdated++;
       if (syncOutcome === 'matched') result.campgroundsMatched++;
     } catch (err) {
       result.errors++;
@@ -273,12 +275,12 @@ export async function syncUSFSData(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Campground sync
+// Campground → POI sync (pending review)
 // ─────────────────────────────────────────────────────────────
 
 type SyncOutcome = 'created' | 'updated' | 'matched' | 'skipped';
 
-async function syncCampground(
+async function syncCampgroundAsPOI(
   supabase: SupabaseClient,
   facility: RIDBFacility,
   riverId: string
@@ -288,21 +290,21 @@ async function syncCampground(
 
   if (!lat || !lng) return 'skipped';
 
-  // Check if already synced (by ridb_facility_id)
+  // Check if already synced (by ridb_facility_id on points_of_interest)
   const { data: existing } = await supabase
-    .from('access_points')
+    .from('points_of_interest')
     .select('id, name, ridb_facility_id')
     .eq('ridb_facility_id', facility.FacilityID)
     .maybeSingle();
 
   if (existing) {
-    await updateAccessPointFromRIDB(supabase, existing.id, facility);
+    await updatePOIFromRIDB(supabase, existing.id, facility);
     return 'updated';
   }
 
-  // Check for nearby access point to match (within 2km, prefer name match)
+  // Check for nearby POI to match (within 2km, prefer name match)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: nearbyMatch } = await (supabase.rpc as any)('find_nearby_access_point', {
+  const { data: nearbyMatch } = await (supabase.rpc as any)('find_nearby_poi', {
     p_lat: lat,
     p_lng: lng,
     p_name: facility.FacilityName.replace(/\s+(Campground|Recreation Area|Camp)$/i, ''),
@@ -311,15 +313,15 @@ async function syncCampground(
   });
 
   if (nearbyMatch?.[0]?.id) {
-    await updateAccessPointFromRIDB(supabase, nearbyMatch[0].id, facility);
+    await updatePOIFromRIDB(supabase, nearbyMatch[0].id, facility);
     return 'matched';
   }
 
-  await createAccessPointFromRIDB(supabase, facility, riverId);
+  await createPOIFromRIDB(supabase, facility, riverId);
   return 'created';
 }
 
-async function createAccessPointFromRIDB(
+async function createPOIFromRIDB(
   supabase: SupabaseClient,
   facility: RIDBFacility,
   riverId: string
@@ -327,20 +329,19 @@ async function createAccessPointFromRIDB(
   const slug = slugify(facility.FacilityName);
   const reservationUrl = getReservationURL(facility);
 
-  const { error } = await supabase.from('access_points').insert({
+  const { error } = await supabase.from('points_of_interest').insert({
     river_id: riverId,
     name: facility.FacilityName,
     slug,
-    location_orig: `SRID=4326;POINT(${facility.FacilityLongitude} ${facility.FacilityLatitude})`,
-    type: 'campground',
-    types: ['campground'],
-    is_public: true,
-    ownership: 'public',
-    managing_agency: 'USFS',
     description: stripHtml(facility.FacilityDescription || ''),
-    fee_required: !!(facility.FacilityUseFeeDescription && facility.FacilityUseFeeDescription.trim()),
-    fee_notes: facility.FacilityUseFeeDescription || null,
-    official_site_url: reservationUrl,
+    type: 'campground',
+    source: 'ridb',
+    latitude: facility.FacilityLatitude,
+    longitude: facility.FacilityLongitude,
+    location: `SRID=4326;POINT(${facility.FacilityLongitude} ${facility.FacilityLatitude})`,
+    managing_agency: 'USFS',
+    reservation_url: reservationUrl,
+    fee_description: facility.FacilityUseFeeDescription || null,
     ridb_facility_id: facility.FacilityID,
     ridb_data: JSON.stringify({
       facilityType: facility.FacilityTypeDescription,
@@ -353,22 +354,16 @@ async function createAccessPointFromRIDB(
       adaAccess: facility.FacilityAdaAccess,
       lastUpdated: facility.LastUpdatedDate,
     }),
-    approved: false,
+    is_on_water: true,
+    active: false, // Pending admin review
   });
 
-  if (error) throw new Error(`Insert failed for ${facility.FacilityName}: ${error.message}`);
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.rpc as any)('snap_access_point_by_slug', { p_slug: slug });
-  } catch {
-    // snap RPC may not exist — non-fatal
-  }
+  if (error) throw new Error(`Insert POI failed for ${facility.FacilityName}: ${error.message}`);
 }
 
-async function updateAccessPointFromRIDB(
+async function updatePOIFromRIDB(
   supabase: SupabaseClient,
-  accessPointId: string,
+  poiId: string,
   facility: RIDBFacility
 ): Promise<void> {
   const reservationUrl = getReservationURL(facility);
@@ -387,22 +382,22 @@ async function updateAccessPointFromRIDB(
       adaAccess: facility.FacilityAdaAccess,
       lastUpdated: facility.LastUpdatedDate,
     }),
+    last_synced_at: new Date().toISOString(),
   };
 
   if (reservationUrl) {
-    updates.official_site_url = reservationUrl;
+    updates.reservation_url = reservationUrl;
   }
 
   if (facility.FacilityUseFeeDescription?.trim()) {
-    updates.fee_required = true;
-    updates.fee_notes = facility.FacilityUseFeeDescription;
+    updates.fee_description = facility.FacilityUseFeeDescription;
   }
 
   if (facility.FacilityDescription?.trim()) {
     const { data: current } = await supabase
-      .from('access_points')
+      .from('points_of_interest')
       .select('description')
-      .eq('id', accessPointId)
+      .eq('id', poiId)
       .single();
 
     if (!current?.description) {
@@ -411,11 +406,11 @@ async function updateAccessPointFromRIDB(
   }
 
   const { error } = await supabase
-    .from('access_points')
+    .from('points_of_interest')
     .update(updates)
-    .eq('id', accessPointId);
+    .eq('id', poiId);
 
-  if (error) throw new Error(`Update failed: ${error.message}`);
+  if (error) throw new Error(`Update POI failed: ${error.message}`);
 }
 
 // ─────────────────────────────────────────────────────────────

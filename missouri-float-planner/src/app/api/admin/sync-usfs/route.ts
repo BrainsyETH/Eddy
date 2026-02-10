@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
         facilities_filtered: result.facilitiesFiltered,
         campgrounds_synced: result.campgroundsSynced,
         campgrounds_matched: result.campgroundsMatched,
-        access_points_created: result.accessPointsCreated,
-        access_points_updated: result.accessPointsUpdated,
+        pois_created: result.poisCreated,
+        pois_updated: result.poisUpdated,
         errors: result.errors,
         error_details: result.errorDetails.length > 0
           ? result.errorDetails.join('\n')
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: dryRun ? 'USFS dry run complete' : 'USFS sync complete',
+      message: dryRun ? 'USFS dry run complete' : 'USFS sync complete — campgrounds added as pending POIs',
       dryRun,
       durationMs,
       ...result,
