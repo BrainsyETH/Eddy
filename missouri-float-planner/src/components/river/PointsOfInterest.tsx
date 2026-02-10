@@ -72,61 +72,63 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
       {poiList.length > 0 ? (
         <div className="space-y-3">
           {poiList.map((poi) => (
-            <div key={poi.id} className="bg-neutral-50 rounded-lg p-4">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-neutral-900">{poi.name}</p>
-                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${POI_TYPE_COLORS[poi.type] || POI_TYPE_COLORS.other}`}>
-                    {POI_TYPE_LABELS[poi.type] || poi.type}
-                  </span>
-                </div>
-                {poi.riverMile !== null && (
-                  <span className="text-xs text-neutral-500 ml-2 flex-shrink-0">
-                    Mile {poi.riverMile.toFixed(1)}
-                  </span>
-                )}
-              </div>
-
-              {poi.description && (
-                <p className="text-sm text-neutral-600 mt-2 line-clamp-3">
-                  {poi.description}
-                </p>
-              )}
-
+            <div key={poi.id} className="bg-neutral-50 rounded-lg p-4 flex flex-col md:flex-row gap-3">
               {/* NPS image thumbnail */}
               {poi.images && poi.images.length > 0 && (
-                <div className="relative mt-2 w-full max-h-48 md:max-h-56 overflow-hidden rounded-md">
+                <div className="relative w-full md:w-40 h-32 md:h-28 flex-shrink-0 overflow-hidden rounded-md">
                   <Image
                     src={poi.images[0].url}
                     alt={poi.name}
-                    width={600}
-                    height={400}
-                    className="w-full h-full rounded-md object-cover"
-                    sizes="(max-width: 768px) 100vw, 400px"
+                    fill
+                    className="rounded-md object-cover"
+                    sizes="(max-width: 768px) 100vw, 160px"
                     unoptimized
                   />
                 </div>
               )}
 
-              {/* External link */}
-              {poi.npsUrl && (
-                <a
-                  href={poi.npsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  {(() => {
-                    try {
-                      const hostname = new URL(poi.npsUrl).hostname.replace(/^www\./, '');
-                      return `Learn more on ${hostname}`;
-                    } catch {
-                      return 'Learn more';
-                    }
-                  })()}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-neutral-900">{poi.name}</p>
+                    <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${POI_TYPE_COLORS[poi.type] || POI_TYPE_COLORS.other}`}>
+                      {POI_TYPE_LABELS[poi.type] || poi.type}
+                    </span>
+                  </div>
+                  {poi.riverMile !== null && (
+                    <span className="text-xs text-neutral-500 ml-2 flex-shrink-0">
+                      Mile {poi.riverMile.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+
+                {poi.description && (
+                  <p className="text-sm text-neutral-600 mt-1 line-clamp-2">
+                    {poi.description}
+                  </p>
+                )}
+
+                {/* External link */}
+                {poi.npsUrl && (
+                  <a
+                    href={poi.npsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    {(() => {
+                      try {
+                        const hostname = new URL(poi.npsUrl).hostname.replace(/^www\./, '');
+                        return `Learn more on ${hostname}`;
+                      } catch {
+                        return 'Learn more';
+                      }
+                    })()}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>
