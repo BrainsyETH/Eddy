@@ -184,7 +184,6 @@ export default function GaugesPage() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
-  const [displayUnit, setDisplayUnit] = useState<'auto' | 'ft' | 'cfs'>('auto');
   const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -302,13 +301,6 @@ export default function GaugesPage() {
       label: getConditionShortLabel(result.code),
       tailwindColor: getConditionTailwindColor(result.code),
     };
-  };
-
-  // Resolve effective display unit for a gauge
-  const getEffectiveUnit = (gauge: GaugeStation): 'ft' | 'cfs' => {
-    if (displayUnit !== 'auto') return displayUnit;
-    const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
-    return primaryRiver?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
   };
 
   // Get unique rivers for filter
@@ -606,30 +598,6 @@ export default function GaugesPage() {
                   ONSR
                 </button>
 
-                {/* Unit toggle */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-neutral-600">Unit:</label>
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                    {([
-                      { value: 'auto', label: 'Auto' },
-                      { value: 'ft', label: 'Gauge Ht' },
-                      { value: 'cfs', label: 'CFS' },
-                    ] as const).map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setDisplayUnit(opt.value)}
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          displayUnit === opt.value
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Date range for charts */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                   {DATE_RANGES.map(range => (
@@ -745,7 +713,7 @@ export default function GaugesPage() {
 
                           {/* Large Water Level Display - primary unit shown prominently */}
                           <div className="flex flex-col items-end text-right flex-shrink-0">
-                            {getEffectiveUnit(gauge) === 'cfs' ? (
+                            {gauge.primaryRiver?.thresholdUnit === 'cfs' ? (
                               <>
                                 {gauge.dischargeCfs !== null && (
                                   <div className="flex items-baseline gap-1">
@@ -825,265 +793,11 @@ export default function GaugesPage() {
 
                       {/* Expanded Content */}
                       {isExpanded && (
-                        <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
-                          {/* Top Row: Weather (left) + Current Readings (right) - matching widths */}
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            {/* Left Column - Weather */}
-                            <div>
-                              <GaugeWeather
-                                lat={gauge.coordinates.lat}
-                                lon={gauge.coordinates.lng}
-                                enabled={isExpanded}
-                              />
-                            </div>
-
-                            {/* Right Column - Current Readings */}
-                            <div>
-                              <h4 className="text-sm font-semibold text-neutral-700 mb-3 flex items-center gap-2">
-                                <Activity className="w-4 h-4" />
-                                Current Readings
-                              </h4>
-                              {(() => {
-                                const useCfs = getEffectiveUnit(gauge) === 'cfs';
-                                const primaryLabel = useCfs ? 'Flow' : 'Stage';
-                                const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
-                                const primaryValue = useCfs
-                                  ? (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A')
-                                  : (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A');
-                                const secondaryLabel = useCfs ? 'Stage' : 'Flow';
-                                const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-400" /> : <Activity className="w-4 h-4 text-neutral-400" />;
-                                const secondaryValue = useCfs
-                                  ? (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A')
-                                  : (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A');
-
-                                return (
-                                  <div className="grid grid-cols-3 gap-3">
-                                    <div className="bg-white border-2 border-primary-200 rounded-lg p-3">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        {primaryIcon}
-                                        <span className="text-xs font-medium text-primary-600 uppercase">{primaryLabel}</span>
-                                      </div>
-                                      <div className="text-2xl font-bold text-neutral-900">
-                                        {primaryValue}
-                                      </div>
-                                    </div>
-                                    <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        {secondaryIcon}
-                                        <span className="text-xs font-medium text-neutral-500 uppercase">{secondaryLabel}</span>
-                                      </div>
-                                      <div className="text-lg text-neutral-600">
-                                        {secondaryValue}
-                                      </div>
-                                    </div>
-                                    <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
-                                      <Image
-                                        src={getEddyImageForCondition(gauge.condition.code)}
-                                        alt={`Eddy - ${gauge.condition.label}`}
-                                        width={80}
-                                        height={80}
-                                        className="w-16 h-16 object-contain"
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-
-                          {/* Bottom Row: Chart (left) + Thresholds/Details (right) */}
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Left Column - Chart */}
-                            <div>
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
-                                  <TrendingUp className="w-4 h-4" />
-                                  {dateRange}-Day Flow Trend
-                                </h4>
-                                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                                  {DATE_RANGES.map(range => (
-                                    <button
-                                      key={range.days}
-                                      onClick={(e) => { e.stopPropagation(); setDateRange(range.days); }}
-                                      className={`px-2 py-1 text-xs font-medium transition-colors ${
-                                        dateRange === range.days
-                                          ? 'bg-primary-500 text-white'
-                                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                                      }`}
-                                    >
-                                      {range.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="bg-neutral-50 border border-neutral-200 rounded-xl overflow-hidden">
-                                <FlowTrendChartWithDays
-                                  gaugeSiteId={gauge.usgsSiteId}
-                                  days={dateRange}
-                                  latestCfs={gauge.dischargeCfs}
-                                  thresholds={gauge.primaryRiver?.thresholdUnit === 'cfs' ? {
-                                    levelTooLow: gauge.primaryRiver.levelTooLow,
-                                    levelLow: gauge.primaryRiver.levelLow,
-                                    levelOptimalMin: gauge.primaryRiver.levelOptimalMin,
-                                    levelOptimalMax: gauge.primaryRiver.levelOptimalMax,
-                                    levelHigh: gauge.primaryRiver.levelHigh,
-                                    levelDangerous: gauge.primaryRiver.levelDangerous,
-                                  } : null}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Right Column - Details */}
-                            <div className="space-y-4">
-
-                              {/* Thresholds */}
-                              {gauge.primaryRiver && (() => {
-                                const unit = gauge.primaryRiver.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-                                const formatValue = (val: number | null) => {
-                                  if (val === null) return null;
-                                  return unit === 'cfs' ? val.toLocaleString() : val.toFixed(2);
-                                };
-                                // Use descriptions from database (fallback to hardcoded for backwards compatibility)
-                                const descriptions = gauge.thresholdDescriptions || GAUGE_THRESHOLD_DESCRIPTIONS[gauge.usgsSiteId];
-                                return (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-neutral-700 mb-3">
-                                    Thresholds for {gauge.primaryRiver.riverName}
-                                    {unit === 'cfs' && <span className="ml-2 text-xs font-normal text-primary-600">(using flow)</span>}
-                                  </h4>
-                                  <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                                    <div className="space-y-3 text-sm">
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                                          <span className="text-neutral-600 font-medium">Optimal</span>
-                                        </div>
-                                        <div className="text-right">
-                                          <span className="font-mono text-neutral-900">
-                                            {gauge.primaryRiver.levelOptimalMin !== null && gauge.primaryRiver.levelOptimalMax !== null
-                                              ? `${formatValue(gauge.primaryRiver.levelOptimalMin)} - ${formatValue(gauge.primaryRiver.levelOptimalMax)} ${unit}`
-                                              : 'N/A'}
-                                          </span>
-                                          {descriptions?.optimal && (
-                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.optimal}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
-                                          <span className="text-neutral-600 font-medium">Okay</span>
-                                        </div>
-                                        <div className="text-right">
-                                          <span className="font-mono text-neutral-900">
-                                            {gauge.primaryRiver.levelLow !== null && gauge.primaryRiver.levelOptimalMin !== null
-                                              ? `${formatValue(gauge.primaryRiver.levelLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelOptimalMin - 1 : gauge.primaryRiver.levelOptimalMin - 0.01)} ${unit}`
-                                              : gauge.primaryRiver.levelLow !== null
-                                              ? `≥ ${formatValue(gauge.primaryRiver.levelLow)} ${unit}`
-                                              : 'N/A'}
-                                          </span>
-                                          {descriptions?.okay && (
-                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.okay}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                                          <span className="text-neutral-600 font-medium">Low</span>
-                                        </div>
-                                        <div className="text-right">
-                                          <span className="font-mono text-neutral-900">
-                                            {gauge.primaryRiver.levelTooLow !== null && gauge.primaryRiver.levelLow !== null
-                                              ? `${formatValue(gauge.primaryRiver.levelTooLow)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelLow - 1 : gauge.primaryRiver.levelLow - 0.01)} ${unit}`
-                                              : gauge.primaryRiver.levelTooLow !== null
-                                              ? `≥ ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
-                                              : 'N/A'}
-                                          </span>
-                                          {descriptions?.low && (
-                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.low}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
-                                          <span className="text-neutral-600 font-medium">Too Low</span>
-                                        </div>
-                                        <div className="text-right">
-                                          <span className="font-mono text-neutral-900">
-                                            {gauge.primaryRiver.levelTooLow !== null
-                                              ? `< ${formatValue(gauge.primaryRiver.levelTooLow)} ${unit}`
-                                              : 'N/A'}
-                                          </span>
-                                          {descriptions?.tooLow && (
-                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.tooLow}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                                          <span className="text-neutral-600 font-medium">High</span>
-                                        </div>
-                                        <div className="text-right">
-                                          <span className="font-mono text-neutral-900">
-                                            {gauge.primaryRiver.levelHigh !== null && gauge.primaryRiver.levelDangerous !== null
-                                              ? `${formatValue(gauge.primaryRiver.levelHigh)} - ${formatValue(unit === 'cfs' ? gauge.primaryRiver.levelDangerous - 1 : gauge.primaryRiver.levelDangerous - 0.01)} ${unit}`
-                                              : gauge.primaryRiver.levelHigh !== null
-                                              ? `≥ ${formatValue(gauge.primaryRiver.levelHigh)} ${unit}`
-                                              : 'N/A'}
-                                          </span>
-                                          {descriptions?.high && (
-                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.high}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                                          <span className="text-neutral-600 font-medium">Flood</span>
-                                        </div>
-                                        <div className="text-right">
-                                          <span className="font-mono text-neutral-900">
-                                            {gauge.primaryRiver.levelDangerous !== null
-                                              ? `≥ ${formatValue(gauge.primaryRiver.levelDangerous)} ${unit}`
-                                              : 'N/A'}
-                                          </span>
-                                          {descriptions?.flood && (
-                                            <p className="text-xs text-neutral-500 mt-0.5">{descriptions.flood}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                );
-                              })()}
-
-                              {/* Location */}
-                              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                                <MapPin className="w-3.5 h-3.5" />
-                                <span>{gauge.coordinates.lat.toFixed(5)}, {gauge.coordinates.lng.toFixed(5)}</span>
-                              </div>
-
-                              {/* Last Updated */}
-                              {gauge.readingTimestamp && (
-                                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  <span>
-                                    Updated {new Date(gauge.readingTimestamp).toLocaleString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                    })}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        <GaugeExpandedPanel
+                          gauge={gauge}
+                          dateRange={dateRange}
+                          setDateRange={setDateRange}
+                        />
                       )}
                     </div>
                   );
@@ -1138,6 +852,350 @@ export default function GaugesPage() {
         onClose={() => setFeedbackModalOpen(false)}
         context={feedbackContext}
       />
+    </div>
+  );
+}
+
+// Expanded panel for a gauge card with per-card unit toggle
+function GaugeExpandedPanel({
+  gauge,
+  dateRange,
+  setDateRange,
+}: {
+  gauge: {
+    id: string;
+    usgsSiteId: string;
+    name: string;
+    coordinates: { lat: number; lng: number };
+    gaugeHeightFt: number | null;
+    dischargeCfs: number | null;
+    readingTimestamp: string | null;
+    thresholdDescriptions: { tooLow?: string; low?: string; okay?: string; optimal?: string; high?: string; flood?: string } | null;
+    condition: { code: ConditionCode; label: string; tailwindColor: string };
+    primaryRiver?: NonNullable<GaugeStation['thresholds']>[0];
+  };
+  dateRange: number;
+  setDateRange: (d: number) => void;
+}) {
+  const primaryUnit = gauge.primaryRiver?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+  const altUnit = primaryUnit === 'cfs' ? 'ft' : 'cfs';
+  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs'>(primaryUnit);
+  const showingAlt = displayUnit !== primaryUnit;
+
+  // Pick thresholds based on which unit we're displaying
+  const pr = gauge.primaryRiver;
+  const tv = pr ? (showingAlt
+    ? {
+        levelTooLow: pr.altLevelTooLow ?? null,
+        levelLow: pr.altLevelLow ?? null,
+        levelOptimalMin: pr.altLevelOptimalMin ?? null,
+        levelOptimalMax: pr.altLevelOptimalMax ?? null,
+        levelHigh: pr.altLevelHigh ?? null,
+        levelDangerous: pr.altLevelDangerous ?? null,
+      }
+    : {
+        levelTooLow: pr.levelTooLow,
+        levelLow: pr.levelLow,
+        levelOptimalMin: pr.levelOptimalMin,
+        levelOptimalMax: pr.levelOptimalMax,
+        levelHigh: pr.levelHigh,
+        levelDangerous: pr.levelDangerous,
+      }
+  ) : null;
+
+  // Check if alt thresholds have any data
+  const hasAltThresholds = pr && (
+    pr.altLevelTooLow !== null || pr.altLevelLow !== null ||
+    pr.altLevelOptimalMin !== null || pr.altLevelOptimalMax !== null ||
+    pr.altLevelHigh !== null || pr.altLevelDangerous !== null
+  );
+
+  return (
+    <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
+      {/* Per-card unit toggle */}
+      {hasAltThresholds && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-medium text-neutral-500">Display unit:</span>
+          <div className="flex rounded-md border border-neutral-300 overflow-hidden">
+            <button
+              onClick={() => setDisplayUnit(primaryUnit as 'ft' | 'cfs')}
+              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                displayUnit === primaryUnit
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
+              }`}
+            >
+              {primaryUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
+            </button>
+            <button
+              onClick={() => setDisplayUnit(altUnit as 'ft' | 'cfs')}
+              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                displayUnit === altUnit
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
+              }`}
+            >
+              {altUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Top Row: Weather (left) + Current Readings (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div>
+          <GaugeWeather
+            lat={gauge.coordinates.lat}
+            lon={gauge.coordinates.lng}
+            enabled={true}
+          />
+        </div>
+
+        <div>
+          <h4 className="text-sm font-semibold text-neutral-700 mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Current Readings
+          </h4>
+          {(() => {
+            const useCfs = displayUnit === 'cfs';
+            const primaryLabel = useCfs ? 'Flow' : 'Stage';
+            const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
+            const primaryValue = useCfs
+              ? (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A')
+              : (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A');
+            const secondaryLabel = useCfs ? 'Stage' : 'Flow';
+            const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-400" /> : <Activity className="w-4 h-4 text-neutral-400" />;
+            const secondaryValue = useCfs
+              ? (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A')
+              : (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A');
+
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white border-2 border-primary-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    {primaryIcon}
+                    <span className="text-xs font-medium text-primary-600 uppercase">{primaryLabel}</span>
+                  </div>
+                  <div className="text-2xl font-bold text-neutral-900">
+                    {primaryValue}
+                  </div>
+                </div>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    {secondaryIcon}
+                    <span className="text-xs font-medium text-neutral-500 uppercase">{secondaryLabel}</span>
+                  </div>
+                  <div className="text-lg text-neutral-600">
+                    {secondaryValue}
+                  </div>
+                </div>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3 flex items-center justify-center">
+                  <Image
+                    src={getEddyImageForCondition(gauge.condition.code)}
+                    alt={`Eddy - ${gauge.condition.label}`}
+                    width={80}
+                    height={80}
+                    className="w-16 h-16 object-contain"
+                  />
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Bottom Row: Chart (left) + Thresholds/Details (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              {dateRange}-Day Flow Trend
+            </h4>
+            <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+              {DATE_RANGES.map(range => (
+                <button
+                  key={range.days}
+                  onClick={(e) => { e.stopPropagation(); setDateRange(range.days); }}
+                  className={`px-2 py-1 text-xs font-medium transition-colors ${
+                    dateRange === range.days
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="bg-neutral-50 border border-neutral-200 rounded-xl overflow-hidden">
+            <FlowTrendChartWithDays
+              gaugeSiteId={gauge.usgsSiteId}
+              days={dateRange}
+              latestCfs={gauge.dischargeCfs}
+              thresholds={gauge.primaryRiver?.thresholdUnit === 'cfs' ? {
+                levelTooLow: gauge.primaryRiver.levelTooLow,
+                levelLow: gauge.primaryRiver.levelLow,
+                levelOptimalMin: gauge.primaryRiver.levelOptimalMin,
+                levelOptimalMax: gauge.primaryRiver.levelOptimalMax,
+                levelHigh: gauge.primaryRiver.levelHigh,
+                levelDangerous: gauge.primaryRiver.levelDangerous,
+              } : null}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Thresholds - uses toggled unit values */}
+          {pr && tv && (() => {
+            const unit = displayUnit;
+            const formatValue = (val: number | null) => {
+              if (val === null) return null;
+              return unit === 'cfs' ? val.toLocaleString() : val.toFixed(2);
+            };
+            const descriptions = gauge.thresholdDescriptions || GAUGE_THRESHOLD_DESCRIPTIONS[gauge.usgsSiteId];
+            const decrementValue = unit === 'cfs' ? 1 : 0.01;
+
+            return (
+              <div>
+                <h4 className="text-sm font-semibold text-neutral-700 mb-3">
+                  Thresholds for {pr.riverName}
+                  <span className="ml-2 text-xs font-normal text-neutral-500">
+                    ({unit === 'cfs' ? 'flow' : 'gauge height'})
+                  </span>
+                </h4>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                        <span className="text-neutral-600 font-medium">Optimal</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelOptimalMin !== null && tv.levelOptimalMax !== null
+                            ? `${formatValue(tv.levelOptimalMin)} - ${formatValue(tv.levelOptimalMax)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {descriptions?.optimal && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.optimal}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
+                        <span className="text-neutral-600 font-medium">Okay</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelLow !== null && tv.levelOptimalMin !== null
+                            ? `${formatValue(tv.levelLow)} - ${formatValue(tv.levelOptimalMin - decrementValue)} ${unit}`
+                            : tv.levelLow !== null
+                            ? `≥ ${formatValue(tv.levelLow)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {descriptions?.okay && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.okay}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+                        <span className="text-neutral-600 font-medium">Low</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelTooLow !== null && tv.levelLow !== null
+                            ? `${formatValue(tv.levelTooLow)} - ${formatValue(tv.levelLow - decrementValue)} ${unit}`
+                            : tv.levelTooLow !== null
+                            ? `≥ ${formatValue(tv.levelTooLow)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {descriptions?.low && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.low}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
+                        <span className="text-neutral-600 font-medium">Too Low</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelTooLow !== null
+                            ? `< ${formatValue(tv.levelTooLow)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {descriptions?.tooLow && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.tooLow}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                        <span className="text-neutral-600 font-medium">High</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelHigh !== null && tv.levelDangerous !== null
+                            ? `${formatValue(tv.levelHigh)} - ${formatValue(tv.levelDangerous - decrementValue)} ${unit}`
+                            : tv.levelHigh !== null
+                            ? `≥ ${formatValue(tv.levelHigh)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {descriptions?.high && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.high}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                        <span className="text-neutral-600 font-medium">Flood</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelDangerous !== null
+                            ? `≥ ${formatValue(tv.levelDangerous)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {descriptions?.flood && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{descriptions.flood}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Location */}
+          <div className="flex items-center gap-2 text-xs text-neutral-500">
+            <MapPin className="w-3.5 h-3.5" />
+            <span>{gauge.coordinates.lat.toFixed(5)}, {gauge.coordinates.lng.toFixed(5)}</span>
+          </div>
+
+          {/* Last Updated */}
+          {gauge.readingTimestamp && (
+            <div className="flex items-center gap-2 text-xs text-neutral-500">
+              <Clock className="w-3.5 h-3.5" />
+              <span>
+                Updated {new Date(gauge.readingTimestamp).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

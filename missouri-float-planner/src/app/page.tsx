@@ -51,7 +51,7 @@ interface RiverConditionRow {
 function HomeContent() {
   const { data: rivers } = useRivers();
   const { data: gauges } = useGaugeStations();
-  const [homeUnit, setHomeUnit] = useState<'ft' | 'cfs'>('ft');
+
 
   // Compute per-river conditions from gauge data
   const riverConditions = useMemo((): RiverConditionRow[] => {
@@ -162,28 +162,6 @@ function HomeContent() {
                   />
                   <h2 className="text-xl lg:text-2xl font-bold text-white">River Conditions</h2>
                 </div>
-                <div className="flex rounded-md overflow-hidden border border-white/20">
-                  <button
-                    onClick={() => setHomeUnit('ft')}
-                    className={`px-2 py-1 text-xs font-medium transition-colors ${
-                      homeUnit === 'ft'
-                        ? 'bg-white/20 text-white'
-                        : 'text-white/50 hover:text-white/70'
-                    }`}
-                  >
-                    ft
-                  </button>
-                  <button
-                    onClick={() => setHomeUnit('cfs')}
-                    className={`px-2 py-1 text-xs font-medium transition-colors ${
-                      homeUnit === 'cfs'
-                        ? 'bg-white/20 text-white'
-                        : 'text-white/50 hover:text-white/70'
-                    }`}
-                  >
-                    cfs
-                  </button>
-                </div>
               </div>
 
               {/* Per-River Condition Rows */}
@@ -213,10 +191,7 @@ function HomeContent() {
                           {rc.conditionLabel}
                         </span>
                         <span className="text-sm font-bold text-white/70 tabular-nums w-20 text-right">
-                          {homeUnit === 'cfs'
-                            ? (rc.dischargeCfs !== null ? `${rc.dischargeCfs.toLocaleString()} cfs` : '--')
-                            : (rc.gaugeHeightFt !== null ? `${rc.gaugeHeightFt.toFixed(1)} ft` : '--')
-                          }
+                          {rc.gaugeHeightFt !== null ? `${rc.gaugeHeightFt.toFixed(1)} ft` : '--'}
                         </span>
                       </div>
                     </Link>

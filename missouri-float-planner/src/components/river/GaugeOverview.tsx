@@ -361,25 +361,83 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
   );
 }
 
-// Expanded gauge detail panel
+// Expanded gauge detail panel with per-card unit toggle
 function GaugeExpandedDetail({
   gauge,
   riverId,
   condition,
-  effectiveUnit,
 }: {
   gauge: GaugeStation;
   riverId: string;
   condition: { code: ConditionCode; label: string; color: string };
-  effectiveUnit: 'ft' | 'cfs';
 }) {
   const [dateRange, setDateRange] = useState(7);
 
   const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
     || gauge.thresholds?.find(t => t.riverId === riverId);
 
+  const primaryUnit = threshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+  const altUnit = primaryUnit === 'cfs' ? 'ft' : 'cfs';
+  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs'>(primaryUnit);
+  const showingAlt = displayUnit !== primaryUnit;
+
+  // Pick thresholds based on which unit we're displaying
+  const tv = showingAlt
+    ? {
+        levelTooLow: threshold?.altLevelTooLow ?? null,
+        levelLow: threshold?.altLevelLow ?? null,
+        levelOptimalMin: threshold?.altLevelOptimalMin ?? null,
+        levelOptimalMax: threshold?.altLevelOptimalMax ?? null,
+        levelHigh: threshold?.altLevelHigh ?? null,
+        levelDangerous: threshold?.altLevelDangerous ?? null,
+      }
+    : {
+        levelTooLow: threshold?.levelTooLow ?? null,
+        levelLow: threshold?.levelLow ?? null,
+        levelOptimalMin: threshold?.levelOptimalMin ?? null,
+        levelOptimalMax: threshold?.levelOptimalMax ?? null,
+        levelHigh: threshold?.levelHigh ?? null,
+        levelDangerous: threshold?.levelDangerous ?? null,
+      };
+
+  // Check if alt thresholds have any data
+  const hasAltThresholds = threshold && (
+    threshold.altLevelTooLow !== null || threshold.altLevelLow !== null ||
+    threshold.altLevelOptimalMin !== null || threshold.altLevelOptimalMax !== null ||
+    threshold.altLevelHigh !== null || threshold.altLevelDangerous !== null
+  );
+
   return (
     <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
+      {/* Per-card unit toggle */}
+      {hasAltThresholds && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-medium text-neutral-500">Display unit:</span>
+          <div className="flex rounded-md border border-neutral-300 overflow-hidden">
+            <button
+              onClick={() => setDisplayUnit(primaryUnit)}
+              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                displayUnit === primaryUnit
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
+              }`}
+            >
+              {primaryUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
+            </button>
+            <button
+              onClick={() => setDisplayUnit(altUnit)}
+              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                displayUnit === altUnit
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
+              }`}
+            >
+              {altUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Row: Weather (left) + Current Readings (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Left Column - Weather */}
@@ -398,7 +456,7 @@ function GaugeExpandedDetail({
             Current Readings
           </h4>
           {(() => {
-            const useCfs = effectiveUnit === 'cfs';
+            const useCfs = displayUnit === 'cfs';
             const primaryLabel = useCfs ? 'Flow' : 'Stage';
             const primaryIcon = useCfs ? <Activity className="w-4 h-4 text-primary-600" /> : <Droplets className="w-4 h-4 text-primary-600" />;
             const primaryValue = useCfs
@@ -489,9 +547,9 @@ function GaugeExpandedDetail({
 
         {/* Right Column - Details */}
         <div className="space-y-4">
-          {/* Thresholds */}
+          {/* Thresholds - uses toggled unit values */}
           {threshold && (() => {
-            const unit = threshold.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+            const unit = displayUnit;
             const formatValue = (val: number) => {
               if (unit === 'cfs') {
                 return val.toLocaleString();
@@ -502,14 +560,17 @@ function GaugeExpandedDetail({
               if (unit === 'cfs') {
                 return `${min.toLocaleString()} - ${max.toLocaleString()} ${unit}`;
               }
-              return `${min} - ${max} ${unit}`;
+              return `${min.toFixed(2)} - ${max.toFixed(2)} ${unit}`;
             };
             const decrementValue = unit === 'cfs' ? 1 : 0.01;
 
             return (
               <div>
                 <h4 className="text-sm font-semibold text-neutral-700 mb-3">
-                  Condition Thresholds {unit === 'cfs' && <span className="font-normal text-neutral-500">(using flow)</span>}
+                  Condition Thresholds
+                  <span className="font-normal text-neutral-500 ml-1">
+                    ({unit === 'cfs' ? 'flow' : 'gauge height'})
+                  </span>
                 </h4>
                 <div className="bg-white border border-neutral-200 rounded-lg p-3">
                   <div className="space-y-2 text-sm">
@@ -519,8 +580,8 @@ function GaugeExpandedDetail({
                         <span className="text-neutral-600">Optimal</span>
                       </div>
                       <span className="font-mono text-neutral-900">
-                        {threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null
-                          ? formatRange(threshold.levelOptimalMin, threshold.levelOptimalMax)
+                        {tv.levelOptimalMin !== null && tv.levelOptimalMax !== null
+                          ? formatRange(tv.levelOptimalMin, tv.levelOptimalMax)
                           : 'N/A'}
                       </span>
                     </div>
@@ -530,10 +591,10 @@ function GaugeExpandedDetail({
                         <span className="text-neutral-600">Okay</span>
                       </div>
                       <span className="font-mono text-neutral-900">
-                        {threshold.levelLow !== null && threshold.levelOptimalMin !== null
-                          ? `${formatValue(threshold.levelLow)} - ${formatValue(threshold.levelOptimalMin - decrementValue)} ${unit}`
-                          : threshold.levelLow !== null
-                          ? `≥ ${formatValue(threshold.levelLow)} ${unit}`
+                        {tv.levelLow !== null && tv.levelOptimalMin !== null
+                          ? `${formatValue(tv.levelLow)} - ${formatValue(tv.levelOptimalMin - decrementValue)} ${unit}`
+                          : tv.levelLow !== null
+                          ? `≥ ${formatValue(tv.levelLow)} ${unit}`
                           : 'N/A'}
                       </span>
                     </div>
@@ -543,10 +604,10 @@ function GaugeExpandedDetail({
                         <span className="text-neutral-600">Low</span>
                       </div>
                       <span className="font-mono text-neutral-900">
-                        {threshold.levelTooLow !== null && threshold.levelLow !== null
-                          ? `${formatValue(threshold.levelTooLow)} - ${formatValue(threshold.levelLow - decrementValue)} ${unit}`
-                          : threshold.levelTooLow !== null
-                          ? `≥ ${formatValue(threshold.levelTooLow)} ${unit}`
+                        {tv.levelTooLow !== null && tv.levelLow !== null
+                          ? `${formatValue(tv.levelTooLow)} - ${formatValue(tv.levelLow - decrementValue)} ${unit}`
+                          : tv.levelTooLow !== null
+                          ? `≥ ${formatValue(tv.levelTooLow)} ${unit}`
                           : 'N/A'}
                       </span>
                     </div>
@@ -556,8 +617,8 @@ function GaugeExpandedDetail({
                         <span className="text-neutral-600">Too Low</span>
                       </div>
                       <span className="font-mono text-neutral-900">
-                        {threshold.levelTooLow !== null
-                          ? `< ${formatValue(threshold.levelTooLow)} ${unit}`
+                        {tv.levelTooLow !== null
+                          ? `< ${formatValue(tv.levelTooLow)} ${unit}`
                           : 'N/A'}
                       </span>
                     </div>
@@ -567,10 +628,10 @@ function GaugeExpandedDetail({
                         <span className="text-neutral-600">High</span>
                       </div>
                       <span className="font-mono text-neutral-900">
-                        {threshold.levelHigh !== null && threshold.levelDangerous !== null
-                          ? `${formatValue(threshold.levelHigh)} - ${formatValue(threshold.levelDangerous - decrementValue)} ${unit}`
-                          : threshold.levelHigh !== null
-                          ? `≥ ${formatValue(threshold.levelHigh)} ${unit}`
+                        {tv.levelHigh !== null && tv.levelDangerous !== null
+                          ? `${formatValue(tv.levelHigh)} - ${formatValue(tv.levelDangerous - decrementValue)} ${unit}`
+                          : tv.levelHigh !== null
+                          ? `≥ ${formatValue(tv.levelHigh)} ${unit}`
                           : 'N/A'}
                       </span>
                     </div>
@@ -580,8 +641,8 @@ function GaugeExpandedDetail({
                         <span className="text-neutral-600">Flood</span>
                       </div>
                       <span className="font-mono text-neutral-900">
-                        {threshold.levelDangerous !== null
-                          ? `≥ ${formatValue(threshold.levelDangerous)} ${unit}`
+                        {tv.levelDangerous !== null
+                          ? `≥ ${formatValue(tv.levelDangerous)} ${unit}`
                           : 'N/A'}
                       </span>
                     </div>
@@ -625,15 +686,6 @@ export default function GaugeOverview({
   putInCoordinates,
 }: GaugeOverviewProps) {
   const [expandedGaugeId, setExpandedGaugeId] = useState<string | null>(null);
-  const [displayUnit, setDisplayUnit] = useState<'auto' | 'ft' | 'cfs'>('auto');
-
-  // Resolve effective display unit for a gauge
-  const getEffectiveUnit = (gauge: GaugeStation): 'ft' | 'cfs' => {
-    if (displayUnit !== 'auto') return displayUnit;
-    const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
-      || gauge.thresholds?.find(t => t.riverId === riverId);
-    return threshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-  };
 
   // Find the gauge closest to put-in
   const closestGaugeId = useMemo(() => {
@@ -720,30 +772,6 @@ export default function GaugeOverview({
 
   return (
     <CollapsibleSection title="River Conditions" defaultOpen={defaultOpen} badge={badge}>
-      {/* Unit toggle */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-medium text-neutral-500">Display:</span>
-        <div className="flex rounded-md border border-neutral-200 overflow-hidden">
-          {([
-            { value: 'auto', label: 'Auto' },
-            { value: 'ft', label: 'Gauge Ht' },
-            { value: 'cfs', label: 'CFS' },
-          ] as const).map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setDisplayUnit(opt.value)}
-              className={`px-2 py-1 text-xs font-medium transition-colors ${
-                displayUnit === opt.value
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="space-y-2">
         {gauges.map((gauge) => {
           const condition = getGaugeCondition(gauge, riverId);
@@ -795,7 +823,9 @@ export default function GaugeOverview({
                   {/* Right side - Readings and expand */}
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {(() => {
-                      const useCfs = getEffectiveUnit(gauge) === 'cfs';
+                      const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
+                        || gauge.thresholds?.find(t => t.riverId === riverId);
+                      const useCfs = threshold?.thresholdUnit === 'cfs';
 
                       // Show primary unit first, secondary second
                       const primaryReading = useCfs
@@ -846,7 +876,6 @@ export default function GaugeOverview({
                   gauge={gauge}
                   riverId={riverId}
                   condition={condition}
-                  effectiveUnit={getEffectiveUnit(gauge)}
                 />
               )}
             </div>

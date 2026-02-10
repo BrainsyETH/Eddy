@@ -43,6 +43,12 @@ export async function GET(request: NextRequest) {
         level_optimal_max,
         level_high,
         level_dangerous,
+        alt_level_too_low,
+        alt_level_low,
+        alt_level_optimal_min,
+        alt_level_optimal_max,
+        alt_level_high,
+        alt_level_dangerous,
         distance_from_section_miles,
         accuracy_warning_threshold_miles
       `);
@@ -81,6 +87,12 @@ export async function GET(request: NextRequest) {
       levelOptimalMax: number | null;
       levelHigh: number | null;
       levelDangerous: number | null;
+      altLevelTooLow: number | null;
+      altLevelLow: number | null;
+      altLevelOptimalMin: number | null;
+      altLevelOptimalMax: number | null;
+      altLevelHigh: number | null;
+      altLevelDangerous: number | null;
       distanceFromSectionMiles: number | null;
       accuracyWarningThresholdMiles: number;
     }>>();
@@ -102,6 +114,12 @@ export async function GET(request: NextRequest) {
         levelOptimalMax: rg.level_optimal_max,
         levelHigh: rg.level_high,
         levelDangerous: rg.level_dangerous,
+        altLevelTooLow: rg.alt_level_too_low,
+        altLevelLow: rg.alt_level_low,
+        altLevelOptimalMin: rg.alt_level_optimal_min,
+        altLevelOptimalMax: rg.alt_level_optimal_max,
+        altLevelHigh: rg.alt_level_high,
+        altLevelDangerous: rg.alt_level_dangerous,
         distanceFromSectionMiles: rg.distance_from_section_miles,
         accuracyWarningThresholdMiles: rg.accuracy_warning_threshold_miles,
       };
