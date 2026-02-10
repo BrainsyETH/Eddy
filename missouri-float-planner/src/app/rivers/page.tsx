@@ -21,26 +21,26 @@ const EDDY_IMAGES: Record<string, string> = {
 
 // River hero images - scenic photos for each river
 const RIVER_IMAGES: Record<string, string> = {
-  'meramec-river': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Meramec_River_Onondaga_Cave_State_Park.jpg/1280px-Meramec_River_Onondaga_Cave_State_Park.jpg',
-  'current-river': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Current_River_-_Missouri.jpg/1280px-Current_River_-_Missouri.jpg',
-  'eleven-point-river': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Eleven_Point_River.jpg/1280px-Eleven_Point_River.jpg',
+  'meramec': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Meramec_River_Onondaga_Cave_State_Park.jpg/1280px-Meramec_River_Onondaga_Cave_State_Park.jpg',
+  'current': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Current_River_-_Missouri.jpg/1280px-Current_River_-_Missouri.jpg',
+  'eleven-point': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Eleven_Point_River.jpg/1280px-Eleven_Point_River.jpg',
   'jacks-fork': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Jacks_Fork_River_in_Shannon_County%2C_Missouri.jpg/1280px-Jacks_Fork_River_in_Shannon_County%2C_Missouri.jpg',
-  'niangua-river': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Ha_Ha_Tonka_Spring_20090412.jpg/1280px-Ha_Ha_Tonka_Spring_20090412.jpg',
-  'big-piney-river': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Big_Piney_River.jpg/1280px-Big_Piney_River.jpg',
-  'huzzah-creek': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Huzzah_Creek_01.jpg/1280px-Huzzah_Creek_01.jpg',
-  'courtois-creek': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Courtois_Creek.jpg/1280px-Courtois_Creek.jpg',
+  'niangua': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Ha_Ha_Tonka_Spring_20090412.jpg/1280px-Ha_Ha_Tonka_Spring_20090412.jpg',
+  'big-piney': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Big_Piney_River.jpg/1280px-Big_Piney_River.jpg',
+  'huzzah': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Huzzah_Creek_01.jpg/1280px-Huzzah_Creek_01.jpg',
+  'courtois': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Courtois_Creek.jpg/1280px-Courtois_Creek.jpg',
 };
 
 // Brief descriptions for each river
 const RIVER_DESCRIPTIONS: Record<string, string> = {
-  'meramec-river': 'One of Missouri\'s longest free-flowing rivers, winding through scenic bluffs and popular with paddlers of all levels.',
-  'current-river': 'A National Scenic Riverway fed by massive springs, known for crystal-clear water and excellent floating year-round.',
-  'eleven-point-river': 'A designated National Scenic River offering remote floating through the Mark Twain National Forest.',
+  'meramec': 'One of Missouri\'s longest free-flowing rivers, winding through scenic bluffs and popular with paddlers of all levels.',
+  'current': 'A National Scenic Riverway fed by massive springs, known for crystal-clear water and excellent floating year-round.',
+  'eleven-point': 'A designated National Scenic River offering remote floating through the Mark Twain National Forest.',
   'jacks-fork': 'A spring-fed tributary of the Current River within the Ozark National Scenic Riverways, great for shorter float trips.',
-  'niangua-river': 'A scenic Ozark stream flowing through Camden and Dallas counties, popular for leisurely summer floats.',
-  'big-piney-river': 'A beautiful Ozark river with Class I-II rapids, bluffs, and a remote feel — excellent for intermediate paddlers.',
-  'huzzah-creek': 'A smaller, spring-fed stream in the Meramec basin known for quick floats and family-friendly conditions.',
-  'courtois-creek': 'A tributary of the Huzzah, offering intimate floating through wooded Ozark hills with relatively consistent water levels.',
+  'niangua': 'A scenic Ozark stream flowing through Camden and Dallas counties, popular for leisurely summer floats.',
+  'big-piney': 'A beautiful Ozark river with Class I-II rapids, bluffs, and a remote feel — excellent for intermediate paddlers.',
+  'huzzah': 'A smaller, spring-fed stream in the Meramec basin known for quick floats and family-friendly conditions.',
+  'courtois': 'A tributary of the Huzzah, offering intimate floating through wooded Ozark hills with relatively consistent water levels.',
 };
 
 function getEddyImage(code?: ConditionCode | null): string {
