@@ -7,6 +7,7 @@ import { fetchNPSCampgrounds, fetchNPSPlaces } from './client';
 
 interface SyncResult {
   campgroundsSynced: number;
+  campgroundsMatched: number;
   placesSynced: number;
   poisCreated: number;
   errors: number;
@@ -19,13 +20,14 @@ interface SyncResult {
 export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult> {
   const result: SyncResult = {
     campgroundsSynced: 0,
+    campgroundsMatched: 0,
     placesSynced: 0,
     poisCreated: 0,
     errors: 0,
     errorDetails: [],
   };
 
-  // 1. Sync campgrounds (matching to access points is done via SQL migration)
+  // 1. Sync campgrounds
   try {
     const campgrounds = await fetchNPSCampgrounds();
     for (const cg of campgrounds) {
@@ -40,6 +42,14 @@ export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult>
   } catch (err) {
     result.errors++;
     result.errorDetails.push(`Campground fetch: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 2. Match campgrounds to access points using geographic proximity + name
+  try {
+    result.campgroundsMatched = await matchCampgroundsToAccessPoints(supabase);
+  } catch (err) {
+    result.errors++;
+    result.errorDetails.push(`Campground matching: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 3. Sync places as POIs
@@ -253,6 +263,47 @@ async function upsertPlace(supabase: SupabaseClient, place: NPSPlaceRaw): Promis
     .eq('nps_id', place.id);
 
   return isNew;
+}
+
+/**
+ * Match NPS campgrounds to access points using geographic proximity + name.
+ * Uses the match_nps_campground_to_access_point RPC (created in migration 00038)
+ * which finds the closest approved access point within 2km, preferring name matches.
+ *
+ * This runs after every sync to catch newly synced campgrounds and fix any
+ * access points that lost their link. The RPC is idempotent — re-running it
+ * produces the same result.
+ */
+async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise<number> {
+  // Get all campgrounds with valid coordinates
+  const { data: campgrounds, error } = await supabase
+    .from('nps_campgrounds')
+    .select('id, name, latitude, longitude')
+    .not('latitude', 'is', null)
+    .not('longitude', 'is', null);
+
+  if (error || !campgrounds) return 0;
+
+  let matched = 0;
+
+  for (const cg of campgrounds) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.rpc as any)('match_nps_campground_to_access_point', {
+        p_nps_campground_id: cg.id,
+        p_lat: cg.latitude,
+        p_lng: cg.longitude,
+        p_name: cg.name.replace(/\s+(Group\s+)?Campground$/i, ''),
+        p_max_distance_meters: 5000,
+      });
+
+      if (data) matched++;
+    } catch {
+      // RPC may not exist in older schemas — skip silently
+    }
+  }
+
+  return matched;
 }
 
 /**
