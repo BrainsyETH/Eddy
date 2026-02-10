@@ -81,7 +81,50 @@ This document lists all required API keys and environment variables for the Miss
 
 ---
 
-### 4. Cron Security (Required)
+### 4. NPS API (Required for NPS Campground Sync)
+
+**Variable:**
+- `NPS_API_KEY`
+
+**Where to get it:**
+1. Sign up at https://www.nps.gov/subjects/developer/get-started.htm
+2. Request an API key (instant approval)
+3. Copy your API key
+
+**Pricing:**
+- Free — 1,000 requests per hour
+
+**Vercel Setup:**
+- Add to Environment Variables
+- Mark as **sensitive**
+
+---
+
+### 5. RIDB / Recreation.gov (Required for USFS Campground Sync)
+
+**Variable:**
+- `RIDB_API_KEY`
+
+**Where to get it:**
+1. Go to https://ridb.recreation.gov
+2. Create an account or sign in
+3. Click your name (top right) to find your API key
+
+**Pricing:**
+- Free — 50 requests per minute
+
+**Usage:**
+- Used by the USFS sync cron (`/api/cron/sync-usfs`) to fetch campgrounds
+  and recreation facilities near Missouri rivers from Recreation.gov
+- Syncs USFS-managed campgrounds in Mark Twain National Forest
+
+**Vercel Setup:**
+- Add to Environment Variables
+- Mark as **sensitive**
+
+---
+
+### 6. Cron Security (Required)
 
 **Variable:**
 - `CRON_SECRET`
@@ -101,7 +144,7 @@ Or use any random string generator (at least 32 characters recommended).
 
 ---
 
-### 5. Application URL (Required for Shareable Links)
+### 7. Application URL (Required for Shareable Links)
 
 **Variable:**
 - `NEXT_PUBLIC_BASE_URL`
@@ -138,6 +181,8 @@ Or use any random string generator (at least 32 characters recommended).
    - [ ] `SUPABASE_SERVICE_ROLE_KEY` (sensitive)
    - [ ] `MAPBOX_ACCESS_TOKEN` (sensitive)
    - [ ] `NEXT_PUBLIC_MAP_STYLE_URL`
+   - [ ] `NPS_API_KEY` (sensitive)
+   - [ ] `RIDB_API_KEY` (sensitive)
    - [ ] `CRON_SECRET` (sensitive)
    - [ ] `NEXT_PUBLIC_BASE_URL`
 
@@ -163,6 +208,12 @@ MAPBOX_ACCESS_TOKEN=pk.eyJ...
 # Map Tiles
 NEXT_PUBLIC_MAP_STYLE_URL=https://api.maptiler.com/maps/streets/style.json?key=YOUR_KEY
 
+# NPS API (campground sync)
+NPS_API_KEY=your-nps-api-key
+
+# RIDB / Recreation.gov (USFS campground sync)
+RIDB_API_KEY=your-ridb-api-key
+
 # Cron Security
 CRON_SECRET=your-random-secret-here
 
@@ -185,6 +236,8 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ### Expected Usage:
 - Drive time API: ~10-50 requests/day (cached for 30 days)
 - Map tiles: ~1,000-5,000 loads/month
+- NPS sync: ~50 requests/week (Sunday cron)
+- RIDB sync: ~50 requests/week (Sunday cron)
 - **Total estimated cost: $0/month** (within free tiers)
 
 ---
@@ -223,6 +276,8 @@ Once you've added the keys, test them:
 ⚠️ **Never expose these in client-side code:**
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `MAPBOX_ACCESS_TOKEN` (if using in server-side only)
+- `NPS_API_KEY`
+- `RIDB_API_KEY`
 - `CRON_SECRET`
 
 ✅ **Safe to expose (start with `NEXT_PUBLIC_`):**
