@@ -14,10 +14,6 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'www.nps.gov',
       },
-      {
-        protocol: 'https',
-        hostname: 'upload.wikimedia.org',
-      },
     ],
   },
 };
