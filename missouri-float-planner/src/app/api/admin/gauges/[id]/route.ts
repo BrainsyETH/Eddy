@@ -139,21 +139,33 @@ export async function PUT(
         gaugeUpdate.notes = notes || null;
       }
 
-      const { error: gaugeError } = await supabase
+      const { data: gaugeUpdated, error: gaugeError } = await supabase
         .from('gauge_stations')
         .update(gaugeUpdate)
-        .eq('id', id);
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
 
       if (gaugeError) {
-        console.error('Error updating gauge station:', gaugeError);
+        console.error('Error updating gauge station:', gaugeError, { id, gaugeUpdate });
         return NextResponse.json(
-          { error: 'Could not update gauge station' },
+          { error: `Could not update gauge station: ${gaugeError.message}` },
           { status: 500 }
+        );
+      }
+
+      if (!gaugeUpdated) {
+        console.warn('Gauge station update matched 0 rows:', { id, gaugeUpdate });
+        return NextResponse.json(
+          { error: `No gauge station found with id ${id}` },
+          { status: 404 }
         );
       }
     }
 
     // Update river_gauges (thresholds) if provided
+    const updatedAssociations: Array<{ id: string; riverName: string; fieldsUpdated: number }> = [];
+
     if (riverAssociations && Array.isArray(riverAssociations)) {
       for (const assoc of riverAssociations) {
         if (!assoc.id) continue;
@@ -163,43 +175,64 @@ export async function PUT(
         if (assoc.thresholdUnit !== undefined) {
           thresholdUpdate.threshold_unit = assoc.thresholdUnit;
         }
-        if (assoc.levelTooLow !== undefined) {
-          thresholdUpdate.level_too_low = assoc.levelTooLow === '' ? null : parseFloat(assoc.levelTooLow);
-        }
-        if (assoc.levelLow !== undefined) {
-          thresholdUpdate.level_low = assoc.levelLow === '' ? null : parseFloat(assoc.levelLow);
-        }
-        if (assoc.levelOptimalMin !== undefined) {
-          thresholdUpdate.level_optimal_min = assoc.levelOptimalMin === '' ? null : parseFloat(assoc.levelOptimalMin);
-        }
-        if (assoc.levelOptimalMax !== undefined) {
-          thresholdUpdate.level_optimal_max = assoc.levelOptimalMax === '' ? null : parseFloat(assoc.levelOptimalMax);
-        }
-        if (assoc.levelHigh !== undefined) {
-          thresholdUpdate.level_high = assoc.levelHigh === '' ? null : parseFloat(assoc.levelHigh);
-        }
-        if (assoc.levelDangerous !== undefined) {
-          thresholdUpdate.level_dangerous = assoc.levelDangerous === '' ? null : parseFloat(assoc.levelDangerous);
+
+        // Parse numeric values — handle both string and number inputs
+        const numericFields = [
+          ['levelTooLow', 'level_too_low'],
+          ['levelLow', 'level_low'],
+          ['levelOptimalMin', 'level_optimal_min'],
+          ['levelOptimalMax', 'level_optimal_max'],
+          ['levelHigh', 'level_high'],
+          ['levelDangerous', 'level_dangerous'],
+        ] as const;
+
+        for (const [frontendKey, dbKey] of numericFields) {
+          if (assoc[frontendKey] !== undefined) {
+            const val = assoc[frontendKey];
+            if (val === '' || val === null) {
+              thresholdUpdate[dbKey] = null;
+            } else {
+              const parsed = typeof val === 'number' ? val : parseFloat(val);
+              thresholdUpdate[dbKey] = isNaN(parsed) ? null : parsed;
+            }
+          }
         }
 
         if (Object.keys(thresholdUpdate).length > 0) {
-          const { error: thresholdError } = await supabase
+          // Use .select() to verify the update actually persisted
+          const { data: updated, error: thresholdError } = await supabase
             .from('river_gauges')
             .update(thresholdUpdate)
-            .eq('id', assoc.id);
+            .eq('id', assoc.id)
+            .select('id')
+            .maybeSingle();
 
           if (thresholdError) {
-            console.error('Error updating river gauge thresholds:', thresholdError);
+            console.error('Error updating river gauge thresholds:', thresholdError, { assocId: assoc.id, thresholdUpdate });
             return NextResponse.json(
-              { error: `Could not update thresholds for ${assoc.riverName}` },
+              { error: `Could not update thresholds for ${assoc.riverName}: ${thresholdError.message}` },
               { status: 500 }
             );
           }
+
+          if (!updated) {
+            console.warn('Gauge threshold update matched 0 rows:', { assocId: assoc.id, thresholdUpdate });
+            return NextResponse.json(
+              { error: `No river gauge found with id ${assoc.id} for ${assoc.riverName}` },
+              { status: 404 }
+            );
+          }
+
+          updatedAssociations.push({
+            id: assoc.id,
+            riverName: assoc.riverName || 'Unknown',
+            fieldsUpdated: Object.keys(thresholdUpdate).length,
+          });
         }
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, updatedAssociations });
   } catch (error) {
     console.error('Error in update gauge endpoint:', error);
     return NextResponse.json(

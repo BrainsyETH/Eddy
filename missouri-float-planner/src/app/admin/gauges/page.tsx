@@ -95,7 +95,8 @@ export default function AdminGaugesPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await adminFetch('/api/admin/gauges');
+      // Cache-bust to ensure fresh data after saves
+      const response = await adminFetch(`/api/admin/gauges?_t=${Date.now()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch gauges');
       }

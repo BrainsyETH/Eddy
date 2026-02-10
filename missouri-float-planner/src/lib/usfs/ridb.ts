@@ -114,6 +114,7 @@ export async function fetchFacilitiesByProximity(
     radius: String(radius),
     limit: String(params.limit || 50),
     offset: String(params.offset || 0),
+    full: 'true', // Include nested ORGANIZATION/ACTIVITY arrays
   };
   if (params.activity) queryParams.activity = params.activity;
 
@@ -202,17 +203,31 @@ export function isCampground(facility: RIDBFacility): boolean {
 }
 
 /**
- * Check if a facility is managed by the U.S. Forest Service
+ * Check if a facility is managed by the U.S. Forest Service.
+ * Checks ParentOrgID (top-level, always present) and ORGANIZATION array
+ * (only populated when full=true is used in the query).
  */
 export function isUSFS(facility: RIDBFacility): boolean {
+  // ParentOrgID "131" = USDA Forest Service in RIDB
+  if (facility.ParentOrgID === '131') return true;
+
+  // Fallback: check nested ORGANIZATION array (requires full=true)
   const orgs = facility.ORGANIZATION || [];
-  return orgs.some(
-    (o) =>
-      o.OrgType === 'USDA' ||
-      o.OrgAbbrevName === 'FS' ||
-      o.OrgName.toLowerCase().includes('forest service') ||
-      o.OrgName.toLowerCase().includes('usda')
-  );
+  return orgs.some((o) => {
+    if (o.OrgParentID === '131') return true;
+    const name = (o.OrgName || '').toLowerCase();
+    const type = (o.OrgType || '').toLowerCase();
+    const abbrev = (o.OrgAbbrevName || '').toLowerCase();
+    return (
+      type === 'usda' ||
+      abbrev === 'fs' ||
+      abbrev === 'usfs' ||
+      name.includes('forest service') ||
+      name.includes('usda') ||
+      name.includes('u.s. forest') ||
+      name.includes('us forest')
+    );
+  });
 }
 
 /**
