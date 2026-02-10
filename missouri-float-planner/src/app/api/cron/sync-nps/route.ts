@@ -36,6 +36,16 @@ export async function POST(request: NextRequest) {
     // Run full NPS sync
     const result = await syncNPSData(supabase);
 
+    // Link NPS campgrounds to Jacks Fork access points (e.g. Blue Spring)
+    // so "NPS Campground Info" appears without running a separate SQL script.
+    let jacksForkLinksUpdated = 0;
+    try {
+      const { data: count, error } = await supabase.rpc('link_jacks_fork_nps_campgrounds');
+      if (!error && typeof count === 'number') jacksForkLinksUpdated = count;
+    } catch {
+      // RPC may not exist in older DBs; non-fatal
+    }
+
     const durationMs = Date.now() - startTime;
 
     // Log the sync run
@@ -62,6 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'NPS sync complete',
       ...result,
+      jacksForkLinksUpdated,
       durationMs,
     });
   } catch (error) {
