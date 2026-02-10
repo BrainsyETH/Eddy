@@ -99,6 +99,15 @@ export default function EmbedPage() {
   Check ${selectedRiverName} Conditions
 </a>`;
 
+  const plannerCode = `<iframe
+  src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
+  width="100%"
+  height="320"
+  style="border: none; border-radius: 12px; max-width: 400px;"
+  title="Plan Your Float - Eddy"
+  loading="lazy"
+></iframe>`;
+
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Header */}
@@ -245,14 +254,16 @@ export default function EmbedPage() {
               {/* Live Preview */}
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
-                <div className={`rounded-xl border-2 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'} overflow-hidden`}>
-                  <iframe
-                    src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
-                    width="100%"
-                    height="180"
-                    style={{ border: 'none', borderRadius: '12px', maxWidth: '400px' }}
-                    title="Widget preview"
-                  />
+                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+                  <div style={{ maxWidth: 400 }}>
+                    <iframe
+                      src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
+                      width="100%"
+                      height="180"
+                      style={{ border: 'none', borderRadius: '12px' }}
+                      title="Widget preview"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -311,6 +322,53 @@ export default function EmbedPage() {
               </div>
 
               <CopyButton text={linkCode} large />
+            </div>
+          </div>
+
+          {/* === OPTION C: Float Planner === */}
+          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden mt-6">
+            <div className="px-6 py-4 border-b-2 border-neutral-100">
+              <h3 className="text-lg font-bold text-neutral-900">Float Trip Planner</h3>
+              <p className="text-sm text-neutral-600 mt-1">
+                Let visitors pick a river, put-in, and take-out right from your site.
+                Takes them to Eddy with the trip pre-loaded.
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Preview */}
+              <div className="mb-4">
+                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
+                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+                  <div style={{ maxWidth: 400 }}>
+                    <iframe
+                      src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
+                      width="100%"
+                      height="320"
+                      style={{ border: 'none', borderRadius: '12px' }}
+                      title="Float planner preview"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Code block */}
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
+                  <CopyButton text={plannerCode} />
+                </div>
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto">
+                  <code>{plannerCode}</code>
+                </pre>
+              </div>
+
+              <CopyButton text={plannerCode} large />
+
+              <p className="text-xs text-neutral-500 mt-3">
+                The selected river above will be pre-selected in the planner. Visitors can still
+                change to a different river if they want.
+              </p>
             </div>
           </div>
         </section>
