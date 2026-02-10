@@ -2,6 +2,11 @@
 // USFS data sync logic — fetches RIDB facilities near Missouri rivers
 // and upserts campgrounds as pending POIs in Supabase.
 // Admins can then review and optionally promote to access points.
+//
+// Key improvement: Uses PostGIS river geometry (find_nearest_river RPC)
+// to post-filter RIDB results, ensuring only facilities actually near
+// a river are synced. Search radius tightened to 5 miles, then verified
+// against river geometry within 1.5km.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RIDBFacility } from '@/types/ridb';
@@ -12,8 +17,13 @@ import {
   getReservationURL,
 } from './ridb';
 
-// Search radius in miles from each gauge station
-const SEARCH_RADIUS_MILES = 15;
+// Search radius in miles from each gauge station (tightened from 15)
+const SEARCH_RADIUS_MILES = 5;
+
+// Max distance from river geometry (meters) to accept a facility.
+// 1500m ≈ ~1 mile — generous enough for campgrounds with river access
+// but filters out facilities that happen to be in the same county.
+const RIVER_PROXIMITY_METERS = 1500;
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -33,12 +43,14 @@ export interface USFSSyncFacility {
   reservationUrl: string | null;
   activities: string[];
   nearestRiver: string;
+  distanceFromRiverMeters: number | null;
   outcome?: string;
 }
 
 export interface USFSSyncResult {
   facilitiesFetched: number;
   facilitiesFiltered: number;
+  facilitiesNearRiver: number;
   campgroundsSynced: number;
   campgroundsMatched: number;
   poisCreated: number;
@@ -129,12 +141,58 @@ function extractCoords(location: unknown): { lat: number; lng: number } | null {
 }
 
 // ─────────────────────────────────────────────────────────────
+// River proximity check via PostGIS
+// ─────────────────────────────────────────────────────────────
+
+interface RiverProximityResult {
+  nearRiver: boolean;
+  riverId?: string;
+  riverName?: string;
+  distanceMeters?: number;
+}
+
+/**
+ * Check if a point is near any active river's geometry using PostGIS.
+ * Uses the find_nearest_river() RPC (migration 00038) which does
+ * ST_DWithin on river geometries.
+ */
+async function checkRiverProximity(
+  supabase: SupabaseClient,
+  lat: number,
+  lng: number,
+  maxDistanceMeters: number = RIVER_PROXIMITY_METERS
+): Promise<RiverProximityResult> {
+  try {
+    const { data, error } = await supabase.rpc('find_nearest_river', {
+      p_lat: lat,
+      p_lng: lng,
+      p_max_distance_meters: maxDistanceMeters,
+    });
+
+    if (error || !data || data.length === 0) {
+      return { nearRiver: false };
+    }
+
+    return {
+      nearRiver: true,
+      riverId: data[0].river_id,
+      riverName: data[0].river_name,
+      distanceMeters: data[0].distance_meters,
+    };
+  } catch {
+    // RPC not available — skip proximity check
+    return { nearRiver: false };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Main sync function
 // ─────────────────────────────────────────────────────────────
 
 /**
  * Full USFS data sync: fetch RIDB facilities near all rivers,
- * filter to USFS-managed campgrounds, and sync as pending POIs.
+ * filter to USFS-managed campgrounds that are within 1.5km of
+ * actual river geometry, and sync as pending POIs.
  * Items are created with active=false so admins can review them.
  *
  * @param dryRun If true, fetches and filters but does not write to DB
@@ -148,6 +206,7 @@ export async function syncUSFSData(
   const result: USFSSyncResult = {
     facilitiesFetched: 0,
     facilitiesFiltered: 0,
+    facilitiesNearRiver: 0,
     campgroundsSynced: 0,
     campgroundsMatched: 0,
     poisCreated: 0,
@@ -171,6 +230,11 @@ export async function syncUSFSData(
 
   const riverMap = new Map<string, { id: string; name: string }>(
     rivers.map((r: { slug: string; id: string; name: string }) => [r.slug, { id: r.id, name: r.name }])
+  );
+
+  // Build river ID to name map for proximity results
+  const riverIdMap = new Map<string, string>(
+    rivers.map((r: { id: string; name: string }) => [r.id, r.name])
   );
 
   // 2. Get search points from actual gauge station locations
@@ -221,17 +285,29 @@ export async function syncUSFSData(
     }
   }
 
-  // 4. Process each USFS facility
+  // 4. Post-filter: check each facility against actual river geometry
   for (const [, { facility, riverSlug }] of Array.from(allFacilities)) {
-    const river = riverMap.get(riverSlug);
-    if (!river) continue;
+    const fallbackRiver = riverMap.get(riverSlug);
+    if (!fallbackRiver) continue;
+
+    const lat = facility.FacilityLatitude;
+    const lng = facility.FacilityLongitude;
+
+    // Check proximity to actual river geometry via PostGIS
+    const proximity = await checkRiverProximity(supabase, lat, lng, RIVER_PROXIMITY_METERS);
+
+    // Use the actual nearest river from PostGIS if available, otherwise fall back
+    const actualRiverId = proximity.nearRiver ? proximity.riverId! : fallbackRiver.id;
+    const actualRiverName = proximity.nearRiver
+      ? (riverIdMap.get(proximity.riverId!) || proximity.riverName || fallbackRiver.name)
+      : fallbackRiver.name;
 
     const facilityInfo: USFSSyncFacility = {
       facilityId: facility.FacilityID,
       name: facility.FacilityName,
       type: facility.FacilityTypeDescription || 'Unknown',
-      lat: facility.FacilityLatitude,
-      lng: facility.FacilityLongitude,
+      lat,
+      lng,
       isCampground: isCampground(facility),
       isUSFS: true,
       reservable: facility.Reservable,
@@ -239,24 +315,34 @@ export async function syncUSFSData(
       description: stripHtml(facility.FacilityDescription || '').substring(0, 200),
       reservationUrl: getReservationURL(facility),
       activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
-      nearestRiver: river.name,
+      nearestRiver: actualRiverName,
+      distanceFromRiverMeters: proximity.distanceMeters ?? null,
     };
 
+    // Skip facilities not near any river geometry
+    if (!proximity.nearRiver) {
+      facilityInfo.outcome = `skipped (${RIVER_PROXIMITY_METERS}m+ from river geometry)`;
+      result.facilities.push(facilityInfo);
+      continue;
+    }
+
+    result.facilitiesNearRiver++;
+
     if (!isCampground(facility)) {
-      facilityInfo.outcome = 'skipped (not campground)';
+      facilityInfo.outcome = `skipped (not campground, ${Math.round(proximity.distanceMeters!)}m from ${actualRiverName})`;
       result.facilities.push(facilityInfo);
       continue;
     }
 
     if (dryRun) {
-      facilityInfo.outcome = 'dry run — would sync as pending POI';
+      facilityInfo.outcome = `dry run — would sync (${Math.round(proximity.distanceMeters!)}m from ${actualRiverName})`;
       result.campgroundsSynced++;
       result.facilities.push(facilityInfo);
       continue;
     }
 
     try {
-      const syncOutcome = await syncCampgroundAsPOI(supabase, facility, river.id);
+      const syncOutcome = await syncCampgroundAsPOI(supabase, facility, actualRiverId);
       result.campgroundsSynced++;
       facilityInfo.outcome = syncOutcome;
       if (syncOutcome === 'created') result.poisCreated++;
@@ -290,12 +376,32 @@ async function syncCampgroundAsPOI(
 
   if (!lat || !lng) return 'skipped';
 
-  // Check if already synced (by ridb_facility_id on points_of_interest)
-  const { data: existing } = await supabase
+  // Check if already synced — try ridb_facility_id first, fall back to slug match
+  let existing: { id: string } | null = null;
+
+  // Try ridb_facility_id column (requires migration 00047)
+  const { data: ridbMatch, error: ridbError } = await supabase
     .from('points_of_interest')
-    .select('id, name, ridb_facility_id')
+    .select('id, name')
     .eq('ridb_facility_id', facility.FacilityID)
     .maybeSingle();
+
+  if (!ridbError) {
+    existing = ridbMatch;
+  }
+  // If ridbError, column probably doesn't exist — fall through to slug match
+
+  // Fallback: match by slug + source
+  if (!existing) {
+    const slug = slugify(facility.FacilityName);
+    const { data } = await supabase
+      .from('points_of_interest')
+      .select('id, name')
+      .eq('slug', slug)
+      .eq('source', 'ridb')
+      .maybeSingle();
+    existing = data;
+  }
 
   if (existing) {
     await updatePOIFromRIDB(supabase, existing.id, facility);
@@ -303,18 +409,23 @@ async function syncCampgroundAsPOI(
   }
 
   // Check for nearby POI to match (within 2km, prefer name match)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: nearbyMatch } = await (supabase.rpc as any)('find_nearby_poi', {
-    p_lat: lat,
-    p_lng: lng,
-    p_name: facility.FacilityName.replace(/\s+(Campground|Recreation Area|Camp)$/i, ''),
-    p_river_id: riverId,
-    p_max_distance_meters: 2000,
-  });
+  // Uses find_nearby_poi RPC from migration 00047, falls back to find_nearest_river
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: nearbyMatch } = await (supabase.rpc as any)('find_nearby_poi', {
+      p_lat: lat,
+      p_lng: lng,
+      p_name: facility.FacilityName.replace(/\s+(Campground|Recreation Area|Camp)$/i, ''),
+      p_river_id: riverId,
+      p_max_distance_meters: 2000,
+    });
 
-  if (nearbyMatch?.[0]?.id) {
-    await updatePOIFromRIDB(supabase, nearbyMatch[0].id, facility);
-    return 'matched';
+    if (nearbyMatch?.[0]?.id) {
+      await updatePOIFromRIDB(supabase, nearbyMatch[0].id, facility);
+      return 'matched';
+    }
+  } catch {
+    // find_nearby_poi RPC not available (migration 00047 not applied) — skip proximity match
   }
 
   await createPOIFromRIDB(supabase, facility, riverId);
@@ -329,7 +440,24 @@ async function createPOIFromRIDB(
   const slug = slugify(facility.FacilityName);
   const reservationUrl = getReservationURL(facility);
 
-  const { error } = await supabase.from('points_of_interest').insert({
+  const ridbMetadata = {
+    facilityId: facility.FacilityID,
+    facilityType: facility.FacilityTypeDescription,
+    activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
+    addresses: facility.FACILITYADDRESS || [],
+    media: (facility.MEDIA || []).map((m) => ({ url: m.URL, title: m.Title, credits: m.Credits })),
+    links: (facility.LINK || []).map((l) => ({ url: l.URL, title: l.Title })),
+    stayLimit: facility.StayLimit,
+    reservable: facility.Reservable,
+    adaAccess: facility.FacilityAdaAccess,
+    feeDescription: facility.FacilityUseFeeDescription || null,
+    reservationUrl,
+    managingAgency: 'USFS',
+    lastUpdated: facility.LastUpdatedDate,
+  };
+
+  // Try with migration 00047 columns first, fall back to base columns
+  const fullInsert = {
     river_id: riverId,
     name: facility.FacilityName,
     slug,
@@ -343,20 +471,35 @@ async function createPOIFromRIDB(
     reservation_url: reservationUrl,
     fee_description: facility.FacilityUseFeeDescription || null,
     ridb_facility_id: facility.FacilityID,
-    ridb_data: JSON.stringify({
-      facilityType: facility.FacilityTypeDescription,
-      activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
-      addresses: facility.FACILITYADDRESS || [],
-      media: (facility.MEDIA || []).map((m) => ({ url: m.URL, title: m.Title, credits: m.Credits })),
-      links: (facility.LINK || []).map((l) => ({ url: l.URL, title: l.Title })),
-      stayLimit: facility.StayLimit,
-      reservable: facility.Reservable,
-      adaAccess: facility.FacilityAdaAccess,
-      lastUpdated: facility.LastUpdatedDate,
-    }),
+    ridb_data: JSON.stringify(ridbMetadata),
     is_on_water: true,
-    active: false, // Pending admin review
-  });
+    active: false,
+  };
+
+  const { error } = await supabase.from('points_of_interest').insert(fullInsert);
+
+  if (error && error.message?.includes('Could not find')) {
+    // Migration 00047 not applied yet — use base POI columns only
+    const baseInsert = {
+      river_id: riverId,
+      name: facility.FacilityName,
+      slug,
+      description: stripHtml(facility.FacilityDescription || ''),
+      type: 'campground',
+      source: 'ridb',
+      latitude: facility.FacilityLatitude,
+      longitude: facility.FacilityLongitude,
+      location: `SRID=4326;POINT(${facility.FacilityLongitude} ${facility.FacilityLatitude})`,
+      nps_url: reservationUrl, // Repurpose nps_url for reservation link
+      raw_data: JSON.stringify(ridbMetadata), // Store RIDB data in existing raw_data column
+      is_on_water: true,
+      active: false,
+    };
+
+    const { error: fallbackError } = await supabase.from('points_of_interest').insert(baseInsert);
+    if (fallbackError) throw new Error(`Insert POI failed for ${facility.FacilityName}: ${fallbackError.message}`);
+    return;
+  }
 
   if (error) throw new Error(`Insert POI failed for ${facility.FacilityName}: ${error.message}`);
 }
@@ -368,29 +511,33 @@ async function updatePOIFromRIDB(
 ): Promise<void> {
   const reservationUrl = getReservationURL(facility);
 
-  const updates: Record<string, unknown> = {
+  const ridbMetadata = {
+    facilityId: facility.FacilityID,
+    facilityType: facility.FacilityTypeDescription,
+    activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
+    addresses: facility.FACILITYADDRESS || [],
+    media: (facility.MEDIA || []).map((m) => ({ url: m.URL, title: m.Title, credits: m.Credits })),
+    links: (facility.LINK || []).map((l) => ({ url: l.URL, title: l.Title })),
+    stayLimit: facility.StayLimit,
+    reservable: facility.Reservable,
+    adaAccess: facility.FacilityAdaAccess,
+    feeDescription: facility.FacilityUseFeeDescription || null,
+    reservationUrl,
+    managingAgency: 'USFS',
+    lastUpdated: facility.LastUpdatedDate,
+  };
+
+  // Try full update with migration 00047 columns
+  const fullUpdates: Record<string, unknown> = {
     ridb_facility_id: facility.FacilityID,
     managing_agency: 'USFS',
-    ridb_data: JSON.stringify({
-      facilityType: facility.FacilityTypeDescription,
-      activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
-      addresses: facility.FACILITYADDRESS || [],
-      media: (facility.MEDIA || []).map((m) => ({ url: m.URL, title: m.Title, credits: m.Credits })),
-      links: (facility.LINK || []).map((l) => ({ url: l.URL, title: l.Title })),
-      stayLimit: facility.StayLimit,
-      reservable: facility.Reservable,
-      adaAccess: facility.FacilityAdaAccess,
-      lastUpdated: facility.LastUpdatedDate,
-    }),
+    ridb_data: JSON.stringify(ridbMetadata),
     last_synced_at: new Date().toISOString(),
   };
 
-  if (reservationUrl) {
-    updates.reservation_url = reservationUrl;
-  }
-
+  if (reservationUrl) fullUpdates.reservation_url = reservationUrl;
   if (facility.FacilityUseFeeDescription?.trim()) {
-    updates.fee_description = facility.FacilityUseFeeDescription;
+    fullUpdates.fee_description = facility.FacilityUseFeeDescription;
   }
 
   if (facility.FacilityDescription?.trim()) {
@@ -401,14 +548,32 @@ async function updatePOIFromRIDB(
       .single();
 
     if (!current?.description) {
-      updates.description = stripHtml(facility.FacilityDescription);
+      fullUpdates.description = stripHtml(facility.FacilityDescription);
     }
   }
 
   const { error } = await supabase
     .from('points_of_interest')
-    .update(updates)
+    .update(fullUpdates)
     .eq('id', poiId);
+
+  if (error && error.message?.includes('Could not find')) {
+    // Migration 00047 not applied — use base columns only
+    const baseUpdates: Record<string, unknown> = {
+      raw_data: JSON.stringify(ridbMetadata),
+      last_synced_at: new Date().toISOString(),
+    };
+    if (reservationUrl) baseUpdates.nps_url = reservationUrl;
+    if (fullUpdates.description) baseUpdates.description = fullUpdates.description;
+
+    const { error: fallbackError } = await supabase
+      .from('points_of_interest')
+      .update(baseUpdates)
+      .eq('id', poiId);
+
+    if (fallbackError) throw new Error(`Update POI failed: ${fallbackError.message}`);
+    return;
+  }
 
   if (error) throw new Error(`Update POI failed: ${error.message}`);
 }
