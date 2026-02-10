@@ -1,7 +1,7 @@
 // src/app/api/cron/sync-usfs/route.ts
 // POST /api/cron/sync-usfs - Weekly USFS/RIDB data sync
 // Fetches campgrounds and recreation facilities from Recreation.gov
-// near Missouri rivers and syncs to access_points table.
+// near Missouri rivers and syncs as pending POIs for admin review.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,20 +34,20 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient();
     const startTime = Date.now();
 
-    // Run full USFS sync
+    // Run full USFS sync (campgrounds → pending POIs)
     const result = await syncUSFSData(supabase);
 
     const durationMs = Date.now() - startTime;
 
     // Log the sync run
     await supabase.from('usfs_sync_log').insert({
-      sync_type: 'full',
+      sync_type: 'cron',
       facilities_fetched: result.facilitiesFetched,
       facilities_filtered: result.facilitiesFiltered,
       campgrounds_synced: result.campgroundsSynced,
       campgrounds_matched: result.campgroundsMatched,
-      access_points_created: result.accessPointsCreated,
-      access_points_updated: result.accessPointsUpdated,
+      pois_created: result.poisCreated,
+      pois_updated: result.poisUpdated,
       errors: result.errors,
       error_details: result.errorDetails.length > 0
         ? result.errorDetails.join('\n')
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
     console.log(
       `USFS sync complete: ${result.facilitiesFetched} fetched, ` +
       `${result.facilitiesFiltered} USFS-filtered, ` +
-      `${result.campgroundsSynced} campgrounds synced, ` +
+      `${result.campgroundsSynced} campgrounds synced as POIs, ` +
       `${result.campgroundsMatched} matched to existing, ` +
-      `${result.accessPointsCreated} new access points, ` +
+      `${result.poisCreated} new POIs, ` +
       `${result.errors} errors (${durationMs}ms)`
     );
 

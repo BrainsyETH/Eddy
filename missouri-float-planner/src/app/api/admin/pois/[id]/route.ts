@@ -7,7 +7,7 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_POI_TYPES = ['spring', 'cave', 'historical_site', 'scenic_viewpoint', 'waterfall', 'geological', 'other'];
+const VALID_POI_TYPES = ['spring', 'cave', 'historical_site', 'scenic_viewpoint', 'waterfall', 'geological', 'campground', 'other'];
 
 export async function GET(
   request: NextRequest,
