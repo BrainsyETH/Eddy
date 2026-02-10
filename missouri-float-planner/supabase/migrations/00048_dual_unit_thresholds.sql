@@ -9,6 +9,30 @@
 --   threshold_unit = 'ft'  → level_* are in ft,  alt_level_* are in cfs
 --   threshold_unit = 'cfs' → level_* are in cfs, alt_level_* are in ft
 
+-- Drop and recreate the GeoJSON function to avoid return-type conflicts
+DROP FUNCTION IF EXISTS get_gauge_stations_with_geojson();
+
+CREATE OR REPLACE FUNCTION get_gauge_stations_with_geojson()
+RETURNS TABLE (
+    id UUID,
+    usgs_site_id TEXT,
+    name TEXT,
+    location JSONB,
+    active BOOLEAN
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        gs.id,
+        gs.usgs_site_id,
+        gs.name,
+        ST_AsGeoJSON(gs.location)::jsonb as location,
+        gs.active
+    FROM gauge_stations gs
+    WHERE gs.active = TRUE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 ALTER TABLE river_gauges
   ADD COLUMN IF NOT EXISTS alt_level_too_low    NUMERIC(10,2),
   ADD COLUMN IF NOT EXISTS alt_level_low        NUMERIC(10,2),
