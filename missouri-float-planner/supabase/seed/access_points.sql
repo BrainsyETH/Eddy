@@ -368,7 +368,7 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 -- Blue Spring (Jacks Fork) — river mile 9.6; NPS campground here; needed for NPS "Blue Spring Campground" link
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
-    description, amenities, parking_info, fee_required, approved
+    description, amenities, parking_info, road_access, facilities, fee_required, approved
 )
 SELECT 
     r.id,
@@ -381,15 +381,20 @@ SELECT
     'Blue Spring is a beautiful, cold-water spring that feeds into the Jacks Fork from river right. The NPS campground here is small and peaceful - a great base camp for exploring the upper valley.',
     ARRAY['parking', 'restrooms', 'camping'],
     'Small NPS gravel lot off Hwy OO. Fits ~10 vehicles.',
+    'Mix of paved (Hwy OO) and gravel county roads. The last ~2 miles on CR OO-493 are gravel but maintained. Passenger vehicles fine in dry conditions.',
+    'NPS backcountry campground with vault toilet, fire rings, and lantern posts. No water, no trash service.',
     false,
     true
 FROM rivers r WHERE r.slug = 'jacks-fork'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+ON CONFLICT (river_id, slug) DO UPDATE SET
+    road_access = EXCLUDED.road_access,
+    facilities = EXCLUDED.facilities,
+    approved = EXCLUDED.approved;
 
 -- Alley Spring
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
-    description, amenities, parking_info, fee_required, approved
+    description, amenities, parking_info, road_access, facilities, fee_required, approved
 )
 SELECT 
     r.id,
@@ -402,15 +407,20 @@ SELECT
     'Famous red Alley Mill and spring. Major camping and float destination.',
     ARRAY['parking', 'restrooms', 'camping', 'picnic'],
     'Large parking area near mill',
+    'Fully paved. From Eminence, take Hwy 106 west ~6 miles. Well-signed NPS entrance on the south side of Hwy 106, just before crossing the Jacks Fork. From Mountain View, take Hwy 60 east to County Hwy E, north 10 miles to Hwy 106, then west 2 miles.',
+    'Major NPS front-country campground: 146 family sites (some reservable), 26 electric sites, 3 group sites, 14 cluster sites. Flush toilets and hot showers Apr–Oct. Dump station. Campground host in summer. Harvey''s general store across the road.',
     false,
     true
 FROM rivers r WHERE r.slug = 'jacks-fork'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+ON CONFLICT (river_id, slug) DO UPDATE SET
+    road_access = EXCLUDED.road_access,
+    facilities = EXCLUDED.facilities,
+    approved = EXCLUDED.approved;
 
 -- Eminence City Access
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
-    description, amenities, parking_info, fee_required, approved
+    description, amenities, parking_info, road_access, facilities, fee_required, approved
 )
 SELECT 
     r.id,
@@ -423,10 +433,15 @@ SELECT
     'Town access in Eminence. Good services nearby.',
     ARRAY['parking', 'restrooms', 'boat_ramp'],
     'Paved lot near town center',
+    'Fully paved via State Highway 19 in downtown Eminence. The town sits at the intersection of Hwy 19 and Hwy 106. From the north: Hwy 19 south from Winona (12 miles). From the south: Hwy 19 north from Alton.',
+    'Eminence is a full-service town. Gas, restaurants, stores, outfitters (Harvey''s, Windy''s, Jacks Fork Canoe Rental), lodging. Jacks Fork Campground (NPS) at mile 38.1 offers electric sites for RVs.',
     false,
     true
 FROM rivers r WHERE r.slug = 'jacks-fork'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+ON CONFLICT (river_id, slug) DO UPDATE SET
+    road_access = EXCLUDED.road_access,
+    facilities = EXCLUDED.facilities,
+    approved = EXCLUDED.approved;
 
 -- ============================================
 -- NIANGUA RIVER ACCESS POINTS
