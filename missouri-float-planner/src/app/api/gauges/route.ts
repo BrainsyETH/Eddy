@@ -130,35 +130,27 @@ export async function GET() {
   try {
     const supabase = await createClient();
 
-    // Fetch all active gauge stations with location as GeoJSON
-    // Use raw query to convert PostGIS geometry to GeoJSON
-    const { data: gaugeStations, error: gaugesError } = await supabase
-      .rpc('get_gauge_stations_with_geojson');
+    // Fetch all active gauge stations
+    // Note: The RPC get_gauge_stations_with_geojson() is missing newer columns
+    // (threshold_descriptions, notes), so we query directly and parse WKB locations
+    const { data: stations, error: stationsError } = await supabase
+      .from('gauge_stations')
+      .select(`
+        id,
+        usgs_site_id,
+        name,
+        location,
+        active,
+        threshold_descriptions
+      `)
+      .eq('active', true);
 
-    // Fallback to regular query if RPC doesn't exist
-    let stations = gaugeStations;
-    if (gaugesError) {
-      console.log('RPC not available, using regular query with location parsing');
-      const { data: fallbackStations, error: fallbackError } = await supabase
-        .from('gauge_stations')
-        .select(`
-          id,
-          usgs_site_id,
-          name,
-          location,
-          active,
-          threshold_descriptions
-        `)
-        .eq('active', true);
-
-      if (fallbackError) {
-        console.error('Error fetching gauge stations:', fallbackError);
-        return NextResponse.json(
-          { error: 'Failed to fetch gauge stations' },
-          { status: 500 }
-        );
-      }
-      stations = fallbackStations;
+    if (stationsError) {
+      console.error('Error fetching gauge stations:', stationsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch gauge stations' },
+        { status: 500 }
+      );
     }
 
     if (!stations || stations.length === 0) {
