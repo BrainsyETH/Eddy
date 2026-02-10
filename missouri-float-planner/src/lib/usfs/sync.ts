@@ -11,51 +11,29 @@ import {
   getReservationURL,
 } from './ridb';
 
-// ─────────────────────────────────────────────────────────────
-// Configuration: Search points along each Missouri river
-// ─────────────────────────────────────────────────────────────
-
-// For each river we define 1-3 search points along its length.
-// RIDB proximity search uses these as center points with a radius.
-// Points are chosen near gauge stations or midpoints of floatable sections.
-const RIVER_SEARCH_POINTS: Record<string, { lat: number; lng: number }[]> = {
-  'meramec': [
-    { lat: 38.2172, lng: -91.1508 },  // near Sullivan
-    { lat: 38.4975, lng: -90.5697 },  // near Eureka
-  ],
-  'current': [
-    { lat: 37.2767, lng: -91.4075 },  // near Montauk / headwaters
-    { lat: 36.9936, lng: -91.0150 },  // Van Buren
-    { lat: 36.6206, lng: -90.8239 },  // Doniphan
-  ],
-  'eleven-point': [
-    { lat: 36.6528, lng: -91.3972 },  // Thomasville area
-    { lat: 36.5875, lng: -91.2153 },  // near Bardley gauge
-  ],
-  'jacks-fork': [
-    { lat: 37.1444, lng: -91.4461 },  // Mountain View area
-    { lat: 37.0847, lng: -91.3569 },  // Eminence area
-  ],
-  'niangua': [
-    { lat: 37.3178, lng: -92.5017 },  // near Hartville
-  ],
-  'big-piney': [
-    { lat: 37.6789, lng: -92.0347 },  // near Big Piney
-  ],
-  'huzzah': [
-    { lat: 37.9519, lng: -91.3219 },  // near Steelville
-  ],
-  'courtois': [
-    { lat: 37.9047, lng: -91.0986 },  // near Berryman
-  ],
-};
-
-// Search radius in miles from each point
+// Search radius in miles from each gauge station
 const SEARCH_RADIUS_MILES = 15;
 
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
+
+export interface USFSSyncFacility {
+  facilityId: string;
+  name: string;
+  type: string;
+  lat: number;
+  lng: number;
+  isCampground: boolean;
+  isUSFS: boolean;
+  reservable: boolean;
+  feeDescription: string;
+  description: string;
+  reservationUrl: string | null;
+  activities: string[];
+  nearestRiver: string;
+  outcome?: string;
+}
 
 export interface USFSSyncResult {
   facilitiesFetched: number;
@@ -66,6 +44,87 @@ export interface USFSSyncResult {
   accessPointsUpdated: number;
   errors: number;
   errorDetails: string[];
+  facilities: USFSSyncFacility[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Search point resolution (from database, not hardcoded)
+// ─────────────────────────────────────────────────────────────
+
+interface SearchPoint {
+  lat: number;
+  lng: number;
+  riverSlug: string;
+  source: string;
+}
+
+/**
+ * Build search points from actual gauge station locations in the database.
+ * No hardcoded coordinates — everything comes from the DB.
+ */
+async function getSearchPointsFromDB(supabase: SupabaseClient): Promise<SearchPoint[]> {
+  const points: SearchPoint[] = [];
+
+  // Fetch gauge stations joined to rivers via river_gauges
+  const { data: gauges, error } = await supabase
+    .from('river_gauges')
+    .select(`
+      gauge_station_id,
+      rivers!inner ( slug, name, active ),
+      gauge_stations!inner ( usgs_site_id, name, location )
+    `);
+
+  if (error || !gauges) {
+    throw new Error(`Failed to fetch gauge stations: ${error?.message}`);
+  }
+
+  for (const row of gauges) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const river = row.rivers as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const station = row.gauge_stations as any;
+
+    if (!river?.active) continue;
+
+    // Extract coordinates from PostGIS geography point
+    const coords = extractCoords(station?.location);
+    if (!coords) continue;
+
+    points.push({
+      lat: coords.lat,
+      lng: coords.lng,
+      riverSlug: river.slug,
+      source: station.name || station.usgs_site_id,
+    });
+  }
+
+  return points;
+}
+
+/**
+ * Extract lat/lng from a PostGIS geography column.
+ * Supabase can return this as GeoJSON object or WKT string.
+ */
+function extractCoords(location: unknown): { lat: number; lng: number } | null {
+  if (!location) return null;
+
+  // GeoJSON format: { type: "Point", coordinates: [lng, lat] }
+  if (typeof location === 'object' && location !== null) {
+    const geo = location as { type?: string; coordinates?: number[] };
+    if (geo.type === 'Point' && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
+      return { lng: geo.coordinates[0], lat: geo.coordinates[1] };
+    }
+  }
+
+  // WKT/EWKT format: "SRID=4326;POINT(-91.0150 36.9936)" or "POINT(-91.0150 36.9936)"
+  if (typeof location === 'string') {
+    const match = location.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (match) {
+      return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+    }
+  }
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -75,8 +134,15 @@ export interface USFSSyncResult {
 /**
  * Full USFS data sync: fetch RIDB facilities near all rivers,
  * filter to USFS-managed campgrounds, and sync to database.
+ *
+ * @param dryRun If true, fetches and filters but does not write to DB
  */
-export async function syncUSFSData(supabase: SupabaseClient): Promise<USFSSyncResult> {
+export async function syncUSFSData(
+  supabase: SupabaseClient,
+  options?: { dryRun?: boolean }
+): Promise<USFSSyncResult> {
+  const dryRun = options?.dryRun ?? false;
+
   const result: USFSSyncResult = {
     facilitiesFetched: 0,
     facilitiesFiltered: 0,
@@ -86,9 +152,10 @@ export async function syncUSFSData(supabase: SupabaseClient): Promise<USFSSyncRe
     accessPointsUpdated: 0,
     errors: 0,
     errorDetails: [],
+    facilities: [],
   };
 
-  // 1. Build a map of river slugs to river IDs
+  // 1. Get rivers
   const { data: rivers, error: riversError } = await supabase
     .from('rivers')
     .select('id, slug, name')
@@ -104,63 +171,102 @@ export async function syncUSFSData(supabase: SupabaseClient): Promise<USFSSyncRe
     rivers.map((r: { slug: string; id: string; name: string }) => [r.slug, { id: r.id, name: r.name }])
   );
 
-  // 2. Collect unique facilities across all rivers (dedupe by FacilityID)
+  // 2. Get search points from actual gauge station locations
+  let searchPoints: SearchPoint[];
+  try {
+    searchPoints = await getSearchPointsFromDB(supabase);
+  } catch (err) {
+    result.errors++;
+    result.errorDetails.push(err instanceof Error ? err.message : String(err));
+    return result;
+  }
+
+  if (searchPoints.length === 0) {
+    result.errors++;
+    result.errorDetails.push('No gauge stations found in database — nothing to search');
+    return result;
+  }
+
+  // 3. Collect unique facilities across all search points (dedupe by FacilityID)
   const allFacilities = new Map<string, { facility: RIDBFacility; riverSlug: string }>();
 
-  for (const [riverSlug, searchPoints] of Object.entries(RIVER_SEARCH_POINTS)) {
-    if (!riverMap.has(riverSlug)) continue;
+  for (const point of searchPoints) {
+    if (!riverMap.has(point.riverSlug)) continue;
 
-    for (const point of searchPoints) {
-      try {
-        const facilities = await fetchFacilitiesByProximity(
-          point.lat,
-          point.lng,
-          SEARCH_RADIUS_MILES,
-          { limit: 50 }
-        );
+    try {
+      const facilities = await fetchFacilitiesByProximity(
+        point.lat,
+        point.lng,
+        SEARCH_RADIUS_MILES,
+        { limit: 50 }
+      );
 
-        result.facilitiesFetched += facilities.length;
+      result.facilitiesFetched += facilities.length;
 
-        for (const facility of facilities) {
-          // Only keep USFS-managed facilities
-          if (!isUSFS(facility)) continue;
+      for (const facility of facilities) {
+        if (!isUSFS(facility)) continue;
 
-          // Dedupe: keep the first river association if already seen
-          if (!allFacilities.has(facility.FacilityID)) {
-            allFacilities.set(facility.FacilityID, { facility, riverSlug });
-            result.facilitiesFiltered++;
-          }
+        if (!allFacilities.has(facility.FacilityID)) {
+          allFacilities.set(facility.FacilityID, { facility, riverSlug: point.riverSlug });
+          result.facilitiesFiltered++;
         }
-      } catch (err) {
-        result.errors++;
-        result.errorDetails.push(
-          `Fetch ${riverSlug} (${point.lat},${point.lng}): ${err instanceof Error ? err.message : String(err)}`
-        );
       }
+    } catch (err) {
+      result.errors++;
+      result.errorDetails.push(
+        `Fetch near ${point.source} (${point.lat.toFixed(4)},${point.lng.toFixed(4)}): ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
-  // 3. Sync each USFS facility
+  // 4. Process each USFS facility
   for (const [, { facility, riverSlug }] of Array.from(allFacilities)) {
     const river = riverMap.get(riverSlug);
     if (!river) continue;
 
+    const facilityInfo: USFSSyncFacility = {
+      facilityId: facility.FacilityID,
+      name: facility.FacilityName,
+      type: facility.FacilityTypeDescription || 'Unknown',
+      lat: facility.FacilityLatitude,
+      lng: facility.FacilityLongitude,
+      isCampground: isCampground(facility),
+      isUSFS: true,
+      reservable: facility.Reservable,
+      feeDescription: facility.FacilityUseFeeDescription || '',
+      description: stripHtml(facility.FacilityDescription || '').substring(0, 200),
+      reservationUrl: getReservationURL(facility),
+      activities: (facility.ACTIVITY || []).map((a) => a.ActivityName),
+      nearestRiver: river.name,
+    };
+
+    if (!isCampground(facility)) {
+      facilityInfo.outcome = 'skipped (not campground)';
+      result.facilities.push(facilityInfo);
+      continue;
+    }
+
+    if (dryRun) {
+      facilityInfo.outcome = 'dry run — would sync';
+      result.campgroundsSynced++;
+      result.facilities.push(facilityInfo);
+      continue;
+    }
+
     try {
-      if (isCampground(facility)) {
-        const syncResult = await syncCampground(supabase, facility, river.id);
-        result.campgroundsSynced++;
-        if (syncResult === 'created') result.accessPointsCreated++;
-        if (syncResult === 'updated') result.accessPointsUpdated++;
-        if (syncResult === 'matched') result.campgroundsMatched++;
-      }
-      // Non-campground facilities (trailheads, day use, etc.) can be
-      // added here in a future phase as POIs
+      const syncOutcome = await syncCampground(supabase, facility, river.id);
+      result.campgroundsSynced++;
+      facilityInfo.outcome = syncOutcome;
+      if (syncOutcome === 'created') result.accessPointsCreated++;
+      if (syncOutcome === 'updated') result.accessPointsUpdated++;
+      if (syncOutcome === 'matched') result.campgroundsMatched++;
     } catch (err) {
       result.errors++;
-      result.errorDetails.push(
-        `Sync ${facility.FacilityName}: ${err instanceof Error ? err.message : String(err)}`
-      );
+      facilityInfo.outcome = `error: ${err instanceof Error ? err.message : String(err)}`;
+      result.errorDetails.push(`Sync ${facility.FacilityName}: ${err instanceof Error ? err.message : String(err)}`);
     }
+
+    result.facilities.push(facilityInfo);
   }
 
   return result;
@@ -172,14 +278,6 @@ export async function syncUSFSData(supabase: SupabaseClient): Promise<USFSSyncRe
 
 type SyncOutcome = 'created' | 'updated' | 'matched' | 'skipped';
 
-/**
- * Sync a single USFS campground into the database.
- *
- * Strategy:
- * 1. Check if we already have this facility (by ridb_facility_id)
- * 2. If not, check for a nearby existing access point to enrich
- * 3. If no match, create a new access point
- */
 async function syncCampground(
   supabase: SupabaseClient,
   facility: RIDBFacility,
@@ -198,7 +296,6 @@ async function syncCampground(
     .maybeSingle();
 
   if (existing) {
-    // Update existing record with latest RIDB data
     await updateAccessPointFromRIDB(supabase, existing.id, facility);
     return 'updated';
   }
@@ -214,19 +311,14 @@ async function syncCampground(
   });
 
   if (nearbyMatch?.[0]?.id) {
-    // Enrich existing access point with RIDB data
     await updateAccessPointFromRIDB(supabase, nearbyMatch[0].id, facility);
     return 'matched';
   }
 
-  // Create new access point
   await createAccessPointFromRIDB(supabase, facility, riverId);
   return 'created';
 }
 
-/**
- * Create a new access point from RIDB facility data
- */
 async function createAccessPointFromRIDB(
   supabase: SupabaseClient,
   facility: RIDBFacility,
@@ -261,12 +353,11 @@ async function createAccessPointFromRIDB(
       adaAccess: facility.FacilityAdaAccess,
       lastUpdated: facility.LastUpdatedDate,
     }),
-    approved: false, // New RIDB entries start unapproved for review
+    approved: false,
   });
 
   if (error) throw new Error(`Insert failed for ${facility.FacilityName}: ${error.message}`);
 
-  // Snap to river centerline
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.rpc as any)('snap_access_point_by_slug', { p_slug: slug });
@@ -275,9 +366,6 @@ async function createAccessPointFromRIDB(
   }
 }
 
-/**
- * Update an existing access point with RIDB data (enrichment)
- */
 async function updateAccessPointFromRIDB(
   supabase: SupabaseClient,
   accessPointId: string,
@@ -301,7 +389,6 @@ async function updateAccessPointFromRIDB(
     }),
   };
 
-  // Only set these if not already populated (don't overwrite curated data)
   if (reservationUrl) {
     updates.official_site_url = reservationUrl;
   }
@@ -312,7 +399,6 @@ async function updateAccessPointFromRIDB(
   }
 
   if (facility.FacilityDescription?.trim()) {
-    // Only update description if current one is empty
     const { data: current } = await supabase
       .from('access_points')
       .select('description')

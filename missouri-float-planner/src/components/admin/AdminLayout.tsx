@@ -16,7 +16,8 @@ import {
   Navigation,
   Flag,
   FileText,
-  Activity
+  Activity,
+  RefreshCw
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: '/admin/feedback', label: 'Feedback', icon: Flag },
   { href: '/admin/access-points', label: 'Access Points', icon: Navigation },
   { href: '/admin/geography', label: 'Geography Editor', icon: MapPin },
+  { href: '/admin/data-sync', label: 'Data Sync', icon: RefreshCw },
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },
 ];
 

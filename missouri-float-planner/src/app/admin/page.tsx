@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag, FileText, Activity } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag, FileText, Activity, RefreshCw } from 'lucide-react';
 
 const ADMIN_SECTIONS = [
   {
@@ -42,6 +42,13 @@ const ADMIN_SECTIONS = [
     href: '/admin/gauges',
     icon: Activity,
     color: 'bg-green-500',
+  },
+  {
+    title: 'Data Sync',
+    description: 'Sync USFS campground data from Recreation.gov (RIDB)',
+    href: '/admin/data-sync',
+    icon: RefreshCw,
+    color: 'bg-emerald-500',
   },
   {
     title: 'Image Library',
