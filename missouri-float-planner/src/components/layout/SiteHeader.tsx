@@ -52,7 +52,7 @@ export default function SiteHeader() {
   }, [pathname]);
 
   // Hide header on embeddable widget pages (after all hooks)
-  if (pathname.startsWith('/embed/widget')) return null;
+  if (pathname.startsWith('/embed/widget') || pathname.startsWith('/embed/planner')) return null;
 
   const activeRiver = rivers?.find(r => r.slug === activeRiverSlug);
 
