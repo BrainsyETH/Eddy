@@ -19,18 +19,6 @@ const EDDY_IMAGES: Record<string, string> = {
   canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
 };
 
-// River hero images - scenic photos for each river
-const RIVER_IMAGES: Record<string, string> = {
-  'meramec': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Meramec_River_Onondaga_Cave_State_Park.jpg/1280px-Meramec_River_Onondaga_Cave_State_Park.jpg',
-  'current': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Current_River_-_Missouri.jpg/1280px-Current_River_-_Missouri.jpg',
-  'eleven-point': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Eleven_Point_River.jpg/1280px-Eleven_Point_River.jpg',
-  'jacks-fork': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Jacks_Fork_River_in_Shannon_County%2C_Missouri.jpg/1280px-Jacks_Fork_River_in_Shannon_County%2C_Missouri.jpg',
-  'niangua': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Ha_Ha_Tonka_Spring_20090412.jpg/1280px-Ha_Ha_Tonka_Spring_20090412.jpg',
-  'big-piney': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Big_Piney_River.jpg/1280px-Big_Piney_River.jpg',
-  'huzzah': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Huzzah_Creek_01.jpg/1280px-Huzzah_Creek_01.jpg',
-  'courtois': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Courtois_Creek.jpg/1280px-Courtois_Creek.jpg',
-};
-
 // Brief descriptions for each river
 const RIVER_DESCRIPTIONS: Record<string, string> = {
   'meramec': 'One of Missouri\'s longest free-flowing rivers, winding through scenic bluffs and popular with paddlers of all levels.',
@@ -105,7 +93,6 @@ export default function RiversPage() {
               const conditionCode = river.currentCondition?.code;
               const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
               const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
-              const heroImage = RIVER_IMAGES[river.slug];
               const description = RIVER_DESCRIPTIONS[river.slug];
 
               return (
@@ -115,39 +102,22 @@ export default function RiversPage() {
                   className="group bg-white rounded-2xl border-2 border-neutral-200 overflow-hidden shadow-sm hover:shadow-lg hover:border-primary-300 transition-all no-underline"
                 >
                   {/* Image */}
-                  <div className="relative h-44 bg-neutral-100 overflow-hidden">
-                    {heroImage ? (
+                  <div className="relative h-44 overflow-hidden bg-gradient-to-br from-primary-800 to-primary-900">
+                    <div className="w-full h-full flex items-center justify-center">
                       <Image
-                        src={heroImage}
-                        alt={river.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        sizes="(max-width: 768px) 100vw, 50vw"
+                        src={getEddyImage(conditionCode)}
+                        alt="Eddy the Otter"
+                        width={160}
+                        height={160}
+                        className="w-24 h-24 object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500"
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-800 to-primary-900">
-                        <Image
-                          src={getEddyImage(conditionCode)}
-                          alt="Eddy the Otter"
-                          width={120}
-                          height={120}
-                          className="w-20 h-20 object-contain opacity-60"
-                        />
-                      </div>
-                    )}
+                    </div>
                     {/* Condition badge overlay */}
                     <div className="absolute top-3 right-3">
                       <div
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-bold shadow-lg"
                         style={{ backgroundColor: conditionColor }}
                       >
-                        <Image
-                          src={getEddyImage(conditionCode)}
-                          alt=""
-                          width={20}
-                          height={20}
-                          className="w-4 h-4 object-contain"
-                        />
                         {conditionLabel}
                       </div>
                     </div>

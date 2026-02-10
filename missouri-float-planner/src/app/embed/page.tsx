@@ -109,13 +109,13 @@ export default function EmbedPage() {
 ></iframe>`;
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 overflow-x-hidden">
       {/* Header */}
       <section
         className="relative py-12 md:py-16 text-white"
         style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}
       >
-        <div className="max-w-4xl mx-auto px-4 text-center">
+        <div className="max-w-3xl mx-auto px-4 text-center">
           <div className="-mb-1">
             <Image
               src={EDDY_CANOE_IMAGE}
@@ -139,7 +139,7 @@ export default function EmbedPage() {
         </div>
       </section>
 
-      <div className="max-w-4xl mx-auto px-4 py-10 space-y-10">
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
 
         {/* How it works intro */}
         <section className="bg-white border-2 border-neutral-200 rounded-2xl p-6 md:p-8">
@@ -206,7 +206,7 @@ export default function EmbedPage() {
           </div>
 
           <p className="text-neutral-600 mb-6">
-            We offer two options. Pick the one that works best for you.
+            We offer three options. Pick the one that works best for you.
           </p>
 
           {/* === OPTION A: Live Widget === */}
@@ -255,7 +255,7 @@ export default function EmbedPage() {
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
                 <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 600 }}>
+                  <div style={{ maxWidth: 480 }}>
                     <iframe
                       src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
                       width="100%"
@@ -268,12 +268,12 @@ export default function EmbedPage() {
               </div>
 
               {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3">
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
                   <span className="text-xs text-neutral-400 font-medium">HTML code</span>
                   <CopyButton text={widgetCode} />
                 </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto">
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
                   <code>{widgetCode}</code>
                 </pre>
               </div>
@@ -311,12 +311,12 @@ export default function EmbedPage() {
               </div>
 
               {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3">
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
                   <span className="text-xs text-neutral-400 font-medium">HTML code</span>
                   <CopyButton text={linkCode} />
                 </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto whitespace-pre-wrap">
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto whitespace-pre-wrap max-w-full">
                   <code>{linkCode}</code>
                 </pre>
               </div>
@@ -340,7 +340,7 @@ export default function EmbedPage() {
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
                 <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 600 }}>
+                  <div style={{ maxWidth: 480 }}>
                     <iframe
                       src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
                       width="100%"
@@ -353,12 +353,12 @@ export default function EmbedPage() {
               </div>
 
               {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3">
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
                   <span className="text-xs text-neutral-400 font-medium">HTML code</span>
                   <CopyButton text={plannerCode} />
                 </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto">
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
                   <code>{plannerCode}</code>
                 </pre>
               </div>
@@ -463,7 +463,7 @@ export default function EmbedPage() {
               <p>
                 Yes. In the code you copied, you can change the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">height</code> number
                 (currently 320) to make it taller or shorter. The <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">max-width</code> value
-                (currently 400px) controls how wide it gets. Feel free to adjust these numbers until it looks right on your page.
+                (currently 600px) controls how wide it gets. Feel free to adjust these numbers until it looks right on your page.
               </p>
             </FAQ>
             <FAQ question="What if I need help?">
@@ -488,12 +488,12 @@ export default function EmbedPage() {
               <p className="text-sm text-neutral-600 mb-3">
                 You can fetch river condition data directly from our API and build your own display.
               </p>
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3">
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
                   <span className="text-xs text-neutral-400 font-medium">GET request</span>
                   <CopyButton text={`${baseUrl}/api/rivers`} />
                 </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto">
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
                   <code>{`GET ${baseUrl}/api/rivers`}</code>
                 </pre>
               </div>
@@ -521,7 +521,7 @@ export default function EmbedPage() {
 
       {/* Footer */}
       <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-16">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-3xl mx-auto text-center">
           <p className="text-primary-200 mb-2">
             Eddy &middot; Missouri River Float Trip Planner
           </p>
