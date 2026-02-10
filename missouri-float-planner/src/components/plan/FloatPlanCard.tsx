@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
@@ -902,7 +902,15 @@ function JourneyCenter({
             ) : (
               <p className="text-2xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
             )}
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Est. Time</p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500 flex items-center gap-0.5">
+              Est. Time
+              <span className="relative group/tip inline-flex">
+                <Info className="w-3 h-3 text-neutral-400 cursor-help" />
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal">
+                  Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
+                </span>
+              </span>
+            </p>
           </div>
         </div>
       </div>
