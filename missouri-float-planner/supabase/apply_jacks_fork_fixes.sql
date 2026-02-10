@@ -157,8 +157,10 @@ WHERE location IS NULL
 
 
 -- ─────────────────────────────────────────────────────────────
--- PART 4: Create batch campground matching function (from migration 00044)
+-- PART 4: Create batch campground matching function (name-only)
 -- ─────────────────────────────────────────────────────────────
+-- Replaces the geo-based version from migration 00044.
+-- Matches by name only — strip "Campground" suffix, then check contains.
 
 CREATE OR REPLACE FUNCTION batch_match_campgrounds_to_access_points(
   p_max_distance_meters DOUBLE PRECISION DEFAULT 5000
@@ -170,7 +172,10 @@ RETURNS TABLE(
   distance_meters DOUBLE PRECISION,
   match_type TEXT
 ) AS $$
+DECLARE
+  v_cg_clean TEXT;
 BEGIN
+  -- Return diagnostic results
   RETURN QUERY
   WITH campground_matches AS (
     SELECT DISTINCT ON (cg.id)
@@ -178,10 +183,15 @@ BEGIN
       cg.name AS cg_name,
       ap.id AS ap_id,
       ap.name AS ap_name,
-      ST_Distance(
-        COALESCE(ap.location_snap, ap.location_orig)::geography,
-        ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326)::geography
-      ) AS dist_m,
+      CASE
+        WHEN cg.latitude IS NOT NULL AND cg.longitude IS NOT NULL
+          AND COALESCE(ap.location_snap, ap.location_orig) IS NOT NULL
+        THEN ST_Distance(
+          COALESCE(ap.location_snap, ap.location_orig)::geography,
+          ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326)::geography
+        )
+        ELSE NULL
+      END AS dist_m,
       CASE
         WHEN LOWER(TRIM(ap.name)) = LOWER(TRIM(
           REGEXP_REPLACE(
@@ -207,67 +217,34 @@ BEGIN
             '\s+Campground$', '', 'i'
           )
         )) LIKE '%' || LOWER(TRIM(ap.name)) || '%' THEN 'contained_by'
-        ELSE 'proximity_only'
+        ELSE 'unknown'
       END AS m_type
     FROM nps_campgrounds cg
-    JOIN access_points ap ON (
-      ap.approved = true
-      AND cg.latitude IS NOT NULL
-      AND cg.longitude IS NOT NULL
-      AND COALESCE(ap.location_snap, ap.location_orig) IS NOT NULL
-      AND ST_DWithin(
-        COALESCE(ap.location_snap, ap.location_orig)::geography,
-        ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326)::geography,
-        p_max_distance_meters
-      )
-      AND (
-        LOWER(TRIM(ap.name)) = LOWER(TRIM(
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
-            '\s+Campground$', '', 'i'
-          )
-        ))
-        OR REPLACE(LOWER(TRIM(ap.name)), ' ', '') = REPLACE(LOWER(TRIM(
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
-            '\s+Campground$', '', 'i'
-          )
-        )), ' ', '')
-        OR LOWER(TRIM(ap.name)) LIKE '%' || LOWER(TRIM(
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
-            '\s+Campground$', '', 'i'
-          )
-        )) || '%'
-        OR LOWER(TRIM(
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
-            '\s+Campground$', '', 'i'
-          )
-        )) LIKE '%' || LOWER(TRIM(ap.name)) || '%'
-      )
+    JOIN access_points ap ON ap.approved = true
+    WHERE (
+      LOWER(TRIM(ap.name)) LIKE '%' || LOWER(TRIM(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+          '\s+Campground$', '', 'i'
+        )
+      )) || '%'
+      OR
+      LOWER(TRIM(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+          '\s+Campground$', '', 'i'
+        )
+      )) LIKE '%' || LOWER(TRIM(ap.name)) || '%'
     )
     ORDER BY cg.id,
-      CASE
-        WHEN LOWER(TRIM(ap.name)) = LOWER(TRIM(
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
-            '\s+Campground$', '', 'i'
-          )
-        )) THEN 0
-        ELSE 1
-      END,
-      ST_Distance(
-        COALESCE(ap.location_snap, ap.location_orig)::geography,
-        ST_SetSRID(ST_MakePoint(cg.longitude, cg.latitude), 4326)::geography
-      )
+      CASE WHEN LOWER(TRIM(ap.name)) = LOWER(TRIM(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+          '\s+Campground$', '', 'i'
+        )
+      )) THEN 0 ELSE 1 END
   )
-  SELECT
-    cm.cg_name,
-    cm.ap_name,
-    cm.ap_id,
-    cm.dist_m,
-    cm.m_type
+  SELECT cm.cg_name, cm.ap_name, cm.ap_id, cm.dist_m, cm.m_type
   FROM campground_matches cm;
 
   -- Apply the matches
@@ -275,64 +252,34 @@ BEGIN
   SET nps_campground_id = cm.cg_id
   FROM (
     SELECT DISTINCT ON (sub.cg_id)
-      sub.cg_id,
-      sub.ap_id
+      sub.cg_id, sub.ap_id
     FROM (
       SELECT DISTINCT ON (cg2.id)
-        cg2.id AS cg_id,
-        ap2.id AS ap_id
+        cg2.id AS cg_id, ap2.id AS ap_id
       FROM nps_campgrounds cg2
-      JOIN access_points ap2 ON (
-        ap2.approved = true
-        AND cg2.latitude IS NOT NULL
-        AND cg2.longitude IS NOT NULL
-        AND COALESCE(ap2.location_snap, ap2.location_orig) IS NOT NULL
-        AND ST_DWithin(
-          COALESCE(ap2.location_snap, ap2.location_orig)::geography,
-          ST_SetSRID(ST_MakePoint(cg2.longitude, cg2.latitude), 4326)::geography,
-          p_max_distance_meters
-        )
-        AND (
-          LOWER(TRIM(ap2.name)) = LOWER(TRIM(
-            REGEXP_REPLACE(
-              REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
-              '\s+Campground$', '', 'i'
-            )
-          ))
-          OR REPLACE(LOWER(TRIM(ap2.name)), ' ', '') = REPLACE(LOWER(TRIM(
-            REGEXP_REPLACE(
-              REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
-              '\s+Campground$', '', 'i'
-            )
-          )), ' ', '')
-          OR LOWER(TRIM(ap2.name)) LIKE '%' || LOWER(TRIM(
-            REGEXP_REPLACE(
-              REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
-              '\s+Campground$', '', 'i'
-            )
-          )) || '%'
-          OR LOWER(TRIM(
-            REGEXP_REPLACE(
-              REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
-              '\s+Campground$', '', 'i'
-            )
-          )) LIKE '%' || LOWER(TRIM(ap2.name)) || '%'
-        )
+      JOIN access_points ap2 ON ap2.approved = true
+      WHERE (
+        LOWER(TRIM(ap2.name)) LIKE '%' || LOWER(TRIM(
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
+            '\s+Campground$', '', 'i'
+          )
+        )) || '%'
+        OR
+        LOWER(TRIM(
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
+            '\s+Campground$', '', 'i'
+          )
+        )) LIKE '%' || LOWER(TRIM(ap2.name)) || '%'
       )
       ORDER BY cg2.id,
-        CASE
-          WHEN LOWER(TRIM(ap2.name)) = LOWER(TRIM(
-            REGEXP_REPLACE(
-              REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
-              '\s+Campground$', '', 'i'
-            )
-          )) THEN 0
-          ELSE 1
-        END,
-        ST_Distance(
-          COALESCE(ap2.location_snap, ap2.location_orig)::geography,
-          ST_SetSRID(ST_MakePoint(cg2.longitude, cg2.latitude), 4326)::geography
-        )
+        CASE WHEN LOWER(TRIM(ap2.name)) = LOWER(TRIM(
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(cg2.name, '\s+Group\s+Campground$', '', 'i'),
+            '\s+Campground$', '', 'i'
+          )
+        )) THEN 0 ELSE 1 END
     ) sub
     ORDER BY sub.cg_id
   ) cm
@@ -342,17 +289,45 @@ $$ LANGUAGE plpgsql;
 
 
 -- ─────────────────────────────────────────────────────────────
--- PART 5: Run campground matching with corrected coordinates
+-- PART 5: Name-match ALL Jacks Fork campgrounds to access points
 -- ─────────────────────────────────────────────────────────────
+-- No geo matching — just strip "Campground" suffix and check name contains.
 
--- Clear previous (possibly wrong) matches for Jacks Fork
-UPDATE access_points
-SET nps_campground_id = NULL
-WHERE river_id IN (SELECT id FROM rivers WHERE slug = 'jacks-fork')
-  AND nps_campground_id IS NOT NULL;
-
--- Run the batch matching function
-SELECT * FROM batch_match_campgrounds_to_access_points(5000.0);
+UPDATE access_points ap
+SET nps_campground_id = match.cg_id
+FROM (
+  SELECT DISTINCT ON (cg.id)
+    cg.id AS cg_id,
+    cg.name AS cg_name,
+    ap2.id AS ap_id,
+    ap2.name AS ap_name
+  FROM nps_campgrounds cg
+  JOIN access_points ap2 ON ap2.approved = true
+  JOIN rivers r ON r.id = ap2.river_id AND r.slug = 'jacks-fork'
+  WHERE (
+    LOWER(TRIM(ap2.name)) LIKE '%' || LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )) || '%'
+    OR
+    LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )) LIKE '%' || LOWER(TRIM(ap2.name)) || '%'
+  )
+  ORDER BY cg.id,
+    CASE WHEN LOWER(TRIM(ap2.name)) = LOWER(TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(cg.name, '\s+Group\s+Campground$', '', 'i'),
+        '\s+Campground$', '', 'i'
+      )
+    )) THEN 0 ELSE 1 END
+) match
+WHERE ap.id = match.ap_id;
 
 
 -- ─────────────────────────────────────────────────────────────

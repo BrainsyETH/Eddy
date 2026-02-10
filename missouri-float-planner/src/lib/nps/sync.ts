@@ -266,9 +266,10 @@ async function upsertPlace(supabase: SupabaseClient, place: NPSPlaceRaw): Promis
 }
 
 /**
- * Match NPS campgrounds to access points using geographic proximity + name.
- * Uses the batch_match_campgrounds_to_access_points RPC (created in migration 00044)
- * which does all matching in a single SQL operation.
+ * Match NPS campgrounds to access points by name.
+ * Uses the batch_match_campgrounds_to_access_points RPC (migration 00044)
+ * which strips "Campground" suffix and does ILIKE contains matching.
+ * No geo filtering — coordinates on some access points are unreliable.
  *
  * Falls back to the per-campground RPC (migration 00038) if the batch
  * function doesn't exist yet.
@@ -285,7 +286,8 @@ async function matchCampgroundsToAccessPoints(supabase: SupabaseClient): Promise
       const matches = Array.isArray(data) ? data : [data];
       console.log(`Batch campground matching: ${matches.length} matches found`);
       for (const m of matches) {
-        console.log(`  ${m.campground_name} → ${m.access_point_name} (${Math.round(m.distance_meters)}m, ${m.match_type})`);
+        const dist = m.distance_meters != null ? `${Math.round(m.distance_meters)}m` : 'no coords';
+        console.log(`  ${m.campground_name} → ${m.access_point_name} (${dist}, ${m.match_type})`);
       }
       return matches.length;
     }
