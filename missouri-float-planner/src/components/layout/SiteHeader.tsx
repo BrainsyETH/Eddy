@@ -29,9 +29,6 @@ export default function SiteHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Hide header on embeddable widget pages
-  if (pathname.startsWith('/embed/widget')) return null;
-
   // Determine active river from URL
   const activeRiverSlug = pathname.startsWith('/rivers/')
     ? pathname.split('/')[2]
@@ -53,6 +50,9 @@ export default function SiteHeader() {
     setMobileMenuOpen(false);
     setDropdownOpen(false);
   }, [pathname]);
+
+  // Hide header on embeddable widget pages (after all hooks)
+  if (pathname.startsWith('/embed/widget')) return null;
 
   const activeRiver = rivers?.find(r => r.slug === activeRiverSlug);
 
