@@ -53,6 +53,12 @@ export async function GET(
         level_optimal_max,
         level_high,
         level_dangerous,
+        alt_level_too_low,
+        alt_level_low,
+        alt_level_optimal_min,
+        alt_level_optimal_max,
+        alt_level_high,
+        alt_level_dangerous,
         distance_from_section_miles,
         accuracy_warning_threshold_miles
       `)
@@ -98,6 +104,12 @@ export async function GET(
           levelOptimalMax: rg.level_optimal_max,
           levelHigh: rg.level_high,
           levelDangerous: rg.level_dangerous,
+          altLevelTooLow: rg.alt_level_too_low,
+          altLevelLow: rg.alt_level_low,
+          altLevelOptimalMin: rg.alt_level_optimal_min,
+          altLevelOptimalMax: rg.alt_level_optimal_max,
+          altLevelHigh: rg.alt_level_high,
+          altLevelDangerous: rg.alt_level_dangerous,
           distanceFromSectionMiles: rg.distance_from_section_miles,
           accuracyWarningThresholdMiles: rg.accuracy_warning_threshold_miles,
         };
@@ -184,6 +196,12 @@ export async function PUT(
           ['levelOptimalMax', 'level_optimal_max'],
           ['levelHigh', 'level_high'],
           ['levelDangerous', 'level_dangerous'],
+          ['altLevelTooLow', 'alt_level_too_low'],
+          ['altLevelLow', 'alt_level_low'],
+          ['altLevelOptimalMin', 'alt_level_optimal_min'],
+          ['altLevelOptimalMax', 'alt_level_optimal_max'],
+          ['altLevelHigh', 'alt_level_high'],
+          ['altLevelDangerous', 'alt_level_dangerous'],
         ] as const;
 
         for (const [frontendKey, dbKey] of numericFields) {

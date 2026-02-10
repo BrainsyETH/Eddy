@@ -119,6 +119,13 @@ export interface GaugeStation {
     levelOptimalMax: number | null;
     levelHigh: number | null;
     levelDangerous: number | null;
+    // Alternate unit thresholds (opposite of thresholdUnit)
+    altLevelTooLow: number | null;
+    altLevelLow: number | null;
+    altLevelOptimalMin: number | null;
+    altLevelOptimalMax: number | null;
+    altLevelHigh: number | null;
+    altLevelDangerous: number | null;
   }[] | null;
 }
 
@@ -239,6 +246,12 @@ export async function GET() {
         level_optimal_max,
         level_high,
         level_dangerous,
+        alt_level_too_low,
+        alt_level_low,
+        alt_level_optimal_min,
+        alt_level_optimal_max,
+        alt_level_high,
+        alt_level_dangerous,
         rivers!inner (
           id,
           name
@@ -266,6 +279,12 @@ export async function GET() {
           levelOptimalMax: rg.level_optimal_max,
           levelHigh: rg.level_high,
           levelDangerous: rg.level_dangerous,
+          altLevelTooLow: rg.alt_level_too_low,
+          altLevelLow: rg.alt_level_low,
+          altLevelOptimalMin: rg.alt_level_optimal_min,
+          altLevelOptimalMax: rg.alt_level_optimal_max,
+          altLevelHigh: rg.alt_level_high,
+          altLevelDangerous: rg.alt_level_dangerous,
         };
 
         const existing = thresholdsByGauge.get(rg.gauge_station_id);
