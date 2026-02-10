@@ -212,8 +212,8 @@ export type ConditionCode =
   | 'dangerous'
   | 'high'
   | 'optimal'
+  | 'okay'
   | 'low'
-  | 'very_low'
   | 'too_low'
   | 'unknown';
 

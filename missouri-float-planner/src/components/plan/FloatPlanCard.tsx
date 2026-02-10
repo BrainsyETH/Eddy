@@ -44,9 +44,9 @@ const EDDY_CONDITION_IMAGES: Record<string, string> = {
 function getEddyImageForCondition(code: ConditionCode): string {
   switch (code) {
     case 'optimal':
-    case 'low':
+    case 'okay':
       return EDDY_CONDITION_IMAGES.green;
-    case 'very_low':
+    case 'low':
       return EDDY_CONDITION_IMAGES.yellow;
     case 'high':
     case 'dangerous':
@@ -73,14 +73,14 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     textClass: 'text-white',
     borderClass: 'border-emerald-400',
   },
-  low: {
+  okay: {
     label: 'Okay',
     emoji: '✓',
     bgClass: 'bg-lime-500',
     textClass: 'text-white',
     borderClass: 'border-lime-400',
   },
-  very_low: {
+  low: {
     label: 'Low',
     emoji: '↓',
     bgClass: 'bg-yellow-500',

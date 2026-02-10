@@ -37,7 +37,7 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     dotClass: 'bg-emerald-600',
     badgeBg: 'bg-emerald-600',
   },
-  low: {
+  okay: {
     label: 'Okay',
     summary: 'Floatable with minimal dragging. Still a good day on the water.',
     bgClass: 'bg-lime-50',
@@ -45,7 +45,7 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     dotClass: 'bg-lime-500',
     badgeBg: 'bg-lime-500',
   },
-  very_low: {
+  low: {
     label: 'Low',
     summary: 'Expect some dragging in shallow areas. Lighter loads help.',
     bgClass: 'bg-yellow-50',

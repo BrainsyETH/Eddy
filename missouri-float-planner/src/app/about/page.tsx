@@ -22,12 +22,12 @@ const EDDY_IMAGES: Record<string, string> = {
 const getEddyImageForCondition = (code: ConditionCode): string => {
   switch (code) {
     case 'optimal':
-    case 'low': // "Okay - Floatable"
+    case 'okay': // "Okay - Floatable"
       return EDDY_IMAGES.green;
     case 'high':
     case 'dangerous': // Flood
       return EDDY_IMAGES.red;
-    case 'very_low': // "Low - Scraping Likely"
+    case 'low': // "Low - Scraping Likely"
       return EDDY_IMAGES.yellow;
     case 'too_low':
     case 'unknown':
@@ -77,7 +77,7 @@ function CollapsibleSection({
   );
 }
 
-const conditionCodes: ConditionCode[] = ['too_low', 'very_low', 'low', 'optimal', 'high', 'dangerous', 'unknown'];
+const conditionCodes: ConditionCode[] = ['too_low', 'low', 'okay', 'optimal', 'high', 'dangerous', 'unknown'];
 
 // Condition descriptions ordered: Too Low → Low → Okay → Optimal → High → Flood
 const conditionDescriptions: Record<ConditionCode, {
@@ -92,13 +92,13 @@ const conditionDescriptions: Record<ConditionCode, {
     recommendation: 'Generally not recommended. Wait for rain or try a different river. Some deeper sections may still be passable — check with local outfitters.',
     icon: '🚫',
   },
-  very_low: {
+  low: {
     title: 'Low - Scraping Likely',
     description: 'Water levels are below normal for most sections. Expect shallow areas, frequent scraping, and possible portaging — though conditions can differ between upper and lower stretches of the same river. Float times will likely be longer than estimated.',
     recommendation: 'Not ideal for beginners or large groups. Some river sections may float better than others — consider checking with local outfitters for section-specific advice.',
     icon: '⚠️',
   },
-  low: {
+  okay: {
     title: 'Okay - Floatable',
     description: 'Water levels are below optimal but generally floatable across most sections. You may encounter some shallow spots, especially in wider or upper sections, but most of the river should have enough water. Float times may run a bit longer than estimates.',
     recommendation: 'Suitable for most paddlers. Be prepared for occasional shallow spots — conditions can vary by section.',

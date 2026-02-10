@@ -43,12 +43,12 @@ const EDDY_CONDITION_IMAGES: Record<string, string> = {
 const getEddyImageForCondition = (code: ConditionCode): string => {
   switch (code) {
     case 'optimal':
-    case 'low': // "Okay - Floatable"
+    case 'okay': // "Okay - Floatable"
       return EDDY_CONDITION_IMAGES.green;
     case 'high':
     case 'dangerous': // Flood
       return EDDY_CONDITION_IMAGES.red;
-    case 'very_low': // "Low - Scraping Likely"
+    case 'low': // "Low - Scraping Likely"
       return EDDY_CONDITION_IMAGES.yellow;
     case 'too_low':
     case 'unknown':
@@ -355,8 +355,8 @@ export default function GaugesPage() {
         // Sort by water level progression (Too Low → Low → Okay → Optimal → High → Flood)
         const conditionOrder: Record<ConditionCode, number> = {
           too_low: 0,
-          very_low: 1,
-          low: 2,
+          low: 1,
+          okay: 2,
           optimal: 3,
           high: 4,
           dangerous: 5,
@@ -376,8 +376,8 @@ export default function GaugesPage() {
       const condition = getCondition(gauge);
       switch (condition.code) {
         case 'optimal': counts.optimal++; break;
-        case 'low': counts.okay++; break;
-        case 'very_low': counts.low++; break;
+        case 'okay': counts.okay++; break;
+        case 'low': counts.low++; break;
         case 'high': counts.high++; break;
         case 'dangerous': counts.flood++; break;
         case 'too_low': counts.tooLow++; break;
@@ -502,29 +502,29 @@ export default function GaugesPage() {
               </button>
 
               <button
-                onClick={() => setSelectedCondition(selectedCondition === 'very_low' ? 'all' : 'very_low')}
+                onClick={() => setSelectedCondition(selectedCondition === 'low' ? 'all' : 'low')}
                 className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'very_low'
+                  selectedCondition === 'low'
                     ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/20 ring-2 ring-yellow-400'
                     : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className={`absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent ${selectedCondition !== 'very_low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'very_low' ? 'text-white' : 'text-yellow-600'}`}>{stats.low}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'very_low' ? 'text-yellow-100' : 'text-neutral-500'}`}>Low</span>
+                <div className={`absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent ${selectedCondition !== 'low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'low' ? 'text-white' : 'text-yellow-600'}`}>{stats.low}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'low' ? 'text-yellow-100' : 'text-neutral-500'}`}>Low</span>
               </button>
 
               <button
-                onClick={() => setSelectedCondition(selectedCondition === 'low' ? 'all' : 'low')}
+                onClick={() => setSelectedCondition(selectedCondition === 'okay' ? 'all' : 'okay')}
                 className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'low'
+                  selectedCondition === 'okay'
                     ? 'bg-lime-500 text-white shadow-lg shadow-lime-500/20 ring-2 ring-lime-400'
                     : 'bg-white hover:shadow-lg border border-neutral-200'
                 }`}
               >
-                <div className={`absolute inset-0 bg-gradient-to-br from-lime-400/20 to-transparent ${selectedCondition !== 'low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'low' ? 'text-white' : 'text-lime-600'}`}>{stats.okay}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'low' ? 'text-lime-100' : 'text-neutral-500'}`}>Okay</span>
+                <div className={`absolute inset-0 bg-gradient-to-br from-lime-400/20 to-transparent ${selectedCondition !== 'okay' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'okay' ? 'text-white' : 'text-lime-600'}`}>{stats.okay}</span>
+                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'okay' ? 'text-lime-100' : 'text-neutral-500'}`}>Okay</span>
               </button>
 
               <button

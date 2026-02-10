@@ -336,13 +336,13 @@ async function getGaugeStatus(
         level = 'optimal';
         label = 'Optimal for floating';
       } else if (riverGauge.low_below && cfs <= riverGauge.low_below) {
-        level = 'low';
+        level = 'okay';
         label = 'Low water - Expect to walk';
       } else if (riverGauge.too_low_below && cfs <= riverGauge.too_low_below) {
         level = 'too_low';
         label = 'Too low to float';
       } else if (riverGauge.optimal_min && cfs < riverGauge.optimal_min) {
-        level = 'low';
+        level = 'okay';
         label = 'Below optimal';
       } else if (riverGauge.optimal_max && cfs > riverGauge.optimal_max) {
         level = 'high';

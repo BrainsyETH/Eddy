@@ -34,12 +34,12 @@ const EDDY_CONDITION_IMAGES: Record<string, string> = {
 const getEddyImageForCondition = (code: ConditionCode): string => {
   switch (code) {
     case 'optimal':
-    case 'low':
+    case 'okay':
       return EDDY_CONDITION_IMAGES.green;
     case 'high':
     case 'dangerous':
       return EDDY_CONDITION_IMAGES.red;
-    case 'very_low':
+    case 'low':
       return EDDY_CONDITION_IMAGES.yellow;
     case 'too_low':
     case 'unknown':
@@ -699,7 +699,7 @@ export default function GaugeOverview({
   }
 
   // Condition order for range display (low water to high water)
-  const CONDITION_ORDER: ConditionCode[] = ['too_low', 'very_low', 'low', 'optimal', 'high', 'dangerous'];
+  const CONDITION_ORDER: ConditionCode[] = ['too_low', 'low', 'okay', 'optimal', 'high', 'dangerous'];
 
   // Get condition range for the badge
   const conditions = gauges.map(g => getGaugeCondition(g, riverId));

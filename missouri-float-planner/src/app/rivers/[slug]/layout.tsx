@@ -61,8 +61,8 @@ export async function generateMetadata({ params }: RiverLayoutProps): Promise<Me
 
     const conditionLabels: Record<string, string> = {
       optimal: 'Optimal',
-      low: 'Low - Floatable',
-      very_low: 'Very Low',
+      okay: 'Low - Floatable',
+      low: 'Very Low',
       high: 'High Water',
       too_low: 'Too Low',
       dangerous: 'Dangerous',

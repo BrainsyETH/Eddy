@@ -15,8 +15,8 @@ interface RiverSelectorProps {
 
 const conditionColors: Record<ConditionCode, string> = {
   optimal: 'bg-support-500',
-  low: 'bg-yellow-500',
-  very_low: 'bg-amber-500',
+  okay: 'bg-yellow-500',
+  low: 'bg-amber-500',
   high: 'bg-orange-500',
   too_low: 'bg-red-500',
   dangerous: 'bg-red-600',

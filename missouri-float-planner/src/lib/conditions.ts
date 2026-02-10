@@ -88,17 +88,17 @@ export function computeCondition(
 
   if (thresholds.levelLow !== null && compareValue >= thresholds.levelLow) {
     return {
-      code: 'low',
-      label: CONDITION_LABELS.low,
-      color: CONDITION_COLORS.low,
+      code: 'okay',
+      label: CONDITION_LABELS.okay,
+      color: CONDITION_COLORS.okay,
     };
   }
 
   if (thresholds.levelTooLow !== null && compareValue >= thresholds.levelTooLow) {
     return {
-      code: 'very_low',
-      label: CONDITION_LABELS.very_low,
-      color: CONDITION_COLORS.very_low,
+      code: 'low',
+      label: CONDITION_LABELS.low,
+      color: CONDITION_COLORS.low,
     };
   }
 
@@ -122,9 +122,9 @@ export function getConditionTailwindColor(code: ConditionCode): string {
       return 'bg-orange-500';
     case 'optimal':
       return 'bg-emerald-600';
-    case 'low':
+    case 'okay':
       return 'bg-lime-500';
-    case 'very_low':
+    case 'low':
       return 'bg-yellow-500';
     case 'too_low':
       return 'bg-neutral-400';
@@ -132,6 +132,19 @@ export function getConditionTailwindColor(code: ConditionCode): string {
       return 'bg-neutral-400';
     default:
       return 'bg-neutral-400';
+  }
+}
+
+/**
+ * Maps legacy database condition codes to aligned frontend codes.
+ * The database RPC returns 'low' (meaning "okay/floatable") and 'very_low' (meaning "low/scraping").
+ * Frontend uses 'okay' and 'low' respectively for clarity.
+ */
+export function mapConditionCode(dbCode: string): ConditionCode {
+  switch (dbCode) {
+    case 'very_low': return 'low';
+    case 'low': return 'okay';
+    default: return dbCode as ConditionCode;
   }
 }
 
@@ -147,9 +160,9 @@ export function getConditionShortLabel(code: ConditionCode): string {
       return 'High';
     case 'optimal':
       return 'Optimal';
-    case 'low':
+    case 'okay':
       return 'Okay';
-    case 'very_low':
+    case 'low':
       return 'Low';
     case 'too_low':
       return 'Too Low';

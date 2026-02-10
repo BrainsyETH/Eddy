@@ -64,8 +64,8 @@ export async function loadConditionOtter(
 ): Promise<string> {
   const otterUrls: Record<string, string> = {
     optimal: OTTER_URLS.green,
-    low: OTTER_URLS.green,
-    very_low: OTTER_URLS.yellow,
+    okay: OTTER_URLS.green,
+    low: OTTER_URLS.yellow,
     high: OTTER_URLS.red,
     too_low: OTTER_URLS.flag,
     dangerous: OTTER_URLS.red,

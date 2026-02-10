@@ -3,13 +3,16 @@
 // src/app/page.tsx
 // Landing page for Eddy
 
-import { Suspense, useState, useMemo, useEffect } from 'react';
+import { Suspense, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, Droplets, Clock, ChevronDown, ArrowRight } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
+import { useGaugeStations } from '@/hooks/useGaugeStations';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
+import { computeCondition, getConditionShortLabel } from '@/lib/conditions';
+import { CONDITION_COLORS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 
 const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
@@ -33,56 +36,65 @@ export default function Home() {
   );
 }
 
-// Gauge condition stats type
-interface GaugeStats {
-  tooLow: number;
-  low: number;
-  okay: number;
-  optimal: number;
-  high: number;
-  flood: number;
+// Target rivers for the homepage conditions display
+const TARGET_RIVER_SLUGS = ['current', 'jacks-fork', 'eleven-point'];
+
+interface RiverConditionRow {
+  name: string;
+  slug: string;
+  conditionCode: ConditionCode;
+  conditionLabel: string;
+  gaugeHeightFt: number | null;
 }
 
 function HomeContent() {
   const { data: rivers } = useRivers();
-  const [gaugeStats, setGaugeStats] = useState<GaugeStats | null>(null);
+  const { data: gauges } = useGaugeStations();
 
-  // Fetch gauge stats for the River Levels card
-  useEffect(() => {
-    async function fetchGaugeStats() {
-      try {
-        const response = await fetch('/api/gauges');
-        if (response.ok) {
-          const data = await response.json();
-          // Calculate stats from gauges
-          const stats: GaugeStats = { tooLow: 0, low: 0, okay: 0, optimal: 0, high: 0, flood: 0 };
-          data.gauges?.forEach((gauge: { gaugeHeightFt: number | null; thresholds?: Array<{ isPrimary?: boolean; levelTooLow: number | null; levelLow: number | null; levelOptimalMin: number | null; levelOptimalMax: number | null; levelHigh: number | null; levelDangerous: number | null }> }) => {
-            const threshold = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
-            if (!threshold || gauge.gaugeHeightFt === null) return;
+  // Compute per-river conditions from gauge data
+  const riverConditions = useMemo((): RiverConditionRow[] => {
+    if (!rivers || !gauges) return [];
 
-            const h = gauge.gaugeHeightFt;
-            if (threshold.levelDangerous !== null && h >= threshold.levelDangerous) {
-              stats.flood++;
-            } else if (threshold.levelHigh !== null && h >= threshold.levelHigh) {
-              stats.high++;
-            } else if (threshold.levelOptimalMin !== null && threshold.levelOptimalMax !== null && h >= threshold.levelOptimalMin && h <= threshold.levelOptimalMax) {
-              stats.optimal++;
-            } else if (threshold.levelLow !== null && h >= threshold.levelLow) {
-              stats.okay++;
-            } else if (threshold.levelTooLow !== null && h >= threshold.levelTooLow) {
-              stats.low++;
-            } else {
-              stats.tooLow++;
-            }
-          });
-          setGaugeStats(stats);
-        }
-      } catch (error) {
-        console.error('Failed to fetch gauge stats:', error);
+    const targetRivers = rivers.filter(r => TARGET_RIVER_SLUGS.includes(r.slug));
+
+    return targetRivers.map(river => {
+      // Find the primary gauge for this river
+      const primaryGauge = gauges.find(g =>
+        g.thresholds?.some(t => t.riverId === river.id && t.isPrimary)
+      );
+
+      if (!primaryGauge) {
+        return {
+          name: river.name,
+          slug: river.slug,
+          conditionCode: (river.currentCondition?.code ?? 'unknown') as ConditionCode,
+          conditionLabel: getConditionShortLabel((river.currentCondition?.code ?? 'unknown') as ConditionCode),
+          gaugeHeightFt: null,
+        };
       }
-    }
-    fetchGaugeStats();
-  }, []);
+
+      const threshold = primaryGauge.thresholds?.find(t => t.riverId === river.id && t.isPrimary);
+      if (!threshold) {
+        return {
+          name: river.name,
+          slug: river.slug,
+          conditionCode: 'unknown' as ConditionCode,
+          conditionLabel: 'Unknown',
+          gaugeHeightFt: primaryGauge.gaugeHeightFt,
+        };
+      }
+
+      const condition = computeCondition(primaryGauge.gaugeHeightFt, threshold, primaryGauge.dischargeCfs);
+
+      return {
+        name: river.name,
+        slug: river.slug,
+        conditionCode: condition.code,
+        conditionLabel: getConditionShortLabel(condition.code),
+        gaugeHeightFt: primaryGauge.gaugeHeightFt,
+      };
+    });
+  }, [rivers, gauges]);
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
@@ -133,11 +145,7 @@ function HomeContent() {
             <FloatEstimator rivers={rivers || []} />
 
             {/* Check River Levels - Half width */}
-            <Link
-              href="/gauges"
-              className="group flex flex-col glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10
-                         hover:border-primary-400/50 transition-all no-underline"
-            >
+            <div className="flex flex-col glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10">
               <div className="flex items-center gap-3 mb-4">
                 <Image
                   src={EDDY_FLOOD_IMAGE}
@@ -146,42 +154,57 @@ function HomeContent() {
                   height={120}
                   className="w-12 h-12 md:w-14 md:h-14 object-contain"
                 />
-                <h2 className="text-xl lg:text-2xl font-bold text-white">Check River Levels</h2>
+                <h2 className="text-xl lg:text-2xl font-bold text-white">River Conditions</h2>
               </div>
 
-              {/* Condition Stats Grid */}
-              <div className="grid grid-cols-3 gap-2 mb-4 flex-1">
-                <div className="bg-white rounded-lg p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-neutral-500">{gaugeStats?.tooLow ?? '-'}</span>
-                  <span className="text-[11px] font-semibold text-neutral-400">Too Low</span>
-                </div>
-                <div className="bg-white rounded-lg p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-yellow-500">{gaugeStats?.low ?? '-'}</span>
-                  <span className="text-[11px] font-semibold text-yellow-500/80">Low</span>
-                </div>
-                <div className="bg-white rounded-lg p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-lime-500">{gaugeStats?.okay ?? '-'}</span>
-                  <span className="text-[11px] font-semibold text-lime-500/80">Okay</span>
-                </div>
-                <div className="bg-white rounded-lg p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-emerald-500">{gaugeStats?.optimal ?? '-'}</span>
-                  <span className="text-[11px] font-semibold text-emerald-500/80">Optimal</span>
-                </div>
-                <div className="bg-white rounded-lg p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-orange-500">{gaugeStats?.high ?? '-'}</span>
-                  <span className="text-[11px] font-semibold text-orange-500/80">High</span>
-                </div>
-                <div className="bg-white rounded-lg p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-red-500">{gaugeStats?.flood ?? '-'}</span>
-                  <span className="text-[11px] font-semibold text-red-500/80">Flood</span>
-                </div>
+              {/* Per-River Condition Rows */}
+              <div className="space-y-2 mb-4 flex-1">
+                {riverConditions.length > 0 ? (
+                  riverConditions.map((rc) => (
+                    <Link
+                      key={rc.slug}
+                      href={`/rivers/${rc.slug}`}
+                      className="flex items-center justify-between bg-white/10 hover:bg-white/15 rounded-lg px-3 py-2.5 transition-colors no-underline"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: CONDITION_COLORS[rc.conditionCode] || CONDITION_COLORS.unknown }}
+                        />
+                        <span className="text-sm font-medium text-white">{rc.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-bold"
+                          style={{
+                            backgroundColor: `${CONDITION_COLORS[rc.conditionCode] || CONDITION_COLORS.unknown}20`,
+                            color: CONDITION_COLORS[rc.conditionCode] || CONDITION_COLORS.unknown,
+                          }}
+                        >
+                          {rc.conditionLabel}
+                        </span>
+                        <span className="text-sm font-bold text-white/70 tabular-nums w-14 text-right">
+                          {rc.gaugeHeightFt !== null ? `${rc.gaugeHeightFt.toFixed(1)} ft` : '--'}
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  [1, 2, 3].map(i => (
+                    <div key={i} className="bg-white/10 rounded-lg px-3 py-2.5 h-10 animate-pulse" />
+                  ))
+                )}
+                <p className="text-[10px] text-white/40 mt-1">Primary gauge &middot; USGS data</p>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                <span className="text-sm font-medium text-primary-300">View Dashboard</span>
+              <Link
+                href="/gauges"
+                className="group flex items-center justify-between pt-4 border-t border-white/10 no-underline"
+              >
+                <span className="text-sm font-medium text-primary-300">View Full Dashboard</span>
                 <ArrowRight className="w-5 h-5 text-primary-300 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
+              </Link>
+            </div>
           </div>
 
         </div>

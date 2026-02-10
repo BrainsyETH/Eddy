@@ -8,7 +8,7 @@ import {
   fetchDailyStatistics,
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { computeCondition, mapConditionCode, type ConditionThresholds } from '@/lib/conditions';
 import {
   conditionCodeToFlowRating,
   getThresholdBasedDescription,
@@ -369,7 +369,7 @@ export async function GET(
           diagnostic = 'No live USGS data available for this gauge.';
           finalCondition = {
             label: condition.condition_label || 'Unknown Conditions',
-            code: condition.condition_code || 'unknown',
+            code: mapConditionCode(condition.condition_code || 'unknown'),
             gaugeHeightFt: condition.gauge_height_ft,
             dischargeCfs: condition.discharge_cfs,
             readingTimestamp: condition.reading_timestamp,
@@ -384,7 +384,7 @@ export async function GET(
         diagnostic = 'No gauge configured for this river.';
         finalCondition = {
           label: condition.condition_label || 'Unknown Conditions',
-          code: condition.condition_code || 'unknown',
+          code: mapConditionCode(condition.condition_code || 'unknown'),
           gaugeHeightFt: condition.gauge_height_ft,
           dischargeCfs: condition.discharge_cfs,
           readingTimestamp: condition.reading_timestamp,
@@ -399,7 +399,7 @@ export async function GET(
       // Database has valid condition data
       finalCondition = {
         label: condition.condition_label || 'Unknown Conditions',
-        code: condition.condition_code || 'unknown',
+        code: mapConditionCode(condition.condition_code || 'unknown'),
         gaugeHeightFt: condition.gauge_height_ft,
         dischargeCfs: condition.discharge_cfs,
         readingTimestamp: condition.reading_timestamp,

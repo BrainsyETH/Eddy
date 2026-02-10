@@ -21,8 +21,8 @@ function truncate(text: string, maxLength: number): string {
 function getConditionDisplay(condition: ConditionCode) {
   const displays: Record<ConditionCode, { label: string; textColor: string; bg: string }> = {
     optimal: { label: 'OPTIMAL', textColor: '#1A3D23', bg: '#059669' },
-    low: { label: 'OKAY', textColor: '#1A3D23', bg: '#84CC16' },
-    very_low: { label: 'LOW', textColor: '#2D2A24', bg: '#EAB308' },
+    okay: { label: 'OKAY', textColor: '#1A3D23', bg: '#84CC16' },
+    low: { label: 'LOW', textColor: '#2D2A24', bg: '#EAB308' },
     high: { label: 'HIGH WATER', textColor: '#ffffff', bg: '#F97316' },
     too_low: { label: 'TOO LOW', textColor: '#2D2A24', bg: '#9CA3AF' },
     dangerous: { label: 'FLOOD', textColor: '#ffffff', bg: '#DC2626' },

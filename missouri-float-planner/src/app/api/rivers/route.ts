@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { mapConditionCode } from '@/lib/conditions';
 import type { RiversResponse } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -93,7 +94,7 @@ export async function GET() {
           currentCondition: condition
             ? {
                 label: condition.condition_label,
-                code: condition.condition_code,
+                code: mapConditionCode(condition.condition_code),
               }
             : null,
         };
