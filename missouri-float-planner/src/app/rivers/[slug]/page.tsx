@@ -10,6 +10,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
+import ConditionWarningBanner from '@/components/river/ConditionWarningBanner';
 import LocalKnowledge from '@/components/river/LocalKnowledge';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
@@ -480,6 +481,9 @@ export default function RiverPage() {
         river={river}
         condition={condition}
       />
+
+      {/* Safety warning for high/flood conditions */}
+      <ConditionWarningBanner condition={condition} riverName={river.name} />
 
       {/* Main Content - add bottom padding on mobile when bottom sheet is visible */}
       <div className={`max-w-7xl mx-auto px-4 py-6 ${putInPoint && takeOutPoint ? 'pb-36 lg:pb-6' : ''}`}>

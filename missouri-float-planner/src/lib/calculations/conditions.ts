@@ -14,9 +14,9 @@ export function getConditionLabel(code: ConditionCode): string {
       return 'High Water - Experienced Only';
     case 'optimal':
       return 'Optimal Conditions';
-    case 'low':
+    case 'okay':
       return 'Low - Floatable';
-    case 'very_low':
+    case 'low':
       return 'Very Low - Scraping Likely';
     case 'too_low':
       return 'Too Low - Not Recommended';
@@ -37,9 +37,9 @@ export function getConditionColorClass(code: ConditionCode): string {
       return 'bg-orange-100 text-orange-800 border-orange-300';
     case 'optimal':
       return 'bg-green-100 text-green-800 border-green-300';
-    case 'low':
+    case 'okay':
       return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    case 'very_low':
+    case 'low':
       return 'bg-orange-100 text-orange-800 border-orange-300';
     case 'too_low':
       return 'bg-red-100 text-red-800 border-red-300';
@@ -53,20 +53,20 @@ export function getConditionColorClass(code: ConditionCode): string {
  * Determines if a condition code allows floating
  */
 export function isFloatable(code: ConditionCode): boolean {
-  return code === 'optimal' || code === 'high' || code === 'low' || code === 'very_low';
+  return code === 'optimal' || code === 'high' || code === 'okay' || code === 'low';
 }
 
 /**
  * Maps threshold-based condition codes to flow ratings for display.
  * Single source of truth — used by both /api/plan and /api/conditions endpoints.
  *
- * Note: 'low' condition code means "above level_low threshold" = floatable = 'good' rating
+ * Note: 'okay' condition code means "above level_low threshold" = floatable = 'good' rating
  */
 export function conditionCodeToFlowRating(code: ConditionCode): FlowRating {
   switch (code) {
     case 'optimal': return 'good';
-    case 'low': return 'good';
-    case 'very_low': return 'low';
+    case 'okay': return 'good';
+    case 'low': return 'low';
     case 'too_low': return 'poor';
     case 'high': return 'high';
     case 'dangerous': return 'flood';
@@ -92,8 +92,8 @@ export const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
 export function getThresholdBasedDescription(code: ConditionCode): string {
   switch (code) {
     case 'optimal': return 'Ideal conditions for floating';
-    case 'low': return 'Good conditions - minimal dragging expected';
-    case 'very_low': return 'Expect some dragging in shallow areas';
+    case 'okay': return 'Good conditions - minimal dragging expected';
+    case 'low': return 'Expect some dragging in shallow areas';
     case 'too_low': return 'Frequent dragging and portaging likely';
     case 'high': return 'Fast current - experienced paddlers only';
     case 'dangerous': return 'Dangerous conditions - do not float';

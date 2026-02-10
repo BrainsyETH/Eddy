@@ -14,7 +14,7 @@ export interface GaugeThreshold {
     isPrimary: boolean;
     thresholds: {
       tooLow: number | null;
-      low: number | null;
+      okay: number | null;
       optimalMin: number | null;
       optimalMax: number | null;
       high: number | null;
@@ -94,7 +94,7 @@ export async function GET() {
         isPrimary: rg.is_primary || false,
         thresholds: {
           tooLow: rg.level_too_low,
-          low: rg.level_low,
+          okay: rg.level_low,
           optimalMin: rg.level_optimal_min,
           optimalMax: rg.level_optimal_max,
           high: rg.level_high,

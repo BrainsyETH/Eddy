@@ -61,12 +61,12 @@ function getEddyImage(code?: ConditionCode | null): string {
   if (!code) return EDDY_IMAGES.flag;
   switch (code) {
     case 'optimal':
-    case 'low':
+    case 'okay':
       return EDDY_IMAGES.green;
     case 'high':
     case 'dangerous':
       return EDDY_IMAGES.red;
-    case 'very_low':
+    case 'low':
       return EDDY_IMAGES.yellow;
     default:
       return EDDY_IMAGES.flag;

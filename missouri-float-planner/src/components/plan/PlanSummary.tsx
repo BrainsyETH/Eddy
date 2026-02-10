@@ -25,7 +25,7 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     borderClass: 'border-emerald-400',
     explanation: 'Ideal conditions for floating.',
   },
-  low: {
+  okay: {
     label: 'Okay',
     emoji: '✓',
     bgClass: 'bg-lime-500',
@@ -33,7 +33,7 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     borderClass: 'border-lime-400',
     explanation: 'Floatable with minimal dragging.',
   },
-  very_low: {
+  low: {
     label: 'Low',
     emoji: '↓',
     bgClass: 'bg-yellow-500',

@@ -62,8 +62,8 @@ export const HAZARD_SEVERITY_COLORS = {
 // Condition code colors (ordered: Too Low → Low → Okay → Optimal → High → Flood)
 export const CONDITION_COLORS = {
   too_low: '#9ca3af',   // gray
-  very_low: '#eab308',  // yellow
-  low: '#84cc16',       // lime-500 (okay green)
+  low: '#eab308',  // yellow
+  okay: '#84cc16',       // lime-500 (okay green)
   optimal: '#059669',   // emerald-600 (richer green)
   high: '#f97316',      // orange
   dangerous: '#ef4444', // red
@@ -73,8 +73,8 @@ export const CONDITION_COLORS = {
 // Condition code labels (ordered: Too Low → Low → Okay → Optimal → High → Flood)
 export const CONDITION_LABELS = {
   too_low: 'Too Low - Not Recommended',
-  very_low: 'Low - Scraping Likely',
-  low: 'Okay - Floatable',
+  low: 'Low - Scraping Likely',
+  okay: 'Okay - Floatable',
   optimal: 'Optimal Conditions',
   high: 'High Water - Experienced Only',
   dangerous: 'Flood - Do Not Float',

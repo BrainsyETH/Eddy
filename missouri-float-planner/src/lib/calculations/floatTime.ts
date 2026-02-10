@@ -38,11 +38,11 @@ export function calculateFloatTime(
       speedMph = speeds.speedNormal;
       break;
 
-    case 'low':
+    case 'okay':
       speedMph = speeds.speedLowWater;
       break;
 
-    case 'very_low':
+    case 'low':
       // Very low water slows down significantly — matches DB calculate_float_time()
       speedMph = speeds.speedLowWater * 0.75;
       break;
