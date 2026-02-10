@@ -2,6 +2,7 @@
 
 // src/app/embed/widget/[slug]/page.tsx
 // Embeddable widget for displaying river conditions in an iframe
+// Designed to be lightweight and self-contained for external sites
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -15,6 +16,8 @@ const EDDY_IMAGES: Record<string, string> = {
   yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
   flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
 };
+
+const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 
 function getEddyImage(code?: ConditionCode | null): string {
   if (!code) return EDDY_IMAGES.flag;
@@ -60,24 +63,33 @@ export default function EmbedWidgetPage() {
     fetchRiver();
   }, [slug]);
 
+  const bg = isDark ? '#1a1a1a' : '#ffffff';
+  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
+  const textSecondary = isDark ? '#888' : '#777';
+  const borderColor = isDark ? '#333' : '#e5e5e5';
+
   if (loading) {
     return (
-      <div
-        className="flex items-center justify-center h-screen"
-        style={{ background: isDark ? '#1a1a1a' : '#ffffff' }}
-      >
-        <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#2D7889' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: bg }}>
+        <div
+          style={{
+            width: 20,
+            height: 20,
+            border: '2px solid #2D7889',
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   if (!river) {
     return (
-      <div
-        className="flex items-center justify-center h-screen p-4 text-center"
-        style={{ background: isDark ? '#1a1a1a' : '#ffffff', color: isDark ? '#999' : '#666' }}
-      >
-        <p className="text-sm">River not found</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
+        River not found
       </div>
     );
   }
@@ -86,76 +98,115 @@ export default function EmbedWidgetPage() {
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
   const eddyImage = getEddyImage(conditionCode);
-
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
   return (
     <div
       style={{
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        background: isDark ? '#1a1a1a' : '#ffffff',
-        color: isDark ? '#e5e5e5' : '#1a1a1a',
-        minHeight: '100vh',
-        padding: '16px',
+        background: bg,
+        color: textPrimary,
+        height: '100vh',
+        padding: '14px 16px',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
+        boxSizing: 'border-box',
       }}
     >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-        <Image src={eddyImage} alt="Eddy" width={48} height={48} style={{ width: 40, height: 40, objectFit: 'contain' }} />
-        <div>
-          <div style={{ fontWeight: 700, fontSize: '16px', lineHeight: 1.2 }}>
+      {/* Top: River name + Eddy mascot */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Image
+          src={eddyImage}
+          alt="Eddy"
+          width={44}
+          height={44}
+          style={{ width: 38, height: 38, objectFit: 'contain', flexShrink: 0 }}
+        />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {river.name}
           </div>
-          <div style={{ fontSize: '12px', color: isDark ? '#888' : '#999', marginTop: '2px' }}>
+          <div style={{ fontSize: 11, color: textSecondary, marginTop: 2 }}>
             {river.lengthMiles} mi &middot; {river.accessPointCount} access points
           </div>
         </div>
       </div>
 
-      {/* Condition Badge */}
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '8px 14px',
-          borderRadius: '8px',
-          backgroundColor: `${conditionColor}18`,
-          border: `2px solid ${conditionColor}40`,
-          marginBottom: '12px',
-        }}
-      >
+      {/* Middle: Condition badge */}
+      <div style={{ margin: '10px 0' }}>
         <div
           style={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            backgroundColor: conditionColor,
-            flexShrink: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '7px 14px',
+            borderRadius: 8,
+            backgroundColor: `${conditionColor}15`,
+            border: `2px solid ${conditionColor}35`,
           }}
-        />
-        <span style={{ fontWeight: 600, fontSize: '14px', color: conditionColor }}>
-          {conditionLabel}
-        </span>
+        >
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              backgroundColor: conditionColor,
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontWeight: 700, fontSize: 13, color: conditionColor }}>
+            {conditionLabel}
+          </span>
+        </div>
       </div>
 
-      {/* Link to Eddy */}
-      <a
-        href={`${origin}/rivers/${river.slug}`}
-        target="_blank"
-        rel="noopener noreferrer"
+      {/* Bottom: Powered by link */}
+      <div
         style={{
-          fontSize: '12px',
-          color: '#2D7889',
-          textDecoration: 'none',
-          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderTop: `1px solid ${borderColor}`,
+          paddingTop: 10,
         }}
       >
-        View on eddy.guide &rarr;
-      </a>
+        <a
+          href={`${origin}/rivers/${river.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontSize: 12,
+            color: '#2D7889',
+            textDecoration: 'none',
+            fontWeight: 600,
+          }}
+        >
+          View full details &rarr;
+        </a>
+        <a
+          href={origin || 'https://eddy.guide'}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            fontSize: 10,
+            color: textSecondary,
+            textDecoration: 'none',
+          }}
+        >
+          <Image
+            src={EDDY_LOGO}
+            alt="Eddy"
+            width={16}
+            height={16}
+            style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
+          />
+          Powered by Eddy
+        </a>
+      </div>
     </div>
   );
 }
