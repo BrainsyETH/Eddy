@@ -6,7 +6,7 @@
 --
 -- What this does:
 --   1. Fixes gauge station names to match USGS official names
---   2. Fixes Jacks Fork access point coordinates (were wrong from import)
+--   2. Fixes Blue Spring access point coordinates (verified NPS API data)
 --   3. Adds Jacks Fork POIs (Blue Spring, Jam Up Cave, Ebb & Flow, Alley Spring)
 --   4. Creates batch campground matching function
 --   5. Runs campground-to-access-point matching
@@ -46,112 +46,18 @@ WHERE gauge_station_id IN (SELECT id FROM gauge_stations WHERE usgs_site_id = '0
 
 
 -- ─────────────────────────────────────────────────────────────
--- PART 2: Fix Jacks Fork access point coordinates (from migration 00045)
+-- PART 2: Fix Blue Spring access point coordinates (from migration 00045)
 -- ─────────────────────────────────────────────────────────────
--- The import script interpolated coordinates from a simplified river geometry,
--- placing most access points far from their real locations.
+-- The import script interpolated coordinates from the simplified river geometry,
+-- placing Blue Spring near Winona (~21km away from reality).
+-- Only fixing Blue Spring — it has verified NPS API coordinates.
 
-DO $$
-DECLARE
-  v_river_id UUID;
-  v_updated INT := 0;
-BEGIN
-  SELECT id INTO v_river_id FROM rivers WHERE slug = 'jacks-fork';
-  IF v_river_id IS NULL THEN
-    RAISE NOTICE 'Jacks Fork river not found';
-    RETURN;
-  END IF;
-
-  RAISE NOTICE 'Fixing Jacks Fork access point coordinates...';
-
-  -- South Prong / Highway Y Bridge (mile 0.0)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.6307, 36.9968), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'south-prong' OR name ILIKE '%South Prong%' OR name ILIKE '%Highway Y%')
-    AND river_mile_downstream BETWEEN 0 AND 1;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed South Prong (% rows)', v_updated; END IF;
-
-  -- Buck Hollow / Highway 17 (mile 6.8)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.6284, 37.0145), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'buck-hollow' OR name ILIKE '%Buck Hollow%')
-    AND river_mile_downstream BETWEEN 5 AND 8;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Buck Hollow (% rows)', v_updated; END IF;
-
-  -- Bluff View / Salvation Army (mile 9.2)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.6350, 37.0480), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'bluff-view' OR slug = 'salvation-army' OR name ILIKE '%Bluff View%' OR name ILIKE '%Salvation Army%')
-    AND river_mile_downstream BETWEEN 8 AND 10;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Bluff View (% rows)', v_updated; END IF;
-
-  -- Blue Spring (mile 9.6) — verified from NPS API
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.6326, 37.0519), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'blue-spring' OR name ILIKE '%Blue Spring%')
-    AND river_mile_downstream BETWEEN 9 AND 11;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Blue Spring (% rows)', v_updated; END IF;
-
-  -- Rymers Landing (mile 16.2)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.5762, 37.0635), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'rymers' OR slug = 'rymers-landing' OR name ILIKE '%Rymer%')
-    AND river_mile_downstream BETWEEN 15 AND 18;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Rymers (% rows)', v_updated; END IF;
-
-  -- Bay Creek (mile 25.2)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.4816, 37.1108), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'bay-creek' OR name ILIKE '%Bay Creek%')
-    AND river_mile_downstream BETWEEN 24 AND 27;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Bay Creek (% rows)', v_updated; END IF;
-
-  -- Alley Spring (mile 31.0) — already correct from seed
-  RAISE NOTICE '  Alley Spring — already correct';
-
-  -- Eminence (mile 37.3) — already correct from seed
-  RAISE NOTICE '  Eminence — already correct';
-
-  -- Shawnee Creek (mile 41.9)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.2931, 37.1344), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'shawnee-creek' OR name ILIKE '%Shawnee Creek%')
-    AND river_mile_downstream BETWEEN 40 AND 43;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Shawnee Creek (% rows)', v_updated; END IF;
-
-  -- Two Rivers (mile 44.6)
-  UPDATE access_points
-  SET location_orig = ST_SetSRID(ST_MakePoint(-91.2689, 37.1267), 4326),
-      location_snap = NULL
-  WHERE river_id = v_river_id
-    AND (slug = 'two-rivers' OR name ILIKE '%Two Rivers%' OR name ILIKE '%confluence%')
-    AND river_mile_downstream BETWEEN 43 AND 46;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  IF v_updated > 0 THEN RAISE NOTICE '  Fixed Two Rivers (% rows)', v_updated; END IF;
-
-  RAISE NOTICE 'Done fixing coordinates';
-END $$;
+UPDATE access_points
+SET location_orig = ST_SetSRID(ST_MakePoint(-91.6326, 37.0519), 4326),
+    location_snap = NULL
+WHERE (slug = 'blue-spring' OR name ILIKE '%Blue Spring%')
+  AND river_id IN (SELECT id FROM rivers WHERE slug = 'jacks-fork')
+  AND river_mile_downstream BETWEEN 9 AND 11;
 
 
 -- ─────────────────────────────────────────────────────────────
