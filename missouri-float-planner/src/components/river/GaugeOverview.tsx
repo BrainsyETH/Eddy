@@ -409,35 +409,6 @@ function GaugeExpandedDetail({
 
   return (
     <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
-      {/* Per-card unit toggle */}
-      {hasAltThresholds && (
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-medium text-neutral-500">Display unit:</span>
-          <div className="flex rounded-md border border-neutral-300 overflow-hidden">
-            <button
-              onClick={() => setDisplayUnit(primaryUnit)}
-              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                displayUnit === primaryUnit
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
-              }`}
-            >
-              {primaryUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
-            </button>
-            <button
-              onClick={() => setDisplayUnit(altUnit)}
-              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                displayUnit === altUnit
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white text-neutral-500 hover:bg-neutral-50'
-              }`}
-            >
-              {altUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Top Row: Weather (left) + Current Readings (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Left Column - Weather */}
@@ -567,12 +538,39 @@ function GaugeExpandedDetail({
 
             return (
               <div>
-                <h4 className="text-sm font-semibold text-neutral-700 mb-3">
-                  Condition Thresholds
-                  <span className="font-normal text-neutral-500 ml-1">
-                    ({unit === 'cfs' ? 'flow' : 'gauge height'})
-                  </span>
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-neutral-700">
+                    Condition Thresholds
+                  </h4>
+                  {hasAltThresholds ? (
+                    <div className="flex rounded-md border border-neutral-300 overflow-hidden">
+                      <button
+                        onClick={() => setDisplayUnit(primaryUnit)}
+                        className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                          displayUnit === primaryUnit
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-white text-neutral-500 hover:bg-neutral-50'
+                        }`}
+                      >
+                        {primaryUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
+                      </button>
+                      <button
+                        onClick={() => setDisplayUnit(altUnit)}
+                        className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                          displayUnit === altUnit
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-white text-neutral-500 hover:bg-neutral-50'
+                        }`}
+                      >
+                        {altUnit === 'ft' ? 'Gauge Ht (ft)' : 'Flow (cfs)'}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-normal text-neutral-500">
+                      ({unit === 'cfs' ? 'flow' : 'gauge height'})
+                    </span>
+                  )}
+                </div>
                 <div className="bg-white border border-neutral-200 rounded-lg p-3">
                   <div className="space-y-3 text-sm">
                     <div className="flex items-start justify-between gap-2">
