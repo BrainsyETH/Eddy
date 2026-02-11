@@ -177,6 +177,50 @@ export default function AdminGaugesPage() {
     });
   };
 
+  // When toggling the unit, swap primary (level_*) and alt (alt_level_*) values
+  // so that level_* always stores thresholds in the selected unit.
+  const handleUnitToggle = (assocId: string, newUnit: string) => {
+    const currentUnit = getAssocDisplayValue<string>(assocId, 'thresholdUnit', 'ft');
+    if (newUnit === currentUnit) return;
+
+    // Read current effective values (edited or original)
+    const pTooLow = getAssocDisplayValue<number | null>(assocId, 'levelTooLow', null);
+    const pLow = getAssocDisplayValue<number | null>(assocId, 'levelLow', null);
+    const pOptMin = getAssocDisplayValue<number | null>(assocId, 'levelOptimalMin', null);
+    const pOptMax = getAssocDisplayValue<number | null>(assocId, 'levelOptimalMax', null);
+    const pHigh = getAssocDisplayValue<number | null>(assocId, 'levelHigh', null);
+    const pDangerous = getAssocDisplayValue<number | null>(assocId, 'levelDangerous', null);
+
+    const aTooLow = getAssocDisplayValue<number | null>(assocId, 'altLevelTooLow', null);
+    const aLow = getAssocDisplayValue<number | null>(assocId, 'altLevelLow', null);
+    const aOptMin = getAssocDisplayValue<number | null>(assocId, 'altLevelOptimalMin', null);
+    const aOptMax = getAssocDisplayValue<number | null>(assocId, 'altLevelOptimalMax', null);
+    const aHigh = getAssocDisplayValue<number | null>(assocId, 'altLevelHigh', null);
+    const aDangerous = getAssocDisplayValue<number | null>(assocId, 'altLevelDangerous', null);
+
+    // Swap: old primary → new alt, old alt → new primary
+    setEditedAssociations(prev => {
+      const next = new Map(prev);
+      next.set(assocId, {
+        ...(next.get(assocId) || {}),
+        thresholdUnit: newUnit,
+        levelTooLow: aTooLow,
+        levelLow: aLow,
+        levelOptimalMin: aOptMin,
+        levelOptimalMax: aOptMax,
+        levelHigh: aHigh,
+        levelDangerous: aDangerous,
+        altLevelTooLow: pTooLow,
+        altLevelLow: pLow,
+        altLevelOptimalMin: pOptMin,
+        altLevelOptimalMax: pOptMax,
+        altLevelHigh: pHigh,
+        altLevelDangerous: pDangerous,
+      });
+      return next;
+    });
+  };
+
   const updateRiverField = (riverId: string, field: keyof River, value: unknown) => {
     setEditedRivers(prev => {
       const next = new Map(prev);
@@ -561,7 +605,7 @@ export default function AdminGaugesPage() {
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm text-neutral-400">Unit:</span>
+                                    <span className="text-sm text-neutral-400">Default unit:</span>
                                     <div className="flex rounded-lg overflow-hidden border border-neutral-600">
                                       {(['ft', 'cfs'] as const).map(unit => {
                                         const currentUnit = getAssocDisplayValue<string>(assoc.id, 'thresholdUnit', 'ft');
@@ -570,7 +614,7 @@ export default function AdminGaugesPage() {
                                           <button
                                             key={unit}
                                             type="button"
-                                            onClick={() => updateAssociationField(assoc.id, 'thresholdUnit', unit)}
+                                            onClick={() => handleUnitToggle(assoc.id, unit)}
                                             className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                                               isActive
                                                 ? 'bg-primary-600 text-white'
@@ -618,8 +662,8 @@ export default function AdminGaugesPage() {
                                         ))}
                                       </div>
 
-                                      {/* Alternate unit thresholds */}
-                                      <p className="text-xs text-neutral-500 mt-4 mb-2">Alternate unit — {altUnitLabel === 'cfs' ? 'cfs (discharge)' : 'ft (gauge height)'}</p>
+                                      {/* Alternate unit thresholds (shown when user toggles unit on the site) */}
+                                      <p className="text-xs text-neutral-500 mt-4 mb-2">Alternate unit — {altUnitLabel === 'cfs' ? 'cfs (discharge)' : 'ft (gauge height)'} <span className="text-neutral-600">(optional, enables unit toggle on site)</span></p>
                                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                                         {[
                                           { field: 'altLevelTooLow', label: 'Too Low', color: 'border-gray-500' },
