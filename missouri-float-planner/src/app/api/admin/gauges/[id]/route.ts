@@ -214,13 +214,34 @@ export async function PUT(
         }
 
         if (Object.keys(thresholdUpdate).length > 0) {
-          // Use .select() to verify the update actually persisted
-          const { data: updated, error: thresholdError } = await supabase
+          // Try update with all fields; if alt columns don't exist, retry without them
+          let { data: updated, error: thresholdError } = await supabase
             .from('river_gauges')
             .update(thresholdUpdate)
             .eq('id', assoc.id)
             .select('id')
             .maybeSingle();
+
+          if (thresholdError && thresholdError.message.includes('alt_level_')) {
+            console.warn('Alt columns not available, retrying without them:', thresholdError.message);
+            // Strip alt fields and retry
+            const withoutAlt = Object.fromEntries(
+              Object.entries(thresholdUpdate).filter(([k]) => !k.startsWith('alt_level_'))
+            );
+            if (Object.keys(withoutAlt).length > 0) {
+              const retry = await supabase
+                .from('river_gauges')
+                .update(withoutAlt)
+                .eq('id', assoc.id)
+                .select('id')
+                .maybeSingle();
+              updated = retry.data;
+              thresholdError = retry.error;
+            } else {
+              updated = { id: assoc.id }; // nothing to write
+              thresholdError = null;
+            }
+          }
 
           if (thresholdError) {
             console.error('Error updating river gauge thresholds:', thresholdError, { assocId: assoc.id, thresholdUpdate });

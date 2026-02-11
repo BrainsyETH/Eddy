@@ -179,6 +179,7 @@ export default function AdminGaugesPage() {
 
   // When toggling the unit, swap primary (level_*) and alt (alt_level_*) values
   // so that level_* always stores thresholds in the selected unit.
+  // If alt values are all empty, only change the unit label (no swap needed).
   const handleUnitToggle = (assocId: string, newUnit: string) => {
     const currentUnit = getAssocDisplayValue<string>(assocId, 'thresholdUnit', 'ft');
     if (newUnit === currentUnit) return;
@@ -198,27 +199,35 @@ export default function AdminGaugesPage() {
     const aHigh = getAssocDisplayValue<number | null>(assocId, 'altLevelHigh', null);
     const aDangerous = getAssocDisplayValue<number | null>(assocId, 'altLevelDangerous', null);
 
-    // Swap: old primary → new alt, old alt → new primary
-    setEditedAssociations(prev => {
-      const next = new Map(prev);
-      next.set(assocId, {
-        ...(next.get(assocId) || {}),
-        thresholdUnit: newUnit,
-        levelTooLow: aTooLow,
-        levelLow: aLow,
-        levelOptimalMin: aOptMin,
-        levelOptimalMax: aOptMax,
-        levelHigh: aHigh,
-        levelDangerous: aDangerous,
-        altLevelTooLow: pTooLow,
-        altLevelLow: pLow,
-        altLevelOptimalMin: pOptMin,
-        altLevelOptimalMax: pOptMax,
-        altLevelHigh: pHigh,
-        altLevelDangerous: pDangerous,
+    const altHasData = aTooLow !== null || aLow !== null || aOptMin !== null ||
+      aOptMax !== null || aHigh !== null || aDangerous !== null;
+
+    if (altHasData) {
+      // Swap: old primary → new alt, old alt → new primary
+      setEditedAssociations(prev => {
+        const next = new Map(prev);
+        next.set(assocId, {
+          ...(next.get(assocId) || {}),
+          thresholdUnit: newUnit,
+          levelTooLow: aTooLow,
+          levelLow: aLow,
+          levelOptimalMin: aOptMin,
+          levelOptimalMax: aOptMax,
+          levelHigh: aHigh,
+          levelDangerous: aDangerous,
+          altLevelTooLow: pTooLow,
+          altLevelLow: pLow,
+          altLevelOptimalMin: pOptMin,
+          altLevelOptimalMax: pOptMax,
+          altLevelHigh: pHigh,
+          altLevelDangerous: pDangerous,
+        });
+        return next;
       });
-      return next;
-    });
+    } else {
+      // Alt is empty — just change the unit, keep primary values as-is
+      updateAssociationField(assocId, 'thresholdUnit', newUnit);
+    }
   };
 
   const updateRiverField = (riverId: string, field: keyof River, value: unknown) => {
