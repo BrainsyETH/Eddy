@@ -563,6 +563,7 @@ function GaugeExpandedDetail({
               return `${min.toFixed(2)} - ${max.toFixed(2)} ${unit}`;
             };
             const decrementValue = unit === 'cfs' ? 1 : 0.01;
+            const desc = gauge.thresholdDescriptions;
 
             return (
               <div>
@@ -573,78 +574,108 @@ function GaugeExpandedDetail({
                   </span>
                 </h4>
                 <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                        <span className="text-neutral-600">Optimal</span>
+                        <span className="text-neutral-600 font-medium">Optimal</span>
                       </div>
-                      <span className="font-mono text-neutral-900">
-                        {tv.levelOptimalMin !== null && tv.levelOptimalMax !== null
-                          ? formatRange(tv.levelOptimalMin, tv.levelOptimalMax)
-                          : 'N/A'}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelOptimalMin !== null && tv.levelOptimalMax !== null
+                            ? formatRange(tv.levelOptimalMin, tv.levelOptimalMax)
+                            : 'N/A'}
+                        </span>
+                        {desc?.optimal && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.optimal}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
-                        <span className="text-neutral-600">Okay</span>
+                        <span className="text-neutral-600 font-medium">Okay</span>
                       </div>
-                      <span className="font-mono text-neutral-900">
-                        {tv.levelLow !== null && tv.levelOptimalMin !== null
-                          ? `${formatValue(tv.levelLow)} - ${formatValue(tv.levelOptimalMin - decrementValue)} ${unit}`
-                          : tv.levelLow !== null
-                          ? `≥ ${formatValue(tv.levelLow)} ${unit}`
-                          : 'N/A'}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelLow !== null && tv.levelOptimalMin !== null
+                            ? `${formatValue(tv.levelLow)} - ${formatValue(tv.levelOptimalMin - decrementValue)} ${unit}`
+                            : tv.levelLow !== null
+                            ? `≥ ${formatValue(tv.levelLow)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {desc?.okay && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.okay}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                        <span className="text-neutral-600">Low</span>
+                        <span className="text-neutral-600 font-medium">Low</span>
                       </div>
-                      <span className="font-mono text-neutral-900">
-                        {tv.levelTooLow !== null && tv.levelLow !== null
-                          ? `${formatValue(tv.levelTooLow)} - ${formatValue(tv.levelLow - decrementValue)} ${unit}`
-                          : tv.levelTooLow !== null
-                          ? `≥ ${formatValue(tv.levelTooLow)} ${unit}`
-                          : 'N/A'}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelTooLow !== null && tv.levelLow !== null
+                            ? `${formatValue(tv.levelTooLow)} - ${formatValue(tv.levelLow - decrementValue)} ${unit}`
+                            : tv.levelTooLow !== null
+                            ? `≥ ${formatValue(tv.levelTooLow)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {desc?.low && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.low}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
-                        <span className="text-neutral-600">Too Low</span>
+                        <span className="text-neutral-600 font-medium">Too Low</span>
                       </div>
-                      <span className="font-mono text-neutral-900">
-                        {tv.levelTooLow !== null
-                          ? `< ${formatValue(tv.levelTooLow)} ${unit}`
-                          : 'N/A'}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelTooLow !== null
+                            ? `< ${formatValue(tv.levelTooLow)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {desc?.tooLow && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.tooLow}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                        <span className="text-neutral-600">High</span>
+                        <span className="text-neutral-600 font-medium">High</span>
                       </div>
-                      <span className="font-mono text-neutral-900">
-                        {tv.levelHigh !== null && tv.levelDangerous !== null
-                          ? `${formatValue(tv.levelHigh)} - ${formatValue(tv.levelDangerous - decrementValue)} ${unit}`
-                          : tv.levelHigh !== null
-                          ? `≥ ${formatValue(tv.levelHigh)} ${unit}`
-                          : 'N/A'}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelHigh !== null && tv.levelDangerous !== null
+                            ? `${formatValue(tv.levelHigh)} - ${formatValue(tv.levelDangerous - decrementValue)} ${unit}`
+                            : tv.levelHigh !== null
+                            ? `≥ ${formatValue(tv.levelHigh)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {desc?.high && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.high}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                        <span className="text-neutral-600">Flood</span>
+                        <span className="text-neutral-600 font-medium">Flood</span>
                       </div>
-                      <span className="font-mono text-neutral-900">
-                        {tv.levelDangerous !== null
-                          ? `≥ ${formatValue(tv.levelDangerous)} ${unit}`
-                          : 'N/A'}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono text-neutral-900">
+                          {tv.levelDangerous !== null
+                            ? `≥ ${formatValue(tv.levelDangerous)} ${unit}`
+                            : 'N/A'}
+                        </span>
+                        {desc?.flood && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.flood}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
