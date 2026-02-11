@@ -258,7 +258,8 @@ export async function GET() {
         level_dangerous,${includeAlt ? altColumns : ''}
         rivers!inner (
           id,
-          name
+          name,
+          active
         )`;
 
     const { data: rgData, error: rgError } = await supabase
@@ -284,11 +285,13 @@ export async function GET() {
       console.error('Error fetching river gauges:', riverGaugesError);
     }
 
-    // Group thresholds by gauge
+    // Group thresholds by gauge, skipping inactive rivers
     const thresholdsByGauge = new Map<string, GaugeStation['thresholds']>();
     if (riverGauges) {
       for (const rg of riverGauges) {
-        const river = rg.rivers as unknown as { id: string; name: string };
+        const river = rg.rivers as unknown as { id: string; name: string; active?: boolean };
+        // Skip gauge-river associations for inactive rivers
+        if (river.active === false) continue;
         const threshold = {
           riverId: river.id,
           riverName: river.name,
@@ -382,7 +385,10 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ gauges });
+    // Only include gauges that have at least one active river association
+    const activeGauges = gauges.filter(g => g.thresholds && g.thresholds.length > 0);
+
+    return NextResponse.json({ gauges: activeGauges });
   } catch (error) {
     console.error('Error in gauges API:', error);
     return NextResponse.json(
