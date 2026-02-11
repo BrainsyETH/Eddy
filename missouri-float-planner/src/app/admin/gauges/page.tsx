@@ -571,12 +571,41 @@ export default function AdminGaugesPage() {
                                 'thresholdDescriptions',
                                 null
                               ) || {};
+
+                              // Compute the threshold range for this condition from the primary river association
+                              const primaryAssoc = gauge.riverAssociations.find(a => a.isPrimary) || gauge.riverAssociations[0];
+                              let rangeText = '';
+                              if (primaryAssoc) {
+                                const u = getAssocDisplayValue<string>(primaryAssoc.id, 'thresholdUnit', 'ft');
+                                const fmt = (v: number | null) => {
+                                  if (v === null) return null;
+                                  return u === 'cfs' ? v.toLocaleString() : v.toFixed(2);
+                                };
+                                const tooLow = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelTooLow', null);
+                                const low = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelLow', null);
+                                const optMin = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelOptimalMin', null);
+                                const optMax = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelOptimalMax', null);
+                                const high = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelHigh', null);
+                                const dangerous = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelDangerous', null);
+                                const dec = u === 'cfs' ? 1 : 0.01;
+
+                                if (key === 'tooLow' && tooLow !== null) rangeText = `< ${fmt(tooLow)} ${u}`;
+                                if (key === 'low' && tooLow !== null && low !== null) rangeText = `${fmt(tooLow)} - ${fmt(low - dec)} ${u}`;
+                                if (key === 'okay' && low !== null && optMin !== null) rangeText = `${fmt(low)} - ${fmt(optMin - dec)} ${u}`;
+                                if (key === 'optimal' && optMin !== null && optMax !== null) rangeText = `${fmt(optMin)} - ${fmt(optMax)} ${u}`;
+                                if (key === 'high' && high !== null && dangerous !== null) rangeText = `${fmt(high)} - ${fmt(dangerous - dec)} ${u}`;
+                                if (key === 'flood' && dangerous !== null) rangeText = `>= ${fmt(dangerous)} ${u}`;
+                              }
+
                               return (
                                 <div key={key} className="flex items-start gap-3">
                                   <div className={`w-3 h-3 rounded-full ${color} mt-2.5`} />
                                   <div className="flex-1">
-                                    <label className="block text-xs text-neutral-400 mb-1">
-                                      {label}
+                                    <label className="flex items-baseline justify-between text-xs mb-1">
+                                      <span className="text-neutral-400">{label}</span>
+                                      {rangeText && (
+                                        <span className="font-mono text-neutral-500 text-[11px]">{rangeText}</span>
+                                      )}
                                     </label>
                                     <input
                                       type="text"

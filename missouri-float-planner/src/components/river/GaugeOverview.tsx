@@ -131,8 +131,9 @@ const THRESHOLD_LINE_CONFIG: { key: keyof ThresholdLines; label: string; color: 
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
 
-function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSiteId: string; days: number; thresholds?: ThresholdLines | null; latestCfs?: number | null }) {
+function FlowTrendChart({ gaugeSiteId, days, thresholds, latestValue, displayUnit = 'cfs' }: { gaugeSiteId: string; days: number; thresholds?: ThresholdLines | null; latestValue?: number | null; displayUnit?: 'ft' | 'cfs' }) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
+  const isFt = displayUnit === 'ft';
 
   const chartData = useMemo(() => {
     if (!history?.readings || history.readings.length === 0) return null;
@@ -140,16 +141,15 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
     const readings = history.readings;
     const stats = history.stats;
 
-    // Smart Y-axis zoom: only expand to include thresholds near the actual data range
-    const dataMin = stats.minDischarge ?? 0;
-    const dataMax = stats.maxDischarge ?? 100;
+    // Use appropriate data series based on display unit
+    const dataMin = isFt ? (stats.minHeight ?? 0) : (stats.minDischarge ?? 0);
+    const dataMax = isFt ? (stats.maxHeight ?? 10) : (stats.maxDischarge ?? 100);
     const dataRange = dataMax - dataMin || 1;
 
     let minVal = dataMin;
     let maxVal = dataMax;
 
     if (thresholds) {
-      // Only include thresholds within 1.5x the data range above/below
       const expansionLimit = dataRange * 1.5;
       const thresholdValues = [
         thresholds.levelTooLow, thresholds.levelLow,
@@ -165,8 +165,7 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
       }
     }
 
-    // Add 5% padding so lines don't sit on edges
-    const padding = (maxVal - minVal) * 0.05 || 5;
+    const padding = (maxVal - minVal) * 0.05 || (isFt ? 0.5 : 5);
     minVal = Math.max(0, minVal - padding);
     maxVal = maxVal + padding;
 
@@ -175,18 +174,18 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
     const sampleStep = Math.max(1, Math.floor(readings.length / 50));
     const sampledReadings = readings.filter((_: unknown, i: number) => i % sampleStep === 0);
 
-    const points = sampledReadings.map((reading: { dischargeCfs: number | null; timestamp: string }, index: number) => {
+    const points = sampledReadings.map((reading: { dischargeCfs: number | null; gaugeHeightFt: number | null; timestamp: string }, index: number) => {
+      const val = isFt ? reading.gaugeHeightFt : reading.dischargeCfs;
       const x = (index / (sampledReadings.length - 1)) * 100;
-      const y = reading.dischargeCfs !== null
-        ? 100 - ((reading.dischargeCfs - minVal) / range) * 100
+      const y = val !== null
+        ? 100 - ((val - minVal) / range) * 100
         : 50;
-      return { x, y, value: reading.dischargeCfs, timestamp: reading.timestamp };
+      return { x, y, value: val, timestamp: reading.timestamp };
     });
 
     const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
     const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
 
-    // Compute threshold line Y positions, filtering out lines outside visible range
     const allThresholdLines = thresholds
       ? THRESHOLD_LINE_CONFIG
           .filter(t => thresholds[t.key] !== null)
@@ -195,30 +194,25 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
             value: thresholds[t.key]!,
             y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
           }))
-          .filter(t => t.y >= -5 && t.y <= 105) // Only show lines within visible chart area
+          .filter(t => t.y >= -5 && t.y <= 105)
       : [];
 
-    // Build label list: merge optimal min/max into one centered label,
-    // then remove labels that are too close vertically (< 8% of chart height)
     const MIN_LABEL_GAP = 8;
     const labelCandidates: typeof allThresholdLines = [];
     const optMin = allThresholdLines.find(t => t.key === 'levelOptimalMin');
     const optMax = allThresholdLines.find(t => t.key === 'levelOptimalMax');
     if (optMin && optMax) {
-      // Single "Optimal" label centered between the two lines
       labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
     } else if (optMin) {
       labelCandidates.push(optMin);
     } else if (optMax) {
       labelCandidates.push(optMax);
     }
-    // Add non-optimal labels
     for (const t of allThresholdLines) {
       if (t.key !== 'levelOptimalMin' && t.key !== 'levelOptimalMax') {
         labelCandidates.push(t);
       }
     }
-    // Sort by Y position and remove overlapping labels
     labelCandidates.sort((a, b) => a.y - b.y);
     const thresholdLabels: typeof labelCandidates = [];
     for (const candidate of labelCandidates) {
@@ -228,19 +222,20 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
       }
     }
 
+    const lastReading = readings[readings.length - 1];
     return {
       points,
       pathD,
       areaD,
       minVal,
       maxVal,
-      currentVal: readings[readings.length - 1]?.dischargeCfs,
+      currentVal: isFt ? lastReading?.gaugeHeightFt : lastReading?.dischargeCfs,
       startDate: new Date(readings[0].timestamp),
       endDate: new Date(readings[readings.length - 1].timestamp),
       thresholdLineData: allThresholdLines,
       thresholdLabels,
     };
-  }, [history, thresholds]);
+  }, [history, thresholds, isFt]);
 
   if (isLoading) {
     return (
@@ -256,12 +251,13 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
   if (error || !chartData) {
     return (
       <div className="p-4">
-        <p className="text-neutral-400 text-sm">Flow trend data unavailable</p>
+        <p className="text-neutral-400 text-sm">{isFt ? 'Stage' : 'Flow'} trend data unavailable</p>
       </div>
     );
   }
 
-  const formatCfs = (val: number) => {
+  const formatVal = (val: number) => {
+    if (isFt) return val.toFixed(2);
     if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
     return val.toFixed(0);
   };
@@ -270,13 +266,17 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const unitLabel = isFt ? 'ft' : 'cfs';
+  const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
+  const currentDisplay = latestValue ?? chartData.currentVal;
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-neutral-700">Flow (cfs)</span>
-        {(latestCfs ?? chartData.currentVal) !== null && (
+        <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
+        {currentDisplay !== null && currentDisplay !== undefined && (
           <span className="text-xs text-primary-600 font-medium">
-            Current: {formatCfs((latestCfs ?? chartData.currentVal)!)} cfs
+            Current: {formatVal(currentDisplay)} {unitLabel}
           </span>
         )}
       </div>
@@ -334,8 +334,8 @@ function FlowTrendChart({ gaugeSiteId, days, thresholds, latestCfs }: { gaugeSit
         </svg>
         {/* Y-axis labels */}
         <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-500 -ml-1">
-          <span>{formatCfs(chartData.maxVal)}</span>
-          <span>{formatCfs(chartData.minVal)}</span>
+          <span>{formatVal(chartData.maxVal)}</span>
+          <span>{formatVal(chartData.minVal)}</span>
         </div>
         {/* Threshold labels on right side (de-overlapped) */}
         {chartData.thresholdLabels.map((t) => (
@@ -378,7 +378,19 @@ function GaugeExpandedDetail({
 
   const primaryUnit = threshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
   const altUnit = primaryUnit === 'cfs' ? 'ft' : 'cfs';
-  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs'>(primaryUnit);
+  const [displayUnit, setDisplayUnitState] = useState<'ft' | 'cfs'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('eddy-gauge-unit');
+      if (saved === 'ft' || saved === 'cfs') return saved;
+    }
+    return primaryUnit;
+  });
+  const setDisplayUnit = (unit: 'ft' | 'cfs') => {
+    setDisplayUnitState(unit);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('eddy-gauge-unit', unit);
+    }
+  };
   const showingAlt = displayUnit !== primaryUnit;
 
   // Pick thresholds based on which unit we're displaying
@@ -481,7 +493,7 @@ function GaugeExpandedDetail({
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              {dateRange}-Day Flow Trend
+              {dateRange}-Day {displayUnit === 'ft' ? 'Stage' : 'Flow'} Trend
             </h4>
             <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
               {DATE_RANGES.map(range => (
@@ -503,15 +515,9 @@ function GaugeExpandedDetail({
             <FlowTrendChart
               gaugeSiteId={gauge.usgsSiteId}
               days={dateRange}
-              latestCfs={gauge.dischargeCfs}
-              thresholds={threshold?.thresholdUnit === 'cfs' ? {
-                levelTooLow: threshold.levelTooLow,
-                levelLow: threshold.levelLow,
-                levelOptimalMin: threshold.levelOptimalMin,
-                levelOptimalMax: threshold.levelOptimalMax,
-                levelHigh: threshold.levelHigh,
-                levelDangerous: threshold.levelDangerous,
-              } : null}
+              displayUnit={displayUnit}
+              latestValue={displayUnit === 'cfs' ? gauge.dischargeCfs : gauge.gaugeHeightFt}
+              thresholds={tv}
             />
           </div>
         </div>
@@ -538,7 +544,7 @@ function GaugeExpandedDetail({
 
             return (
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                   <h4 className="text-sm font-semibold text-neutral-700">
                     Condition Thresholds
                   </h4>
