@@ -879,9 +879,10 @@ function GaugeExpandedPanel({
 }) {
   const primaryUnit = gauge.primaryRiver?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
   const altUnit = primaryUnit === 'cfs' ? 'ft' : 'cfs';
+  const storageKey = `eddy-gauge-unit-${gauge.usgsSiteId}`;
   const [displayUnit, setDisplayUnitState] = useState<'ft' | 'cfs'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('eddy-gauge-unit');
+      const saved = localStorage.getItem(storageKey);
       if (saved === 'ft' || saved === 'cfs') return saved;
     }
     return primaryUnit;
@@ -889,7 +890,7 @@ function GaugeExpandedPanel({
   const setDisplayUnit = (unit: 'ft' | 'cfs') => {
     setDisplayUnitState(unit);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('eddy-gauge-unit', unit);
+      localStorage.setItem(storageKey, unit);
     }
   };
   const showingAlt = displayUnit !== primaryUnit;
