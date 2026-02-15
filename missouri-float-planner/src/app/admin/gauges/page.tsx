@@ -577,9 +577,11 @@ export default function AdminGaugesPage() {
                               let rangeText = '';
                               if (primaryAssoc) {
                                 const u = getAssocDisplayValue<string>(primaryAssoc.id, 'thresholdUnit', 'ft');
-                                const fmt = (v: number | null) => {
-                                  if (v === null) return null;
-                                  return u === 'cfs' ? v.toLocaleString() : v.toFixed(2);
+                                const fmt = (v: number | string | null) => {
+                                  if (v === null || v === '') return null;
+                                  const n = typeof v === 'string' ? parseFloat(v) : v;
+                                  if (isNaN(n)) return null;
+                                  return u === 'cfs' ? n.toLocaleString() : n.toFixed(2);
                                 };
                                 const tooLow = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelTooLow', null);
                                 const low = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelLow', null);
