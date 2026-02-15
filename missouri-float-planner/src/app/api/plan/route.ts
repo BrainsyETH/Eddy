@@ -12,6 +12,7 @@ import {
 } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 
 // Helper to compute condition from gauge height and DB thresholds (snake_case)
@@ -43,6 +44,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limit: 30 plan calculations per IP per minute
+    // Each request can trigger multiple external API calls (USGS, Mapbox)
+    const rateLimitResult = rateLimit(`plan:${getClientIp(request)}`, 30, 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const searchParams = request.nextUrl.searchParams;
     const riverId = searchParams.get('riverId');
     const startId = searchParams.get('startId');

@@ -18,13 +18,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Support both new ADMIN_PASSWORD and legacy NEXT_PUBLIC_ADMIN_PASSWORD
-    const adminPassword = process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    // Server-side only — NEVER use NEXT_PUBLIC_ vars (they leak to client bundle)
+    const adminPassword = process.env.ADMIN_PASSWORD;
     // ADMIN_API_SECRET is the token returned to the client; fall back to password if not set
     const apiSecret = process.env.ADMIN_API_SECRET || adminPassword;
 
     if (!adminPassword) {
-      console.error('[Admin Login] Neither ADMIN_PASSWORD nor NEXT_PUBLIC_ADMIN_PASSWORD is configured');
+      console.error('[Admin Login] ADMIN_PASSWORD is not configured');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }

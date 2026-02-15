@@ -23,6 +23,7 @@
     "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
     "@floating-ui/dom": "^1.7.5",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.0",

@@ -500,7 +500,17 @@ export default function RiverPage() {
           />
         </div>
 
-        {/* Local Knowledge - collapsed below planner */}
+        {/* River Conditions - immediately after planner for "Is it safe?" visibility */}
+        <div className="mb-4">
+          <GaugeOverview
+            gauges={gaugeStations}
+            riverId={river.id}
+            isLoading={!allGaugeStations}
+            putInCoordinates={selectedPutInPoint?.coordinates || null}
+          />
+        </div>
+
+        {/* Local Knowledge - collapsed below conditions */}
         <div className="mb-4">
           <LocalKnowledge
             riverSlug={slug}
@@ -599,14 +609,6 @@ export default function RiverPage() {
 
         {/* Info Sections - full width below planner/map */}
         <div className="space-y-4 mt-6">
-          {/* River Conditions */}
-          <GaugeOverview
-            gauges={gaugeStations}
-            riverId={river.id}
-            isLoading={!allGaugeStations}
-            putInCoordinates={selectedPutInPoint?.coordinates || null}
-          />
-
           {/* Points of Interest */}
           <PointsOfInterest
             riverSlug={slug}
