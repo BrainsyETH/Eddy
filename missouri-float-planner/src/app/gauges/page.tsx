@@ -57,6 +57,9 @@ const getEddyImageForCondition = (code: ConditionCode): string => {
   }
 };
 
+// Desktop drawer width (used for panel and main content margin)
+const DRAWER_WIDTH_PX = 540;
+
 // Date range options for charts
 const DATE_RANGES = [
   { days: 7, label: '7 Days' },
@@ -185,6 +188,8 @@ export default function GaugesPage() {
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
   const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const drawerBodyRef = useRef<HTMLDivElement>(null);
+  const drawerCloseButtonRef = useRef<HTMLButtonElement>(null);
 
   // Detect desktop for drawer vs inline expansion
   const [isDesktop, setIsDesktop] = useState(false);
@@ -195,6 +200,26 @@ export default function GaugesPage() {
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  // When drawer opens: scroll body to top and focus close button
+  useEffect(() => {
+    if (!isDesktop || !expandedGaugeId) return;
+    const raf = requestAnimationFrame(() => {
+      drawerBodyRef.current?.scrollTo(0, 0);
+      drawerCloseButtonRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isDesktop, expandedGaugeId]);
+
+  // Escape key closes the drawer
+  useEffect(() => {
+    if (!isDesktop || !expandedGaugeId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpandedGaugeId(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDesktop, expandedGaugeId]);
 
   useEffect(() => {
     async function fetchGauges() {
@@ -505,8 +530,11 @@ export default function GaugesPage() {
         </div>
       </section>
 
-      {/* Main content */}
-      <div className="max-w-7xl mx-auto px-4 py-6 md:py-8">
+      {/* Main content — shrink when desktop drawer is open */}
+      <div
+        className="max-w-7xl mx-auto px-4 py-6 md:py-8 transition-[margin-right] duration-200"
+        style={{ marginRight: isDesktop && expandedGaugeId ? DRAWER_WIDTH_PX : undefined }}
+      >
         {loading ? (
           <div className="bg-white border-2 border-neutral-200 rounded-2xl p-12 text-center shadow-sm">
             <div className="inline-block w-10 h-10 border-4 border-neutral-300 border-t-primary-500 rounded-full animate-spin"></div>
@@ -890,9 +918,10 @@ export default function GaugesPage() {
             />
             {/* Panel */}
             <div
-              className="fixed inset-y-0 right-0 w-[540px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col"
-              style={{ animation: 'slideInFromRight 0.2s ease-out' }}
+              className="fixed inset-y-0 right-0 max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col"
+              style={{ width: DRAWER_WIDTH_PX, animation: 'slideInFromRight 0.2s ease-out' }}
               role="dialog"
+              aria-modal="true"
               aria-label={`${drawerGauge.name} details`}
             >
               {/* Drawer Header */}
@@ -927,6 +956,7 @@ export default function GaugesPage() {
                   </div>
                 </div>
                 <button
+                  ref={drawerCloseButtonRef}
                   onClick={() => setExpandedGaugeId(null)}
                   className="p-2 -m-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors flex-shrink-0"
                   aria-label="Close details"
@@ -935,11 +965,12 @@ export default function GaugesPage() {
                 </button>
               </div>
               {/* Drawer Body — scrollable */}
-              <div className="flex-1 overflow-y-auto">
+              <div ref={drawerBodyRef} className="flex-1 overflow-y-auto">
                 <GaugeExpandedPanel
                   gauge={drawerGauge}
                   dateRange={dateRange}
                   setDateRange={setDateRange}
+                  variant="drawer"
                 />
               </div>
             </div>
@@ -962,6 +993,7 @@ function GaugeExpandedPanel({
   gauge,
   dateRange,
   setDateRange,
+  variant = 'inline',
 }: {
   gauge: {
     id: string;
@@ -977,6 +1009,7 @@ function GaugeExpandedPanel({
   };
   dateRange: number;
   setDateRange: (d: number) => void;
+  variant?: 'drawer' | 'inline';
 }) {
   const primaryUnit = gauge.primaryRiver?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
   const altUnit = primaryUnit === 'cfs' ? 'ft' : 'cfs';
@@ -1024,10 +1057,12 @@ function GaugeExpandedPanel({
     pr.altLevelHigh !== null || pr.altLevelDangerous !== null
   );
 
+  const isDrawer = variant === 'drawer';
+
   return (
-    <div className="border-t-2 border-neutral-100 p-4 bg-neutral-50">
-      {/* Top Row: Weather (left) + Current Readings (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div className="border-t-2 border-neutral-100 p-4 pb-6 bg-neutral-50">
+      {/* Top Row: Weather (left) + Current Readings (right) — single column in drawer */}
+      <div className={`grid grid-cols-1 gap-6 mb-6 ${!isDrawer ? 'lg:grid-cols-2' : ''}`}>
         <div>
           <GaugeWeather
             lat={gauge.coordinates.lat}
@@ -1089,8 +1124,8 @@ function GaugeExpandedPanel({
         </div>
       </div>
 
-      {/* Bottom Row: Chart (left) + Thresholds/Details (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Bottom Row: Chart (left) + Thresholds/Details (right) — single column in drawer */}
+      <div className={`grid grid-cols-1 gap-6 ${!isDrawer ? 'lg:grid-cols-2' : ''}`}>
         <div>
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
@@ -1120,6 +1155,7 @@ function GaugeExpandedPanel({
               displayUnit={displayUnit}
               latestValue={displayUnit === 'cfs' ? gauge.dischargeCfs : gauge.gaugeHeightFt}
               thresholds={tv}
+              chartClassName={isDrawer ? 'h-56' : undefined}
             />
           </div>
         </div>
@@ -1280,17 +1316,15 @@ function GaugeExpandedPanel({
             );
           })()}
 
-          {/* Location */}
-          <div className="flex items-center gap-2 text-xs text-neutral-500">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{gauge.coordinates.lat.toFixed(5)}, {gauge.coordinates.lng.toFixed(5)}</span>
-          </div>
-
-          {/* Last Updated */}
-          {gauge.readingTimestamp && (
-            <div className="flex items-center gap-2 text-xs text-neutral-500">
-              <Clock className="w-3.5 h-3.5" />
-              <span>
+          {/* Footer: Location + Updated in one compact row */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500 mt-1">
+            <span className="flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+              {gauge.coordinates.lat.toFixed(5)}, {gauge.coordinates.lng.toFixed(5)}
+            </span>
+            {gauge.readingTimestamp && (
+              <span className="flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
                 Updated {new Date(gauge.readingTimestamp).toLocaleString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -1298,8 +1332,8 @@ function GaugeExpandedPanel({
                   minute: '2-digit',
                 })}
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1325,7 +1359,7 @@ const CHART_THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: stri
 ];
 
 // Wrapper component to use the hook with custom days
-function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestValue, displayUnit = 'cfs' }: { gaugeSiteId: string; days: number; thresholds?: ChartThresholdLines | null; latestValue?: number | null; displayUnit?: 'ft' | 'cfs' }) {
+function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestValue, displayUnit = 'cfs', chartClassName }: { gaugeSiteId: string; days: number; thresholds?: ChartThresholdLines | null; latestValue?: number | null; displayUnit?: 'ft' | 'cfs'; chartClassName?: string }) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
   const isFt = displayUnit === 'ft';
 
@@ -1477,7 +1511,7 @@ function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestValue, di
       </div>
 
       {/* SVG Chart */}
-      <div className="relative h-32">
+      <div className={`relative ${chartClassName ?? 'h-32'}`}>
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
