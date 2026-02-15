@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { sanitizeRichText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -327,9 +328,9 @@ export async function PUT(
       updateData.official_site_url = officialSiteUrl === '' ? null : officialSiteUrl;
     }
 
-    // Handle localTips update (rich text HTML)
+    // Handle localTips update (rich text HTML — sanitize to prevent XSS)
     if (localTips !== undefined) {
-      updateData.local_tips = localTips === '' ? null : localTips;
+      updateData.local_tips = localTips === '' ? null : sanitizeRichText(localTips);
     }
 
     // Handle nearbyServices update (JSONB array)
