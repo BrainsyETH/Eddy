@@ -253,6 +253,23 @@ export default function GaugesPage() {
     }, 100);
   }, [searchParams, gaugeData]);
 
+  // Scroll expanded gauge card into view after it renders
+  useEffect(() => {
+    if (!expandedGaugeId) return;
+    // Wait a tick for the DOM to update (grid reflow + expanded content render)
+    const timer = setTimeout(() => {
+      const el = gaugeCardRefs.current[expandedGaugeId];
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        // Only scroll if the top of the card is above viewport or near the bottom
+        if (rect.top < 0 || rect.top > window.innerHeight * 0.4) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [expandedGaugeId]);
+
   // Share a gauge link
   const handleShareGauge = useCallback(async (e: React.MouseEvent, usgsSiteId: string) => {
     e.stopPropagation();
