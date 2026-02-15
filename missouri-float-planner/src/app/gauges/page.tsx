@@ -186,6 +186,16 @@ export default function GaugesPage() {
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
   const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Detect desktop for drawer vs inline expansion
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   useEffect(() => {
     async function fetchGauges() {
       try {
@@ -252,6 +262,24 @@ export default function GaugesPage() {
       }
     }, 100);
   }, [searchParams, gaugeData]);
+
+  // Close desktop drawer on Escape
+  useEffect(() => {
+    if (!isDesktop || !expandedGaugeId) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpandedGaugeId(null);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isDesktop, expandedGaugeId]);
+
+  // Lock body scroll when desktop drawer is open
+  useEffect(() => {
+    if (isDesktop && expandedGaugeId) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [isDesktop, expandedGaugeId]);
 
   // Share a gauge link
   const handleShareGauge = useCallback(async (e: React.MouseEvent, usgsSiteId: string) => {
@@ -663,7 +691,9 @@ export default function GaugesPage() {
                       ref={(el) => { gaugeCardRefs.current[gauge.id] = el; }}
                       className={`bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
                         isExpanded
-                          ? 'border-2 border-primary-400 shadow-xl col-span-1 md:col-span-2 xl:col-span-3'
+                          ? isDesktop
+                            ? 'ring-2 ring-primary-400 shadow-lg border border-primary-200'
+                            : 'border-2 border-primary-400 shadow-xl col-span-1 md:col-span-2 xl:col-span-3'
                           : 'border border-neutral-200 hover:border-neutral-300 hover:shadow-lg'
                       }`}
                     >
@@ -791,8 +821,8 @@ export default function GaugesPage() {
                         </div>
                       </button>
 
-                      {/* Expanded Content */}
-                      {isExpanded && (
+                      {/* Expanded Content — inline on mobile/tablet only */}
+                      {isExpanded && !isDesktop && (
                         <GaugeExpandedPanel
                           gauge={gauge}
                           dateRange={dateRange}
@@ -845,6 +875,77 @@ export default function GaugesPage() {
           </p>
         </div>
       </footer>
+
+      {/* Desktop Slide-Over Drawer */}
+      {isDesktop && expandedGaugeId && (() => {
+        const drawerGauge = processedGauges.find(g => g.id === expandedGaugeId);
+        if (!drawerGauge) return null;
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/20 z-40 transition-opacity"
+              onClick={() => setExpandedGaugeId(null)}
+              aria-hidden="true"
+            />
+            {/* Panel */}
+            <div
+              className="fixed inset-y-0 right-0 w-[540px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col"
+              style={{ animation: 'slideInFromRight 0.2s ease-out' }}
+              role="dialog"
+              aria-label={`${drawerGauge.name} details`}
+            >
+              {/* Drawer Header */}
+              <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-neutral-200 bg-white flex-shrink-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold text-white ${drawerGauge.condition.tailwindColor}`}>
+                      {drawerGauge.condition.label}
+                    </span>
+                    <span className="text-sm text-neutral-500">{drawerGauge.primaryRiver?.riverName}</span>
+                  </div>
+                  <h2 className="text-lg font-bold text-neutral-900 truncate">{drawerGauge.name}</h2>
+                  <div className="flex items-center gap-3 text-xs text-neutral-500 mt-1">
+                    <a
+                      href={`https://waterdata.usgs.gov/monitoring-location/${drawerGauge.usgsSiteId}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
+                    >
+                      #{drawerGauge.usgsSiteId}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    {getAgeText(drawerGauge) && (
+                      <>
+                        <span className="text-neutral-300">·</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {getAgeText(drawerGauge)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setExpandedGaugeId(null)}
+                  className="p-2 -m-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors flex-shrink-0"
+                  aria-label="Close details"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {/* Drawer Body — scrollable */}
+              <div className="flex-1 overflow-y-auto">
+                <GaugeExpandedPanel
+                  gauge={drawerGauge}
+                  dateRange={dateRange}
+                  setDateRange={setDateRange}
+                />
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* Feedback Modal */}
       <FeedbackModal
