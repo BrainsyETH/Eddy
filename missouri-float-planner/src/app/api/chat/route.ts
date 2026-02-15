@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
-import { computeCondition, mapConditionCode, getConditionShortLabel } from '@/lib/conditions';
+import { computeCondition, getConditionShortLabel } from '@/lib/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
