@@ -194,9 +194,32 @@ export async function GET() {
           });
         }
       }
-    } else {
-      // No readings in database - fetch live from USGS
-      console.log('No readings in database, fetching live from USGS...');
+    }
+
+    // Determine if we need to fetch live from USGS:
+    // - No readings in database at all
+    // - Most gauges have null values (both height and discharge are null)
+    // - Readings are very stale (> 6 hours old)
+    const hasNoReadings = latestReadings.size === 0;
+    const gaugesWithValues = Array.from(latestReadings.values()).filter(
+      r => r.gaugeHeightFt !== null || r.dischargeCfs !== null
+    ).length;
+    const mostGaugesMissing = latestReadings.size > 0 &&
+      gaugesWithValues < latestReadings.size / 2;
+    const newestTimestamp = Array.from(latestReadings.values())
+      .reduce((newest, r) => {
+        if (!r.readingTimestamp) return newest;
+        const t = new Date(r.readingTimestamp).getTime();
+        return t > newest ? t : newest;
+      }, 0);
+    const readingsStale = newestTimestamp > 0 &&
+      (Date.now() - newestTimestamp) > 6 * 60 * 60 * 1000; // > 6 hours
+
+    if (hasNoReadings || mostGaugesMissing || readingsStale) {
+      const reason = hasNoReadings ? 'no readings in DB'
+        : mostGaugesMissing ? `only ${gaugesWithValues}/${latestReadings.size} gauges have values`
+        : 'readings are stale';
+      console.log(`Fetching live from USGS (${reason})...`);
       try {
         const siteIds = stations
           .map((s: { usgs_site_id: string }) => s.usgs_site_id)
@@ -213,10 +236,10 @@ export async function GET() {
             }
           }
 
-          // Map USGS readings to station IDs
+          // Map USGS readings to station IDs, overwriting stale/null DB data
           for (const usgsReading of usgsReadings) {
             const stationId = siteToStationMap.get(usgsReading.siteId);
-            if (stationId) {
+            if (stationId && (usgsReading.gaugeHeightFt !== null || usgsReading.dischargeCfs !== null)) {
               latestReadings.set(stationId, {
                 gaugeHeightFt: usgsReading.gaugeHeightFt,
                 dischargeCfs: usgsReading.dischargeCfs,
@@ -228,7 +251,7 @@ export async function GET() {
         }
       } catch (usgsError) {
         console.error('Error fetching live USGS data:', usgsError);
-        // Continue without live data - gauges will show without readings
+        // Continue with whatever DB data we have (may show N/A)
       }
     }
 
