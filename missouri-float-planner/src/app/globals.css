@@ -866,6 +866,11 @@ h1, h2, h3, h4, h5, h6 {
   animation: slideInRight 0.3s ease-out;
 }
 
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 /* ===== SCROLLBAR ===== */
 
 .scrollbar-thin::-webkit-scrollbar {
