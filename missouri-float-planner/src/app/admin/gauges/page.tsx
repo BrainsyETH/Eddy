@@ -60,6 +60,11 @@ interface Gauge {
   thresholdDescriptions: ThresholdDescriptions | null;
   notes: string | null;
   riverAssociations: RiverAssociation[];
+  latestReading?: {
+    gaugeHeightFt: number | null;
+    dischargeCfs: number | null;
+    readingTimestamp: string | null;
+  } | null;
 }
 
 interface River {
@@ -545,6 +550,31 @@ export default function AdminGaugesPage() {
                     {/* Gauge details */}
                     {expandedGauges.has(gauge.id) && (
                       <div className="border-t border-neutral-700 p-4 space-y-6">
+                        {/* Current reading (stage + discharge) */}
+                        <div className="grid grid-cols-2 gap-4 p-3 bg-neutral-900/50 rounded-lg border border-neutral-700">
+                          <div>
+                            <p className="text-xs text-neutral-400 mb-0.5">Stage (gauge height)</p>
+                            <p className="text-lg font-semibold text-white">
+                              {gauge.latestReading?.gaugeHeightFt != null
+                                ? `${Number(gauge.latestReading.gaugeHeightFt).toFixed(2)} ft`
+                                : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-neutral-400 mb-0.5">Discharge (CFS)</p>
+                            <p className="text-lg font-semibold text-white">
+                              {gauge.latestReading?.dischargeCfs != null
+                                ? Number(gauge.latestReading.dischargeCfs).toLocaleString() + ' cfs'
+                                : 'N/A'}
+                            </p>
+                          </div>
+                          {gauge.latestReading?.readingTimestamp && (
+                            <p className="col-span-2 text-xs text-neutral-500">
+                              Updated {new Date(gauge.latestReading.readingTimestamp).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+
                         {/* Notes */}
                         <div>
                           <label className="block text-sm font-medium text-neutral-300 mb-2">

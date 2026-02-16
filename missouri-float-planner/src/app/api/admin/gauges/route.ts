@@ -28,6 +28,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const gaugeIds = (gaugeStations || []).map((g: { id: string }) => g.id);
+
+    // Get latest reading per gauge (gauge_height_ft, discharge_cfs for admin display)
+    const latestReadings = new Map<string, { gaugeHeightFt: number | null; dischargeCfs: number | null; readingTimestamp: string | null }>();
+    if (gaugeIds.length > 0) {
+      const { data: readings } = await supabase
+        .from('gauge_readings')
+        .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
+        .in('gauge_station_id', gaugeIds)
+        .order('reading_timestamp', { ascending: false });
+
+      if (readings && readings.length > 0) {
+        for (const row of readings) {
+          const gid = row.gauge_station_id as string;
+          if (!latestReadings.has(gid)) {
+            latestReadings.set(gid, {
+              gaugeHeightFt: row.gauge_height_ft as number | null,
+              dischargeCfs: row.discharge_cfs as number | null,
+              readingTimestamp: row.reading_timestamp as string | null,
+            });
+          }
+        }
+      }
+    }
+
     // Get all river_gauges (thresholds) with river info
     // Try with alt columns first; fall back without them if migration hasn't run
     const baseRgCols = `
@@ -149,15 +174,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Format response
-    const gauges = (gaugeStations || []).map(gauge => ({
-      id: gauge.id,
-      usgsSiteId: gauge.usgs_site_id,
-      name: gauge.name,
-      active: gauge.active,
-      thresholdDescriptions: gauge.threshold_descriptions,
-      notes: gauge.notes,
-      riverAssociations: gaugeThresholds.get(gauge.id) || [],
-    }));
+    const gauges = (gaugeStations || []).map(gauge => {
+      const reading = latestReadings.get(gauge.id);
+      return {
+        id: gauge.id,
+        usgsSiteId: gauge.usgs_site_id,
+        name: gauge.name,
+        active: gauge.active,
+        thresholdDescriptions: gauge.threshold_descriptions,
+        notes: gauge.notes,
+        riverAssociations: gaugeThresholds.get(gauge.id) || [],
+        latestReading: reading
+          ? {
+              gaugeHeightFt: reading.gaugeHeightFt,
+              dischargeCfs: reading.dischargeCfs,
+              readingTimestamp: reading.readingTimestamp,
+            }
+          : null,
+      };
+    });
 
     // Also return rivers for summary editing
     const formattedRivers = (rivers || []).map(river => ({

@@ -39,6 +39,23 @@ export async function GET(
       );
     }
 
+    // Get latest reading (stage ft + discharge cfs)
+    let latestReading: { gaugeHeightFt: number | null; dischargeCfs: number | null; readingTimestamp: string | null } | null = null;
+    const { data: readingRow } = await supabase
+      .from('gauge_readings')
+      .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+      .eq('gauge_station_id', id)
+      .order('reading_timestamp', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (readingRow) {
+      latestReading = {
+        gaugeHeightFt: readingRow.gauge_height_ft as number | null,
+        dischargeCfs: readingRow.discharge_cfs as number | null,
+        readingTimestamp: readingRow.reading_timestamp as string | null,
+      };
+    }
+
     // Get river associations with thresholds
     // Fall back without alt columns if migration hasn't run yet
     const baseCols = `id, river_id, is_primary, threshold_unit,
@@ -86,6 +103,7 @@ export async function GET(
       active: gauge.active,
       thresholdDescriptions: gauge.threshold_descriptions,
       notes: gauge.notes,
+      latestReading,
       riverAssociations: (riverGauges || []).map(rg => {
         const river = riverMap.get(rg.river_id as string);
         return {
