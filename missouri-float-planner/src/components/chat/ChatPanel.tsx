@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { MessageCircle, X, Send, Trash2, Loader2 } from 'lucide-react';
 import { useChat, type ChatMessage } from '@/hooks/useChat';
 
@@ -81,6 +82,7 @@ function formatMarkdown(text: string): string {
 }
 
 export default function ChatPanel({ riverSlug, riverName }: ChatPanelProps) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -119,6 +121,9 @@ export default function ChatPanel({ riverSlug, riverName }: ChatPanelProps) {
   const handleQuickAction = useCallback((action: string) => {
     sendMessage(action);
   }, [sendMessage]);
+
+  // Hide chat on embeddable widget pages (after all hooks)
+  if (pathname.startsWith('/embed/widget') || pathname.startsWith('/embed/planner')) return null;
 
   return (
     <>
