@@ -93,9 +93,6 @@ export default function ChatPanel({ riverSlug, riverName }: ChatPanelProps) {
     riverName,
   });
 
-  // Hide chat on embeddable widget pages
-  if (pathname.startsWith('/embed/widget') || pathname.startsWith('/embed/planner')) return null;
-
   // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,6 +121,9 @@ export default function ChatPanel({ riverSlug, riverName }: ChatPanelProps) {
   const handleQuickAction = useCallback((action: string) => {
     sendMessage(action);
   }, [sendMessage]);
+
+  // Hide chat on embeddable widget pages (after all hooks)
+  if (pathname.startsWith('/embed/widget') || pathname.startsWith('/embed/planner')) return null;
 
   return (
     <>
