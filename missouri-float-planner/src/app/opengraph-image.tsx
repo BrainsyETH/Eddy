@@ -13,7 +13,15 @@ export const dynamic = 'force-dynamic';
 
 export default async function Image() {
   const fonts = loadFredokaFont();
-  const otterImage = await loadOtterImage(OTTER_URLS.standard);
+
+  // Load otter image with fallback — if external fetch fails,
+  // render the card without otter rather than failing the entire image
+  let otterImage: string | null = null;
+  try {
+    otterImage = await loadOtterImage(OTTER_URLS.standard);
+  } catch {
+    // Otter image fetch failed — render text-only card
+  }
 
   return new ImageResponse(
     (
@@ -27,24 +35,28 @@ export default async function Image() {
         }}
       >
         {/* LEFT — Eddy Otter */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 480,
-            padding: 40,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={otterImage}
-            width={380}
-            height={380}
-            alt=""
-            style={{ objectFit: 'contain' }}
-          />
-        </div>
+        {otterImage ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 480,
+              padding: 40,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={otterImage}
+              width={380}
+              height={380}
+              alt=""
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', width: 120 }} />
+        )}
 
         {/* RIGHT — Title */}
         <div
@@ -52,7 +64,7 @@ export default async function Image() {
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
-            padding: '80px 60px 80px 0',
+            padding: otterImage ? '80px 60px 80px 0' : '80px 80px',
             justifyContent: 'center',
           }}
         >

@@ -70,11 +70,27 @@ export async function generateMetadata({ params }: RiverLayoutProps): Promise<Me
     };
 
     const conditionText = conditionLabels[conditionCode] || '';
-    const conditionSuffix = conditionText ? ` - ${conditionText}` : '';
     const lengthMiles = river.length_miles ? parseFloat(river.length_miles).toFixed(1) : '';
 
-    const title = `${river.name}${conditionSuffix}`;
-    const description = `${river.name} float trip info${conditionText ? `: Currently ${conditionText.toLowerCase()}` : ''}. ${lengthMiles ? `${lengthMiles} miles` : ''}${river.difficulty_rating ? `, ${river.difficulty_rating}` : ''}${river.region ? ` in ${river.region}` : ''}. Real-time water conditions, access points, float times, and weather.`;
+    // Page title — includes condition for SEO / browser tab
+    const title = conditionText
+      ? `${river.name} — ${conditionText}`
+      : river.name;
+
+    // OG title — concise, under 60 chars for Facebook
+    const ogTitle = `${river.name} | Live Conditions & Float Guide`;
+
+    // Build a compelling description under ~155 chars for Facebook
+    const descParts: string[] = [];
+    if (conditionText) descParts.push(`Currently ${conditionText.toLowerCase()}.`);
+    if (lengthMiles) descParts.push(`${lengthMiles} mi`);
+    if (river.difficulty_rating) descParts.push(river.difficulty_rating);
+    if (river.region) descParts.push(river.region);
+    const descMeta = descParts.length > 1
+      ? descParts.slice(0, 1).join('') + ' ' + descParts.slice(1).join(', ') + '.'
+      : descParts.join(', ') + '.';
+    const description = `${descMeta} Access points, float times, gauge data & weather for ${river.name}.`;
+
     const pageUrl = `${BASE_URL}/rivers/${slug}`;
 
     return {
@@ -82,7 +98,7 @@ export async function generateMetadata({ params }: RiverLayoutProps): Promise<Me
       description,
       openGraph: {
         type: 'website',
-        title: `${river.name} - Float Trip Conditions & Info`,
+        title: ogTitle,
         description,
         url: pageUrl,
         siteName: 'Eddy',
@@ -90,7 +106,7 @@ export async function generateMetadata({ params }: RiverLayoutProps): Promise<Me
       },
       twitter: {
         card: 'summary_large_image',
-        title: `${river.name}${conditionSuffix}`,
+        title: ogTitle,
         description,
         // Twitter image is auto-discovered from twitter-image.tsx
       },
