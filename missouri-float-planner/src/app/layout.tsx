@@ -4,7 +4,6 @@ import localFont from "next/font/local";
 import { Fredoka } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
-import ChatPanel from "@/components/chat/ChatPanel";
 import "./globals.css";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
@@ -102,7 +101,6 @@ export default function RootLayout({
         <Providers>
           <SiteHeader />
           {children}
-          <ChatPanel />
         </Providers>
       </body>
     </html>
