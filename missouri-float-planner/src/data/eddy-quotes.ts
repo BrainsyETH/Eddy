@@ -125,7 +125,33 @@ const QUOTE_TEMPLATES: QuoteTemplates = {
   ],
 };
 
+// --- Weather quips appended to the main quote ---
+
+const WEATHER_QUIPS: Record<string, string> = {
+  Clear: 'Clear skies and {temp}°F — sunscreen weather.',
+  Clouds: 'Overcast at {temp}°F — comfortable on the water.',
+  Rain: 'Rain in the area at {temp}°F. Watch for rising water.',
+  Drizzle: 'Light drizzle, {temp}°F. Not a dealbreaker if you don\'t mind getting wet.',
+  Thunderstorm: 'Thunderstorms and {temp}°F — stay off the water until it passes.',
+  Snow: '{temp}°F with snow. Yeah, not today.',
+  Mist: 'Misty at {temp}°F. Visibility may be low early on.',
+  Fog: 'Foggy and {temp}°F. Give it time to burn off before launching.',
+};
+
+function buildWeatherLine(condition: string, temp: number): string {
+  const key = Object.keys(WEATHER_QUIPS).find(k =>
+    condition.toLowerCase().startsWith(k.toLowerCase())
+  );
+  const template = key ? WEATHER_QUIPS[key] : `${Math.round(temp)}°F out there.`;
+  return template.replace(/\{temp\}/g, String(Math.round(temp)));
+}
+
 // --- Quote builder ---
+
+export interface WeatherInput {
+  condition: string; // e.g. "Clear", "Rain", "Clouds"
+  temp: number;      // degrees F
+}
 
 export interface EddyQuoteData {
   text: string;
@@ -173,6 +199,7 @@ export function buildEddyQuote(
   riverSlug: string,
   conditionCode: ConditionCode,
   gaugeHeightFt: number | null,
+  weather?: WeatherInput | null,
 ): EddyQuoteData {
   const knowledge = RIVER_KNOWLEDGE[riverSlug];
   const templates = QUOTE_TEMPLATES[conditionCode];
@@ -188,9 +215,48 @@ export function buildEddyQuote(
     .replace(/\{river\}/g, riverSlug)
     .replace(/\{note\}/g, note);
 
+  // Append weather context
+  if (weather) {
+    text += ' ' + buildWeatherLine(weather.condition, weather.temp);
+  }
+
   return {
     text,
     conditionCode,
     eddyImage: conditionToImage(conditionCode),
   };
+}
+
+// --- Rivers listing summary ---
+
+/** Short card-level blurb for condition (no gauge data needed). */
+export const CONDITION_CARD_BLURBS: Record<ConditionCode, string> = {
+  optimal: 'Great day to float!',
+  okay: 'Solid conditions out there.',
+  low: 'Running shallow — pack light.',
+  too_low: 'Too low to float right now.',
+  high: 'High water — use caution.',
+  dangerous: 'Flood stage — do not float.',
+  unknown: 'Conditions unavailable.',
+};
+
+/** Build a one-line Eddy summary across all rivers for the listing page. */
+export function buildRiversSummary(conditionCodes: (ConditionCode | null)[]): string {
+  const counts: Partial<Record<ConditionCode | 'none', number>> = {};
+  for (const code of conditionCodes) {
+    const key = code ?? 'none';
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+
+  const good = (counts.optimal ?? 0) + (counts.okay ?? 0);
+  const low = (counts.low ?? 0) + (counts.too_low ?? 0);
+  const high = (counts.high ?? 0) + (counts.dangerous ?? 0);
+
+  const parts: string[] = [];
+  if (good > 0) parts.push(`${good} river${good > 1 ? 's' : ''} looking great`);
+  if (low > 0) parts.push(`${low} running low`);
+  if (high > 0) parts.push(`${high} running high`);
+
+  if (parts.length === 0) return 'Checking conditions across all rivers — hang tight.';
+  return parts.join(', ') + '. Check the details before you head out!';
 }

@@ -7,11 +7,14 @@
 import Image from 'next/image';
 import type { ConditionCode } from '@/types/api';
 import { buildEddyQuote, RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
+import type { WeatherInput } from '@/data/eddy-quotes';
 
 interface EddyQuoteProps {
   riverSlug: string;
   conditionCode: ConditionCode;
   gaugeHeightFt: number | null;
+  weather?: WeatherInput | null;
+  readingAgeHours?: number | null;
 }
 
 const BG_BY_CONDITION: Record<string, string> = {
@@ -44,8 +47,16 @@ const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = 
   unknown: { text: 'Unknown', className: 'bg-neutral-100 text-neutral-600' },
 };
 
-export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt }: EddyQuoteProps) {
-  const quote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt);
+function formatReadingAge(hours: number): string {
+  if (hours < 1) return 'Updated just now';
+  if (hours < 2) return 'Updated 1 hr ago';
+  if (hours < 24) return `Updated ${Math.round(hours)} hrs ago`;
+  const days = Math.floor(hours / 24);
+  return `Updated ${days}d ago`;
+}
+
+export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours }: EddyQuoteProps) {
+  const quote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather);
   const knowledge = RIVER_KNOWLEDGE[riverSlug];
   const bgClass = BG_BY_CONDITION[conditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[conditionCode] ?? TEXT_BY_CONDITION.unknown;
@@ -72,6 +83,11 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt }: E
             <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
               {label.text}
             </span>
+            {readingAgeHours != null && (
+              <span className="text-[10px] text-neutral-400 ml-auto">
+                {formatReadingAge(readingAgeHours)}
+              </span>
+            )}
           </div>
           <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
             &ldquo;{quote.text}&rdquo;

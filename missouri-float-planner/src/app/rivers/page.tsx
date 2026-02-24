@@ -9,6 +9,7 @@ import { MapPin, Droplets, ArrowRight } from 'lucide-react';
 import { useRivers } from '@/hooks/useRivers';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { buildRiversSummary, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 
 const EDDY_IMAGES: Record<string, string> = {
@@ -50,6 +51,10 @@ function getEddyImage(code?: ConditionCode | null): string {
 export default function RiversPage() {
   const { data: rivers, isLoading } = useRivers();
 
+  // Build Eddy's summary across all rivers
+  const conditionCodes = rivers?.map(r => r.currentCondition?.code ?? null) ?? [];
+  const eddySummary = rivers ? buildRiversSummary(conditionCodes) : null;
+
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Hero */}
@@ -77,6 +82,22 @@ export default function RiversPage() {
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
             Explore our supported rivers with live conditions, access points, and float planning tools.
           </p>
+
+          {/* Eddy summary quote */}
+          {eddySummary && (
+            <div className="mt-6 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 max-w-xl mx-auto">
+              <Image
+                src={EDDY_IMAGES.canoe}
+                alt="Eddy"
+                width={40}
+                height={40}
+                className="w-8 h-8 object-contain flex-shrink-0"
+              />
+              <p className="text-sm text-white/90 text-left">
+                &ldquo;{eddySummary}&rdquo;
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -94,6 +115,7 @@ export default function RiversPage() {
               const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
               const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
               const description = RIVER_DESCRIPTIONS[river.slug];
+              const blurb = conditionCode ? CONDITION_CARD_BLURBS[conditionCode] : CONDITION_CARD_BLURBS.unknown;
 
               return (
                 <Link
@@ -112,13 +134,16 @@ export default function RiversPage() {
                         className="w-24 h-24 object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500"
                       />
                     </div>
-                    {/* Condition badge overlay */}
-                    <div className="absolute top-3 right-3">
+                    {/* Condition badge + blurb overlay */}
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                       <div
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-bold shadow-lg"
                         style={{ backgroundColor: conditionColor }}
                       >
                         {conditionLabel}
+                      </div>
+                      <div className="bg-black/40 backdrop-blur-sm text-white/90 text-[11px] px-2 py-0.5 rounded-full">
+                        {blurb}
                       </div>
                     </div>
                   </div>

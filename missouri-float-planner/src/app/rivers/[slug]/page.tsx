@@ -28,6 +28,7 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import { usePOIs } from '@/hooks/usePOIs';
+import { useWeather } from '@/hooks/useWeather';
 import type { AccessPoint, FeedbackContext } from '@/types/api';
 
 // Dynamic imports for map
@@ -74,6 +75,7 @@ export default function RiverPage() {
   const { data: vesselTypes } = useVesselTypes();
   const { data: allGaugeStations } = useGaugeStations();
   const { data: pois } = usePOIs(slug);
+  const { data: weatherData } = useWeather(slug);
 
   // Filter gauge stations to only show those linked to this river
   const gaugeStations = allGaugeStations?.filter(gauge =>
@@ -493,6 +495,8 @@ export default function RiverPage() {
             riverSlug={slug}
             conditionCode={condition?.code ?? 'unknown'}
             gaugeHeightFt={condition?.gaugeHeightFt ?? null}
+            weather={weatherData ? { condition: weatherData.condition, temp: weatherData.temp } : null}
+            readingAgeHours={condition?.readingAgeHours ?? null}
           />
         </div>
 
