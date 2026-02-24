@@ -11,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import ConditionWarningBanner from '@/components/river/ConditionWarningBanner';
-import LocalKnowledge from '@/components/river/LocalKnowledge';
+import EddyQuote from '@/components/river/EddyQuote';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
@@ -487,6 +487,15 @@ export default function RiverPage() {
 
       {/* Main Content - add bottom padding on mobile when bottom sheet is visible */}
       <div className={`max-w-7xl mx-auto px-4 py-6 ${putInPoint && takeOutPoint ? 'pb-36 lg:pb-6' : ''}`}>
+        {/* Eddy's daily conditions quote */}
+        <div className="mb-4">
+          <EddyQuote
+            riverSlug={slug}
+            conditionCode={condition?.code ?? 'unknown'}
+            gaugeHeightFt={condition?.gaugeHeightFt ?? null}
+          />
+        </div>
+
         {/* Planner Selectors - always at top */}
         <div className="mb-4">
           <PlannerPanel
@@ -507,15 +516,6 @@ export default function RiverPage() {
             riverId={river.id}
             isLoading={!allGaugeStations}
             putInCoordinates={selectedPutInPoint?.coordinates || null}
-          />
-        </div>
-
-        {/* Local Knowledge - collapsed below conditions */}
-        <div className="mb-4">
-          <LocalKnowledge
-            riverSlug={slug}
-            riverName={river.name}
-            defaultOpen={false}
           />
         </div>
 
