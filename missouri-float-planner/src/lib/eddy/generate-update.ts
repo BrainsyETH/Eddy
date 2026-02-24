@@ -11,6 +11,7 @@ import { fetchWeather, getCityForRiver, type WeatherData } from '@/lib/weather/o
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
 
 export interface GaugeContext {
   gaugeName: string;
@@ -67,10 +68,14 @@ export async function generateEddyUpdate(
     console.warn('[EddyGen] NWS alert fetch failed:', e);
   }
 
-  // --- 4. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, alerts);
+  // --- 4. Load local knowledge ---
+  const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
+  if (localKnowledge) sourcesUsed.push('local knowledge');
 
-  // --- 5. Call Claude Haiku ---
+  // --- 5. Build the prompt ---
+  const prompt = buildPrompt(target, gaugeContext, weather, alerts, localKnowledge);
+
+  // --- 6. Call Claude Haiku ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     console.error('[EddyGen] ANTHROPIC_API_KEY not configured');
@@ -137,8 +142,9 @@ function buildPrompt(
   gauge: GaugeContext | null,
   weather: WeatherData | null,
   alerts: NWSAlert[],
+  localKnowledge: string,
 ): string {
-  const knowledge = RIVER_KNOWLEDGE[target.riverSlug];
+  const gaugeKnowledge = RIVER_KNOWLEDGE[target.riverSlug];
   const lines: string[] = [];
 
   lines.push(`Generate an Eddy condition update for: ${target.riverName}`);
@@ -171,11 +177,11 @@ function buildPrompt(
     lines.push('Gauge data: unavailable');
   }
 
-  // River knowledge
-  if (knowledge) {
-    lines.push(`Local knowledge: ${knowledge.notes}`);
-    if (knowledge.closureLevel) {
-      lines.push(`Closure level: ${knowledge.closureLevel} ft`);
+  // Gauge threshold knowledge
+  if (gaugeKnowledge) {
+    lines.push(`Gauge notes: ${gaugeKnowledge.notes}`);
+    if (gaugeKnowledge.closureLevel) {
+      lines.push(`Closure level: ${gaugeKnowledge.closureLevel} ft`);
     }
   }
 
@@ -195,6 +201,13 @@ function buildPrompt(
         lines.push(`  ${alert.description.slice(0, 300)}`);
       }
     }
+  }
+
+  // Local knowledge from EDDY_KNOWLEDGE.md
+  if (localKnowledge) {
+    lines.push('');
+    lines.push('--- LOCAL KNOWLEDGE (use to inform your update, not recite) ---');
+    lines.push(localKnowledge);
   }
 
   return lines.join('\n');
