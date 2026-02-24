@@ -22,7 +22,7 @@ more consistent base flows and are more forgiving in dry spells. Rain-fed rivers
 fast in summer and spike hard after storms.
 
 - Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.
-- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F). Hypothermia is a real risk on cool days even in summer.
+- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).
 - Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.
 - After heavy rain, spring-fed rivers may stay clear while rain-fed rivers turn muddy. A clear Current River next to a chocolate Jacks Fork is common after a storm.
 - Weekends in June and July are the busiest. For a quieter float, go mid-week or choose Eleven Point or Big Piney over Current or Meramec.
@@ -48,15 +48,15 @@ largest springs in the US). It holds water better than almost any river in the s
 ### Upper Current
 
 - **Montauk to Cedar Grove** (~7 miles): Narrow, riffley, needs slightly more water than lower sections. Great half-day in a kayak.
-- **Cedar Grove to Baptist Camp** (~8 miles): Opens up a bit. A few fun riffles. Good for canoes.
-- **Baptist Camp to Akers** (~8 miles): Classic stretch. Bluffs start getting dramatic. The most popular day float on the upper section.
+- **Baptist Camp to Cedar Grove** (~8 miles): Opens up a bit. A few fun riffles. Good for canoes.
+- **Cedar Grove to Akers** (~8 miles): Classic stretch. Bluffs start getting dramatic. The most popular day float on the upper section.
 - Montauk State Park at the headwaters has trout fishing (catch and release / tags) and a lodge.
 - Upper sections can get scrapy below 2.0 ft at Akers gauge. At 1.5 ft, you'll be walking.
 
 ### Lower Current
 
-- **Akers to Pulltite** (~12 miles): The signature stretch. Big bluffs, deep pools, springs. Full-day float.
-- **Pulltite to Round Spring** (~13 miles): More remote. Good overnight trip.
+- **Akers to Pulltite** (~10 miles): The signature stretch. Big bluffs, deep pools, springs. Full-day float.
+- **Pulltite to Round Spring** (~9 miles): More remote. Good overnight trip.
 - **Round Spring to Two Rivers** (~18 miles): Long section, often done as a 2-day. Two Rivers is the take-out where Jacks Fork joins.
 - The lower river handles low water better due to spring inputs along the way.
 - Big Spring (near Van Buren) is below Two Rivers — the Current below Big Spring is wide and deep, more like a slow river than a float stream.
@@ -181,3 +181,4 @@ the weekend crowds.
 - Beautiful bluffs and gravel bars. Great for wading and swimming when the water is up.
 - Steelville area outfitters serve both Courtois and Huzzah.
 - If Huzzah is too crowded, Courtois is almost always less busy.
+
