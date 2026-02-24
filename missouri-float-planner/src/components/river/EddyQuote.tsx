@@ -1,13 +1,15 @@
 'use client';
 
 // src/components/river/EddyQuote.tsx
-// Eddy's daily conditions quote — speech bubble with otter avatar.
-// Replaces the interactive chat and local knowledge modal.
+// Eddy's conditions quote — speech bubble with otter avatar.
+// Tries to fetch AI-generated update first, falls back to static templates.
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import type { ConditionCode } from '@/types/api';
 import { buildEddyQuote, RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
+import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
 interface EddyQuoteProps {
   riverSlug: string;
@@ -15,6 +17,34 @@ interface EddyQuoteProps {
   gaugeHeightFt: number | null;
   weather?: WeatherInput | null;
   readingAgeHours?: number | null;
+}
+
+const EDDY_IMAGES: Record<string, string> = {
+  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
+  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
+  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
+  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
+  flood: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png',
+  canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
+};
+
+function conditionToImage(code: ConditionCode): string {
+  switch (code) {
+    case 'optimal':
+    case 'okay':
+      return EDDY_IMAGES.canoe;
+    case 'low':
+      return EDDY_IMAGES.yellow;
+    case 'too_low':
+      return EDDY_IMAGES.flag;
+    case 'high':
+      return EDDY_IMAGES.red;
+    case 'dangerous':
+      return EDDY_IMAGES.flood;
+    case 'unknown':
+    default:
+      return EDDY_IMAGES.flag;
+  }
 }
 
 const BG_BY_CONDITION: Record<string, string> = {
@@ -55,12 +85,63 @@ function formatReadingAge(hours: number): string {
   return `Updated ${days}d ago`;
 }
 
+function formatGeneratedAge(generatedAt: string): string {
+  const hours = (Date.now() - new Date(generatedAt).getTime()) / (1000 * 60 * 60);
+  if (hours < 1) return 'Updated just now';
+  if (hours < 2) return 'Updated 1 hr ago';
+  return `Updated ${Math.round(hours)} hrs ago`;
+}
+
 export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours }: EddyQuoteProps) {
-  const quote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather);
+  const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
+  const [aiLoaded, setAiLoaded] = useState(false);
+
+  // Fetch AI-generated update on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchAiUpdate() {
+      try {
+        const res = await fetch(`/api/eddy-update/${riverSlug}`);
+        if (!res.ok) return;
+        const data: EddyUpdateResponse = await res.json();
+        if (!cancelled && data.available && data.update) {
+          setAiUpdate(data.update);
+        }
+      } catch {
+        // Silently fail — static fallback will be used
+      } finally {
+        if (!cancelled) setAiLoaded(true);
+      }
+    }
+
+    fetchAiUpdate();
+    return () => { cancelled = true; };
+  }, [riverSlug]);
+
+  // Determine which data to display
+  const useAi = aiLoaded && aiUpdate !== null;
+  const displayConditionCode = useAi
+    ? (aiUpdate.conditionCode as ConditionCode)
+    : conditionCode;
+
+  // Static fallback
+  const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather);
+
+  const quoteText = useAi ? aiUpdate.quoteText : staticQuote.text;
+  const eddyImage = conditionToImage(displayConditionCode);
   const knowledge = RIVER_KNOWLEDGE[riverSlug];
-  const bgClass = BG_BY_CONDITION[conditionCode] ?? BG_BY_CONDITION.unknown;
-  const textClass = TEXT_BY_CONDITION[conditionCode] ?? TEXT_BY_CONDITION.unknown;
-  const label = LABEL_BY_CONDITION[conditionCode] ?? LABEL_BY_CONDITION.unknown;
+
+  const bgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
+  const textClass = TEXT_BY_CONDITION[displayConditionCode] ?? TEXT_BY_CONDITION.unknown;
+  const label = LABEL_BY_CONDITION[displayConditionCode] ?? LABEL_BY_CONDITION.unknown;
+
+  // Age display: AI update shows generation time, static shows gauge reading age
+  const ageDisplay = useAi
+    ? formatGeneratedAge(aiUpdate.generatedAt)
+    : readingAgeHours != null
+      ? formatReadingAge(readingAgeHours)
+      : null;
 
   return (
     <div className={`border rounded-xl overflow-hidden ${bgClass}`}>
@@ -68,7 +149,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
         {/* Eddy avatar */}
         <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 relative">
           <Image
-            src={quote.eddyImage}
+            src={eddyImage}
             alt="Eddy the Otter"
             fill
             className="object-contain"
@@ -83,14 +164,14 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
               {label.text}
             </span>
-            {readingAgeHours != null && (
+            {ageDisplay && (
               <span className="text-[10px] text-neutral-400 ml-auto">
-                {formatReadingAge(readingAgeHours)}
+                {ageDisplay}
               </span>
             )}
           </div>
           <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
-            &ldquo;{quote.text}&rdquo;
+            &ldquo;{quoteText}&rdquo;
           </p>
           {knowledge && (
             <p className="text-xs mt-1.5 opacity-50">
