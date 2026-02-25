@@ -221,22 +221,22 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
   const knowledge = RIVER_KNOWLEDGE[riverSlug];
 
   // Get primary gauge for river
-  const { data: riverData } = await supabase
+  const { data: riverData, error: riverError } = await supabase
     .from('rivers')
     .select('id')
     .eq('slug', riverSlug)
     .single();
 
   if (!riverData) {
-    console.warn(`[EddyGen] River not found: ${riverSlug}`);
+    console.warn(`[EddyGen] River not found for slug "${riverSlug}":`, riverError?.message);
     return null;
   }
 
-  const { data: gaugeLink } = await supabase
+  const { data: gaugeLink, error: gaugeLinkError } = await supabase
     .from('river_gauges')
     .select(`
       level_too_low, level_low, level_optimal_min, level_optimal_max,
-      level_high, level_dangerous,
+      level_high, level_dangerous, threshold_unit,
       gauge_stations (id, name, usgs_site_id)
     `)
     .eq('river_id', riverData.id)
@@ -244,7 +244,7 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     .single();
 
   if (!gaugeLink) {
-    console.warn(`[EddyGen] No primary gauge for river: ${riverSlug}`);
+    console.warn(`[EddyGen] No primary gauge for river "${riverSlug}" (river_id: ${riverData.id}):`, gaugeLinkError?.message);
     return null;
   }
 
@@ -252,7 +252,10 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     ? gaugeLink.gauge_stations[0]
     : gaugeLink.gauge_stations;
 
-  if (!station?.usgs_site_id) return null;
+  if (!station?.usgs_site_id) {
+    console.warn(`[EddyGen] Gauge station missing usgs_site_id for river "${riverSlug}"`);
+    return null;
+  }
 
   // Try DB reading first, fall back to live USGS
   const { data: dbReading } = await supabase
@@ -273,17 +276,24 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     try {
       const liveReadings = await fetchGaugeReadings([station.usgs_site_id], { skipCache: true });
       const live = liveReadings[0];
-      if (live?.gaugeHeightFt !== null && live?.gaugeHeightFt !== undefined) {
-        gaugeHeightFt = live.gaugeHeightFt;
-        dischargeCfs = live.dischargeCfs ?? dischargeCfs;
-        readingTimestamp = live.readingTimestamp ?? readingTimestamp;
+      if (live) {
+        // Accept any available data from USGS (height, discharge, or both)
+        if (live.gaugeHeightFt !== null && live.gaugeHeightFt !== undefined) {
+          gaugeHeightFt = live.gaugeHeightFt;
+        }
+        if (live.dischargeCfs !== null && live.dischargeCfs !== undefined) {
+          dischargeCfs = live.dischargeCfs;
+        }
+        if (live.readingTimestamp) {
+          readingTimestamp = live.readingTimestamp;
+        }
       }
     } catch (e) {
       console.warn(`[EddyGen] Live USGS fetch failed for ${station.usgs_site_id}:`, e);
     }
   }
 
-  // Compute condition code
+  // Compute condition code — pass both height and discharge for threshold_unit awareness
   const thresholds: ConditionThresholds = {
     levelTooLow: gaugeLink.level_too_low,
     levelLow: gaugeLink.level_low,
@@ -291,9 +301,10 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     levelOptimalMax: gaugeLink.level_optimal_max,
     levelHigh: gaugeLink.level_high,
     levelDangerous: gaugeLink.level_dangerous,
+    thresholdUnit: (gaugeLink as Record<string, unknown>).threshold_unit as 'ft' | 'cfs' | undefined,
   };
 
-  const condition = computeCondition(gaugeHeightFt, thresholds);
+  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
 
   return {
     gaugeName: station.name || 'Unknown gauge',
