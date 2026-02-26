@@ -104,24 +104,25 @@ export function getUpdateTargets(): UpdateTarget[] {
   const targets: UpdateTarget[] = [];
 
   for (const river of RIVER_SECTIONS) {
-    if (river.sections.length === 0) {
+    // Always generate a whole-river update (section_slug = null).
+    // The frontend fetches this by default on the river page.
+    targets.push({
+      riverSlug: river.riverSlug,
+      riverName: river.riverName,
+      sectionSlug: null,
+      sectionName: null,
+      sectionDescription: null,
+    });
+
+    // For rivers with sections, also generate per-section updates
+    for (const section of river.sections) {
       targets.push({
         riverSlug: river.riverSlug,
         riverName: river.riverName,
-        sectionSlug: null,
-        sectionName: null,
-        sectionDescription: null,
+        sectionSlug: section.sectionSlug,
+        sectionName: section.name,
+        sectionDescription: section.description,
       });
-    } else {
-      for (const section of river.sections) {
-        targets.push({
-          riverSlug: river.riverSlug,
-          riverName: river.riverName,
-          sectionSlug: section.sectionSlug,
-          sectionName: section.name,
-          sectionDescription: section.description,
-        });
-      }
     }
   }
 
