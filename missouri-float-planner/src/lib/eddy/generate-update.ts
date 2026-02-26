@@ -72,10 +72,16 @@ export async function generateEddyUpdate(
   const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
   if (localKnowledge) sourcesUsed.push('local knowledge');
 
-  // --- 5. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, alerts, localKnowledge);
+  // --- 5. Fetch gauge trend (rising/falling/steady) ---
+  let trendLabel: string | null = null;
+  if (gaugeContext) {
+    trendLabel = await fetchGaugeTrend(target.riverSlug);
+  }
 
-  // --- 6. Call Claude Haiku ---
+  // --- 6. Build the prompt ---
+  const prompt = buildPrompt(target, gaugeContext, weather, alerts, localKnowledge, trendLabel);
+
+  // --- 7. Call Claude Haiku ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     console.error('[EddyGen] ANTHROPIC_API_KEY not configured');
@@ -87,7 +93,7 @@ export async function generateEddyUpdate(
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
+      max_tokens: 400,
       messages: [{ role: 'user', content: prompt }],
       system: EDDY_SYSTEM_PROMPT,
     });
@@ -124,14 +130,17 @@ const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozar
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
 RULES:
-- Write 3-5 sentences. No more.
+- Write 4-6 sentences. Aim for a substantive update, not a blurb.
 - Lead with the current condition assessment.
 - Mention the gauge reading and what it means for floating.
+- If a trend is provided (rising, falling, steady), weave it in — it changes the story.
 - If weather is relevant (rain incoming, extreme heat, storms), mention it.
 - If there are active NWS flood alerts, lead with safety first.
 - If conditions are dangerous, be unambiguous: "Stay off the water."
 - Cite actual numbers (gauge height, temp) — don't be vague.
+- Incorporate local knowledge naturally — mention specific landmarks, springs, or sections when relevant.
 - If section-specific context is provided, tailor your advice to that section.
+- Vary your phrasing and structure from update to update. Do not start every update the same way.
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself. Speak in third person if needed ("Eddy recommends...") or just state facts.
@@ -143,9 +152,17 @@ function buildPrompt(
   weather: WeatherData | null,
   alerts: NWSAlert[],
   localKnowledge: string,
+  trendLabel: string | null = null,
 ): string {
   const gaugeKnowledge = RIVER_KNOWLEDGE[target.riverSlug];
   const lines: string[] = [];
+
+  // Date context so the model can reference day of week, season, etc.
+  const now = new Date();
+  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
+  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' });
+  lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
+  lines.push('');
 
   lines.push(`Generate an Eddy condition update for: ${target.riverName}`);
   if (target.sectionName) {
@@ -175,6 +192,11 @@ function buildPrompt(
     }
   } else {
     lines.push('Gauge data: unavailable');
+  }
+
+  // Gauge trend
+  if (trendLabel) {
+    lines.push(`Trend: ${trendLabel}`);
   }
 
   // Gauge threshold knowledge
@@ -211,6 +233,65 @@ function buildPrompt(
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Fetches the recent gauge trend (rising / falling / steady) by comparing
+ * the two most recent readings for the river's primary gauge.
+ */
+async function fetchGaugeTrend(riverSlug: string): Promise<string | null> {
+  try {
+    const supabase = createAdminClient();
+
+    const { data: riverData } = await supabase
+      .from('rivers')
+      .select('id')
+      .eq('slug', riverSlug)
+      .single();
+
+    if (!riverData) return null;
+
+    const { data: gaugeLink } = await supabase
+      .from('river_gauges')
+      .select('gauge_stations (id)')
+      .eq('river_id', riverData.id)
+      .eq('is_primary', true)
+      .single();
+
+    if (!gaugeLink) return null;
+
+    const station = Array.isArray(gaugeLink.gauge_stations)
+      ? gaugeLink.gauge_stations[0]
+      : gaugeLink.gauge_stations;
+
+    if (!station?.id) return null;
+
+    // Get the two most recent readings to determine trend
+    const { data: readings } = await supabase
+      .from('gauge_readings')
+      .select('gauge_height_ft, reading_timestamp')
+      .eq('gauge_station_id', station.id)
+      .order('reading_timestamp', { ascending: false })
+      .limit(2);
+
+    if (!readings || readings.length < 2) return null;
+
+    const newest = readings[0].gauge_height_ft;
+    const previous = readings[1].gauge_height_ft;
+    if (newest == null || previous == null) return null;
+
+    const delta = newest - previous;
+    const absDelta = Math.abs(delta);
+
+    if (absDelta < 0.1) return 'steady (little change)';
+    if (delta > 0.5) return `rising quickly (+${delta.toFixed(1)} ft since last reading)`;
+    if (delta > 0) return `rising slowly (+${delta.toFixed(1)} ft since last reading)`;
+    if (delta < -0.5) return `falling quickly (${delta.toFixed(1)} ft since last reading)`;
+    return `falling slowly (${delta.toFixed(1)} ft since last reading)`;
+  } catch (e) {
+    console.warn(`[EddyGen] Trend fetch failed for ${riverSlug}:`, e);
+    return null;
+  }
 }
 
 /**
