@@ -15,12 +15,12 @@ INSERT INTO rivers (id, name, slug, length_miles, region, description)
 SELECT
   gen_random_uuid(),
   'Jacks Fork River',
-  'jacks-fork-river',
+  'jacks-fork',
   40.0,
   'Ozarks',
   'A tributary of the Current River and one of the wildest, most scenic Ozark streams. Its deep valley is nearly a canyon with no bottomland fields for the first 25 floatable miles. More rain-dependent than the spring-fed Current.'
 WHERE NOT EXISTS (
-  SELECT 1 FROM rivers WHERE slug = 'jacks-fork-river' OR name ILIKE '%jacks fork%'
+  SELECT 1 FROM rivers WHERE slug = 'jacks-fork' OR slug = 'jacks-fork-river' OR name ILIKE '%jacks fork%'
 );
 
 -- Get the Jacks Fork River ID

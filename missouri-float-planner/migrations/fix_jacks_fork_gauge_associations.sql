@@ -22,7 +22,8 @@ DECLARE
 BEGIN
   -- Get Jacks Fork River ID
   SELECT id INTO jacks_fork_id FROM rivers
-  WHERE slug = 'jacks-fork-river' OR name ILIKE '%jacks fork%'
+  WHERE slug = 'jacks-fork' OR slug = 'jacks-fork-river' OR name ILIKE '%jacks fork%'
+  ORDER BY (slug = 'jacks-fork')::int DESC
   LIMIT 1;
 
   -- Get Current River ID
