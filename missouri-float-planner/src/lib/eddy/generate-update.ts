@@ -99,7 +99,8 @@ export async function generateEddyUpdate(
     });
 
     const textBlock = message.content.find((block) => block.type === 'text');
-    const quoteText = textBlock?.text?.trim() || null;
+    // Strip em dashes that slip through despite prompt instructions
+    const quoteText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
 
     if (!quoteText) {
       console.error(`[EddyGen] Empty response for ${target.riverSlug}/${target.sectionSlug}`);
@@ -141,6 +142,7 @@ RULES:
 - Incorporate local knowledge naturally — mention specific landmarks, springs, or sections when relevant.
 - If section-specific context is provided, tailor your advice to that section.
 - Vary your phrasing and structure from update to update. Do not start every update the same way.
+- Do NOT use em dashes (—). Use commas, periods, or "and" instead.
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself. Speak in third person if needed ("Eddy recommends...") or just state facts.
