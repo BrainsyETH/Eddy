@@ -6,7 +6,7 @@
 import { Suspense, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Droplets, Clock, ChevronDown, ArrowRight } from 'lucide-react';
+import { MapPin, Clock, ChevronDown, ArrowRight, Activity } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import { useGaugeStations } from '@/hooks/useGaugeStations';
@@ -126,16 +126,16 @@ function HomeContent() {
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
-              <MapPin className="w-4 h-4" />
-              <span>30+ Access Points</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
-              <Droplets className="w-4 h-4" />
-              <span>Live USGS Gauges</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
               <Clock className="w-4 h-4" />
               <span>Float Time Estimates</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
+              <Activity className="w-4 h-4" />
+              <span>Accurate River Conditions</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
+              <MapPin className="w-4 h-4" />
+              <span>Detailed Access Points</span>
             </div>
           </div>
         </div>
@@ -231,6 +231,8 @@ function HomeContent() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-primary-200">
             <div className="flex items-center gap-4">
               <p>Eddy &middot; Water data from USGS</p>
+              <Link href="/about" className="hover:text-white transition-colors">About</Link>
+              <Link href="/embed" className="hover:text-white transition-colors">Embed Widgets</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             </div>
             <p className="text-center md:text-right text-primary-300">
