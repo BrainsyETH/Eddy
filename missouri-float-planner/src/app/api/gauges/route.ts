@@ -111,6 +111,7 @@ export interface GaugeStation {
   thresholds: {
     riverId: string;
     riverName: string;
+    riverSlug: string | null;
     isPrimary: boolean;
     thresholdUnit: 'ft' | 'cfs';
     levelTooLow: number | null;
@@ -282,6 +283,7 @@ export async function GET() {
         rivers!inner (
           id,
           name,
+          slug,
           active
         )`;
 
@@ -312,12 +314,13 @@ export async function GET() {
     const thresholdsByGauge = new Map<string, GaugeStation['thresholds']>();
     if (riverGauges) {
       for (const rg of riverGauges) {
-        const river = rg.rivers as unknown as { id: string; name: string; active?: boolean };
+        const river = rg.rivers as unknown as { id: string; name: string; slug?: string; active?: boolean };
         // Skip gauge-river associations for inactive rivers
         if (river.active === false) continue;
         const threshold = {
           riverId: river.id,
           riverName: river.name,
+          riverSlug: river.slug || null,
           isPrimary: rg.is_primary as boolean,
           thresholdUnit: ((rg.threshold_unit as string) || 'ft') as 'ft' | 'cfs',
           levelTooLow: (rg.level_too_low as number) ?? null,

@@ -28,6 +28,8 @@ import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import FeedbackModal from '@/components/ui/FeedbackModal';
 import type { FeedbackContext } from '@/types/api';
+import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
+import { RIVER_KNOWLEDGE, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 
 const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
 
@@ -70,24 +72,7 @@ const DATE_RANGES = [
 // ONSR (Ozark National Scenic Riverways) rivers
 const ONSR_RIVERS = ['current river', 'eleven point river', 'jacks fork river', 'jacks fork'];
 
-// River-specific floating summaries (local knowledge - SAFETY FIRST)
-const RIVER_SUMMARIES: Record<string, { title: string; summary: string; tip: string }> = {
-  'current-river': {
-    title: 'Current River',
-    summary: 'The Akers gauge is the primary reference. 2.0–3.0 ft is optimal. The Current is spring-fed and forgiving, but above 3.5 ft conditions deteriorate. At 4.0 ft the river closes. Below 1.5 ft you\'ll drag in riffles. Van Buren (lower river) runs higher—optimal 3.0–4.0 ft, closes at 5.0 ft.',
-    tip: 'Spring rains can cause rapid rises. If the gauge is climbing, consider another day. The upper Current (Montauk to Akers) needs slightly more water than lower sections.',
-  },
-  'eleven-point-river': {
-    title: 'Eleven Point River',
-    summary: 'The Bardley gauge (16 mi downstream from Greer) is the key reference. 3.0–3.5 ft is optimal. Average is ~3.0 ft. Above 4 ft we recommend another day—water gets murky and conditions deteriorate. At 5 ft, outfitters stop and Forest Service closes the river.',
-    tip: 'Mid-June through mid-September offers the best floating with clear water. Spring rains (March–May) cause rapid rises and muddy conditions. When in doubt, wait it out.',
-  },
-  'jacks-fork-river': {
-    title: 'Jacks Fork River',
-    summary: 'The Jacks Fork is shallower and more rain-dependent. At Alley Spring (primary), 2.5–3.0 ft is ideal. Above 3.5 ft we recommend another day—river closes at 4.0 ft. Below 2.0 ft you\'ll drag with gear. At Eminence (lower), 2.0–3.0 ft is good; average is ~1.5 ft but may drag loaded.',
-    tip: 'The Jacks Fork rises and falls FAST after rain. Flash floods are a serious concern. If rain is forecast or the gauge is rising, postpone your trip.',
-  },
-};
+// Static river summaries removed — replaced by AI-generated Eddy updates
 
 // Gauge-specific threshold descriptions (local knowledge)
 // Keys are USGS site IDs
@@ -183,10 +168,14 @@ export default function GaugesPage() {
   const [selectedRiver, setSelectedRiver] = useState<string>('all');
   const [selectedCondition, setSelectedCondition] = useState<ConditionCode | 'all'>('all');
   const [dateRange, setDateRange] = useState(7);
-  const [onsrOnly, setOnsrOnly] = useState(true); // ONSR filter on by default
+  const [onsrOnly, setOnsrOnly] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
+
+  // Eddy AI update cache: keyed by river slug
+  const [eddyCache, setEddyCache] = useState<Record<string, EddyUpdateResponse['update'] | null>>({});
+  const [eddyLoading, setEddyLoading] = useState(false);
   const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const drawerBodyRef = useRef<HTMLDivElement>(null);
   const drawerCloseButtonRef = useRef<HTMLButtonElement>(null);
@@ -447,14 +436,14 @@ export default function GaugesPage() {
     return `${Math.round(gauge.readingAgeHours / 24)}d ago`;
   };
 
-  // Clear all filters (ONSR stays on by default)
+  // Clear all filters
   const clearFilters = () => {
     setSelectedRiver('all');
     setSelectedCondition('all');
-    setOnsrOnly(true);
+    setOnsrOnly(false);
   };
 
-  const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || !onsrOnly;
+  const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || onsrOnly;
 
   // Open feedback modal with gauge context
   const openFeedbackModal = (gauge: GaugeStation & { condition: { code: ConditionCode; label: string; tailwindColor: string }; primaryRiver: NonNullable<GaugeStation['thresholds']>[0] | undefined }) => {
@@ -476,21 +465,56 @@ export default function GaugesPage() {
     setFeedbackModalOpen(true);
   };
 
-  // Get river summary if a specific river is selected
-  const selectedRiverSummary = useMemo(() => {
-    if (selectedRiver === 'all') return null;
+  // Derive river slug from gauge data when a specific river is selected
+  const selectedRiverSlug = useMemo(() => {
+    if (selectedRiver === 'all' || !gaugeData?.gauges) return null;
 
-    // Find the river name from the rivers list
+    // Look for the slug in threshold data
+    for (const gauge of gaugeData.gauges) {
+      const match = gauge.thresholds?.find(t => t.riverId === selectedRiver);
+      if (match?.riverSlug) return match.riverSlug;
+    }
+
+    // Fallback: derive from river name
     const riverEntry = rivers.find(([id]) => id === selectedRiver);
     if (!riverEntry) return null;
+    return riverEntry[1].toLowerCase()
+      .replace(/\s+river$/i, '')
+      .replace(/\s+creek$/i, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }, [selectedRiver, rivers, gaugeData]);
 
-    const riverName = riverEntry[1];
+  // Fetch Eddy AI update when a river is selected (cached per slug)
+  useEffect(() => {
+    if (!selectedRiverSlug) return;
+    if (selectedRiverSlug in eddyCache) return; // already cached
 
-    // Convert river name to slug format for lookup
-    const slug = riverName.toLowerCase().replace(/\s+/g, '-');
+    let cancelled = false;
+    setEddyLoading(true);
 
-    return RIVER_SUMMARIES[slug] || null;
-  }, [selectedRiver, rivers]);
+    async function fetchEddy() {
+      try {
+        const res = await fetch(`/api/eddy-update/${selectedRiverSlug}`);
+        if (!res.ok) return;
+        const data: EddyUpdateResponse = await res.json();
+        if (!cancelled) {
+          setEddyCache(prev => ({ ...prev, [selectedRiverSlug!]: data.available ? data.update : null }));
+        }
+      } catch {
+        if (!cancelled) {
+          setEddyCache(prev => ({ ...prev, [selectedRiverSlug!]: null }));
+        }
+      } finally {
+        if (!cancelled) setEddyLoading(false);
+      }
+    }
+
+    fetchEddy();
+    return () => { cancelled = true; };
+  }, [selectedRiverSlug, eddyCache]);
+
+  const eddyUpdate = selectedRiverSlug ? eddyCache[selectedRiverSlug] ?? null : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
@@ -684,23 +708,66 @@ export default function GaugesPage() {
               </div>
             </div>
 
-            {/* River Summary (when specific river selected) */}
-            {selectedRiverSummary && (
-              <div className="bg-gradient-to-r from-primary-50 to-accent-50 border-2 border-primary-200 rounded-xl p-5 mb-6">
+            {/* Eddy Says (AI update when specific river selected, with static fallback) */}
+            {selectedRiver !== 'all' && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-5 mb-6">
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
-                    <Droplets className="w-5 h-5 text-white" />
+                  <div className="flex-shrink-0 w-12 h-12 relative">
+                    <Image
+                      src={getEddyImageForCondition(eddyUpdate?.conditionCode as ConditionCode || (() => {
+                        // Derive condition from visible gauges for static fallback image
+                        const riverGauges = processedGauges.filter(g => g.primaryRiver?.riverId === selectedRiver);
+                        const primary = riverGauges.find(g => g.primaryRiver?.isPrimary) || riverGauges[0];
+                        return primary?.condition.code || 'unknown';
+                      })())}
+                      alt="Eddy the Otter"
+                      fill
+                      className="object-contain"
+                      sizes="48px"
+                    />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-neutral-900 mb-1">
-                      {selectedRiverSummary.title} — Local Knowledge
-                    </h3>
-                    <p className="text-sm text-neutral-700 mb-2">
-                      {selectedRiverSummary.summary}
-                    </p>
-                    <p className="text-xs text-primary-700 bg-primary-100 rounded-lg px-3 py-1.5 inline-block">
-                      <span className="font-semibold">💡 Tip:</span> {selectedRiverSummary.tip}
-                    </p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold tracking-wide uppercase opacity-60">Eddy says</span>
+                      {eddyUpdate?.generatedAt && (
+                        <span className="text-[10px] text-neutral-400 ml-auto">
+                          {(() => {
+                            const hours = (Date.now() - new Date(eddyUpdate.generatedAt).getTime()) / (1000 * 60 * 60);
+                            if (hours < 1) return 'Updated just now';
+                            if (hours < 2) return 'Updated 1 hr ago';
+                            return `Updated ${Math.round(hours)} hrs ago`;
+                          })()}
+                        </span>
+                      )}
+                    </div>
+                    {eddyLoading && !(selectedRiverSlug && selectedRiverSlug in eddyCache) ? (
+                      <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
+                    ) : eddyUpdate ? (
+                      <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
+                        &ldquo;{eddyUpdate.quoteText}&rdquo;
+                      </p>
+                    ) : (() => {
+                      // Static fallback: build from gauge conditions + RIVER_KNOWLEDGE
+                      const riverGauges = processedGauges.filter(g => g.primaryRiver?.riverId === selectedRiver);
+                      const primary = riverGauges.find(g => g.primaryRiver?.isPrimary) || riverGauges[0];
+                      const condCode = (primary?.condition.code || 'unknown') as ConditionCode;
+                      const knowledge = selectedRiverSlug ? RIVER_KNOWLEDGE[selectedRiverSlug] : null;
+                      const blurb = CONDITION_CARD_BLURBS[condCode];
+                      const gauge = primary?.gaugeHeightFt;
+                      const parts: string[] = [];
+                      if (gauge !== null && gauge !== undefined) {
+                        parts.push(`Reading ${gauge.toFixed(1)} ft at the ${primary?.name || 'primary gauge'}.`);
+                      }
+                      parts.push(blurb);
+                      if (knowledge) {
+                        parts.push(`Optimal range is ${knowledge.optimalRange}. ${knowledge.notes}`);
+                      }
+                      return (
+                        <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
+                          &ldquo;{parts.join(' ')}&rdquo;
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

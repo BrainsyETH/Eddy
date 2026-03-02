@@ -7,7 +7,7 @@ import type { ConditionCode } from '@/types/api';
 import { RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
-import { fetchWeather, getCityForRiver, type WeatherData } from '@/lib/weather/openweather';
+import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -45,13 +45,17 @@ export async function generateEddyUpdate(
   const gaugeContext = await fetchGaugeContext(target.riverSlug);
   if (gaugeContext) sourcesUsed.push('USGS gauge');
 
-  // --- 2. Fetch weather ---
+  // --- 2. Fetch weather (current + 3-day forecast) ---
   let weather: WeatherData | null = null;
+  let forecast: ForecastData | null = null;
   const cityInfo = getCityForRiver(target.riverSlug);
   const apiKey = process.env.OPENWEATHER_API_KEY;
   if (cityInfo && apiKey) {
     try {
-      weather = await fetchWeather(cityInfo.lat, cityInfo.lon, apiKey);
+      [weather, forecast] = await Promise.all([
+        fetchWeather(cityInfo.lat, cityInfo.lon, apiKey),
+        fetchForecast(cityInfo.lat, cityInfo.lon, apiKey).catch(() => null),
+      ]);
       sourcesUsed.push('OpenWeather');
     } catch (e) {
       console.warn(`[EddyGen] Weather fetch failed for ${target.riverSlug}:`, e);
@@ -79,7 +83,7 @@ export async function generateEddyUpdate(
   }
 
   // --- 6. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, alerts, localKnowledge, trendLabel);
+  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trendLabel);
 
   // --- 7. Call Claude Haiku ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -99,7 +103,8 @@ export async function generateEddyUpdate(
     });
 
     const textBlock = message.content.find((block) => block.type === 'text');
-    const quoteText = textBlock?.text?.trim() || null;
+    // Strip em dashes that slip through despite prompt instructions
+    const quoteText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
 
     if (!quoteText) {
       console.error(`[EddyGen] Empty response for ${target.riverSlug}/${target.sectionSlug}`);
@@ -134,13 +139,14 @@ RULES:
 - Lead with the current condition assessment.
 - Mention the gauge reading and what it means for floating.
 - If a trend is provided (rising, falling, steady), weave it in — it changes the story.
-- If weather is relevant (rain incoming, extreme heat, storms), mention it.
+- If weather is relevant (rain incoming, extreme heat, storms), mention it. If a 3-day forecast is provided, reference upcoming conditions that could affect floating (e.g. "rain expected Thursday could push the gauge up").
 - If there are active NWS flood alerts, lead with safety first.
 - If conditions are dangerous, be unambiguous: "Stay off the water."
 - Cite actual numbers (gauge height, temp) — don't be vague.
 - Incorporate local knowledge naturally — mention specific landmarks, springs, or sections when relevant.
 - If section-specific context is provided, tailor your advice to that section.
 - Vary your phrasing and structure from update to update. Do not start every update the same way.
+- Do NOT use em dashes (—). Use commas, periods, or "and" instead.
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself. Speak in third person if needed ("Eddy recommends...") or just state facts.
@@ -150,6 +156,7 @@ function buildPrompt(
   target: UpdateTarget,
   gauge: GaugeContext | null,
   weather: WeatherData | null,
+  forecast: ForecastData | null,
   alerts: NWSAlert[],
   localKnowledge: string,
   trendLabel: string | null = null,
@@ -207,10 +214,28 @@ function buildPrompt(
     }
   }
 
-  // Weather
+  // Weather (current)
   if (weather) {
     lines.push('');
-    lines.push(`Weather: ${weather.condition}, ${weather.temp}°F, wind ${weather.windSpeed} mph, humidity ${weather.humidity}%`);
+    lines.push(`Current weather: ${weather.condition}, ${weather.temp}°F, wind ${weather.windSpeed} mph, humidity ${weather.humidity}%`);
+  }
+
+  // 3-day forecast
+  if (forecast && forecast.days.length > 0) {
+    // Skip today (index 0) and show next 3 days
+    const upcoming = forecast.days.slice(1, 4);
+    if (upcoming.length > 0) {
+      lines.push('');
+      lines.push('--- 3-DAY FORECAST ---');
+      for (const day of upcoming) {
+        const rainNote = day.precipitation >= 50
+          ? ` (${day.precipitation}% chance of rain)`
+          : day.precipitation >= 20
+            ? ` (${day.precipitation}% chance of rain)`
+            : '';
+        lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
+      }
+    }
   }
 
   // NWS alerts
