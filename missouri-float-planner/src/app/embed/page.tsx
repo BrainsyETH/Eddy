@@ -108,6 +108,15 @@ export default function EmbedPage() {
   loading="lazy"
 ></iframe>`;
 
+  const eddyQuoteCode = `<iframe
+  src="${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}"
+  width="100%"
+  height="220"
+  style="border: none; border-radius: 12px; max-width: 600px;"
+  title="${selectedRiverName} - Eddy's Take"
+  loading="lazy"
+></iframe>`;
+
   return (
     <div className="min-h-screen bg-neutral-50 overflow-x-hidden">
       {/* Header */}
@@ -282,7 +291,86 @@ export default function EmbedPage() {
             </div>
           </div>
 
-          {/* === OPTION B: Simple Link Button === */}
+          {/* === OPTION B: Eddy Quote === */}
+          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b-2 border-neutral-100">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-full">New</span>
+                <h3 className="text-lg font-bold text-neutral-900">Eddy&apos;s Daily Quote</h3>
+              </div>
+              <p className="text-sm text-neutral-600 mt-1">
+                An AI-generated condition summary in Eddy&apos;s voice. Updates automatically throughout the day
+                with gauge readings, weather, trends, and local knowledge.
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Theme toggle */}
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-neutral-700 mb-2">Background color:</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                      theme === 'light'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full bg-white border border-neutral-300" />
+                    Light
+                  </button>
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                      theme === 'dark'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full bg-neutral-800 border border-neutral-600" />
+                    Dark
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Preview */}
+              <div className="mb-4">
+                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
+                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+                  <div style={{ maxWidth: 480 }}>
+                    <iframe
+                      src={`${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}`}
+                      width="100%"
+                      height="220"
+                      style={{ border: 'none', borderRadius: '12px' }}
+                      title="Eddy quote preview"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Code block */}
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
+                  <CopyButton text={eddyQuoteCode} />
+                </div>
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
+                  <code>{eddyQuoteCode}</code>
+                </pre>
+              </div>
+
+              <CopyButton text={eddyQuoteCode} large />
+
+              <p className="text-xs text-neutral-500 mt-3">
+                This widget shows Eddy&apos;s AI-generated take on current river conditions. The quote
+                updates every few hours and includes gauge trends, weather forecasts, and local knowledge.
+              </p>
+            </div>
+          </div>
+
+          {/* === OPTION C: Simple Link Button === */}
           <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b-2 border-neutral-100">
               <h3 className="text-lg font-bold text-neutral-900">Simple Link Button</h3>
@@ -325,7 +413,7 @@ export default function EmbedPage() {
             </div>
           </div>
 
-          {/* === OPTION C: Float Planner === */}
+          {/* === OPTION D: Float Planner === */}
           <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden mt-6">
             <div className="px-6 py-4 border-b-2 border-neutral-100">
               <h3 className="text-lg font-bold text-neutral-900">Float Trip Planner</h3>
