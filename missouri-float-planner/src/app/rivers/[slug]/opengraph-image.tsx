@@ -130,10 +130,10 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         {eddyQuoteSnippet && (
           <span
             style={{
-              fontSize: 32,
+              fontSize: 38,
               fontWeight: 400,
               color: 'rgba(255,255,255,0.85)',
-              lineHeight: 1.4,
+              lineHeight: 1.35,
               marginBottom: 32,
               maxWidth: otterImage ? 780 : '100%',
             }}
