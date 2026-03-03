@@ -70,44 +70,26 @@ export async function GET(request: NextRequest) {
       const riverId = putInResult.data?.river_id || takeOutResult.data?.river_id;
 
       // Fetch river name, distance, and conditions in parallel
-      const promises: Promise<unknown>[] = [];
-
-      // River name
-      if (riverId) {
-        promises.push(
-          supabase.from('rivers').select('name').eq('id', riverId).single()
-        );
-      } else {
-        promises.push(Promise.resolve({ data: null }));
-      }
-
-      // Distance via get_float_segment RPC
-      promises.push(
+      const [riverResult, segmentResult, conditionResult] = await Promise.all([
+        // River name
+        riverId
+          ? supabase.from('rivers').select('name').eq('id', riverId).single()
+          : Promise.resolve({ data: null }),
+        // Distance via get_float_segment RPC
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.rpc as any)('get_float_segment', {
           p_start_access_id: putInId,
           p_end_access_id: takeOutId,
-        })
-      );
-
-      // River condition
-      if (riverId) {
-        promises.push(
+        }),
+        // River condition
+        riverId
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase.rpc as any)('get_river_condition', { p_river_id: riverId })
-        );
-      } else {
-        promises.push(Promise.resolve({ data: null }));
-      }
-
-      const [riverResult, segmentResult, conditionResult] = await Promise.all(promises) as [
-        { data: { name: string } | null },
-        { data: Array<{ distance_miles: string }> | null },
-        { data: Array<{ condition_code: string; gauge_height_ft: string }> | null },
-      ];
+          ? (supabase.rpc as any)('get_river_condition', { p_river_id: riverId })
+          : Promise.resolve({ data: null }),
+      ]);
 
       if (riverResult.data) {
-        riverName = riverResult.data.name;
+        riverName = (riverResult.data as { name: string }).name;
       }
 
       if (segmentResult.data && segmentResult.data.length > 0) {
