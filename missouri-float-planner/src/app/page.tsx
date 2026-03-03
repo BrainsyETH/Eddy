@@ -9,10 +9,7 @@ import Image from 'next/image';
 import { MapPin, Clock, ChevronDown, ArrowRight, Activity } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
-import { useGaugeStations } from '@/hooks/useGaugeStations';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
-import { computeCondition, getConditionShortLabel } from '@/lib/conditions';
-import { CONDITION_COLORS } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { ConditionCode } from '@/types/api';
@@ -38,21 +35,8 @@ export default function Home() {
   );
 }
 
-// Target rivers for the homepage conditions display
-const TARGET_RIVER_SLUGS = ['current', 'jacks-fork', 'eleven-point'];
-
-interface RiverConditionRow {
-  name: string;
-  slug: string;
-  conditionCode: ConditionCode;
-  conditionLabel: string;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-}
-
 function HomeContent() {
   const { data: rivers } = useRivers();
-  const { data: gauges } = useGaugeStations();
 
   // Fetch global Eddy quote (AI-generated, refreshed every 6 hours)
   const [globalQuote, setGlobalQuote] = useState<string | null>(null);
@@ -89,127 +73,30 @@ function HomeContent() {
 
   const eddySummaryText = globalQuote || fallbackSummary;
 
-  // Compute per-river conditions from gauge data
-  const riverConditions = useMemo((): RiverConditionRow[] => {
-    if (!rivers || !gauges) return [];
-
-    const targetRivers = rivers.filter(r => TARGET_RIVER_SLUGS.includes(r.slug));
-
-    return targetRivers.map(river => {
-      // Find the primary gauge for this river
-      const primaryGauge = gauges.find(g =>
-        g.thresholds?.some(t => t.riverId === river.id && t.isPrimary)
-      );
-
-      if (!primaryGauge) {
-        return {
-          name: river.name,
-          slug: river.slug,
-          conditionCode: (river.currentCondition?.code ?? 'unknown') as ConditionCode,
-          conditionLabel: getConditionShortLabel((river.currentCondition?.code ?? 'unknown') as ConditionCode),
-          gaugeHeightFt: null,
-          dischargeCfs: null,
-        };
-      }
-
-      const threshold = primaryGauge.thresholds?.find(t => t.riverId === river.id && t.isPrimary);
-      if (!threshold) {
-        return {
-          name: river.name,
-          slug: river.slug,
-          conditionCode: 'unknown' as ConditionCode,
-          conditionLabel: 'Unknown',
-          gaugeHeightFt: primaryGauge.gaugeHeightFt,
-          dischargeCfs: primaryGauge.dischargeCfs,
-        };
-      }
-
-      const condition = computeCondition(primaryGauge.gaugeHeightFt, threshold, primaryGauge.dischargeCfs);
-
-      return {
-        name: river.name,
-        slug: river.slug,
-        conditionCode: condition.code,
-        conditionLabel: getConditionShortLabel(condition.code),
-        gaugeHeightFt: primaryGauge.gaugeHeightFt,
-        dischargeCfs: primaryGauge.dischargeCfs,
-      };
-    });
-  }, [rivers, gauges]);
-
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
       {/* Hero */}
       <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
-          {/* Title */}
+          <div className="mb-2">
+            <Image
+              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+              alt="Eddy the Otter"
+              width={200}
+              height={200}
+              className="mx-auto h-52 md:h-64 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+              priority
+            />
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
             Eddy
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 font-medium mb-6">
+          <p className="text-xl md:text-2xl text-white/90 font-medium mb-8">
             Your Ozark Float Trip Companion
           </p>
 
-          {/* Eddy image + speech bubble */}
-          <div className="flex flex-col md:flex-row items-center justify-center gap-0 md:gap-0">
-            {/* Eddy image */}
-            <div className="flex-shrink-0">
-              <Image
-                src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
-                alt="Eddy the Otter"
-                width={200}
-                height={200}
-                className="h-40 md:h-52 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
-                priority
-              />
-            </div>
-
-            {/* Speech bubble with tail */}
-            {eddySummaryText && (
-              <div className="relative max-w-md text-left">
-                {/* Tail pointing up on mobile */}
-                <div
-                  className="md:hidden mx-auto w-0 h-0"
-                  style={{
-                    borderLeft: '10px solid transparent',
-                    borderRight: '10px solid transparent',
-                    borderBottom: '10px solid rgba(29, 82, 95, 0.8)',
-                  }}
-                />
-                {/* Tail pointing left on desktop */}
-                <div
-                  className="hidden md:block absolute top-1/2 -left-2.5 -translate-y-1/2 w-0 h-0"
-                  style={{
-                    borderTop: '10px solid transparent',
-                    borderBottom: '10px solid transparent',
-                    borderRight: '10px solid rgba(29, 82, 95, 0.8)',
-                  }}
-                />
-                <div className="rounded-xl px-5 py-4" style={{ backgroundColor: 'rgba(29, 82, 95, 0.8)' }}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-xs font-bold tracking-wide uppercase text-white/50">Eddy&apos;s Report</span>
-                    {globalQuoteAge && (
-                      <span className="text-[10px] text-white/30 ml-auto">{globalQuoteAge}</span>
-                    )}
-                  </div>
-                  <p className="text-sm md:text-base text-white/90 leading-relaxed font-medium">
-                    &ldquo;{eddySummaryText}&rdquo;
-                  </p>
-                  <Link
-                    href="/gauges"
-                    className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-colors"
-                    style={{ backgroundColor: '#F07052' }}
-                  >
-                    Check Conditions
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Feature pills */}
-          <div className="flex flex-wrap justify-center gap-3 mt-8">
+          <div className="flex flex-wrap justify-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
               <Clock className="w-4 h-4" />
               <span>Float Time Estimates</span>
@@ -234,67 +121,40 @@ function HomeContent() {
             {/* Float Estimator - Half width */}
             <FloatEstimator rivers={rivers || []} />
 
-            {/* Check River Levels - Half width */}
+            {/* Eddy's Report */}
             <div className="flex flex-col glass-card-dark rounded-2xl p-5 lg:p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src={EDDY_FLOOD_IMAGE}
-                    alt="Eddy the Otter checking water levels"
-                    width={120}
-                    height={120}
-                    className="w-12 h-12 md:w-14 md:h-14 object-contain"
-                  />
-                  <h2 className="text-xl lg:text-2xl font-bold text-white">River Conditions</h2>
+              <div className="flex items-center gap-3 mb-4">
+                <Image
+                  src={EDDY_FLOOD_IMAGE}
+                  alt="Eddy the Otter checking water levels"
+                  width={120}
+                  height={120}
+                  className="w-12 h-12 md:w-14 md:h-14 object-contain"
+                />
+                <div>
+                  <h2 className="text-xl lg:text-2xl font-bold text-white">Eddy&apos;s Report</h2>
+                  {globalQuoteAge && (
+                    <span className="text-[10px] text-white/40">{globalQuoteAge}</span>
+                  )}
                 </div>
               </div>
 
-              {/* Per-River Condition Rows */}
-              <div className="space-y-2 mb-4 flex-1">
-                {riverConditions.length > 0 ? (
-                  riverConditions.map((rc) => (
-                    <Link
-                      key={rc.slug}
-                      href={`/rivers/${rc.slug}`}
-                      className="flex items-center justify-between bg-white/10 hover:bg-white/15 rounded-lg px-3 py-2.5 transition-colors no-underline"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: CONDITION_COLORS[rc.conditionCode] || CONDITION_COLORS.unknown }}
-                        />
-                        <span className="text-sm font-medium text-white">{rc.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="px-2 py-0.5 rounded text-xs font-bold"
-                          style={{
-                            backgroundColor: `${CONDITION_COLORS[rc.conditionCode] || CONDITION_COLORS.unknown}20`,
-                            color: CONDITION_COLORS[rc.conditionCode] || CONDITION_COLORS.unknown,
-                          }}
-                        >
-                          {rc.conditionLabel}
-                        </span>
-                        <span className="text-sm font-bold text-white/70 tabular-nums w-20 text-right">
-                          {rc.gaugeHeightFt !== null ? `${rc.gaugeHeightFt.toFixed(1)} ft` : '--'}
-                        </span>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  [1, 2, 3].map(i => (
-                    <div key={i} className="bg-white/10 rounded-lg px-3 py-2.5 h-10 animate-pulse" />
-                  ))
-                )}
-                <p className="text-[10px] text-white/40 mt-1">Primary gauge &middot; USGS data</p>
+              <div className="flex-1 flex items-center">
+                <p className="text-sm md:text-base text-white/90 leading-relaxed font-medium">
+                  {eddySummaryText
+                    ? <>&ldquo;{eddySummaryText}&rdquo;</>
+                    : <span className="text-white/40">Loading conditions...</span>
+                  }
+                </p>
               </div>
 
               <Link
                 href="/gauges"
-                className="group flex items-center justify-between pt-4 border-t border-white/10 no-underline"
+                className="group flex items-center justify-center gap-2 mt-4 px-5 py-3 rounded-xl text-sm font-semibold text-white no-underline transition-colors"
+                style={{ backgroundColor: '#F07052' }}
               >
-                <span className="text-sm font-medium text-primary-300">View Full Dashboard</span>
-                <ArrowRight className="w-5 h-5 text-primary-300 group-hover:translate-x-1 transition-transform" />
+                Check Conditions
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
           </div>
