@@ -1,5 +1,5 @@
 // src/app/rivers/[slug]/opengraph-image.tsx
-// Dynamic OG image for river pages — Condition otter + river name in Fredoka coral
+// Dynamic OG image for river pages — big river name, summary, condition
 // Designed for reliable Facebook/social previews with graceful fallbacks
 
 import { ImageResponse } from 'next/og';
@@ -25,11 +25,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
   // Default fallback data
   let riverName = 'Missouri River';
-  let accessPointCount = 0;
   let gaugeReading: number | null = null;
   const gaugeUnit = 'ft';
   let status: ConditionCode = 'unknown';
-  let region = '';
   let eddyQuoteSnippet: string | null = null;
 
   if (slug) {
@@ -44,15 +42,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
       if (river) {
         riverName = river.name;
-        region = river.region || '';
-
-        const { count } = await supabase
-          .from('access_points')
-          .select('*', { count: 'exact', head: true })
-          .eq('river_id', river.id)
-          .eq('is_approved', true);
-
-        accessPointCount = count || 0;
 
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,214 +89,163 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
   const fonts = loadFredokaFont();
 
-  // Load otter image with fallback — if the external fetch fails,
-  // render the card without an otter rather than failing the entire image
+  // Load otter image with fallback
   let otterImage: string | null = null;
   try {
     otterImage = await loadConditionOtter(status);
   } catch {
-    // Otter image fetch failed — render text-only card
+    // Otter image fetch failed — render without it
   }
-
-  // Subtitle line: region + access points summary
-  const subtitleParts: string[] = [];
-  if (region) subtitleParts.push(region);
-  if (accessPointCount > 0) subtitleParts.push(`${accessPointCount} access points`);
-  const subtitle = subtitleParts.join(' · ') || 'Float trip guide';
 
   return new ImageResponse(
     (
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
+          padding: '56px 72px 48px',
         }}
       >
-        {/* LEFT — Condition Otter (or spacer if image failed) */}
-        {otterImage ? (
+        {/* River name — big and prominent at top */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: riverName.length > 20 ? 80 : riverName.length > 14 ? 96 : 112,
+            fontWeight: 600,
+            color: BRAND_COLORS.accentCoral,
+            lineHeight: 1,
+            letterSpacing: -2,
+            marginBottom: 24,
+          }}
+        >
+          {truncate(riverName, 24)}
+        </span>
+
+        {/* Summary / Eddy quote — large and readable */}
+        {eddyQuoteSnippet && (
+          <span
+            style={{
+              fontSize: 32,
+              fontWeight: 400,
+              color: 'rgba(255,255,255,0.85)',
+              lineHeight: 1.4,
+              marginBottom: 32,
+              maxWidth: otterImage ? 780 : '100%',
+            }}
+          >
+            {truncate(eddyQuoteSnippet, 150)}
+          </span>
+        )}
+
+        {/* Spacer to push condition to bottom */}
+        <div style={{ display: 'flex', flex: 1 }} />
+
+        {/* River Condition row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: 24,
+              fontWeight: 600,
+              color: 'rgba(255,255,255,0.5)',
+              textTransform: 'uppercase',
+              letterSpacing: 2,
+            }}
+          >
+            River Condition
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 32,
+            alignItems: 'center',
+          }}
+        >
+          {/* Gauge Level */}
+          {gaugeReading !== null && (
+            <span
+              style={{
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: 56,
+                fontWeight: 700,
+                color: 'white',
+                lineHeight: 1,
+              }}
+            >
+              {`${gaugeReading.toFixed(1)} ${gaugeUnit}`}
+            </span>
+          )}
+
+          {/* Status Badge */}
+          {status !== 'unknown' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: statusStyles.bg,
+                border: `2px solid ${statusStyles.border}`,
+                borderRadius: 100,
+                padding: '14px 32px',
+              }}
+            >
+              <div
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  backgroundColor: statusStyles.solid,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: 'system-ui, sans-serif',
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: statusStyles.text,
+                }}
+              >
+                {statusStyles.label}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Otter — small, bottom-right decorative element */}
+        {otterImage && (
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 480,
-              padding: 40,
+              position: 'absolute',
+              bottom: 24,
+              right: 32,
+              opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={380}
-              height={380}
+              width={200}
+              height={200}
               alt=""
               style={{ objectFit: 'contain' }}
             />
           </div>
-        ) : (
-          <div style={{ display: 'flex', width: 120 }} />
         )}
-
-        {/* RIGHT — River info */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            padding: otterImage ? '60px 60px 60px 0' : '60px 80px',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Eddy brand pill */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 20,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'Fredoka',
-                fontSize: 24,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.6)',
-              }}
-            >
-              eddy.guide
-            </span>
-          </div>
-
-          {/* River name in Fredoka coral */}
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: riverName.length > 16 ? 72 : 96,
-              fontWeight: 600,
-              color: BRAND_COLORS.accentCoral,
-              lineHeight: 1,
-              letterSpacing: -2,
-              marginBottom: 16,
-            }}
-          >
-            {truncate(riverName, 24)}
-          </span>
-
-          {/* Subtitle: region + access point count */}
-          <span
-            style={{
-              fontSize: 24,
-              fontWeight: 400,
-              color: 'rgba(255,255,255,0.6)',
-              lineHeight: 1.3,
-              marginBottom: 28,
-            }}
-          >
-            {subtitle}
-          </span>
-
-          {/* Metadata Row: Gauge + Status inline */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 24,
-              marginBottom: eddyQuoteSnippet ? 20 : 24,
-              alignItems: 'center',
-            }}
-          >
-            {/* Gauge Level — only show if we have a reading */}
-            {gaugeReading !== null && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.5)',
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  GAUGE LEVEL
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'system-ui, sans-serif',
-                    fontSize: 32,
-                    fontWeight: 700,
-                    color: 'white',
-                  }}
-                >
-                  {`${gaugeReading.toFixed(1)} ${gaugeUnit}`}
-                </span>
-              </div>
-            )}
-
-            {/* Status Badge — only show if we have condition data */}
-            {status !== 'unknown' && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  backgroundColor: statusStyles.bg,
-                  border: `1px solid ${statusStyles.border}`,
-                  borderRadius: 100,
-                  padding: '12px 24px',
-                }}
-              >
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    backgroundColor: statusStyles.solid,
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: 'system-ui, sans-serif',
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: statusStyles.text,
-                  }}
-                >
-                  {statusStyles.label}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Eddy quote snippet */}
-          {eddyQuoteSnippet && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 8,
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 12,
-                padding: '12px 16px',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 18,
-                  fontWeight: 500,
-                  color: 'rgba(255,255,255,0.8)',
-                  lineHeight: 1.4,
-                  fontStyle: 'italic',
-                }}
-              >
-                &ldquo;{truncate(eddyQuoteSnippet, 120)}&rdquo;
-              </span>
-            </div>
-          )}
-        </div>
 
         {/* Bottom accent bar with condition gradient */}
         <div
