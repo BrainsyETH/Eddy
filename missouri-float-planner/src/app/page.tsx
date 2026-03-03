@@ -142,16 +142,6 @@ function HomeContent() {
       {/* Hero */}
       <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <div className="mb-2">
-            <Image
-              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
-              alt="Eddy the Otter"
-              width={200}
-              height={200}
-              className="mx-auto h-52 md:h-64 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
-              priority
-            />
-          </div>
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
             Eddy
           </h1>
@@ -175,22 +165,63 @@ function HomeContent() {
             </div>
           </div>
 
-          {/* Eddy's overall conditions quote */}
-          {eddySummaryText && (
-            <div className="mt-8 max-w-xl mx-auto">
-              <div className="rounded-xl px-5 py-4 text-left" style={{ backgroundColor: 'rgba(29, 82, 95, 0.6)', borderLeft: '3px solid #F07052' }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xs font-bold tracking-wide uppercase text-white/50">Eddy&apos;s Report</span>
-                  {globalQuoteAge && (
-                    <span className="text-[10px] text-white/30 ml-auto">{globalQuoteAge}</span>
-                  )}
-                </div>
-                <p className="text-sm md:text-base text-white/90 leading-relaxed font-medium">
-                  &ldquo;{eddySummaryText}&rdquo;
-                </p>
-              </div>
+          {/* Eddy image + speech bubble */}
+          <div className="mt-10 flex flex-col md:flex-row items-center justify-center gap-0 md:gap-0">
+            {/* Eddy image */}
+            <div className="flex-shrink-0">
+              <Image
+                src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+                alt="Eddy the Otter"
+                width={200}
+                height={200}
+                className="h-40 md:h-52 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
+                priority
+              />
             </div>
-          )}
+
+            {/* Speech bubble with tail */}
+            {eddySummaryText && (
+              <div className="relative max-w-md text-left">
+                {/* Tail pointing up on mobile */}
+                <div
+                  className="md:hidden mx-auto w-0 h-0"
+                  style={{
+                    borderLeft: '10px solid transparent',
+                    borderRight: '10px solid transparent',
+                    borderBottom: '10px solid rgba(29, 82, 95, 0.8)',
+                  }}
+                />
+                {/* Tail pointing left on desktop */}
+                <div
+                  className="hidden md:block absolute top-1/2 -left-2.5 -translate-y-1/2 w-0 h-0"
+                  style={{
+                    borderTop: '10px solid transparent',
+                    borderBottom: '10px solid transparent',
+                    borderRight: '10px solid rgba(29, 82, 95, 0.8)',
+                  }}
+                />
+                <div className="rounded-xl px-5 py-4" style={{ backgroundColor: 'rgba(29, 82, 95, 0.8)' }}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-xs font-bold tracking-wide uppercase text-white/50">Eddy&apos;s Report</span>
+                    {globalQuoteAge && (
+                      <span className="text-[10px] text-white/30 ml-auto">{globalQuoteAge}</span>
+                    )}
+                  </div>
+                  <p className="text-sm md:text-base text-white/90 leading-relaxed font-medium">
+                    &ldquo;{eddySummaryText}&rdquo;
+                  </p>
+                  <Link
+                    href="/gauges"
+                    className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-colors"
+                    style={{ backgroundColor: '#F07052' }}
+                  >
+                    Check Conditions
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
