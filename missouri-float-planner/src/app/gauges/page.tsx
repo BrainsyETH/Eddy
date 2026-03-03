@@ -305,7 +305,7 @@ export default function GaugesPage() {
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.share) {
       try {
-        await navigator.share({ title: 'Gauge Station', url: shareUrl });
+        await navigator.share({ url: shareUrl });
         return;
       } catch {
         // User cancelled or share failed, fall through to clipboard
