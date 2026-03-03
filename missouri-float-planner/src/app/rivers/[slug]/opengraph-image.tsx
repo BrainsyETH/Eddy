@@ -30,6 +30,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const gaugeUnit = 'ft';
   let status: ConditionCode = 'unknown';
   let region = '';
+  let eddyQuoteSnippet: string | null = null;
 
   if (slug) {
     try {
@@ -68,6 +69,25 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           }
         } catch {
           // Conditions fetch failed, use defaults
+        }
+
+        // Fetch latest Eddy summary for the OG card
+        try {
+          const { data: eddyData } = await supabase
+            .from('eddy_updates')
+            .select('summary_text, quote_text')
+            .eq('river_slug', slug)
+            .is('section_slug', null)
+            .gt('expires_at', new Date().toISOString())
+            .order('generated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (eddyData) {
+            eddyQuoteSnippet = eddyData.summary_text || eddyData.quote_text || null;
+          }
+        } catch {
+          // Eddy quote fetch failed, skip
         }
       }
     } catch {
@@ -190,12 +210,13 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             {subtitle}
           </span>
 
-          {/* Metadata Row */}
+          {/* Metadata Row: Gauge + Status inline */}
           <div
             style={{
               display: 'flex',
-              gap: 32,
-              marginBottom: 24,
+              gap: 24,
+              marginBottom: eddyQuoteSnippet ? 20 : 24,
+              alignItems: 'center',
             }}
           >
             {/* Gauge Level — only show if we have a reading */}
@@ -224,39 +245,65 @@ export default async function Image({ params }: { params: Promise<{ slug: string
                 </span>
               </div>
             )}
+
+            {/* Status Badge — only show if we have condition data */}
+            {status !== 'unknown' && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: statusStyles.bg,
+                  border: `1px solid ${statusStyles.border}`,
+                  borderRadius: 100,
+                  padding: '12px 24px',
+                }}
+              >
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: statusStyles.solid,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'system-ui, sans-serif',
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: statusStyles.text,
+                  }}
+                >
+                  {statusStyles.label}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Status Badge — only show if we have condition data */}
-          {status !== 'unknown' && (
+          {/* Eddy quote snippet */}
+          {eddyQuoteSnippet && (
             <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                backgroundColor: statusStyles.bg,
-                border: `1px solid ${statusStyles.border}`,
-                borderRadius: 100,
-                padding: '12px 24px',
-                alignSelf: 'flex-start',
+                alignItems: 'flex-start',
+                gap: 8,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 12,
+                padding: '12px 16px',
               }}
             >
-              <div
-                style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  backgroundColor: statusStyles.solid,
-                }}
-              />
               <span
                 style={{
-                  fontFamily: 'system-ui, sans-serif',
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: statusStyles.text,
+                  fontSize: 18,
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.8)',
+                  lineHeight: 1.4,
+                  fontStyle: 'italic',
                 }}
               >
-                {statusStyles.label}
+                &ldquo;{truncate(eddyQuoteSnippet, 120)}&rdquo;
               </span>
             </div>
           )}

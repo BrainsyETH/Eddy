@@ -11,6 +11,7 @@ export interface EddyUpdateResponse {
   available: boolean;
   update: {
     quoteText: string;
+    summaryText: string | null;
     conditionCode: string;
     gaugeHeightFt: number | null;
     dischargeCfs: number | null;
@@ -33,7 +34,7 @@ export async function GET(
     // Fetch the most recent non-expired update for this river/section
     let query = supabase
       .from('eddy_updates')
-      .select('quote_text, condition_code, gauge_height_ft, discharge_cfs, section_slug, sources_used, generated_at, expires_at')
+      .select('quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, section_slug, sources_used, generated_at, expires_at')
       .eq('river_slug', riverSlug)
       .gt('expires_at', new Date().toISOString())
       .order('generated_at', { ascending: false })
@@ -64,6 +65,7 @@ export async function GET(
       available: true,
       update: {
         quoteText: data.quote_text,
+        summaryText: data.summary_text || null,
         conditionCode: data.condition_code,
         gaugeHeightFt: data.gauge_height_ft,
         dischargeCfs: data.discharge_cfs,

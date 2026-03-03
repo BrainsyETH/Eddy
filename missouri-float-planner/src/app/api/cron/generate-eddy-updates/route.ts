@@ -78,6 +78,7 @@ async function runGeneration(request: NextRequest) {
         gauge_height_ft: update.gaugeHeightFt,
         discharge_cfs: update.dischargeCfs,
         quote_text: update.quoteText,
+        summary_text: update.summaryText,
         sources_used: update.sourcesUsed,
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,

@@ -30,6 +30,7 @@ export interface GeneratedUpdate {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   quoteText: string;
+  summaryText: string | null;
   sourcesUsed: string[];
 }
 
@@ -104,11 +105,21 @@ export async function generateEddyUpdate(
 
     const textBlock = message.content.find((block) => block.type === 'text');
     // Strip em dashes that slip through despite prompt instructions
-    const quoteText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
+    const rawText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
 
-    if (!quoteText) {
+    if (!rawText) {
       console.error(`[EddyGen] Empty response for ${target.riverSlug}/${target.sectionSlug}`);
       return null;
+    }
+
+    // Parse summary and full text from the --- delimiter
+    let summaryText: string | null = null;
+    let quoteText = rawText;
+
+    const delimiterIndex = rawText.indexOf('---');
+    if (delimiterIndex !== -1) {
+      summaryText = rawText.slice(0, delimiterIndex).trim();
+      quoteText = rawText.slice(delimiterIndex + 3).trim();
     }
 
     return {
@@ -118,6 +129,7 @@ export async function generateEddyUpdate(
       gaugeHeightFt: gaugeContext?.gaugeHeightFt ?? null,
       dischargeCfs: gaugeContext?.dischargeCfs ?? null,
       quoteText,
+      summaryText,
       sourcesUsed,
     };
   } catch (e) {
@@ -134,23 +146,34 @@ const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozar
 
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
-RULES:
-- Write 4-6 sentences. Aim for a substantive update, not a blurb.
+OUTPUT FORMAT:
+You must output exactly two sections, separated by the delimiter "---". No other formatting.
+
+SUMMARY: A single sentence (under 120 characters) giving the bottom line. This is used for share cards and compact views.
+---
+FULL: The full 4-6 sentence update with details, trends, and context.
+
+Example output:
+Gauge reads 2.5 ft, right in the sweet spot. Great day to float.
+---
+Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. Water clarity is excellent with the steady flow and spring-fed base holding strong. The gauge has been steady over the past 24 hours with no significant rain in the forecast through Friday. Upper sections from Montauk to Cedar Grove are running clean with good depth over the riffles. Pack the sunscreen, it is 85 and clear out there.
+
+RULES FOR BOTH SECTIONS:
 - Lead with the current condition assessment.
 - Mention the gauge reading and what it means for floating.
-- If a trend is provided (rising, falling, steady), weave it in — it changes the story.
-- If weather is relevant (rain incoming, extreme heat, storms), mention it. If a 3-day forecast is provided, reference upcoming conditions that could affect floating (e.g. "rain expected Thursday could push the gauge up").
+- If a trend is provided (rising, falling, steady), weave it in.
+- If weather is relevant, mention it. If a 3-day forecast is provided, reference upcoming conditions.
 - If there are active NWS flood alerts, lead with safety first.
 - If conditions are dangerous, be unambiguous: "Stay off the water."
-- Cite actual numbers (gauge height, temp) — don't be vague.
-- Incorporate local knowledge naturally — mention specific landmarks, springs, or sections when relevant.
+- Cite actual numbers (gauge height, temp).
+- Incorporate local knowledge naturally.
 - If section-specific context is provided, tailor your advice to that section.
-- Vary your phrasing and structure from update to update. Do not start every update the same way.
-- Do NOT use em dashes (—). Use commas, periods, or "and" instead.
+- Vary your phrasing and structure from update to update.
+- Do NOT use em dashes. Use commas, periods, or "and" instead.
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
-- Do NOT say "I" or refer to yourself. Speak in third person if needed ("Eddy recommends...") or just state facts.
-- Output ONLY the quote text. No labels, no formatting, no quotes around it.`;
+- Do NOT say "I" or refer to yourself.
+- Output ONLY the summary and full text separated by ---. No labels, no quotes.`;
 
 function buildPrompt(
   target: UpdateTarget,

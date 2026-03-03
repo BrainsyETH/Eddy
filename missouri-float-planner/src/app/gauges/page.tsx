@@ -176,6 +176,8 @@ export default function GaugesPage() {
   // Eddy AI update cache: keyed by river slug
   const [eddyCache, setEddyCache] = useState<Record<string, EddyUpdateResponse['update'] | null>>({});
   const [eddyLoading, setEddyLoading] = useState(false);
+  const [eddyShowFull, setEddyShowFull] = useState(false);
+  const [eddyShareStatus, setEddyShareStatus] = useState<'idle' | 'copied'>('idle');
   const gaugeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const drawerBodyRef = useRef<HTMLDivElement>(null);
   const drawerCloseButtonRef = useRef<HTMLButtonElement>(null);
@@ -487,6 +489,7 @@ export default function GaugesPage() {
 
   // Fetch Eddy AI update when a river is selected (cached per slug)
   useEffect(() => {
+    setEddyShowFull(false); // Reset toggle on river change
     if (!selectedRiverSlug) return;
     if (selectedRiverSlug in eddyCache) return; // already cached
 
@@ -730,7 +733,7 @@ export default function GaugesPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-bold tracking-wide uppercase opacity-60">Eddy says</span>
                       {eddyUpdate?.generatedAt && (
-                        <span className="text-[10px] text-neutral-400 ml-auto">
+                        <span className="text-[10px] text-neutral-400 ml-auto whitespace-nowrap">
                           {(() => {
                             const hours = (Date.now() - new Date(eddyUpdate.generatedAt).getTime()) / (1000 * 60 * 60);
                             if (hours < 1) return 'Updated just now';
@@ -743,9 +746,54 @@ export default function GaugesPage() {
                     {eddyLoading && !(selectedRiverSlug && selectedRiverSlug in eddyCache) ? (
                       <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
                     ) : eddyUpdate ? (
-                      <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
-                        &ldquo;{eddyUpdate.quoteText}&rdquo;
-                      </p>
+                      <>
+                        <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
+                          &ldquo;{eddyUpdate.summaryText && !eddyShowFull
+                            ? eddyUpdate.summaryText
+                            : eddyUpdate.quoteText}&rdquo;
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          {eddyUpdate.summaryText && (
+                            <button
+                              onClick={() => setEddyShowFull(!eddyShowFull)}
+                              className="flex items-center gap-1 text-xs font-semibold text-emerald-900 opacity-60 hover:opacity-100 transition-colors"
+                            >
+                              {eddyShowFull ? (
+                                <>Show less <ChevronUp className="w-3 h-3" /></>
+                              ) : (
+                                <>Read more <ChevronDown className="w-3 h-3" /></>
+                              )}
+                            </button>
+                          )}
+                          <button
+                            onClick={async () => {
+                              const url = `${window.location.origin}/gauges?river=${selectedRiverSlug}`;
+                              if (navigator.share) {
+                                try {
+                                  await navigator.share({
+                                    title: 'River conditions on Eddy',
+                                    text: eddyUpdate.summaryText || eddyUpdate.quoteText,
+                                    url,
+                                  });
+                                  return;
+                                } catch { /* cancelled */ }
+                              }
+                              try {
+                                await navigator.clipboard.writeText(url);
+                                setEddyShareStatus('copied');
+                                setTimeout(() => setEddyShareStatus('idle'), 2000);
+                              } catch { /* clipboard failed */ }
+                            }}
+                            className="flex items-center gap-1 text-xs font-semibold text-emerald-900 opacity-50 hover:opacity-100 transition-colors ml-auto"
+                            title="Share this report"
+                          >
+                            <Share2 className="w-3 h-3" />
+                            <span className="hidden sm:inline">
+                              {eddyShareStatus === 'copied' ? 'Copied' : 'Share'}
+                            </span>
+                          </button>
+                        </div>
+                      </>
                     ) : (() => {
                       // Static fallback: build from gauge conditions + RIVER_KNOWLEDGE
                       const riverGauges = processedGauges.filter(g => g.primaryRiver?.riverId === selectedRiver);
