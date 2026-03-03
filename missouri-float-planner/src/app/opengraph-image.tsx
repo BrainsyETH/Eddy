@@ -101,7 +101,7 @@ export default async function Image() {
           <div
             style={{
               display: 'flex',
-              gap: 10,
+              gap: 14,
               marginTop: 36,
             }}
           >
@@ -113,9 +113,9 @@ export default async function Image() {
                 color: '#39a0ca',
                 border: '1px solid rgba(57,160,202,0.3)',
                 borderRadius: 100,
-                padding: '10px 20px',
+                padding: '14px 28px',
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 18,
+                fontSize: 24,
                 fontWeight: 600,
               }}
             >
@@ -125,33 +125,17 @@ export default async function Image() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: 'rgba(71,133,89,0.2)',
-                color: '#81B29A',
-                border: '1px solid rgba(71,133,89,0.3)',
-                borderRadius: 100,
-                padding: '10px 20px',
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 18,
-                fontWeight: 600,
-              }}
-            >
-              30+ Access Points
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
                 backgroundColor: 'rgba(240,112,82,0.15)',
                 color: '#F07052',
                 border: '1px solid rgba(240,112,82,0.25)',
                 borderRadius: 100,
-                padding: '10px 20px',
+                padding: '14px 28px',
                 fontFamily: 'system-ui, sans-serif',
-                fontSize: 18,
+                fontSize: 24,
                 fontWeight: 600,
               }}
             >
-              Float Times
+              Float Time Estimates
             </div>
           </div>
         </div>
