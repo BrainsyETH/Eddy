@@ -143,9 +143,12 @@ function HomeContent() {
       <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
           {/* Title */}
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
+          <h1 className="text-5xl md:text-6xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
             Eddy
           </h1>
+          <p className="text-xl md:text-2xl text-white/90 font-medium mb-6">
+            Your Ozark Float Trip Companion
+          </p>
 
           {/* Eddy image + speech bubble */}
           <div className="flex flex-col md:flex-row items-center justify-center gap-0 md:gap-0">
@@ -205,13 +208,8 @@ function HomeContent() {
             )}
           </div>
 
-          {/* Subtitle */}
-          <p className="text-xl md:text-2xl text-white/90 font-medium mt-8 mb-4">
-            Your Ozark Float Trip Companion
-          </p>
-
           {/* Feature pills */}
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-wrap justify-center gap-3 mt-8">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
               <Clock className="w-4 h-4" />
               <span>Float Time Estimates</span>
