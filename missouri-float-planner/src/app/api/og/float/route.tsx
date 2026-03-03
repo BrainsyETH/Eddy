@@ -164,36 +164,13 @@ export async function GET(request: NextRequest) {
           position: 'relative',
         }}
       >
-        {/* LEFT — Condition Otter */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 380,
-              padding: 32,
-              flexShrink: 0,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={310}
-              height={310}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        {/* RIGHT — Float plan info */}
+        {/* LEFT — Float plan info */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
-            padding: otterImage ? '44px 48px 44px 0' : '44px 48px',
+            padding: otterImage ? '44px 0 44px 48px' : '44px 48px',
             justifyContent: 'center',
           }}
         >
@@ -345,6 +322,29 @@ export async function GET(request: NextRequest) {
             )}
           </div>
         </div>
+
+        {/* RIGHT — Condition Otter */}
+        {otterImage && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 340,
+              padding: 32,
+              flexShrink: 0,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={otterImage}
+              width={280}
+              height={280}
+              alt=""
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        )}
 
         {/* Domain watermark */}
         <span
