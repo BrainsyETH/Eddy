@@ -106,7 +106,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
-          background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
+          background: '#1A3D40',
           position: 'relative',
           padding: '56px 72px 72px',
         }}
