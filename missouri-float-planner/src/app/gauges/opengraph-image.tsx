@@ -50,7 +50,7 @@ export default async function Image() {
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
-          background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
+          background: '#1A3D40',
           position: 'relative',
         }}
       >

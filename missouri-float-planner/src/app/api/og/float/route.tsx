@@ -202,17 +202,17 @@ export async function GET(request: NextRequest) {
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div
                 style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 4,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
                   background: '#4EB86B',
-                  marginRight: 12,
+                  marginRight: 16,
                   flexShrink: 0,
                 }}
               />
               <span
                 style={{
-                  fontSize: 30,
+                  fontSize: 42,
                   fontWeight: 600,
                   color: 'white',
                 }}
@@ -222,23 +222,23 @@ export async function GET(request: NextRequest) {
             </div>
 
             {/* Arrow + distance */}
-            <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  marginRight: 12,
-                  width: 12,
+                  marginRight: 16,
+                  width: 14,
                 }}
               >
-                <div style={{ width: 3, height: 20, background: 'rgba(255,255,255,0.3)' }} />
-                <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>▼</span>
+                <div style={{ width: 3, height: 24, background: 'rgba(255,255,255,0.3)' }} />
+                <span style={{ fontSize: 22, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>▼</span>
               </div>
               {distanceMiles !== null && (
                 <span
                   style={{
-                    fontSize: 24,
+                    fontSize: 30,
                     fontWeight: 600,
                     color: 'rgba(255,255,255,0.6)',
                     fontFamily: 'Fredoka',
@@ -253,17 +253,17 @@ export async function GET(request: NextRequest) {
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div
                 style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 4,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
                   background: BRAND_COLORS.accentCoral,
-                  marginRight: 12,
+                  marginRight: 16,
                   flexShrink: 0,
                 }}
               />
               <span
                 style={{
-                  fontSize: 30,
+                  fontSize: 42,
                   fontWeight: 600,
                   color: 'white',
                 }}
