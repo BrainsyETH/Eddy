@@ -3,7 +3,7 @@
 // src/app/page.tsx
 // Landing page for Eddy
 
-import { Suspense, useState, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, Clock, ChevronDown, ArrowRight, Activity } from 'lucide-react';
@@ -13,6 +13,8 @@ import { useGaugeStations } from '@/hooks/useGaugeStations';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { computeCondition, getConditionShortLabel } from '@/lib/conditions';
 import { CONDITION_COLORS } from '@/constants';
+import { buildRiversSummary } from '@/data/eddy-quotes';
+import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { ConditionCode } from '@/types/api';
 
 const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
@@ -52,6 +54,40 @@ function HomeContent() {
   const { data: rivers } = useRivers();
   const { data: gauges } = useGaugeStations();
 
+  // Fetch global Eddy quote (AI-generated, refreshed every 6 hours)
+  const [globalQuote, setGlobalQuote] = useState<string | null>(null);
+  const [globalQuoteAge, setGlobalQuoteAge] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchGlobalQuote() {
+      try {
+        const res = await fetch('/api/eddy-update/global');
+        if (!res.ok) return;
+        const data: EddyUpdateResponse = await res.json();
+        if (!cancelled && data.available && data.update) {
+          setGlobalQuote(data.update.quoteText);
+          const hours = (Date.now() - new Date(data.update.generatedAt).getTime()) / (1000 * 60 * 60);
+          if (hours < 1) setGlobalQuoteAge('Updated just now');
+          else if (hours < 2) setGlobalQuoteAge('Updated 1 hr ago');
+          else setGlobalQuoteAge(`Updated ${Math.round(hours)} hrs ago`);
+        }
+      } catch {
+        // Silently fail — static fallback will be used
+      }
+    }
+    fetchGlobalQuote();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Static fallback: build summary from loaded river conditions
+  const fallbackSummary = useMemo(() => {
+    if (!rivers) return null;
+    const codes = rivers.map(r => (r.currentCondition?.code ?? null) as ConditionCode | null);
+    return buildRiversSummary(codes);
+  }, [rivers]);
+
+  const eddySummaryText = globalQuote || fallbackSummary;
 
   // Compute per-river conditions from gauge data
   const riverConditions = useMemo((): RiverConditionRow[] => {
@@ -138,6 +174,23 @@ function HomeContent() {
               <span>Detailed Access Points</span>
             </div>
           </div>
+
+          {/* Eddy's overall conditions quote */}
+          {eddySummaryText && (
+            <div className="mt-8 max-w-xl mx-auto">
+              <div className="rounded-xl px-5 py-4 text-left" style={{ backgroundColor: 'rgba(29, 82, 95, 0.6)', borderLeft: '3px solid #F07052' }}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-bold tracking-wide uppercase text-white/50">Eddy&apos;s Report</span>
+                  {globalQuoteAge && (
+                    <span className="text-[10px] text-white/30 ml-auto">{globalQuoteAge}</span>
+                  )}
+                </div>
+                <p className="text-sm md:text-base text-white/90 leading-relaxed font-medium">
+                  &ldquo;{eddySummaryText}&rdquo;
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
