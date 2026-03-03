@@ -110,182 +110,207 @@ export default async function Image({ params }: { params: Promise<{ siteId: stri
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
-          padding: '40px 56px 48px',
         }}
       >
-        {/* Gauge name — prominent at top */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: nameFontSize,
-            fontWeight: 600,
-            color: BRAND_COLORS.accentCoral,
-            lineHeight: 1.1,
-            letterSpacing: -2,
-            marginBottom: 24,
-          }}
-        >
-          {truncate(gaugeName, 40)}
-        </span>
-
-        {/* Readings — large numbers */}
+        {/* LEFT — Gauge info */}
         <div
           style={{
             display: 'flex',
-            gap: 72,
-            alignItems: 'flex-end',
-            marginBottom: 28,
+            flexDirection: 'column',
+            flex: 1,
+            padding: otterImage ? '44px 0 48px 56px' : '44px 56px 48px',
+            justifyContent: 'center',
           }}
         >
-          {/* Gauge Height */}
-          {gaugeHeightFt !== null && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span
-                style={{
-                  fontFamily: 'Fredoka',
-                  fontSize: 20,
-                  fontWeight: 600,
-                  color: 'rgba(255,255,255,0.45)',
-                  textTransform: 'uppercase',
-                  letterSpacing: 3,
-                }}
-              >
-                Gauge Height
-              </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: 120,
-                    fontWeight: 600,
-                    color: 'white',
-                    lineHeight: 1,
-                    letterSpacing: -3,
-                  }}
-                >
-                  {gaugeHeightFt.toFixed(1)}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: 48,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.6)',
-                    lineHeight: 1,
-                  }}
-                >
-                  ft
-                </span>
-              </div>
-            </div>
-          )}
+          {/* Gauge name */}
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: nameFontSize,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              lineHeight: 1.1,
+              letterSpacing: -2,
+              marginBottom: 24,
+            }}
+          >
+            {truncate(gaugeName, 40)}
+          </span>
 
-          {/* Discharge CFS */}
-          {dischargeCfs !== null && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Readings — large numbers */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 72,
+              alignItems: 'flex-end',
+              marginBottom: 28,
+            }}
+          >
+            {/* Gauge Height */}
+            {gaugeHeightFt !== null && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span
+                  style={{
+                    fontFamily: 'Fredoka',
+                    fontSize: 20,
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.45)',
+                    textTransform: 'uppercase',
+                    letterSpacing: 3,
+                  }}
+                >
+                  Gauge Height
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span
+                    style={{
+                      fontFamily: 'Fredoka',
+                      fontSize: 120,
+                      fontWeight: 600,
+                      color: 'white',
+                      lineHeight: 1,
+                      letterSpacing: -3,
+                    }}
+                  >
+                    {gaugeHeightFt.toFixed(1)}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'Fredoka',
+                      fontSize: 48,
+                      fontWeight: 600,
+                      color: 'rgba(255,255,255,0.6)',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ft
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Discharge CFS */}
+            {dischargeCfs !== null && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span
+                  style={{
+                    fontFamily: 'Fredoka',
+                    fontSize: 20,
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.45)',
+                    textTransform: 'uppercase',
+                    letterSpacing: 3,
+                  }}
+                >
+                  Discharge
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span
+                    style={{
+                      fontFamily: 'Fredoka',
+                      fontSize: 120,
+                      fontWeight: 600,
+                      color: 'white',
+                      lineHeight: 1,
+                      letterSpacing: -3,
+                    }}
+                  >
+                    {dischargeCfs.toLocaleString()}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'Fredoka',
+                      fontSize: 48,
+                      fontWeight: 600,
+                      color: 'rgba(255,255,255,0.6)',
+                      lineHeight: 1,
+                    }}
+                  >
+                    cfs
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Status Badge */}
+          {status !== 'unknown' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                backgroundColor: statusStyles.bg,
+                border: `2px solid ${statusStyles.border}`,
+                borderRadius: 100,
+                padding: '12px 32px',
+                alignSelf: 'flex-start',
+              }}
+            >
+              <div
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  backgroundColor: statusStyles.solid,
+                }}
+              />
               <span
                 style={{
-                  fontFamily: 'Fredoka',
-                  fontSize: 20,
-                  fontWeight: 600,
-                  color: 'rgba(255,255,255,0.45)',
-                  textTransform: 'uppercase',
-                  letterSpacing: 3,
+                  fontFamily: 'system-ui, sans-serif',
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: statusStyles.text,
                 }}
               >
-                Discharge
+                {statusStyles.label}
               </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: 120,
-                    fontWeight: 600,
-                    color: 'white',
-                    lineHeight: 1,
-                    letterSpacing: -3,
-                  }}
-                >
-                  {dischargeCfs.toLocaleString()}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: 48,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.6)',
-                    lineHeight: 1,
-                  }}
-                >
-                  cfs
-                </span>
-              </div>
             </div>
           )}
         </div>
 
-        {/* Status Badge — anchored at bottom */}
-        {status !== 'unknown' && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              backgroundColor: statusStyles.bg,
-              border: `2px solid ${statusStyles.border}`,
-              borderRadius: 100,
-              padding: '12px 32px',
-              alignSelf: 'flex-start',
-            }}
-          >
-            <div
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: '50%',
-                backgroundColor: statusStyles.solid,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 36,
-                fontWeight: 700,
-                color: statusStyles.text,
-              }}
-            >
-              {statusStyles.label}
-            </span>
-          </div>
-        )}
-
-        {/* Otter — small, bottom-right decorative element */}
+        {/* RIGHT — Condition Otter */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
-              position: 'absolute',
-              bottom: 48,
-              right: 32,
-              opacity: 0.85,
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 340,
+              padding: 32,
+              flexShrink: 0,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={180}
-              height={180}
+              width={280}
+              height={280}
               alt=""
               style={{ objectFit: 'contain' }}
             />
           </div>
         )}
+
+        {/* Domain watermark */}
+        <span
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            right: 36,
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 18,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.5)',
+          }}
+        >
+          eddy.guide
+        </span>
 
         {/* Bottom accent bar with condition gradient */}
         <div
