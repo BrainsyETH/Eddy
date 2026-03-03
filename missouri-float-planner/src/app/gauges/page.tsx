@@ -300,7 +300,7 @@ export default function GaugesPage() {
   // Share a gauge link
   const handleShareGauge = useCallback(async (e: React.MouseEvent, usgsSiteId: string) => {
     e.stopPropagation();
-    const shareUrl = `${window.location.origin}/gauges?gauge=${usgsSiteId}`;
+    const shareUrl = `${window.location.origin}/gauges/${usgsSiteId}`;
 
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.share) {
