@@ -117,7 +117,6 @@ export default async function Image({ params }: { params: Promise<{ siteId: stri
           background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
           position: 'relative',
           padding: '40px 56px 48px',
-          justifyContent: 'space-between',
         }}
       >
         {/* Gauge name — prominent at top */}
@@ -129,18 +128,19 @@ export default async function Image({ params }: { params: Promise<{ siteId: stri
             color: BRAND_COLORS.accentCoral,
             lineHeight: 1.1,
             letterSpacing: -2,
-            maxWidth: otterImage ? 880 : '100%',
+            marginBottom: 24,
           }}
         >
           {truncate(gaugeName, 40)}
         </span>
 
-        {/* Readings — large, filling the middle of the card */}
+        {/* Readings — large numbers */}
         <div
           style={{
             display: 'flex',
             gap: 72,
             alignItems: 'flex-end',
+            marginBottom: 28,
           }}
         >
           {/* Gauge Height */}
@@ -271,7 +271,7 @@ export default async function Image({ params }: { params: Promise<{ siteId: stri
             style={{
               display: 'flex',
               position: 'absolute',
-              top: 24,
+              bottom: 48,
               right: 32,
               opacity: 0.85,
             }}
