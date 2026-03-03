@@ -1,9 +1,10 @@
 // src/app/gauges/[siteId]/page.tsx
-// Individual gauge station page — redirects to the dashboard with the gauge expanded
+// Individual gauge station page — serves metadata + OG image for social crawlers,
+// then client-side redirects real users to the dashboard with the gauge expanded.
 
-import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
+import GaugeRedirect from './GaugeRedirect';
 
 interface Props {
   params: Promise<{ siteId: string }>;
@@ -49,6 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function GaugeStationPage({ params }: Props) {
   const { siteId } = await params;
 
-  // Redirect to the gauges dashboard with this gauge selected
-  redirect(`/gauges?gauge=${siteId}`);
+  // Render a minimal page that serves metadata for crawlers,
+  // then redirects real users client-side
+  return <GaugeRedirect siteId={siteId} />;
 }

@@ -300,7 +300,7 @@ export default function GaugesPage() {
   // Share a gauge link
   const handleShareGauge = useCallback(async (e: React.MouseEvent, usgsSiteId: string) => {
     e.stopPropagation();
-    const shareUrl = `${window.location.origin}/gauges?gauge=${usgsSiteId}`;
+    const shareUrl = `${window.location.origin}/gauges/${usgsSiteId}`;
 
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.share) {
@@ -1068,6 +1068,31 @@ export default function GaugesPage() {
                         </span>
                       </>
                     )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <button
+                      onClick={(e) => handleShareGauge(e, drawerGauge.usgsSiteId)}
+                      className="text-xs text-neutral-400 hover:text-primary-600 flex items-center gap-1 transition-colors"
+                    >
+                      {copiedGaugeId === drawerGauge.usgsSiteId ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-500" />
+                          <span className="text-emerald-500">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-3 h-3" />
+                          Share
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => openFeedbackModal(drawerGauge)}
+                      className="text-xs text-neutral-400 hover:text-accent-500 flex items-center gap-1 transition-colors"
+                    >
+                      <Flag className="w-3 h-3" />
+                      Report Issue
+                    </button>
                   </div>
                 </div>
                 <button
