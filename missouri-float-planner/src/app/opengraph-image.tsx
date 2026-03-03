@@ -30,7 +30,7 @@ export default async function Image() {
           display: 'flex',
           width: '100%',
           height: '100%',
-          background: 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)',
+          background: '#1A3D40',
           position: 'relative',
         }}
       >
@@ -87,14 +87,14 @@ export default async function Image() {
           <span
             style={{
               fontFamily: 'system-ui, sans-serif',
-              fontSize: 32,
+              fontSize: 46,
               fontWeight: 400,
               color: 'rgba(255,255,255,0.7)',
-              lineHeight: 1.4,
-              maxWidth: 540,
+              lineHeight: 1.3,
+              maxWidth: 620,
             }}
           >
-            Missouri River Float Trip Planner
+            Plan Your Float & Check River Levels
           </span>
 
           {/* Feature pills */}
