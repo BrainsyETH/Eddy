@@ -82,8 +82,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Distance via get_float_segment RPC
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       promises.push(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.rpc as any)('get_float_segment', {
           p_start_access_id: putInId,
           p_end_access_id: takeOutId,
@@ -92,8 +92,8 @@ export async function GET(request: NextRequest) {
 
       // River condition
       if (riverId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         promises.push(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (supabase.rpc as any)('get_river_condition', { p_river_id: riverId })
         );
       } else {
