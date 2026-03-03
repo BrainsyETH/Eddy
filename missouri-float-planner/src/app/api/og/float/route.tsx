@@ -212,12 +212,12 @@ export async function GET(request: NextRequest) {
               />
               <span
                 style={{
-                  fontSize: 42,
+                  fontSize: 48,
                   fontWeight: 600,
                   color: 'white',
                 }}
               >
-                {truncate(putInName, 28)}
+                {truncate(putInName, 26)}
               </span>
             </div>
 
@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
               {distanceMiles !== null && (
                 <span
                   style={{
-                    fontSize: 30,
+                    fontSize: 34,
                     fontWeight: 600,
                     color: 'rgba(255,255,255,0.6)',
                     fontFamily: 'Fredoka',
@@ -263,12 +263,12 @@ export async function GET(request: NextRequest) {
               />
               <span
                 style={{
-                  fontSize: 42,
+                  fontSize: 48,
                   fontWeight: 600,
                   color: 'white',
                 }}
               >
-                {truncate(takeOutName, 28)}
+                {truncate(takeOutName, 26)}
               </span>
             </div>
           </div>
