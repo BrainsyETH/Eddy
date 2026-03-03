@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargets } from '@/data/river-sections';
 import { generateEddyUpdate } from '@/lib/eddy/generate-update';
+import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,7 @@ async function runGeneration(request: NextRequest) {
         gauge_height_ft: update.gaugeHeightFt,
         discharge_cfs: update.dischargeCfs,
         quote_text: update.quoteText,
+        summary_text: update.summaryText,
         sources_used: update.sourcesUsed,
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,
@@ -99,6 +101,37 @@ async function runGeneration(request: NextRequest) {
       failed++;
       errors.push(`${target.riverSlug}: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
+  }
+
+  // Generate global summary from per-river updates
+  try {
+    const globalUpdate = await generateGlobalUpdate();
+    if (globalUpdate) {
+      const { error: globalInsertError } = await supabase.from('eddy_updates').insert({
+        river_slug: 'global',
+        section_slug: null,
+        condition_code: 'unknown',
+        gauge_height_ft: null,
+        discharge_cfs: null,
+        quote_text: globalUpdate.quoteText,
+        sources_used: globalUpdate.sourcesUsed,
+        generated_at: new Date().toISOString(),
+        expires_at: expiresAt,
+      });
+
+      if (globalInsertError) {
+        console.error('[EddyCron] Global insert failed:', globalInsertError);
+        errors.push('global: DB insert failed');
+      } else {
+        generated++;
+        console.log(`[EddyCron] Generated global Ozarks summary`);
+      }
+    } else {
+      errors.push('global: generation returned null');
+    }
+  } catch (e) {
+    console.error('[EddyCron] Error generating global update:', e);
+    errors.push(`global: ${e instanceof Error ? e.message : 'unknown error'}`);
   }
 
   // Clean up expired updates (keep last 48 hours for history)

@@ -3,9 +3,11 @@
 // src/components/river/EddyQuote.tsx
 // Eddy's conditions quote — speech bubble with otter avatar.
 // Tries to fetch AI-generated update first, falls back to static templates.
+// Supports summary/full toggle and share button.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
+import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
 import { buildEddyQuote, RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
@@ -95,6 +97,8 @@ function formatGeneratedAge(generatedAt: string): string {
 export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
+  const [showFull, setShowFull] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   // Fetch AI-generated update on mount
   useEffect(() => {
@@ -119,6 +123,30 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     return () => { cancelled = true; };
   }, [riverSlug]);
 
+  // Share handler
+  const handleShare = useCallback(async () => {
+    const url = `${window.location.origin}/rivers/${riverSlug}`;
+    const title = `River conditions on Eddy`;
+    const text = aiUpdate?.summaryText || aiUpdate?.quoteText || 'Check the latest river conditions on Eddy';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000);
+    } catch {
+      // Clipboard failed
+    }
+  }, [riverSlug, aiUpdate]);
+
   // Determine which data to display
   const useAi = aiLoaded && aiUpdate !== null;
   const displayConditionCode = useAi
@@ -128,7 +156,12 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   // Static fallback
   const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather);
 
-  const quoteText = useAi ? aiUpdate.quoteText : staticQuote.text;
+  // Summary vs full text
+  const hasSummary = useAi && aiUpdate.summaryText;
+  const summaryText = hasSummary ? aiUpdate.summaryText : null;
+  const fullText = useAi ? aiUpdate.quoteText : staticQuote.text;
+  const displayText = hasSummary && !showFull ? summaryText! : fullText;
+
   const eddyImage = conditionToImage(displayConditionCode);
   const knowledge = RIVER_KNOWLEDGE[riverSlug];
 
@@ -165,15 +198,51 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               {label.text}
             </span>
             {ageDisplay && (
-              <span className="text-[10px] text-neutral-400 ml-auto">
+              <span className="text-[10px] text-neutral-400 ml-auto whitespace-nowrap">
                 {ageDisplay}
               </span>
             )}
           </div>
           <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
-            &ldquo;{quoteText}&rdquo;
+            &ldquo;{displayText}&rdquo;
           </p>
-          {knowledge && (
+
+          {/* Toggle + Share row */}
+          <div className="flex items-center gap-3 mt-1.5">
+            {hasSummary && (
+              <button
+                onClick={() => setShowFull(!showFull)}
+                className={`flex items-center gap-1 text-xs font-semibold transition-colors ${textClass} opacity-60 hover:opacity-100`}
+              >
+                {showFull ? (
+                  <>Show less <ChevronUp className="w-3 h-3" /></>
+                ) : (
+                  <>Read more <ChevronDown className="w-3 h-3" /></>
+                )}
+              </button>
+            )}
+
+            {knowledge && !hasSummary && (
+              <p className="text-xs opacity-50 flex-1">
+                Optimal range: {knowledge.optimalRange} &middot; {knowledge.notes}
+              </p>
+            )}
+
+            {useAi && (
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-1 text-xs font-semibold transition-colors ml-auto ${textClass} opacity-50 hover:opacity-100`}
+                title="Share this report"
+              >
+                <Share2 className="w-3 h-3" />
+                <span className="hidden sm:inline">
+                  {shareStatus === 'copied' ? 'Copied' : 'Share'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {knowledge && hasSummary && showFull && (
             <p className="text-xs mt-1.5 opacity-50">
               Optimal range: {knowledge.optimalRange} &middot; {knowledge.notes}
             </p>

@@ -4,16 +4,43 @@
 import { ImageResponse } from 'next/og';
 import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
+import { createClient } from '@/lib/supabase/server';
 
 export const alt = 'River Levels — Real-time water levels on eddy.guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
+
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 1).trim() + '...';
+}
 
 export default async function Image() {
   const fonts = loadFredokaFont();
   const otterImage = await loadOtterImage(OTTER_URLS.flood);
+
+  // Fetch global Eddy summary for the OG card
+  let eddyQuoteSnippet: string | null = null;
+  try {
+    const supabase = await createClient();
+    const { data: eddyData } = await supabase
+      .from('eddy_updates')
+      .select('summary_text, quote_text')
+      .eq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (eddyData) {
+      eddyQuoteSnippet = eddyData.summary_text || eddyData.quote_text || null;
+    }
+  } catch {
+    // Eddy quote fetch failed, skip
+  }
 
   return new ImageResponse(
     (
@@ -85,12 +112,41 @@ export default async function Image() {
             Real-time USGS water levels and flow trends across Missouri
           </span>
 
+          {/* Eddy quote snippet */}
+          {eddyQuoteSnippet && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 12,
+                padding: '12px 16px',
+                marginTop: 24,
+                maxWidth: 540,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 18,
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.8)',
+                  lineHeight: 1.4,
+                  fontStyle: 'italic',
+                }}
+              >
+                &ldquo;{truncate(eddyQuoteSnippet, 120)}&rdquo;
+              </span>
+            </div>
+          )}
+
           {/* Feature pills */}
           <div
             style={{
               display: 'flex',
               gap: 10,
-              marginTop: 32,
+              marginTop: eddyQuoteSnippet ? 16 : 32,
             }}
           >
             <div
