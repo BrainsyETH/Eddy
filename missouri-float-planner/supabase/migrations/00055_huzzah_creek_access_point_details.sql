@@ -255,7 +255,7 @@ SELECT
     8.3,
     true,
     '<p>Red Bluff is a full-service USFS campground — not just a river access. Reservations recommended on summer weekends. Creek Loop sites are closest to the water. Pines Overlook sites are more secluded but non-electric. Dogs must be leashed (6 ft). Firewood: collect dead/downed only. No fireworks.</p>',
-    '[{"name": "Huzzah Valley Resort", "type": "outfitter", "phone": "800-367-4516", "website": "https://huzzahvalley.com", "distance": "2 miles", "notes": "Canoe/kayak/raft rentals, shuttle service, restaurant, store"}, {"name": "Davisville", "type": "town", "distance": "1 mile", "notes": "Small village — limited services"}]'::jsonb
+    '[{"name": "Huzzah Valley Resort", "type": "outfitter", "phone": "800-367-4516", "website": "https://huzzahvalley.com", "distance": "2 miles", "notes": "Canoe/kayak/raft rentals, shuttle service, restaurant, store"}]'::jsonb
 FROM rivers r WHERE r.slug = 'huzzah'
 ON CONFLICT (river_id, slug) DO UPDATE SET
     name = EXCLUDED.name,
