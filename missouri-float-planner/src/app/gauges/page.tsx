@@ -59,6 +59,26 @@ const getEddyImageForCondition = (code: ConditionCode): string => {
   }
 };
 
+// Map condition codes to Eddy Says card theme colors
+const getEddyCardTheme = (code: ConditionCode) => {
+  switch (code) {
+    case 'optimal':
+      return { bg: 'bg-gradient-to-r from-emerald-50 to-teal-50', border: 'border-emerald-200', text: 'text-emerald-900', accent: 'text-emerald-900' };
+    case 'okay':
+      return { bg: 'bg-gradient-to-r from-lime-50 to-emerald-50', border: 'border-lime-200', text: 'text-lime-900', accent: 'text-lime-900' };
+    case 'low':
+      return { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-200', text: 'text-yellow-900', accent: 'text-yellow-900' };
+    case 'too_low':
+      return { bg: 'bg-gradient-to-r from-neutral-50 to-neutral-100', border: 'border-neutral-300', text: 'text-neutral-700', accent: 'text-neutral-700' };
+    case 'high':
+      return { bg: 'bg-gradient-to-r from-orange-50 to-amber-50', border: 'border-orange-200', text: 'text-orange-900', accent: 'text-orange-900' };
+    case 'dangerous':
+      return { bg: 'bg-gradient-to-r from-red-50 to-orange-50', border: 'border-red-200', text: 'text-red-900', accent: 'text-red-900' };
+    default:
+      return { bg: 'bg-gradient-to-r from-emerald-50 to-teal-50', border: 'border-emerald-200', text: 'text-emerald-900', accent: 'text-emerald-900' };
+  }
+};
+
 // Desktop drawer width (used for panel and main content margin)
 const DRAWER_WIDTH_PX = 540;
 
@@ -627,17 +647,19 @@ export default function GaugesPage() {
             </div>
 
             {/* Eddy Says (AI update when specific river selected, with static fallback) */}
-            {selectedRiver !== 'all' && (
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-5 mb-6">
+            {selectedRiver !== 'all' && (() => {
+              const eddyConditionCode: ConditionCode = (eddyUpdate?.conditionCode as ConditionCode) || (() => {
+                const riverGauges = processedGauges.filter(g => g.primaryRiver?.riverId === selectedRiver);
+                const primary = riverGauges.find(g => g.primaryRiver?.isPrimary) || riverGauges[0];
+                return primary?.condition.code || 'unknown';
+              })();
+              const eddyTheme = getEddyCardTheme(eddyConditionCode);
+              return (
+              <div className={`${eddyTheme.bg} border-2 ${eddyTheme.border} rounded-xl p-5 mb-6`}>
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-12 h-12 relative">
                     <Image
-                      src={getEddyImageForCondition(eddyUpdate?.conditionCode as ConditionCode || (() => {
-                        // Derive condition from visible gauges for static fallback image
-                        const riverGauges = processedGauges.filter(g => g.primaryRiver?.riverId === selectedRiver);
-                        const primary = riverGauges.find(g => g.primaryRiver?.isPrimary) || riverGauges[0];
-                        return primary?.condition.code || 'unknown';
-                      })())}
+                      src={getEddyImageForCondition(eddyConditionCode)}
                       alt="Eddy the Otter"
                       fill
                       className="object-contain"
@@ -662,7 +684,7 @@ export default function GaugesPage() {
                       <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
                     ) : eddyUpdate ? (
                       <>
-                        <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
+                        <p className={`text-sm sm:text-base leading-relaxed font-medium ${eddyTheme.text}`}>
                           &ldquo;{eddyUpdate.summaryText && !eddyShowFull
                             ? eddyUpdate.summaryText
                             : eddyUpdate.quoteText}&rdquo;
@@ -671,7 +693,7 @@ export default function GaugesPage() {
                           {eddyUpdate.summaryText && (
                             <button
                               onClick={() => setEddyShowFull(!eddyShowFull)}
-                              className="flex items-center gap-1 text-xs font-semibold text-emerald-900 opacity-60 hover:opacity-100 transition-colors"
+                              className={`flex items-center gap-1 text-xs font-semibold ${eddyTheme.accent} opacity-60 hover:opacity-100 transition-colors`}
                             >
                               {eddyShowFull ? (
                                 <>Show less <ChevronUp className="w-3 h-3" /></>
@@ -699,7 +721,7 @@ export default function GaugesPage() {
                                 setTimeout(() => setEddyShareStatus('idle'), 2000);
                               } catch { /* clipboard failed */ }
                             }}
-                            className="flex items-center gap-1 text-xs font-semibold text-emerald-900 opacity-50 hover:opacity-100 transition-colors ml-auto"
+                            className={`flex items-center gap-1 text-xs font-semibold ${eddyTheme.accent} opacity-50 hover:opacity-100 transition-colors ml-auto`}
                             title="Share this report"
                           >
                             <Share2 className="w-3 h-3" />
@@ -730,7 +752,7 @@ export default function GaugesPage() {
                       if (optRange) parts.push(`Optimal range is ${optRange}.`);
                       if (notes) parts.push(notes);
                       return (
-                        <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
+                        <p className={`text-sm sm:text-base leading-relaxed font-medium ${eddyTheme.text}`}>
                           &ldquo;{parts.join(' ')}&rdquo;
                         </p>
                       );
@@ -738,7 +760,8 @@ export default function GaugesPage() {
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Gauge Cards Grid */}
             {processedGauges.length > 0 ? (
