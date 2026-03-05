@@ -81,7 +81,36 @@ const DATE_RANGES = [
   { days: 30, label: '30 Days' },
 ];
 
-// Compact Eddy Says blurb for grouped river view — lazy-loads AI update on expand
+// Condition-themed background classes (matches EddyQuote on rivers page)
+const BG_BY_CONDITION: Record<string, string> = {
+  optimal: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
+  okay: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
+  low: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200',
+  too_low: 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
+  high: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200',
+  dangerous: 'bg-gradient-to-r from-red-100 to-red-50 border-red-300',
+  unknown: 'bg-gradient-to-r from-neutral-50 to-slate-50 border-neutral-200',
+};
+
+const TEXT_BY_CONDITION: Record<string, string> = {
+  optimal: 'text-emerald-900', okay: 'text-emerald-900',
+  low: 'text-amber-900', too_low: 'text-orange-900',
+  high: 'text-red-900', dangerous: 'text-red-900',
+  unknown: 'text-neutral-700',
+};
+
+const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = {
+  optimal: { text: 'Optimal', className: 'bg-emerald-100 text-emerald-700' },
+  okay: { text: 'Okay', className: 'bg-emerald-100 text-emerald-700' },
+  low: { text: 'Low', className: 'bg-amber-100 text-amber-700' },
+  too_low: { text: 'Too Low', className: 'bg-orange-100 text-orange-700' },
+  high: { text: 'High', className: 'bg-red-100 text-red-700' },
+  dangerous: { text: 'Flood', className: 'bg-red-200 text-red-800' },
+  unknown: { text: 'Unknown', className: 'bg-neutral-100 text-neutral-600' },
+};
+
+// Eddy Says blurb for grouped river view — matches EddyQuote component styling
+// Starts collapsed, lazy-loads AI update on expand
 function GroupEddyBlurb({
   riverSlug,
   conditionCode,
@@ -97,6 +126,8 @@ function GroupEddyBlurb({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
+  const [showFull, setShowFull] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   // Fetch on first expand
   useEffect(() => {
@@ -126,9 +157,8 @@ function GroupEddyBlurb({
   }, [isOpen, riverSlug, eddyCache, setEddyCache]);
 
   const update = riverSlug ? eddyCache[riverSlug] ?? null : null;
-  const theme = getEddyCardTheme(conditionCode);
 
-  // Build static fallback
+  // Build static fallback text
   const buildStaticText = () => {
     const primary = gauges.find(g => g.primaryRiver?.isPrimary) || gauges[0];
     const blurb = CONDITION_CARD_BLURBS[conditionCode] || CONDITION_CARD_BLURBS.unknown;
@@ -148,42 +178,123 @@ function GroupEddyBlurb({
     return parts.join(' ');
   };
 
+  const displayConditionCode = update?.conditionCode ? (update.conditionCode as ConditionCode) : conditionCode;
+  const bgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
+  const textClass = TEXT_BY_CONDITION[displayConditionCode] ?? TEXT_BY_CONDITION.unknown;
+  const label = LABEL_BY_CONDITION[displayConditionCode] ?? LABEL_BY_CONDITION.unknown;
+
+  const hasSummary = update?.summaryText;
+  const displayText = hasSummary && !showFull ? update!.summaryText! : (update ? update.quoteText : buildStaticText());
+
+  const ageDisplay = update?.generatedAt ? (() => {
+    const hours = (Date.now() - new Date(update.generatedAt).getTime()) / (1000 * 60 * 60);
+    if (hours < 1) return 'Updated just now';
+    if (hours < 2) return 'Updated 1 hr ago';
+    return `Updated ${Math.round(hours)} hrs ago`;
+  })() : null;
+
+  const handleShare = async () => {
+    if (!riverSlug) return;
+    const url = `${window.location.origin}/rivers/${riverSlug}`;
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+    if (isMobile && navigator.share) {
+      try { await navigator.share({ url }); return; } catch { /* cancelled */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000);
+    } catch { /* clipboard failed */ }
+  };
+
   return (
     <div className="mb-3">
+      {/* Collapsed toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 text-xs font-semibold transition-colors ${theme.accent} opacity-60 hover:opacity-100`}
+        className="flex items-center gap-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900 transition-colors"
       >
         <Image
-          src={getEddyImageForCondition(conditionCode)}
+          src={getEddyImageForCondition(displayConditionCode)}
           alt="Eddy"
           width={20}
           height={20}
           className="w-5 h-5 object-contain"
         />
         Eddy says
+        <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
+          {label.text}
+        </span>
         {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
+
+      {/* Expanded card — matches EddyQuote component layout */}
       {isOpen && (
-        <div className={`${theme.bg} border ${theme.border} rounded-lg p-3 mt-2`}>
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 relative">
+        <div className={`border rounded-xl overflow-hidden mt-2 ${bgClass}`}>
+          <div className="flex items-start gap-3 px-3 py-3 sm:px-4 sm:py-4">
+            {/* Eddy avatar */}
+            <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 relative">
               <Image
-                src={getEddyImageForCondition(conditionCode)}
+                src={getEddyImageForCondition(displayConditionCode)}
                 alt="Eddy the Otter"
                 fill
                 className="object-contain"
-                sizes="40px"
+                sizes="56px"
               />
             </div>
+
+            {/* Speech bubble */}
             <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold tracking-wide uppercase opacity-60">Eddy says</span>
+                <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
+                  {label.text}
+                </span>
+                {ageDisplay && (
+                  <span className="text-[10px] text-neutral-500 ml-auto whitespace-nowrap">
+                    {ageDisplay}
+                  </span>
+                )}
+              </div>
+
               {localLoading && !update ? (
                 <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
               ) : (
-                <p className={`text-sm leading-relaxed font-medium ${theme.text}`}>
-                  &ldquo;{update ? (update.summaryText || update.quoteText) : buildStaticText()}&rdquo;
+                <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
+                  &ldquo;{displayText}&rdquo;
                 </p>
               )}
+
+              {/* Toggle + Share row */}
+              <div className="flex items-center gap-3 mt-1.5">
+                {hasSummary && (
+                  <button
+                    onClick={() => setShowFull(!showFull)}
+                    className={`flex items-center gap-1 text-xs font-semibold transition-colors ${textClass} opacity-60 hover:opacity-100`}
+                  >
+                    {showFull ? (
+                      <>Show less <ChevronUp className="w-3 h-3" /></>
+                    ) : (
+                      <>Read more <ChevronDown className="w-3 h-3" /></>
+                    )}
+                  </button>
+                )}
+
+                {riverSlug && (
+                  <button
+                    onClick={handleShare}
+                    className={`flex items-center gap-1.5 text-xs font-semibold transition-all ml-auto rounded-md px-2 py-1 ${
+                      shareStatus === 'copied'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : `${textClass} opacity-50 hover:opacity-100 hover:bg-black/5`
+                    }`}
+                    title="Share this report"
+                  >
+                    {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                    {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1041,7 +1152,6 @@ export default function GaugesPage() {
                             ) : (
                               group.name
                             )}
-                            <span className="text-sm font-normal text-neutral-500">({group.gauges.length})</span>
                           </h2>
                           <GroupEddyBlurb
                             riverSlug={group.slug}
