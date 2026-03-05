@@ -19,7 +19,8 @@ import {
   Flag,
   Share2,
   Check,
-  Layers
+  Layers,
+  Search
 } from 'lucide-react';
 
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
@@ -84,15 +85,25 @@ const getEddyCardTheme = (code: ConditionCode) => {
 // Desktop drawer width (used for panel and main content margin)
 const DRAWER_WIDTH_PX = 540;
 
+// Pill background color for active condition filter
+const getComputedPillColor = (code: ConditionCode): string => {
+  switch (code) {
+    case 'too_low': return '#737373'; // neutral-500
+    case 'low': return '#eab308'; // yellow-500
+    case 'okay': return '#84cc16'; // lime-500
+    case 'optimal': return '#10b981'; // emerald-500
+    case 'high': return '#f97316'; // orange-500
+    case 'dangerous': return '#ef4444'; // red-500
+    default: return '#737373';
+  }
+};
+
 // Date range options for charts
 const DATE_RANGES = [
   { days: 7, label: '7 Days' },
   { days: 14, label: '14 Days' },
   { days: 30, label: '30 Days' },
 ];
-
-// ONSR (Ozark National Scenic Riverways) rivers
-const ONSR_RIVERS = ['current river', 'eleven point river', 'jacks fork river', 'jacks fork'];
 
 // Static river summaries removed — replaced by AI-generated Eddy updates
 
@@ -106,8 +117,8 @@ export default function GaugesPage() {
   const [selectedRiver, setSelectedRiver] = useState<string>(searchParams.get('riverFilter') || 'all');
   const [selectedCondition, setSelectedCondition] = useState<ConditionCode | 'all'>((searchParams.get('condition') as ConditionCode) || 'all');
   const [dateRange, setDateRange] = useState(Number(searchParams.get('days')) || 7);
-  const [onsrOnly, setOnsrOnly] = useState(searchParams.get('onsr') === 'true');
-  const [groupByRiver, setGroupByRiver] = useState(searchParams.get('group') === 'river');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [groupByRiver, setGroupByRiver] = useState(searchParams.get('group') !== 'flat');
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
@@ -120,11 +131,11 @@ export default function GaugesPage() {
     if (selectedRiver !== 'all') params.set('riverFilter', selectedRiver); else params.delete('riverFilter');
     if (selectedCondition !== 'all') params.set('condition', selectedCondition); else params.delete('condition');
     if (dateRange !== 7) params.set('days', String(dateRange)); else params.delete('days');
-    if (onsrOnly) params.set('onsr', 'true'); else params.delete('onsr');
-    if (groupByRiver) params.set('group', 'river'); else params.delete('group');
+    if (searchQuery) params.set('q', searchQuery); else params.delete('q');
+    if (!groupByRiver) params.set('group', 'flat'); else params.delete('group');
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
     router.replace(newUrl, { scroll: false });
-  }, [selectedRiver, selectedCondition, dateRange, onsrOnly, groupByRiver]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedRiver, selectedCondition, dateRange, groupByRiver, searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Eddy AI update cache: keyed by river slug
   const [eddyCache, setEddyCache] = useState<Record<string, EddyUpdateResponse['update'] | null>>({});
@@ -207,7 +218,6 @@ export default function GaugesPage() {
         const match = data.rivers?.find((r: { slug: string; id: string }) => r.slug === riverSlug);
         if (match) {
           setSelectedRiver(match.id);
-          setOnsrOnly(false);
           setSelectedCondition('all');
         }
       } catch {
@@ -227,7 +237,6 @@ export default function GaugesPage() {
     if (!targetGauge) return;
 
     // Clear filters so the gauge is visible
-    setOnsrOnly(false);
     setSelectedRiver('all');
     setSelectedCondition('all');
 
@@ -330,14 +339,14 @@ export default function GaugesPage() {
 
     return gaugeData.gauges
       .filter(gauge => {
-        // Filter by ONSR rivers (exclude unknown/empty river names)
-        if (onsrOnly) {
+        // Filter by search query (gauge name)
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const nameMatch = gauge.name.toLowerCase().includes(q);
           const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
-          const riverName = primaryRiver?.riverName?.toLowerCase() || '';
-          // Skip gauges with no river or unknown river
-          if (!riverName || riverName === 'unknown' || riverName.includes('unknown')) return false;
-          const isOnsr = ONSR_RIVERS.some(r => riverName.includes(r) || r.includes(riverName));
-          if (!isOnsr) return false;
+          const riverMatch = primaryRiver?.riverName?.toLowerCase().includes(q) || false;
+          const siteIdMatch = gauge.usgsSiteId.includes(q);
+          if (!nameMatch && !riverMatch && !siteIdMatch) return false;
         }
 
         // Filter by specific river
@@ -372,7 +381,7 @@ export default function GaugesPage() {
         };
         return conditionOrder[a.condition.code] - conditionOrder[b.condition.code];
       });
-  }, [gaugeData, selectedRiver, selectedCondition, onsrOnly]);
+  }, [gaugeData, selectedRiver, selectedCondition, searchQuery]);
 
   // Calculate stats for overview cards
   const stats = useMemo(() => {
@@ -406,11 +415,11 @@ export default function GaugesPage() {
   const clearFilters = () => {
     setSelectedRiver('all');
     setSelectedCondition('all');
-    setOnsrOnly(false);
-    setGroupByRiver(false);
+    setGroupByRiver(true);
+    setSearchQuery('');
   };
 
-  const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || onsrOnly || groupByRiver;
+  const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || !groupByRiver || searchQuery !== '';
 
   // Open feedback modal with gauge context
   const openFeedbackModal = (gauge: GaugeStation & { condition: { code: ConditionCode; label: string; tailwindColor: string }; primaryRiver: NonNullable<GaugeStation['thresholds']>[0] | undefined }) => {
@@ -674,18 +683,18 @@ export default function GaugesPage() {
       >
         {loading ? (
           <div className="space-y-6">
-            {/* Skeleton stat cards */}
-            <div className="grid grid-cols-3 grid-rows-2 md:grid-rows-1 md:grid-cols-6 gap-2 md:gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="rounded-xl p-3 md:p-4 bg-white border border-neutral-200">
-                  <div className="skeleton h-8 w-12 mx-auto mb-2 rounded" />
-                  <div className="skeleton h-3 w-16 mx-auto rounded" />
-                </div>
-              ))}
-            </div>
             {/* Skeleton filter bar */}
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-4">
-              <div className="skeleton h-10 w-full rounded-lg" />
+            <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 space-y-3">
+              <div className="flex gap-3">
+                <div className="skeleton h-10 flex-1 max-w-xs rounded-lg" />
+                <div className="skeleton h-10 w-36 rounded-lg" />
+                <div className="skeleton h-10 w-28 rounded-lg" />
+              </div>
+              <div className="flex gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="skeleton h-7 w-20 rounded-full" />
+                ))}
+              </div>
             </div>
             {/* Skeleton gauge cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -713,96 +722,47 @@ export default function GaugesPage() {
           </div>
         ) : (
           <>
-            {/* Stats Overview - 2-row grid on mobile, single row on desktop */}
-            <div className="grid grid-cols-3 grid-rows-2 md:grid-rows-1 md:grid-cols-6 gap-2 md:gap-3 mb-6">
-              {([
-                { key: 'too_low' as ConditionCode, count: stats.tooLow, label: 'Too Low', activeBg: 'bg-neutral-600', activeRing: 'ring-neutral-400', activeShadow: 'shadow-neutral-500/20', gradientFrom: 'from-neutral-400/20', textColor: 'text-neutral-600', activeTextColor: 'text-neutral-200' },
-                { key: 'low' as ConditionCode, count: stats.low, label: 'Low', activeBg: 'bg-yellow-500', activeRing: 'ring-yellow-400', activeShadow: 'shadow-yellow-500/20', gradientFrom: 'from-yellow-400/20', textColor: 'text-yellow-600', activeTextColor: 'text-yellow-100' },
-                { key: 'okay' as ConditionCode, count: stats.okay, label: 'Okay', activeBg: 'bg-lime-500', activeRing: 'ring-lime-400', activeShadow: 'shadow-lime-500/20', gradientFrom: 'from-lime-400/20', textColor: 'text-lime-600', activeTextColor: 'text-lime-100' },
-                { key: 'optimal' as ConditionCode, count: stats.optimal, label: 'Optimal', activeBg: 'bg-emerald-600', activeRing: 'ring-emerald-400', activeShadow: 'shadow-emerald-500/20', gradientFrom: 'from-emerald-400/20', textColor: 'text-emerald-600', activeTextColor: 'text-emerald-100' },
-                { key: 'high' as ConditionCode, count: stats.high, label: 'High', activeBg: 'bg-orange-500', activeRing: 'ring-orange-400', activeShadow: 'shadow-orange-500/20', gradientFrom: 'from-orange-400/20', textColor: 'text-orange-600', activeTextColor: 'text-orange-100' },
-                { key: 'dangerous' as ConditionCode, count: stats.flood, label: 'Flood', activeBg: 'bg-red-600', activeRing: 'ring-red-400', activeShadow: 'shadow-red-500/20', gradientFrom: 'from-red-400/20', textColor: 'text-red-600', activeTextColor: 'text-red-100' },
-              ]).map(stat => {
-                const isActive = selectedCondition === stat.key;
-                return (
-                  <button
-                    key={stat.key}
-                    onClick={() => setSelectedCondition(isActive ? 'all' : stat.key)}
-                    className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-colors duration-150 ${
-                      isActive
-                        ? `${stat.activeBg} text-white shadow-lg ${stat.activeShadow} ring-2 ${stat.activeRing}`
-                        : 'bg-white border border-neutral-200 hover:border-neutral-400 hover:shadow-md'
-                    }`}
-                  >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradientFrom} to-transparent ${!isActive ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                    <span className={`block text-2xl md:text-4xl font-bold tabular-nums ${isActive ? 'text-white' : stat.textColor}`}>{stat.count}</span>
-                    <span className={`block text-[10px] md:text-xs font-semibold mt-1 truncate ${isActive ? stat.activeTextColor : 'text-neutral-600'}`}>{stat.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Filter Bar — unified with condition pills, search, river select, and group toggle */}
+            <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 mb-6 space-y-3">
+              {/* Row 1: Search + River select + Group toggle + Clear */}
+              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:gap-3">
+                {/* Search */}
+                <div className="relative flex-1 min-w-0 md:max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search gauges..."
+                    className="w-full pl-9 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
 
-            {/* Filter Bar */}
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 mb-6">
-              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-center md:gap-4">
                 {/* River filter */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-neutral-600 whitespace-nowrap">River:</label>
-                  <select
-                    value={selectedRiver}
-                    onChange={(e) => setSelectedRiver(e.target.value)}
-                    className="w-full md:w-auto px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="all">All Rivers</option>
-                    {rivers.map(([id, name]) => (
-                      <option key={id} value={id}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* ONSR Toggle + Group by River */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setOnsrOnly(!onsrOnly)}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      onsrOnly
-                        ? 'bg-[#7B2D3B] text-white shadow-md'
-                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                    }`}
-                    title="Ozark National Scenic Riverways - Current, Eleven Point, Jacks Fork"
-                  >
-                    ONSR
-                  </button>
-                  <button
-                    onClick={() => setGroupByRiver(!groupByRiver)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      groupByRiver
-                        ? 'bg-primary-500 text-white shadow-md'
-                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                    }`}
-                    title="Group gauges by river"
-                  >
-                    <Layers className="w-4 h-4" />
-                    <span className="hidden sm:inline">Group by River</span>
-                  </button>
-                </div>
-
-                {/* Date range for charts */}
-                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {DATE_RANGES.map(range => (
-                    <button
-                      key={range.days}
-                      onClick={() => setDateRange(range.days)}
-                      className={`flex-1 md:flex-none px-3 py-2 text-sm font-medium transition-colors ${
-                        dateRange === range.days
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {range.label}
-                    </button>
+                <select
+                  value={selectedRiver}
+                  onChange={(e) => setSelectedRiver(e.target.value)}
+                  className="w-full md:w-auto px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="all">All Rivers</option>
+                  {rivers.map(([id, name]) => (
+                    <option key={id} value={id}>{name}</option>
                   ))}
-                </div>
+                </select>
+
+                {/* Group by River toggle */}
+                <button
+                  onClick={() => setGroupByRiver(!groupByRiver)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    groupByRiver
+                      ? 'bg-primary-500 text-white shadow-sm'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
+                  title="Group gauges by river"
+                >
+                  <Layers className="w-4 h-4" />
+                  <span className="hidden sm:inline">Group by River</span>
+                </button>
 
                 {/* Clear filters */}
                 {hasActiveFilters && (
@@ -811,9 +771,39 @@ export default function GaugesPage() {
                     className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
                   >
                     <X className="w-4 h-4" />
-                    Clear Filters
+                    Clear
                   </button>
                 )}
+              </div>
+
+              {/* Row 2: Condition filter pills */}
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'too_low' as ConditionCode, count: stats.tooLow, label: 'Too Low', dot: 'bg-neutral-500' },
+                  { key: 'low' as ConditionCode, count: stats.low, label: 'Low', dot: 'bg-yellow-500' },
+                  { key: 'okay' as ConditionCode, count: stats.okay, label: 'Okay', dot: 'bg-lime-500' },
+                  { key: 'optimal' as ConditionCode, count: stats.optimal, label: 'Optimal', dot: 'bg-emerald-500' },
+                  { key: 'high' as ConditionCode, count: stats.high, label: 'High', dot: 'bg-orange-500' },
+                  { key: 'dangerous' as ConditionCode, count: stats.flood, label: 'Flood', dot: 'bg-red-500' },
+                ]).map(stat => {
+                  const isActive = selectedCondition === stat.key;
+                  return (
+                    <button
+                      key={stat.key}
+                      onClick={() => setSelectedCondition(isActive ? 'all' : stat.key)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        isActive
+                          ? `${stat.dot.replace('bg-', 'bg-')} text-white shadow-sm`
+                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      }`}
+                      style={isActive ? { backgroundColor: getComputedPillColor(stat.key) } : undefined}
+                    >
+                      {!isActive && <span className={`w-2 h-2 rounded-full ${stat.dot}`} />}
+                      {stat.label}
+                      <span className={`tabular-nums ${isActive ? 'text-white/80' : 'text-neutral-500'}`}>{stat.count}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
