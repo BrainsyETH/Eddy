@@ -113,14 +113,14 @@ SELECT
     ARRAY['access', 'campground'],
     true,
     'USFS',
-    'USDA Forest Service campground in the Mark Twain National Forest at mile 3.0. Popular with OHV/ATV riders, equestrians, and mountain bikers. Trailhead for the Ozark Trail (Courtois Creek Section). Part of the historic Old Lead Belt — features a foundation from a historic lead smelter. The Trail of Tears National Historic Trail passes through the site.',
-    ARRAY['parking', 'camping', 'picnic'],
-    'Small gravel parking area at campground entrance. Fits approximately 10–15 vehicles.',
-    'From Potosi, drive south on Highway P for 14 miles, turn right on Highway C and travel west for 4 miles to Highway Z, then continue northwest on Highway Z for 2 miles. After pavement ends, continue straight ahead on County Road 657 for 1 mile to Hazel Creek Campground on the left. Remote area — no cell phone service.',
-    'Primitive USFS campground with flat gravel/dirt campsites. Each site has a fire ring with grill, picnic table, and lantern post. Densely wooded with full shade. Vault toilets. No water, no electric hookups, no trash service. Ozark Trail trailhead on the road leading into the campground.',
+    'Primitive USFS campground in the Mark Twain National Forest at mile 3.0 with 10 individual sites. Popular with OHV/ATV riders, equestrians, and mountain bikers — hitching posts at each site and spurs large enough for horse trailers. Trailhead for the Ozark Trail (Trace Creek / Courtois Creek Section, ~24 miles). Part of the historic Old Lead Belt — features a foundation from a historic lead smelter. The Trail of Tears National Historic Trail passes through the site. Not on Recreation.gov — first-come, first-served, no fee.',
+    ARRAY['parking', 'camping'],
+    '10 individual sites with parking spurs. Some spurs large enough for horse trailers. Small gravel parking area at campground entrance.',
+    'From Potosi, head west on Hwy 8 approx 0.2 miles to Hwy P. Turn left onto Hwy P, head south for 14 miles to Hwy C. Turn right onto Hwy C, head west for 4 miles to Hwy Z. Turn right onto Hwy Z (aka Brazil Rd / Co Rd 657) north for approximately 3 miles to campground entrance on the left. Last stretch is unpaved. Remote area — no cell phone service. Contact: Potosi/Fredericktown Ranger District (573) 438-5427.',
+    'Primitive USFS campground — 10 sites, each with fire ring/grill, picnic table, lantern post, and hitching post. NO WATER. NO TOILETS. No electric hookups. No trash service — pack in, pack out. No regular mowing. Horses welcome; Huzzah Creek available for watering stock. Ozark Trail trailhead at the campground.',
     false,
     ARRAY['paved', 'gravel_unmaintained']::text[],
-    '15',
+    '10',
     'USFS',
     'https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21846',
     3.0,
@@ -219,40 +219,62 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
     local_tips = EXCLUDED.local_tips,
     approved = EXCLUDED.approved;
 
--- Red Bluff Access — Mile 8.3
+-- Red Bluff Recreation Area (USFS) — Mile 8.3
+-- Recreation.gov Facility ID: 232391
+-- https://www.recreation.gov/camping/campgrounds/232391
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
-    fee_required, road_surface, parking_capacity,
-    river_mile_upstream, approved
+    fee_required, fee_notes, road_surface, parking_capacity, managing_agency,
+    official_site_url, ridb_facility_id,
+    river_mile_upstream, approved,
+    local_tips,
+    nearby_services
 )
 SELECT
     r.id,
-    'Red Bluff Access',
+    'Red Bluff Recreation Area',
     'red-bluff',
     ST_SetSRID(ST_MakePoint(-91.3390, 37.8862), 4326),
-    'access',
-    ARRAY['access'],
+    'campground',
+    ARRAY['access', 'campground'],
     true,
-    'county',
-    'Scenic access point at mile 8.3 with Red Bluff towering on river right. Access is on the left bank via county road. Nice gravel bar area.',
-    ARRAY['parking'],
-    'Small gravel pull-off. Roadside parking for approximately 5 vehicles.',
-    'Gravel county road off Highway 8. Road is maintained but can be rough after heavy rain. Passenger vehicles OK in dry conditions.',
-    'No facilities. Undeveloped access point with gravel bar.',
-    false,
-    ARRAY['gravel_maintained']::text[],
-    '5',
+    'USFS',
+    'USFS campground in the Potosi-Fredericktown Ranger District of Mark Twain National Forest at mile 8.3. Named for towering red bluffs along Huzzah Creek, carved by the elements over 10,000 years. Four camping loops: Creek Loop, Ridge Top Loop, Pines Overlook Loop, and Group Loop. Many sites are within 200 yards of Huzzah Creek. Three new loops (Ridge Top, Creek, Group) were constructed above the floodplain with modern restrooms, water, and electricity. The 1.2-mile Red Bluff Trail loops through a pine plantation and big oak timber.',
+    ARRAY['parking', 'restrooms', 'camping', 'picnic', 'boat_ramp'],
+    'Multiple paved parking areas at each camping loop. Day-use parking near pavilion. Ample space for vehicles and trailers.',
+    'From St. Louis, take I-44 west to Cuba. Continue on Hwy 19 south to Cherryville. Take Hwy 49 south to Hwy V, turn left to Davisville and travel approximately 1 mile, turn left into the campground. Approximately 1 mile from Davisville. All paved roads.',
+    'Major USFS campground with 4 camping loops. Creek Loop, Ridge Top Loop, and Group Loop have modern restrooms with flush toilets, running water, and electricity (30-amp and 50-amp pedestals). Pines Overlook (PO) loop is non-electric. New shower house and dump station. Two pavilions (one accommodates 75 people). Individual picnic sites with tables and grills. Water spigots throughout. 1.2-mile Red Bluff Trail. Swimming and tubing in Huzzah Creek (unmanaged). Fishing for bass, perch, and catfish.',
+    true,
+    'Single site $15/night, electric site $25/night, double site $25/night, double electric $35/night, group site $50–$100/night. Additional vehicle $2/night. Day use $5/vehicle/day. Reservations available on Recreation.gov.',
+    ARRAY['paved']::text[],
+    '40+',
+    'USFS',
+    'https://www.recreation.gov/camping/campgrounds/232391',
+    '232391',
     8.3,
-    true
+    true,
+    '<p>Red Bluff is a full-service USFS campground — not just a river access. Reservations recommended on summer weekends. Creek Loop sites are closest to the water. Pines Overlook sites are more secluded but non-electric. Dogs must be leashed (6 ft). Firewood: collect dead/downed only. No fireworks.</p>',
+    '[{"name": "Huzzah Valley Resort", "type": "outfitter", "phone": "800-367-4516", "website": "https://huzzahvalley.com", "distance": "2 miles", "notes": "Canoe/kayak/raft rentals, shuttle service, restaurant, store"}, {"name": "Davisville", "type": "town", "distance": "1 mile", "notes": "Small village — limited services"}]'::jsonb
 FROM rivers r WHERE r.slug = 'huzzah'
 ON CONFLICT (river_id, slug) DO UPDATE SET
+    name = EXCLUDED.name,
+    type = EXCLUDED.type,
+    types = EXCLUDED.types,
+    ownership = EXCLUDED.ownership,
     description = EXCLUDED.description,
     road_access = EXCLUDED.road_access,
     facilities = EXCLUDED.facilities,
     parking_info = EXCLUDED.parking_info,
+    amenities = EXCLUDED.amenities,
+    fee_required = EXCLUDED.fee_required,
+    fee_notes = EXCLUDED.fee_notes,
     road_surface = EXCLUDED.road_surface,
     parking_capacity = EXCLUDED.parking_capacity,
+    managing_agency = EXCLUDED.managing_agency,
+    official_site_url = EXCLUDED.official_site_url,
+    local_tips = EXCLUDED.local_tips,
+    nearby_services = EXCLUDED.nearby_services,
     approved = EXCLUDED.approved;
 
 -- Butts Low-Water Bridge — Mile 15.4
