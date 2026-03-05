@@ -21,6 +21,8 @@ export interface GaugeContext {
   conditionLabel: string;
   readingTimestamp: string | null;
   optimalRange: string;
+  closureLevel: number | null;
+  notes: string | null;
 }
 
 export interface GeneratedUpdate {
@@ -229,12 +231,16 @@ function buildPrompt(
     lines.push(`Trend: ${trendLabel}`);
   }
 
-  // Gauge threshold knowledge
-  if (gaugeKnowledge) {
+  // Gauge threshold knowledge — prefer DB-sourced values from gauge context
+  if (gauge?.notes) {
+    lines.push(`Gauge notes: ${gauge.notes}`);
+  } else if (gaugeKnowledge) {
     lines.push(`Gauge notes: ${gaugeKnowledge.notes}`);
-    if (gaugeKnowledge.closureLevel) {
-      lines.push(`Closure level: ${gaugeKnowledge.closureLevel} ft`);
-    }
+  }
+  if (gauge?.closureLevel != null) {
+    lines.push(`Closure level: ${gauge.closureLevel} ft`);
+  } else if (gaugeKnowledge?.closureLevel) {
+    lines.push(`Closure level: ${gaugeKnowledge.closureLevel} ft`);
   }
 
   // Weather (current)
@@ -435,6 +441,14 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
 
   const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
 
+  // Build optimal range from actual DB thresholds, not hardcoded values
+  const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
+  const optMin = gaugeLink.level_optimal_min;
+  const optMax = gaugeLink.level_optimal_max;
+  const optimalRange = (optMin != null && optMax != null)
+    ? `${optMin}–${optMax} ${unit}`
+    : knowledge?.optimalRange ?? 'unknown';
+
   return {
     gaugeName: station.name || 'Unknown gauge',
     gaugeHeightFt,
@@ -442,6 +456,8 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,
-    optimalRange: knowledge?.optimalRange ?? 'unknown',
+    optimalRange,
+    closureLevel: gaugeLink.level_dangerous ?? null,
+    notes: knowledge?.notes ?? null,
   };
 }

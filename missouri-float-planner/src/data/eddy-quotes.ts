@@ -17,11 +17,11 @@ export interface RiverKnowledge {
 
 export const RIVER_KNOWLEDGE: Record<string, RiverKnowledge> = {
   current: {
-    primaryGauge: 'Akers',
-    optimalRange: '2.0–3.0 ft',
-    optimalLow: 2.0,
-    optimalHigh: 3.0,
-    closureLevel: 4.0,
+    primaryGauge: 'Van Buren',
+    optimalRange: '3.5–6.0 ft',
+    optimalLow: 3.5,
+    optimalHigh: 6.0,
+    closureLevel: 12.0,
     notes: 'Spring-fed and forgiving. Upper sections (Montauk to Akers) need a touch more water.',
   },
   'eleven-point': {
@@ -33,11 +33,11 @@ export const RIVER_KNOWLEDGE: Record<string, RiverKnowledge> = {
     notes: 'Best mid-June through September. Spring rains bring murky water and fast rises.',
   },
   'jacks-fork': {
-    primaryGauge: 'Alley Spring',
-    optimalRange: '2.5–3.0 ft',
-    optimalLow: 2.5,
-    optimalHigh: 3.0,
-    closureLevel: 4.0,
+    primaryGauge: 'Mountain View',
+    optimalRange: '3.0–5.0 ft',
+    optimalLow: 3.0,
+    optimalHigh: 5.0,
+    closureLevel: 10.0,
     notes: 'Shallow and rain-dependent. Rises and falls fast — flash floods are a serious concern.',
   },
   meramec: {
