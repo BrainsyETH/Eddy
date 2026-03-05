@@ -65,8 +65,7 @@ export type AccessPointType =
   | 'campground'
   | 'bridge'
   | 'access'
-  | 'park'
-  | 'float_camp';
+  | 'park';
 
 // ─────────────────────────────────────────────────────────────
 // Access Point Detail Types (for enhanced detail pages)

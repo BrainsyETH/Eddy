@@ -41,28 +41,6 @@ BEGIN
     UPDATE access_points SET river_mile_downstream = 48.0
     WHERE river_id = v_river_id AND (name ILIKE '%Myrtle%' OR name ILIKE '%Stubblefield%');
 
-    -- Float camps
-    UPDATE access_points SET river_mile_downstream = 6.5
-    WHERE river_id = v_river_id AND (name ILIKE '%Denny Hollow%');
-
-    UPDATE access_points SET river_mile_downstream = 26.5
-    WHERE river_id = v_river_id AND (name ILIKE '%Horseshoe Bend%');
-
-    UPDATE access_points SET river_mile_downstream = 27.0
-    WHERE river_id = v_river_id AND (name ILIKE '%Barn Hollow%');
-
-    UPDATE access_points SET river_mile_downstream = 28.5
-    WHERE river_id = v_river_id AND (name ILIKE '%Whites Creek%');
-
-    UPDATE access_points SET river_mile_downstream = 31.0
-    WHERE river_id = v_river_id AND (name ILIKE '%Greenbriar%');
-
-    UPDATE access_points SET river_mile_downstream = 33.4
-    WHERE river_id = v_river_id AND (name ILIKE '%Boze Mill%');
-
-    UPDATE access_points SET river_mile_downstream = 43.3
-    WHERE river_id = v_river_id AND (name ILIKE '%Morgan Spring%');
-
     RAISE NOTICE 'Eleven Point River mile markers updated';
 END $$;
 

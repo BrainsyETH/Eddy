@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import React from 'react';
 import maplibregl from 'maplibre-gl';
-import { Star, type LucideIcon, Droplets, Mountain, Landmark, Eye, CircleDot } from 'lucide-react';
+import { Star, type LucideIcon, Droplets, Mountain, Landmark, Eye, CircleDot, Tent } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { PointOfInterest } from '@/types/nps';
@@ -23,6 +23,7 @@ const POI_ICONS: Record<string, LucideIcon> = {
   scenic_viewpoint: Eye,
   waterfall: Droplets,
   geological: CircleDot,
+  float_camp: Tent,
   other: Star,
 };
 
@@ -119,6 +120,7 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
         scenic_viewpoint: 'Scenic Viewpoint',
         waterfall: 'Waterfall',
         geological: 'Geological Feature',
+        float_camp: 'Float Camp',
         other: 'Point of Interest',
       };
 
