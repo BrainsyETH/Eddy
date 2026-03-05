@@ -89,6 +89,7 @@ export const POI_TYPES = {
   scenic_viewpoint: 'Scenic Viewpoint',
   waterfall: 'Waterfall',
   geological: 'Geological Feature',
+  float_camp: 'Float Camp',
   other: 'Other',
 } as const;
 

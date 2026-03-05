@@ -49,6 +49,7 @@ const POI_TYPE_COLORS: Record<string, string> = {
   scenic_viewpoint: '#16a34a', // green
   waterfall: '#2563eb',    // blue
   geological: '#dc2626',   // red
+  float_camp: '#92400e',   // amber-800 (earthy brown)
   other: '#6b7280',        // gray
 };
 
