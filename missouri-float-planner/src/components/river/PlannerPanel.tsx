@@ -7,7 +7,7 @@
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import type { RiverWithDetails, AccessPoint } from '@/types/api';
+import type { AccessPoint } from '@/types/api';
 
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
@@ -16,7 +16,6 @@ const AccessPointSelector = dynamic(() => import('@/components/river/AccessPoint
 });
 
 interface PlannerPanelProps {
-  river: RiverWithDetails;
   accessPoints: AccessPoint[];
   isLoading: boolean;
   // Controlled state from parent
@@ -27,7 +26,6 @@ interface PlannerPanelProps {
 }
 
 export default function PlannerPanel({
-  river: _river,
   accessPoints,
   isLoading,
   selectedPutIn,
@@ -35,8 +33,6 @@ export default function PlannerPanel({
   onPutInChange,
   onTakeOutChange,
 }: PlannerPanelProps) {
-  // river prop kept for interface compatibility
-  void _river;
   const selectedPutInPoint = selectedPutIn
     ? accessPoints.find((point) => point.id === selectedPutIn)
     : null;

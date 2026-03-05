@@ -60,7 +60,7 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
   if (isLoading) {
     return (
       <div className={`bg-white/5 rounded-lg p-4 ${className}`}>
-        <div className="flex items-center gap-2 text-neutral-400 text-sm">
+        <div className="flex items-center gap-2 text-neutral-500 text-sm">
           <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           Loading 7-day trend...
         </div>
@@ -71,7 +71,7 @@ export default function FlowTrendChart({ gaugeSiteId, className = '' }: FlowTren
   if (error || !chartData) {
     return (
       <div className={`bg-white/5 rounded-lg p-4 ${className}`}>
-        <p className="text-neutral-400 text-sm">Flow trend data unavailable</p>
+        <p className="text-neutral-500 text-sm">Flow trend data unavailable</p>
       </div>
     );
   }

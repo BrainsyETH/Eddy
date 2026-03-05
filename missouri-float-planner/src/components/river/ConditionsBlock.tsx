@@ -136,7 +136,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
               </span>
             </div>
             {readingAge && (
-              <span className="text-xs text-neutral-400">{readingAge}</span>
+              <span className="text-xs text-neutral-500">{readingAge}</span>
             )}
           </div>
 
@@ -237,7 +237,7 @@ export default function ConditionsBlock({ riverSlug, condition, nearestGauge, ha
             )}
 
             {/* Safety note */}
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-neutral-500">
               Always confirm conditions with local outfitters. Levels change rapidly.
             </p>
           </div>

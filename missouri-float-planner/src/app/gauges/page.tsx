@@ -28,39 +28,14 @@ import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 import type { ConditionCode } from '@/types/api';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import FeedbackModal from '@/components/ui/FeedbackModal';
+import SiteFooter from '@/components/ui/SiteFooter';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import type { FeedbackContext } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 
-const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
-
-// Eddy otter images for different conditions
-const EDDY_CONDITION_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-};
-
-// Map condition codes to Eddy images
-const getEddyImageForCondition = (code: ConditionCode): string => {
-  switch (code) {
-    case 'optimal':
-    case 'okay': // "Okay - Floatable"
-      return EDDY_CONDITION_IMAGES.green;
-    case 'high':
-    case 'dangerous': // Flood
-      return EDDY_CONDITION_IMAGES.red;
-    case 'low': // "Low - Scraping Likely"
-      return EDDY_CONDITION_IMAGES.yellow;
-    case 'too_low':
-    case 'unknown':
-    default:
-      return EDDY_CONDITION_IMAGES.flag;
-  }
-};
+import { EDDY_IMAGES, getEddyImageForCondition } from '@/constants';
 
 // Map condition codes to Eddy Says card theme colors
 const getEddyCardTheme = (code: ConditionCode) => {
@@ -654,7 +629,7 @@ export default function GaugesPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10">
             <Image
-              src={EDDY_FLOOD_IMAGE}
+              src={EDDY_IMAGES.flood}
               alt="Eddy the Otter"
               width={400}
               height={400}
@@ -989,17 +964,7 @@ export default function GaugesPage() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-12">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-primary-200 mb-2">
-            Eddy &middot; Missouri River Float Trip Planner
-          </p>
-          <p className="text-sm text-primary-300">
-            Water data from USGS &middot; Updated hourly
-          </p>
-        </div>
-      </footer>
+      <SiteFooter subtitle="Water data from USGS &middot; Updated hourly" maxWidth="max-w-6xl" className="mt-12" />
 
       {/* Desktop Slide-Over Drawer */}
       {isDesktop && expandedGaugeId && (() => {

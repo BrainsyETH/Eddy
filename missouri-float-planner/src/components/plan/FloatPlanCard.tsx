@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
@@ -173,6 +173,7 @@ interface FloatPlanCardProps {
   onClearTakeOut: () => void;
   onShare: () => void;
   onDownloadImage: () => void;
+  shareStatus?: 'idle' | 'copied';
   riverSlug: string;
   riverName?: string;
   vesselTypeId: string | null;
@@ -1049,6 +1050,7 @@ function MobileBottomSheet({
   onVesselChange,
   onShare,
   onDownloadImage,
+  shareStatus = 'idle',
   onReportIssue,
   pointsAlongRoute = [],
 }: {
@@ -1062,6 +1064,7 @@ function MobileBottomSheet({
   onVesselChange: (id: string) => void;
   onShare: () => void;
   onDownloadImage: () => void;
+  shareStatus?: 'idle' | 'copied';
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }) {
@@ -1391,10 +1394,14 @@ function MobileBottomSheet({
         <div className="flex gap-3 pb-4">
           <button
             onClick={onShare}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
+              shareStatus === 'copied'
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+            }`}
           >
-            <Share2 size={16} />
-            Share
+            {shareStatus === 'copied' ? <Check size={16} /> : <Share2 size={16} />}
+            {shareStatus === 'copied' ? 'Copied!' : 'Share'}
           </button>
           <button
             onClick={onDownloadImage}
@@ -1418,6 +1425,7 @@ export default function FloatPlanCard({
   onClearTakeOut,
   onShare,
   onDownloadImage,
+  shareStatus = 'idle',
   riverSlug: _riverSlug,
   riverName,
   vesselTypeId,
@@ -1563,10 +1571,14 @@ export default function FloatPlanCard({
             <div className="flex gap-3">
               <button
                 onClick={onShare}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                  shareStatus === 'copied'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                }`}
               >
-                <Share2 size={16} />
-                Share Link
+                {shareStatus === 'copied' ? <Check size={16} /> : <Share2 size={16} />}
+                {shareStatus === 'copied' ? 'Copied!' : 'Share Link'}
               </button>
               <button
                 onClick={onDownloadImage}
@@ -1602,6 +1614,7 @@ export default function FloatPlanCard({
           onVesselChange={onVesselChange}
           onShare={onShare}
           onDownloadImage={onDownloadImage}
+          shareStatus={shareStatus}
           onReportIssue={onReportIssue}
           pointsAlongRoute={pointsAlongRoute}
         />
