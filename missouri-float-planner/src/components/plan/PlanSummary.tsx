@@ -359,6 +359,17 @@ export default function PlanSummary({
                 <p className="text-xs text-neutral-500">Mile {displayPlan.takeOut.riverMile.toFixed(1)}</p>
               </div>
             </div>
+
+            {/* Road access warnings */}
+            {displayPlan.warnings.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {displayPlan.warnings.map((warning, idx) => (
+                  <p key={idx} className="text-xs text-red-600 flex items-start gap-1">
+                    <span>⚠</span> {warning}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Column 2: Float Details */}
@@ -487,39 +498,22 @@ export default function PlanSummary({
           </div>
         </div>
 
-        {/* Hazards & Warnings below main row */}
-        {(displayPlan.hazards.length > 0 || displayPlan.warnings.length > 0) && (
-          <div className="mt-4 space-y-3 lg:space-y-0 lg:flex lg:gap-4">
-            {/* Hazards */}
-            {displayPlan.hazards.length > 0 && (
-              <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 lg:flex-1">
-                <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-2">
-                  ⚠ Hazards on Route
-                </p>
-                <ul className="space-y-1">
-                  {displayPlan.hazards.map((hazard) => (
-                    <li key={hazard.id} className="text-sm text-amber-800">
-                      <span className="font-medium">{hazard.name}</span>
-                      <span className="text-amber-600"> - Mile {hazard.riverMile.toFixed(1)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Warnings */}
-            {displayPlan.warnings.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 lg:flex-1">
-                <ul className="space-y-1">
-                  {displayPlan.warnings.map((warning, idx) => (
-                    <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
-                      <span className="text-red-500">•</span>
-                      {warning}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+        {/* Hazards below main row */}
+        {displayPlan.hazards.length > 0 && (
+          <div className="mt-4">
+            <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+              <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-2">
+                ⚠ Hazards on Route
+              </p>
+              <ul className="space-y-1">
+                {displayPlan.hazards.map((hazard) => (
+                  <li key={hazard.id} className="text-sm text-amber-800">
+                    <span className="font-medium">{hazard.name}</span>
+                    <span className="text-amber-600"> - Mile {hazard.riverMile.toFixed(1)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
       </div>
