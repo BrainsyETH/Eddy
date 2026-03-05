@@ -461,13 +461,13 @@ export async function GET(request: NextRequest) {
 
     // Warn if put-in or take-out may not have direct road access
     const roadAccessTypes = ['access', 'boat_ramp'];
-    const putInTypes = (putIn.types || [putIn.type]) as string[];
-    const takeOutTypes = (takeOut.types || [takeOut.type]) as string[];
+    const putInTypes = (Array.isArray(putIn.types) && putIn.types.length > 0 ? putIn.types : [putIn.type]).filter(Boolean) as string[];
+    const takeOutTypes = (Array.isArray(takeOut.types) && takeOut.types.length > 0 ? takeOut.types : [takeOut.type]).filter(Boolean) as string[];
     if (!putInTypes.some(t => roadAccessTypes.includes(t))) {
-      warnings.push(`${putIn.name} may not have direct road access — plan accordingly`);
+      warnings.push(`${putIn.name} may not have direct road access — verify before launching`);
     }
     if (!takeOutTypes.some(t => roadAccessTypes.includes(t))) {
-      warnings.push(`${takeOut.name} may not have direct road access — plan accordingly`);
+      warnings.push(`${takeOut.name} may not have direct road access — verify before launching`);
     }
 
     // Always derive flowRating from threshold-based condition code (not percentile)
