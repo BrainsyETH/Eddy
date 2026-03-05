@@ -74,91 +74,6 @@ const ONSR_RIVERS = ['current river', 'eleven point river', 'jacks fork river', 
 
 // Static river summaries removed — replaced by AI-generated Eddy updates
 
-// Gauge-specific threshold descriptions (local knowledge)
-// Keys are USGS site IDs
-type ThresholdDescriptions = {
-  tooLow: string;
-  low: string;
-  okay: string;
-  optimal: string;
-  high: string;
-  flood: string;
-};
-
-const GAUGE_THRESHOLD_DESCRIPTIONS: Record<string, ThresholdDescriptions> = {
-  // Doniphan - uses CFS thresholds due to datum issues
-  '07068000': {
-    tooLow: 'Genuinely scrapy, ~1,000 cfs',
-    low: 'Floatable but slow, some dragging',
-    okay: 'Decent conditions, typical summer levels',
-    optimal: 'Good flow, 2,000-4,000 cfs, clear water likely',
-    high: 'Fast and muddy, experienced only',
-    flood: 'Dangerous conditions, do not float',
-  },
-  // Akers - primary Current River gauge
-  '07064533': {
-    tooLow: 'Significant dragging, walking your boat',
-    low: 'May scrape in riffles, especially loaded',
-    okay: 'Floatable with some dragging',
-    optimal: 'Good floating, minimal dragging',
-    high: 'River closes at NPS flood level',
-    flood: 'Dangerous, river closed',
-  },
-  // Van Buren
-  '07067000': {
-    tooLow: 'Very shallow, not recommended',
-    low: 'Marginal floating',
-    okay: 'Floatable, just below average',
-    optimal: 'Tubes best below 4.0, good floating',
-    high: 'Motor vessels only beyond this',
-    flood: 'Flood level, do not float',
-  },
-  // Montauk
-  '07064440': {
-    tooLow: 'Constant dragging, walking boat',
-    low: 'Floatable but scrapy',
-    okay: 'Decent, some dragging above Welch Spring',
-    optimal: 'Sweet spot, avg 1.8 ft, best clarity',
-    high: 'Fast and likely muddy',
-    flood: 'Dangerous, rises extremely fast',
-  },
-  // Eleven Point - Bardley
-  '07071500': {
-    tooLow: 'Scraping likely, below avg 1.7 ft',
-    low: 'Floatable but some dragging',
-    okay: 'Decent conditions',
-    optimal: 'Good floating, ideal range',
-    high: 'Suggest another day, murky/muddy',
-    flood: 'Forest Service closes, do not float',
-  },
-  // Jacks Fork - Mountain View (upper)
-  '07065200': {
-    tooLow: 'Significant dragging',
-    low: 'Some dragging expected',
-    okay: 'Average level, minimal dragging',
-    optimal: 'Good conditions',
-    high: 'River closes here',
-    flood: 'Flood level, dangerous',
-  },
-  // Jacks Fork - Alley Spring (primary)
-  '07065495': {
-    tooLow: 'Significant dragging',
-    low: 'Some dragging expected',
-    okay: 'Average level, minimal dragging',
-    optimal: 'Good conditions',
-    high: 'River closes here',
-    flood: 'Flood level, dangerous',
-  },
-  // Jacks Fork - Eminence (lower)
-  '07066000': {
-    tooLow: 'Very low, may drag loaded',
-    low: 'Average ~1.5 ft, may drag',
-    okay: 'Floatable',
-    optimal: 'Good conditions',
-    high: 'Suggest another day',
-    flood: 'River closes',
-  },
-};
 
 export default function GaugesPage() {
   const searchParams = useSearchParams();
@@ -1308,14 +1223,14 @@ function GaugeExpandedPanel({
               if (val === null) return null;
               return unit === 'cfs' ? val.toLocaleString() : val.toFixed(2);
             };
-            const descriptions = gauge.thresholdDescriptions || GAUGE_THRESHOLD_DESCRIPTIONS[gauge.usgsSiteId];
+            const descriptions = gauge.thresholdDescriptions;
             const decrementValue = unit === 'cfs' ? 1 : 0.01;
 
             return (
               <div>
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                   <h4 className="text-sm font-semibold text-neutral-700">
-                    Thresholds for {pr.riverName}
+                    Condition Thresholds
                   </h4>
                   {hasAltThresholds ? (
                     <div className="flex rounded-md border border-neutral-300 overflow-hidden">
