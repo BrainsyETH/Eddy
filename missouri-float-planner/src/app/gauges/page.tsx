@@ -29,7 +29,7 @@ import GaugeWeather from '@/components/ui/GaugeWeather';
 import FeedbackModal from '@/components/ui/FeedbackModal';
 import type { FeedbackContext } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
-import { RIVER_KNOWLEDGE, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 
 const EDDY_FLOOD_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png';
 
@@ -710,21 +710,25 @@ export default function GaugesPage() {
                         </div>
                       </>
                     ) : (() => {
-                      // Static fallback: build from gauge conditions + RIVER_KNOWLEDGE
+                      // Static fallback: build from gauge conditions + DB thresholds
                       const riverGauges = processedGauges.filter(g => g.primaryRiver?.riverId === selectedRiver);
                       const primary = riverGauges.find(g => g.primaryRiver?.isPrimary) || riverGauges[0];
                       const condCode = (primary?.condition.code || 'unknown') as ConditionCode;
-                      const knowledge = selectedRiverSlug ? RIVER_KNOWLEDGE[selectedRiverSlug] : null;
                       const blurb = CONDITION_CARD_BLURBS[condCode];
                       const gauge = primary?.gaugeHeightFt;
+                      const pr = primary?.primaryRiver;
+                      const optMin = pr?.levelOptimalMin;
+                      const optMax = pr?.levelOptimalMax;
+                      const unit = pr?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+                      const optRange = (optMin != null && optMax != null) ? `${optMin}\u2013${optMax} ${unit}` : null;
+                      const notes = selectedRiverSlug ? RIVER_NOTES[selectedRiverSlug] : null;
                       const parts: string[] = [];
                       if (gauge !== null && gauge !== undefined) {
                         parts.push(`Reading ${gauge.toFixed(1)} ft at the ${primary?.name || 'primary gauge'}.`);
                       }
                       parts.push(blurb);
-                      if (knowledge) {
-                        parts.push(`Optimal range is ${knowledge.optimalRange}. ${knowledge.notes}`);
-                      }
+                      if (optRange) parts.push(`Optimal range is ${optRange}.`);
+                      if (notes) parts.push(notes);
                       return (
                         <p className="text-sm sm:text-base leading-relaxed font-medium text-emerald-900">
                           &ldquo;{parts.join(' ')}&rdquo;

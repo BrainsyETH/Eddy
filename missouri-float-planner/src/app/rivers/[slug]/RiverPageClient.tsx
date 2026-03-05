@@ -497,6 +497,14 @@ export default function RiverPage() {
             gaugeHeightFt={condition?.gaugeHeightFt ?? null}
             weather={weatherData ? { condition: weatherData.condition, temp: weatherData.temp } : null}
             readingAgeHours={condition?.readingAgeHours ?? null}
+            optimalRange={(() => {
+              const primary = gaugeStations
+                ?.flatMap(g => g.thresholds ?? [])
+                .find(t => t.riverId === river?.id && t.isPrimary);
+              if (!primary?.levelOptimalMin || !primary?.levelOptimalMax) return null;
+              const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+              return `${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`;
+            })()}
           />
         </div>
 

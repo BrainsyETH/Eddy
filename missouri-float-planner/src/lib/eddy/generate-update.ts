@@ -4,7 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
-import { RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
+import { RIVER_NOTES } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
@@ -21,6 +21,8 @@ export interface GaugeContext {
   conditionLabel: string;
   readingTimestamp: string | null;
   optimalRange: string;
+  closureLevel: number | null;
+  notes: string | null;
 }
 
 export interface GeneratedUpdate {
@@ -184,7 +186,7 @@ function buildPrompt(
   localKnowledge: string,
   trendLabel: string | null = null,
 ): string {
-  const gaugeKnowledge = RIVER_KNOWLEDGE[target.riverSlug];
+  const riverNotes = RIVER_NOTES[target.riverSlug];
   const lines: string[] = [];
 
   // Date context so the model can reference day of week, season, etc.
@@ -229,12 +231,14 @@ function buildPrompt(
     lines.push(`Trend: ${trendLabel}`);
   }
 
-  // Gauge threshold knowledge
-  if (gaugeKnowledge) {
-    lines.push(`Gauge notes: ${gaugeKnowledge.notes}`);
-    if (gaugeKnowledge.closureLevel) {
-      lines.push(`Closure level: ${gaugeKnowledge.closureLevel} ft`);
-    }
+  // Gauge threshold knowledge — prefer DB-sourced values from gauge context
+  if (gauge?.notes) {
+    lines.push(`Gauge notes: ${gauge.notes}`);
+  } else if (riverNotes) {
+    lines.push(`Gauge notes: ${riverNotes}`);
+  }
+  if (gauge?.closureLevel != null) {
+    lines.push(`Closure level: ${gauge.closureLevel} ft`);
   }
 
   // Weather (current)
@@ -347,7 +351,6 @@ async function fetchGaugeTrend(riverSlug: string): Promise<string | null> {
  */
 async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null> {
   const supabase = createAdminClient();
-  const knowledge = RIVER_KNOWLEDGE[riverSlug];
 
   // Get primary gauge for river
   const { data: riverData, error: riverError } = await supabase
@@ -435,6 +438,14 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
 
   const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
 
+  // Build optimal range from actual DB thresholds, not hardcoded values
+  const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
+  const optMin = gaugeLink.level_optimal_min;
+  const optMax = gaugeLink.level_optimal_max;
+  const optimalRange = (optMin != null && optMax != null)
+    ? `${optMin}–${optMax} ${unit}`
+    : 'unknown';
+
   return {
     gaugeName: station.name || 'Unknown gauge',
     gaugeHeightFt,
@@ -442,6 +453,8 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,
-    optimalRange: knowledge?.optimalRange ?? 'unknown',
+    optimalRange,
+    closureLevel: gaugeLink.level_dangerous ?? null,
+    notes: RIVER_NOTES[riverSlug] ?? null,
   };
 }

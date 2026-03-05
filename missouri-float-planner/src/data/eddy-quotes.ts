@@ -4,82 +4,17 @@
 
 import type { ConditionCode } from '@/types/api';
 
-// --- River-specific local knowledge ---
+// --- River-specific local color (notes only — thresholds come from the DB) ---
 
-export interface RiverKnowledge {
-  primaryGauge: string;
-  optimalRange: string;       // e.g. "2.0–3.0 ft"
-  optimalLow: number;
-  optimalHigh: number;
-  closureLevel: number | null; // ft where river closes, null if unknown
-  notes: string;              // one-line situational tip
-}
-
-export const RIVER_KNOWLEDGE: Record<string, RiverKnowledge> = {
-  current: {
-    primaryGauge: 'Akers',
-    optimalRange: '2.0–3.0 ft',
-    optimalLow: 2.0,
-    optimalHigh: 3.0,
-    closureLevel: 4.0,
-    notes: 'Spring-fed and forgiving. Upper sections (Montauk to Akers) need a touch more water.',
-  },
-  'eleven-point': {
-    primaryGauge: 'Bardley',
-    optimalRange: '3.0–3.5 ft',
-    optimalLow: 3.0,
-    optimalHigh: 3.5,
-    closureLevel: 5.0,
-    notes: 'Best mid-June through September. Spring rains bring murky water and fast rises.',
-  },
-  'jacks-fork': {
-    primaryGauge: 'Alley Spring',
-    optimalRange: '2.5–3.0 ft',
-    optimalLow: 2.5,
-    optimalHigh: 3.0,
-    closureLevel: 4.0,
-    notes: 'Shallow and rain-dependent. Rises and falls fast — flash floods are a serious concern.',
-  },
-  meramec: {
-    primaryGauge: 'Sullivan',
-    optimalRange: '3.0–5.0 ft',
-    optimalLow: 3.0,
-    optimalHigh: 5.0,
-    closureLevel: 8.0,
-    notes: 'Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.',
-  },
-  niangua: {
-    primaryGauge: 'Bennett Spring',
-    optimalRange: '2.5–4.0 ft',
-    optimalLow: 2.5,
-    optimalHigh: 4.0,
-    closureLevel: 6.0,
-    notes: 'Fed by Bennett Spring. Generally consistent flows — a reliable choice.',
-  },
-  'big-piney': {
-    primaryGauge: 'Big Piney',
-    optimalRange: '2.5–4.0 ft',
-    optimalLow: 2.5,
-    optimalHigh: 4.0,
-    closureLevel: 6.0,
-    notes: 'Remote and scenic. Can get low in late summer — check before you go.',
-  },
-  huzzah: {
-    primaryGauge: 'Huzzah Creek',
-    optimalRange: '2.0–3.5 ft',
-    optimalLow: 2.0,
-    optimalHigh: 3.5,
-    closureLevel: 5.0,
-    notes: 'Short float sections, popular for day trips. Pairs well with Courtois for a weekend.',
-  },
-  courtois: {
-    primaryGauge: 'Courtois Creek',
-    optimalRange: '2.0–3.5 ft',
-    optimalLow: 2.0,
-    optimalHigh: 3.5,
-    closureLevel: 5.0,
-    notes: 'More secluded than Huzzah. Excellent for a quieter, scenic float.',
-  },
+export const RIVER_NOTES: Record<string, string> = {
+  current: 'Spring-fed and forgiving. Upper sections (Montauk to Akers) need a touch more water.',
+  'eleven-point': 'Best mid-June through September. Spring rains bring murky water and fast rises.',
+  'jacks-fork': 'Shallow and rain-dependent. Rises and falls fast — flash floods are a serious concern.',
+  meramec: 'Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.',
+  niangua: 'Fed by Bennett Spring. Generally consistent flows — a reliable choice.',
+  'big-piney': 'Remote and scenic. Can get low in late summer — check before you go.',
+  huzzah: 'Short float sections, popular for day trips. Pairs well with Courtois for a weekend.',
+  courtois: 'More secluded than Huzzah. Excellent for a quieter, scenic float.',
 };
 
 // --- Condition-based quote templates ---
@@ -200,14 +135,14 @@ export function buildEddyQuote(
   conditionCode: ConditionCode,
   gaugeHeightFt: number | null,
   weather?: WeatherInput | null,
+  optimalRange?: string | null,
 ): EddyQuoteData {
-  const knowledge = RIVER_KNOWLEDGE[riverSlug];
   const templates = QUOTE_TEMPLATES[conditionCode];
   let text = pickTemplate(templates);
 
   const gauge = gaugeHeightFt !== null ? gaugeHeightFt.toFixed(1) : '—';
-  const range = knowledge?.optimalRange ?? '—';
-  const note = knowledge?.notes ?? '';
+  const range = optimalRange ?? '—';
+  const note = RIVER_NOTES[riverSlug] ?? '';
 
   text = text
     .replace(/\{gauge\}/g, gauge)
