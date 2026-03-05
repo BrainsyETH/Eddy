@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   ChevronDown,
   ChevronUp,
@@ -18,15 +18,17 @@ import {
   X,
   Flag,
   Share2,
-  Check
+  Check,
+  Layers
 } from 'lucide-react';
 
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugesResponse, GaugeStation } from '@/app/api/gauges/route';
 import type { ConditionCode } from '@/types/api';
-import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import FeedbackModal from '@/components/ui/FeedbackModal';
+import FlowTrendChart from '@/components/ui/FlowTrendChart';
+import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import type { FeedbackContext } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
@@ -97,16 +99,32 @@ const ONSR_RIVERS = ['current river', 'eleven point river', 'jacks fork river', 
 
 export default function GaugesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [gaugeData, setGaugeData] = useState<GaugesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedGaugeId, setExpandedGaugeId] = useState<string | null>(null);
-  const [selectedRiver, setSelectedRiver] = useState<string>('all');
-  const [selectedCondition, setSelectedCondition] = useState<ConditionCode | 'all'>('all');
-  const [dateRange, setDateRange] = useState(7);
-  const [onsrOnly, setOnsrOnly] = useState(false);
+  const [selectedRiver, setSelectedRiver] = useState<string>(searchParams.get('riverFilter') || 'all');
+  const [selectedCondition, setSelectedCondition] = useState<ConditionCode | 'all'>((searchParams.get('condition') as ConditionCode) || 'all');
+  const [dateRange, setDateRange] = useState(Number(searchParams.get('days')) || 7);
+  const [onsrOnly, setOnsrOnly] = useState(searchParams.get('onsr') === 'true');
+  const [groupByRiver, setGroupByRiver] = useState(searchParams.get('group') === 'river');
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [copiedGaugeId, setCopiedGaugeId] = useState<string | null>(null);
+  const prefetchHistory = useGaugeHistoryPrefetch();
+
+  // Persist filter state in URL search params
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    // Keep existing deep-link params like ?river= and ?gauge=
+    if (selectedRiver !== 'all') params.set('riverFilter', selectedRiver); else params.delete('riverFilter');
+    if (selectedCondition !== 'all') params.set('condition', selectedCondition); else params.delete('condition');
+    if (dateRange !== 7) params.set('days', String(dateRange)); else params.delete('days');
+    if (onsrOnly) params.set('onsr', 'true'); else params.delete('onsr');
+    if (groupByRiver) params.set('group', 'river'); else params.delete('group');
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [selectedRiver, selectedCondition, dateRange, onsrOnly, groupByRiver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Eddy AI update cache: keyed by river slug
   const [eddyCache, setEddyCache] = useState<Record<string, EddyUpdateResponse['update'] | null>>({});
@@ -163,6 +181,17 @@ export default function GaugesPage() {
     }
     fetchGauges();
   }, []);
+
+  // Prefetch 7-day history for visible gauges when data loads
+  useEffect(() => {
+    if (!gaugeData?.gauges) return;
+    // Prefetch first 9 gauges (visible above the fold) with a slight delay to not block initial render
+    const timeout = setTimeout(() => {
+      const siteIds = gaugeData.gauges.slice(0, 9).map(g => g.usgsSiteId);
+      prefetchHistory(siteIds, 7);
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [gaugeData, prefetchHistory]);
 
   // Deep-link: auto-select river from ?river= query param (slug-based)
   useEffect(() => {
@@ -378,9 +407,10 @@ export default function GaugesPage() {
     setSelectedRiver('all');
     setSelectedCondition('all');
     setOnsrOnly(false);
+    setGroupByRiver(false);
   };
 
-  const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || onsrOnly;
+  const hasActiveFilters = selectedRiver !== 'all' || selectedCondition !== 'all' || onsrOnly || groupByRiver;
 
   // Open feedback modal with gauge context
   const openFeedbackModal = (gauge: GaugeStation & { condition: { code: ConditionCode; label: string; tailwindColor: string }; primaryRiver: NonNullable<GaugeStation['thresholds']>[0] | undefined }) => {
@@ -454,6 +484,151 @@ export default function GaugesPage() {
 
   const eddyUpdate = selectedRiverSlug ? eddyCache[selectedRiverSlug] ?? null : null;
 
+  // Render a single gauge card (used by both flat and grouped views)
+  const renderGaugeCard = (gauge: typeof processedGauges[0]) => {
+    const isExpanded = expandedGaugeId === gauge.id;
+    const ageText = getAgeText(gauge);
+
+    return (
+      <div
+        key={gauge.id}
+        ref={(el) => { gaugeCardRefs.current[gauge.id] = el; }}
+        className={`bg-white rounded-2xl overflow-hidden transition-colors duration-200 ${
+          isExpanded
+            ? 'ring-2 ring-primary-400 shadow-lg border border-primary-200'
+            : 'border border-neutral-200 hover:border-neutral-300 hover:shadow-md'
+        }`}
+      >
+        {/* Card Header */}
+        <button
+          onClick={() => setExpandedGaugeId(isExpanded ? null : gauge.id)}
+          className="relative w-full p-5 text-left"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              {/* Condition Badge + River Name */}
+              <div className="flex items-center gap-3 mb-3">
+                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm ${gauge.condition.tailwindColor}`}>
+                  {gauge.condition.label}
+                </span>
+                <span className="text-sm font-medium text-neutral-600">
+                  {gauge.primaryRiver?.riverName || 'Unknown River'}
+                </span>
+              </div>
+
+              {/* Gauge Name */}
+              <h3 className="text-lg font-bold text-neutral-900 mb-1">{gauge.name}</h3>
+
+              {/* USGS ID + Age */}
+              <div className="flex items-center gap-3 text-xs text-neutral-600">
+                <a
+                  href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  #{gauge.usgsSiteId}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                {ageText && (
+                  <>
+                    <span className="text-neutral-300">•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {ageText}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Large Water Level Display - capped at text-2xl on mobile, tabular-nums */}
+            <div className="flex flex-col items-end text-right flex-shrink-0">
+              {gauge.primaryRiver?.thresholdUnit === 'cfs' ? (
+                <>
+                  {gauge.dischargeCfs !== null && (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl md:text-4xl font-bold text-neutral-900 tabular-nums">{gauge.dischargeCfs.toLocaleString()}</span>
+                      <span className="text-sm font-medium text-neutral-600">cfs</span>
+                    </div>
+                  )}
+                  {gauge.gaugeHeightFt !== null && (
+                    <div className="text-sm text-neutral-600 mt-1 tabular-nums">
+                      {gauge.gaugeHeightFt.toFixed(2)} ft
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {gauge.gaugeHeightFt !== null && (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl md:text-4xl font-bold text-neutral-900 tabular-nums">{gauge.gaugeHeightFt.toFixed(2)}</span>
+                      <span className="text-sm font-medium text-neutral-600">ft</span>
+                    </div>
+                  )}
+                  {gauge.dischargeCfs !== null && (
+                    <div className="text-sm text-neutral-600 mt-1 tabular-nums">
+                      {gauge.dischargeCfs.toLocaleString()} cfs
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Expand indicator, Share, and Report Issue */}
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openFeedbackModal(gauge);
+                }}
+                className="text-xs text-neutral-500 hover:text-accent-500 flex items-center gap-1 transition-colors"
+              >
+                <Flag className="w-3 h-3" />
+                Report Issue
+              </button>
+              <button
+                onClick={(e) => handleShareGauge(e, gauge.usgsSiteId)}
+                className="text-xs text-neutral-500 hover:text-primary-600 flex items-center gap-1 transition-colors"
+              >
+                {copiedGaugeId === gauge.usgsSiteId ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-500" />
+                    <span className="text-emerald-500">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-3 h-3" />
+                    Share
+                  </>
+                )}
+              </button>
+            </div>
+            <span className="text-xs font-medium text-neutral-600 flex items-center gap-1.5 transition-colors">
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="w-4 h-4" />
+                  Hide Details
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-4 h-4" />
+                  View Chart & Weather
+                </>
+              )}
+            </span>
+          </div>
+        </button>
+
+        {/* Expanded Content — inline on desktop only; mobile uses bottom sheet */}
+        {isExpanded && !isDesktop && null}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
       {/* Hero - More compact on desktop */}
@@ -498,103 +673,85 @@ export default function GaugesPage() {
         style={{ marginRight: isDesktop && expandedGaugeId ? DRAWER_WIDTH_PX : undefined }}
       >
         {loading ? (
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl p-12 text-center shadow-sm">
-            <div className="inline-block w-10 h-10 border-4 border-neutral-300 border-t-primary-500 rounded-full animate-spin"></div>
-            <p className="text-neutral-600 mt-4 font-medium">Loading gauge stations...</p>
+          <div className="space-y-6">
+            {/* Skeleton stat cards */}
+            <div className="grid grid-cols-3 grid-rows-2 md:grid-rows-1 md:grid-cols-6 gap-2 md:gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-xl p-3 md:p-4 bg-white border border-neutral-200">
+                  <div className="skeleton h-8 w-12 mx-auto mb-2 rounded" />
+                  <div className="skeleton h-3 w-16 mx-auto rounded" />
+                </div>
+              ))}
+            </div>
+            {/* Skeleton filter bar */}
+            <div className="bg-white border-2 border-neutral-200 rounded-xl p-4">
+              <div className="skeleton h-10 w-full rounded-lg" />
+            </div>
+            {/* Skeleton gauge cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-neutral-200 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="skeleton h-6 w-16 rounded-lg" />
+                        <div className="skeleton h-4 w-24 rounded" />
+                      </div>
+                      <div className="skeleton h-5 w-48 rounded mb-2" />
+                      <div className="skeleton h-3 w-32 rounded" />
+                    </div>
+                    <div>
+                      <div className="skeleton h-9 w-20 rounded" />
+                      <div className="skeleton h-4 w-14 rounded mt-1 ml-auto" />
+                    </div>
+                  </div>
+                  <div className="skeleton h-px w-full mt-4 mb-3" />
+                  <div className="skeleton h-4 w-36 rounded" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
-            {/* Stats Overview - Large colorful cards on desktop */}
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 mb-6">
-              <button
-                onClick={() => setSelectedCondition(selectedCondition === 'too_low' ? 'all' : 'too_low')}
-                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'too_low'
-                    ? 'bg-neutral-600 text-white shadow-lg shadow-neutral-500/20 ring-2 ring-neutral-400'
-                    : 'bg-white hover:shadow-lg border border-neutral-200'
-                }`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br from-neutral-400/20 to-transparent ${selectedCondition !== 'too_low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'too_low' ? 'text-white' : 'text-neutral-600'}`}>{stats.tooLow}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'too_low' ? 'text-neutral-200' : 'text-neutral-500'}`}>Too Low</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedCondition(selectedCondition === 'low' ? 'all' : 'low')}
-                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'low'
-                    ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/20 ring-2 ring-yellow-400'
-                    : 'bg-white hover:shadow-lg border border-neutral-200'
-                }`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent ${selectedCondition !== 'low' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'low' ? 'text-white' : 'text-yellow-600'}`}>{stats.low}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'low' ? 'text-yellow-100' : 'text-neutral-500'}`}>Low</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedCondition(selectedCondition === 'okay' ? 'all' : 'okay')}
-                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'okay'
-                    ? 'bg-lime-500 text-white shadow-lg shadow-lime-500/20 ring-2 ring-lime-400'
-                    : 'bg-white hover:shadow-lg border border-neutral-200'
-                }`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br from-lime-400/20 to-transparent ${selectedCondition !== 'okay' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'okay' ? 'text-white' : 'text-lime-600'}`}>{stats.okay}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'okay' ? 'text-lime-100' : 'text-neutral-500'}`}>Okay</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedCondition(selectedCondition === 'optimal' ? 'all' : 'optimal')}
-                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'optimal'
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-400'
-                    : 'bg-white hover:shadow-lg border border-neutral-200'
-                }`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-transparent ${selectedCondition !== 'optimal' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'optimal' ? 'text-white' : 'text-emerald-600'}`}>{stats.optimal}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'optimal' ? 'text-emerald-100' : 'text-neutral-500'}`}>Optimal</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedCondition(selectedCondition === 'high' ? 'all' : 'high')}
-                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'high'
-                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20 ring-2 ring-orange-400'
-                    : 'bg-white hover:shadow-lg border border-neutral-200'
-                }`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br from-orange-400/20 to-transparent ${selectedCondition !== 'high' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'high' ? 'text-white' : 'text-orange-600'}`}>{stats.high}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'high' ? 'text-orange-100' : 'text-neutral-500'}`}>High</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedCondition(selectedCondition === 'dangerous' ? 'all' : 'dangerous')}
-                className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-all hover:scale-105 ${
-                  selectedCondition === 'dangerous'
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-500/20 ring-2 ring-red-400'
-                    : 'bg-white hover:shadow-lg border border-neutral-200'
-                }`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br from-red-400/20 to-transparent ${selectedCondition !== 'dangerous' ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
-                <span className={`block text-3xl md:text-4xl font-bold ${selectedCondition === 'dangerous' ? 'text-white' : 'text-red-600'}`}>{stats.flood}</span>
-                <span className={`block text-xs font-semibold mt-1 ${selectedCondition === 'dangerous' ? 'text-red-100' : 'text-neutral-500'}`}>Flood</span>
-              </button>
+            {/* Stats Overview - 2-row grid on mobile, single row on desktop */}
+            <div className="grid grid-cols-3 grid-rows-2 md:grid-rows-1 md:grid-cols-6 gap-2 md:gap-3 mb-6">
+              {([
+                { key: 'too_low' as ConditionCode, count: stats.tooLow, label: 'Too Low', activeBg: 'bg-neutral-600', activeRing: 'ring-neutral-400', activeShadow: 'shadow-neutral-500/20', gradientFrom: 'from-neutral-400/20', textColor: 'text-neutral-600', activeTextColor: 'text-neutral-200' },
+                { key: 'low' as ConditionCode, count: stats.low, label: 'Low', activeBg: 'bg-yellow-500', activeRing: 'ring-yellow-400', activeShadow: 'shadow-yellow-500/20', gradientFrom: 'from-yellow-400/20', textColor: 'text-yellow-600', activeTextColor: 'text-yellow-100' },
+                { key: 'okay' as ConditionCode, count: stats.okay, label: 'Okay', activeBg: 'bg-lime-500', activeRing: 'ring-lime-400', activeShadow: 'shadow-lime-500/20', gradientFrom: 'from-lime-400/20', textColor: 'text-lime-600', activeTextColor: 'text-lime-100' },
+                { key: 'optimal' as ConditionCode, count: stats.optimal, label: 'Optimal', activeBg: 'bg-emerald-600', activeRing: 'ring-emerald-400', activeShadow: 'shadow-emerald-500/20', gradientFrom: 'from-emerald-400/20', textColor: 'text-emerald-600', activeTextColor: 'text-emerald-100' },
+                { key: 'high' as ConditionCode, count: stats.high, label: 'High', activeBg: 'bg-orange-500', activeRing: 'ring-orange-400', activeShadow: 'shadow-orange-500/20', gradientFrom: 'from-orange-400/20', textColor: 'text-orange-600', activeTextColor: 'text-orange-100' },
+                { key: 'dangerous' as ConditionCode, count: stats.flood, label: 'Flood', activeBg: 'bg-red-600', activeRing: 'ring-red-400', activeShadow: 'shadow-red-500/20', gradientFrom: 'from-red-400/20', textColor: 'text-red-600', activeTextColor: 'text-red-100' },
+              ]).map(stat => {
+                const isActive = selectedCondition === stat.key;
+                return (
+                  <button
+                    key={stat.key}
+                    onClick={() => setSelectedCondition(isActive ? 'all' : stat.key)}
+                    className={`group relative overflow-hidden rounded-xl p-3 md:p-4 text-center transition-colors duration-150 ${
+                      isActive
+                        ? `${stat.activeBg} text-white shadow-lg ${stat.activeShadow} ring-2 ${stat.activeRing}`
+                        : 'bg-white border border-neutral-200 hover:border-neutral-400 hover:shadow-md'
+                    }`}
+                  >
+                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradientFrom} to-transparent ${!isActive ? 'opacity-0 group-hover:opacity-100' : ''} transition-opacity`} />
+                    <span className={`block text-2xl md:text-4xl font-bold tabular-nums ${isActive ? 'text-white' : stat.textColor}`}>{stat.count}</span>
+                    <span className={`block text-[10px] md:text-xs font-semibold mt-1 truncate ${isActive ? stat.activeTextColor : 'text-neutral-600'}`}>{stat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Filter Bar */}
             <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 mb-6">
-              <div className="flex flex-wrap items-center justify-center gap-4">
+              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-center md:gap-4">
                 {/* River filter */}
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-neutral-600">River:</label>
+                  <label className="text-sm font-medium text-neutral-600 whitespace-nowrap">River:</label>
                   <select
                     value={selectedRiver}
                     onChange={(e) => setSelectedRiver(e.target.value)}
-                    className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full md:w-auto px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="all">All Rivers</option>
                     {rivers.map(([id, name]) => (
@@ -603,18 +760,32 @@ export default function GaugesPage() {
                   </select>
                 </div>
 
-                {/* ONSR Toggle */}
-                <button
-                  onClick={() => setOnsrOnly(!onsrOnly)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    onsrOnly
-                      ? 'bg-[#7B2D3B] text-white shadow-md'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                  title="Ozark National Scenic Riverways - Current, Eleven Point, Jacks Fork"
-                >
-                  ONSR
-                </button>
+                {/* ONSR Toggle + Group by River */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setOnsrOnly(!onsrOnly)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      onsrOnly
+                        ? 'bg-[#7B2D3B] text-white shadow-md'
+                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`}
+                    title="Ozark National Scenic Riverways - Current, Eleven Point, Jacks Fork"
+                  >
+                    ONSR
+                  </button>
+                  <button
+                    onClick={() => setGroupByRiver(!groupByRiver)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      groupByRiver
+                        ? 'bg-primary-500 text-white shadow-md'
+                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`}
+                    title="Group gauges by river"
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span className="hidden sm:inline">Group by River</span>
+                  </button>
+                </div>
 
                 {/* Date range for charts */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
@@ -622,7 +793,7 @@ export default function GaugesPage() {
                     <button
                       key={range.days}
                       onClick={() => setDateRange(range.days)}
-                      className={`px-3 py-2 text-sm font-medium transition-colors ${
+                      className={`flex-1 md:flex-none px-3 py-2 text-sm font-medium transition-colors ${
                         dateRange === range.days
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -670,7 +841,7 @@ export default function GaugesPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-bold tracking-wide uppercase opacity-60">Eddy says</span>
                       {eddyUpdate?.generatedAt && (
-                        <span className="text-[10px] text-neutral-400 ml-auto whitespace-nowrap">
+                        <span className="text-[10px] text-neutral-500 ml-auto whitespace-nowrap">
                           {(() => {
                             const hours = (Date.now() - new Date(eddyUpdate.generatedAt).getTime()) / (1000 * 60 * 60);
                             if (hours < 1) return 'Updated just now';
@@ -762,159 +933,41 @@ export default function GaugesPage() {
 
             {/* Gauge Cards Grid */}
             {processedGauges.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {processedGauges.map((gauge) => {
-                  const isExpanded = expandedGaugeId === gauge.id;
-                  const ageText = getAgeText(gauge);
-
-                  return (
-                    <div
-                      key={gauge.id}
-                      ref={(el) => { gaugeCardRefs.current[gauge.id] = el; }}
-                      className={`bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
-                        isExpanded
-                          ? isDesktop
-                            ? 'ring-2 ring-primary-400 shadow-lg border border-primary-200'
-                            : 'border-2 border-primary-400 shadow-xl col-span-1 md:col-span-2 xl:col-span-3'
-                          : 'border border-neutral-200 hover:border-neutral-300 hover:shadow-lg'
-                      }`}
-                    >
-                      {/* Card Header */}
-                      <button
-                        onClick={() => setExpandedGaugeId(isExpanded ? null : gauge.id)}
-                        className="relative w-full p-5 text-left"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            {/* Condition Badge + River Name */}
-                            <div className="flex items-center gap-3 mb-3">
-                              <span className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm ${gauge.condition.tailwindColor}`}>
-                                {gauge.condition.label}
-                              </span>
-                              <span className="text-sm font-medium text-neutral-600">
-                                {gauge.primaryRiver?.riverName || 'Unknown River'}
-                              </span>
-                            </div>
-
-                            {/* Gauge Name */}
-                            <h3 className="text-lg font-bold text-neutral-900 mb-1">{gauge.name}</h3>
-
-                            {/* USGS ID + Age */}
-                            <div className="flex items-center gap-3 text-xs text-neutral-500">
-                              <a
-                                href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                #{gauge.usgsSiteId}
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                              {ageText && (
-                                <>
-                                  <span className="text-neutral-300">•</span>
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    {ageText}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Large Water Level Display - primary unit shown prominently */}
-                          <div className="flex flex-col items-end text-right flex-shrink-0">
-                            {gauge.primaryRiver?.thresholdUnit === 'cfs' ? (
-                              <>
-                                {gauge.dischargeCfs !== null && (
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl md:text-4xl font-bold text-neutral-900">{gauge.dischargeCfs.toLocaleString()}</span>
-                                    <span className="text-sm font-medium text-neutral-500">cfs</span>
-                                  </div>
-                                )}
-                                {gauge.gaugeHeightFt !== null && (
-                                  <div className="text-sm text-neutral-500 mt-1">
-                                    {gauge.gaugeHeightFt.toFixed(2)} ft
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                {gauge.gaugeHeightFt !== null && (
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl md:text-4xl font-bold text-neutral-900">{gauge.gaugeHeightFt.toFixed(2)}</span>
-                                    <span className="text-sm font-medium text-neutral-500">ft</span>
-                                  </div>
-                                )}
-                                {gauge.dischargeCfs !== null && (
-                                  <div className="text-sm text-neutral-500 mt-1">
-                                    {gauge.dischargeCfs.toLocaleString()} cfs
-                                  </div>
-                                )}
-                              </>
-                            )}
+              groupByRiver ? (
+                // Group by River view
+                <div className="space-y-8">
+                  {(() => {
+                    const riverGroups = new Map<string, { name: string; gauges: typeof processedGauges }>();
+                    processedGauges.forEach(gauge => {
+                      const riverId = gauge.primaryRiver?.riverId || 'unknown';
+                      const riverName = gauge.primaryRiver?.riverName || 'Unknown River';
+                      if (!riverGroups.has(riverId)) {
+                        riverGroups.set(riverId, { name: riverName, gauges: [] });
+                      }
+                      riverGroups.get(riverId)!.gauges.push(gauge);
+                    });
+                    return Array.from(riverGroups.entries())
+                      .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                      .map(([riverId, group]) => (
+                        <div key={riverId}>
+                          <h2 className="text-lg font-bold text-neutral-900 mb-3 flex items-center gap-2">
+                            <Droplets className="w-5 h-5 text-primary-500" />
+                            {group.name}
+                            <span className="text-sm font-normal text-neutral-500">({group.gauges.length})</span>
+                          </h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {group.gauges.map((gauge) => renderGaugeCard(gauge))}
                           </div>
                         </div>
-
-                        {/* Expand indicator, Share, and Report Issue */}
-                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFeedbackModal(gauge);
-                              }}
-                              className="text-xs text-neutral-400 hover:text-accent-500 flex items-center gap-1 transition-colors"
-                            >
-                              <Flag className="w-3 h-3" />
-                              Report Issue
-                            </button>
-                            <button
-                              onClick={(e) => handleShareGauge(e, gauge.usgsSiteId)}
-                              className="text-xs text-neutral-400 hover:text-primary-600 flex items-center gap-1 transition-colors"
-                            >
-                              {copiedGaugeId === gauge.usgsSiteId ? (
-                                <>
-                                  <Check className="w-3 h-3 text-emerald-500" />
-                                  <span className="text-emerald-500">Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Share2 className="w-3 h-3" />
-                                  Share
-                                </>
-                              )}
-                            </button>
-                          </div>
-                          <span className="text-xs font-medium text-neutral-500 flex items-center gap-1.5 group-hover:text-primary-600 transition-colors">
-                            {isExpanded ? (
-                              <>
-                                <ChevronUp className="w-4 h-4" />
-                                Hide Details
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-4 h-4" />
-                                View Chart & Weather
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      </button>
-
-                      {/* Expanded Content — inline on mobile/tablet only */}
-                      {isExpanded && !isDesktop && (
-                        <GaugeExpandedPanel
-                          gauge={gauge}
-                          dateRange={dateRange}
-                          setDateRange={setDateRange}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      ));
+                  })()}
+                </div>
+              ) : (
+                // Flat grid view
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {processedGauges.map((gauge) => renderGaugeCard(gauge))}
+                </div>
+              )
             ) : (
               <div className="bg-white border-2 border-neutral-200 rounded-xl p-12 text-center">
                 <p className="text-neutral-600">No gauges match your current filters.</p>
@@ -970,10 +1023,10 @@ export default function GaugesPage() {
               onClick={() => setExpandedGaugeId(null)}
               aria-hidden="true"
             />
-            {/* Panel */}
+            {/* Panel — uses CSS keyframe slideInFromRight defined in globals.css */}
             <div
               className="fixed inset-y-0 right-0 max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col"
-              style={{ width: DRAWER_WIDTH_PX, animation: 'slideInFromRight 0.2s ease-out' }}
+              style={{ width: DRAWER_WIDTH_PX, animation: 'slideInFromRight 0.2s ease-out forwards' }}
               role="dialog"
               aria-modal="true"
               aria-label={`${drawerGauge.name} details`}
@@ -985,10 +1038,10 @@ export default function GaugesPage() {
                     <span className={`px-2.5 py-1 rounded-lg text-xs font-bold text-white ${drawerGauge.condition.tailwindColor}`}>
                       {drawerGauge.condition.label}
                     </span>
-                    <span className="text-sm text-neutral-500">{drawerGauge.primaryRiver?.riverName}</span>
+                    <span className="text-sm text-neutral-600">{drawerGauge.primaryRiver?.riverName}</span>
                   </div>
                   <h2 className="text-lg font-bold text-neutral-900 truncate">{drawerGauge.name}</h2>
-                  <div className="flex items-center gap-3 text-xs text-neutral-500 mt-1">
+                  <div className="flex items-center gap-3 text-xs text-neutral-600 mt-1">
                     <a
                       href={`https://waterdata.usgs.gov/monitoring-location/${drawerGauge.usgsSiteId}/`}
                       target="_blank"
@@ -1011,7 +1064,7 @@ export default function GaugesPage() {
                   <div className="flex items-center gap-3 mt-2">
                     <button
                       onClick={(e) => handleShareGauge(e, drawerGauge.usgsSiteId)}
-                      className="text-xs text-neutral-400 hover:text-primary-600 flex items-center gap-1 transition-colors"
+                      className="text-xs text-neutral-500 hover:text-primary-600 flex items-center gap-1 transition-colors"
                     >
                       {copiedGaugeId === drawerGauge.usgsSiteId ? (
                         <>
@@ -1027,7 +1080,7 @@ export default function GaugesPage() {
                     </button>
                     <button
                       onClick={() => openFeedbackModal(drawerGauge)}
-                      className="text-xs text-neutral-400 hover:text-accent-500 flex items-center gap-1 transition-colors"
+                      className="text-xs text-neutral-500 hover:text-accent-500 flex items-center gap-1 transition-colors"
                     >
                       <Flag className="w-3 h-3" />
                       Report Issue
@@ -1037,7 +1090,7 @@ export default function GaugesPage() {
                 <button
                   ref={drawerCloseButtonRef}
                   onClick={() => setExpandedGaugeId(null)}
-                  className="p-2 -m-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors flex-shrink-0"
+                  className="p-2 -m-2 rounded-lg text-neutral-500 hover:text-neutral-600 hover:bg-neutral-100 transition-colors flex-shrink-0"
                   aria-label="Close details"
                 >
                   <X className="w-5 h-5" />
@@ -1050,6 +1103,63 @@ export default function GaugesPage() {
                   dateRange={dateRange}
                   setDateRange={setDateRange}
                   variant="drawer"
+                />
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Mobile Bottom Sheet */}
+      {!isDesktop && expandedGaugeId && (() => {
+        const sheetGauge = processedGauges.find(g => g.id === expandedGaugeId);
+        if (!sheetGauge) return null;
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/30 z-40"
+              onClick={() => setExpandedGaugeId(null)}
+              aria-hidden="true"
+            />
+            {/* Bottom Sheet */}
+            <div
+              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl flex flex-col"
+              style={{ maxHeight: '85vh', animation: 'slideUpSheet 0.25s ease-out forwards' }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${sheetGauge.name} details`}
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-neutral-300" />
+              </div>
+              {/* Sheet Header */}
+              <div className="flex items-start justify-between gap-3 px-5 pb-3 border-b border-neutral-200 flex-shrink-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold text-white ${sheetGauge.condition.tailwindColor}`}>
+                      {sheetGauge.condition.label}
+                    </span>
+                    <span className="text-sm text-neutral-600">{sheetGauge.primaryRiver?.riverName}</span>
+                  </div>
+                  <h2 className="text-base font-bold text-neutral-900">{sheetGauge.name}</h2>
+                </div>
+                <button
+                  onClick={() => setExpandedGaugeId(null)}
+                  className="p-2 -m-2 rounded-lg text-neutral-500 hover:text-neutral-600 hover:bg-neutral-100 transition-colors flex-shrink-0"
+                  aria-label="Close details"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {/* Sheet Body — scrollable */}
+              <div className="flex-1 overflow-y-auto overscroll-contain">
+                <GaugeExpandedPanel
+                  gauge={sheetGauge}
+                  dateRange={dateRange}
+                  setDateRange={setDateRange}
+                  variant="inline"
                 />
               </div>
             </div>
@@ -1163,7 +1273,7 @@ function GaugeExpandedPanel({
               ? (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A')
               : (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A');
             const secondaryLabel = useCfs ? 'Stage' : 'Flow';
-            const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-400" /> : <Activity className="w-4 h-4 text-neutral-400" />;
+            const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-500" /> : <Activity className="w-4 h-4 text-neutral-500" />;
             const secondaryValue = useCfs
               ? (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A')
               : (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A');
@@ -1228,7 +1338,7 @@ function GaugeExpandedPanel({
             </div>
           </div>
           <div className="bg-neutral-50 border border-neutral-200 rounded-xl overflow-hidden">
-            <FlowTrendChartWithDays
+            <FlowTrendChart
               gaugeSiteId={gauge.usgsSiteId}
               days={dateRange}
               displayUnit={displayUnit}
@@ -1419,275 +1529,4 @@ function GaugeExpandedPanel({
   );
 }
 
-// Threshold line configuration for CFS-based gauges
-interface ChartThresholdLines {
-  levelTooLow: number | null;
-  levelLow: number | null;
-  levelOptimalMin: number | null;
-  levelOptimalMax: number | null;
-  levelHigh: number | null;
-  levelDangerous: number | null;
-}
-
-const CHART_THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Okay', color: '#65a30d', dash: '3,3' },
-  { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
-  { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
-  { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
-  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
-];
-
-// Wrapper component to use the hook with custom days
-function FlowTrendChartWithDays({ gaugeSiteId, days, thresholds, latestValue, displayUnit = 'cfs', chartClassName }: { gaugeSiteId: string; days: number; thresholds?: ChartThresholdLines | null; latestValue?: number | null; displayUnit?: 'ft' | 'cfs'; chartClassName?: string }) {
-  const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
-  const isFt = displayUnit === 'ft';
-
-  // Process data for the chart
-  const chartData = useMemo(() => {
-    if (!history?.readings || history.readings.length === 0) return null;
-
-    const readings = history.readings;
-    const stats = history.stats;
-
-    // Use appropriate data series based on display unit
-    const dataMin = isFt ? (stats.minHeight ?? 0) : (stats.minDischarge ?? 0);
-    const dataMax = isFt ? (stats.maxHeight ?? 10) : (stats.maxDischarge ?? 100);
-    const dataRange = dataMax - dataMin || 1;
-
-    let minVal = dataMin;
-    let maxVal = dataMax;
-
-    if (thresholds) {
-      const expansionLimit = dataRange * 1.5;
-      const thresholdValues = [
-        thresholds.levelTooLow, thresholds.levelLow,
-        thresholds.levelOptimalMin, thresholds.levelOptimalMax,
-        thresholds.levelHigh, thresholds.levelDangerous,
-      ].filter((v): v is number => v !== null);
-
-      for (const tv of thresholdValues) {
-        if (tv >= dataMin - expansionLimit && tv <= dataMax + expansionLimit) {
-          if (tv < minVal) minVal = tv;
-          if (tv > maxVal) maxVal = tv;
-        }
-      }
-    }
-
-    const padding = (maxVal - minVal) * 0.05 || (isFt ? 0.5 : 5);
-    minVal = Math.max(0, minVal - padding);
-    maxVal = maxVal + padding;
-
-    const range = maxVal - minVal || 1;
-
-    const sampleStep = Math.max(1, Math.floor(readings.length / 50));
-    const sampledReadings = readings.filter((_: unknown, i: number) => i % sampleStep === 0);
-
-    const points = sampledReadings.map((reading: { dischargeCfs: number | null; gaugeHeightFt: number | null; timestamp: string }, index: number) => {
-      const val = isFt ? reading.gaugeHeightFt : reading.dischargeCfs;
-      const x = (index / (sampledReadings.length - 1)) * 100;
-      const y = val !== null
-        ? 100 - ((val - minVal) / range) * 100
-        : 50;
-      return { x, y, value: val, timestamp: reading.timestamp };
-    });
-
-    const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
-
-    const allThresholdLines = thresholds
-      ? CHART_THRESHOLD_LINE_CONFIG
-          .filter(t => thresholds[t.key] !== null)
-          .map(t => ({
-            ...t,
-            value: thresholds[t.key]!,
-            y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
-          }))
-          .filter(t => t.y >= -5 && t.y <= 105)
-      : [];
-
-    const MIN_LABEL_GAP = 8;
-    const labelCandidates: typeof allThresholdLines = [];
-    const optMin = allThresholdLines.find(t => t.key === 'levelOptimalMin');
-    const optMax = allThresholdLines.find(t => t.key === 'levelOptimalMax');
-    if (optMin && optMax) {
-      labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
-    } else if (optMin) {
-      labelCandidates.push(optMin);
-    } else if (optMax) {
-      labelCandidates.push(optMax);
-    }
-    for (const t of allThresholdLines) {
-      if (t.key !== 'levelOptimalMin' && t.key !== 'levelOptimalMax') {
-        labelCandidates.push(t);
-      }
-    }
-    labelCandidates.sort((a, b) => a.y - b.y);
-    const thresholdLabels: typeof labelCandidates = [];
-    for (const candidate of labelCandidates) {
-      const tooClose = thresholdLabels.some(placed => Math.abs(placed.y - candidate.y) < MIN_LABEL_GAP);
-      if (!tooClose) {
-        thresholdLabels.push(candidate);
-      }
-    }
-
-    const lastReading = readings[readings.length - 1];
-    return {
-      points,
-      pathD,
-      areaD,
-      minVal,
-      maxVal,
-      currentVal: isFt ? lastReading?.gaugeHeightFt : lastReading?.dischargeCfs,
-      startDate: new Date(readings[0].timestamp),
-      endDate: new Date(readings[readings.length - 1].timestamp),
-      thresholdLineData: allThresholdLines,
-      thresholdLabels,
-    };
-  }, [history, thresholds, isFt]);
-
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <div className="flex items-center gap-2 text-neutral-400 text-sm">
-          <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          Loading trend data...
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !chartData) {
-    return (
-      <div className="p-4">
-        <p className="text-neutral-400 text-sm">{isFt ? 'Stage' : 'Flow'} trend data unavailable</p>
-      </div>
-    );
-  }
-
-  const formatVal = (val: number) => {
-    if (isFt) return val.toFixed(2);
-    if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
-    return val.toFixed(0);
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const unitLabel = isFt ? 'ft' : 'cfs';
-  const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
-  const currentDisplay = latestValue ?? chartData.currentVal;
-
-  return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
-        {currentDisplay !== null && currentDisplay !== undefined && (
-          <span className="text-xs text-primary-600 font-medium">
-            Current: {formatVal(currentDisplay)} {unitLabel}
-          </span>
-        )}
-      </div>
-
-      {/* SVG Chart */}
-      <div className={`relative ${chartClassName ?? 'h-32'}`}>
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          className="w-full h-full"
-        >
-          {/* Gradient fill */}
-          <defs>
-            <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
-            </linearGradient>
-          </defs>
-
-          {/* Optimal range shaded band */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
-            const optMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
-            if (optMin && optMax) {
-              return (
-                <rect
-                  x="0" width="100"
-                  y={Math.min(optMin.y, optMax.y)}
-                  height={Math.abs(optMax.y - optMin.y)}
-                  fill="#059669" fillOpacity="0.1"
-                />
-              );
-            }
-            return null;
-          })()}
-
-          {/* Threshold reference lines */}
-          {chartData.thresholdLineData.map((t) => (
-            <line
-              key={t.key}
-              x1="0" x2="100"
-              y1={t.y} y2={t.y}
-              stroke={t.color}
-              strokeWidth="1"
-              strokeDasharray={t.dash || 'none'}
-              vectorEffect="non-scaling-stroke"
-              opacity="0.5"
-            />
-          ))}
-
-          {/* Area fill */}
-          <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
-
-          {/* Line */}
-          <path
-            d={chartData.pathD}
-            fill="none"
-            stroke="rgb(45, 120, 137)"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-          />
-
-          {/* Current value dot */}
-          {chartData.points.length > 0 && (
-            <circle
-              cx={chartData.points[chartData.points.length - 1].x}
-              cy={chartData.points[chartData.points.length - 1].y}
-              r="4"
-              fill="rgb(45, 120, 137)"
-              stroke="#f5f5f5"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-        </svg>
-
-        {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-500 -ml-1">
-          <span>{formatVal(chartData.maxVal)}</span>
-          <span>{formatVal(chartData.minVal)}</span>
-        </div>
-
-        {/* Threshold labels on right side (de-overlapped) */}
-        {chartData.thresholdLabels.map((t) => (
-          <div
-            key={`label-${t.key}`}
-            className="absolute right-0 text-[9px] font-medium -mr-1 leading-none"
-            style={{
-              top: `${t.y}%`,
-              color: t.color,
-              transform: 'translateY(-50%)',
-            }}
-          >
-            {t.label}
-          </div>
-        ))}
-      </div>
-
-      {/* X-axis labels */}
-      <div className="flex justify-between text-[10px] text-neutral-500 mt-1 px-2">
-        <span>{formatDate(chartData.startDate)}</span>
-        <span>{formatDate(chartData.endDate)}</span>
-      </div>
-    </div>
-  );
-}
+// FlowTrendChartWithDays removed — using shared FlowTrendChart from @/components/ui/FlowTrendChart
