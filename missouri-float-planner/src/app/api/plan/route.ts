@@ -464,10 +464,10 @@ export async function GET(request: NextRequest) {
     const putInTypes = (Array.isArray(putIn.types) && putIn.types.length > 0 ? putIn.types : [putIn.type]).filter(Boolean) as string[];
     const takeOutTypes = (Array.isArray(takeOut.types) && takeOut.types.length > 0 ? takeOut.types : [takeOut.type]).filter(Boolean) as string[];
     if (!putInTypes.some(t => roadAccessTypes.includes(t))) {
-      warnings.push(`${putIn.name} may not have direct road access — verify before launching`);
+      warnings.push(`${putIn.name} does not have direct road access`);
     }
     if (!takeOutTypes.some(t => roadAccessTypes.includes(t))) {
-      warnings.push(`${takeOut.name} may not have direct road access — verify before launching`);
+      warnings.push(`${takeOut.name} does not have direct road access`);
     }
 
     // Always derive flowRating from threshold-based condition code (not percentile)
