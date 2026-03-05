@@ -751,7 +751,7 @@ SELECT
     true,
     'Single $15/night, electric $25/night, double $25/night, double electric $35/night, group $50–$100/night. Extra vehicle $2/night. Day use $5/vehicle. Reservations on Recreation.gov.',
     ARRAY['paved']::text[],
-    '40+',
+    '50+',
     'USFS',
     'https://www.recreation.gov/camping/campgrounds/232391',
     '232391',
