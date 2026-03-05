@@ -23,30 +23,7 @@ import {
   Clock,
 } from 'lucide-react';
 
-// Eddy otter images for different conditions
-const EDDY_CONDITION_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-};
-
-const getEddyImageForCondition = (code: ConditionCode): string => {
-  switch (code) {
-    case 'optimal':
-    case 'okay':
-      return EDDY_CONDITION_IMAGES.green;
-    case 'high':
-    case 'dangerous':
-      return EDDY_CONDITION_IMAGES.red;
-    case 'low':
-      return EDDY_CONDITION_IMAGES.yellow;
-    case 'too_low':
-    case 'unknown':
-    default:
-      return EDDY_CONDITION_IMAGES.flag;
-  }
-};
+import { getEddyImageForCondition } from '@/constants';
 
 // Date range options for charts
 const DATE_RANGES = [

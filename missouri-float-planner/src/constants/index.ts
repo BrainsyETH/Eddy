@@ -112,6 +112,36 @@ export const OWNERSHIP_TYPES = {
   state_park: 'State Park',
 } as const;
 
+// Eddy otter images — single source of truth for all Eddy avatars
+export const EDDY_IMAGES = {
+  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
+  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
+  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
+  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
+  flood: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png',
+  canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
+} as const;
+
+// Map condition code → Eddy otter image
+export function getEddyImageForCondition(code: string): string {
+  switch (code) {
+    case 'optimal':
+    case 'okay':
+      return EDDY_IMAGES.green;
+    case 'low':
+      return EDDY_IMAGES.yellow;
+    case 'too_low':
+      return EDDY_IMAGES.flag;
+    case 'high':
+      return EDDY_IMAGES.red;
+    case 'dangerous':
+      return EDDY_IMAGES.flood;
+    case 'unknown':
+    default:
+      return EDDY_IMAGES.flag;
+  }
+}
+
 // API cache times (in milliseconds)
 export const CACHE_TIMES = {
   rivers: 5 * 60 * 1000,        // 5 minutes

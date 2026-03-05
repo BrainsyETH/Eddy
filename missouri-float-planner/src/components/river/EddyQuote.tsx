@@ -23,33 +23,7 @@ interface EddyQuoteProps {
   optimalRange?: string | null;
 }
 
-const EDDY_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-  flood: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_flood.png',
-  canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
-};
-
-function conditionToImage(code: ConditionCode): string {
-  switch (code) {
-    case 'optimal':
-    case 'okay':
-      return EDDY_IMAGES.canoe;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    case 'too_low':
-      return EDDY_IMAGES.flag;
-    case 'high':
-      return EDDY_IMAGES.red;
-    case 'dangerous':
-      return EDDY_IMAGES.flood;
-    case 'unknown':
-    default:
-      return EDDY_IMAGES.flag;
-  }
-}
+import { getEddyImageForCondition } from '@/constants';
 
 const BG_BY_CONDITION: Record<string, string> = {
   optimal: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
@@ -164,7 +138,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   const fullText = useAi ? aiUpdate.quoteText : staticQuote.text;
   const displayText = hasSummary && !showFull ? summaryText! : fullText;
 
-  const eddyImage = conditionToImage(displayConditionCode);
+  const eddyImage = getEddyImageForCondition(displayConditionCode);
   const notes = RIVER_NOTES[riverSlug];
 
   const bgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
@@ -200,7 +174,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               {label.text}
             </span>
             {ageDisplay && (
-              <span className="text-[10px] text-neutral-400 ml-auto whitespace-nowrap">
+              <span className="text-[10px] text-neutral-500 ml-auto whitespace-nowrap">
                 {ageDisplay}
               </span>
             )}

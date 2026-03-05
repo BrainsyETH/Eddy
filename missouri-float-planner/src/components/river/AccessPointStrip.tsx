@@ -468,7 +468,7 @@ function ExpandedDetail({
                         {formatServiceType(service.type)}
                       </span>
                       {service.distance && (
-                        <span className="text-xs text-neutral-400">{service.distance}</span>
+                        <span className="text-xs text-neutral-500">{service.distance}</span>
                       )}
                     </div>
                     {service.phone && (

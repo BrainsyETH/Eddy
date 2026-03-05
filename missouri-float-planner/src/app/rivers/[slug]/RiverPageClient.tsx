@@ -10,7 +10,6 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
-import ConditionWarningBanner from '@/components/river/ConditionWarningBanner';
 import EddyQuote from '@/components/river/EddyQuote';
 import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
@@ -82,8 +81,10 @@ export default function RiverPage() {
     gauge.thresholds?.some(t => t.riverId === river?.id)
   );
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
-  const [upstreamWarning] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
+
+  // Share feedback state
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   // Ref for auto-scrolling to float plan card
   const floatPlanCardRef = useRef<HTMLDivElement>(null);
@@ -292,7 +293,8 @@ export default function RiverPage() {
 
     try {
       await navigator.clipboard.writeText(shareUrl);
-      alert('Link copied to clipboard!');
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000);
     } catch {
       window.prompt('Copy this link:', shareUrl);
     }
@@ -328,7 +330,6 @@ export default function RiverPage() {
       }, 'image/png');
     } catch (error) {
       console.error('Error generating image:', error);
-      alert('Failed to generate image. Please try again.');
     }
   }, [selectedPutIn, selectedTakeOut, river, plan]);
 
@@ -484,9 +485,6 @@ export default function RiverPage() {
         condition={condition}
       />
 
-      {/* Safety warning for high/flood conditions */}
-      <ConditionWarningBanner condition={condition} riverName={river.name} />
-
       {/* Main Content - add bottom padding on mobile when bottom sheet is visible */}
       <div className={`max-w-7xl mx-auto px-4 py-6 ${putInPoint && takeOutPoint ? 'pb-36 lg:pb-6' : ''}`}>
         {/* Eddy's daily conditions quote */}
@@ -511,7 +509,6 @@ export default function RiverPage() {
         {/* Planner Selectors - always at top */}
         <div className="mb-4">
           <PlannerPanel
-            river={river}
             accessPoints={accessPoints || []}
             isLoading={accessPointsLoading}
             selectedPutIn={selectedPutIn}
@@ -526,14 +523,6 @@ export default function RiverPage() {
           <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
             {/* Weather Bug overlay */}
             <WeatherBug riverSlug={slug} riverId={river.id} />
-
-            {upstreamWarning && (
-              <div className="absolute top-4 left-4 right-4 z-30">
-                <div className="bg-red-50 border-2 border-red-300 text-red-800 text-sm px-4 py-2 rounded-md shadow-md">
-                  {upstreamWarning}
-                </div>
-              </div>
-            )}
 
             <MapContainer
               initialBounds={river.bounds}
@@ -582,7 +571,7 @@ export default function RiverPage() {
         {/* Hint text - between map and cards */}
         {!putInPoint && !takeOutPoint && (
           <p className="text-center text-sm text-neutral-500 mb-4">
-            Tap an access point to select put-in, tap again for take-out
+            Select an access point for put-in, then another for take-out
           </p>
         )}
 
@@ -598,6 +587,7 @@ export default function RiverPage() {
               onClearTakeOut={() => setSelectedTakeOut(null)}
               onShare={handleShare}
               onDownloadImage={handleDownloadImage}
+              shareStatus={shareStatus}
               riverSlug={slug}
               riverName={river?.name}
               vesselTypeId={selectedVesselTypeId}

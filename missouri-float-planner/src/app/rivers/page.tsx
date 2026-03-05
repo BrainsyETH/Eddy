@@ -7,18 +7,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, Droplets, ArrowRight } from 'lucide-react';
 import { useRivers } from '@/hooks/useRivers';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import SiteFooter from '@/components/ui/SiteFooter';
+import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES, getEddyImageForCondition } from '@/constants';
 import { buildRiversSummary, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
-
-const EDDY_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-  canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
-};
 
 // Brief descriptions for each river
 const RIVER_DESCRIPTIONS: Record<string, string> = {
@@ -32,21 +24,15 @@ const RIVER_DESCRIPTIONS: Record<string, string> = {
   'courtois': 'A tributary of the Huzzah, offering intimate floating through wooded Ozark hills with relatively consistent water levels.',
 };
 
-function getEddyImage(code?: ConditionCode | null): string {
-  if (!code) return EDDY_IMAGES.flag;
-  switch (code) {
-    case 'optimal':
-    case 'okay':
-      return EDDY_IMAGES.green;
-    case 'high':
-    case 'dangerous':
-      return EDDY_IMAGES.red;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    default:
-      return EDDY_IMAGES.flag;
-  }
-}
+// Condition summary pill config
+const CONDITION_PILL_CONFIG: { code: ConditionCode; label: string; bgClass: string }[] = [
+  { code: 'optimal', label: 'Optimal', bgClass: 'bg-emerald-600' },
+  { code: 'okay', label: 'Okay', bgClass: 'bg-lime-500' },
+  { code: 'low', label: 'Low', bgClass: 'bg-yellow-500' },
+  { code: 'too_low', label: 'Too Low', bgClass: 'bg-neutral-400' },
+  { code: 'high', label: 'High', bgClass: 'bg-orange-500' },
+  { code: 'dangerous', label: 'Flood', bgClass: 'bg-red-600' },
+];
 
 export default function RiversPage() {
   const { data: rivers, isLoading } = useRivers();
@@ -54,6 +40,15 @@ export default function RiversPage() {
   // Build Eddy's summary across all rivers
   const conditionCodes = rivers?.map(r => r.currentCondition?.code ?? null) ?? [];
   const eddySummary = rivers ? buildRiversSummary(conditionCodes) : null;
+
+  // Count rivers per condition for summary pills
+  const conditionCounts: Partial<Record<ConditionCode, number>> = {};
+  if (rivers) {
+    for (const river of rivers) {
+      const code = river.currentCondition?.code ?? 'unknown';
+      conditionCounts[code] = (conditionCounts[code] || 0) + 1;
+    }
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -83,9 +78,30 @@ export default function RiversPage() {
             Explore our supported rivers with live conditions, access points, and float planning tools.
           </p>
 
+          {/* Condition summary pills */}
+          {rivers && rivers.length > 0 && (
+            <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+              {CONDITION_PILL_CONFIG.map(({ code, label, bgClass }) => {
+                const count = conditionCounts[code];
+                if (!count) return null;
+                return (
+                  <span
+                    key={code}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-bold ${bgClass}`}
+                  >
+                    <span className="bg-white/20 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">
+                      {count}
+                    </span>
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
           {/* Eddy summary quote */}
           {eddySummary && (
-            <div className="mt-6 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 max-w-xl mx-auto">
+            <div className="mt-4 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 max-w-xl mx-auto">
               <Image
                 src={EDDY_IMAGES.canoe}
                 alt="Eddy"
@@ -104,9 +120,21 @@ export default function RiversPage() {
       {/* River Cards */}
       <section className="max-w-5xl mx-auto px-4 py-10 md:py-14">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <LoadingSpinner size="lg" />
-            <p className="ml-4 text-neutral-500">Loading rivers...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border-2 border-neutral-200 overflow-hidden">
+                <div className="skeleton h-44 w-full" />
+                <div className="p-4 space-y-3">
+                  <div className="skeleton h-6 w-40 rounded" />
+                  <div className="skeleton h-4 w-full rounded" />
+                  <div className="skeleton h-4 w-3/4 rounded" />
+                  <div className="flex gap-4">
+                    <div className="skeleton h-4 w-20 rounded" />
+                    <div className="skeleton h-4 w-28 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -114,7 +142,7 @@ export default function RiversPage() {
               const conditionCode = river.currentCondition?.code;
               const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
               const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
-              const description = RIVER_DESCRIPTIONS[river.slug];
+              const description = RIVER_DESCRIPTIONS[river.slug] || river.description;
               const blurb = conditionCode ? CONDITION_CARD_BLURBS[conditionCode] : CONDITION_CARD_BLURBS.unknown;
 
               return (
@@ -127,11 +155,11 @@ export default function RiversPage() {
                   <div className="relative h-44 overflow-hidden bg-gradient-to-br from-primary-800 to-primary-900">
                     <div className="w-full h-full flex items-center justify-center">
                       <Image
-                        src={getEddyImage(conditionCode)}
+                        src={getEddyImageForCondition(conditionCode || 'unknown')}
                         alt="Eddy the Otter"
                         width={160}
                         height={160}
-                        className="w-24 h-24 object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500"
+                        className="w-24 h-24 object-contain drop-shadow-lg transition-transform duration-500"
                       />
                     </div>
                     {/* Condition badge + blurb overlay */}
@@ -154,7 +182,7 @@ export default function RiversPage() {
                       <h2 className="text-xl font-bold text-neutral-900 group-hover:text-primary-600 transition-colors">
                         {river.name}
                       </h2>
-                      <ArrowRight className="w-5 h-5 text-neutral-400 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
+                      <ArrowRight className="w-5 h-5 text-neutral-500 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
                     </div>
 
                     {description && (
@@ -173,7 +201,7 @@ export default function RiversPage() {
                         {river.accessPointCount} access points
                       </span>
                       {river.region && (
-                        <span className="text-neutral-400">{river.region}</span>
+                        <span className="text-neutral-500">{river.region}</span>
                       )}
                     </div>
                   </div>
@@ -184,17 +212,7 @@ export default function RiversPage() {
         )}
       </section>
 
-      {/* Footer */}
-      <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-8">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-primary-200 mb-2">
-            Eddy &middot; Missouri River Float Trip Planner
-          </p>
-          <p className="text-sm text-primary-300">
-            Water data from USGS &middot; Always check local conditions before floating
-          </p>
-        </div>
-      </footer>
+      <SiteFooter className="mt-8" />
     </div>
   );
 }
