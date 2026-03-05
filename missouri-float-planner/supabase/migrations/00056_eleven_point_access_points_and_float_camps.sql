@@ -1,20 +1,9 @@
--- Migration: Add float_camp type and complete Eleven Point River access points
--- Adds missing vehicle access points, float camps, and fixes mile markers
+-- Migration: Complete Eleven Point River access points + float camp POIs
+-- Adds missing vehicle access points, float camps as POIs, and fixes mile markers
 -- Sources: USFS Mark Twain National Forest, MDC, AR Own Backyard float guide
 
 -- ============================================
--- 1. Add 'float_camp' to access_points type CHECK constraint
--- ============================================
-ALTER TABLE access_points
-DROP CONSTRAINT IF EXISTS access_points_type_check;
-
-ALTER TABLE access_points
-ADD CONSTRAINT access_points_type_check
-CHECK (type IN ('boat_ramp', 'gravel_bar', 'campground', 'bridge', 'access', 'park', 'float_camp'));
-
-
--- ============================================
--- 2. Insert missing Eleven Point vehicle access points
+-- 1. Insert missing Eleven Point vehicle access points
 --    (Seed only has Greer Spring, Turner Mill South, Riverton)
 -- ============================================
 
@@ -310,255 +299,164 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
 
 
 -- ============================================
--- 3. Insert Eleven Point float camps
---    River-access only primitive camping
+-- 2. Insert Eleven Point float camps as Points of Interest
+--    River-access only primitive camping — shown on map as POIs with tent icon
 -- ============================================
 
 -- Denny Hollow Float Camp — Mile 6.5
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, facilities,
-    fee_required, managing_agency, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Denny Hollow Float Camp',
-    'denny-hollow',
-    ST_SetSRID(ST_MakePoint(-91.432, 36.792), 4326),
-    'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
+    'denny-hollow-float-camp',
     'Primitive float camp on the left bank at mile 6.5, in the warm-water upper section between Thomasville and Cane Bluff. River access only — no road access. Near Blowing Spring (mile 6.1) and Roaring Spring.',
-    ARRAY['camping'],
-    'No vehicle access. River only.',
-    'Primitive dispersed camping. No facilities. No water, no toilet. Pack in, pack out.',
-    false,
-    'USFS',
+    'float_camp',
+    'manual',
+    36.792, -91.432,
+    ST_SetSRID(ST_MakePoint(-91.432, 36.792)::geometry, 4326)::geography,
     6.5,
-    true
+    ARRAY['camping'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    facilities = EXCLUDED.facilities,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 -- Horseshoe Bend Float Camp — Mile 26.5
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, facilities,
-    fee_required, managing_agency, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Horseshoe Bend Float Camp',
-    'horseshoe-bend',
-    ST_SetSRID(ST_MakePoint(-91.241807, 36.750644), 4326),
-    'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
+    'horseshoe-bend-float-camp',
     'Float camp on the left bank at mile 26.5, in the White Ribbon Trout Area between Turner Mill and Whitten. River access only.',
-    ARRAY['camping'],
-    'No vehicle access. River only.',
-    'Primitive dispersed camping. No facilities.',
-    false,
-    'USFS',
+    'float_camp',
+    'manual',
+    36.750644, -91.241807,
+    ST_SetSRID(ST_MakePoint(-91.241807, 36.750644)::geometry, 4326)::geography,
     26.5,
-    true
+    ARRAY['camping'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    facilities = EXCLUDED.facilities,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 -- Barn Hollow Float Camp — Mile 27.0
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, facilities,
-    fee_required, managing_agency,
-    official_site_url, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    nps_url, latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Barn Hollow Float Camp',
-    'barn-hollow',
-    ST_SetSRID(ST_MakePoint(-91.230847, 36.741660), 4326),
+    'barn-hollow-float-camp',
+    'Float camp on the left bank at mile 27.0, 10.4 miles downstream of Greer Crossing. River access only. Fire rings and lantern posts at each campsite. Primitive pit toilet. No water.',
     'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
-    'Float camp on the left bank at mile 27.0, 10.4 miles downstream of Greer Crossing. River access only. In the White Ribbon Trout Area.',
-    ARRAY['camping', 'restrooms'],
-    'No vehicle access. River only.',
-    'Fire rings and lantern posts at each campsite. Centrally located primitive pit toilet. No water.',
-    false,
-    'USFS',
+    'manual',
     'https://www.fs.usda.gov/r09/marktwain/recreation/barn-hollow-float-camp',
+    36.741660, -91.230847,
+    ST_SetSRID(ST_MakePoint(-91.230847, 36.741660)::geometry, 4326)::geography,
     27.0,
-    true
+    ARRAY['camping', 'restrooms'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    facilities = EXCLUDED.facilities,
-    official_site_url = EXCLUDED.official_site_url,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 -- Whites Creek Float Camp — Mile 28.5
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, facilities,
-    fee_required, managing_agency,
-    official_site_url, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    nps_url, latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Whites Creek Float Camp',
-    'whites-creek',
-    ST_SetSRID(ST_MakePoint(-91.210, 36.730), 4326),
+    'whites-creek-float-camp',
+    'Float camp on the left bank at mile 28.5, just 0.5 miles below Whitten Access. River access only. A spur trail connects to the 18.6-mile Whites Creek Trail into the Irish Wilderness. Whites Creek Cave, the largest cave on the Eleven Point, is a ~20-minute hike from the river. 5 designated sites with picnic tables and fire rings. Pit toilet. No water.',
     'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
-    'Float camp on the left bank at mile 28.5, just 0.5 miles below Whitten Access. River access only. A spur trail connects to the 18.6-mile Whites Creek Trail into the Irish Wilderness. Whites Creek Cave, the largest cave on the Eleven Point, is a ~20-minute hike from the river.',
-    ARRAY['camping', 'restrooms'],
-    'No vehicle access. River only.',
-    '5 designated sites, each with picnic table and fire ring. Centrally located pit toilet. No water.',
-    false,
-    'USFS',
+    'manual',
     'https://www.fs.usda.gov/r09/marktwain/recreation/whites-creek-float-camp',
+    36.730, -91.210,
+    ST_SetSRID(ST_MakePoint(-91.210, 36.730)::geometry, 4326)::geography,
     28.5,
-    true
+    ARRAY['camping', 'restrooms'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    facilities = EXCLUDED.facilities,
-    official_site_url = EXCLUDED.official_site_url,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 -- Greenbriar Float Camp — Mile 31.0
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, facilities,
-    fee_required, managing_agency, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Greenbriar Float Camp',
-    'greenbriar',
-    ST_SetSRID(ST_MakePoint(-91.183, 36.710), 4326),
+    'greenbriar-float-camp',
+    'Float camp on the left bank at mile 31.0, between Whitten and Riverton. River access only. Primitive dispersed camping. Pit toilet. No water.',
     'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
-    'Float camp on the left bank at mile 31.0, between Whitten and Riverton. River access only. Primitive dispersed camping.',
-    ARRAY['camping', 'restrooms'],
-    'No vehicle access. River only.',
-    'Primitive dispersed camping. Pit toilet. No water.',
-    false,
-    'USFS',
+    'manual',
+    36.710, -91.183,
+    ST_SetSRID(ST_MakePoint(-91.183, 36.710)::geometry, 4326)::geography,
     31.0,
-    true
+    ARRAY['camping', 'restrooms'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    facilities = EXCLUDED.facilities,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 -- Boze Mill Float Camp — Mile 33.4
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, road_access, facilities,
-    fee_required, managing_agency,
-    official_site_url, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    nps_url, latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Boze Mill Float Camp',
-    'boze-mill',
-    ST_SetSRID(ST_MakePoint(-91.1960, 36.6631), 4326),
+    'boze-mill-float-camp',
+    'Float camp at mile 33.4, at Boze Mill Spring — a sparkling blue pool producing 12-14 million gallons/day. Remnants of the historic mill dam wall and turbine are visible. Can be accessed from the river or via a short path from a parking area off County Road 152. Only 2 miles upstream of Riverton. Vault toilet. No water.',
     'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
-    'Float camp at mile 33.4, at Boze Mill Spring — a sparkling blue pool producing 12-14 million gallons/day. Remnants of the historic mill dam wall and turbine are visible. Can be accessed from the river or via a short path from a parking area off County Road 152. Only 2 miles upstream of Riverton.',
-    ARRAY['camping', 'restrooms'],
-    'Small parking area accessible from County Road 152. Also accessible by river.',
-    'From Riverton, go east on Hwy 160, turn north on County Road 152 to Boze Mill Spring.',
-    'Primitive dispersed camping. Centrally located vault toilet. No water. Historic spring and mill ruins.',
-    false,
-    'USFS',
+    'manual',
     'https://www.fs.usda.gov/r09/marktwain/recreation/boze-mill-float-camp',
+    36.6631, -91.1960,
+    ST_SetSRID(ST_MakePoint(-91.1960, 36.6631)::geometry, 4326)::geography,
     33.4,
-    true
+    ARRAY['camping', 'restrooms'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    parking_info = EXCLUDED.parking_info,
-    road_access = EXCLUDED.road_access,
-    facilities = EXCLUDED.facilities,
-    official_site_url = EXCLUDED.official_site_url,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 -- Morgan Spring Float Camp — Mile 43.3
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, road_access, facilities,
-    fee_required, managing_agency,
-    official_site_url, river_mile_downstream, approved
+INSERT INTO points_of_interest (
+    river_id, name, slug, description, type, source,
+    nps_url, latitude, longitude, location, river_mile,
+    amenities, active, is_on_water
 )
 SELECT
     r.id,
     'Morgan Spring Float Camp',
-    'morgan-spring',
-    ST_SetSRID(ST_MakePoint(-91.185, 36.560), 4326),
+    'morgan-spring-float-camp',
+    'Float camp on the right bank at mile 43.3, just past the spring branch inlet from Morgan Spring, 7.7 miles downstream of Riverton. 3 campsites with fire ring, lantern post, and picnic table. Vault toilet. No water. Footpaths lead to Morgan, Sullivan, Jones, and Blue Springs — deep blue, mineral-rich springs adding 140 million gallons of 58-degree water to the river daily.',
     'float_camp',
-    ARRAY['float_camp'],
-    true,
-    'USFS',
-    'Float camp on the right bank at mile 43.3, just past the spring branch inlet from Morgan Spring, 7.7 miles downstream of Riverton. Footpaths lead to Morgan, Sullivan, Jones, and Blue Springs — deep blue, mineral-rich springs adding 140 million gallons of 58-degree water to the river daily. A short drive from the Hwy 142 parking area provides hiking access to Morgan Spring.',
-    ARRAY['camping', 'restrooms'],
-    'Accessible by river from Riverton (~8 mi). Also hikeable from Hwy 142 Morgan Springs parking area.',
-    'Primary access by river from Riverton. Hiking access from Morgan Springs parking area off Hwy 142.',
-    '3 campsites, each with fire ring, lantern post, and picnic table. Centrally located vault toilet up the trail from campsites. No water.',
-    false,
-    'USFS',
+    'manual',
     'https://www.fs.usda.gov/r09/marktwain/recreation/morgan-spring-float-camp',
+    36.560, -91.185,
+    ST_SetSRID(ST_MakePoint(-91.185, 36.560)::geometry, 4326)::geography,
     43.3,
-    true
+    ARRAY['camping', 'restrooms'],
+    true, true
 FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET
-    description = EXCLUDED.description,
-    type = EXCLUDED.type,
-    types = EXCLUDED.types,
-    parking_info = EXCLUDED.parking_info,
-    road_access = EXCLUDED.road_access,
-    facilities = EXCLUDED.facilities,
-    official_site_url = EXCLUDED.official_site_url,
-    river_mile_downstream = EXCLUDED.river_mile_downstream,
-    approved = EXCLUDED.approved;
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================
--- 4. Fix mile markers for existing access points
+-- 3. Fix mile markers for existing access points
 -- ============================================
 
 -- Greer Spring/Crossing — fix mile marker (was likely NULL or wrong)

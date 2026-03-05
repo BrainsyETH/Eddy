@@ -257,4 +257,5 @@ export type POIType =
   | 'scenic_viewpoint'
   | 'waterfall'
   | 'geological'
+  | 'float_camp'
   | 'other';
