@@ -361,6 +361,285 @@ SELECT
 FROM rivers r WHERE r.slug = 'eleven-point'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
+-- Thomasville (Hwy 99) — Mile 0.0
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Thomasville', 'thomasville',
+    ST_SetSRID(ST_MakePoint(-91.4919, 36.7847), 4326),
+    'access', ARRAY['access'], true, 'USFS',
+    'Mile zero on the Eleven Point. Upper section only floatable March-June.',
+    ARRAY['parking'],
+    'USFS gravel lot at Hwy 99 bridge. ~10-12 vehicles.',
+    'Paved via State Highway 99. From Alton, Hwy 160 west 12 mi, right on Hwy 99 north 1.5 mi.',
+    'No amenities. No restrooms, no water, no trash service.',
+    false, ARRAY['paved']::text[], '10', 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/thomasville-river-access',
+    0.0, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Cane Bluff — Mile 9.3
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Cane Bluff', 'cane-bluff',
+    ST_SetSRID(ST_MakePoint(-91.405675, 36.796246), 4326),
+    'access', ARRAY['access'], true, 'USFS',
+    'First public access below Thomasville. 250-foot Cane Bluff across the river.',
+    ARRAY['parking', 'restrooms'],
+    'USFS gravel lot. Parking for 8 vehicles with trailers.',
+    'From Winona, SR 19 south 26 mi, right onto CR 410 ~1.5 mi, right onto CR 405 ~4 mi.',
+    'Vault toilet. No water, no camping.',
+    false, ARRAY['paved', 'gravel_maintained']::text[], '10', 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/cane-bluff-river-access',
+    9.3, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Turner Mill North — Mile 21.5
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Turner Mill North', 'turner-mill-north',
+    ST_SetSRID(ST_MakePoint(-91.2700, 36.7690), 4326),
+    'access', ARRAY['access'], true, 'USFS',
+    'Left bank access at historic Turner Mill site. Day use only, no camping.',
+    ARRAY['parking', 'restrooms'],
+    'Small USFS gravel lot. ~8-10 vehicles.',
+    'Remote. From Winona, Hwy 19 south 11.5 mi, right on NF-3152 for 6 mi, right on NF-3190.',
+    'Day-use picnic area with vault toilet and boat launch. No camping. No water.',
+    false, ARRAY['gravel_maintained']::text[], '10', 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/turner-mill-north-river-access',
+    21.5, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- McDowell Access — Mile 24.2
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    river_mile_downstream, approved
+)
+SELECT
+    r.id, 'McDowell Access', 'mcdowell',
+    ST_SetSRID(ST_MakePoint(-91.241337, 36.760374), 4326),
+    'access', ARRAY['access'], true, 'USFS',
+    'Primitive access on left bank. No amenities.',
+    ARRAY['parking'],
+    'Unimproved pulloff. Very limited.',
+    'No amenities. No restrooms, no water.',
+    false, ARRAY['gravel_unmaintained']::text[], '5', 'USFS',
+    24.2, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Whitten Access — Mile 28.0
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Whitten Access', 'whitten',
+    ST_SetSRID(ST_MakePoint(-91.214618, 36.732595), 4326),
+    'access', ARRAY['access'], true, 'USFS',
+    'Popular midpoint access. Put-in for Whitten to Riverton day float (8 mi).',
+    ARRAY['parking', 'restrooms'],
+    'USFS gravel lot on river right. Moderate capacity.',
+    'From Alton, Hwy 19 north 1.5 mi, right on Hwy AA 9 mi, left on Whitten Church Rd 2.2 mi.',
+    'Vault toilet. Single-lane concrete boat ramp. No water, no camping.',
+    false, ARRAY['paved', 'gravel_maintained']::text[], '15', 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/whitten-river-access',
+    28.0, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- The Narrows (Highway 142) — Mile 44.3
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'The Narrows (Highway 142)', 'narrows',
+    ST_SetSRID(ST_MakePoint(-91.191532, 36.550194), 4326),
+    'access', ARRAY['access'], true, 'USFS',
+    'Last access on the Eleven Point National Scenic River. Dramatic narrows geology.',
+    ARRAY['parking', 'restrooms', 'boat_ramp'],
+    'USFS paved parking lot. Moderate capacity.',
+    'Paved via Hwy 142. From Thayer, east 21 mi. From Doniphan, west 25 mi.',
+    'Developed site. Concrete boat ramp. Paved parking. Vault toilet. No camping, no water.',
+    false, ARRAY['paved']::text[], '20', 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/highway-142-river-access',
+    44.3, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Myrtle Access (MDC) — Mile 48.0
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, road_surface, parking_capacity, managing_agency,
+    river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Myrtle Access', 'myrtle',
+    ST_SetSRID(ST_MakePoint(-91.17, 36.50), 4326),
+    'access', ARRAY['access'], true, 'MDC',
+    'Last Missouri access on the Eleven Point. Site of old Stubblefield Ferry.',
+    ARRAY['parking', 'boat_ramp'],
+    'Small MDC gravel lot. Limited capacity.',
+    'From Thayer, Hwy 142 east 19 mi, south on Hwy H 7 mi, left on CR 278 2.5 mi.',
+    'MDC access. Concrete boat launch. Limited camping. Vault toilet. No water.',
+    false, ARRAY['paved', 'gravel_maintained']::text[], '10', 'MDC',
+    48.0, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Denny Hollow Float Camp — Mile 6.5
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, facilities, fee_required, managing_agency,
+    river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Denny Hollow Float Camp', 'denny-hollow',
+    ST_SetSRID(ST_MakePoint(-91.432, 36.792), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Primitive float camp on left bank at mile 6.5. River access only.',
+    ARRAY['camping'],
+    'Primitive dispersed camping. No facilities. No water, no toilet.',
+    false, 'USFS', 6.5, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Horseshoe Bend Float Camp — Mile 26.5
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, facilities, fee_required, managing_agency,
+    river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Horseshoe Bend Float Camp', 'horseshoe-bend',
+    ST_SetSRID(ST_MakePoint(-91.241807, 36.750644), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Float camp on left bank at mile 26.5. River access only.',
+    ARRAY['camping'],
+    'Primitive dispersed camping.',
+    false, 'USFS', 26.5, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Barn Hollow Float Camp — Mile 27.0
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, facilities, fee_required, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Barn Hollow Float Camp', 'barn-hollow',
+    ST_SetSRID(ST_MakePoint(-91.230847, 36.741660), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Float camp on left bank at mile 27.0. River access only. Fire rings, lantern posts, pit toilet.',
+    ARRAY['camping', 'restrooms'],
+    'Fire rings and lantern posts at each campsite. Primitive pit toilet. No water.',
+    false, 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/barn-hollow-float-camp',
+    27.0, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Whites Creek Float Camp — Mile 28.5
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, facilities, fee_required, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Whites Creek Float Camp', 'whites-creek',
+    ST_SetSRID(ST_MakePoint(-91.210, 36.730), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Float camp on left bank at mile 28.5, 0.5 mi below Whitten. Trail to Irish Wilderness.',
+    ARRAY['camping', 'restrooms'],
+    '5 designated sites with picnic tables and fire rings. Pit toilet. No water.',
+    false, 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/whites-creek-float-camp',
+    28.5, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Greenbriar Float Camp — Mile 31.0
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, facilities, fee_required, managing_agency,
+    river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Greenbriar Float Camp', 'greenbriar',
+    ST_SetSRID(ST_MakePoint(-91.183, 36.710), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Float camp on left bank at mile 31.0. River access only. Primitive dispersed camping.',
+    ARRAY['camping', 'restrooms'],
+    'Primitive dispersed camping. Pit toilet. No water.',
+    false, 'USFS', 31.0, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Boze Mill Float Camp — Mile 33.4
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, road_access, facilities, fee_required, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Boze Mill Float Camp', 'boze-mill',
+    ST_SetSRID(ST_MakePoint(-91.1960, 36.6631), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Float camp at Boze Mill Spring (12-14 million gal/day). Also accessible by road from CR 152.',
+    ARRAY['camping', 'restrooms'],
+    'From Riverton, east on Hwy 160, north on County Road 152 to Boze Mill Spring.',
+    'Primitive dispersed camping. Vault toilet. No water. Historic spring and mill ruins.',
+    false, 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/boze-mill-float-camp',
+    33.4, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- Morgan Spring Float Camp — Mile 43.3
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, facilities, fee_required, managing_agency,
+    official_site_url, river_mile_downstream, approved
+)
+SELECT
+    r.id, 'Morgan Spring Float Camp', 'morgan-spring',
+    ST_SetSRID(ST_MakePoint(-91.185, 36.560), 4326),
+    'float_camp', ARRAY['float_camp'], true, 'USFS',
+    'Float camp on right bank at mile 43.3. 3 sites. Trails to Morgan, Sullivan, Jones, Blue Springs.',
+    ARRAY['camping', 'restrooms'],
+    '3 campsites with fire ring, lantern post, picnic table. Vault toilet. No water.',
+    false, 'USFS',
+    'https://www.fs.usda.gov/r09/marktwain/recreation/morgan-spring-float-camp',
+    43.3, true
+FROM rivers r WHERE r.slug = 'eleven-point'
+ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
 -- ============================================
 -- JACKS FORK RIVER ACCESS POINTS
 -- ============================================

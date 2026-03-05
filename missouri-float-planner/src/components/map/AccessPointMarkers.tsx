@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import React from 'react';
 import maplibregl from 'maplibre-gl';
-import { MapPin, Flag, FlagOff, type LucideIcon } from 'lucide-react';
+import { MapPin, Flag, FlagOff, Tent, type LucideIcon } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { AccessPoint } from '@/types/api';
@@ -79,6 +79,10 @@ export default function AccessPointMarkers({
         iconType = 'takeout';
         scale = 1.2;
         zIndex = 10;
+      } else if (point.type === 'float_camp') {
+        bgColor = '#8B6914'; // warm earthy gold for float camps
+        borderColor = '#ffffff';
+        scale = 0.9;
       } else {
         // Neutral marker - slightly different color for public/private
         bgColor = point.isPublic ? '#c7b8a6' : '#a8a29e'; // river-gravel variants
@@ -119,6 +123,8 @@ export default function AccessPointMarkers({
         IconComponent = Flag;
       } else if (iconType === 'takeout') {
         IconComponent = FlagOff;
+      } else if (point.type === 'float_camp') {
+        IconComponent = Tent;
       } else {
         IconComponent = MapPin;
       }
