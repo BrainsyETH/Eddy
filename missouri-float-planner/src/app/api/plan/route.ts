@@ -459,6 +459,17 @@ export async function GET(request: NextRequest) {
       warnings.push('High water conditions - experienced paddlers only');
     }
 
+    // Warn if put-in or take-out may not have direct road access
+    const roadAccessTypes = ['access', 'boat_ramp'];
+    const putInTypes = (putIn.types || [putIn.type]) as string[];
+    const takeOutTypes = (takeOut.types || [takeOut.type]) as string[];
+    if (!putInTypes.some(t => roadAccessTypes.includes(t))) {
+      warnings.push(`${putIn.name} may not have direct road access — plan accordingly`);
+    }
+    if (!takeOutTypes.some(t => roadAccessTypes.includes(t))) {
+      warnings.push(`${takeOut.name} may not have direct road access — plan accordingly`);
+    }
+
     // Always derive flowRating from threshold-based condition code (not percentile)
     // This ensures consistency with gauge overview display
     const flowRating: FlowRating = conditionCodeToFlowRating(conditionCode);
