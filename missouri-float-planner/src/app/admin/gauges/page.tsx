@@ -79,12 +79,12 @@ interface River {
 }
 
 const THRESHOLD_LABELS = [
-  { key: 'tooLow', label: 'Too Low', color: 'bg-gray-500' },
+  { key: 'tooLow', label: 'Too Low', color: 'bg-neutral-400' },
   { key: 'low', label: 'Low', color: 'bg-yellow-500' },
-  { key: 'okay', label: 'Okay', color: 'bg-blue-500' },
-  { key: 'optimal', label: 'Optimal', color: 'bg-green-500' },
+  { key: 'okay', label: 'Okay', color: 'bg-lime-500' },
+  { key: 'optimal', label: 'Optimal', color: 'bg-emerald-600' },
   { key: 'high', label: 'High', color: 'bg-orange-500' },
-  { key: 'flood', label: 'Flood', color: 'bg-red-500' },
+  { key: 'flood', label: 'Flood', color: 'bg-red-600' },
 ];
 
 export default function AdminGaugesPage() {
