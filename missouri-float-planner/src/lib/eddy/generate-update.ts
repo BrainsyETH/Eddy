@@ -4,7 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
-import { RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
+import { RIVER_NOTES } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
@@ -186,7 +186,7 @@ function buildPrompt(
   localKnowledge: string,
   trendLabel: string | null = null,
 ): string {
-  const gaugeKnowledge = RIVER_KNOWLEDGE[target.riverSlug];
+  const riverNotes = RIVER_NOTES[target.riverSlug];
   const lines: string[] = [];
 
   // Date context so the model can reference day of week, season, etc.
@@ -234,13 +234,11 @@ function buildPrompt(
   // Gauge threshold knowledge — prefer DB-sourced values from gauge context
   if (gauge?.notes) {
     lines.push(`Gauge notes: ${gauge.notes}`);
-  } else if (gaugeKnowledge) {
-    lines.push(`Gauge notes: ${gaugeKnowledge.notes}`);
+  } else if (riverNotes) {
+    lines.push(`Gauge notes: ${riverNotes}`);
   }
   if (gauge?.closureLevel != null) {
     lines.push(`Closure level: ${gauge.closureLevel} ft`);
-  } else if (gaugeKnowledge?.closureLevel) {
-    lines.push(`Closure level: ${gaugeKnowledge.closureLevel} ft`);
   }
 
   // Weather (current)
@@ -353,7 +351,6 @@ async function fetchGaugeTrend(riverSlug: string): Promise<string | null> {
  */
 async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null> {
   const supabase = createAdminClient();
-  const knowledge = RIVER_KNOWLEDGE[riverSlug];
 
   // Get primary gauge for river
   const { data: riverData, error: riverError } = await supabase
@@ -447,7 +444,7 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
   const optMax = gaugeLink.level_optimal_max;
   const optimalRange = (optMin != null && optMax != null)
     ? `${optMin}–${optMax} ${unit}`
-    : knowledge?.optimalRange ?? 'unknown';
+    : 'unknown';
 
   return {
     gaugeName: station.name || 'Unknown gauge',
@@ -458,6 +455,6 @@ async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null
     readingTimestamp,
     optimalRange,
     closureLevel: gaugeLink.level_dangerous ?? null,
-    notes: knowledge?.notes ?? null,
+    notes: RIVER_NOTES[riverSlug] ?? null,
   };
 }

@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
-import { buildEddyQuote, RIVER_KNOWLEDGE } from '@/data/eddy-quotes';
+import { buildEddyQuote, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
@@ -19,6 +19,8 @@ interface EddyQuoteProps {
   gaugeHeightFt: number | null;
   weather?: WeatherInput | null;
   readingAgeHours?: number | null;
+  /** Optimal range string built from DB thresholds, e.g. "3.5–6.0 ft" */
+  optimalRange?: string | null;
 }
 
 const EDDY_IMAGES: Record<string, string> = {
@@ -94,7 +96,7 @@ function formatGeneratedAge(generatedAt: string): string {
   return `Updated ${Math.round(hours)} hrs ago`;
 }
 
-export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours }: EddyQuoteProps) {
+export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
   const [showFull, setShowFull] = useState(false);
@@ -154,7 +156,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     : conditionCode;
 
   // Static fallback
-  const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather);
+  const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather, optimalRange);
 
   // Summary vs full text
   const hasSummary = useAi && aiUpdate.summaryText;
@@ -163,7 +165,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   const displayText = hasSummary && !showFull ? summaryText! : fullText;
 
   const eddyImage = conditionToImage(displayConditionCode);
-  const knowledge = RIVER_KNOWLEDGE[riverSlug];
+  const notes = RIVER_NOTES[riverSlug];
 
   const bgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[displayConditionCode] ?? TEXT_BY_CONDITION.unknown;
@@ -222,9 +224,9 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               </button>
             )}
 
-            {knowledge && !hasSummary && (
+            {(optimalRange || notes) && !hasSummary && (
               <p className="text-xs opacity-50 flex-1">
-                Optimal range: {knowledge.optimalRange} &middot; {knowledge.notes}
+                {optimalRange ? `Optimal range: ${optimalRange}` : ''}{optimalRange && notes ? ' \u00b7 ' : ''}{notes || ''}
               </p>
             )}
 
@@ -242,9 +244,9 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             )}
           </div>
 
-          {knowledge && hasSummary && showFull && (
+          {(optimalRange || notes) && hasSummary && showFull && (
             <p className="text-xs mt-1.5 opacity-50">
-              Optimal range: {knowledge.optimalRange} &middot; {knowledge.notes}
+              {optimalRange ? `Optimal range: ${optimalRange}` : ''}{optimalRange && notes ? ' \u00b7 ' : ''}{notes || ''}
             </p>
           )}
         </div>

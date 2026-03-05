@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
-import { RIVER_KNOWLEDGE, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 
 interface EddyUpdate {
@@ -92,26 +92,46 @@ export default function EddyQuoteEmbedPage() {
 
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [river, setRiver] = useState<RiverBasic | null>(null);
+  const [optimalRange, setOptimalRange] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [eddyRes, riversRes] = await Promise.all([
+        const [eddyRes, riversRes, gaugesRes] = await Promise.all([
           fetch(`/api/eddy-update/${slug}`),
           fetch('/api/rivers'),
+          fetch('/api/gauges'),
         ]);
 
+        let riverId: string | null = null;
         if (riversRes.ok) {
           const data = await riversRes.json();
           const found = data.rivers?.find((r: RiverBasic) => r.slug === slug);
-          if (found) setRiver(found);
+          if (found) {
+            setRiver(found);
+            riverId = found.id ?? null;
+          }
         }
 
         if (eddyRes.ok) {
           const data = await eddyRes.json();
           if (data.available && data.update) {
             setUpdate(data.update);
+          }
+        }
+
+        // Extract optimal range from gauge thresholds
+        if (gaugesRes.ok && riverId) {
+          const gaugeData = await gaugesRes.json();
+          interface GaugeThreshold { riverId: string; isPrimary: boolean; thresholdUnit?: string; levelOptimalMin?: number | null; levelOptimalMax?: number | null }
+          interface GaugeEntry { thresholds?: GaugeThreshold[] | null }
+          const primary = (gaugeData.gauges as GaugeEntry[])
+            ?.flatMap((g) => g.thresholds ?? [])
+            .find((t) => t.riverId === riverId && t.isPrimary);
+          if (primary?.levelOptimalMin != null && primary?.levelOptimalMax != null) {
+            const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+            setOptimalRange(`${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`);
           }
         }
       } catch {
@@ -131,16 +151,15 @@ export default function EddyQuoteEmbedPage() {
 
   // Build fallback text if no AI update
   const quoteText = update?.quoteText || (() => {
-    const knowledge = RIVER_KNOWLEDGE[slug];
     const blurb = CONDITION_CARD_BLURBS[conditionCode as ConditionCode] || CONDITION_CARD_BLURBS.unknown;
+    const notes = RIVER_NOTES[slug];
     const parts: string[] = [];
     if (update?.gaugeHeightFt != null) {
       parts.push(`Reading ${update.gaugeHeightFt.toFixed(1)} ft at the gauge.`);
     }
     parts.push(blurb);
-    if (knowledge) {
-      parts.push(`Optimal range is ${knowledge.optimalRange}. ${knowledge.notes}`);
-    }
+    if (optimalRange) parts.push(`Optimal range is ${optimalRange}.`);
+    if (notes) parts.push(notes);
     return parts.join(' ');
   })();
 
