@@ -26,12 +26,14 @@ export const ACCESS_POINT_TYPES = {
   bridge: 'Bridge Access',
   access: 'River Access',
   park: 'Park',
+  float_camp: 'Float Camp',
 } as const;
 
 // Canonical display order for access point types
 export const ACCESS_POINT_TYPE_ORDER: (keyof typeof ACCESS_POINT_TYPES)[] = [
   'access',
   'campground',
+  'float_camp',
   'boat_ramp',
   'gravel_bar',
   'bridge',
