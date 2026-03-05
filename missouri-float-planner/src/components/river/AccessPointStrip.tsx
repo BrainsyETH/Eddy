@@ -606,11 +606,11 @@ export default function AccessPointStrip({
 
   return (
     <div className="relative">
-      {/* Scroll arrows */}
+      {/* Scroll arrows - desktop only, mobile uses native swipe */}
       {showLeftArrow && (
         <button
           onClick={() => scroll('left')}
-          className="absolute left-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
+          className="hidden lg:block absolute left-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
         >
           <ChevronLeft size={20} className="text-neutral-600" />
         </button>
@@ -618,7 +618,7 @@ export default function AccessPointStrip({
       {showRightArrow && (
         <button
           onClick={() => scroll('right')}
-          className="absolute right-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
+          className="hidden lg:block absolute right-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
         >
           <ChevronRight size={20} className="text-neutral-600" />
         </button>

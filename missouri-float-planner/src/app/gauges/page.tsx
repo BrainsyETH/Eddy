@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   ChevronDown,
@@ -495,9 +496,15 @@ export default function GaugesPage() {
                 <span className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm ${gauge.condition.tailwindColor}`}>
                   {gauge.condition.label}
                 </span>
-                <span className="text-sm font-medium text-neutral-600">
-                  {gauge.primaryRiver?.riverName || 'Unknown River'}
-                </span>
+                {gauge.primaryRiver?.riverSlug ? (
+                  <Link href={`/rivers/${gauge.primaryRiver.riverSlug}`} className="text-sm font-medium text-neutral-600 hover:text-primary-600 transition-colors">
+                    {gauge.primaryRiver.riverName || 'Unknown River'}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-medium text-neutral-600">
+                    {gauge.primaryRiver?.riverName || 'Unknown River'}
+                  </span>
+                )}
               </div>
 
               {/* Gauge Name */}
@@ -902,12 +909,13 @@ export default function GaugesPage() {
                 // Group by River view
                 <div className="space-y-8">
                   {(() => {
-                    const riverGroups = new Map<string, { name: string; gauges: typeof processedGauges }>();
+                    const riverGroups = new Map<string, { name: string; slug: string | null; gauges: typeof processedGauges }>();
                     processedGauges.forEach(gauge => {
                       const riverId = gauge.primaryRiver?.riverId || 'unknown';
                       const riverName = gauge.primaryRiver?.riverName || 'Unknown River';
+                      const riverSlug = gauge.primaryRiver?.riverSlug || null;
                       if (!riverGroups.has(riverId)) {
-                        riverGroups.set(riverId, { name: riverName, gauges: [] });
+                        riverGroups.set(riverId, { name: riverName, slug: riverSlug, gauges: [] });
                       }
                       riverGroups.get(riverId)!.gauges.push(gauge);
                     });
@@ -917,7 +925,13 @@ export default function GaugesPage() {
                         <div key={riverId}>
                           <h2 className="text-lg font-bold text-neutral-900 mb-3 flex items-center gap-2">
                             <Droplets className="w-5 h-5 text-primary-500" />
-                            {group.name}
+                            {group.slug ? (
+                              <Link href={`/rivers/${group.slug}`} className="hover:text-primary-600 transition-colors">
+                                {group.name}
+                              </Link>
+                            ) : (
+                              group.name
+                            )}
                             <span className="text-sm font-normal text-neutral-500">({group.gauges.length})</span>
                           </h2>
                           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

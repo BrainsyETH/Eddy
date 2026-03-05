@@ -520,7 +520,7 @@ export default function RiverPage() {
 
         {/* Map + Access Points */}
         <div className="mb-4">
-          <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
+          <div className="relative h-[420px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
             {/* Weather Bug overlay */}
             <WeatherBug riverSlug={slug} riverId={river.id} />
 
