@@ -8,7 +8,7 @@ import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import GaugeWeather from '@/components/ui/GaugeWeather';
-import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import type { ConditionCode } from '@/types/api';
@@ -113,253 +113,7 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
   };
 }
 
-// Flow trend chart component
-interface ThresholdLines {
-  levelTooLow: number | null;
-  levelLow: number | null;
-  levelOptimalMin: number | null;
-  levelOptimalMax: number | null;
-  levelHigh: number | null;
-  levelDangerous: number | null;
-}
-
-const THRESHOLD_LINE_CONFIG: { key: keyof ThresholdLines; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Okay', color: '#65a30d', dash: '3,3' },
-  { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
-  { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
-  { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
-  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
-];
-
-function FlowTrendChart({ gaugeSiteId, days, thresholds, latestValue, displayUnit = 'cfs' }: { gaugeSiteId: string; days: number; thresholds?: ThresholdLines | null; latestValue?: number | null; displayUnit?: 'ft' | 'cfs' }) {
-  const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
-  const isFt = displayUnit === 'ft';
-
-  const chartData = useMemo(() => {
-    if (!history?.readings || history.readings.length === 0) return null;
-
-    const readings = history.readings;
-    const stats = history.stats;
-
-    // Use appropriate data series based on display unit
-    const dataMin = isFt ? (stats.minHeight ?? 0) : (stats.minDischarge ?? 0);
-    const dataMax = isFt ? (stats.maxHeight ?? 10) : (stats.maxDischarge ?? 100);
-    const dataRange = dataMax - dataMin || 1;
-
-    let minVal = dataMin;
-    let maxVal = dataMax;
-
-    if (thresholds) {
-      const expansionLimit = dataRange * 1.5;
-      const thresholdValues = [
-        thresholds.levelTooLow, thresholds.levelLow,
-        thresholds.levelOptimalMin, thresholds.levelOptimalMax,
-        thresholds.levelHigh, thresholds.levelDangerous,
-      ].filter((v): v is number => v !== null);
-
-      for (const tv of thresholdValues) {
-        if (tv >= dataMin - expansionLimit && tv <= dataMax + expansionLimit) {
-          if (tv < minVal) minVal = tv;
-          if (tv > maxVal) maxVal = tv;
-        }
-      }
-    }
-
-    const padding = (maxVal - minVal) * 0.05 || (isFt ? 0.5 : 5);
-    minVal = Math.max(0, minVal - padding);
-    maxVal = maxVal + padding;
-
-    const range = maxVal - minVal || 1;
-
-    const sampleStep = Math.max(1, Math.floor(readings.length / 50));
-    const sampledReadings = readings.filter((_: unknown, i: number) => i % sampleStep === 0);
-
-    const points = sampledReadings.map((reading: { dischargeCfs: number | null; gaugeHeightFt: number | null; timestamp: string }, index: number) => {
-      const val = isFt ? reading.gaugeHeightFt : reading.dischargeCfs;
-      const x = (index / (sampledReadings.length - 1)) * 100;
-      const y = val !== null
-        ? 100 - ((val - minVal) / range) * 100
-        : 50;
-      return { x, y, value: val, timestamp: reading.timestamp };
-    });
-
-    const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
-
-    const allThresholdLines = thresholds
-      ? THRESHOLD_LINE_CONFIG
-          .filter(t => thresholds[t.key] !== null)
-          .map(t => ({
-            ...t,
-            value: thresholds[t.key]!,
-            y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
-          }))
-          .filter(t => t.y >= -5 && t.y <= 105)
-      : [];
-
-    const MIN_LABEL_GAP = 8;
-    const labelCandidates: typeof allThresholdLines = [];
-    const optMin = allThresholdLines.find(t => t.key === 'levelOptimalMin');
-    const optMax = allThresholdLines.find(t => t.key === 'levelOptimalMax');
-    if (optMin && optMax) {
-      labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
-    } else if (optMin) {
-      labelCandidates.push(optMin);
-    } else if (optMax) {
-      labelCandidates.push(optMax);
-    }
-    for (const t of allThresholdLines) {
-      if (t.key !== 'levelOptimalMin' && t.key !== 'levelOptimalMax') {
-        labelCandidates.push(t);
-      }
-    }
-    labelCandidates.sort((a, b) => a.y - b.y);
-    const thresholdLabels: typeof labelCandidates = [];
-    for (const candidate of labelCandidates) {
-      const tooClose = thresholdLabels.some(placed => Math.abs(placed.y - candidate.y) < MIN_LABEL_GAP);
-      if (!tooClose) {
-        thresholdLabels.push(candidate);
-      }
-    }
-
-    const lastReading = readings[readings.length - 1];
-    return {
-      points,
-      pathD,
-      areaD,
-      minVal,
-      maxVal,
-      currentVal: isFt ? lastReading?.gaugeHeightFt : lastReading?.dischargeCfs,
-      startDate: new Date(readings[0].timestamp),
-      endDate: new Date(readings[readings.length - 1].timestamp),
-      thresholdLineData: allThresholdLines,
-      thresholdLabels,
-    };
-  }, [history, thresholds, isFt]);
-
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <div className="flex items-center gap-2 text-neutral-400 text-sm">
-          <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          Loading trend data...
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !chartData) {
-    return (
-      <div className="p-4">
-        <p className="text-neutral-400 text-sm">{isFt ? 'Stage' : 'Flow'} trend data unavailable</p>
-      </div>
-    );
-  }
-
-  const formatVal = (val: number) => {
-    if (isFt) return val.toFixed(2);
-    if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
-    return val.toFixed(0);
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const unitLabel = isFt ? 'ft' : 'cfs';
-  const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
-  const currentDisplay = latestValue ?? chartData.currentVal;
-
-  return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
-        {currentDisplay !== null && currentDisplay !== undefined && (
-          <span className="text-xs text-primary-600 font-medium">
-            Current: {formatVal(currentDisplay)} {unitLabel}
-          </span>
-        )}
-      </div>
-
-      <div className="relative h-32">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-          <defs>
-            <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
-            </linearGradient>
-          </defs>
-          {/* Optimal range shaded band */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
-            const optMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
-            if (optMin && optMax) {
-              return (
-                <rect
-                  x="0" width="100"
-                  y={Math.min(optMin.y, optMax.y)}
-                  height={Math.abs(optMax.y - optMin.y)}
-                  fill="#059669" fillOpacity="0.1"
-                />
-              );
-            }
-            return null;
-          })()}
-          {/* Threshold reference lines */}
-          {chartData.thresholdLineData.map((t) => (
-            <line
-              key={t.key}
-              x1="0" x2="100"
-              y1={t.y} y2={t.y}
-              stroke={t.color}
-              strokeWidth="1"
-              strokeDasharray={t.dash || 'none'}
-              vectorEffect="non-scaling-stroke"
-              opacity="0.5"
-            />
-          ))}
-          <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
-          <path d={chartData.pathD} fill="none" stroke="rgb(45, 120, 137)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-          {chartData.points.length > 0 && (
-            <circle
-              cx={chartData.points[chartData.points.length - 1].x}
-              cy={chartData.points[chartData.points.length - 1].y}
-              r="4"
-              fill="rgb(45, 120, 137)"
-              stroke="#f5f5f5"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-        </svg>
-        {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-500 -ml-1">
-          <span>{formatVal(chartData.maxVal)}</span>
-          <span>{formatVal(chartData.minVal)}</span>
-        </div>
-        {/* Threshold labels on right side (de-overlapped) */}
-        {chartData.thresholdLabels.map((t) => (
-          <div
-            key={`label-${t.key}`}
-            className="absolute right-0 text-[9px] font-medium -mr-1 leading-none"
-            style={{
-              top: `${t.y}%`,
-              color: t.color,
-              transform: 'translateY(-50%)',
-            }}
-          >
-            {t.label}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex justify-between text-[10px] text-neutral-500 mt-1 px-2">
-        <span>{formatDate(chartData.startDate)}</span>
-        <span>{formatDate(chartData.endDate)}</span>
-      </div>
-    </div>
-  );
-}
+// FlowTrendChart is now imported from @/components/ui/FlowTrendChart
 
 // Expanded gauge detail panel with per-card unit toggle
 function GaugeExpandedDetail({
@@ -447,7 +201,7 @@ function GaugeExpandedDetail({
               ? (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A')
               : (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A');
             const secondaryLabel = useCfs ? 'Stage' : 'Flow';
-            const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-400" /> : <Activity className="w-4 h-4 text-neutral-400" />;
+            const secondaryIcon = useCfs ? <Droplets className="w-4 h-4 text-neutral-500" /> : <Activity className="w-4 h-4 text-neutral-500" />;
             const secondaryValue = useCfs
               ? (gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A')
               : (gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A');
@@ -797,7 +551,7 @@ export default function GaugeOverview({
           <span className={`px-1.5 py-0.5 rounded text-white ${minCondition.color}`}>
             {minCondition.label}
           </span>
-          <span className="text-neutral-400">→</span>
+          <span className="text-neutral-500">→</span>
           <span className={`px-1.5 py-0.5 rounded text-white ${maxCondition.color}`}>
             {maxCondition.label}
           </span>
@@ -882,13 +636,13 @@ export default function GaugeOverview({
                         ? gauge.gaugeHeightFt !== null ? (
                             <div className="text-right" key="secondary">
                               <p className="text-xs text-neutral-500">{gauge.gaugeHeightFt.toFixed(2)} ft</p>
-                              <p className="text-[10px] text-neutral-400">Stage</p>
+                              <p className="text-[10px] text-neutral-500">Stage</p>
                             </div>
                           ) : null
                         : gauge.dischargeCfs !== null ? (
                             <div className="text-right" key="secondary">
                               <p className="text-xs text-neutral-500">{gauge.dischargeCfs.toLocaleString()} cfs</p>
-                              <p className="text-[10px] text-neutral-400">Flow</p>
+                              <p className="text-[10px] text-neutral-500">Flow</p>
                             </div>
                           ) : null;
 
@@ -898,9 +652,9 @@ export default function GaugeOverview({
                       {condition.label}
                     </div>
                     {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-neutral-400" />
+                      <ChevronUp className="w-5 h-5 text-neutral-500" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-neutral-400" />
+                      <ChevronDown className="w-5 h-5 text-neutral-500" />
                     )}
                   </div>
                 </div>
