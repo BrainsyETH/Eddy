@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Share2, Check } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
 import { buildEddyQuote, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
@@ -207,13 +207,15 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             {useAi && (
               <button
                 onClick={handleShare}
-                className={`flex items-center gap-1 text-xs font-semibold transition-colors ml-auto ${textClass} opacity-50 hover:opacity-100`}
+                className={`flex items-center gap-1.5 text-xs font-semibold transition-all ml-auto rounded-md px-2 py-1 ${
+                  shareStatus === 'copied'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : `${textClass} opacity-50 hover:opacity-100 hover:bg-black/5`
+                }`}
                 title="Share this report"
               >
-                <Share2 className="w-3 h-3" />
-                <span className="hidden sm:inline">
-                  {shareStatus === 'copied' ? 'Copied' : 'Share'}
-                </span>
+                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {shareStatus === 'copied' ? 'Copied!' : 'Share'}
               </button>
             )}
           </div>
