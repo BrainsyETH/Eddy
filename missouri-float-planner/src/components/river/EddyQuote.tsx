@@ -99,13 +99,14 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     return () => { cancelled = true; };
   }, [riverSlug]);
 
-  // Share handler
+  // Share handler — only use native share on mobile (touch devices)
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/rivers/${riverSlug}`;
-    const title = `River conditions on Eddy`;
-    const text = aiUpdate?.summaryText || aiUpdate?.quoteText || 'Check the latest river conditions on Eddy';
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
-    if (navigator.share) {
+    if (isMobile && navigator.share) {
+      const title = `River conditions on Eddy`;
+      const text = aiUpdate?.summaryText || aiUpdate?.quoteText || 'Check the latest river conditions on Eddy';
       try {
         await navigator.share({ title, text, url });
         return;

@@ -81,7 +81,116 @@ const DATE_RANGES = [
   { days: 30, label: '30 Days' },
 ];
 
-// Static river summaries removed — replaced by AI-generated Eddy updates
+// Compact Eddy Says blurb for grouped river view — lazy-loads AI update on expand
+function GroupEddyBlurb({
+  riverSlug,
+  conditionCode,
+  gauges,
+  eddyCache,
+  setEddyCache,
+}: {
+  riverSlug: string | null;
+  conditionCode: ConditionCode;
+  gauges: { name: string; gaugeHeightFt: number | null; primaryRiver?: { levelOptimalMin: number | null; levelOptimalMax: number | null; thresholdUnit: string; isPrimary: boolean } | null }[];
+  eddyCache: Record<string, EddyUpdateResponse['update'] | null>;
+  setEddyCache: React.Dispatch<React.SetStateAction<Record<string, EddyUpdateResponse['update'] | null>>>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+
+  // Fetch on first expand
+  useEffect(() => {
+    if (!isOpen || !riverSlug || riverSlug in eddyCache) return;
+
+    let cancelled = false;
+    setLocalLoading(true);
+
+    async function fetchEddy() {
+      try {
+        const res = await fetch(`/api/eddy-update/${riverSlug}`);
+        if (!res.ok) return;
+        const data: EddyUpdateResponse = await res.json();
+        if (!cancelled) {
+          setEddyCache(prev => ({ ...prev, [riverSlug!]: data.available ? data.update : null }));
+        }
+      } catch {
+        if (!cancelled) {
+          setEddyCache(prev => ({ ...prev, [riverSlug!]: null }));
+        }
+      } finally {
+        if (!cancelled) setLocalLoading(false);
+      }
+    }
+    fetchEddy();
+    return () => { cancelled = true; };
+  }, [isOpen, riverSlug, eddyCache, setEddyCache]);
+
+  const update = riverSlug ? eddyCache[riverSlug] ?? null : null;
+  const theme = getEddyCardTheme(conditionCode);
+
+  // Build static fallback
+  const buildStaticText = () => {
+    const primary = gauges.find(g => g.primaryRiver?.isPrimary) || gauges[0];
+    const blurb = CONDITION_CARD_BLURBS[conditionCode] || CONDITION_CARD_BLURBS.unknown;
+    const pr = primary?.primaryRiver;
+    const optMin = pr?.levelOptimalMin;
+    const optMax = pr?.levelOptimalMax;
+    const unit = pr?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+    const optRange = (optMin != null && optMax != null) ? `${optMin}\u2013${optMax} ${unit}` : null;
+    const notes = riverSlug ? RIVER_NOTES[riverSlug] : null;
+    const parts: string[] = [];
+    if (primary?.gaugeHeightFt !== null && primary?.gaugeHeightFt !== undefined) {
+      parts.push(`Reading ${primary.gaugeHeightFt.toFixed(1)} ft at the ${primary.name || 'primary gauge'}.`);
+    }
+    parts.push(blurb);
+    if (optRange) parts.push(`Optimal range is ${optRange}.`);
+    if (notes) parts.push(notes);
+    return parts.join(' ');
+  };
+
+  return (
+    <div className="mb-3">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 text-xs font-semibold transition-colors ${theme.accent} opacity-60 hover:opacity-100`}
+      >
+        <Image
+          src={getEddyImageForCondition(conditionCode)}
+          alt="Eddy"
+          width={20}
+          height={20}
+          className="w-5 h-5 object-contain"
+        />
+        Eddy says
+        {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+      </button>
+      {isOpen && (
+        <div className={`${theme.bg} border ${theme.border} rounded-lg p-3 mt-2`}>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 relative">
+              <Image
+                src={getEddyImageForCondition(conditionCode)}
+                alt="Eddy the Otter"
+                fill
+                className="object-contain"
+                sizes="40px"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              {localLoading && !update ? (
+                <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
+              ) : (
+                <p className={`text-sm leading-relaxed font-medium ${theme.text}`}>
+                  &ldquo;{update ? (update.summaryText || update.quoteText) : buildStaticText()}&rdquo;
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 
 export default function GaugesPage() {
@@ -934,6 +1043,25 @@ export default function GaugesPage() {
                             )}
                             <span className="text-sm font-normal text-neutral-500">({group.gauges.length})</span>
                           </h2>
+                          <GroupEddyBlurb
+                            riverSlug={group.slug}
+                            conditionCode={(() => {
+                              const primary = group.gauges.find(g => g.primaryRiver?.isPrimary) || group.gauges[0];
+                              return (primary?.condition.code || 'unknown') as ConditionCode;
+                            })()}
+                            gauges={group.gauges.map(g => ({
+                              name: g.name,
+                              gaugeHeightFt: g.gaugeHeightFt,
+                              primaryRiver: g.primaryRiver ? {
+                                levelOptimalMin: g.primaryRiver.levelOptimalMin,
+                                levelOptimalMax: g.primaryRiver.levelOptimalMax,
+                                thresholdUnit: g.primaryRiver.thresholdUnit,
+                                isPrimary: g.primaryRiver.isPrimary,
+                              } : null,
+                            }))}
+                            eddyCache={eddyCache}
+                            setEddyCache={setEddyCache}
+                          />
                           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                             {group.gauges.map((gauge) => renderGaugeCard(gauge))}
                           </div>
