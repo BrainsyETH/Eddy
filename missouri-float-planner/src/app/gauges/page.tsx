@@ -705,13 +705,10 @@ export default function GaugesPage() {
                           <button
                             onClick={async () => {
                               const url = `${window.location.origin}/gauges?river=${selectedRiverSlug}`;
-                              if (navigator.share) {
+                              const isMobile = window.matchMedia('(pointer: coarse)').matches;
+                              if (isMobile && navigator.share) {
                                 try {
-                                  await navigator.share({
-                                    title: 'River conditions on Eddy',
-                                    text: eddyUpdate.summaryText || eddyUpdate.quoteText,
-                                    url,
-                                  });
+                                  await navigator.share({ url });
                                   return;
                                 } catch { /* cancelled */ }
                               }
