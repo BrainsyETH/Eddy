@@ -1246,6 +1246,17 @@ function MobileBottomSheet({
           </div>
         )}
 
+        {/* Road Access Warnings */}
+        {plan.warnings.length > 0 && (
+          <div className="space-y-1 mb-4">
+            {plan.warnings.map((warning, idx) => (
+              <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                <span>⚠</span> {warning}
+              </p>
+            ))}
+          </div>
+        )}
+
         {/* 1. Access Point Cards */}
         <div className="space-y-3 mb-4">
           <AccessPointDetailCard
@@ -1534,6 +1545,17 @@ export default function FloatPlanCard({
               onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
             />
           </div>
+
+          {/* Warnings */}
+          {displayPlan.warnings.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {displayPlan.warnings.map((warning, idx) => (
+                <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                  <span>⚠</span> {warning}
+                </p>
+              ))}
+            </div>
+          )}
 
           {/* Actions Row */}
           <div className="flex justify-end items-center mt-4 pt-4 border-t border-neutral-100">
