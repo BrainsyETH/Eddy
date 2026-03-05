@@ -24,7 +24,7 @@ fast in summer and spike hard after storms.
 - Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.
 - Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).
 - Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.
-- After heavy rain, spring-fed rivers may stay clear while rain-fed rivers turn muddy. A clear Current River next to a chocolate Jacks Fork is common after a storm.
+- After heavy rain, rivers may become less clear and turn muddy. 
 - Weekends in June and July are the busiest. For a quieter float, go mid-week or choose Eleven Point or Big Piney over Current or Meramec.
 - Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
 - Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork) may have fees at developed access points.
@@ -160,7 +160,7 @@ Short, accessible, and perfect for day trips. Pairs naturally with Courtois Cree
 a weekend of floating.
 
 - Popular for day trips from the St. Louis area. Easy access, good outfitter infrastructure.
-- Rain-fed — needs recent rain to float well. Can drop fast in summer dry spells.
+- Can drop fast in summer dry spells and increase quick with heavy rain.
 - Shorter float sections mean you can do a full trip in 3-4 hours.
 - Often combined with Courtois — float one Saturday, the other Sunday.
 - Steelville is the hub for both Huzzah and Courtois access and outfitters.
