@@ -1246,17 +1246,6 @@ function MobileBottomSheet({
           </div>
         )}
 
-        {/* Road Access Warnings */}
-        {plan.warnings.length > 0 && (
-          <div className="space-y-1 mb-4">
-            {plan.warnings.map((warning, idx) => (
-              <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
-                <span>⚠</span> {warning}
-              </p>
-            ))}
-          </div>
-        )}
-
         {/* 1. Access Point Cards */}
         <div className="space-y-3 mb-4">
           <AccessPointDetailCard
@@ -1308,6 +1297,17 @@ function MobileBottomSheet({
             <ChevronRight size={16} className="text-primary-400" />
           </a>
         </div>
+
+        {/* Road Access Warnings */}
+        {plan.warnings.length > 0 && (
+          <div className="space-y-1 mb-4">
+            {plan.warnings.map((warning, idx) => (
+              <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                <span>⚠</span> {warning}
+              </p>
+            ))}
+          </div>
+        )}
 
         {/* Along Your Route */}
         {pointsAlongRoute.length > 0 && (
