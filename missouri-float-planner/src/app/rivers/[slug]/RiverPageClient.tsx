@@ -513,16 +513,6 @@ export default function RiverPage() {
           />
         </div>
 
-        {/* River Conditions - immediately after planner for "Is it safe?" visibility */}
-        <div className="mb-4">
-          <GaugeOverview
-            gauges={gaugeStations}
-            riverId={river.id}
-            isLoading={!allGaugeStations}
-            putInCoordinates={selectedPutInPoint?.coordinates || null}
-          />
-        </div>
-
         {/* Map + Access Points */}
         <div className="mb-4">
           <div className="relative h-[350px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
@@ -617,6 +607,14 @@ export default function RiverPage() {
           <PointsOfInterest
             riverSlug={slug}
             defaultOpen={false}
+          />
+
+          {/* River Conditions - below Points of Interest */}
+          <GaugeOverview
+            gauges={gaugeStations}
+            riverId={river.id}
+            isLoading={!allGaugeStations}
+            putInCoordinates={selectedPutInPoint?.coordinates || null}
           />
         </div>
       </div>
