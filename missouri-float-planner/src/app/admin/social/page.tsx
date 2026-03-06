@@ -192,17 +192,47 @@ export default function SocialAdminPage() {
     setSaving(true);
     console.log(`[SocialAdmin] Saving config: cooldown=${config.highlight_cooldown_hours}, conditions=[${config.highlight_conditions?.join(',')}]`);
     try {
-      const res = await adminFetch('/api/admin/social/config', {
-        method: 'PUT',
+      // Use POST (not PUT) to avoid any edge/CDN caching of write operations
+      const res = await adminFetch(`/api/admin/social/config?_save=1&_t=${Date.now()}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
       if (res.ok) {
         const saved = await res.json();
         if (saved && saved.id) {
-          console.log(`[SocialAdmin] Save confirmed: cooldown=${saved.highlight_cooldown_hours}, conditions=[${saved.highlight_conditions?.join(',')}]`);
-          setConfig(saved);
-          showToast('Settings saved successfully', 'success');
+          console.log(`[SocialAdmin] Save response: cooldown=${saved.highlight_cooldown_hours}, conditions=[${saved.highlight_conditions?.join(',')}]`);
+
+          // Verification: do a fresh GET to confirm the save actually persisted
+          const verifyRes = await adminFetch(`/api/admin/social/config?_verify=1&_t=${Date.now()}`);
+          if (verifyRes.ok) {
+            const verified = await verifyRes.json();
+            if (verified && verified.id) {
+              const cooldownOk = verified.highlight_cooldown_hours === config.highlight_cooldown_hours;
+              const conditionsOk = JSON.stringify(verified.highlight_conditions?.sort()) === JSON.stringify(config.highlight_conditions?.sort());
+
+              if (!cooldownOk || !conditionsOk) {
+                console.error(
+                  `[SocialAdmin] SAVE DID NOT PERSIST! ` +
+                  `Sent cooldown=${config.highlight_cooldown_hours} but GET returned ${verified.highlight_cooldown_hours}. ` +
+                  `Sent conditions=[${config.highlight_conditions?.join(',')}] but GET returned [${verified.highlight_conditions?.join(',')}]`
+                );
+                showToast('Save failed — changes did not persist. Check server logs.', 'error');
+                setConfig(verified); // Show actual DB state
+                return;
+              }
+
+              console.log(`[SocialAdmin] Save VERIFIED — DB matches: cooldown=${verified.highlight_cooldown_hours}, conditions=[${verified.highlight_conditions?.join(',')}]`);
+              setConfig(verified);
+              showToast('Settings saved and verified', 'success');
+            } else {
+              setConfig(saved);
+              showToast('Settings saved (verification returned empty)', 'success');
+            }
+          } else {
+            setConfig(saved);
+            showToast('Settings saved (could not verify)', 'success');
+          }
         } else {
           showToast('Save appeared to succeed but returned empty data — please refresh', 'error');
         }
