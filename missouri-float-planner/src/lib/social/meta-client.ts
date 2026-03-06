@@ -60,6 +60,15 @@ export async function publishToFacebook(params: {
       const apiError = data as MetaApiError;
       const errorMsg = apiError.error?.message || `HTTP ${response.status}`;
       console.error('[MetaClient] Facebook publish failed:', errorMsg);
+
+      // Provide actionable diagnostic for common token misconfiguration
+      if (apiError.error?.code === 200 && errorMsg.includes('publish_actions')) {
+        console.error(
+          '[MetaClient] HINT: This error means META_PAGE_ACCESS_TOKEN is a User token, not a Page token. ' +
+          'Get a Page token via: GET /me/accounts?access_token=USER_TOKEN → use the page\'s access_token field.'
+        );
+      }
+
       return { success: false, error: errorMsg };
     }
 
@@ -216,6 +225,13 @@ export async function validateToken(): Promise<{ valid: boolean; error?: string 
     const data = await response.json();
 
     if (data.data?.is_valid) {
+      const tokenType = data.data.type;
+      if (tokenType && tokenType !== 'PAGE') {
+        console.warn(
+          `[MetaClient] Token is valid but type is "${tokenType}" (expected "PAGE"). ` +
+          'Facebook posting requires a Page Access Token. Get one via GET /me/accounts.'
+        );
+      }
       return { valid: true };
     }
 
