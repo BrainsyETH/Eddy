@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS social_posts (
 
 -- Prevent duplicate posts: one per type/platform/day/river
 CREATE UNIQUE INDEX idx_social_posts_dedup
-  ON social_posts (post_type, platform, (created_at::date), COALESCE(river_slug, '__global__'));
+  ON social_posts (post_type, platform, ((created_at AT TIME ZONE 'UTC')::date), COALESCE(river_slug, '__global__'));
 
 -- Query indices
 CREATE INDEX idx_social_posts_status ON social_posts (status);
