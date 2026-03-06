@@ -17,7 +17,14 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    const { data: pois, error } = await supabase
+    // Pagination params
+    const url = new URL(request.url);
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data: pois, error, count } = await supabase
       .from('points_of_interest')
       .select(`
         id,
@@ -39,9 +46,9 @@ export async function GET(request: NextRequest) {
         is_on_water,
         created_at,
         rivers(id, name, slug)
-      `)
+      `, { count: 'exact' })
       .order('name', { ascending: true })
-      .limit(5000);
+      .range(from, to);
 
     if (error) {
       console.error('Error fetching POIs:', error);
@@ -82,7 +89,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ pois: formatted });
+    return NextResponse.json({
+      pois: formatted,
+      total: count ?? formatted.length,
+      page,
+      limit,
+    });
   } catch (error) {
     console.error('Error in admin POIs endpoint:', error);
     return NextResponse.json(

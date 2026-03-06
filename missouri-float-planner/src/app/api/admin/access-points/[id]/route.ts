@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { sanitizeRichText } from '@/lib/sanitize';
+import { getCoordinates, getRiverData } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,22 +66,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    // Type guard for rivers relation
-    const getRiverData = (rivers: unknown): { id?: string; name?: string; slug?: string } | null => {
-      if (!rivers || typeof rivers !== 'object') return null;
-      return rivers as { id?: string; name?: string; slug?: string };
-    };
-
-    // Type guard for GeoJSON Point
-    const getCoordinates = (geom: unknown): { lng: number; lat: number } | null => {
-      if (!geom || typeof geom !== 'object') return null;
-      const geo = geom as { type?: string; coordinates?: [number, number] };
-      if (geo.type === 'Point' && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
-        return { lng: geo.coordinates[0], lat: geo.coordinates[1] };
-      }
-      return null;
-    };
 
     const origCoords = getCoordinates(data.location_orig) || { lng: 0, lat: 0 };
     const snapCoords = data.location_snap ? getCoordinates(data.location_snap) : null;
@@ -427,12 +412,6 @@ export async function PUT(
       );
     }
 
-    // Type guard for rivers relation
-    const getRiverData = (rivers: unknown): { id?: string; name?: string; slug?: string } | null => {
-      if (!rivers || typeof rivers !== 'object') return null;
-      return rivers as { id?: string; name?: string; slug?: string };
-    };
-
     // Invalidate segment cache for this access point
     // This ensures float plans are recalculated with the new position
     try {
@@ -445,16 +424,6 @@ export async function PUT(
     }
 
     // Format response
-    // Type guard for GeoJSON Point
-    const getCoordinates = (geom: unknown): { lng: number; lat: number } | null => {
-      if (!geom || typeof geom !== 'object') return null;
-      const geo = geom as { type?: string; coordinates?: [number, number] };
-      if (geo.type === 'Point' && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
-        return { lng: geo.coordinates[0], lat: geo.coordinates[1] };
-      }
-      return null;
-    };
-
     const origCoords = getCoordinates(data.location_orig) || { lng: 0, lat: 0 };
     const snapCoords = data.location_snap ? getCoordinates(data.location_snap) : null;
     const riverData = getRiverData(data.rivers);

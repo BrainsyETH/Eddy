@@ -66,6 +66,15 @@ interface AccessPointData {
   nearbyServices: NearbyService[];
 }
 
+const ACCESS_POINT_TYPE_OPTIONS = [
+  { value: 'boat_ramp', label: 'Boat Ramp' },
+  { value: 'gravel_bar', label: 'Gravel Bar' },
+  { value: 'campground', label: 'Campground' },
+  { value: 'bridge', label: 'Bridge' },
+  { value: 'access', label: 'General Access' },
+  { value: 'park', label: 'Park' },
+];
+
 const ROAD_SURFACE_OPTIONS = [
   { value: 'paved', label: 'Paved' },
   { value: 'gravel_maintained', label: 'Gravel (maintained)' },
@@ -162,6 +171,15 @@ export default function AdminAccessPointEditPage() {
   const updateField = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasChanges(true);
+  };
+
+  // Handle access point type toggle
+  const toggleType = (type: string) => {
+    const current = formData.types || [];
+    const updated = current.includes(type)
+      ? current.filter((t) => t !== type)
+      : [...current, type];
+    updateField('types', updated);
   };
 
   // Handle road surface toggle
@@ -268,6 +286,34 @@ export default function AdminAccessPointEditPage() {
         )}
 
         <div className="space-y-6">
+          {/* Access Point Types Section */}
+          <FormSection icon={<MapPin className="w-5 h-5" />} title="Access Point Types">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Types (select all that apply)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {ACCESS_POINT_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => toggleType(option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      (formData.types || []).includes(option.value)
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {(formData.types || []).length === 0 && (
+                <p className="text-xs text-amber-400 mt-2">No types selected — at least one type is recommended</p>
+              )}
+            </div>
+          </FormSection>
+
           {/* Road Access Section */}
           <FormSection icon={<Car className="w-5 h-5" />} title="Road Access">
             <div className="space-y-4">

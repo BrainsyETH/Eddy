@@ -124,3 +124,30 @@ export function invalidIdResponse(): NextResponse {
     { status: 400 }
   );
 }
+
+/**
+ * Logs an admin action to the admin_activity_log table.
+ * Fire-and-forget: errors are caught and logged, never thrown.
+ */
+export async function logAdminAction(params: {
+  action: string;
+  entityType: string;
+  entityId?: string;
+  entityName?: string;
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const supabase = createAdminClient();
+
+    await supabase.from('admin_activity_log').insert({
+      action: params.action,
+      entity_type: params.entityType,
+      entity_id: params.entityId || null,
+      entity_name: params.entityName || null,
+      details: params.details || null,
+    });
+  } catch (error) {
+    console.error('[logAdminAction] Failed to log admin action:', error);
+  }
+}
