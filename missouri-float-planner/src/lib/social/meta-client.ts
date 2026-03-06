@@ -81,6 +81,24 @@ export async function publishToInstagram(params: {
   }
 
   try {
+    console.log(`[MetaClient] Instagram image_url: ${params.imageUrl}`);
+
+    // Pre-flight: verify image URL is reachable and returns an image
+    try {
+      const preflight = await fetch(params.imageUrl, { method: 'HEAD' });
+      const contentType = preflight.headers.get('content-type') || 'unknown';
+      console.log(`[MetaClient] Image preflight: status=${preflight.status}, content-type=${contentType}`);
+      if (!preflight.ok) {
+        return { success: false, error: `Image URL returned HTTP ${preflight.status}` };
+      }
+      if (!contentType.startsWith('image/')) {
+        return { success: false, error: `Image URL returned content-type: ${contentType} (expected image/*)` };
+      }
+    } catch (preflightErr) {
+      console.error('[MetaClient] Image preflight failed:', preflightErr);
+      // Continue anyway — the OG endpoint might not support HEAD
+    }
+
     // Step 1: Create media container
     const containerResponse = await fetch(
       `${META_GRAPH_URL}/${instagramAccountId}/media`,
@@ -90,6 +108,7 @@ export async function publishToInstagram(params: {
         body: JSON.stringify({
           image_url: params.imageUrl,
           caption: params.caption,
+          media_type: 'IMAGE',
           access_token: accessToken,
         }),
       }
