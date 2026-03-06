@@ -71,6 +71,7 @@ export interface PublishResult {
 // What the scheduler produces for the cron to process
 export interface ScheduledPost {
   postType: PostType;
+  platform: SocialPlatform;
   riverSlug: string | null;
   caption: string;
   imageUrl: string;

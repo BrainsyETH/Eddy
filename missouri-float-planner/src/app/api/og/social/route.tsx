@@ -12,7 +12,12 @@ import type { ConditionCode } from '@/lib/og/types';
 
 export const dynamic = 'force-dynamic';
 
-const SIZE = { width: 1080, height: 1080 };
+function getSize(platform: string | null): { width: number; height: number } {
+  // Instagram gets 4:5 portrait for more feed real estate
+  if (platform === 'instagram') return { width: 1080, height: 1350 };
+  // Facebook and default: 1:1 square
+  return { width: 1080, height: 1080 };
+}
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
@@ -24,15 +29,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'digest';
     const riverSlug = searchParams.get('river');
+    const platform = searchParams.get('platform');
+    const size = getSize(platform);
 
     if (type === 'highlight' && riverSlug) {
-      return generateHighlightImage(riverSlug);
+      return generateHighlightImage(riverSlug, size);
     }
 
-    return generateDigestImage();
+    return generateDigestImage(size);
   } catch (err) {
     console.error('[OG/Social] Image generation failed:', err);
-    // Return a simple fallback image so consumers always get an image
+    const fallbackSize = { width: 1080, height: 1080 };
     return new ImageResponse(
       (
         <div
@@ -58,12 +65,12 @@ export async function GET(request: NextRequest) {
           </span>
         </div>
       ),
-      { ...SIZE }
+      { ...fallbackSize }
     );
   }
 }
 
-async function generateDigestImage() {
+async function generateDigestImage(size: { width: number; height: number }) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
 
@@ -271,13 +278,13 @@ async function generateDigestImage() {
       </div>
     ),
     {
-      ...SIZE,
+      ...size,
       fonts,
     }
   );
 }
 
-async function generateHighlightImage(riverSlug: string) {
+async function generateHighlightImage(riverSlug: string, size: { width: number; height: number }) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
 
@@ -313,6 +320,7 @@ async function generateHighlightImage(riverSlug: string) {
   const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
   const conditionLabel = CONDITION_LABELS[conditionCode as keyof typeof CONDITION_LABELS] || 'Unknown';
   const snippet = update.summary_text || update.quote_text || '';
+  const isPortrait = size.height > size.width;
 
   // Load otter
   let otterImage: string | null = null;
@@ -428,12 +436,28 @@ async function generateHighlightImage(riverSlug: string) {
               maxWidth: otterImage ? 700 : '100%',
             }}
           >
-            {truncate(snippet, 200)}
+            {truncate(snippet, isPortrait ? 300 : 200)}
           </span>
         )}
 
         {/* Spacer */}
         <div style={{ display: 'flex', flex: 1 }} />
+
+        {/* CTA — portrait (Instagram) only */}
+        {isPortrait && (
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: 30,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              opacity: 0.85,
+              marginBottom: 12,
+            }}
+          >
+            Plan your float at eddy.guide →
+          </span>
+        )}
 
         {/* Footer */}
         <span
@@ -461,8 +485,8 @@ async function generateHighlightImage(riverSlug: string) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={240}
-              height={240}
+              width={isPortrait ? 280 : 240}
+              height={isPortrait ? 280 : 240}
               alt=""
               style={{ objectFit: 'contain' }}
             />
@@ -483,7 +507,7 @@ async function generateHighlightImage(riverSlug: string) {
       </div>
     ),
     {
-      ...SIZE,
+      ...size,
       fonts,
     }
   );

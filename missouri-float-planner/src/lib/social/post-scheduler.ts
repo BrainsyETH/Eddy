@@ -6,8 +6,8 @@ import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
 } from './content-formatter';
+import { getOrCreateConfig } from './config-helpers';
 import type {
-  SocialConfig,
   SocialCustomContent,
   SocialPlatform,
   ScheduledPost,
@@ -18,23 +18,13 @@ const LOG_PREFIX = '[SocialScheduler]';
 export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   const supabase = createAdminClient();
 
-  // Load config — no .limit(1) so .single() exposes duplicate rows
-  const { data: configRow, error: configError } = await supabase
-    .from('social_config')
-    .select('*')
-    .single();
+  // Self-healing config loader — handles duplicates, missing rows
+  const { data: config, error: configError } = await getOrCreateConfig(supabase);
 
-  if (configError) {
-    console.error(`${LOG_PREFIX} Config query error: ${configError.message} (code: ${configError.code})`);
+  if (configError || !config) {
+    console.error(`${LOG_PREFIX} Config load error: ${configError}`);
     return [];
   }
-
-  if (!configRow) {
-    console.error(`${LOG_PREFIX} No social_config row found`);
-    return [];
-  }
-
-  const config = configRow as SocialConfig;
 
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
@@ -107,9 +97,10 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
 
           posts.push({
             postType: 'daily_digest',
+            platform,
             riverSlug: null,
             caption,
-            imageUrl: `${baseUrl}/api/og/social?type=digest`,
+            imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
             hashtags,
             eddyUpdateId: null,
           });
@@ -158,9 +149,10 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
 
       posts.push({
         postType: 'river_highlight',
+        platform,
         riverSlug: update.river_slug,
         caption,
-        imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}`,
+        imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
         hashtags,
         eddyUpdateId: update.id,
       });

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { getOrCreateConfig } from '@/lib/social/config-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,23 +20,11 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   const supabase = createAdminClient();
+  const { data, error } = await getOrCreateConfig(supabase);
 
-  // No .limit(1) — .single() will error if multiple rows exist (exposes duplicates)
-  const { data, error } = await supabase
-    .from('social_config')
-    .select('*')
-    .single();
-
-  if (error) {
-    console.error(`${LOG_PREFIX} GET error: ${error.message} (code: ${error.code})`);
-    // PGRST116 = "Results contain N rows" — means duplicate rows exist
-    if (error.code === 'PGRST116') {
-      return NextResponse.json(
-        { error: 'Multiple config rows found — run migration 00060 to fix' },
-        { status: 500, headers: CACHE_HEADERS }
-      );
-    }
-    return NextResponse.json({ error: error.message }, { status: 500, headers: CACHE_HEADERS });
+  if (error || !data) {
+    console.error(`${LOG_PREFIX} GET error: ${error}`);
+    return NextResponse.json({ error: error || 'Failed to load config' }, { status: 500, headers: CACHE_HEADERS });
   }
 
   console.log(`${LOG_PREFIX} GET returning config id=${data.id}`);
@@ -49,25 +38,15 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const supabase = createAdminClient();
 
-  // Get existing config ID — no .limit(1) so .single() exposes duplicates
-  const { data: existing, error: selectError } = await supabase
-    .from('social_config')
-    .select('id')
-    .single();
+  // Self-healing: get config (handles duplicates and missing rows)
+  const { data: existing, error: selectError } = await getOrCreateConfig(supabase);
 
-  if (selectError) {
-    console.error(`${LOG_PREFIX} PUT select error: ${selectError.message} (code: ${selectError.code})`);
-    if (selectError.code === 'PGRST116') {
-      return NextResponse.json(
-        { error: 'Multiple config rows found — run migration 00060 to fix' },
-        { status: 500, headers: CACHE_HEADERS }
-      );
-    }
-    return NextResponse.json({ error: selectError.message }, { status: 500, headers: CACHE_HEADERS });
-  }
-
-  if (!existing) {
-    return NextResponse.json({ error: 'No config row found' }, { status: 404, headers: CACHE_HEADERS });
+  if (selectError || !existing) {
+    console.error(`${LOG_PREFIX} PUT config load error: ${selectError}`);
+    return NextResponse.json(
+      { error: selectError || 'Failed to load config' },
+      { status: 500, headers: CACHE_HEADERS }
+    );
   }
 
   console.log(`${LOG_PREFIX} PUT updating config id=${existing.id}`);
