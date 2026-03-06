@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
+import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { publishConditionChangeAlert } from '@/lib/social/condition-alerts';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -85,6 +87,7 @@ async function runUpdate(request: NextRequest) {
     let errors = 0;
     let highFrequencyFlagsSet = 0;
     let highFrequencyFlagsCleared = 0;
+    let conditionChanges = 0;
 
     for (const reading of readings) {
       const station = stations.find(s => s.usgs_site_id === reading.siteId);
@@ -163,6 +166,69 @@ async function runUpdate(request: NextRequest) {
           }
         }
       }
+
+      // --- Condition change detection ---
+      // Look up river_gauges rows for this station to check for condition changes
+      try {
+        // Join to rivers to get slug for social posting
+        const { data: riverGauges } = await supabase
+          .from('river_gauges')
+          .select('id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)')
+          .eq('gauge_station_id', station.id);
+
+        if (riverGauges && riverGauges.length > 0) {
+          for (const rawRg of riverGauges) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const rg = rawRg as any;
+            const riverSlug: string | undefined = rg.rivers?.slug;
+            if (!riverSlug) continue;
+
+            const thresholds: ConditionThresholds = {
+              levelTooLow: rg.level_too_low,
+              levelLow: rg.level_low,
+              levelOptimalMin: rg.level_optimal_min,
+              levelOptimalMax: rg.level_optimal_max,
+              levelHigh: rg.level_high,
+              levelDangerous: rg.level_dangerous,
+              thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
+            };
+
+            const newCondition = computeCondition(
+              reading.gaugeHeightFt,
+              thresholds,
+              reading.dischargeCfs
+            );
+
+            const oldCode = rg.last_condition_code || 'unknown';
+            if (newCondition.code !== oldCode && newCondition.code !== 'unknown') {
+              console.log(
+                `Condition change for ${riverSlug}: ${oldCode} → ${newCondition.code} ` +
+                `(gauge ${reading.siteId}, ${reading.gaugeHeightFt?.toFixed(1)} ft)`
+              );
+
+              // Update last_condition_code
+              await supabase
+                .from('river_gauges')
+                .update({ last_condition_code: newCondition.code })
+                .eq('id', rg.id);
+
+              conditionChanges++;
+
+              // Publish alert (async, don't block cron)
+              publishConditionChangeAlert({
+                riverSlug,
+                oldCondition: oldCode,
+                newCondition: newCondition.code,
+                gaugeHeightFt: reading.gaugeHeightFt,
+              }).catch((err) => {
+                console.error(`Condition alert publish error for ${riverSlug}:`, err);
+              });
+            }
+          }
+        }
+      } catch (condErr) {
+        console.error(`Condition check error for station ${station.id}:`, condErr);
+      }
     }
 
     const executionTime = new Date().toISOString();
@@ -175,6 +241,7 @@ async function runUpdate(request: NextRequest) {
       isHighFrequencyPoll,
       highFrequencyFlagsSet,
       highFrequencyFlagsCleared,
+      conditionChanges,
       executionTime,
       stationsProcessed: stations.length,
     });

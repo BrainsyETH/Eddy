@@ -179,6 +179,57 @@ function getActiveSnippets(
     .map((c) => c.text);
 }
 
+export function formatConditionChangeCaption(params: {
+  riverSlug: string;
+  oldCondition: string;
+  newCondition: string;
+  gaugeHeightFt: number | null;
+  platform: SocialPlatform;
+}): { caption: string; hashtags: string[] } {
+  const riverName = RIVER_NAMES[params.riverSlug] || params.riverSlug;
+  const oldLabel = CONDITION_LABELS[params.oldCondition as keyof typeof CONDITION_LABELS] || params.oldCondition;
+  const newLabel = CONDITION_LABELS[params.newCondition as keyof typeof CONDITION_LABELS] || params.newCondition;
+
+  const lines: string[] = [];
+
+  // Alert-style header based on new condition
+  if (params.newCondition === 'optimal') {
+    lines.push(`${riverName} just hit optimal conditions!`);
+  } else if (params.newCondition === 'dangerous') {
+    lines.push(`Flood warning: ${riverName}`);
+  } else if (params.newCondition === 'high') {
+    lines.push(`${riverName} is running high — experienced paddlers only`);
+  } else if (params.oldCondition === 'dangerous') {
+    lines.push(`Flood warning lifted: ${riverName}`);
+  } else {
+    lines.push(`${riverName} conditions changed`);
+  }
+
+  lines.push('');
+  lines.push(`${oldLabel} → ${newLabel}`);
+
+  if (params.gaugeHeightFt !== null) {
+    lines.push(`Current gauge: ${params.gaugeHeightFt.toFixed(1)} ft`);
+  }
+
+  lines.push('');
+  lines.push('Plan your float at eddy.guide');
+
+  const hashtags = [
+    ...BASE_HASHTAGS,
+    ...(RIVER_HASHTAGS[params.riverSlug] || []),
+    ...(CONDITION_HASHTAGS[params.newCondition] || []),
+    '#ConditionAlert',
+  ];
+
+  let caption = lines.join('\n');
+  if (params.platform === 'instagram') {
+    caption += '\n\n' + hashtags.join(' ');
+  }
+
+  return { caption, hashtags };
+}
+
 export function getRiverName(slug: string): string {
   return RIVER_NAMES[slug] || slug;
 }

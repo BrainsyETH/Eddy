@@ -54,7 +54,22 @@ export async function getScheduledPosts(): Promise<SchedulerResult> {
   diag.highlights_per_run = config.highlights_per_run;
   diag.highlight_conditions = config.highlight_conditions;
 
-  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, digest_enabled=${config.digest_enabled}, highlights_per_run=${config.highlights_per_run}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h`);
+  // Weekend boost: double highlights Thu 5pm CT (22:00 UTC) → Sun 11pm CT (Mon 04:00 UTC)
+  let effectiveHighlightsPerRun = config.highlights_per_run;
+  if (config.weekend_boost_enabled && isWeekendBoostWindow()) {
+    effectiveHighlightsPerRun = config.highlights_per_run * 2;
+    console.log(`${LOG_PREFIX} Weekend boost active: highlights_per_run doubled to ${effectiveHighlightsPerRun}`);
+  }
+
+  // Skip overnight highlights (midnight–6am CT = 05:00–11:00 UTC)
+  const nowUtcHour = new Date().getUTCHours();
+  const isOvernightWindow = nowUtcHour >= 5 && nowUtcHour < 11;
+  if (isOvernightWindow) {
+    console.log(`${LOG_PREFIX} Overnight window (${nowUtcHour}:00 UTC) — skipping river highlights`);
+    diag.skipped_reasons.push('overnight_window');
+  }
+
+  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, digest_enabled=${config.digest_enabled}, highlights_per_run=${effectiveHighlightsPerRun}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h`);
 
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
@@ -147,6 +162,12 @@ export async function getScheduledPosts(): Promise<SchedulerResult> {
   }
 
   // --- River Highlights ---
+  // Skip highlights entirely during overnight window
+  if (isOvernightWindow) {
+    console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (0 river highlights — overnight skip)`);
+    return { posts, diagnostics: diag };
+  }
+
   // Filter rivers based on config
   const eligibleUpdates = updates.filter((u) => {
     if (config.enabled_rivers && config.enabled_rivers.length > 0) {
@@ -170,7 +191,7 @@ export async function getScheduledPosts(): Promise<SchedulerResult> {
 
   let highlightCount = 0;
   for (const update of eligibleUpdates) {
-    if (highlightCount >= config.highlights_per_run) break;
+    if (highlightCount >= effectiveHighlightsPerRun) break;
 
     // Check cooldown
     const recentlyPosted = await hasPostedRecently(
@@ -270,6 +291,27 @@ function isNearDigestTime(digestTimeUtc: string): boolean {
   const diffMinutes = diffMs / (1000 * 60);
 
   return diffMinutes <= 45;
+}
+
+// Check if current time is in weekend boost window: Thu 5pm CT → Sun 11pm CT
+// CT = UTC-5 (CST) or UTC-6 (CDT). We use UTC-5 as a close-enough constant.
+function isWeekendBoostWindow(): boolean {
+  const now = new Date();
+  const utcDay = now.getUTCDay(); // 0=Sun, 4=Thu, 5=Fri, 6=Sat
+  const utcHour = now.getUTCHours();
+
+  // Thu after 22:00 UTC (5pm CT)
+  if (utcDay === 4 && utcHour >= 22) return true;
+  // Fri or Sat — all day
+  if (utcDay === 5 || utcDay === 6) return true;
+  // Sun before 04:00 UTC (11pm CT Sat) — actually all of Sunday daytime is still weekend
+  if (utcDay === 0 && utcHour < 4) return true;
+  // Sun daytime also counts (people plan Sunday floats)
+  if (utcDay === 0) return true;
+  // Mon before 04:00 UTC (Sun 11pm CT)
+  if (utcDay === 1 && utcHour < 4) return true;
+
+  return false;
 }
 
 // Get failed posts eligible for retry
