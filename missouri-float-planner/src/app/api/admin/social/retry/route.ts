@@ -6,7 +6,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { FacebookAdapter } from '@/lib/social/facebook-adapter';
 import { InstagramAdapter } from '@/lib/social/instagram-adapter';
-import type { SocialPlatform } from '@/lib/social/types';
 
 export const dynamic = 'force-dynamic';
 
