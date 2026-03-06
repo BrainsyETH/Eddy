@@ -173,7 +173,7 @@ async function generateDigestImage() {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  width: 'calc(50% - 8px)',
+                  width: '48%',
                   backgroundColor: 'rgba(255,255,255,0.05)',
                   borderRadius: 16,
                   padding: '20px 24px',
