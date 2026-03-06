@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error || 'Failed to load config' }, { status: 500, headers: CACHE_HEADERS });
   }
 
-  console.log(`${LOG_PREFIX} GET returning config id=${data.id}`);
+  console.log(`${LOG_PREFIX} GET returning config id=${data.id}, cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
   return NextResponse.json(data, { headers: CACHE_HEADERS });
 }
 
@@ -85,5 +85,29 @@ export async function PUT(request: NextRequest) {
   }
 
   console.log(`${LOG_PREFIX} PUT success — saved id=${data.id}, cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
+
+  // Verification: re-read the row to confirm the write actually persisted
+  const { data: verify, error: verifyError } = await supabase
+    .from('social_config')
+    .select('id, highlight_cooldown_hours, highlight_conditions, posting_enabled')
+    .eq('id', data.id)
+    .single();
+
+  if (verifyError) {
+    console.error(`${LOG_PREFIX} PUT verify read failed: ${verifyError.message}`);
+  } else if (verify) {
+    const cooldownMatch = verify.highlight_cooldown_hours === data.highlight_cooldown_hours;
+    const conditionsMatch = JSON.stringify(verify.highlight_conditions) === JSON.stringify(data.highlight_conditions);
+    if (!cooldownMatch || !conditionsMatch) {
+      console.error(
+        `${LOG_PREFIX} PUT VERIFY MISMATCH! ` +
+        `update returned cooldown=${data.highlight_cooldown_hours} but DB has ${verify.highlight_cooldown_hours}, ` +
+        `update returned conditions=[${data.highlight_conditions?.join(',')}] but DB has [${verify.highlight_conditions?.join(',')}]`
+      );
+    } else {
+      console.log(`${LOG_PREFIX} PUT verified — DB confirms cooldown=${verify.highlight_cooldown_hours}, conditions=[${verify.highlight_conditions?.join(',')}]`);
+    }
+  }
+
   return NextResponse.json(data, { headers: CACHE_HEADERS });
 }
