@@ -82,7 +82,7 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   const globalSummary = globalUpdate?.quote_text || null;
 
   const posts: ScheduledPost[] = [];
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://eddyfloat.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://eddy.guide';
 
   // --- Daily Digest ---
   if (config.digest_enabled) {

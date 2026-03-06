@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS social_config (
   highlight_cooldown_hours INTEGER NOT NULL DEFAULT 12,
   enabled_rivers TEXT[], -- null means all rivers
   disabled_rivers TEXT[] DEFAULT '{}',
-  highlight_conditions TEXT[] NOT NULL DEFAULT '{optimal,dangerous,too_high,too_low}',
+  highlight_conditions TEXT[] NOT NULL DEFAULT '{optimal,dangerous,high,too_low}',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
