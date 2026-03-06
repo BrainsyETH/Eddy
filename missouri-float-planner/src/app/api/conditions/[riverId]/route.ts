@@ -88,17 +88,23 @@ export async function GET(
       .select('id, is_primary, gauge_station_id, gauge_stations(id, name, usgs_site_id)')
       .eq('river_id', riverId);
 
-    // Get put-in coordinates if access point ID provided
+    // Get put-in coordinates and mile if access point ID provided
     let putInPoint: string | null = null;
+    let putInMile: number | null = null;
+    let validAccessPointId: string | null = null;
     if (putInAccessPointId) {
       const { data: accessPoint } = await supabase
         .from('access_points')
-        .select('location_snap, location_orig')
+        .select('location_snap, location_orig, river_mile_downstream')
         .eq('id', putInAccessPointId)
         .eq('river_id', riverId)
         .single();
 
       if (accessPoint) {
+        validAccessPointId = putInAccessPointId;
+        putInMile = accessPoint.river_mile_downstream != null
+          ? parseFloat(String(accessPoint.river_mile_downstream))
+          : null;
         const coords = accessPoint.location_snap?.coordinates || accessPoint.location_orig?.coordinates;
         if (coords) {
           putInPoint = `SRID=4326;POINT(${coords[0]} ${coords[1]})`;
@@ -133,9 +139,14 @@ export async function GET(
       // Database condition function (segment-aware if put-in provided)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.rpc as any)(
-        putInPoint ? 'get_river_condition_segment' : 'get_river_condition',
-        putInPoint
-          ? { p_river_id: riverId, p_put_in_point: putInPoint }
+        (putInPoint || validAccessPointId) ? 'get_river_condition_segment' : 'get_river_condition',
+        (putInPoint || validAccessPointId)
+          ? {
+              p_river_id: riverId,
+              p_put_in_point: putInPoint,
+              p_put_in_mile: putInMile,
+              p_access_point_id: validAccessPointId,
+            }
           : { p_river_id: riverId }
       ),
       // Live USGS gauge readings (external API — typically the slowest call)

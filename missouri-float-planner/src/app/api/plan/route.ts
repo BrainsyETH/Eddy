@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
     const putInCoords = putIn.location_orig?.coordinates || putIn.location_snap?.coordinates;
 
     // Get river condition using position-based gauge selection
-    // Logic: Use gauge at or upstream of put-in mile
+    // Priority: preferred gauge override > upstream by mile > nearest by geography > primary
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: conditionData } = await (supabase.rpc as any)('get_river_condition_segment', {
       p_river_id: riverId,
@@ -175,6 +175,7 @@ export async function GET(request: NextRequest) {
       p_put_in_point: putInCoords
         ? `SRID=4326;POINT(${putInCoords[0]} ${putInCoords[1]})`
         : null,
+      p_access_point_id: startId,
     });
 
     let condition = conditionData?.[0];
