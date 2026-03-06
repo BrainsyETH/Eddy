@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/generate-eddy-updates",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/post-social",
+      "schedule": "30 */6 * * *"
     }
   ]
 }
