@@ -7,6 +7,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
 
 export async function GET(
   request: NextRequest,
@@ -131,7 +138,7 @@ export async function GET(
       }),
     };
 
-    return NextResponse.json({ gauge: formatted });
+    return NextResponse.json({ gauge: formatted }, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error('Error in get gauge endpoint:', error);
     return NextResponse.json(
@@ -141,9 +148,24 @@ export async function GET(
   }
 }
 
+// Accept both PUT and POST to avoid edge/CDN caching of writes
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handleUpdate(request, params);
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
+) {
+  return handleUpdate(request, params);
+}
+
+async function handleUpdate(
+  request: NextRequest,
+  params: Promise<{ id: string }>
 ) {
   try {
     const authError = requireAdminAuth(request);
@@ -286,7 +308,7 @@ export async function PUT(
       }
     }
 
-    return NextResponse.json({ success: true, updatedAssociations });
+    return NextResponse.json({ success: true, updatedAssociations }, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error('Error in update gauge endpoint:', error);
     return NextResponse.json(

@@ -6,10 +6,32 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
+
+// Accept both PUT and POST to avoid edge/CDN caching of writes
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handleUpdate(request, params);
+}
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
+) {
+  return handleUpdate(request, params);
+}
+
+async function handleUpdate(
+  request: NextRequest,
+  params: Promise<{ id: string }>
 ) {
   try {
     const authError = requireAdminAuth(request);
@@ -86,7 +108,7 @@ export async function PUT(
           lengthMiles: parseFloat(data.length_miles),
           geometry,
         },
-      });
+      }, { headers: CACHE_HEADERS });
     }
 
     // If updating river metadata (without geometry)
@@ -137,7 +159,7 @@ export async function PUT(
           difficultyRating: data.difficulty_rating,
           region: data.region,
         },
-      });
+      }, { headers: CACHE_HEADERS });
     }
 
     return NextResponse.json(
