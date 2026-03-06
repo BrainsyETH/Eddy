@@ -13,5 +13,8 @@ WHERE id NOT IN (
   SELECT id FROM social_config ORDER BY updated_at DESC LIMIT 1
 );
 
--- Step 2: Re-create singleton index if it doesn't exist
+-- Step 2: Set highlights_per_run to 1 (stagger posts: 1 river per cron run)
+UPDATE social_config SET highlights_per_run = 1 WHERE highlights_per_run > 1;
+
+-- Step 3: Re-create singleton index if it doesn't exist
 CREATE UNIQUE INDEX IF NOT EXISTS idx_social_config_singleton ON social_config ((true));

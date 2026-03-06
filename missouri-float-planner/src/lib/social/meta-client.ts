@@ -42,14 +42,14 @@ export async function publishToFacebook(params: {
   }
 
   try {
-    // Use /feed endpoint (not /photos which requires deprecated publish_actions permission)
-    // Requires pages_manage_posts + pages_read_engagement permissions
-    const response = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
+    // Use /photos endpoint for native photo posts (not /feed which creates link previews)
+    // Requires pages_manage_posts permission (NOT the deprecated publish_actions)
+    const response = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: params.caption,
-        link: params.imageUrl,
+        url: params.imageUrl,
         access_token: accessToken,
       }),
     });
