@@ -18,12 +18,16 @@ const LOG_PREFIX = '[SocialScheduler]';
 export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   const supabase = createAdminClient();
 
-  // Load config
-  const { data: configRow } = await supabase
+  // Load config — no .limit(1) so .single() exposes duplicate rows
+  const { data: configRow, error: configError } = await supabase
     .from('social_config')
     .select('*')
-    .limit(1)
     .single();
+
+  if (configError) {
+    console.error(`${LOG_PREFIX} Config query error: ${configError.message} (code: ${configError.code})`);
+    return [];
+  }
 
   if (!configRow) {
     console.error(`${LOG_PREFIX} No social_config row found`);
@@ -82,11 +86,9 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   const globalSummary = globalUpdate?.quote_text || null;
 
   const posts: ScheduledPost[] = [];
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : 'https://eddy.guide');
+  // Hardcode production domain — env var approach was fragile (NEXT_PUBLIC_SITE_URL
+  // was set to eddyfloat.com which doesn't resolve, causing all image fetches to fail)
+  const baseUrl = 'https://eddy.guide';
 
   // --- Daily Digest ---
   if (config.digest_enabled) {

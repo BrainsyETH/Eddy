@@ -42,12 +42,14 @@ export async function publishToFacebook(params: {
   }
 
   try {
-    const response = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
+    // Use /feed endpoint (not /photos which requires deprecated publish_actions permission)
+    // Requires pages_manage_posts + pages_read_engagement permissions
+    const response = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        url: params.imageUrl,
         message: params.caption,
+        link: params.imageUrl,
         access_token: accessToken,
       }),
     });
@@ -58,15 +60,6 @@ export async function publishToFacebook(params: {
       const apiError = data as MetaApiError;
       const errorMsg = apiError.error?.message || `HTTP ${response.status}`;
       console.error('[MetaClient] Facebook publish failed:', errorMsg);
-
-      // Detect deprecated permission error and provide actionable guidance
-      if (errorMsg.includes('publish_actions')) {
-        return {
-          success: false,
-          error: 'Token uses deprecated publish_actions permission. Regenerate Page Access Token with pages_manage_posts and pages_read_engagement permissions in Facebook Developer Console.',
-        };
-      }
-
       return { success: false, error: errorMsg };
     }
 
