@@ -75,7 +75,7 @@ async function runSocialPosting(request: NextRequest) {
         .single();
 
       if (insertError) {
-        console.log(`${LOG_PREFIX} Skipping duplicate: ${post.postType}/${post.platform}/${post.riverSlug || 'global'}`);
+        console.log(`${LOG_PREFIX} Dedup skip: ${post.postType}/${post.platform}/${post.riverSlug || 'global'} — ${insertError.message}`);
         skipped++;
         continue;
       }

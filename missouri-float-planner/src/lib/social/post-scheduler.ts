@@ -26,6 +26,8 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
     return [];
   }
 
+  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, highlights_per_run=${config.highlights_per_run}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h`);
+
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
     return [];
@@ -61,6 +63,7 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
     }
   }
   const updates = Array.from(latestByRiver.values());
+  console.log(`${LOG_PREFIX} Rivers: ${updates.map(u => `${u.river_slug}(${u.condition_code})`).join(', ')}`);
 
   // Load global summary
   const { data: globalUpdate } = await supabase
@@ -112,19 +115,23 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   // --- River Highlights ---
   // Filter rivers based on config
   const eligibleUpdates = updates.filter((u) => {
-    // Check enabled/disabled rivers
     if (config.enabled_rivers && config.enabled_rivers.length > 0) {
-      if (!config.enabled_rivers.includes(u.river_slug)) return false;
+      if (!config.enabled_rivers.includes(u.river_slug)) {
+        console.log(`${LOG_PREFIX} Skipping ${u.river_slug}: not in enabled_rivers`);
+        return false;
+      }
     }
     if (config.disabled_rivers && config.disabled_rivers.includes(u.river_slug)) {
+      console.log(`${LOG_PREFIX} Skipping ${u.river_slug}: in disabled_rivers`);
       return false;
     }
-    // Check condition filter
     if (!config.highlight_conditions.includes(u.condition_code)) {
+      console.log(`${LOG_PREFIX} Skipping ${u.river_slug}: condition '${u.condition_code}' not in [${config.highlight_conditions.join(',')}]`);
       return false;
     }
     return true;
   });
+  console.log(`${LOG_PREFIX} ${eligibleUpdates.length}/${updates.length} rivers eligible after filtering`);
 
   let highlightCount = 0;
   for (const update of eligibleUpdates) {
@@ -137,7 +144,10 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
       config.highlight_cooldown_hours,
       supabase
     );
-    if (recentlyPosted) continue;
+    if (recentlyPosted) {
+      console.log(`${LOG_PREFIX} Skipping ${update.river_slug}: in ${config.highlight_cooldown_hours}h cooldown`);
+      continue;
+    }
 
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
     for (const platform of platforms) {
