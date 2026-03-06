@@ -77,8 +77,8 @@ export function formatRiverHighlightCaption(
   }
   lines.push('');
 
-  // Eddy says quote (use summary if available, otherwise quote)
-  const quoteText = update.summary_text || update.quote_text;
+  // Eddy says quote — always use the full report (summary is already in the image)
+  const quoteText = update.quote_text;
   if (quoteText) {
     lines.push(`Eddy says: "${quoteText}"`);
     lines.push('');
