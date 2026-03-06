@@ -49,22 +49,24 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  console.log(`${LOG_PREFIX} PUT updating config id=${existing.id}`);
+  console.log(`${LOG_PREFIX} PUT updating config id=${existing.id}, incoming: cooldown=${body.highlight_cooldown_hours}, conditions=[${body.highlight_conditions?.join(',')}], posting=${body.posting_enabled}, digest=${body.digest_enabled}`);
+
+  const updatePayload = {
+    posting_enabled: body.posting_enabled,
+    posting_frequency_hours: body.posting_frequency_hours,
+    digest_enabled: body.digest_enabled,
+    digest_time_utc: body.digest_time_utc,
+    highlights_per_run: body.highlights_per_run,
+    highlight_cooldown_hours: body.highlight_cooldown_hours,
+    enabled_rivers: body.enabled_rivers,
+    disabled_rivers: body.disabled_rivers,
+    highlight_conditions: body.highlight_conditions,
+    updated_at: new Date().toISOString(),
+  };
 
   const { data, error } = await supabase
     .from('social_config')
-    .update({
-      posting_enabled: body.posting_enabled,
-      posting_frequency_hours: body.posting_frequency_hours,
-      digest_enabled: body.digest_enabled,
-      digest_time_utc: body.digest_time_utc,
-      highlights_per_run: body.highlights_per_run,
-      highlight_cooldown_hours: body.highlight_cooldown_hours,
-      enabled_rivers: body.enabled_rivers,
-      disabled_rivers: body.disabled_rivers,
-      highlight_conditions: body.highlight_conditions,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', existing.id)
     .select('*')
     .single();
@@ -82,6 +84,6 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  console.log(`${LOG_PREFIX} PUT success — saved config id=${data.id}, posting_enabled=${data.posting_enabled}`);
+  console.log(`${LOG_PREFIX} PUT success — saved id=${data.id}, cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
   return NextResponse.json(data, { headers: CACHE_HEADERS });
 }

@@ -173,13 +173,16 @@ export default function SocialAdminPage() {
     }
   }, []);
 
+  // Initial load — run once on mount
   useEffect(() => {
     setLoading(true);
     Promise.all([fetchConfig(), fetchPosts(), fetchContent()]).finally(() =>
       setLoading(false)
     );
-  }, [fetchConfig, fetchPosts, fetchContent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Re-fetch posts when filter changes (don't re-fetch config — would overwrite unsaved edits)
   useEffect(() => {
     fetchPosts();
   }, [postFilter, fetchPosts]);
@@ -187,6 +190,7 @@ export default function SocialAdminPage() {
   const saveConfig = async () => {
     if (!config) return;
     setSaving(true);
+    console.log(`[SocialAdmin] Saving config: cooldown=${config.highlight_cooldown_hours}, conditions=[${config.highlight_conditions?.join(',')}]`);
     try {
       const res = await adminFetch('/api/admin/social/config', {
         method: 'PUT',
@@ -196,6 +200,7 @@ export default function SocialAdminPage() {
       if (res.ok) {
         const saved = await res.json();
         if (saved && saved.id) {
+          console.log(`[SocialAdmin] Save confirmed: cooldown=${saved.highlight_cooldown_hours}, conditions=[${saved.highlight_conditions?.join(',')}]`);
           setConfig(saved);
           showToast('Settings saved successfully', 'success');
         } else {
