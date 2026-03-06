@@ -16,6 +16,7 @@ const DEFAULT_CONFIG = {
   enabled_rivers: null,
   disabled_rivers: [] as string[],
   highlight_conditions: ['optimal', 'dangerous', 'high', 'too_low'],
+  weekend_boost_enabled: false,
 };
 
 /**

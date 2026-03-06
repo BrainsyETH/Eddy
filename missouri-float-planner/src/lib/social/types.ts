@@ -2,7 +2,7 @@
 // Shared types for social media posting system
 
 export type SocialPlatform = 'instagram' | 'facebook';
-export type PostType = 'daily_digest' | 'river_highlight';
+export type PostType = 'daily_digest' | 'river_highlight' | 'manual' | 'condition_change';
 export type PostStatus = 'pending' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
@@ -35,6 +35,7 @@ export interface SocialConfig {
   enabled_rivers: string[] | null;
   disabled_rivers: string[];
   highlight_conditions: string[];
+  weekend_boost_enabled: boolean;
   updated_at: string;
 }
 

@@ -19,6 +19,9 @@ import {
   Plus,
   Trash2,
   Save,
+  Send,
+  Eye,
+  X,
 } from 'lucide-react';
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
@@ -34,6 +37,29 @@ interface SocialConfig {
   enabled_rivers: string[] | null;
   disabled_rivers: string[];
   highlight_conditions: string[];
+  weekend_boost_enabled: boolean;
+}
+
+interface PreviewPost {
+  postType: string;
+  platform: string;
+  riverSlug: string | null;
+  caption: string;
+  imageUrl: string;
+  hashtags: string[];
+}
+
+interface PreviewData {
+  posts: PreviewPost[];
+  diagnostics: {
+    posting_enabled: boolean;
+    digest_enabled: boolean;
+    rivers: string[];
+    eligible_rivers: string[];
+    skipped_reasons: string[];
+    highlights_per_run: number;
+    highlight_conditions: string[];
+  };
 }
 
 interface SocialPost {
@@ -110,6 +136,20 @@ export default function SocialAdminPage() {
     end_date: '',
     platforms: ['instagram', 'facebook'] as string[],
   });
+
+  // Compose post state
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeForm, setComposeForm] = useState({
+    caption: '',
+    imageUrl: '',
+    platforms: ['facebook', 'instagram'] as string[],
+  });
+  const [publishing, setPublishing] = useState(false);
+
+  // Preview modal state
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -347,6 +387,63 @@ export default function SocialAdminPage() {
     }
   };
 
+  const publishManualPost = async () => {
+    if (!composeForm.caption.trim()) return;
+    setPublishing(true);
+    try {
+      const res = await adminFetch('/api/admin/social/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caption: composeForm.caption,
+          imageUrl: composeForm.imageUrl || undefined,
+          platforms: composeForm.platforms,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
+        const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
+        if (failures.length > 0) {
+          showToast(`Published to ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+        } else {
+          showToast(`Published to ${successes} platform(s)`, 'success');
+        }
+        setShowCompose(false);
+        setComposeForm({ caption: '', imageUrl: '', platforms: ['facebook', 'instagram'] });
+        fetchPosts();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Publish failed (${res.status})`, 'error');
+      }
+    } catch (err) {
+      console.error('Failed to publish:', err);
+      showToast('Network error — could not publish', 'error');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const loadPreview = async () => {
+    setPreviewLoading(true);
+    setShowPreview(true);
+    try {
+      const res = await adminFetch(`/api/admin/social/preview?_t=${Date.now()}`);
+      if (res.ok) {
+        setPreviewData(await res.json());
+      } else {
+        showToast('Failed to load preview', 'error');
+        setShowPreview(false);
+      }
+    } catch (err) {
+      console.error('Failed to load preview:', err);
+      showToast('Network error — could not load preview', 'error');
+      setShowPreview(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'settings', label: 'Settings', icon: Settings },
     { key: 'filters', label: 'River Filters', icon: Filter },
@@ -369,7 +466,157 @@ export default function SocialAdminPage() {
           {toast.message}
         </div>
       )}
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+              <h3 className="text-lg font-semibold text-white">Preview Next Posts</h3>
+              <button onClick={() => setShowPreview(false)} className="text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {previewLoading ? (
+                <div className="flex justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-neutral-400" />
+                </div>
+              ) : previewData ? (
+                <>
+                  {previewData.posts.length === 0 ? (
+                    <p className="text-neutral-400 text-sm">No posts would be scheduled right now.</p>
+                  ) : (
+                    previewData.posts.map((post, i) => (
+                      <div key={i} className="bg-neutral-700/50 rounded-lg p-4 border border-neutral-600">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
+                            {post.platform}
+                          </span>
+                          <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
+                            {post.postType === 'daily_digest' ? 'Digest' : post.postType === 'river_highlight' ? 'Highlight' : post.postType}
+                          </span>
+                          {post.riverSlug && (
+                            <span className="text-xs text-neutral-400">{post.riverSlug}</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-neutral-200 whitespace-pre-line line-clamp-4">{post.caption}</p>
+                      </div>
+                    ))
+                  )}
+                  {/* Diagnostics */}
+                  <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-700">
+                    <h4 className="text-sm font-semibold text-neutral-300 mb-2">Diagnostics</h4>
+                    <div className="text-xs text-neutral-400 space-y-1">
+                      <p>Posting enabled: {previewData.diagnostics.posting_enabled ? 'Yes' : 'No'}</p>
+                      <p>Digest enabled: {previewData.diagnostics.digest_enabled ? 'Yes' : 'No'}</p>
+                      <p>Highlights per run: {previewData.diagnostics.highlights_per_run}</p>
+                      <p>Rivers: {previewData.diagnostics.rivers.join(', ') || 'none'}</p>
+                      <p>Eligible: {previewData.diagnostics.eligible_rivers.join(', ') || 'none'}</p>
+                      {previewData.diagnostics.skipped_reasons.length > 0 && (
+                        <p>Skipped: {previewData.diagnostics.skipped_reasons.join(', ')}</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="p-6 max-w-5xl mx-auto">
+        {/* Action buttons */}
+        <div className="flex gap-3 mb-6">
+          <button
+            onClick={() => setShowCompose(!showCompose)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
+          >
+            <Send className="w-4 h-4" />
+            Compose Post
+          </button>
+          <button
+            onClick={loadPreview}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+          >
+            <Eye className="w-4 h-4" />
+            Preview Next Posts
+          </button>
+        </div>
+
+        {/* Compose form */}
+        {showCompose && (
+          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6 mb-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white">Compose Post</h3>
+            <div>
+              <label className="block text-sm text-neutral-300 mb-1">Caption</label>
+              <textarea
+                value={composeForm.caption}
+                onChange={(e) => setComposeForm({ ...composeForm, caption: e.target.value })}
+                rows={4}
+                placeholder="Write your post caption..."
+                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-neutral-300 mb-1">Image URL (optional)</label>
+              <input
+                type="url"
+                value={composeForm.imageUrl}
+                onChange={(e) => setComposeForm({ ...composeForm, imageUrl: e.target.value })}
+                placeholder="https://..."
+                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder-neutral-500"
+              />
+              <p className="text-xs text-neutral-500 mt-1">Required for Instagram. Leave empty for text-only Facebook posts.</p>
+            </div>
+            <div className="flex gap-4 items-center">
+              <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={composeForm.platforms.includes('facebook')}
+                  onChange={(e) => {
+                    const p = e.target.checked
+                      ? [...composeForm.platforms, 'facebook']
+                      : composeForm.platforms.filter((x) => x !== 'facebook');
+                    setComposeForm({ ...composeForm, platforms: p });
+                  }}
+                  className="rounded bg-neutral-900 border-neutral-600"
+                />
+                Facebook
+              </label>
+              <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={composeForm.platforms.includes('instagram')}
+                  onChange={(e) => {
+                    const p = e.target.checked
+                      ? [...composeForm.platforms, 'instagram']
+                      : composeForm.platforms.filter((x) => x !== 'instagram');
+                    setComposeForm({ ...composeForm, platforms: p });
+                  }}
+                  className="rounded bg-neutral-900 border-neutral-600"
+                />
+                Instagram
+              </label>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={publishManualPost}
+                disabled={publishing || !composeForm.caption.trim() || composeForm.platforms.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {publishing ? 'Publishing...' : 'Publish Now'}
+              </button>
+              <button
+                onClick={() => setShowCompose(false)}
+                className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-neutral-700 pb-2 overflow-x-auto">
           {tabs.map((tab) => {
@@ -477,7 +724,7 @@ export default function SocialAdminPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-3">
                     <label className="flex items-center gap-2 text-sm text-neutral-300">
                       <input
                         type="checkbox"
@@ -486,6 +733,15 @@ export default function SocialAdminPage() {
                         className="rounded bg-neutral-900 border-neutral-600"
                       />
                       Enable daily digest posts
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300">
+                      <input
+                        type="checkbox"
+                        checked={config.weekend_boost_enabled ?? false}
+                        onChange={(e) => setConfig({ ...config, weekend_boost_enabled: e.target.checked })}
+                        className="rounded bg-neutral-900 border-neutral-600"
+                      />
+                      Weekend boost (double highlights Thu-Sun)
                     </label>
                   </div>
                 </div>
@@ -816,7 +1072,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{post.platform}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  {post.post_type === 'daily_digest' ? 'Digest' : 'Highlight'}
+                                  {post.post_type === 'daily_digest' ? 'Digest' : post.post_type === 'river_highlight' ? 'Highlight' : post.post_type === 'manual' ? 'Manual' : post.post_type === 'condition_change' ? 'Alert' : post.post_type}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">{post.river_slug || '-'}</td>
                                 <td className="px-4 py-3">
