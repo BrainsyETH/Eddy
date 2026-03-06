@@ -20,15 +20,47 @@ function truncate(text: string, maxLength: number): string {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || 'digest';
-  const riverSlug = searchParams.get('river');
+  try {
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') || 'digest';
+    const riverSlug = searchParams.get('river');
 
-  if (type === 'highlight' && riverSlug) {
-    return generateHighlightImage(riverSlug);
+    if (type === 'highlight' && riverSlug) {
+      return generateHighlightImage(riverSlug);
+    }
+
+    return generateDigestImage();
+  } catch (err) {
+    console.error('[OG/Social] Image generation failed:', err);
+    // Return a simple fallback image so consumers always get an image
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%',
+            background: '#1A3D40',
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          <span style={{ fontSize: 64, fontWeight: 700, color: '#E8734A' }}>
+            Eddy Says
+          </span>
+          <span style={{ fontSize: 32, color: 'rgba(255,255,255,0.6)', marginTop: 16 }}>
+            Missouri River Conditions
+          </span>
+          <span style={{ fontSize: 24, color: 'rgba(255,255,255,0.3)', marginTop: 32 }}>
+            eddyfloat.com
+          </span>
+        </div>
+      ),
+      { ...SIZE }
+    );
   }
-
-  return generateDigestImage();
 }
 
 async function generateDigestImage() {
@@ -36,13 +68,17 @@ async function generateDigestImage() {
   const fonts = loadFredokaFont();
 
   // Fetch latest updates for all rivers
-  const { data: updates } = await supabase
+  const { data: updates, error: queryError } = await supabase
     .from('eddy_updates')
     .select('river_slug, condition_code, gauge_height_ft, summary_text, generated_at')
     .neq('river_slug', 'global')
     .is('section_slug', null)
     .gt('expires_at', new Date().toISOString())
     .order('generated_at', { ascending: false });
+
+  if (queryError) {
+    console.error('[OG/Social] Supabase query failed:', queryError.message);
+  }
 
   // Deduplicate by river
   const riverMap = new Map<string, { condition_code: string; gauge_height_ft: number | null }>();
