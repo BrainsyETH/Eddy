@@ -82,7 +82,11 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   const globalSummary = globalUpdate?.quote_text || null;
 
   const posts: ScheduledPost[] = [];
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://eddy.guide';
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : 'https://eddy.guide');
 
   // --- Daily Digest ---
   if (config.digest_enabled) {
