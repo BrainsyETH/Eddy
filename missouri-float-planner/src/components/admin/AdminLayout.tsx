@@ -17,7 +17,8 @@ import {
   Flag,
   FileText,
   Activity,
-  RefreshCw
+  RefreshCw,
+  Share2,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: '/admin/geography', label: 'Geography Editor', icon: MapPin },
   { href: '/admin/data-sync', label: 'Data Sync', icon: RefreshCw },
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },
+  { href: '/admin/social', label: 'Social Media', icon: Share2 },
 ];
 
 export default function AdminLayout({ children, title, description }: AdminLayoutProps) {

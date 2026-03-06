@@ -728,6 +728,135 @@ export interface Database {
           updated_at?: string;
         };
       };
+      social_posts: {
+        Row: {
+          id: string;
+          post_type: 'daily_digest' | 'river_highlight';
+          platform: 'instagram' | 'facebook';
+          river_slug: string | null;
+          caption: string;
+          image_url: string | null;
+          hashtags: string[];
+          platform_post_id: string | null;
+          status: 'pending' | 'publishing' | 'published' | 'failed' | 'skipped';
+          error_message: string | null;
+          retry_count: number;
+          eddy_update_id: string | null;
+          created_at: string;
+          published_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_type: 'daily_digest' | 'river_highlight';
+          platform: 'instagram' | 'facebook';
+          river_slug?: string | null;
+          caption: string;
+          image_url?: string | null;
+          hashtags?: string[];
+          platform_post_id?: string | null;
+          status?: 'pending' | 'publishing' | 'published' | 'failed' | 'skipped';
+          error_message?: string | null;
+          retry_count?: number;
+          eddy_update_id?: string | null;
+          created_at?: string;
+          published_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_type?: 'daily_digest' | 'river_highlight';
+          platform?: 'instagram' | 'facebook';
+          river_slug?: string | null;
+          caption?: string;
+          image_url?: string | null;
+          hashtags?: string[];
+          platform_post_id?: string | null;
+          status?: 'pending' | 'publishing' | 'published' | 'failed' | 'skipped';
+          error_message?: string | null;
+          retry_count?: number;
+          eddy_update_id?: string | null;
+          created_at?: string;
+          published_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      social_config: {
+        Row: {
+          id: string;
+          posting_enabled: boolean;
+          posting_frequency_hours: number;
+          digest_enabled: boolean;
+          digest_time_utc: string;
+          highlights_per_run: number;
+          highlight_cooldown_hours: number;
+          enabled_rivers: string[] | null;
+          disabled_rivers: string[];
+          highlight_conditions: string[];
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          posting_enabled?: boolean;
+          posting_frequency_hours?: number;
+          digest_enabled?: boolean;
+          digest_time_utc?: string;
+          highlights_per_run?: number;
+          highlight_cooldown_hours?: number;
+          enabled_rivers?: string[] | null;
+          disabled_rivers?: string[];
+          highlight_conditions?: string[];
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          posting_enabled?: boolean;
+          posting_frequency_hours?: number;
+          digest_enabled?: boolean;
+          digest_time_utc?: string;
+          highlights_per_run?: number;
+          highlight_cooldown_hours?: number;
+          enabled_rivers?: string[] | null;
+          disabled_rivers?: string[];
+          highlight_conditions?: string[];
+          updated_at?: string;
+        };
+      };
+      social_custom_content: {
+        Row: {
+          id: string;
+          content_type: 'promo' | 'tip' | 'seasonal' | 'cta';
+          text: string;
+          active: boolean;
+          start_date: string | null;
+          end_date: string | null;
+          platforms: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          content_type: 'promo' | 'tip' | 'seasonal' | 'cta';
+          text: string;
+          active?: boolean;
+          start_date?: string | null;
+          end_date?: string | null;
+          platforms?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          content_type?: 'promo' | 'tip' | 'seasonal' | 'cta';
+          text?: string;
+          active?: boolean;
+          start_date?: string | null;
+          end_date?: string | null;
+          platforms?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       blog_posts: {
         Row: {
           id: string;

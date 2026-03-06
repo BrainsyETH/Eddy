@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag, FileText, Activity, RefreshCw } from 'lucide-react';
+import { MapPin, Image as ImageIcon, ExternalLink, Navigation, Flag, FileText, Activity, RefreshCw, Share2 } from 'lucide-react';
 
 const ADMIN_SECTIONS = [
   {
@@ -56,6 +56,13 @@ const ADMIN_SECTIONS = [
     href: '/admin/images',
     icon: ImageIcon,
     color: 'bg-purple-500',
+  },
+  {
+    title: 'Social Media',
+    description: 'Manage Instagram and Facebook auto-posting settings and history',
+    href: '/admin/social',
+    icon: Share2,
+    color: 'bg-pink-500',
   },
 ];
 
