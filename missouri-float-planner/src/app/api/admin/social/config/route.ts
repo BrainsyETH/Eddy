@@ -7,6 +7,11 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
+const CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Pragma': 'no-cache',
+};
+
 export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request);
   if (authError) return authError;
@@ -19,10 +24,10 @@ export async function GET(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: CACHE_HEADERS });
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, { headers: CACHE_HEADERS });
 }
 
 export async function PUT(request: NextRequest) {
@@ -40,7 +45,7 @@ export async function PUT(request: NextRequest) {
     .single();
 
   if (!existing) {
-    return NextResponse.json({ error: 'No config row found' }, { status: 404 });
+    return NextResponse.json({ error: 'No config row found' }, { status: 404, headers: CACHE_HEADERS });
   }
 
   const { data, error } = await supabase
@@ -62,8 +67,15 @@ export async function PUT(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: CACHE_HEADERS });
   }
 
-  return NextResponse.json(data);
+  if (!data) {
+    return NextResponse.json(
+      { error: 'Update returned no data — the config row may have been deleted or the update was silently rejected' },
+      { status: 500, headers: CACHE_HEADERS }
+    );
+  }
+
+  return NextResponse.json(data, { headers: CACHE_HEADERS });
 }

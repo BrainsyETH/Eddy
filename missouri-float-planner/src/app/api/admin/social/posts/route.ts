@@ -38,5 +38,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ posts: data || [], total: count || 0 });
+  return NextResponse.json({ posts: data || [], total: count || 0 }, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+    },
+  });
 }

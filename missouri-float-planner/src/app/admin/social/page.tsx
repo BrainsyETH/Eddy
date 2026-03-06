@@ -119,9 +119,15 @@ export default function SocialAdminPage() {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const res = await adminFetch('/api/admin/social/config');
+      const res = await adminFetch(`/api/admin/social/config?_t=${Date.now()}`);
       if (res.ok) {
-        setConfig(await res.json());
+        const data = await res.json();
+        if (data && data.id) {
+          setConfig(data);
+        } else {
+          console.error('Config response was empty or invalid:', data);
+          showToast('Settings loaded but appear empty — check server logs', 'error');
+        }
       } else {
         console.error('Failed to fetch config:', res.status);
         showToast(`Failed to load settings (${res.status})`, 'error');
@@ -139,20 +145,25 @@ export default function SocialAdminPage() {
       if (postFilter.platform) params.set('platform', postFilter.platform);
       if (postFilter.status) params.set('status', postFilter.status);
       params.set('limit', '50');
+      params.set('_t', Date.now().toString());
 
       const res = await adminFetch(`/api/admin/social/posts?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setPosts(data.posts || []);
+      } else {
+        console.error('Failed to fetch posts:', res.status);
+        showToast(`Failed to load post history (${res.status})`, 'error');
       }
     } catch (err) {
       console.error('Failed to fetch posts:', err);
+      showToast('Could not load post history', 'error');
     }
   }, [postFilter]);
 
   const fetchContent = useCallback(async () => {
     try {
-      const res = await adminFetch('/api/admin/social/content');
+      const res = await adminFetch(`/api/admin/social/content?_t=${Date.now()}`);
       if (res.ok) {
         setCustomContent(await res.json());
       }
@@ -182,8 +193,13 @@ export default function SocialAdminPage() {
         body: JSON.stringify(config),
       });
       if (res.ok) {
-        setConfig(await res.json());
-        showToast('Settings saved successfully', 'success');
+        const saved = await res.json();
+        if (saved && saved.id) {
+          setConfig(saved);
+          showToast('Settings saved successfully', 'success');
+        } else {
+          showToast('Save appeared to succeed but returned empty data — please refresh', 'error');
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         showToast(data.error || `Save failed (${res.status})`, 'error');
