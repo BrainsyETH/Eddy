@@ -150,9 +150,10 @@ export default function SocialAdminPage() {
       const res = await adminFetch(`/api/admin/social/posts?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
+        console.log(`[SocialAdmin] fetchPosts: ${data.posts?.length ?? 0} posts, total=${data.total}`);
         setPosts(data.posts || []);
       } else {
-        console.error('Failed to fetch posts:', res.status);
+        console.error(`[SocialAdmin] fetchPosts failed: ${res.status}`);
         showToast(`Failed to load post history (${res.status})`, 'error');
       }
     } catch (err) {
@@ -781,7 +782,7 @@ export default function SocialAdminPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-400 max-w-xs truncate">
-                                  {post.caption.slice(0, 80)}...
+                                  {(post.caption || '').slice(0, 80)}...
                                 </td>
                                 <td className="px-4 py-3">
                                   {post.status === 'failed' && (
