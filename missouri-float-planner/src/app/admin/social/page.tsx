@@ -60,7 +60,8 @@ interface CustomContent {
   platforms: string[];
 }
 
-const ALL_RIVERS = [
+// Fallback used while rivers are loading from the API
+const FALLBACK_RIVERS = [
   { slug: 'meramec', name: 'Meramec River' },
   { slug: 'current', name: 'Current River' },
   { slug: 'eleven-point', name: 'Eleven Point River' },
@@ -93,6 +94,7 @@ export default function SocialAdminPage() {
   const [config, setConfig] = useState<SocialConfig | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [customContent, setCustomContent] = useState<CustomContent[]>([]);
+  const [rivers, setRivers] = useState<{ slug: string; name: string }[]>(FALLBACK_RIVERS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [postFilter, setPostFilter] = useState<{ platform: string; status: string }>({
@@ -173,10 +175,24 @@ export default function SocialAdminPage() {
     }
   }, []);
 
+  const fetchRivers = useCallback(async () => {
+    try {
+      const res = await adminFetch('/api/admin/rivers');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rivers && data.rivers.length > 0) {
+          setRivers(data.rivers.map((r: { slug: string; name: string }) => ({ slug: r.slug, name: r.name })));
+        }
+      }
+    } catch {
+      // Keep fallback rivers on error
+    }
+  }, []);
+
   // Initial load — run once on mount
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchConfig(), fetchPosts(), fetchContent()]).finally(() =>
+    Promise.all([fetchConfig(), fetchPosts(), fetchContent(), fetchRivers()]).finally(() =>
       setLoading(false)
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -496,7 +512,7 @@ export default function SocialAdminPage() {
                     Select which rivers can appear in highlight posts. Unchecked rivers will be excluded.
                   </p>
                   <div className="grid gap-2 md:grid-cols-2">
-                    {ALL_RIVERS.map((river) => {
+                    {rivers.map((river) => {
                       const isDisabled = (config.disabled_rivers || []).includes(river.slug);
                       return (
                         <label

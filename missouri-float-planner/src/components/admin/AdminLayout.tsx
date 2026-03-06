@@ -19,6 +19,7 @@ import {
   Activity,
   RefreshCw,
   Share2,
+  Compass,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/admin/gauges', label: 'Gauge Thresholds', icon: Activity },
   { href: '/admin/feedback', label: 'Feedback', icon: Flag },
   { href: '/admin/access-points', label: 'Access Points', icon: Navigation },
+  { href: '/admin/pois', label: 'Points of Interest', icon: Compass },
   { href: '/admin/geography', label: 'Geography Editor', icon: MapPin },
   { href: '/admin/data-sync', label: 'Data Sync', icon: RefreshCw },
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },

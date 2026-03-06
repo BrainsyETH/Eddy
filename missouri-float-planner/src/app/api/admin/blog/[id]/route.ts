@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { sanitizeRichText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +19,7 @@ export async function GET(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -77,6 +78,7 @@ export async function PUT(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const body = await request.json();
     const {
       title,

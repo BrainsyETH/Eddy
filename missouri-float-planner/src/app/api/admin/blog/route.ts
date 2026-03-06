@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const { data: posts, error } = await supabase
       .from('blog_posts')
-      .select('*')
+      .select('id, slug, title, description, category, featured_image_url, og_image_url, meta_keywords, read_time_minutes, status, published_at, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
       slug: post.slug,
       title: post.title,
       description: post.description,
-      content: post.content,
       category: post.category,
       featuredImageUrl: post.featured_image_url,
       ogImageUrl: post.og_image_url,

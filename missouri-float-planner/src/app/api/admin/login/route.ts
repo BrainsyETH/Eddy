@@ -1,13 +1,20 @@
 // src/app/api/admin/login/route.ts
-// POST /api/admin/login - Validate admin password server-side, return API token
+// POST /api/admin/login - Validate admin password server-side, return time-limited API token
 // The password is NEVER exposed to the client bundle.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { createAdminToken } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 attempts per IP per 15 minutes
+    const ip = getClientIp(request);
+    const rateLimitResponse = rateLimit(`admin-login:${ip}`, 5, 15 * 60 * 1000);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const body = await request.json();
     const { password } = body;
 
@@ -20,8 +27,6 @@ export async function POST(request: NextRequest) {
 
     // Server-side only — NEVER use NEXT_PUBLIC_ vars (they leak to client bundle)
     const adminPassword = process.env.ADMIN_PASSWORD;
-    // ADMIN_API_SECRET is the token returned to the client; fall back to password if not set
-    const apiSecret = process.env.ADMIN_API_SECRET || adminPassword;
 
     if (!adminPassword) {
       console.error('[Admin Login] ADMIN_PASSWORD is not configured');
@@ -38,11 +43,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Return the API secret as a token — the client will send this
-    // as Authorization: Bearer <token> on all subsequent admin API calls.
+    // Generate a time-limited token (expires in 4 hours)
+    const token = createAdminToken();
+
     return NextResponse.json({
       success: true,
-      token: apiSecret,
+      token,
+      expiresIn: 4 * 60 * 60, // seconds
     });
   } catch (error) {
     console.error('[Admin Login] Error:', error);
