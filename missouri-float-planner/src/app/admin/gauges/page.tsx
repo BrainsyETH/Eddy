@@ -106,8 +106,7 @@ export default function AdminGaugesPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      // Cache-bust to ensure fresh data after saves
-      const response = await adminFetch(`/api/admin/gauges?_t=${Date.now()}`);
+      const response = await adminFetch('/api/admin/gauges');
       if (!response.ok) {
         throw new Error('Failed to fetch gauges');
       }
@@ -264,7 +263,7 @@ export default function AdminGaugesPage() {
       setSaving(gauge.id);
       setError(null);
 
-      const response = await adminFetch(`/api/admin/gauges/${gauge.id}?_t=${Date.now()}`, {
+      const response = await adminFetch(`/api/admin/gauges/${gauge.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -313,7 +312,7 @@ export default function AdminGaugesPage() {
       setSaving(river.id);
       setError(null);
 
-      const response = await adminFetch(`/api/admin/rivers/${river.id}?_t=${Date.now()}`, {
+      const response = await adminFetch(`/api/admin/rivers/${river.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(edits),

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -38,6 +38,7 @@ async function handleUpdate(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const body = await request.json();
     const { geometry, floatSummary, floatTip, description, difficultyRating, region } = body;
 

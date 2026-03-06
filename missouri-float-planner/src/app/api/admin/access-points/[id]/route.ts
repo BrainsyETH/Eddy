@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { sanitizeRichText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,7 @@ export async function GET(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -140,6 +141,7 @@ export async function PUT(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const body = await request.json();
     const {
       latitude,
@@ -425,15 +427,6 @@ export async function PUT(
       );
     }
 
-    // Log for debugging - helps identify if trigger is working
-    console.log('Access point updated:', {
-      id: data.id,
-      name: data.name,
-      riverMile: data.river_mile_downstream,
-      approved: data.approved,
-      hasSnappedLocation: !!data.location_snap,
-    });
-
     // Type guard for rivers relation
     const getRiverData = (rivers: unknown): { id?: string; name?: string; slug?: string } | null => {
       if (!rivers || typeof rivers !== 'object') return null;
@@ -526,6 +519,7 @@ export async function DELETE(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     // Invalidate segment cache before deletion

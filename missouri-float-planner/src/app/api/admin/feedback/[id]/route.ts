@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +16,7 @@ export async function PATCH(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const body = await request.json();
 
     // Validate status if provided
@@ -32,6 +33,7 @@ export async function PATCH(
     if (body.status) {
       updates.status = body.status;
       updates.reviewed_at = new Date().toISOString();
+      updates.updated_at = new Date().toISOString();
       updates.reviewed_by = 'admin';
     }
     if (body.adminNotes !== undefined) {
