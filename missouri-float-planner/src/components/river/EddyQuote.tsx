@@ -56,7 +56,10 @@ const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = 
 };
 
 function formatReadingAge(hours: number): string {
-  if (hours < 1) return 'Updated just now';
+  if (hours < 1) {
+    const mins = Math.round(hours * 60);
+    return mins < 2 ? 'Updated just now' : `Updated ${mins}m ago`;
+  }
   if (hours < 2) return 'Updated 1 hr ago';
   if (hours < 24) return `Updated ${Math.round(hours)} hrs ago`;
   const days = Math.floor(hours / 24);
@@ -65,7 +68,10 @@ function formatReadingAge(hours: number): string {
 
 function formatGeneratedAge(generatedAt: string): string {
   const hours = (Date.now() - new Date(generatedAt).getTime()) / (1000 * 60 * 60);
-  if (hours < 1) return 'Updated just now';
+  if (hours < 1) {
+    const mins = Math.round(hours * 60);
+    return mins < 2 ? 'Updated just now' : `Updated ${mins}m ago`;
+  }
   if (hours < 2) return 'Updated 1 hr ago';
   return `Updated ${Math.round(hours)} hrs ago`;
 }

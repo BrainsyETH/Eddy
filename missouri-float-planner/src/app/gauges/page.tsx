@@ -560,7 +560,10 @@ export default function GaugesPage() {
   // Get reading age text
   const getAgeText = (gauge: GaugeStation) => {
     if (gauge.readingAgeHours === null) return null;
-    if (gauge.readingAgeHours < 1) return 'Just now';
+    if (gauge.readingAgeHours < 1) {
+      const mins = Math.round(gauge.readingAgeHours * 60);
+      return mins < 2 ? 'Just now' : `${mins}m ago`;
+    }
     if (gauge.readingAgeHours < 24) return `${Math.round(gauge.readingAgeHours)}h ago`;
     return `${Math.round(gauge.readingAgeHours / 24)}d ago`;
   };
