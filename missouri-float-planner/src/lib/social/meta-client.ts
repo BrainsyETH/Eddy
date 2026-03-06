@@ -58,6 +58,15 @@ export async function publishToFacebook(params: {
       const apiError = data as MetaApiError;
       const errorMsg = apiError.error?.message || `HTTP ${response.status}`;
       console.error('[MetaClient] Facebook publish failed:', errorMsg);
+
+      // Detect deprecated permission error and provide actionable guidance
+      if (errorMsg.includes('publish_actions')) {
+        return {
+          success: false,
+          error: 'Token uses deprecated publish_actions permission. Regenerate Page Access Token with pages_manage_posts and pages_read_engagement permissions in Facebook Developer Console.',
+        };
+      }
+
       return { success: false, error: errorMsg };
     }
 
@@ -96,7 +105,11 @@ export async function publishToInstagram(params: {
       }
     } catch (preflightErr) {
       console.error('[MetaClient] Image preflight failed:', preflightErr);
-      // Continue anyway — the OG endpoint might not support HEAD
+      // Network errors (DNS, timeout) mean the URL is unreachable — abort
+      const cause = preflightErr instanceof TypeError ? preflightErr : null;
+      if (cause) {
+        return { success: false, error: `Image URL unreachable: ${cause.message}` };
+      }
     }
 
     // Step 1: Create media container

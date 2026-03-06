@@ -85,7 +85,7 @@ export function formatRiverHighlightCaption(
   }
 
   // Plan your trip CTA
-  lines.push('Plan your float at eddyfloat.com');
+  lines.push('Plan your float at eddy.guide');
 
   // Add active custom content snippets
   const snippets = getActiveSnippets(customContent, platform);
@@ -142,7 +142,7 @@ export function formatDailyDigestCaption(
   }
 
   lines.push('');
-  lines.push('Plan your float at eddyfloat.com');
+  lines.push('Plan your float at eddy.guide');
 
   // Custom content
   const snippets = getActiveSnippets(customContent, platform);

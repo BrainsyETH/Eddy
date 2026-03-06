@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             Missouri River Conditions
           </span>
           <span style={{ fontSize: 24, color: 'rgba(255,255,255,0.3)', marginTop: 32 }}>
-            eddyfloat.com
+            eddy.guide
           </span>
         </div>
       ),
@@ -231,7 +231,7 @@ async function generateDigestImage() {
               color: 'rgba(255,255,255,0.4)',
             }}
           >
-            eddyfloat.com
+            eddy.guide
           </span>
         </div>
 
@@ -444,7 +444,7 @@ async function generateHighlightImage(riverSlug: string) {
             color: 'rgba(255,255,255,0.35)',
           }}
         >
-          eddyfloat.com
+          eddy.guide
         </span>
 
         {/* Otter */}
