@@ -340,7 +340,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
-          padding: '64px',
+          padding: isPortrait ? '72px' : '64px',
           position: 'relative',
         }}
       >
@@ -348,12 +348,12 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: 28,
+            fontSize: isPortrait ? 36 : 28,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.4)',
             textTransform: 'uppercase',
             letterSpacing: 3,
-            marginBottom: 16,
+            marginBottom: isPortrait ? 20 : 16,
           }}
         >
           Eddy Says
@@ -363,12 +363,14 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: riverName.length > 18 ? 72 : 88,
+            fontSize: isPortrait
+              ? (riverName.length > 18 ? 96 : 112)
+              : (riverName.length > 18 ? 72 : 88),
             fontWeight: 600,
             color: BRAND_COLORS.accentCoral,
             lineHeight: 1,
             letterSpacing: -2,
-            marginBottom: 32,
+            marginBottom: isPortrait ? 40 : 32,
           }}
         >
           {riverName}
@@ -379,32 +381,32 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 16,
-            marginBottom: 32,
+            gap: isPortrait ? 20 : 16,
+            marginBottom: isPortrait ? 40 : 32,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 12,
+              gap: isPortrait ? 14 : 12,
               backgroundColor: statusStyles.bg,
               border: `2px solid ${statusStyles.border}`,
               borderRadius: 100,
-              padding: '14px 32px',
+              padding: isPortrait ? '18px 40px' : '14px 32px',
             }}
           >
             <div
               style={{
-                width: 16,
-                height: 16,
+                width: isPortrait ? 20 : 16,
+                height: isPortrait ? 20 : 16,
                 borderRadius: '50%',
                 backgroundColor: statusStyles.solid,
               }}
             />
             <span
               style={{
-                fontSize: 32,
+                fontSize: isPortrait ? 40 : 32,
                 fontWeight: 700,
                 color: statusStyles.text,
               }}
@@ -416,7 +418,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           {update.gauge_height_ft !== null && (
             <span
               style={{
-                fontSize: 48,
+                fontSize: isPortrait ? 64 : 48,
                 fontWeight: 700,
                 color: 'white',
               }}
@@ -430,10 +432,10 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
         {snippet && (
           <span
             style={{
-              fontSize: 34,
+              fontSize: isPortrait ? 44 : 34,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.4,
-              maxWidth: otterImage ? 700 : '100%',
+              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
             }}
           >
             {truncate(snippet, isPortrait ? 300 : 200)}
@@ -448,7 +450,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           <span
             style={{
               fontFamily: 'Fredoka',
-              fontSize: 30,
+              fontSize: 38,
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               opacity: 0.85,
@@ -463,7 +465,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: 28,
+            fontSize: isPortrait ? 32 : 28,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.35)',
           }}
@@ -477,16 +479,16 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: 40,
-              right: 40,
+              bottom: isPortrait ? 48 : 40,
+              right: isPortrait ? 48 : 40,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 280 : 240}
-              height={isPortrait ? 280 : 240}
+              width={isPortrait ? 340 : 240}
+              height={isPortrait ? 340 : 240}
               alt=""
               style={{ objectFit: 'contain' }}
             />
