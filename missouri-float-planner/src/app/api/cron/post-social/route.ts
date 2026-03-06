@@ -48,87 +48,83 @@ async function runSocialPosting(request: NextRequest) {
     const scheduledPosts = await getScheduledPosts();
     console.log(`${LOG_PREFIX} ${scheduledPosts.length} posts scheduled`);
 
-    // Process sequentially to avoid rate limits
+    // Process sequentially to avoid rate limits.
+    // Each ScheduledPost already has a platform — no inner loop needed.
     for (const post of scheduledPosts) {
-      const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+      const adapter = getAdapter(post.platform);
+      if (!adapter) {
+        console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
+        skipped++;
+        continue;
+      }
 
-      for (const platform of platforms) {
-        const adapter = getAdapter(platform);
-        if (!adapter) {
-          console.log(`${LOG_PREFIX} No credentials for ${platform}, skipping`);
-          skipped++;
-          continue;
-        }
+      // Insert pending record
+      const { data: record, error: insertError } = await supabase
+        .from('social_posts')
+        .insert({
+          post_type: post.postType,
+          platform: post.platform,
+          river_slug: post.riverSlug,
+          caption: post.caption,
+          image_url: post.imageUrl,
+          hashtags: post.hashtags,
+          eddy_update_id: post.eddyUpdateId,
+          status: 'publishing',
+        })
+        .select('id')
+        .single();
 
-        // Insert pending record
-        const { data: record, error: insertError } = await supabase
-          .from('social_posts')
-          .insert({
-            post_type: post.postType,
-            platform,
-            river_slug: post.riverSlug,
-            caption: post.caption,
-            image_url: post.imageUrl,
-            hashtags: post.hashtags,
-            eddy_update_id: post.eddyUpdateId,
-            status: 'publishing',
-          })
-          .select('id')
-          .single();
+      if (insertError) {
+        console.log(`${LOG_PREFIX} Skipping duplicate: ${post.postType}/${post.platform}/${post.riverSlug || 'global'}`);
+        skipped++;
+        continue;
+      }
 
-        if (insertError) {
-          // Likely a duplicate (unique constraint), skip
-          console.log(`${LOG_PREFIX} Skipping duplicate: ${post.postType}/${platform}/${post.riverSlug || 'global'}`);
-          skipped++;
-          continue;
-        }
+      try {
+        const result = await adapter.publishPost({
+          caption: post.caption,
+          imageUrl: post.imageUrl,
+        });
 
-        try {
-          const result = await adapter.publishPost({
-            caption: post.caption,
-            imageUrl: post.imageUrl,
-          });
+        if (result.success) {
+          await supabase
+            .from('social_posts')
+            .update({
+              status: 'published',
+              platform_post_id: result.platformPostId || null,
+              published_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', record.id);
 
-          if (result.success) {
-            await supabase
-              .from('social_posts')
-              .update({
-                status: 'published',
-                platform_post_id: result.platformPostId || null,
-                published_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', record.id);
-
-            published++;
-            console.log(`${LOG_PREFIX} Published to ${platform}: ${post.postType}/${post.riverSlug || 'digest'}`);
-          } else {
-            await supabase
-              .from('social_posts')
-              .update({
-                status: 'failed',
-                error_message: result.error || 'Unknown error',
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', record.id);
-
-            failed++;
-            errors.push(`${platform}/${post.postType}: ${result.error}`);
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Unknown error';
+          published++;
+          console.log(`${LOG_PREFIX} Published to ${post.platform}: ${post.postType}/${post.riverSlug || 'digest'}`);
+        } else {
           await supabase
             .from('social_posts')
             .update({
               status: 'failed',
-              error_message: msg,
+              error_message: result.error || 'Unknown error',
               updated_at: new Date().toISOString(),
             })
             .eq('id', record.id);
 
           failed++;
-          errors.push(`${platform}/${post.postType}: ${msg}`);
+          errors.push(`${post.platform}/${post.postType}: ${result.error}`);
         }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        await supabase
+          .from('social_posts')
+          .update({
+            status: 'failed',
+            error_message: msg,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', record.id);
+
+        failed++;
+        errors.push(`${post.platform}/${post.postType}: ${msg}`);
       }
     }
   } catch (err) {
