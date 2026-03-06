@@ -66,6 +66,9 @@ export default function AdminPOIsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPois, setTotalPois] = useState(0);
+  const [pageLimit] = useState(50);
   const [newPOI, setNewPOI] = useState({
     name: '',
     type: 'other',
@@ -74,23 +77,24 @@ export default function AdminPOIsPage() {
     description: '',
   });
 
-  const fetchPOIs = useCallback(async () => {
+  const fetchPOIs = useCallback(async (p: number = page) => {
     try {
       setLoading(true);
-      const res = await adminFetch('/api/admin/pois');
+      const res = await adminFetch(`/api/admin/pois?page=${p}&limit=${pageLimit}`);
       if (!res.ok) throw new Error('Failed to fetch POIs');
       const data = await res.json();
       setPois(data.pois);
+      setTotalPois(data.total ?? data.pois.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageLimit]);
 
   useEffect(() => {
-    fetchPOIs();
-  }, [fetchPOIs]);
+    fetchPOIs(page);
+  }, [page, fetchPOIs]);
 
   const riverOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -436,6 +440,31 @@ export default function AdminPOIsPage() {
                 </div>
               ))}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPois > pageLimit && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-neutral-500">
+                  Page {page} of {Math.ceil(totalPois / pageLimit)} ({totalPois} total)
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPage(p => p + 1)}
+                    disabled={page >= Math.ceil(totalPois / pageLimit)}
+                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

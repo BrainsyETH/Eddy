@@ -20,6 +20,10 @@ import {
   AlertTriangle,
   Clock,
   Layers,
+  ShieldAlert,
+  MessageSquare,
+  History,
+  Compass,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -90,11 +94,39 @@ const ADMIN_SECTIONS = [
     color: 'bg-purple-500',
   },
   {
+    title: 'Points of Interest',
+    description: 'Manage springs, caves, campgrounds, and other points of interest',
+    href: '/admin/pois',
+    icon: Compass,
+    color: 'bg-cyan-500',
+  },
+  {
+    title: 'Hazards',
+    description: 'Manage river hazards, portages, and safety warnings',
+    href: '/admin/hazards',
+    icon: ShieldAlert,
+    color: 'bg-red-500',
+  },
+  {
+    title: 'Community Reports',
+    description: 'Review and moderate user-submitted hazard and condition reports',
+    href: '/admin/reports',
+    icon: MessageSquare,
+    color: 'bg-indigo-500',
+  },
+  {
     title: 'Social Media',
     description: 'Manage Instagram and Facebook auto-posting settings and history',
     href: '/admin/social',
     icon: Share2,
     color: 'bg-pink-500',
+  },
+  {
+    title: 'Activity Log',
+    description: 'View admin action history and audit trail',
+    href: '/admin/activity',
+    icon: History,
+    color: 'bg-neutral-500',
   },
 ];
 

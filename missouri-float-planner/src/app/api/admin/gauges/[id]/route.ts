@@ -64,34 +64,29 @@ export async function GET(
       };
     }
 
-    // Get river associations with thresholds
-    // Fall back without alt columns if migration hasn't run yet
-    const baseCols = `id, river_id, is_primary, threshold_unit,
+    // Get river associations with thresholds (including alt unit columns)
+    const { data: riverGauges, error: rgError } = await supabase
+      .from('river_gauges')
+      .select(`id, river_id, is_primary, threshold_unit,
         level_too_low, level_low, level_optimal_min, level_optimal_max,
-        level_high, level_dangerous,`;
-    const altCols = `alt_level_too_low, alt_level_low, alt_level_optimal_min,
-        alt_level_optimal_max, alt_level_high, alt_level_dangerous,`;
-    const tailCols = `distance_from_section_miles, accuracy_warning_threshold_miles`;
+        level_high, level_dangerous,
+        alt_level_too_low, alt_level_low, alt_level_optimal_min,
+        alt_level_optimal_max, alt_level_high, alt_level_dangerous,
+        distance_from_section_miles, accuracy_warning_threshold_miles`)
+      .eq('gauge_station_id', id);
 
-    let riverGauges: Record<string, unknown>[] | null = null;
-    {
-      const { data, error: err } = await supabase
-        .from('river_gauges')
-        .select(baseCols + altCols + tailCols)
-        .eq('gauge_station_id', id);
-      if (err) {
-        const { data: fb } = await supabase
-          .from('river_gauges')
-          .select(baseCols + tailCols)
-          .eq('gauge_station_id', id);
-        riverGauges = fb as unknown as Record<string, unknown>[] | null;
-      } else {
-        riverGauges = data as unknown as Record<string, unknown>[] | null;
-      }
+    if (rgError) {
+      console.error('Error fetching river gauges:', rgError);
+      return NextResponse.json(
+        { error: 'Could not fetch gauge river associations' },
+        { status: 500 }
+      );
     }
 
     // Get river names
-    const riverIds = (riverGauges || []).map(rg => rg.river_id as string).filter(Boolean);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rgList = (riverGauges || []) as any[];
+    const riverIds = rgList.map(rg => rg.river_id as string).filter(Boolean);
     let rivers: Array<{ id: string; name: string; slug: string }> = [];
 
     if (riverIds.length > 0) {
@@ -112,7 +107,7 @@ export async function GET(
       thresholdDescriptions: gauge.threshold_descriptions,
       notes: gauge.notes,
       latestReading,
-      riverAssociations: (riverGauges || []).map(rg => {
+      riverAssociations: rgList.map(rg => {
         const river = riverMap.get(rg.river_id as string);
         return {
           id: rg.id,
@@ -121,20 +116,20 @@ export async function GET(
           riverSlug: river?.slug || '',
           isPrimary: rg.is_primary,
           thresholdUnit: rg.threshold_unit,
-          levelTooLow: (rg.level_too_low as number) ?? null,
-          levelLow: (rg.level_low as number) ?? null,
-          levelOptimalMin: (rg.level_optimal_min as number) ?? null,
-          levelOptimalMax: (rg.level_optimal_max as number) ?? null,
-          levelHigh: (rg.level_high as number) ?? null,
-          levelDangerous: (rg.level_dangerous as number) ?? null,
-          altLevelTooLow: (rg.alt_level_too_low as number) ?? null,
-          altLevelLow: (rg.alt_level_low as number) ?? null,
-          altLevelOptimalMin: (rg.alt_level_optimal_min as number) ?? null,
-          altLevelOptimalMax: (rg.alt_level_optimal_max as number) ?? null,
-          altLevelHigh: (rg.alt_level_high as number) ?? null,
-          altLevelDangerous: (rg.alt_level_dangerous as number) ?? null,
-          distanceFromSectionMiles: (rg.distance_from_section_miles as number) ?? null,
-          accuracyWarningThresholdMiles: (rg.accuracy_warning_threshold_miles as number) ?? 0,
+          levelTooLow: rg.level_too_low ?? null,
+          levelLow: rg.level_low ?? null,
+          levelOptimalMin: rg.level_optimal_min ?? null,
+          levelOptimalMax: rg.level_optimal_max ?? null,
+          levelHigh: rg.level_high ?? null,
+          levelDangerous: rg.level_dangerous ?? null,
+          altLevelTooLow: rg.alt_level_too_low ?? null,
+          altLevelLow: rg.alt_level_low ?? null,
+          altLevelOptimalMin: rg.alt_level_optimal_min ?? null,
+          altLevelOptimalMax: rg.alt_level_optimal_max ?? null,
+          altLevelHigh: rg.alt_level_high ?? null,
+          altLevelDangerous: rg.alt_level_dangerous ?? null,
+          distanceFromSectionMiles: rg.distance_from_section_miles ?? null,
+          accuracyWarningThresholdMiles: rg.accuracy_warning_threshold_miles ?? 0,
         };
       }),
     };
@@ -256,34 +251,12 @@ async function handleUpdate(
         }
 
         if (Object.keys(thresholdUpdate).length > 0) {
-          // Try update with all fields; if alt columns don't exist, retry without them
-          let { data: updated, error: thresholdError } = await supabase
+          const { data: updated, error: thresholdError } = await supabase
             .from('river_gauges')
             .update(thresholdUpdate)
             .eq('id', assoc.id)
             .select('id')
             .maybeSingle();
-
-          if (thresholdError && thresholdError.message.includes('alt_level_')) {
-            console.warn('Alt columns not available, retrying without them:', thresholdError.message);
-            // Strip alt fields and retry
-            const withoutAlt = Object.fromEntries(
-              Object.entries(thresholdUpdate).filter(([k]) => !k.startsWith('alt_level_'))
-            );
-            if (Object.keys(withoutAlt).length > 0) {
-              const retry = await supabase
-                .from('river_gauges')
-                .update(withoutAlt)
-                .eq('id', assoc.id)
-                .select('id')
-                .maybeSingle();
-              updated = retry.data;
-              thresholdError = retry.error;
-            } else {
-              updated = { id: assoc.id }; // nothing to write
-              thresholdError = null;
-            }
-          }
 
           if (thresholdError) {
             console.error('Error updating river gauge thresholds:', thresholdError, { assocId: assoc.id, thresholdUpdate });

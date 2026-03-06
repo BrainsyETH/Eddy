@@ -264,7 +264,7 @@ export default function AdminGaugesPage() {
       setError(null);
 
       const response = await adminFetch(`/api/admin/gauges/${gauge.id}`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...edits,
@@ -313,7 +313,7 @@ export default function AdminGaugesPage() {
       setError(null);
 
       const response = await adminFetch(`/api/admin/rivers/${river.id}`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(edits),
       });

@@ -16,9 +16,15 @@ export async function GET(request: NextRequest) {
     // Use admin client to bypass RLS and see all access points including unapproved
     const supabase = createAdminClient();
 
+    // Pagination params
+    const url = new URL(request.url);
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     // Get all access points (including unapproved) for admin editing
-    // Note: Supabase has a default limit of 1000, so we explicitly set a higher limit
-    const { data: accessPoints, error } = await supabase
+    const { data: accessPoints, error, count } = await supabase
       .from('access_points')
       .select(`
         id,
@@ -44,9 +50,9 @@ export async function GET(request: NextRequest) {
         google_maps_url,
         approved,
         rivers(id, name, slug)
-      `)
+      `, { count: 'exact' })
       .order('name', { ascending: true })
-      .limit(5000);
+      .range(from, to);
 
     if (error) {
       console.error('Error fetching access points:', error);
@@ -124,7 +130,12 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    return NextResponse.json({ accessPoints: formatted });
+    return NextResponse.json({
+      accessPoints: formatted,
+      total: count ?? formatted.length,
+      page,
+      limit,
+    });
   } catch (error) {
     console.error('Error in admin access points endpoint:', error);
     return NextResponse.json(

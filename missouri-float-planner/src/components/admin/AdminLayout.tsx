@@ -20,8 +20,12 @@ import {
   RefreshCw,
   Share2,
   Compass,
+  AlertTriangle,
+  MessageSquare,
+  History,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { adminFetch } from '@/hooks/useAdminAuth';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -33,19 +37,43 @@ const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: Home },
   { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
   { href: '/admin/gauges', label: 'Gauge Thresholds', icon: Activity },
-  { href: '/admin/feedback', label: 'Feedback', icon: Flag },
-  { href: '/admin/access-points', label: 'Access Points', icon: Navigation },
+  { href: '/admin/feedback', label: 'Feedback', icon: Flag, badgeKey: 'pendingFeedback' as const },
+  { href: '/admin/access-points', label: 'Access Points', icon: Navigation, badgeKey: 'unapprovedAccessPoints' as const },
   { href: '/admin/pois', label: 'Points of Interest', icon: Compass },
+  { href: '/admin/hazards', label: 'Hazards', icon: AlertTriangle },
+  { href: '/admin/reports', label: 'Community Reports', icon: MessageSquare },
   { href: '/admin/geography', label: 'Geography Editor', icon: MapPin },
   { href: '/admin/data-sync', label: 'Data Sync', icon: RefreshCw },
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },
   { href: '/admin/social', label: 'Social Media', icon: Share2 },
+  { href: '/admin/activity', label: 'Activity Log', icon: History },
 ];
+
+interface NavBadges {
+  pendingFeedback: number;
+  unapprovedAccessPoints: number;
+}
 
 export default function AdminLayout({ children, title, description }: AdminLayoutProps) {
   const { isAuthorized, password, setPassword, error, handleSubmit, logout } = useAdminAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [badges, setBadges] = useState<NavBadges | null>(null);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    adminFetch('/api/admin/stats')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.stats) {
+          setBadges({
+            pendingFeedback: data.stats.pendingFeedback || 0,
+            unapprovedAccessPoints: data.stats.unapprovedAccessPoints || 0,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [isAuthorized]);
 
   if (isAuthorized === null) {
     return (
@@ -108,6 +136,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const badgeCount = item.badgeKey && badges ? badges[item.badgeKey] : 0;
             return (
               <Link
                 key={item.href}
@@ -119,7 +148,12 @@ export default function AdminLayout({ children, title, description }: AdminLayou
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badgeCount > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-yellow-500/20 text-yellow-400 rounded-full border border-yellow-500/30">
+                    {badgeCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -156,6 +190,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
+              const badgeCount = item.badgeKey && badges ? badges[item.badgeKey] : 0;
               return (
                 <Link
                   key={item.href}
@@ -168,7 +203,12 @@ export default function AdminLayout({ children, title, description }: AdminLayou
                   }`}
                 >
                   <Icon className="w-5 h-5" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {badgeCount > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-yellow-500/20 text-yellow-400 rounded-full border border-yellow-500/30">
+                      {badgeCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
