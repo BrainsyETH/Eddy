@@ -109,15 +109,28 @@ export default function SocialAdminPage() {
     platforms: ['instagram', 'facebook'] as string[],
   });
 
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const fetchConfig = useCallback(async () => {
     try {
       const res = await adminFetch('/api/admin/social/config');
       if (res.ok) {
         setConfig(await res.json());
+      } else {
+        console.error('Failed to fetch config:', res.status);
+        showToast(`Failed to load settings (${res.status})`, 'error');
       }
     } catch (err) {
       console.error('Failed to fetch config:', err);
+      showToast('Could not connect to server', 'error');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPosts = useCallback(async () => {
@@ -170,9 +183,14 @@ export default function SocialAdminPage() {
       });
       if (res.ok) {
         setConfig(await res.json());
+        showToast('Settings saved successfully', 'success');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Save failed (${res.status})`, 'error');
       }
     } catch (err) {
       console.error('Failed to save config:', err);
+      showToast('Network error — could not save', 'error');
     } finally {
       setSaving(false);
     }
@@ -187,9 +205,14 @@ export default function SocialAdminPage() {
       });
       if (res.ok) {
         fetchPosts();
+        showToast('Post queued for retry', 'success');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Retry failed (${res.status})`, 'error');
       }
     } catch (err) {
       console.error('Failed to retry post:', err);
+      showToast('Network error — could not retry', 'error');
     }
   };
 
@@ -210,31 +233,49 @@ export default function SocialAdminPage() {
       if (res.ok) {
         setNewContent({ content_type: 'tip', text: '', start_date: '', end_date: '', platforms: ['instagram', 'facebook'] });
         fetchContent();
+        showToast('Content snippet added', 'success');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Failed to add content (${res.status})`, 'error');
       }
     } catch (err) {
       console.error('Failed to add content:', err);
+      showToast('Network error — could not add content', 'error');
     }
   };
 
   const toggleContentActive = async (item: CustomContent) => {
     try {
-      await adminFetch(`/api/admin/social/content/${item.id}`, {
+      const res = await adminFetch(`/api/admin/social/content/${item.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...item, active: !item.active }),
       });
-      fetchContent();
+      if (res.ok) {
+        fetchContent();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Toggle failed (${res.status})`, 'error');
+      }
     } catch (err) {
       console.error('Failed to toggle content:', err);
+      showToast('Network error — could not update', 'error');
     }
   };
 
   const deleteContent = async (id: string) => {
     try {
-      await adminFetch(`/api/admin/social/content/${id}`, { method: 'DELETE' });
-      fetchContent();
+      const res = await adminFetch(`/api/admin/social/content/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchContent();
+        showToast('Content deleted', 'success');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Delete failed (${res.status})`, 'error');
+      }
     } catch (err) {
       console.error('Failed to delete content:', err);
+      showToast('Network error — could not delete', 'error');
     }
   };
 
@@ -250,6 +291,16 @@ export default function SocialAdminPage() {
       title="Social Media"
       description="Manage Instagram and Facebook posting for Eddy"
     >
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium transition-all ${
+          toast.type === 'success'
+            ? 'bg-green-900/90 text-green-200 border-green-700'
+            : 'bg-red-900/90 text-red-200 border-red-700'
+        }`}>
+          {toast.message}
+        </div>
+      )}
       <div className="p-6 max-w-5xl mx-auto">
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-neutral-700 pb-2 overflow-x-auto">
