@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   XCircle,
   Clock,
-  MapPin,
   Image as ImageIcon,
   Link as LinkIcon,
 } from 'lucide-react';

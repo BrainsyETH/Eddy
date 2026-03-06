@@ -7,7 +7,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
-  Activity,
   ChevronDown,
   ChevronRight,
   AlertTriangle,
