@@ -114,7 +114,6 @@ export async function publishToInstagram(params: {
         body: JSON.stringify({
           image_url: params.imageUrl,
           caption: params.caption,
-          media_type: 'IMAGE',
           access_token: accessToken,
         }),
       }
