@@ -15,22 +15,51 @@ import type {
 
 const LOG_PREFIX = '[SocialScheduler]';
 
-export async function getScheduledPosts(): Promise<ScheduledPost[]> {
+export interface SchedulerResult {
+  posts: ScheduledPost[];
+  diagnostics: {
+    posting_enabled: boolean;
+    digest_enabled: boolean;
+    rivers: string[];
+    eligible_rivers: string[];
+    skipped_reasons: string[];
+    highlights_per_run: number;
+    highlight_conditions: string[];
+  };
+}
+
+export async function getScheduledPosts(): Promise<SchedulerResult> {
   const supabase = createAdminClient();
+  const diag: SchedulerResult['diagnostics'] = {
+    posting_enabled: false,
+    digest_enabled: false,
+    rivers: [],
+    eligible_rivers: [],
+    skipped_reasons: [],
+    highlights_per_run: 0,
+    highlight_conditions: [],
+  };
 
   // Self-healing config loader — handles duplicates, missing rows
   const { data: config, error: configError } = await getOrCreateConfig(supabase);
 
   if (configError || !config) {
     console.error(`${LOG_PREFIX} Config load error: ${configError}`);
-    return [];
+    diag.skipped_reasons.push(`config_error: ${configError}`);
+    return { posts: [], diagnostics: diag };
   }
 
-  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, highlights_per_run=${config.highlights_per_run}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h`);
+  diag.posting_enabled = config.posting_enabled;
+  diag.digest_enabled = config.digest_enabled;
+  diag.highlights_per_run = config.highlights_per_run;
+  diag.highlight_conditions = config.highlight_conditions;
+
+  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, digest_enabled=${config.digest_enabled}, highlights_per_run=${config.highlights_per_run}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h`);
 
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
-    return [];
+    diag.skipped_reasons.push('posting_disabled');
+    return { posts: [], diagnostics: diag };
   }
 
   // Load custom content
@@ -52,7 +81,8 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
 
   if (!eddyUpdates || eddyUpdates.length === 0) {
     console.log(`${LOG_PREFIX} No fresh eddy updates available`);
-    return [];
+    diag.skipped_reasons.push('no_fresh_updates');
+    return { posts: [], diagnostics: diag };
   }
 
   // Deduplicate: keep only the latest update per river
@@ -63,7 +93,8 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
     }
   }
   const updates = Array.from(latestByRiver.values());
-  console.log(`${LOG_PREFIX} Rivers: ${updates.map(u => `${u.river_slug}(${u.condition_code})`).join(', ')}`);
+  diag.rivers = updates.map(u => `${u.river_slug}(${u.condition_code})`);
+  console.log(`${LOG_PREFIX} Rivers: ${diag.rivers.join(', ')}`);
 
   // Load global summary
   const { data: globalUpdate } = await supabase
@@ -84,30 +115,33 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   const baseUrl = 'https://eddy.guide';
 
   // --- Daily Digest ---
-  if (config.digest_enabled) {
+  if (!config.digest_enabled) {
+    console.log(`${LOG_PREFIX} Digest disabled in config`);
+  } else {
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
-    if (!digestAlreadyPosted) {
-      // Check if current time is near the configured digest time
-      if (isNearDigestTime(config.digest_time_utc)) {
-        const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-        for (const platform of platforms) {
-          const { caption, hashtags } = formatDailyDigestCaption(
-            updates,
-            globalSummary,
-            customContent,
-            platform
-          );
+    if (digestAlreadyPosted) {
+      console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
+    } else if (!isNearDigestTime(config.digest_time_utc)) {
+      console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
+    } else {
+      const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+      for (const platform of platforms) {
+        const { caption, hashtags } = formatDailyDigestCaption(
+          updates,
+          globalSummary,
+          customContent,
+          platform
+        );
 
-          posts.push({
-            postType: 'daily_digest',
-            platform,
-            riverSlug: null,
-            caption,
-            imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
-            hashtags,
-            eddyUpdateId: null,
-          });
-        }
+        posts.push({
+          postType: 'daily_digest',
+          platform,
+          riverSlug: null,
+          caption,
+          imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
+          hashtags,
+          eddyUpdateId: null,
+        });
       }
     }
   }
@@ -131,6 +165,7 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
     }
     return true;
   });
+  diag.eligible_rivers = eligibleUpdates.map(u => u.river_slug);
   console.log(`${LOG_PREFIX} ${eligibleUpdates.length}/${updates.length} rivers eligible after filtering`);
 
   let highlightCount = 0;
@@ -172,7 +207,7 @@ export async function getScheduledPosts(): Promise<ScheduledPost[]> {
   }
 
   console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${highlightCount} river highlights)`);
-  return posts;
+  return { posts, diagnostics: diag };
 }
 
 // Check if a daily digest has already been posted today

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getScheduledPosts, getRetryablePosts } from '@/lib/social/post-scheduler';
+import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
 import { FacebookAdapter } from '@/lib/social/facebook-adapter';
 import { InstagramAdapter } from '@/lib/social/instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
@@ -42,10 +42,13 @@ async function runSocialPosting(request: NextRequest) {
   let failed = 0;
   let skipped = 0;
   const errors: string[] = [];
+  let diagnostics: SchedulerResult['diagnostics'] | undefined;
 
   // --- Process new scheduled posts ---
   try {
-    const scheduledPosts = await getScheduledPosts();
+    const result = await getScheduledPosts();
+    const scheduledPosts = result.posts;
+    diagnostics = result.diagnostics;
     console.log(`${LOG_PREFIX} ${scheduledPosts.length} posts scheduled`);
 
     // Process sequentially to avoid rate limits.
@@ -215,6 +218,7 @@ async function runSocialPosting(request: NextRequest) {
     failed,
     skipped,
     errors: errors.length > 0 ? errors : undefined,
+    diagnostics,
     executionTime: new Date().toISOString(),
   });
 }
