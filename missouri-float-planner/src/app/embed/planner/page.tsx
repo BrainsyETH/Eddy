@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
-import type { RiverListItem, AccessPoint, ConditionCode } from '@/types/api';
+import type { RiverListItem, AccessPoint } from '@/types/api';
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
