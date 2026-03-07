@@ -15,6 +15,7 @@ interface EddyUpdate {
   quoteText: string;
   conditionCode: string;
   gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
   generatedAt: string;
 }
 
@@ -43,6 +44,51 @@ const CONDITION_COLORS: Record<string, string> = {
   dangerous: '#dc2626',
   unknown: '#9ca3af',
 };
+
+// Bold yes/no float recommendation (#12)
+const FLOAT_RECOMMENDATIONS: Record<string, string> = {
+  optimal: 'Great day to float!',
+  okay: 'Good to go',
+  low: 'Proceed with caution',
+  too_low: 'Not recommended',
+  high: 'Experienced paddlers only',
+  dangerous: 'Do not float',
+  unknown: 'Check conditions locally',
+};
+
+// Condition-tinted quote backgrounds (#13)
+function getQuoteColors(code: string, isDark: boolean): { bg: string; border: string; text: string } {
+  switch (code) {
+    case 'optimal':
+      return isDark
+        ? { bg: '#1f2d20', border: '#2d4a2e', text: '#a7f3d0' }
+        : { bg: '#f0fdf4', border: '#bbf7d0', text: '#065f46' };
+    case 'okay':
+      return isDark
+        ? { bg: '#1f2d1a', border: '#3d5a2e', text: '#bef264' }
+        : { bg: '#f7fee7', border: '#d9f99d', text: '#3f6212' };
+    case 'low':
+      return isDark
+        ? { bg: '#2d2a1a', border: '#4a3f1e', text: '#fde68a' }
+        : { bg: '#fffbeb', border: '#fde68a', text: '#92400e' };
+    case 'too_low':
+      return isDark
+        ? { bg: '#252525', border: '#3a3a3a', text: '#a0a0a0' }
+        : { bg: '#f5f5f5', border: '#d4d4d4', text: '#525252' };
+    case 'high':
+      return isDark
+        ? { bg: '#2d1f1a', border: '#4a2e1e', text: '#fdba74' }
+        : { bg: '#fff7ed', border: '#fed7aa', text: '#9a3412' };
+    case 'dangerous':
+      return isDark
+        ? { bg: '#2d1a1a', border: '#4a1e1e', text: '#fca5a5' }
+        : { bg: '#fef2f2', border: '#fecaca', text: '#991b1b' };
+    default:
+      return isDark
+        ? { bg: '#252525', border: '#3a3a3a', text: '#a0a0a0' }
+        : { bg: '#f5f5f5', border: '#d4d4d4', text: '#525252' };
+  }
+}
 
 function getEddyImage(code?: string | null): string {
   if (!code) return EDDY_IMAGES.flag;
@@ -93,6 +139,8 @@ export default function EddyQuoteEmbedPage() {
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [river, setRiver] = useState<RiverBasic | null>(null);
   const [optimalRange, setOptimalRange] = useState<string | null>(null);
+  const [gaugeReading, setGaugeReading] = useState<string | null>(null);
+  const [gaugeName, setGaugeName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -121,17 +169,27 @@ export default function EddyQuoteEmbedPage() {
           }
         }
 
-        // Extract optimal range from gauge thresholds
+        // Extract optimal range and primary gauge info from gauge thresholds
         if (gaugesRes.ok && riverId) {
           const gaugeData = await gaugesRes.json();
           interface GaugeThreshold { riverId: string; isPrimary: boolean; thresholdUnit?: string; levelOptimalMin?: number | null; levelOptimalMax?: number | null }
-          interface GaugeEntry { thresholds?: GaugeThreshold[] | null }
-          const primary = (gaugeData.gauges as GaugeEntry[])
-            ?.flatMap((g) => g.thresholds ?? [])
-            .find((t) => t.riverId === riverId && t.isPrimary);
-          if (primary?.levelOptimalMin != null && primary?.levelOptimalMax != null) {
-            const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-            setOptimalRange(`${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`);
+          interface GaugeEntry { name: string; gaugeHeightFt: number | null; dischargeCfs: number | null; thresholds?: GaugeThreshold[] | null }
+          for (const gauge of (gaugeData.gauges as GaugeEntry[])) {
+            const primary = gauge.thresholds?.find((t) => t.riverId === riverId && t.isPrimary);
+            if (primary) {
+              if (primary.levelOptimalMin != null && primary.levelOptimalMax != null) {
+                const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+                setOptimalRange(`${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`);
+              }
+              // Capture gauge reading and name for subtitle (#14)
+              const useCfs = primary.thresholdUnit === 'cfs';
+              const val = useCfs ? gauge.dischargeCfs : gauge.gaugeHeightFt;
+              if (val !== null) {
+                setGaugeReading(useCfs ? `${val.toLocaleString()} cfs` : `${val.toFixed(1)} ft`);
+                setGaugeName(gauge.name);
+              }
+              break;
+            }
           }
         }
       } catch {
@@ -148,6 +206,8 @@ export default function EddyQuoteEmbedPage() {
   const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
   const eddyImage = getEddyImage(conditionCode);
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const quoteColors = getQuoteColors(conditionCode, isDark);
+  const recommendation = FLOAT_RECOMMENDATIONS[conditionCode] || FLOAT_RECOMMENDATIONS.unknown;
 
   // Build fallback text if no AI update
   const quoteText = update?.quoteText || (() => {
@@ -168,9 +228,6 @@ export default function EddyQuoteEmbedPage() {
   const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
   const textSecondary = isDark ? '#888' : '#777';
   const borderColor = isDark ? '#333' : '#e5e5e5';
-  const quoteBg = isDark ? '#1f2d20' : '#f0fdf4';
-  const quoteBorder = isDark ? '#2d4a2e' : '#bbf7d0';
-  const quoteText_ = isDark ? '#a7f3d0' : '#065f46';
 
   if (loading) {
     return (
@@ -211,7 +268,7 @@ export default function EddyQuoteEmbedPage() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Header: River name + condition badge */}
+      {/* Header: River name + gauge reading (#14) + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Image
           src={eddyImage}
@@ -224,8 +281,13 @@ export default function EddyQuoteEmbedPage() {
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {river.name}
           </div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
-            Eddy says
+          {/* (#14) Show gauge reading instead of generic "Eddy says" */}
+          <div style={{ fontSize: 10, fontWeight: 500, color: textSecondary, marginTop: 2 }}>
+            {gaugeReading && gaugeName
+              ? `${gaugeReading} at ${gaugeName}`
+              : update?.generatedAt
+                ? formatAge(update.generatedAt)
+                : 'Eddy\u2019s take'}
           </div>
         </div>
         {/* Condition pill */}
@@ -238,6 +300,7 @@ export default function EddyQuoteEmbedPage() {
             borderRadius: 6,
             backgroundColor: `${conditionColor}15`,
             border: `1.5px solid ${conditionColor}35`,
+            boxShadow: `0 1px 3px ${conditionColor}15`,
             flexShrink: 0,
           }}
         >
@@ -248,16 +311,29 @@ export default function EddyQuoteEmbedPage() {
         </div>
       </div>
 
-      {/* Quote text */}
+      {/* Bold float recommendation (#12) */}
       <div
         style={{
-          background: quoteBg,
-          border: `1.5px solid ${quoteBorder}`,
-          borderRadius: 10,
-          padding: '10px 14px',
+          fontWeight: 700,
+          fontSize: 13,
+          color: conditionColor,
+          padding: '0 2px',
         }}
       >
-        <p style={{ fontSize: 13, lineHeight: 1.5, color: quoteText_, margin: 0, fontWeight: 500 }}>
+        {recommendation}
+      </div>
+
+      {/* Quote text with condition-tinted background (#13) */}
+      <div
+        style={{
+          background: quoteColors.bg,
+          border: `1.5px solid ${quoteColors.border}`,
+          borderRadius: 10,
+          padding: '10px 14px',
+          boxShadow: `0 1px 2px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)'}`,
+        }}
+      >
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: quoteColors.text, margin: 0, fontWeight: 500 }}>
           &ldquo;{quoteText}&rdquo;
         </p>
         {update?.generatedAt && (
