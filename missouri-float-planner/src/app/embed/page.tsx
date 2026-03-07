@@ -88,21 +88,23 @@ export default function EmbedPage() {
   const widgetCode = `<iframe
   src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
   width="100%"
-  height="320"
+  height="380"
   style="border: none; border-radius: 12px; max-width: 600px;"
   title="${selectedRiverName} - River Conditions from Eddy"
   loading="lazy"
 ></iframe>`;
 
-  const linkCode = `<a href="${baseUrl}/rivers/${selectedRiver}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:#0F2D35;color:white;border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:14px;font-weight:600;">
-  <img src="${EDDY_IMAGE}" alt="Eddy" width="24" height="24" style="border-radius:50%;" />
-  Check ${selectedRiverName} Conditions
+  // (#15) Condition Badge instead of plain link button
+  const badgeCode = `<a href="${baseUrl}/rivers/${selectedRiver}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:${theme === 'dark' ? '#1a1a1a' : '#ffffff'};color:${theme === 'dark' ? '#e5e5e5' : '#1a1a1a'};border:1.5px solid ${theme === 'dark' ? '#333' : '#e5e5e5'};border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;">
+  <img src="${EDDY_IMAGE}" alt="Eddy" width="20" height="20" style="border-radius:50%;" />
+  ${selectedRiverName} Conditions
+  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#059669;"></span>
 </a>`;
 
   const plannerCode = `<iframe
   src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
   width="100%"
-  height="320"
+  height="380"
   style="border: none; border-radius: 12px; max-width: 600px;"
   title="Plan Your Float - Eddy"
   loading="lazy"
@@ -111,7 +113,7 @@ export default function EmbedPage() {
   const eddyQuoteCode = `<iframe
   src="${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}"
   width="100%"
-  height="220"
+  height="260"
   style="border: none; border-radius: 12px; max-width: 600px;"
   title="${selectedRiverName} - Eddy's Take"
   loading="lazy"
@@ -145,99 +147,55 @@ export default function EmbedPage() {
             Show your visitors live river conditions right on your site.
             No coding experience needed.
           </p>
+          {/* (#5) Value proposition for outfitters */}
+          <p className="text-sm text-white/50 mt-3 max-w-md mx-auto">
+            Perfect for outfitters, campgrounds, tourism sites, and fishing guides — give
+            your visitors the info they&apos;re already looking for.
+          </p>
         </div>
       </section>
 
       <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
 
-        {/* How it works intro */}
-        <section className="bg-white border-2 border-neutral-200 rounded-2xl p-6 md:p-8">
-          <h2 className="text-xl font-bold text-neutral-900 mb-3">How It Works</h2>
-          <p className="text-neutral-600 leading-relaxed mb-4">
-            You can add a small box to your website that shows the current river conditions
-            from Eddy. It updates automatically — your visitors will always see the latest
-            water levels without you having to do anything.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-neutral-50 rounded-xl p-4 text-center">
-              <div className="text-2xl mb-2">1</div>
-              <p className="text-sm font-semibold text-neutral-900">Pick your river</p>
-              <p className="text-xs text-neutral-500 mt-1">Choose from the dropdown below</p>
-            </div>
-            <div className="bg-neutral-50 rounded-xl p-4 text-center">
-              <div className="text-2xl mb-2">2</div>
-              <p className="text-sm font-semibold text-neutral-900">Copy the code</p>
-              <p className="text-xs text-neutral-500 mt-1">Click the copy button</p>
-            </div>
-            <div className="bg-neutral-50 rounded-xl p-4 text-center">
-              <div className="text-2xl mb-2">3</div>
-              <p className="text-sm font-semibold text-neutral-900">Paste it in</p>
-              <p className="text-xs text-neutral-500 mt-1">Add it to any page on your site</p>
-            </div>
-          </div>
-        </section>
+        {/* (#1) REMOVED duplicate "How It Works" section — the numbered steps below communicate the flow */}
 
-        {/* Step 1: Pick your river */}
+        {/* Step 1: Pick your river + global theme toggle (#3) */}
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style={{ backgroundColor: '#F07052' }}>
               1
             </div>
-            <h2 className="text-2xl font-bold text-neutral-900">Pick Your River</h2>
+            <h2 className="text-2xl font-bold text-neutral-900">Pick Your River &amp; Theme</h2>
           </div>
 
           <div className="bg-white border-2 border-neutral-200 rounded-2xl p-6">
-            <label className="block text-sm font-semibold text-neutral-700 mb-2">
-              Which river do you want to show conditions for?
-            </label>
-            <div className="relative">
-              <select
-                value={selectedRiver}
-                onChange={(e) => setSelectedRiver(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl text-base bg-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
-              >
-                {RIVER_OPTIONS.map((r) => (
-                  <option key={r.slug} value={r.slug}>{r.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
-            </div>
-          </div>
-        </section>
-
-        {/* Step 2: Choose style */}
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style={{ backgroundColor: '#F07052' }}>
-              2
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900">Choose a Style</h2>
-          </div>
-
-          <p className="text-neutral-600 mb-6">
-            We offer three options. Pick the one that works best for you.
-          </p>
-
-          {/* === OPTION A: Live Widget === */}
-          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden mb-6">
-            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#2D788910' }}>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 bg-primary-600 text-white text-xs font-bold rounded-full">Recommended</span>
-                <h3 className="text-lg font-bold text-neutral-900">Live Conditions Widget</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* River selector */}
+              <div>
+                <label className="block text-sm font-semibold text-neutral-700 mb-2">
+                  Which river do you want to show?
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedRiver}
+                    onChange={(e) => setSelectedRiver(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl text-base bg-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+                  >
+                    {RIVER_OPTIONS.map((r) => (
+                      <option key={r.slug} value={r.slug}>{r.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                </div>
               </div>
-              <p className="text-sm text-neutral-600 mt-1">
-                A small box that shows the current river status. Updates automatically.
-              </p>
-            </div>
 
-            <div className="p-6">
-              {/* Theme toggle */}
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-neutral-700 mb-2">Background color:</p>
+              {/* (#3) Global theme toggle */}
+              <div>
+                <p className="text-sm font-semibold text-neutral-700 mb-2">Widget theme:</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setTheme('light')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-all flex-1 ${
                       theme === 'light'
                         ? 'border-primary-500 bg-primary-50 text-primary-700'
                         : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
@@ -248,7 +206,7 @@ export default function EmbedPage() {
                   </button>
                   <button
                     onClick={() => setTheme('dark')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-all flex-1 ${
                       theme === 'dark'
                         ? 'border-primary-500 bg-primary-50 text-primary-700'
                         : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
@@ -259,7 +217,41 @@ export default function EmbedPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
 
+        {/* Step 2: Choose a widget (#2 fixed copy — 4 options in 2 categories) */}
+        <section>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style={{ backgroundColor: '#F07052' }}>
+              2
+            </div>
+            <h2 className="text-2xl font-bold text-neutral-900">Choose a Widget</h2>
+          </div>
+
+          <p className="text-neutral-600 mb-6">
+            We offer four widgets in two categories. Pick what works best for your site.
+          </p>
+
+          {/* Category: Data Widgets */}
+          <div className="mb-4">
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Data Widgets — Show Live Conditions</h3>
+          </div>
+
+          {/* === OPTION A: Live Widget === */}
+          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#2D788910' }}>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-primary-600 text-white text-xs font-bold rounded-full">Recommended</span>
+                <h3 className="text-lg font-bold text-neutral-900">Live Conditions Widget</h3>
+              </div>
+              <p className="text-sm text-neutral-600 mt-1">
+                Shows current river status with gauge readings, weather, and trend arrows. Updates automatically.
+              </p>
+            </div>
+
+            <div className="p-6">
               {/* Live Preview */}
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
@@ -268,7 +260,7 @@ export default function EmbedPage() {
                     <iframe
                       src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
                       width="100%"
-                      height="320"
+                      height="380"
                       style={{ border: 'none', borderRadius: '12px' }}
                       title="Widget preview"
                     />
@@ -288,6 +280,12 @@ export default function EmbedPage() {
               </div>
 
               <CopyButton text={widgetCode} large />
+
+              {/* (#11) Height adjustment note */}
+              <p className="text-xs text-neutral-500 mt-3">
+                Adjust the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">height</code> value
+                if your river has more gauge stations. Rivers with 3+ gauges may need 400-450px.
+              </p>
             </div>
           </div>
 
@@ -299,41 +297,12 @@ export default function EmbedPage() {
                 <h3 className="text-lg font-bold text-neutral-900">Eddy&apos;s Daily Quote</h3>
               </div>
               <p className="text-sm text-neutral-600 mt-1">
-                An AI-generated condition summary in Eddy&apos;s voice. Updates automatically throughout the day
-                with gauge readings, weather, trends, and local knowledge.
+                AI-generated condition summary in Eddy&apos;s voice with a clear float/no-float recommendation.
+                Updates throughout the day with gauge readings, weather, and local knowledge.
               </p>
             </div>
 
             <div className="p-6">
-              {/* Theme toggle */}
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-neutral-700 mb-2">Background color:</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setTheme('light')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                      theme === 'light'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full bg-white border border-neutral-300" />
-                    Light
-                  </button>
-                  <button
-                    onClick={() => setTheme('dark')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                      theme === 'dark'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full bg-neutral-800 border border-neutral-600" />
-                    Dark
-                  </button>
-                </div>
-              </div>
-
               {/* Live Preview */}
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
@@ -342,7 +311,7 @@ export default function EmbedPage() {
                     <iframe
                       src={`${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}`}
                       width="100%"
-                      height="220"
+                      height="260"
                       style={{ border: 'none', borderRadius: '12px' }}
                       title="Eddy quote preview"
                     />
@@ -362,64 +331,24 @@ export default function EmbedPage() {
               </div>
 
               <CopyButton text={eddyQuoteCode} large />
-
-              <p className="text-xs text-neutral-500 mt-3">
-                This widget shows Eddy&apos;s AI-generated take on current river conditions. The quote
-                updates every few hours and includes gauge trends, weather forecasts, and local knowledge.
-              </p>
             </div>
           </div>
 
-          {/* === OPTION C: Simple Link Button === */}
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b-2 border-neutral-100">
-              <h3 className="text-lg font-bold text-neutral-900">Simple Link Button</h3>
-              <p className="text-sm text-neutral-600 mt-1">
-                A button that sends visitors to Eddy to check conditions. The simplest option.
-              </p>
-            </div>
-
-            <div className="p-6">
-              {/* Preview */}
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
-                <div className="bg-neutral-50 rounded-xl border-2 border-neutral-200 p-6">
-                  <a
-                    href={`/rivers/${selectedRiver}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold no-underline"
-                    style={{ backgroundColor: '#0F2D35' }}
-                  >
-                    <Image src={EDDY_IMAGE} alt="Eddy" width={24} height={24} className="w-6 h-6 rounded-full" />
-                    Check {selectedRiverName} Conditions
-                    <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
-                  <CopyButton text={linkCode} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto whitespace-pre-wrap max-w-full">
-                  <code>{linkCode}</code>
-                </pre>
-              </div>
-
-              <CopyButton text={linkCode} large />
-            </div>
+          {/* Category: Action Widgets */}
+          <div className="mb-4 mt-10">
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Action Widgets — Help Visitors Plan</h3>
           </div>
 
-          {/* === OPTION D: Float Planner === */}
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden mt-6">
-            <div className="px-6 py-4 border-b-2 border-neutral-100">
-              <h3 className="text-lg font-bold text-neutral-900">Float Trip Planner</h3>
+          {/* === OPTION C: Float Planner (#16 moved up) === */}
+          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#F0705210' }}>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 text-white text-xs font-bold rounded-full" style={{ backgroundColor: '#F07052' }}>Best for Outfitters</span>
+                <h3 className="text-lg font-bold text-neutral-900">Float Trip Planner</h3>
+              </div>
               <p className="text-sm text-neutral-600 mt-1">
-                Let visitors pick a river, put-in, and take-out right from your site.
-                Takes them to Eddy with the trip pre-loaded.
+                Let visitors pick a river, put-in, and take-out right from your site. Shows distance,
+                float time estimate, and current conditions before sending them to Eddy for full details.
               </p>
             </div>
 
@@ -432,7 +361,7 @@ export default function EmbedPage() {
                     <iframe
                       src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
                       width="100%"
-                      height="320"
+                      height="380"
                       style={{ border: 'none', borderRadius: '12px' }}
                       title="Float planner preview"
                     />
@@ -454,11 +383,76 @@ export default function EmbedPage() {
               <CopyButton text={plannerCode} large />
 
               <p className="text-xs text-neutral-500 mt-3">
-                The selected river above will be pre-selected in the planner. Visitors can still
-                change to a different river if they want.
+                The selected river will be pre-selected. Visitors can still change rivers.
+                Add <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;partner=YourBusiness</code> to
+                the src URL to show your business name in the widget footer.
               </p>
             </div>
           </div>
+
+          {/* === OPTION D: Condition Badge (#15 evolved from Simple Link Button) === */}
+          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b-2 border-neutral-100">
+              <h3 className="text-lg font-bold text-neutral-900">Condition Badge</h3>
+              <p className="text-sm text-neutral-600 mt-1">
+                A compact inline badge showing the river name and live condition dot.
+                Great for blog posts, sidebars, or anywhere a full widget is too heavy.
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Preview (#4 theme-aware) */}
+              <div className="mb-4">
+                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
+                <div className={`rounded-xl border-2 p-6 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+                  <a
+                    href={`/rivers/${selectedRiver}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold no-underline"
+                    style={{
+                      backgroundColor: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+                      color: theme === 'dark' ? '#e5e5e5' : '#1a1a1a',
+                      border: theme === 'dark' ? '1.5px solid #333' : '1.5px solid #e5e5e5',
+                    }}
+                  >
+                    <Image src={EDDY_IMAGE} alt="Eddy" width={20} height={20} className="w-5 h-5 rounded-full" />
+                    {selectedRiverName} Conditions
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Code block */}
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
+                  <CopyButton text={badgeCode} />
+                </div>
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto whitespace-pre-wrap max-w-full">
+                  <code>{badgeCode}</code>
+                </pre>
+              </div>
+
+              <CopyButton text={badgeCode} large />
+
+              <p className="text-xs text-neutral-500 mt-3">
+                The condition dot is static in the code snippet. For a live-updating dot,
+                use the Live Conditions Widget or Eddy&apos;s Daily Quote instead.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* (#6) Combination guidance */}
+        <section className="bg-primary-50 border-2 border-primary-200 rounded-2xl p-6">
+          <h3 className="font-bold text-neutral-900 mb-2">Pro Tip: Pair Widgets Together</h3>
+          <p className="text-sm text-neutral-700 leading-relaxed">
+            For the best experience, combine the <strong>Live Conditions Widget</strong> with the{' '}
+            <strong>Float Trip Planner</strong> on your site. Visitors see current conditions first,
+            then plan their trip — all without leaving your page. Just copy both code snippets
+            and paste them where you want them to appear.
+          </p>
         </section>
 
         {/* Step 3: Paste into your site */}
@@ -550,8 +544,14 @@ export default function EmbedPage() {
             <FAQ question="Can I change the size of the widget?">
               <p>
                 Yes. In the code you copied, you can change the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">height</code> number
-                (currently 320) to make it taller or shorter. The <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">max-width</code> value
+                to make it taller or shorter. The <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">max-width</code> value
                 (currently 600px) controls how wide it gets. Feel free to adjust these numbers until it looks right on your page.
+              </p>
+            </FAQ>
+            <FAQ question="Can I add my business name to the widget?">
+              <p>
+                Yes! For the Float Trip Planner, add <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;partner=YourBusiness</code> to
+                the iframe src URL. Your business name will appear in the widget footer.
               </p>
             </FAQ>
             <FAQ question="What if I need help?">
@@ -595,6 +595,23 @@ export default function EmbedPage() {
               </p>
             </div>
           </details>
+        </section>
+
+        {/* (#7) Outfitter contact CTA */}
+        <section className="bg-white border-2 border-primary-200 rounded-2xl p-6 text-center">
+          <h3 className="font-bold text-neutral-900 mb-2">Running an Outfitter or Campground?</h3>
+          <p className="text-sm text-neutral-600 mb-4 max-w-md mx-auto">
+            We&apos;d love to partner with you. Get custom widgets, priority support,
+            and help driving visitors to your business.
+          </p>
+          <a
+            href="mailto:hello@eddy.guide"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold no-underline transition-colors"
+            style={{ backgroundColor: '#F07052' }}
+          >
+            Get in Touch
+            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+          </a>
         </section>
 
         <div className="text-center">
