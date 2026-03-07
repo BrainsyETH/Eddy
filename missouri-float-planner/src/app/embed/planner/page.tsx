@@ -223,7 +223,7 @@ export default function EmbedPlannerPage() {
           >
             <option value="">{loadingAP ? 'Loading...' : 'Select...'}</option>
             {accessPoints.map(ap => (
-              <option key={ap.id} value={ap.id}>{ap.name}</option>
+              <option key={ap.id} value={ap.id}>{ap.name} — Mile {ap.riverMile.toFixed(1)}</option>
             ))}
           </select>
         </div>
@@ -249,7 +249,7 @@ export default function EmbedPlannerPage() {
           >
             <option value="">Select...</option>
             {takeOutOptions.map(ap => (
-              <option key={ap.id} value={ap.id}>{ap.name}</option>
+              <option key={ap.id} value={ap.id}>{ap.name} — Mile {ap.riverMile.toFixed(1)}</option>
             ))}
           </select>
         </div>
