@@ -30,7 +30,9 @@ export function hasInstagramCredentials(): boolean {
   return Boolean(accessToken && instagramAccountId);
 }
 
-// Publish a photo post to a Facebook Page
+// Publish a photo post to a Facebook Page (without adding to photo album)
+// Two-step flow: upload unpublished photo, then create a feed post with it attached.
+// This keeps the image visible in the feed but out of the Page's photo album.
 export async function publishToFacebook(params: {
   caption: string;
   imageUrl: string;
@@ -42,26 +44,24 @@ export async function publishToFacebook(params: {
   }
 
   try {
-    // Use /photos endpoint for native photo posts (not /feed which creates link previews)
-    // Requires pages_manage_posts permission (NOT the deprecated publish_actions)
-    const response = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
+    // Step 1: Upload photo as unpublished (published=false keeps it out of the album)
+    const photoResponse = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: params.caption,
         url: params.imageUrl,
+        published: false,
         access_token: accessToken,
       }),
     });
 
-    const data = await response.json();
+    const photoData = await photoResponse.json();
 
-    if (!response.ok) {
-      const apiError = data as MetaApiError;
-      const errorMsg = apiError.error?.message || `HTTP ${response.status}`;
-      console.error('[MetaClient] Facebook publish failed:', errorMsg);
+    if (!photoResponse.ok) {
+      const apiError = photoData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${photoResponse.status}`;
+      console.error('[MetaClient] Facebook photo upload failed:', errorMsg);
 
-      // Provide actionable diagnostic for common token misconfiguration
       if (apiError.error?.code === 200 && errorMsg.includes('publish_actions')) {
         console.error(
           '[MetaClient] HINT: This error means META_PAGE_ACCESS_TOKEN is a User token, not a Page token. ' +
@@ -72,7 +72,32 @@ export async function publishToFacebook(params: {
       return { success: false, error: errorMsg };
     }
 
-    return { success: true, postId: data.id || data.post_id };
+    const photoId = photoData.id;
+    if (!photoId) {
+      return { success: false, error: 'No photo ID returned from upload' };
+    }
+
+    // Step 2: Create a feed post with the unpublished photo attached
+    const feedResponse = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: params.caption,
+        attached_media: [{ media_fbid: photoId }],
+        access_token: accessToken,
+      }),
+    });
+
+    const feedData = await feedResponse.json();
+
+    if (!feedResponse.ok) {
+      const apiError = feedData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${feedResponse.status}`;
+      console.error('[MetaClient] Facebook feed post failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    return { success: true, postId: feedData.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Facebook publish error:', msg);
