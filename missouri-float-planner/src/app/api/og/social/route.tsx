@@ -13,8 +13,8 @@ import type { ConditionCode } from '@/lib/og/types';
 export const dynamic = 'force-dynamic';
 
 function getSize(platform: string | null): { width: number; height: number } {
-  // Instagram gets 4:5 portrait for more feed real estate
-  if (platform === 'instagram') return { width: 1080, height: 1350 };
+  // Instagram gets 9:16 portrait for Stories
+  if (platform === 'instagram') return { width: 1080, height: 1920 };
   // Facebook and default: 1:1 square
   return { width: 1080, height: 1080 };
 }
@@ -348,12 +348,12 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 36 : 28,
+            fontSize: isPortrait ? 36 : 32,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.4)',
             textTransform: 'uppercase',
             letterSpacing: 3,
-            marginBottom: isPortrait ? 20 : 16,
+            marginBottom: isPortrait ? 20 : 20,
           }}
         >
           Eddy Says
@@ -365,48 +365,48 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             fontFamily: 'Fredoka',
             fontSize: isPortrait
               ? (riverName.length > 18 ? 96 : 112)
-              : (riverName.length > 18 ? 72 : 88),
+              : (riverName.length > 18 ? 88 : 104),
             fontWeight: 600,
             color: BRAND_COLORS.accentCoral,
             lineHeight: 1,
             letterSpacing: -2,
-            marginBottom: isPortrait ? 40 : 32,
+            marginBottom: isPortrait ? 40 : 40,
           }}
         >
           {riverName}
         </span>
 
-        {/* Condition badge */}
+        {/* Condition badge + gauge */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: isPortrait ? 20 : 16,
-            marginBottom: isPortrait ? 40 : 32,
+            gap: isPortrait ? 20 : 20,
+            marginBottom: isPortrait ? 40 : 40,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: isPortrait ? 14 : 12,
+              gap: isPortrait ? 14 : 14,
               backgroundColor: statusStyles.bg,
               border: `2px solid ${statusStyles.border}`,
               borderRadius: 100,
-              padding: isPortrait ? '18px 40px' : '14px 32px',
+              padding: isPortrait ? '18px 40px' : '16px 36px',
             }}
           >
             <div
               style={{
-                width: isPortrait ? 20 : 16,
-                height: isPortrait ? 20 : 16,
+                width: isPortrait ? 20 : 18,
+                height: isPortrait ? 20 : 18,
                 borderRadius: '50%',
                 backgroundColor: statusStyles.solid,
               }}
             />
             <span
               style={{
-                fontSize: isPortrait ? 40 : 32,
+                fontSize: isPortrait ? 40 : 36,
                 fontWeight: 700,
                 color: statusStyles.text,
               }}
@@ -418,7 +418,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           {update.gauge_height_ft !== null && (
             <span
               style={{
-                fontSize: isPortrait ? 64 : 48,
+                fontSize: isPortrait ? 64 : 56,
                 fontWeight: 700,
                 color: 'white',
               }}
@@ -428,71 +428,71 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           )}
         </div>
 
-        {/* Quote snippet */}
+        {/* Quote snippet — larger on square to fill space */}
         {snippet && (
           <span
             style={{
-              fontSize: isPortrait ? 44 : 34,
+              fontSize: isPortrait ? 44 : 42,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.4,
-              maxWidth: '100%',
+              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
             }}
           >
-            {truncate(snippet, isPortrait ? 300 : 200)}
+            {truncate(snippet, isPortrait ? 300 : 300)}
           </span>
         )}
 
-        {/* Footer row: branding left, otter right — inline so it fills the gap */}
-        <div
+        {/* CTA — portrait (Instagram Stories) only */}
+        {isPortrait && (
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: 38,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              opacity: 0.85,
+              marginTop: 'auto',
+              marginBottom: 12,
+            }}
+          >
+            Plan your float at eddy.guide →
+          </span>
+        )}
+
+        {/* Footer */}
+        <span
           style={{
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            marginTop: 'auto',
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 28,
+            fontWeight: 600,
+            marginTop: isPortrait ? undefined : 'auto',
+            color: 'rgba(255,255,255,0.35)',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* CTA — portrait (Instagram) only */}
-            {isPortrait && (
-              <span
-                style={{
-                  fontFamily: 'Fredoka',
-                  fontSize: 38,
-                  fontWeight: 600,
-                  color: BRAND_COLORS.accentCoral,
-                  opacity: 0.85,
-                }}
-              >
-                Plan your float at eddy.guide →
-              </span>
-            )}
-            <span
-              style={{
-                fontFamily: 'Fredoka',
-                fontSize: isPortrait ? 32 : 28,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.35)',
-              }}
-            >
-              eddy.guide
-            </span>
-          </div>
+          eddy.guide
+        </span>
 
-          {/* Otter — inline in the footer row, no more absolute positioning */}
-          {otterImage && (
-            <div style={{ display: 'flex', opacity: 0.9 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={otterImage}
-                width={isPortrait ? 300 : 200}
-                height={isPortrait ? 300 : 200}
-                alt=""
-                style={{ objectFit: 'contain' }}
-              />
-            </div>
-          )}
-        </div>
+        {/* Otter — absolute positioned, original size */}
+        {otterImage && (
+          <div
+            style={{
+              display: 'flex',
+              position: 'absolute',
+              bottom: isPortrait ? 48 : 40,
+              right: isPortrait ? 48 : 40,
+              opacity: 0.9,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={otterImage}
+              width={isPortrait ? 340 : 240}
+              height={isPortrait ? 340 : 240}
+              alt=""
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        )}
 
         {/* Bottom gradient bar */}
         <div

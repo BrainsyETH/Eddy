@@ -143,7 +143,8 @@ export async function publishToInstagram(params: {
       }
     }
 
-    // Step 1: Create media container
+    // Step 1: Create media container (Story — image appears in Stories, not feed)
+    // Note: Stories don't display captions, but the image contains all the info
     const containerResponse = await fetch(
       `${META_GRAPH_URL}/${instagramAccountId}/media`,
       {
@@ -151,7 +152,7 @@ export async function publishToInstagram(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image_url: params.imageUrl,
-          caption: params.caption,
+          media_type: 'STORIES',
           access_token: accessToken,
         }),
       }
