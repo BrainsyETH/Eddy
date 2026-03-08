@@ -2,7 +2,6 @@
 // Formats Eddy updates into social-media-optimized captions
 // Designed for engagement: hook-first structure, deep link CTAs, platform-specific formatting
 
-import { CONDITION_LABELS } from '@/constants';
 import type { SocialPlatform, SocialCustomContent } from './types';
 
 // ---------------------------------------------------------------------------
@@ -361,11 +360,6 @@ export function formatDailyDigestCaption(
   platform: SocialPlatform
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
   const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   const seed = `digest-${new Date().toISOString().split('T')[0]}`;
   const isWeekend = isWeekendWindow();
