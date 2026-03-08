@@ -1,10 +1,13 @@
 // src/lib/social/content-formatter.ts
-// Formats Eddy says updates into social-media-optimized captions
+// Formats Eddy updates into social-media-optimized captions
+// Designed for engagement: hook-first structure, deep link CTAs, platform-specific formatting
 
 import { CONDITION_LABELS } from '@/constants';
 import type { SocialPlatform, SocialCustomContent } from './types';
 
-// River display names for captions
+// ---------------------------------------------------------------------------
+// River display names
+// ---------------------------------------------------------------------------
 const RIVER_NAMES: Record<string, string> = {
   meramec: 'Meramec River',
   current: 'Current River',
@@ -16,36 +19,252 @@ const RIVER_NAMES: Record<string, string> = {
   courtois: 'Courtois Creek',
 };
 
-// River-specific hashtags
-const RIVER_HASHTAGS: Record<string, string[]> = {
-  meramec: ['#MeramecRiver', '#MeramecFloat'],
-  current: ['#CurrentRiver', '#CurrentRiverMO'],
-  'eleven-point': ['#ElevenPointRiver'],
-  'jacks-fork': ['#JacksFork', '#JacksForkRiver'],
-  niangua: ['#NianguaRiver'],
-  'big-piney': ['#BigPineyRiver'],
-  huzzah: ['#HuzzahCreek'],
-  courtois: ['#CourtoisCreek'],
+// Short names for casual hooks
+const RIVER_SHORT_NAMES: Record<string, string> = {
+  meramec: 'the Meramec',
+  current: 'the Current',
+  'eleven-point': 'Eleven Point',
+  'jacks-fork': 'Jacks Fork',
+  niangua: 'the Niangua',
+  'big-piney': 'Big Piney',
+  huzzah: 'Huzzah',
+  courtois: 'Courtois',
 };
 
-// Condition-specific hashtags
-const CONDITION_HASHTAGS: Record<string, string[]> = {
-  optimal: ['#PerfectFloat', '#GetOnTheWater'],
-  okay: ['#Floatable', '#RiverDay'],
-  low: ['#LowWater', '#ShallowFloat'],
-  too_low: ['#TooLow', '#WaitForRain'],
-  high: ['#HighWater', '#ExperiencedOnly'],
-  dangerous: ['#FloodWarning', '#StayOffTheWater'],
+// Short condition labels for scannable digest lines
+const SHORT_CONDITION_LABELS: Record<string, string> = {
+  too_low: 'Too Low',
+  low: 'Low',
+  okay: 'Okay',
+  optimal: 'Optimal',
+  high: 'High',
+  dangerous: 'Flood',
+  unknown: 'Unknown',
 };
 
-// Base hashtags for all posts
-const BASE_HASHTAGS = [
-  '#EddySays',
-  '#MissouriFloat',
-  '#OzarksRivers',
-  '#FloatTrip',
-  '#Missouri',
+// Condition emoji — light, purposeful usage
+const CONDITION_EMOJI: Record<string, string> = {
+  too_low: '',
+  low: '',
+  okay: '',
+  optimal: '',
+  high: '',
+  dangerous: '',
+  unknown: '',
+};
+
+// ---------------------------------------------------------------------------
+// Hashtag configuration
+// ---------------------------------------------------------------------------
+
+// Instagram-only core hashtags (Facebook gets none — algorithm penalizes them)
+const IG_BASE_HASHTAGS = [
+  '#eddysays',
+  '#ozarksfloat',
+  '#missourifloattrip',
+  '#floattrip',
+  '#ozarksrivers',
 ];
+
+// River-specific hashtags (IG only)
+const RIVER_HASHTAGS: Record<string, string[]> = {
+  meramec: ['#meramecriver', '#meramecfloat'],
+  current: ['#currentriver', '#currentriverMO'],
+  'eleven-point': ['#elevenpointriver'],
+  'jacks-fork': ['#jacksfork', '#jacksforkriver'],
+  niangua: ['#nianguariver'],
+  'big-piney': ['#bigpineyriver'],
+  huzzah: ['#huzzahcreek'],
+  courtois: ['#courtoiscreek'],
+};
+
+// Condition-specific hashtags (IG only)
+const CONDITION_HASHTAGS: Record<string, string[]> = {
+  optimal: ['#perfectconditions', '#getonthewater'],
+  okay: ['#floatable', '#riverday'],
+  low: ['#lowwater'],
+  too_low: ['#waitforrain'],
+  high: ['#highwater', '#swiftwater'],
+  dangerous: ['#floodwarning', '#stayoffthewater'],
+};
+
+// Seasonal hashtags based on month
+function getSeasonalHashtags(): string[] {
+  const month = new Date().getMonth(); // 0-indexed
+  if (month >= 2 && month <= 4) return ['#springfloat', '#springpaddling'];
+  if (month >= 5 && month <= 7) return ['#summerfloat', '#summerontheriver'];
+  if (month >= 8 && month <= 10) return ['#fallfloat', '#fallpaddling'];
+  return ['#winterpaddling'];
+}
+
+// ---------------------------------------------------------------------------
+// Hook templates — condition-specific, rotated for variety
+// ---------------------------------------------------------------------------
+
+const HIGHLIGHT_HOOKS: Record<string, string[]> = {
+  optimal: [
+    '{river} is running perfect right now.',
+    '{river} just hit the sweet spot \u2014 {gauge} ft and dialed in.',
+    'If you\u2019ve been waiting for the right time on {river}, this is it.',
+    'Green light on {river}. Conditions are locked in.',
+  ],
+  okay: [
+    '{river} is looking good \u2014 {gauge} ft and floatable.',
+    '{river} is in solid shape right now.',
+    'Good news: {river} is running and ready at {gauge} ft.',
+  ],
+  low: [
+    '{river} is getting skinny \u2014 {gauge} ft. Here\u2019s what to expect.',
+    'Low water heads up on {river}. You\u2019ll want to read this before launching.',
+    '{river} at {gauge} ft \u2014 expect some scraping in the shallows.',
+  ],
+  too_low: [
+    '{river} is too low to float right now.',
+    'Hold off on {river} \u2014 it\u2019s at {gauge} ft and scraping bottom.',
+    'Not the day for {river}. Way too skinny at {gauge} ft.',
+  ],
+  high: [
+    '{river} is running hot \u2014 {gauge} ft. Know before you go.',
+    'Heads up: {river} is high and fast right now.',
+    '{river} at {gauge} ft \u2014 experienced paddlers only.',
+  ],
+  dangerous: [
+    'Stay off {river} right now. Here\u2019s why.',
+    'Flood stage on {river}. Do not launch.',
+    '{river} is in flood. Stay off the water.',
+  ],
+};
+
+const DIGEST_HOOKS: string[] = [
+  'Here\u2019s your Ozarks river rundown for {day}.',
+  '{count} rivers checked \u2014 here\u2019s where to float {timeframe}.',
+  'Which Ozarks rivers are floating good right now? Let\u2019s find out.',
+  'Your {day} river report is in. Here\u2019s the rundown.',
+];
+
+const CONDITION_CHANGE_HOOKS: Record<string, string[]> = {
+  optimal: [
+    '{river} just hit optimal \u2014 it\u2019s go time.',
+    'The wait is over. {river} is running perfect.',
+  ],
+  dangerous: [
+    'Flood warning: {river}. Stay off the water.',
+    '{river} just hit flood stage. Do not launch.',
+  ],
+  high: [
+    '{river} is running high now \u2014 experienced paddlers only.',
+    'Heads up: {river} just moved to high water.',
+  ],
+  from_dangerous: [
+    'Flood warning lifted on {river}. Conditions are improving.',
+    'Good news \u2014 {river} is dropping out of flood stage.',
+  ],
+  default: [
+    'Conditions just changed on {river}.',
+    '{river} conditions are shifting \u2014 here\u2019s the update.',
+  ],
+};
+
+// Weekend engagement questions (appended to optimal/okay posts Thu-Sun)
+const ENGAGEMENT_QUESTIONS: string[] = [
+  'Where are you putting in this weekend?',
+  'Who\u2019s hitting the water this week?',
+  'What\u2019s your favorite stretch?',
+  'Tag your float crew.',
+];
+
+// ---------------------------------------------------------------------------
+// CTA templates — deep-linked, varied
+// ---------------------------------------------------------------------------
+
+const RIVER_CTAS: string[] = [
+  'Check live conditions \u2192 eddy.guide/rivers/{slug}',
+  'Plan your float \u2192 eddy.guide/rivers/{slug}',
+  'See the full report \u2192 eddy.guide/rivers/{slug}',
+];
+
+const DIGEST_CTAS: string[] = [
+  'Check all rivers \u2192 eddy.guide',
+  'See live conditions for every river \u2192 eddy.guide',
+  'Plan your next float \u2192 eddy.guide',
+];
+
+const CHANGE_CTAS: string[] = [
+  'See what changed \u2192 eddy.guide/rivers/{slug}',
+  'Check the latest \u2192 eddy.guide/rivers/{slug}',
+];
+
+// ---------------------------------------------------------------------------
+// Utility: deterministic template selection for variety without randomness
+// ---------------------------------------------------------------------------
+
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+function pickTemplate(templates: string[], seed: string): string {
+  const idx = simpleHash(seed) % templates.length;
+  return templates[idx];
+}
+
+function formatGauge(ft: number | null): string {
+  return ft !== null ? ft.toFixed(1) : '?';
+}
+
+function interpolate(
+  template: string,
+  vars: Record<string, string>
+): string {
+  let result = template;
+  for (const [key, value] of Object.entries(vars)) {
+    result = result.replaceAll(`{${key}}`, value);
+  }
+  return result;
+}
+
+// Trim quote to a reasonable caption length, prefer summary_text
+function trimQuote(update: EddyUpdate, maxLen: number): string | null {
+  const text = update.summary_text || update.quote_text;
+  if (!text) return null;
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 3) + '...';
+}
+
+function isWeekendWindow(): boolean {
+  const now = new Date();
+  const utcDay = now.getUTCDay();
+  const utcHour = now.getUTCHours();
+  // Thu after 22 UTC through Mon 04 UTC
+  if (utcDay === 4 && utcHour >= 22) return true;
+  if (utcDay === 5 || utcDay === 6) return true;
+  if (utcDay === 0) return true;
+  if (utcDay === 1 && utcHour < 4) return true;
+  return false;
+}
+
+function buildInstagramHashtags(
+  riverSlug: string | null,
+  conditionCode: string,
+  extras: string[] = []
+): string[] {
+  return [
+    ...IG_BASE_HASHTAGS,
+    ...(riverSlug ? (RIVER_HASHTAGS[riverSlug] || []) : []),
+    ...(CONDITION_HASHTAGS[conditionCode] || []),
+    ...getSeasonalHashtags(),
+    ...extras,
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface EddyUpdate {
   river_slug: string;
@@ -55,60 +274,85 @@ interface EddyUpdate {
   summary_text: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// River Highlight Caption
+// ---------------------------------------------------------------------------
+
 export function formatRiverHighlightCaption(
   update: EddyUpdate,
   customContent: SocialCustomContent[],
   platform: SocialPlatform
 ): { caption: string; hashtags: string[] } {
-  const riverName = RIVER_NAMES[update.river_slug] || update.river_slug;
-  const conditionLabel = CONDITION_LABELS[update.condition_code as keyof typeof CONDITION_LABELS] || 'Unknown';
+  const riverName = RIVER_SHORT_NAMES[update.river_slug] || update.river_slug;
+  const condition = update.condition_code;
+  const emoji = CONDITION_EMOJI[condition] || '';
+  const gauge = formatGauge(update.gauge_height_ft);
+  const seed = `${update.river_slug}-${new Date().toISOString().split('T')[0]}`;
 
-  // Build caption
   const lines: string[] = [];
 
-  // Header
-  lines.push(`${riverName} Update`);
+  // 1. Hook line (first thing visible before "See more")
+  const hookTemplates = HIGHLIGHT_HOOKS[condition] || HIGHLIGHT_HOOKS.okay;
+  const hook = interpolate(pickTemplate(hookTemplates, seed), {
+    river: riverName,
+    gauge,
+  });
+  lines.push(hook);
   lines.push('');
 
-  // Condition info
-  lines.push(`Condition: ${conditionLabel}`);
+  // 2. Condition + gauge as a clean one-liner
+  const shortLabel = SHORT_CONDITION_LABELS[condition] || 'Unknown';
   if (update.gauge_height_ft !== null) {
-    lines.push(`Gauge: ${update.gauge_height_ft.toFixed(1)} ft`);
+    lines.push(`${emoji} ${shortLabel} at ${gauge} ft`);
+  } else {
+    lines.push(`${emoji} ${shortLabel}`);
   }
   lines.push('');
 
-  // Eddy says quote — always use the full report (summary is already in the image)
-  const quoteText = update.quote_text;
-  if (quoteText) {
-    lines.push(`Eddy says: "${quoteText}"`);
+  // 3. Eddy quote — trimmed, prefer summary_text
+  const maxQuoteLen = platform === 'facebook' ? 200 : 280;
+  const quote = trimQuote(update, maxQuoteLen);
+  if (quote) {
+    lines.push(`Eddy says: \u201C${quote}\u201D`);
     lines.push('');
   }
 
-  // Plan your trip CTA
-  lines.push('Plan your float at eddy.guide');
+  // 4. Weekend engagement question (only for floatable conditions)
+  if (
+    isWeekendWindow() &&
+    (condition === 'optimal' || condition === 'okay')
+  ) {
+    lines.push(pickTemplate(ENGAGEMENT_QUESTIONS, seed + '-q'));
+    lines.push('');
+  }
 
-  // Add active custom content snippets
+  // 5. CTA with deep link
+  const cta = interpolate(pickTemplate(RIVER_CTAS, seed + '-cta'), {
+    slug: update.river_slug,
+  });
+  lines.push(cta);
+
+  // 6. Custom content snippets
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
     lines.push('');
     lines.push(snippets.join('\n'));
   }
 
-  // Build hashtags
-  const hashtags = [
-    ...BASE_HASHTAGS,
-    ...(RIVER_HASHTAGS[update.river_slug] || []),
-    ...(CONDITION_HASHTAGS[update.condition_code] || []),
-  ];
+  // Build hashtags (Instagram only in caption; Facebook gets none)
+  const hashtags = buildInstagramHashtags(update.river_slug, condition);
 
-  // Instagram: append hashtags to caption; Facebook: keep separate
   let caption = lines.join('\n');
   if (platform === 'instagram') {
-    caption += '\n\n' + hashtags.join(' ');
+    caption += '\n\n\n\n\n' + hashtags.join(' ');
   }
 
   return { caption, hashtags };
 }
+
+// ---------------------------------------------------------------------------
+// Daily Digest Caption
+// ---------------------------------------------------------------------------
 
 export function formatDailyDigestCaption(
   updates: EddyUpdate[],
@@ -117,49 +361,137 @@ export function formatDailyDigestCaption(
   platform: SocialPlatform
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
-
-  // Header
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
-  lines.push(`Ozarks River Report - ${today}`);
+  const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const seed = `digest-${new Date().toISOString().split('T')[0]}`;
+  const isWeekend = isWeekendWindow();
+  const timeframe = isWeekend ? 'this weekend' : 'today';
+
+  // 1. Hook line
+  const hook = interpolate(pickTemplate(DIGEST_HOOKS, seed), {
+    day: dayName,
+    count: String(updates.length),
+    timeframe,
+  });
+  lines.push(hook);
   lines.push('');
 
-  // Global summary from Eddy
+  // 2. Global summary from Eddy (trimmed)
   if (globalSummary) {
-    lines.push(`Eddy says: "${globalSummary}"`);
+    const trimmed = globalSummary.length > 200
+      ? globalSummary.slice(0, 197) + '...'
+      : globalSummary;
+    lines.push(`\u201C${trimmed}\u201D`);
     lines.push('');
   }
 
-  // Per-river conditions
+  // 3. Per-river conditions — clean, scannable format with emoji
   for (const update of updates) {
     const riverName = RIVER_NAMES[update.river_slug] || update.river_slug;
-    const conditionLabel = CONDITION_LABELS[update.condition_code as keyof typeof CONDITION_LABELS] || '?';
-    const gauge = update.gauge_height_ft !== null ? ` (${update.gauge_height_ft.toFixed(1)} ft)` : '';
-    lines.push(`${riverName}: ${conditionLabel}${gauge}`);
+    const shortLabel = SHORT_CONDITION_LABELS[update.condition_code] || '?';
+    const emoji = CONDITION_EMOJI[update.condition_code] || '';
+    const gauge = update.gauge_height_ft !== null
+      ? ` (${update.gauge_height_ft.toFixed(1)} ft)`
+      : '';
+    lines.push(`${emoji} ${riverName} \u2014 ${shortLabel}${gauge}`);
   }
 
   lines.push('');
-  lines.push('Plan your float at eddy.guide');
 
-  // Custom content
+  // 4. CTA
+  lines.push(pickTemplate(DIGEST_CTAS, seed + '-cta'));
+
+  // 5. Custom content
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
     lines.push('');
     lines.push(snippets.join('\n'));
   }
 
-  const hashtags = [...BASE_HASHTAGS, '#OzarksRiverReport', '#RiverConditions'];
+  const hashtags = buildInstagramHashtags(null, 'optimal', [
+    '#ozarksriverreport',
+    '#riverconditions',
+  ]);
 
   let caption = lines.join('\n');
   if (platform === 'instagram') {
-    caption += '\n\n' + hashtags.join(' ');
+    caption += '\n\n\n\n\n' + hashtags.join(' ');
   }
 
   return { caption, hashtags };
 }
+
+// ---------------------------------------------------------------------------
+// Condition Change Caption
+// ---------------------------------------------------------------------------
+
+export function formatConditionChangeCaption(params: {
+  riverSlug: string;
+  oldCondition: string;
+  newCondition: string;
+  gaugeHeightFt: number | null;
+  platform: SocialPlatform;
+}): { caption: string; hashtags: string[] } {
+  const riverName = RIVER_SHORT_NAMES[params.riverSlug] || params.riverSlug;
+  const oldShort = SHORT_CONDITION_LABELS[params.oldCondition] || params.oldCondition;
+  const newShort = SHORT_CONDITION_LABELS[params.newCondition] || params.newCondition;
+  const newEmoji = CONDITION_EMOJI[params.newCondition] || '';
+  const seed = `change-${params.riverSlug}-${new Date().toISOString().split('T')[0]}`;
+
+  const lines: string[] = [];
+
+  // 1. Hook line
+  let hookPool: string[];
+  if (params.newCondition === 'optimal') {
+    hookPool = CONDITION_CHANGE_HOOKS.optimal;
+  } else if (params.newCondition === 'dangerous') {
+    hookPool = CONDITION_CHANGE_HOOKS.dangerous;
+  } else if (params.newCondition === 'high') {
+    hookPool = CONDITION_CHANGE_HOOKS.high;
+  } else if (params.oldCondition === 'dangerous') {
+    hookPool = CONDITION_CHANGE_HOOKS.from_dangerous;
+  } else {
+    hookPool = CONDITION_CHANGE_HOOKS.default;
+  }
+  lines.push(interpolate(pickTemplate(hookPool, seed), { river: riverName }));
+  lines.push('');
+
+  // 2. Transition line
+  lines.push(`${oldShort} \u2192 ${newEmoji} ${newShort}`);
+
+  if (params.gaugeHeightFt !== null) {
+    lines.push(`Currently at ${params.gaugeHeightFt.toFixed(1)} ft`);
+  }
+
+  lines.push('');
+
+  // 3. CTA with deep link
+  const cta = interpolate(pickTemplate(CHANGE_CTAS, seed + '-cta'), {
+    slug: params.riverSlug,
+  });
+  lines.push(cta);
+
+  const hashtags = buildInstagramHashtags(
+    params.riverSlug,
+    params.newCondition,
+    ['#conditionalert']
+  );
+
+  let caption = lines.join('\n');
+  if (params.platform === 'instagram') {
+    caption += '\n\n\n\n\n' + hashtags.join(' ');
+  }
+
+  return { caption, hashtags };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function getActiveSnippets(
   content: SocialCustomContent[],
@@ -177,57 +509,6 @@ function getActiveSnippets(
       return true;
     })
     .map((c) => c.text);
-}
-
-export function formatConditionChangeCaption(params: {
-  riverSlug: string;
-  oldCondition: string;
-  newCondition: string;
-  gaugeHeightFt: number | null;
-  platform: SocialPlatform;
-}): { caption: string; hashtags: string[] } {
-  const riverName = RIVER_NAMES[params.riverSlug] || params.riverSlug;
-  const oldLabel = CONDITION_LABELS[params.oldCondition as keyof typeof CONDITION_LABELS] || params.oldCondition;
-  const newLabel = CONDITION_LABELS[params.newCondition as keyof typeof CONDITION_LABELS] || params.newCondition;
-
-  const lines: string[] = [];
-
-  // Alert-style header based on new condition
-  if (params.newCondition === 'optimal') {
-    lines.push(`${riverName} just hit optimal conditions!`);
-  } else if (params.newCondition === 'dangerous') {
-    lines.push(`Flood warning: ${riverName}`);
-  } else if (params.newCondition === 'high') {
-    lines.push(`${riverName} is running high — experienced paddlers only`);
-  } else if (params.oldCondition === 'dangerous') {
-    lines.push(`Flood warning lifted: ${riverName}`);
-  } else {
-    lines.push(`${riverName} conditions changed`);
-  }
-
-  lines.push('');
-  lines.push(`${oldLabel} → ${newLabel}`);
-
-  if (params.gaugeHeightFt !== null) {
-    lines.push(`Current gauge: ${params.gaugeHeightFt.toFixed(1)} ft`);
-  }
-
-  lines.push('');
-  lines.push('Plan your float at eddy.guide');
-
-  const hashtags = [
-    ...BASE_HASHTAGS,
-    ...(RIVER_HASHTAGS[params.riverSlug] || []),
-    ...(CONDITION_HASHTAGS[params.newCondition] || []),
-    '#ConditionAlert',
-  ];
-
-  let caption = lines.join('\n');
-  if (params.platform === 'instagram') {
-    caption += '\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
 }
 
 export function getRiverName(slug: string): string {
