@@ -45,14 +45,16 @@ export async function publishToFacebook(params: {
 
   try {
     // Step 1: Upload photo as unpublished (published=false keeps it out of the album)
+    // Use form-urlencoded — Graph API is more reliable with this format for /photos
+    const photoBody = new URLSearchParams({
+      url: params.imageUrl,
+      published: 'false',
+      access_token: accessToken,
+    });
+
     const photoResponse = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: params.imageUrl,
-        published: false,
-        access_token: accessToken,
-      }),
+      body: photoBody,
     });
 
     const photoData = await photoResponse.json();
@@ -78,14 +80,16 @@ export async function publishToFacebook(params: {
     }
 
     // Step 2: Create a feed post with the unpublished photo attached
+    // Use form-urlencoded with indexed array syntax for attached_media
+    const feedBody = new URLSearchParams({
+      message: params.caption,
+      'attached_media[0]': JSON.stringify({ media_fbid: photoId }),
+      access_token: accessToken,
+    });
+
     const feedResponse = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: params.caption,
-        attached_media: [{ media_fbid: photoId }],
-        access_token: accessToken,
-      }),
+      body: feedBody,
     });
 
     const feedData = await feedResponse.json();
