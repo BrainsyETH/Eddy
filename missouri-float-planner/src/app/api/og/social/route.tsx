@@ -435,64 +435,64 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               fontSize: isPortrait ? 44 : 34,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.4,
-              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
+              maxWidth: '100%',
             }}
           >
             {truncate(snippet, isPortrait ? 300 : 200)}
           </span>
         )}
 
-        {/* CTA — portrait (Instagram) only */}
-        {isPortrait && (
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: 38,
-              fontWeight: 600,
-              color: BRAND_COLORS.accentCoral,
-              opacity: 0.85,
-              marginTop: 'auto',
-              marginBottom: 12,
-            }}
-          >
-            Plan your float at eddy.guide →
-          </span>
-        )}
-
-        {/* Footer */}
-        <span
+        {/* Footer row: branding left, otter right — inline so it fills the gap */}
+        <div
           style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 28,
-            fontWeight: 600,
-            marginTop: isPortrait ? undefined : 'auto',
-            color: 'rgba(255,255,255,0.35)',
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            marginTop: 'auto',
           }}
         >
-          eddy.guide
-        </span>
-
-        {/* Otter */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
-              opacity: 0.9,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={isPortrait ? 340 : 240}
-              height={isPortrait ? 340 : 240}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* CTA — portrait (Instagram) only */}
+            {isPortrait && (
+              <span
+                style={{
+                  fontFamily: 'Fredoka',
+                  fontSize: 38,
+                  fontWeight: 600,
+                  color: BRAND_COLORS.accentCoral,
+                  opacity: 0.85,
+                }}
+              >
+                Plan your float at eddy.guide →
+              </span>
+            )}
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 32 : 28,
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.35)',
+              }}
+            >
+              eddy.guide
+            </span>
           </div>
-        )}
+
+          {/* Otter — inline in the footer row, no more absolute positioning */}
+          {otterImage && (
+            <div style={{ display: 'flex', opacity: 0.9 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={otterImage}
+                width={isPortrait ? 300 : 200}
+                height={isPortrait ? 300 : 200}
+                alt=""
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Bottom gradient bar */}
         <div
