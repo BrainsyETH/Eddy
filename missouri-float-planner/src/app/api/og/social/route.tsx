@@ -442,9 +442,6 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           </span>
         )}
 
-        {/* Spacer */}
-        <div style={{ display: 'flex', flex: 1 }} />
-
         {/* CTA — portrait (Instagram) only */}
         {isPortrait && (
           <span
@@ -454,6 +451,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               opacity: 0.85,
+              marginTop: 'auto',
               marginBottom: 12,
             }}
           >
@@ -467,6 +465,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             fontFamily: 'Fredoka',
             fontSize: isPortrait ? 32 : 28,
             fontWeight: 600,
+            marginTop: isPortrait ? undefined : 'auto',
             color: 'rgba(255,255,255,0.35)',
           }}
         >

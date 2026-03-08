@@ -43,13 +43,13 @@ const SHORT_CONDITION_LABELS: Record<string, string> = {
 
 // Condition emoji — light, purposeful usage
 const CONDITION_EMOJI: Record<string, string> = {
-  too_low: '',
-  low: '',
-  okay: '',
-  optimal: '',
-  high: '',
-  dangerous: '',
-  unknown: '',
+  too_low: '\u{1F6AB}',
+  low: '\u{1F4A7}',
+  okay: '\u{1F44D}',
+  optimal: '\u{2705}',
+  high: '\u{26A0}\uFE0F',
+  dangerous: '\u{1F6D1}',
+  unknown: '\u{2753}',
 };
 
 // ---------------------------------------------------------------------------
@@ -177,20 +177,20 @@ const ENGAGEMENT_QUESTIONS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RIVER_CTAS: string[] = [
-  'Check live conditions \u2192 eddy.guide/rivers/{slug}',
-  'Plan your float \u2192 eddy.guide/rivers/{slug}',
-  'See the full report \u2192 eddy.guide/rivers/{slug}',
+  'Check live conditions \u2192 https://eddy.guide/rivers/{slug}',
+  'Plan your float \u2192 https://eddy.guide/rivers/{slug}',
+  'See the full report \u2192 https://eddy.guide/rivers/{slug}',
 ];
 
 const DIGEST_CTAS: string[] = [
-  'Check all rivers \u2192 eddy.guide',
-  'See live conditions for every river \u2192 eddy.guide',
-  'Plan your next float \u2192 eddy.guide',
+  'Check all rivers \u2192 https://eddy.guide',
+  'See live conditions for every river \u2192 https://eddy.guide',
+  'Plan your next float \u2192 https://eddy.guide',
 ];
 
 const CHANGE_CTAS: string[] = [
-  'See what changed \u2192 eddy.guide/rivers/{slug}',
-  'Check the latest \u2192 eddy.guide/rivers/{slug}',
+  'See what changed \u2192 https://eddy.guide/rivers/{slug}',
+  'Check the latest \u2192 https://eddy.guide/rivers/{slug}',
 ];
 
 // ---------------------------------------------------------------------------
@@ -308,12 +308,13 @@ export function formatRiverHighlightCaption(
   }
   lines.push('');
 
-  // 3. Eddy quote — trimmed, prefer summary_text
-  const maxQuoteLen = platform === 'facebook' ? 200 : 280;
-  const quote = trimQuote(update, maxQuoteLen);
-  if (quote) {
-    lines.push(`Eddy says: \u201C${quote}\u201D`);
-    lines.push('');
+  // 3. Eddy quote — Instagram only (Facebook image already shows it)
+  if (platform === 'instagram') {
+    const quote = trimQuote(update, 280);
+    if (quote) {
+      lines.push(`Eddy says: \u201C${quote}\u201D`);
+      lines.push('');
+    }
   }
 
   // 4. Weekend engagement question (only for floatable conditions)
@@ -374,8 +375,8 @@ export function formatDailyDigestCaption(
   lines.push(hook);
   lines.push('');
 
-  // 2. Global summary from Eddy (trimmed)
-  if (globalSummary) {
+  // 2. Global summary from Eddy — Instagram only (Facebook image shows it)
+  if (globalSummary && platform === 'instagram') {
     const trimmed = globalSummary.length > 200
       ? globalSummary.slice(0, 197) + '...'
       : globalSummary;
