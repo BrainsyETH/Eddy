@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
 async function generateDigestImage(size: { width: number; height: number }) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
 
   // Fetch latest updates for all rivers
   const { data: updates, error: queryError } = await supabase
@@ -135,6 +136,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
           padding: '56px',
+          justifyContent: isPortrait ? 'center' : 'flex-start',
           position: 'relative',
         }}
       >
@@ -168,7 +170,6 @@ async function generateDigestImage(size: { width: number; height: number }) {
             display: 'flex',
             flexWrap: 'wrap',
             gap: 20,
-            flex: 1,
           }}
         >
           {rivers.map(([slug, data]) => {
@@ -222,25 +223,19 @@ async function generateDigestImage(size: { width: number; height: number }) {
         </div>
 
         {/* Branding footer */}
-        <div
+        <span
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 24,
+            fontFamily: 'Fredoka',
+            fontSize: 32,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.4)',
+            ...(isPortrait
+              ? { position: 'absolute' as const, bottom: 56, left: 56 }
+              : { marginTop: 24 }),
           }}
         >
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: 32,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.4)',
-            }}
-          >
-            eddy.guide
-          </span>
-        </div>
+          eddy.guide
+        </span>
 
         {/* Otter */}
         {otterImage && (
