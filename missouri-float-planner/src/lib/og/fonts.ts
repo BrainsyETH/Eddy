@@ -40,7 +40,8 @@ export function loadFredokaFont(): OGFont[] {
 // Load Eddy avatar as base64 for use in ImageResponse
 export async function loadEddyAvatar(): Promise<string> {
   const response = await fetch(
-    'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png'
+    'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png',
+    { signal: AbortSignal.timeout(3000) }
   );
   const buffer = await response.arrayBuffer();
   const base64 = Buffer.from(buffer).toString('base64');
@@ -74,7 +75,7 @@ export async function loadConditionOtter(
 
   const url = otterUrls[condition] || OTTER_URLS.green;
 
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
   const buffer = await response.arrayBuffer();
   const base64 = Buffer.from(buffer).toString('base64');
   return `data:image/png;base64,${base64}`;
@@ -82,7 +83,7 @@ export async function loadConditionOtter(
 
 // Load any otter image as base64 by URL
 export async function loadOtterImage(url: string): Promise<string> {
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
   const buffer = await response.arrayBuffer();
   const base64 = Buffer.from(buffer).toString('base64');
   return `data:image/png;base64,${base64}`;
