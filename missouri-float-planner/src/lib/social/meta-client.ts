@@ -123,11 +123,15 @@ export async function publishToInstagram(params: {
   try {
     console.log(`[MetaClient] Instagram image_url: ${params.imageUrl}`);
 
-    // Pre-flight: verify image URL is reachable and returns an image
+    // Pre-flight: GET the image to warm the CDN cache and verify it's valid.
+    // HEAD doesn't populate Vercel's CDN cache, so Meta's crawlers would hit
+    // a cold serverless function and timeout. A full GET ensures the image is
+    // generated, cached at the edge, and ready for Meta to download instantly.
     try {
-      const preflight = await fetch(params.imageUrl, { method: 'HEAD' });
+      const preflight = await fetch(params.imageUrl);
       const contentType = preflight.headers.get('content-type') || 'unknown';
-      console.log(`[MetaClient] Image preflight: status=${preflight.status}, content-type=${contentType}`);
+      const contentLength = preflight.headers.get('content-length') || 'unknown';
+      console.log(`[MetaClient] Image preflight: status=${preflight.status}, content-type=${contentType}, size=${contentLength}`);
       if (!preflight.ok) {
         return { success: false, error: `Image URL returned HTTP ${preflight.status}` };
       }
