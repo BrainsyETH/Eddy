@@ -10,7 +10,12 @@ import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/color
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 
-export const revalidate = 300; // 5-min ISR cache so Meta's crawlers get fast responses
+export const revalidate = 300;
+
+// Cache headers so Vercel's CDN caches generated images for Meta's crawlers
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+};
 
 function getSize(platform: string | null): { width: number; height: number } {
   // Instagram gets 4:5 portrait for more feed real estate
@@ -275,6 +280,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
     {
       ...size,
       fonts,
+      headers: CACHE_HEADERS,
     }
   );
 }
@@ -505,6 +511,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
     {
       ...size,
       fonts,
+      headers: CACHE_HEADERS,
     }
   );
 }
