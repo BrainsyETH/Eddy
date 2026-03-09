@@ -246,7 +246,7 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published']);
+    .in('status', ['pending', 'publishing', 'published', 'failed']);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
@@ -274,7 +274,7 @@ async function hasPostedRecently(
     .eq('post_type', postType)
     .eq('river_slug', riverSlug)
     .gte('created_at', cutoff)
-    .in('status', ['pending', 'publishing', 'published'])
+    .in('status', ['pending', 'publishing', 'published', 'failed'])
     .limit(1);
 
   return (data && data.length > 0) || false;

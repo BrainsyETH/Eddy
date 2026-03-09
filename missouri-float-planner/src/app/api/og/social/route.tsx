@@ -10,7 +10,7 @@ import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/color
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300; // 5-min ISR cache so Meta's crawlers get fast responses
 
 function getSize(platform: string | null): { width: number; height: number } {
   // Instagram gets 4:5 portrait for more feed real estate
