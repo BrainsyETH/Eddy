@@ -142,7 +142,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: 64,
+            fontSize: 72,
             fontWeight: 600,
             color: BRAND_COLORS.accentCoral,
             lineHeight: 1,
@@ -154,7 +154,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
         </span>
         <span
           style={{
-            fontSize: 28,
+            fontSize: 32,
             color: 'rgba(255,255,255,0.6)',
             marginBottom: 40,
           }}
@@ -167,7 +167,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 16,
+            gap: 20,
             flex: 1,
           }}
         >
@@ -183,23 +183,23 @@ async function generateDigestImage(size: { width: number; height: number }) {
                   width: '48%',
                   backgroundColor: 'rgba(255,255,255,0.05)',
                   borderRadius: 16,
-                  padding: '20px 24px',
+                  padding: '28px 32px',
                   borderLeft: `4px solid ${statusStyles.solid}`,
                 }}
               >
                 <span
                   style={{
-                    fontSize: 28,
+                    fontSize: 36,
                     fontWeight: 700,
                     color: 'white',
-                    marginBottom: 4,
+                    marginBottom: 8,
                   }}
                 >
                   {name}
                 </span>
                 <span
                   style={{
-                    fontSize: 22,
+                    fontSize: 28,
                     color: statusStyles.solid,
                     fontWeight: 600,
                   }}
@@ -209,7 +209,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
                 {data.gauge_height_ft !== null && (
                   <span
                     style={{
-                      fontSize: 20,
+                      fontSize: 24,
                       color: 'rgba(255,255,255,0.5)',
                     }}
                   >
@@ -256,8 +256,8 @@ async function generateDigestImage(size: { width: number; height: number }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={160}
-              height={160}
+              width={200}
+              height={200}
               alt=""
               style={{ objectFit: 'contain' }}
             />
