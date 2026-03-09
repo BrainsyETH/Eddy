@@ -143,17 +143,18 @@ export async function publishToInstagram(params: {
       }
     }
 
-    // Step 1: Create media container (Story — image appears in Stories, not feed)
-    // Note: Stories don't display captions, but the image contains all the info
-    // Use URL params for media_type per Meta docs (JSON body doesn't work for STORIES)
-    const containerParams = new URLSearchParams({
-      image_url: params.imageUrl,
-      media_type: 'STORIES',
-      access_token: accessToken,
-    });
+    // Step 1: Create media container (feed post)
     const containerResponse = await fetch(
-      `${META_GRAPH_URL}/${instagramAccountId}/media?${containerParams.toString()}`,
-      { method: 'POST' }
+      `${META_GRAPH_URL}/${instagramAccountId}/media`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_url: params.imageUrl,
+          caption: params.caption,
+          access_token: accessToken,
+        }),
+      }
     );
 
     const containerData = await containerResponse.json();
