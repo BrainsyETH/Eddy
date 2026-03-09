@@ -28,8 +28,9 @@ export interface SchedulerResult {
   };
 }
 
-export async function getScheduledPosts(): Promise<SchedulerResult> {
+export async function getScheduledPosts(options?: { skipCooldown?: boolean }): Promise<SchedulerResult> {
   const supabase = createAdminClient();
+  const skipCooldown = options?.skipCooldown ?? false;
   const diag: SchedulerResult['diagnostics'] = {
     posting_enabled: false,
     digest_enabled: false,
@@ -69,7 +70,7 @@ export async function getScheduledPosts(): Promise<SchedulerResult> {
     diag.skipped_reasons.push('overnight_window');
   }
 
-  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, digest_enabled=${config.digest_enabled}, highlights_per_run=${effectiveHighlightsPerRun}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h`);
+  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, digest_enabled=${config.digest_enabled}, highlights_per_run=${effectiveHighlightsPerRun}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h${skipCooldown ? ', skip_cooldown=true' : ''}`);
 
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
@@ -134,9 +135,9 @@ export async function getScheduledPosts(): Promise<SchedulerResult> {
     console.log(`${LOG_PREFIX} Digest disabled in config`);
   } else {
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
-    if (digestAlreadyPosted) {
+    if (digestAlreadyPosted && !skipCooldown) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
-    } else if (!isNearDigestTime(config.digest_time_utc)) {
+    } else if (!isNearDigestTime(config.digest_time_utc) && !skipCooldown) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
@@ -193,16 +194,18 @@ export async function getScheduledPosts(): Promise<SchedulerResult> {
   for (const update of eligibleUpdates) {
     if (highlightCount >= effectiveHighlightsPerRun) break;
 
-    // Check cooldown
-    const recentlyPosted = await hasPostedRecently(
-      'river_highlight',
-      update.river_slug,
-      config.highlight_cooldown_hours,
-      supabase
-    );
-    if (recentlyPosted) {
-      console.log(`${LOG_PREFIX} Skipping ${update.river_slug}: in ${config.highlight_cooldown_hours}h cooldown`);
-      continue;
+    // Check cooldown (skip_cooldown bypasses this)
+    if (!skipCooldown) {
+      const recentlyPosted = await hasPostedRecently(
+        'river_highlight',
+        update.river_slug,
+        config.highlight_cooldown_hours,
+        supabase
+      );
+      if (recentlyPosted) {
+        console.log(`${LOG_PREFIX} Skipping ${update.river_slug}: in ${config.highlight_cooldown_hours}h cooldown`);
+        continue;
+      }
     }
 
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];

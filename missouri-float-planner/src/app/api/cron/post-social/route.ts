@@ -38,6 +38,11 @@ async function runSocialPosting(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const skipCooldown = request.nextUrl.searchParams.get('skip_cooldown') === 'true';
+  if (skipCooldown) {
+    console.log(`${LOG_PREFIX} skip_cooldown=true — bypassing all cooldown/dedup checks`);
+  }
+
   let published = 0;
   let failed = 0;
   let skipped = 0;
@@ -46,7 +51,7 @@ async function runSocialPosting(request: NextRequest) {
 
   // --- Process new scheduled posts ---
   try {
-    const result = await getScheduledPosts();
+    const result = await getScheduledPosts({ skipCooldown });
     const scheduledPosts = result.posts;
     diagnostics = result.diagnostics;
     console.log(`${LOG_PREFIX} ${scheduledPosts.length} posts scheduled`);
