@@ -22,6 +22,7 @@ import {
   Send,
   Eye,
   X,
+  Zap,
 } from 'lucide-react';
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
@@ -145,6 +146,14 @@ export default function SocialAdminPage() {
     platforms: ['facebook', 'instagram'] as string[],
   });
   const [publishing, setPublishing] = useState(false);
+
+  // Quick post state
+  const [showQuickPost, setShowQuickPost] = useState(false);
+  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip'>('digest');
+  const [quickPostRiver, setQuickPostRiver] = useState('');
+  const [quickPostContentId, setQuickPostContentId] = useState('');
+  const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
+  const [quickPosting, setQuickPosting] = useState(false);
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
@@ -424,6 +433,46 @@ export default function SocialAdminPage() {
     }
   };
 
+  const publishQuickPost = async () => {
+    if (quickPostType === 'highlight' && !quickPostRiver) return;
+    if (quickPostType === 'tip' && !quickPostContentId) return;
+    if (quickPostPlatforms.length === 0) return;
+
+    setQuickPosting(true);
+    try {
+      const res = await adminFetch('/api/admin/social/quick-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: quickPostType,
+          riverSlug: quickPostType === 'highlight' ? quickPostRiver : undefined,
+          contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
+          platforms: quickPostPlatforms,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
+        const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
+        if (failures.length > 0) {
+          showToast(`Published to ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+        } else {
+          showToast(`Published to ${successes} platform(s)`, 'success');
+        }
+        setShowQuickPost(false);
+        fetchPosts();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || `Quick post failed (${res.status})`, 'error');
+      }
+    } catch (err) {
+      console.error('Failed to quick post:', err);
+      showToast('Network error — could not publish', 'error');
+    } finally {
+      setQuickPosting(false);
+    }
+  };
+
   const loadPreview = async () => {
     setPreviewLoading(true);
     setShowPreview(true);
@@ -528,7 +577,14 @@ export default function SocialAdminPage() {
         {/* Action buttons */}
         <div className="flex gap-3 mb-6">
           <button
-            onClick={() => setShowCompose(!showCompose)}
+            onClick={() => { setShowQuickPost(!showQuickPost); setShowCompose(false); }}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            Quick Post
+          </button>
+          <button
+            onClick={() => { setShowCompose(!showCompose); setShowQuickPost(false); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
           >
             <Send className="w-4 h-4" />
@@ -542,6 +598,126 @@ export default function SocialAdminPage() {
             Preview Next Posts
           </button>
         </div>
+
+        {/* Quick Post form */}
+        {showQuickPost && (
+          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6 mb-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-green-400" />
+              Quick Post
+            </h3>
+            <p className="text-sm text-neutral-400">
+              Auto-generates caption and branded image, then publishes immediately.
+            </p>
+
+            {/* Post type selector */}
+            <div>
+              <label className="block text-sm text-neutral-300 mb-1">Post Type</label>
+              <select
+                value={quickPostType}
+                onChange={(e) => {
+                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip');
+                  setQuickPostRiver('');
+                  setQuickPostContentId('');
+                }}
+                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
+              >
+                <option value="digest">Daily Digest (all rivers)</option>
+                <option value="highlight">River Highlight</option>
+                <option value="tip">Tip / Seasonal Quote</option>
+              </select>
+            </div>
+
+            {/* River selector (for highlights) */}
+            {quickPostType === 'highlight' && (
+              <div>
+                <label className="block text-sm text-neutral-300 mb-1">River</label>
+                <select
+                  value={quickPostRiver}
+                  onChange={(e) => setQuickPostRiver(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
+                >
+                  <option value="">Select a river...</option>
+                  {rivers.map((r) => (
+                    <option key={r.slug} value={r.slug}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Content selector (for tips) */}
+            {quickPostType === 'tip' && (
+              <div>
+                <label className="block text-sm text-neutral-300 mb-1">Content</label>
+                <select
+                  value={quickPostContentId}
+                  onChange={(e) => setQuickPostContentId(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
+                >
+                  <option value="">Select content...</option>
+                  {customContent.filter(c => c.active).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      [{c.content_type}] {c.text.slice(0, 60)}{c.text.length > 60 ? '...' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Platform checkboxes */}
+            <div className="flex gap-4 items-center">
+              <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={quickPostPlatforms.includes('facebook')}
+                  onChange={(e) => {
+                    setQuickPostPlatforms(e.target.checked
+                      ? [...quickPostPlatforms, 'facebook']
+                      : quickPostPlatforms.filter(x => x !== 'facebook'));
+                  }}
+                  className="rounded bg-neutral-900 border-neutral-600"
+                />
+                Facebook
+              </label>
+              <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={quickPostPlatforms.includes('instagram')}
+                  onChange={(e) => {
+                    setQuickPostPlatforms(e.target.checked
+                      ? [...quickPostPlatforms, 'instagram']
+                      : quickPostPlatforms.filter(x => x !== 'instagram'));
+                  }}
+                  className="rounded bg-neutral-900 border-neutral-600"
+                />
+                Instagram
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={publishQuickPost}
+                disabled={
+                  quickPosting ||
+                  quickPostPlatforms.length === 0 ||
+                  (quickPostType === 'highlight' && !quickPostRiver) ||
+                  (quickPostType === 'tip' && !quickPostContentId)
+                }
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {quickPosting ? 'Publishing...' : 'Publish Now'}
+              </button>
+              <button
+                onClick={() => setShowQuickPost(false)}
+                className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Compose form */}
         {showCompose && (

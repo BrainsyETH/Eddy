@@ -34,11 +34,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'digest';
     const riverSlug = searchParams.get('river');
+    const contentId = searchParams.get('id');
     const platform = searchParams.get('platform');
     const size = getSize(platform);
 
     if (type === 'highlight' && riverSlug) {
       return generateHighlightImage(riverSlug, size);
+    }
+
+    if (type === 'tip' && contentId) {
+      return generateTipImage(contentId, size);
     }
 
     return generateDigestImage(size);
@@ -504,6 +509,134 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             right: 0,
             height: 6,
             background: `linear-gradient(90deg, ${gradientStart} 0%, ${BRAND_COLORS.accentCoral} 50%, ${gradientEnd} 100%)`,
+          }}
+        />
+      </div>
+    ),
+    {
+      ...size,
+      fonts,
+      headers: CACHE_HEADERS,
+    }
+  );
+}
+
+async function generateTipImage(contentId: string, size: { width: number; height: number }) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+
+  const { data: content } = await supabase
+    .from('social_custom_content')
+    .select('text, content_type')
+    .eq('id', contentId)
+    .single();
+
+  if (!content) {
+    return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+  }
+
+  const isPortrait = size.height > size.width;
+  const tipText = truncate(content.text, isPortrait ? 400 : 280);
+  const typeLabel = content.content_type === 'seasonal' ? 'Seasonal Note' :
+    content.content_type === 'tip' ? 'Float Tip' :
+    content.content_type === 'promo' ? 'Announcement' : 'From Eddy';
+
+  // Load otter
+  let otterImage: string | null = null;
+  try {
+    otterImage = await loadConditionOtter('optimal');
+  } catch {
+    // Skip otter
+  }
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: '#1A3D40',
+          padding: isPortrait ? '72px' : '64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {/* Type label */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 36 : 32,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.4)',
+            textTransform: 'uppercase',
+            letterSpacing: 3,
+            marginBottom: isPortrait ? 28 : 24,
+          }}
+        >
+          {typeLabel}
+        </span>
+
+        {/* Tip text */}
+        <span
+          style={{
+            fontSize: isPortrait ? 52 : 46,
+            color: 'white',
+            lineHeight: 1.4,
+            maxWidth: otterImage ? (isPortrait ? 700 : 750) : '100%',
+          }}
+        >
+          {tipText}
+        </span>
+
+        {/* Branding */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 28,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 72 : 64,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+
+        {/* Otter */}
+        {otterImage && (
+          <div
+            style={{
+              display: 'flex',
+              position: 'absolute',
+              bottom: isPortrait ? 48 : 40,
+              right: isPortrait ? 48 : 40,
+              opacity: 0.9,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={otterImage}
+              width={isPortrait ? 280 : 200}
+              height={isPortrait ? 280 : 200}
+              alt=""
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        )}
+
+        {/* Bottom gradient bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.greenTreeline} 0%, ${BRAND_COLORS.accentCoral} 50%, ${BRAND_COLORS.bluewater} 100%)`,
           }}
         />
       </div>
