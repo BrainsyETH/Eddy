@@ -30,26 +30,26 @@ function truncate(text: string, maxLength: number): string {
 }
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const platform = searchParams.get('platform');
+  const size = getSize(platform);
+
   try {
-    const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'digest';
     const riverSlug = searchParams.get('river');
     const contentId = searchParams.get('id');
-    const platform = searchParams.get('platform');
-    const size = getSize(platform);
 
     if (type === 'highlight' && riverSlug) {
-      return generateHighlightImage(riverSlug, size);
+      return await generateHighlightImage(riverSlug, size);
     }
 
     if (type === 'tip' && contentId) {
-      return generateTipImage(contentId, size);
+      return await generateTipImage(contentId, size);
     }
 
-    return generateDigestImage(size);
+    return await generateDigestImage(size);
   } catch (err) {
     console.error('[OG/Social] Image generation failed:', err);
-    const fallbackSize = { width: 1080, height: 1080 };
     return new ImageResponse(
       (
         <div
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
           </span>
         </div>
       ),
-      { ...fallbackSize }
+      { ...size }
     );
   }
 }
@@ -359,7 +359,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             color: 'rgba(255,255,255,0.4)',
             textTransform: 'uppercase',
             letterSpacing: 3,
-            marginBottom: isPortrait ? 20 : 20,
+            marginBottom: 20,
           }}
         >
           Eddy Says
@@ -376,7 +376,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             color: BRAND_COLORS.accentCoral,
             lineHeight: 1,
             letterSpacing: -2,
-            marginBottom: isPortrait ? 40 : 40,
+            marginBottom: 40,
           }}
         >
           {riverName}
@@ -387,15 +387,15 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: isPortrait ? 20 : 20,
-            marginBottom: isPortrait ? 40 : 40,
+            gap: 20,
+            marginBottom: 40,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: isPortrait ? 14 : 14,
+              gap: 14,
               backgroundColor: statusStyles.bg,
               border: `2px solid ${statusStyles.border}`,
               borderRadius: 100,
@@ -434,7 +434,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           )}
         </div>
 
-        {/* Quote snippet — larger on square to fill space */}
+        {/* Quote snippet */}
         {snippet && (
           <span
             style={{
@@ -444,7 +444,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
             }}
           >
-            {truncate(snippet, isPortrait ? 300 : 300)}
+            {truncate(snippet, 300)}
           </span>
         )}
 
@@ -457,11 +457,12 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               fontWeight: 600,
               color: BRAND_COLORS.accentCoral,
               opacity: 0.85,
-              marginTop: 'auto',
-              marginBottom: 12,
+              position: 'absolute',
+              bottom: 120,
+              left: 72,
             }}
           >
-            Plan your float at eddy.guide →
+            Plan your float at eddy.guide
           </span>
         )}
 
@@ -471,14 +472,16 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             fontFamily: 'Fredoka',
             fontSize: isPortrait ? 32 : 28,
             fontWeight: 600,
-            marginTop: isPortrait ? undefined : 'auto',
             color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 72 : 64,
+            left: isPortrait ? 72 : 64,
           }}
         >
           eddy.guide
         </span>
 
-        {/* Otter — absolute positioned, original size */}
+        {/* Otter — absolute positioned */}
         {otterImage && (
           <div
             style={{
