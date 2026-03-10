@@ -147,17 +147,20 @@ export async function publishToInstagram(params: {
       }
     }
 
-    // Step 1: Create media container (feed post)
+    // Step 1: Create media container (Story — image appears in Stories, not feed)
+    // Use form-urlencoded body (not JSON, not URL params) — most reliable for Meta Graph API
+    // Stories don't display captions; the generated image contains all the info
+    const containerBody = new URLSearchParams({
+      image_url: params.imageUrl,
+      media_type: 'STORIES',
+      access_token: accessToken,
+    });
+
     const containerResponse = await fetch(
       `${META_GRAPH_URL}/${instagramAccountId}/media`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_url: params.imageUrl,
-          caption: params.caption,
-          access_token: accessToken,
-        }),
+        body: containerBody,
       }
     );
 
