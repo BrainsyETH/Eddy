@@ -327,11 +327,16 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   const conditionLabel = CONDITION_LABELS[conditionCode as keyof typeof CONDITION_LABELS] || 'Unknown';
   const snippet = update.summary_text || update.quote_text || '';
   const isPortrait = size.height > size.width;
-  const timestamp = new Date().toLocaleDateString('en-US', {
+  const now = new Date();
+  const cstFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
     weekday: 'long',
     month: 'long',
     day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
+  const timestamp = cstFormatter.format(now) + ' CST';
 
   // Load otter
   let otterImage: string | null = null;
