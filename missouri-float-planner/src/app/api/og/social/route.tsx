@@ -327,6 +327,11 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   const conditionLabel = CONDITION_LABELS[conditionCode as keyof typeof CONDITION_LABELS] || 'Unknown';
   const snippet = update.summary_text || update.quote_text || '';
   const isPortrait = size.height > size.width;
+  const timestamp = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   // Load otter
   let otterImage: string | null = null;
@@ -347,6 +352,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           fontFamily: 'system-ui, sans-serif',
           background: '#1A3D40',
           padding: isPortrait ? '72px' : '64px',
+          justifyContent: isPortrait ? 'center' : 'flex-start',
           position: 'relative',
         }}
       >
@@ -359,10 +365,21 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             color: 'rgba(255,255,255,0.4)',
             textTransform: 'uppercase',
             letterSpacing: 3,
-            marginBottom: 20,
+            marginBottom: 8,
           }}
         >
           Eddy Says
+        </span>
+
+        {/* Timestamp */}
+        <span
+          style={{
+            fontSize: isPortrait ? 30 : 26,
+            color: 'rgba(255,255,255,0.5)',
+            marginBottom: 20,
+          }}
+        >
+          {timestamp}
         </span>
 
         {/* River name */}
@@ -441,10 +458,10 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               fontSize: isPortrait ? 44 : 42,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.4,
-              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
+              maxWidth: isPortrait ? '100%' : (otterImage ? 700 : '100%'),
             }}
           >
-            {truncate(snippet, 300)}
+            {truncate(snippet, isPortrait ? 400 : 300)}
           </span>
         )}
 
