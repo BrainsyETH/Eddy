@@ -18,8 +18,8 @@ const CACHE_HEADERS = {
 };
 
 function getSize(platform: string | null): { width: number; height: number } {
-  // Instagram gets 4:5 portrait for more feed real estate
-  if (platform === 'instagram') return { width: 1080, height: 1350 };
+  // Instagram gets 9:16 portrait for Stories format
+  if (platform === 'instagram') return { width: 1080, height: 1920 };
   // Facebook and default: 1:1 square
   return { width: 1080, height: 1080 };
 }
