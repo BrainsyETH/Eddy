@@ -18,15 +18,15 @@ const DEFAULT_CONFIG = {
   highlight_conditions: ['optimal', 'dangerous', 'high', 'too_low'],
   weekend_boost_enabled: false,
   river_schedules: {
-    'meramec': '07:00',
-    'current': '07:30',
-    'eleven-point': '08:00',
-    'jacks-fork': '08:30',
-    'niangua': '09:00',
-    'big-piney': '09:30',
-    'huzzah': '10:00',
-    'courtois': '10:30',
-  } as Record<string, string>,
+    'meramec': { mon: '07:00', tue: '07:00', wed: '07:00', thu: '07:00', fri: '07:00', sat: '09:00', sun: '09:00' },
+    'current': { mon: '07:30', tue: '07:30', wed: '07:30', thu: '07:30', fri: '07:30', sat: '09:30', sun: '09:30' },
+    'eleven-point': { mon: '08:00', tue: '08:00', wed: '08:00', thu: '08:00', fri: '08:00', sat: '10:00', sun: '10:00' },
+    'jacks-fork': { mon: '08:30', tue: '08:30', wed: '08:30', thu: '08:30', fri: '08:30', sat: '10:30', sun: '10:30' },
+    'niangua': { mon: '09:00', tue: '09:00', wed: '09:00', thu: '09:00', fri: '09:00', sat: '11:00', sun: '11:00' },
+    'big-piney': { mon: '09:30', tue: '09:30', wed: '09:30', thu: '09:30', fri: '09:30', sat: '11:30', sun: '11:30' },
+    'huzzah': { mon: '10:00', tue: '10:00', wed: '10:00', thu: '10:00', fri: '10:00', sat: '12:00', sun: '12:00' },
+    'courtois': { mon: '10:30', tue: '10:30', wed: '10:30', thu: '10:30', fri: '10:30', sat: '12:30', sun: '12:30' },
+  } as Record<string, Record<string, string | null>>,
 };
 
 /**

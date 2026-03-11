@@ -39,7 +39,7 @@ interface SocialConfig {
   disabled_rivers: string[];
   highlight_conditions: string[];
   weekend_boost_enabled: boolean;
-  river_schedules: Record<string, string>;
+  river_schedules: Record<string, Record<string, string | null>>;
 }
 
 interface PreviewPost {
@@ -61,7 +61,7 @@ interface PreviewData {
     due_rivers: string[];
     skipped_reasons: string[];
     highlight_conditions: string[];
-    river_schedules: Record<string, string>;
+    river_schedules: Record<string, Record<string, string | null>>;
   };
 }
 
@@ -877,76 +877,102 @@ export default function SocialAdminPage() {
                   </div>
                 </div>
 
-                {/* River Posting Schedule */}
+                {/* River Posting Schedule — Weekly Grid */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">River Posting Schedule</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Set the daily posting time (CST) for each river. Rivers with qualifying conditions
-                    will post once per day to both Facebook and Instagram at their scheduled time.
+                    Set the posting time (CST) for each river per day of the week.
+                    Clear a time to skip that day. Toggle the switch to enable/disable a river entirely.
                   </p>
-                  <div className="space-y-2">
-                    {rivers.map((river) => {
-                      const isDisabled = (config.disabled_rivers || []).includes(river.slug);
-                      const scheduleTime = (config.river_schedules || {})[river.slug] || '08:00';
-                      return (
-                        <div
-                          key={river.slug}
-                          className={`flex items-center gap-4 px-4 py-3 rounded-lg border ${
-                            isDisabled ? 'border-neutral-700 bg-neutral-800/50' : 'border-neutral-600 bg-neutral-900/50'
-                          }`}
-                        >
-                          <button
-                            onClick={() => {
-                              const disabled = config.disabled_rivers || [];
-                              if (isDisabled) {
-                                setConfig({
-                                  ...config,
-                                  disabled_rivers: disabled.filter((s) => s !== river.slug),
-                                });
-                              } else {
-                                setConfig({
-                                  ...config,
-                                  disabled_rivers: [...disabled, river.slug],
-                                });
-                              }
-                            }}
-                            className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
-                              !isDisabled ? 'bg-green-500' : 'bg-neutral-600'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                !isDisabled ? 'translate-x-5' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                          <span className={`flex-1 text-sm font-medium ${isDisabled ? 'text-neutral-500' : 'text-neutral-200'}`}>
-                            {river.name}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="time"
-                              value={scheduleTime}
-                              onChange={(e) => {
-                                setConfig({
-                                  ...config,
-                                  river_schedules: {
-                                    ...(config.river_schedules || {}),
-                                    [river.slug]: e.target.value,
-                                  },
-                                });
-                              }}
-                              disabled={isDisabled}
-                              className={`px-2 py-1 bg-neutral-900 border border-neutral-600 rounded-lg text-sm ${
-                                isDisabled ? 'text-neutral-500 opacity-50' : 'text-white'
-                              }`}
-                            />
-                            <span className={`text-xs ${isDisabled ? 'text-neutral-600' : 'text-neutral-400'}`}>CST</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 w-8"></th>
+                          <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[100px]">River</th>
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                            <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[80px]">{day}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rivers.map((river) => {
+                          const isDisabled = (config.disabled_rivers || []).includes(river.slug);
+                          const riverSched = (config.river_schedules || {})[river.slug] || {};
+                          const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+                          return (
+                            <tr
+                              key={river.slug}
+                              className={`border-t border-neutral-700/50 ${isDisabled ? 'opacity-40' : ''}`}
+                            >
+                              <td className="px-2 py-2">
+                                <button
+                                  onClick={() => {
+                                    const disabled = config.disabled_rivers || [];
+                                    if (isDisabled) {
+                                      setConfig({
+                                        ...config,
+                                        disabled_rivers: disabled.filter((s) => s !== river.slug),
+                                      });
+                                    } else {
+                                      setConfig({
+                                        ...config,
+                                        disabled_rivers: [...disabled, river.slug],
+                                      });
+                                    }
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                    !isDisabled ? 'bg-green-500' : 'bg-neutral-600'
+                                  }`}
+                                >
+                                  <span
+                                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                      !isDisabled ? 'translate-x-4' : 'translate-x-0.5'
+                                    }`}
+                                  />
+                                </button>
+                              </td>
+                              <td className={`px-2 py-2 font-medium whitespace-nowrap ${isDisabled ? 'text-neutral-500' : 'text-neutral-200'}`}>
+                                {river.name}
+                              </td>
+                              {DAY_KEYS.map((dayKey) => {
+                                // Handle both nested (new) and flat (legacy) formats
+                                const timeVal = typeof riverSched === 'string'
+                                  ? riverSched
+                                  : (riverSched as Record<string, string | null>)?.[dayKey] ?? '';
+                                return (
+                                  <td key={dayKey} className="px-1 py-2 text-center">
+                                    <input
+                                      type="time"
+                                      value={timeVal || ''}
+                                      onChange={(e) => {
+                                        const currentSched = typeof riverSched === 'string'
+                                          ? DAY_KEYS.reduce((acc, d) => ({ ...acc, [d]: riverSched }), {} as Record<string, string | null>)
+                                          : { ...riverSched as Record<string, string | null> };
+                                        currentSched[dayKey] = e.target.value || null;
+                                        setConfig({
+                                          ...config,
+                                          river_schedules: {
+                                            ...(config.river_schedules || {}),
+                                            [river.slug]: currentSched,
+                                          },
+                                        });
+                                      }}
+                                      disabled={isDisabled}
+                                      className={`w-[74px] px-1 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-xs text-center ${
+                                        isDisabled ? 'text-neutral-600' : timeVal ? 'text-white' : 'text-neutral-500'
+                                      }`}
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
+                  <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Clear a time field to skip posting that day.</p>
                 </div>
 
                 {/* Save button */}

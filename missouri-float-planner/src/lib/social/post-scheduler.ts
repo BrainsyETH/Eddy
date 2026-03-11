@@ -27,7 +27,7 @@ export interface SchedulerResult {
     due_rivers: string[];
     skipped_reasons: string[];
     highlight_conditions: string[];
-    river_schedules: Record<string, string>;
+    river_schedules: Record<string, Record<string, string | null>>;
   };
 }
 
@@ -155,9 +155,14 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     }
   }
 
-  // --- River Highlights (per-river fixed schedule) ---
+  // --- River Highlights (per-river weekly schedule) ---
   const schedules = config.river_schedules || {};
   const scheduledRivers = Object.keys(schedules);
+  const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+  const now = new Date();
+  const CST_OFFSET = -6;
+  const cstDay = new Date(now.getTime() + CST_OFFSET * 3600000).getUTCDay();
+  const todayKey = DAY_KEYS[cstDay];
 
   if (scheduledRivers.length === 0) {
     console.log(`${LOG_PREFIX} No river schedules configured`);
@@ -165,7 +170,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   for (const riverSlug of scheduledRivers) {
-    const scheduledTime = schedules[riverSlug];
+    const riverSchedule = schedules[riverSlug];
 
     // Check if river is disabled
     if (config.disabled_rivers && config.disabled_rivers.includes(riverSlug)) {
@@ -177,6 +182,16 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not in enabled_rivers`);
         continue;
       }
+    }
+
+    // Get today's scheduled time (null = skip this day)
+    const scheduledTime = typeof riverSchedule === 'string'
+      ? riverSchedule // backward compat with flat format
+      : riverSchedule?.[todayKey];
+
+    if (!scheduledTime) {
+      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: no schedule for ${todayKey}`);
+      continue;
     }
 
     // Check if we have a fresh update for this river
@@ -196,7 +211,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
     // Check if this river's time window is now (or skip if previewing)
     if (!skipTimeCheck && !isDueNow(scheduledTime)) {
-      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not due yet (scheduled ${scheduledTime} CST)`);
+      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not due yet (scheduled ${scheduledTime} CST on ${todayKey})`);
       continue;
     }
 
@@ -231,7 +246,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       });
     }
 
-    console.log(`${LOG_PREFIX} Scheduling ${riverSlug} (${scheduledTime} CST)`);
+    console.log(`${LOG_PREFIX} Scheduling ${riverSlug} (${todayKey} ${scheduledTime} CST)`);
   }
 
   console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${diag.due_rivers.length} river highlights)`);
