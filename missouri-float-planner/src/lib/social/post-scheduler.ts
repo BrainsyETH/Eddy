@@ -90,22 +90,24 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     .gt('expires_at', new Date().toISOString())
     .order('generated_at', { ascending: false });
 
-  if (!eddyUpdates || eddyUpdates.length === 0) {
-    console.log(`${LOG_PREFIX} No fresh eddy updates available`);
-    diag.skipped_reasons.push('no_fresh_updates');
-    return { posts: [], diagnostics: diag };
-  }
-
   // Deduplicate: keep only the latest update per river
-  const latestByRiver = new Map<string, typeof eddyUpdates[0]>();
-  for (const update of eddyUpdates) {
-    if (!latestByRiver.has(update.river_slug)) {
-      latestByRiver.set(update.river_slug, update);
+  const latestByRiver = new Map<string, NonNullable<typeof eddyUpdates>[0]>();
+  if (eddyUpdates) {
+    for (const update of eddyUpdates) {
+      if (!latestByRiver.has(update.river_slug)) {
+        latestByRiver.set(update.river_slug, update);
+      }
     }
   }
   const updates = Array.from(latestByRiver.values());
   diag.rivers = updates.map(u => `${u.river_slug}(${u.condition_code})`);
-  console.log(`${LOG_PREFIX} Rivers: ${diag.rivers.join(', ')}`);
+
+  if (updates.length === 0) {
+    console.log(`${LOG_PREFIX} No fresh per-river eddy updates available`);
+    diag.skipped_reasons.push('no_fresh_updates');
+  } else {
+    console.log(`${LOG_PREFIX} Rivers: ${diag.rivers.join(', ')}`);
+  }
 
   // Load global summary
   const { data: globalUpdate } = await supabase
@@ -124,6 +126,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const baseUrl = 'https://eddy.guide';
 
   // --- Daily Digest ---
+  // Digest can work with just the global summary, so don't require per-river updates
   if (!config.digest_enabled) {
     console.log(`${LOG_PREFIX} Digest disabled in config`);
   } else {
