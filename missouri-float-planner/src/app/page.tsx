@@ -6,11 +6,12 @@
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Clock, ChevronDown, ArrowRight, Activity } from 'lucide-react';
+import { MapPin, Clock, ChevronDown, ArrowRight, Activity, Compass, Users, TreePine } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { buildRiversSummary } from '@/data/eddy-quotes';
+import { getFeaturedTrips } from '@/data/curated-trips';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { ConditionCode } from '@/types/api';
 
@@ -158,6 +159,9 @@ function HomeContent() {
               </Link>
             </div>
           </div>
+
+          {/* Popular Floats */}
+          <PopularFloats />
 
         </div>
       </section>
@@ -333,6 +337,80 @@ function FloatEstimator({ rivers }: FloatEstimatorProps) {
             Select all options above
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Popular Floats Component — curated trip picks for the homepage
+const crowdIcons: Record<string, typeof Users> = {
+  low: TreePine,
+  moderate: Users,
+  high: Users,
+};
+
+function PopularFloats() {
+  const trips = getFeaturedTrips();
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Compass className="w-5 h-5 text-accent-500" />
+          <h2 className="text-xl font-bold text-neutral-900">Popular Floats</h2>
+        </div>
+        <Link
+          href="/guides/best-floats"
+          className="text-sm font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 no-underline"
+        >
+          View all guides
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {trips.map((trip) => {
+          const CrowdIcon = crowdIcons[trip.crowdLevel] || Users;
+          return (
+            <Link
+              key={trip.id}
+              href={`/rivers/${trip.riverSlug}`}
+              className="group bg-white rounded-xl border-2 border-neutral-200 hover:border-primary-300 p-4 transition-all hover:shadow-soft-md no-underline"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700">
+                  {trip.riverName}
+                </span>
+                <span className="text-xs text-neutral-500 flex items-center gap-1">
+                  <CrowdIcon className="w-3 h-3" />
+                  {trip.crowdLevel === 'low' ? 'Quiet' : trip.crowdLevel === 'moderate' ? 'Moderate' : 'Popular'}
+                </span>
+              </div>
+
+              <h3 className="text-base font-bold text-neutral-900 group-hover:text-primary-700 transition-colors mb-1">
+                {trip.putInName} &rarr; {trip.takeOutName}
+              </h3>
+
+              <p className="text-sm text-neutral-600 mb-3 line-clamp-2">
+                {trip.tagline}
+              </p>
+
+              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {trip.distanceMiles} mi
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {trip.estimatedHours} hrs
+                </span>
+                <span className="ml-auto text-xs font-medium text-accent-500 group-hover:text-accent-600">
+                  Plan this float &rarr;
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

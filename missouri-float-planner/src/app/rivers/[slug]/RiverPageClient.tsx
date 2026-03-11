@@ -15,6 +15,9 @@ import PlannerPanel from '@/components/river/PlannerPanel';
 import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import PointsOfInterest from '@/components/river/PointsOfInterest';
+import FloatSectionsPanel from '@/components/river/FloatSectionsPanel';
+import OutfitterDirectory from '@/components/river/OutfitterDirectory';
+import SeasonalInfo from '@/components/river/SeasonalInfo';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import WeatherBug from '@/components/ui/WeatherBug';
@@ -601,13 +604,35 @@ export default function RiverPage() {
 
         {/* Info Sections - full width below planner/map */}
         <div className="space-y-4 mt-6">
+          {/* Float Sections Guide */}
+          {accessPoints && accessPoints.length > 0 && (
+            <FloatSectionsPanel
+              riverSlug={slug}
+              accessPoints={accessPoints}
+              onSelectSection={(putInId, takeOutId) => {
+                setBothPoints(putInId, takeOutId);
+              }}
+            />
+          )}
+
           {/* Points of Interest */}
           <PointsOfInterest
             riverSlug={slug}
             defaultOpen={false}
           />
 
-          {/* River Conditions - below Points of Interest */}
+          {/* Outfitters & Services */}
+          {accessPoints && accessPoints.length > 0 && (
+            <OutfitterDirectory
+              riverSlug={slug}
+              accessPoints={accessPoints}
+            />
+          )}
+
+          {/* Seasonal Info & Crowd Calendar */}
+          <SeasonalInfo riverSlug={slug} />
+
+          {/* River Conditions - below other info */}
           <GaugeOverview
             gauges={gaugeStations}
             riverId={river.id}
