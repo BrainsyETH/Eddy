@@ -240,6 +240,17 @@ async function publishToPlatforms(
 
     const post = buildPost(platform);
 
+    // Clear any failed records that would conflict with the dedup index
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    await supabase
+      .from('social_posts')
+      .delete()
+      .eq('post_type', post.postType)
+      .eq('platform', platform)
+      .eq('status', 'failed')
+      .gte('created_at', todayStart.toISOString());
+
     // Insert record
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
