@@ -940,29 +940,52 @@ export default function SocialAdminPage() {
                                 const timeVal = typeof riverSched === 'string'
                                   ? riverSched
                                   : (riverSched as Record<string, string | null>)?.[dayKey] ?? '';
+                                const isSkipped = timeVal === '' || timeVal === null;
+                                const updateDay = (value: string | null) => {
+                                  const currentSched = typeof riverSched === 'string'
+                                    ? DAY_KEYS.reduce((acc, d) => ({ ...acc, [d]: riverSched }), {} as Record<string, string | null>)
+                                    : { ...riverSched as Record<string, string | null> };
+                                  currentSched[dayKey] = value;
+                                  setConfig({
+                                    ...config,
+                                    river_schedules: {
+                                      ...(config.river_schedules || {}),
+                                      [river.slug]: currentSched,
+                                    },
+                                  });
+                                };
                                 return (
                                   <td key={dayKey} className="px-1 py-2 text-center">
-                                    <input
-                                      type="time"
-                                      value={timeVal || ''}
-                                      onChange={(e) => {
-                                        const currentSched = typeof riverSched === 'string'
-                                          ? DAY_KEYS.reduce((acc, d) => ({ ...acc, [d]: riverSched }), {} as Record<string, string | null>)
-                                          : { ...riverSched as Record<string, string | null> };
-                                        currentSched[dayKey] = e.target.value || null;
-                                        setConfig({
-                                          ...config,
-                                          river_schedules: {
-                                            ...(config.river_schedules || {}),
-                                            [river.slug]: currentSched,
-                                          },
-                                        });
-                                      }}
-                                      disabled={isDisabled}
-                                      className={`w-[74px] px-1 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-xs text-center ${
-                                        isDisabled ? 'text-neutral-600' : timeVal ? 'text-white' : 'text-neutral-500'
-                                      }`}
-                                    />
+                                    {isSkipped && !isDisabled ? (
+                                      <button
+                                        onClick={() => updateDay('08:00')}
+                                        className="w-[74px] px-1 py-1 bg-neutral-800 border border-dashed border-neutral-600 rounded text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-300 transition-colors"
+                                        title="Click to enable this day"
+                                      >
+                                        skip
+                                      </button>
+                                    ) : (
+                                      <div className="relative inline-flex items-center">
+                                        <input
+                                          type="time"
+                                          value={timeVal || ''}
+                                          onChange={(e) => updateDay(e.target.value || null)}
+                                          disabled={isDisabled}
+                                          className={`w-[74px] px-1 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-xs text-center ${
+                                            isDisabled ? 'text-neutral-600' : 'text-white'
+                                          }`}
+                                        />
+                                        {!isDisabled && (
+                                          <button
+                                            onClick={() => updateDay(null)}
+                                            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-neutral-700 text-neutral-400 hover:bg-red-600 hover:text-white text-[10px] leading-none flex items-center justify-center transition-colors"
+                                            title="Skip this day"
+                                          >
+                                            x
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
                                   </td>
                                 );
                               })}
@@ -972,7 +995,7 @@ export default function SocialAdminPage() {
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Clear a time field to skip posting that day.</p>
+                  <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Click &quot;skip&quot; to enable a day, or click the x to disable it.</p>
                 </div>
 
                 {/* Save button */}
