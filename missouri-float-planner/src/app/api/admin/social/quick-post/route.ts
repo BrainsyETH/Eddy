@@ -240,7 +240,8 @@ async function publishToPlatforms(
 
     const post = buildPost(platform);
 
-    // Clear any failed records that would conflict with the dedup index
+    // Clear any non-published records that would conflict with the dedup index.
+    // The unique index covers all statuses, so failed/publishing records block retries.
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
     await supabase
@@ -248,7 +249,7 @@ async function publishToPlatforms(
       .delete()
       .eq('post_type', post.postType)
       .eq('platform', platform)
-      .eq('status', 'failed')
+      .in('status', ['failed', 'publishing', 'pending'])
       .gte('created_at', todayStart.toISOString());
 
     // Insert record
