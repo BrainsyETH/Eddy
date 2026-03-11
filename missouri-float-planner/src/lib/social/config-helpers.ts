@@ -17,6 +17,16 @@ const DEFAULT_CONFIG = {
   disabled_rivers: [] as string[],
   highlight_conditions: ['optimal', 'dangerous', 'high', 'too_low'],
   weekend_boost_enabled: false,
+  river_schedules: {
+    'meramec': '07:00',
+    'current': '07:30',
+    'eleven-point': '08:00',
+    'jacks-fork': '08:30',
+    'niangua': '09:00',
+    'big-piney': '09:30',
+    'huzzah': '10:00',
+    'courtois': '10:30',
+  } as Record<string, string>,
 };
 
 /**

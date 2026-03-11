@@ -80,6 +80,7 @@ async function handleSave(request: NextRequest) {
     enabled_rivers: body.enabled_rivers,
     disabled_rivers: body.disabled_rivers,
     highlight_conditions: body.highlight_conditions,
+    river_schedules: body.river_schedules,
     updated_at: new Date().toISOString(),
   };
 

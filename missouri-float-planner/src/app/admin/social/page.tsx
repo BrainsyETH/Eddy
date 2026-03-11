@@ -39,6 +39,7 @@ interface SocialConfig {
   disabled_rivers: string[];
   highlight_conditions: string[];
   weekend_boost_enabled: boolean;
+  river_schedules: Record<string, string>;
 }
 
 interface PreviewPost {
@@ -57,9 +58,10 @@ interface PreviewData {
     digest_enabled: boolean;
     rivers: string[];
     eligible_rivers: string[];
+    due_rivers: string[];
     skipped_reasons: string[];
-    highlights_per_run: number;
     highlight_conditions: string[];
+    river_schedules: Record<string, string>;
   };
 }
 
@@ -558,9 +560,9 @@ export default function SocialAdminPage() {
                     <div className="text-xs text-neutral-400 space-y-1">
                       <p>Posting enabled: {previewData.diagnostics.posting_enabled ? 'Yes' : 'No'}</p>
                       <p>Digest enabled: {previewData.diagnostics.digest_enabled ? 'Yes' : 'No'}</p>
-                      <p>Highlights per run: {previewData.diagnostics.highlights_per_run}</p>
                       <p>Rivers: {previewData.diagnostics.rivers.join(', ') || 'none'}</p>
                       <p>Eligible: {previewData.diagnostics.eligible_rivers.join(', ') || 'none'}</p>
+                      <p>Due now: {previewData.diagnostics.due_rivers?.join(', ') || 'none'}</p>
                       {previewData.diagnostics.skipped_reasons.length > 0 && (
                         <p>Skipped: {previewData.diagnostics.skipped_reasons.join(', ')}</p>
                       )}
@@ -849,58 +851,10 @@ export default function SocialAdminPage() {
                   </div>
                 </div>
 
-                {/* Frequency & Timing */}
+                {/* Daily Digest */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Frequency & Timing</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Posting Frequency</label>
-                      <select
-                        value={config.posting_frequency_hours}
-                        onChange={(e) => setConfig({ ...config, posting_frequency_hours: parseInt(e.target.value) })}
-                        className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
-                      >
-                        <option value={4}>Every 4 hours</option>
-                        <option value={6}>Every 6 hours</option>
-                        <option value={8}>Every 8 hours</option>
-                        <option value={12}>Every 12 hours</option>
-                        <option value={24}>Once daily</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Daily Digest Time (UTC)</label>
-                      <input
-                        type="time"
-                        value={config.digest_time_utc}
-                        onChange={(e) => setConfig({ ...config, digest_time_utc: e.target.value })}
-                        className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Max Highlights Per Run</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={config.highlights_per_run}
-                        onChange={(e) => setConfig({ ...config, highlights_per_run: parseInt(e.target.value) || 2 })}
-                        className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Highlight Cooldown (hours)</label>
-                      <input
-                        type="number"
-                        min={6}
-                        max={48}
-                        value={config.highlight_cooldown_hours}
-                        onChange={(e) => setConfig({ ...config, highlight_cooldown_hours: parseInt(e.target.value) || 12 })}
-                        className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
+                  <h3 className="text-lg font-semibold text-white mb-4">Daily Digest</h3>
+                  <div className="flex items-center gap-6">
                     <label className="flex items-center gap-2 text-sm text-neutral-300">
                       <input
                         type="checkbox"
@@ -908,17 +862,90 @@ export default function SocialAdminPage() {
                         onChange={(e) => setConfig({ ...config, digest_enabled: e.target.checked })}
                         className="rounded bg-neutral-900 border-neutral-600"
                       />
-                      Enable daily digest posts
+                      Enable daily digest
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-neutral-300">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-neutral-300">Time (UTC)</label>
                       <input
-                        type="checkbox"
-                        checked={config.weekend_boost_enabled ?? false}
-                        onChange={(e) => setConfig({ ...config, weekend_boost_enabled: e.target.checked })}
-                        className="rounded bg-neutral-900 border-neutral-600"
+                        type="time"
+                        value={config.digest_time_utc}
+                        onChange={(e) => setConfig({ ...config, digest_time_utc: e.target.value })}
+                        className="px-3 py-1.5 bg-neutral-900 border border-neutral-600 rounded-lg text-white text-sm"
+                        disabled={!config.digest_enabled}
                       />
-                      Weekend boost (double highlights Thu-Sun)
-                    </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* River Posting Schedule */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">River Posting Schedule</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Set the daily posting time (CST) for each river. Rivers with qualifying conditions
+                    will post once per day to both Facebook and Instagram at their scheduled time.
+                  </p>
+                  <div className="space-y-2">
+                    {rivers.map((river) => {
+                      const isDisabled = (config.disabled_rivers || []).includes(river.slug);
+                      const scheduleTime = (config.river_schedules || {})[river.slug] || '08:00';
+                      return (
+                        <div
+                          key={river.slug}
+                          className={`flex items-center gap-4 px-4 py-3 rounded-lg border ${
+                            isDisabled ? 'border-neutral-700 bg-neutral-800/50' : 'border-neutral-600 bg-neutral-900/50'
+                          }`}
+                        >
+                          <button
+                            onClick={() => {
+                              const disabled = config.disabled_rivers || [];
+                              if (isDisabled) {
+                                setConfig({
+                                  ...config,
+                                  disabled_rivers: disabled.filter((s) => s !== river.slug),
+                                });
+                              } else {
+                                setConfig({
+                                  ...config,
+                                  disabled_rivers: [...disabled, river.slug],
+                                });
+                              }
+                            }}
+                            className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
+                              !isDisabled ? 'bg-green-500' : 'bg-neutral-600'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                !isDisabled ? 'translate-x-5' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                          <span className={`flex-1 text-sm font-medium ${isDisabled ? 'text-neutral-500' : 'text-neutral-200'}`}>
+                            {river.name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={scheduleTime}
+                              onChange={(e) => {
+                                setConfig({
+                                  ...config,
+                                  river_schedules: {
+                                    ...(config.river_schedules || {}),
+                                    [river.slug]: e.target.value,
+                                  },
+                                });
+                              }}
+                              disabled={isDisabled}
+                              className={`px-2 py-1 bg-neutral-900 border border-neutral-600 rounded-lg text-sm ${
+                                isDisabled ? 'text-neutral-500 opacity-50' : 'text-white'
+                              }`}
+                            />
+                            <span className={`text-xs ${isDisabled ? 'text-neutral-600' : 'text-neutral-400'}`}>CST</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
