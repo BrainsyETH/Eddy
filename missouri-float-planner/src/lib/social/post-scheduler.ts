@@ -190,7 +190,10 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
   diag.eligible_rivers = eligibleUpdates.map(u => u.river_slug);
   console.log(`${LOG_PREFIX} ${eligibleUpdates.length}/${updates.length} rivers eligible after filtering`);
 
+  // Cap Instagram stories to avoid flooding — max 2 stories per cron run
+  const MAX_INSTAGRAM_STORIES_PER_RUN = 2;
   let highlightCount = 0;
+  let instagramStoryCount = 0;
   for (const update of eligibleUpdates) {
     if (highlightCount >= effectiveHighlightsPerRun) break;
 
@@ -210,6 +213,12 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
 
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
     for (const platform of platforms) {
+      // Cap Instagram stories per run to avoid flooding followers
+      if (platform === 'instagram' && instagramStoryCount >= MAX_INSTAGRAM_STORIES_PER_RUN) {
+        console.log(`${LOG_PREFIX} Skipping Instagram for ${update.river_slug}: hit ${MAX_INSTAGRAM_STORIES_PER_RUN}-story cap`);
+        continue;
+      }
+
       const { caption, hashtags } = formatRiverHighlightCaption(
         update,
         customContent,
@@ -225,6 +234,8 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
         hashtags,
         eddyUpdateId: update.id,
       });
+
+      if (platform === 'instagram') instagramStoryCount++;
     }
 
     highlightCount++;

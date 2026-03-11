@@ -49,6 +49,8 @@ export async function publishToFacebook(params: {
     const photoBody = new URLSearchParams({
       url: params.imageUrl,
       published: 'false',
+      temporary: 'true',
+      no_story: 'true',
       access_token: accessToken,
     });
 
