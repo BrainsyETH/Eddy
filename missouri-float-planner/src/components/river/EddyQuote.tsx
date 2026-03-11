@@ -132,9 +132,9 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
 
   // Determine which data to display
   const useAi = aiLoaded && aiUpdate !== null;
-  const displayConditionCode = useAi
-    ? (aiUpdate.conditionCode as ConditionCode)
-    : conditionCode;
+  // Always use the real-time condition code for badge/colors/image so they
+  // stay in sync with the gauge cards, even when showing AI-generated text.
+  const displayConditionCode = conditionCode;
 
   // Static fallback
   const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather, optimalRange);
