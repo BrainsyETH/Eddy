@@ -36,6 +36,7 @@ export interface SocialConfig {
   disabled_rivers: string[];
   highlight_conditions: string[];
   weekend_boost_enabled: boolean;
+  river_schedules: Record<string, string>; // { river_slug: "HH:MM" CST }
   updated_at: string;
 }
 

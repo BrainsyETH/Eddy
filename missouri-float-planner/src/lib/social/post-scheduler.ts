@@ -1,5 +1,7 @@
 // src/lib/social/post-scheduler.ts
-// Determines what posts to create each cron run based on config and recent updates
+// Determines what posts to create each cron run based on per-river schedules.
+// Each river has a fixed daily posting time (CST). The cron runs every 30 min
+// and posts any river whose scheduled time falls within the current window.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -22,23 +24,25 @@ export interface SchedulerResult {
     digest_enabled: boolean;
     rivers: string[];
     eligible_rivers: string[];
+    due_rivers: string[];
     skipped_reasons: string[];
-    highlights_per_run: number;
     highlight_conditions: string[];
+    river_schedules: Record<string, string>;
   };
 }
 
-export async function getScheduledPosts(options?: { skipCooldown?: boolean }): Promise<SchedulerResult> {
+export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): Promise<SchedulerResult> {
   const supabase = createAdminClient();
-  const skipCooldown = options?.skipCooldown ?? false;
+  const skipTimeCheck = options?.skipTimeCheck ?? false;
   const diag: SchedulerResult['diagnostics'] = {
     posting_enabled: false,
     digest_enabled: false,
     rivers: [],
     eligible_rivers: [],
+    due_rivers: [],
     skipped_reasons: [],
-    highlights_per_run: 0,
     highlight_conditions: [],
+    river_schedules: {},
   };
 
   // Self-healing config loader — handles duplicates, missing rows
@@ -52,25 +56,16 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
 
   diag.posting_enabled = config.posting_enabled;
   diag.digest_enabled = config.digest_enabled;
-  diag.highlights_per_run = config.highlights_per_run;
   diag.highlight_conditions = config.highlight_conditions;
+  diag.river_schedules = config.river_schedules || {};
 
-  // Weekend boost: double highlights Thu 5pm CT (22:00 UTC) → Sun 11pm CT (Mon 04:00 UTC)
-  let effectiveHighlightsPerRun = config.highlights_per_run;
-  if (config.weekend_boost_enabled && isWeekendBoostWindow()) {
-    effectiveHighlightsPerRun = config.highlights_per_run * 2;
-    console.log(`${LOG_PREFIX} Weekend boost active: highlights_per_run doubled to ${effectiveHighlightsPerRun}`);
-  }
-
-  // Skip overnight highlights (midnight–6am CT = 05:00–11:00 UTC)
-  const nowUtcHour = new Date().getUTCHours();
-  const isOvernightWindow = nowUtcHour >= 5 && nowUtcHour < 11;
-  if (isOvernightWindow) {
-    console.log(`${LOG_PREFIX} Overnight window (${nowUtcHour}:00 UTC) — skipping river highlights`);
-    diag.skipped_reasons.push('overnight_window');
-  }
-
-  console.log(`${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, digest_enabled=${config.digest_enabled}, highlights_per_run=${effectiveHighlightsPerRun}, conditions=[${config.highlight_conditions.join(',')}], cooldown=${config.highlight_cooldown_hours}h${skipCooldown ? ', skip_cooldown=true' : ''}`);
+  console.log(
+    `${LOG_PREFIX} Config: posting_enabled=${config.posting_enabled}, ` +
+    `digest_enabled=${config.digest_enabled}, ` +
+    `conditions=[${config.highlight_conditions.join(',')}], ` +
+    `schedules=${JSON.stringify(config.river_schedules)}` +
+    `${skipTimeCheck ? ', skip_time_check=true' : ''}`
+  );
 
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
@@ -126,8 +121,6 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
   const globalSummary = globalUpdate?.quote_text || null;
 
   const posts: ScheduledPost[] = [];
-  // Hardcode production domain — env var approach was fragile (NEXT_PUBLIC_SITE_URL
-  // was set to eddyfloat.com which doesn't resolve, causing all image fetches to fail)
   const baseUrl = 'https://eddy.guide';
 
   // --- Daily Digest ---
@@ -135,9 +128,9 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
     console.log(`${LOG_PREFIX} Digest disabled in config`);
   } else {
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
-    if (digestAlreadyPosted && !skipCooldown) {
+    if (digestAlreadyPosted && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
-    } else if (!isNearDigestTime(config.digest_time_utc) && !skipCooldown) {
+    } else if (!isNearDigestTime(config.digest_time_utc) && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
@@ -162,52 +155,63 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
     }
   }
 
-  // --- River Highlights ---
-  // Skip highlights entirely during overnight window
-  if (isOvernightWindow) {
-    console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (0 river highlights — overnight skip)`);
-    return { posts, diagnostics: diag };
+  // --- River Highlights (per-river fixed schedule) ---
+  const schedules = config.river_schedules || {};
+  const scheduledRivers = Object.keys(schedules);
+
+  if (scheduledRivers.length === 0) {
+    console.log(`${LOG_PREFIX} No river schedules configured`);
+    diag.skipped_reasons.push('no_river_schedules');
   }
 
-  // Filter rivers based on config
-  const eligibleUpdates = updates.filter((u) => {
+  for (const riverSlug of scheduledRivers) {
+    const scheduledTime = schedules[riverSlug];
+
+    // Check if river is disabled
+    if (config.disabled_rivers && config.disabled_rivers.includes(riverSlug)) {
+      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: disabled`);
+      continue;
+    }
     if (config.enabled_rivers && config.enabled_rivers.length > 0) {
-      if (!config.enabled_rivers.includes(u.river_slug)) {
-        console.log(`${LOG_PREFIX} Skipping ${u.river_slug}: not in enabled_rivers`);
-        return false;
-      }
-    }
-    if (config.disabled_rivers && config.disabled_rivers.includes(u.river_slug)) {
-      console.log(`${LOG_PREFIX} Skipping ${u.river_slug}: in disabled_rivers`);
-      return false;
-    }
-    if (!config.highlight_conditions.includes(u.condition_code)) {
-      console.log(`${LOG_PREFIX} Skipping ${u.river_slug}: condition '${u.condition_code}' not in [${config.highlight_conditions.join(',')}]`);
-      return false;
-    }
-    return true;
-  });
-  diag.eligible_rivers = eligibleUpdates.map(u => u.river_slug);
-  console.log(`${LOG_PREFIX} ${eligibleUpdates.length}/${updates.length} rivers eligible after filtering`);
-
-  let highlightCount = 0;
-  for (const update of eligibleUpdates) {
-    if (highlightCount >= effectiveHighlightsPerRun) break;
-
-    // Check cooldown (skip_cooldown bypasses this)
-    if (!skipCooldown) {
-      const recentlyPosted = await hasPostedRecently(
-        'river_highlight',
-        update.river_slug,
-        config.highlight_cooldown_hours,
-        supabase
-      );
-      if (recentlyPosted) {
-        console.log(`${LOG_PREFIX} Skipping ${update.river_slug}: in ${config.highlight_cooldown_hours}h cooldown`);
+      if (!config.enabled_rivers.includes(riverSlug)) {
+        console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not in enabled_rivers`);
         continue;
       }
     }
 
+    // Check if we have a fresh update for this river
+    const update = latestByRiver.get(riverSlug);
+    if (!update) {
+      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: no fresh eddy update`);
+      continue;
+    }
+
+    // Check condition filter
+    if (!config.highlight_conditions.includes(update.condition_code)) {
+      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: condition '${update.condition_code}' not in [${config.highlight_conditions.join(',')}]`);
+      continue;
+    }
+
+    diag.eligible_rivers.push(riverSlug);
+
+    // Check if this river's time window is now (or skip if previewing)
+    if (!skipTimeCheck && !isDueNow(scheduledTime)) {
+      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not due yet (scheduled ${scheduledTime} CST)`);
+      continue;
+    }
+
+    // Check if already posted today
+    if (!skipTimeCheck) {
+      const alreadyPosted = await hasPostedToday('river_highlight', riverSlug, supabase);
+      if (alreadyPosted) {
+        console.log(`${LOG_PREFIX} Skipping ${riverSlug}: already posted today`);
+        continue;
+      }
+    }
+
+    diag.due_rivers.push(riverSlug);
+
+    // Create posts for both platforms
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
     for (const platform of platforms) {
       const { caption, hashtags } = formatRiverHighlightCaption(
@@ -227,14 +231,31 @@ export async function getScheduledPosts(options?: { skipCooldown?: boolean }): P
       });
     }
 
-    highlightCount++;
+    console.log(`${LOG_PREFIX} Scheduling ${riverSlug} (${scheduledTime} CST)`);
   }
 
-  console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${highlightCount} river highlights)`);
+  console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${diag.due_rivers.length} river highlights)`);
   return { posts, diagnostics: diag };
 }
 
-// Check if a daily digest has already been posted today
+// Check if a river's scheduled CST time falls within the current 30-min window
+function isDueNow(scheduledTimeCst: string, windowMinutes: number = 30): boolean {
+  const now = new Date();
+  // CST = UTC-6 (fixed offset; close enough for social posting)
+  const CST_OFFSET = -6;
+  const nowCstMinutes = ((now.getUTCHours() + 24 + CST_OFFSET) % 24) * 60 + now.getUTCMinutes();
+
+  const [schedH, schedM] = scheduledTimeCst.split(':').map(Number);
+  if (isNaN(schedH) || isNaN(schedM)) return false;
+  const schedMinutes = schedH * 60 + schedM;
+
+  const diff = nowCstMinutes - schedMinutes;
+  // Handle midnight wrap (e.g., scheduled 23:30, now 00:05)
+  const adjustedDiff = diff < -720 ? diff + 1440 : diff;
+  return adjustedDiff >= 0 && adjustedDiff < windowMinutes;
+}
+
+// Check if a post of this type has already been created today
 async function hasPostedToday(
   postType: string,
   riverSlug: string | null,
@@ -261,28 +282,6 @@ async function hasPostedToday(
   return (data && data.length > 0) || false;
 }
 
-// Check if a river highlight was posted within the cooldown window
-async function hasPostedRecently(
-  postType: string,
-  riverSlug: string,
-  cooldownHours: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any
-): Promise<boolean> {
-  const cutoff = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString();
-
-  const { data } = await supabase
-    .from('social_posts')
-    .select('id')
-    .eq('post_type', postType)
-    .eq('river_slug', riverSlug)
-    .gte('created_at', cutoff)
-    .in('status', ['pending', 'publishing', 'published'])
-    .limit(1);
-
-  return (data && data.length > 0) || false;
-}
-
 // Check if current time is within 45 minutes of the configured digest time
 function isNearDigestTime(digestTimeUtc: string): boolean {
   const [hours, minutes] = digestTimeUtc.split(':').map(Number);
@@ -294,27 +293,6 @@ function isNearDigestTime(digestTimeUtc: string): boolean {
   const diffMinutes = diffMs / (1000 * 60);
 
   return diffMinutes <= 45;
-}
-
-// Check if current time is in weekend boost window: Thu 5pm CT → Sun 11pm CT
-// CT = UTC-5 (CST) or UTC-6 (CDT). We use UTC-5 as a close-enough constant.
-function isWeekendBoostWindow(): boolean {
-  const now = new Date();
-  const utcDay = now.getUTCDay(); // 0=Sun, 4=Thu, 5=Fri, 6=Sat
-  const utcHour = now.getUTCHours();
-
-  // Thu after 22:00 UTC (5pm CT)
-  if (utcDay === 4 && utcHour >= 22) return true;
-  // Fri or Sat — all day
-  if (utcDay === 5 || utcDay === 6) return true;
-  // Sun before 04:00 UTC (11pm CT Sat) — actually all of Sunday daytime is still weekend
-  if (utcDay === 0 && utcHour < 4) return true;
-  // Sun daytime also counts (people plan Sunday floats)
-  if (utcDay === 0) return true;
-  // Mon before 04:00 UTC (Sun 11pm CT)
-  if (utcDay === 1 && utcHour < 4) return true;
-
-  return false;
 }
 
 // Get failed posts eligible for retry
