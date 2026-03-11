@@ -375,8 +375,8 @@ export function formatDailyDigestCaption(
   lines.push(hook);
   lines.push('');
 
-  // 2. Global summary from Eddy — Instagram only (Facebook image shows it)
-  if (globalSummary && platform === 'instagram') {
+  // 2. Global summary from Eddy — shown on both platforms
+  if (globalSummary) {
     const trimmed = globalSummary.length > 200
       ? globalSummary.slice(0, 197) + '...'
       : globalSummary;
