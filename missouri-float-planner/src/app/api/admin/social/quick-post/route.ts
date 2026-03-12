@@ -240,8 +240,8 @@ async function publishToPlatforms(
 
     const post = buildPost(platform);
 
-    // Clear any non-published records that would conflict with the dedup index.
-    // The unique index covers all statuses, so failed/publishing records block retries.
+    // Admin quick-post is an intentional manual action — clear ALL existing
+    // records for this post type/platform today so the dedup index won't block it.
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
     await supabase
@@ -249,7 +249,6 @@ async function publishToPlatforms(
       .delete()
       .eq('post_type', post.postType)
       .eq('platform', platform)
-      .in('status', ['failed', 'publishing', 'pending'])
       .gte('created_at', todayStart.toISOString());
 
     // Insert record
