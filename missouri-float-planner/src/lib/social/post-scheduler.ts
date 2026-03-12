@@ -17,6 +17,27 @@ import type {
 
 const LOG_PREFIX = '[SocialScheduler]';
 
+// Returns the current Central Time UTC offset: -5 during CDT, -6 during CST.
+// DST starts 2nd Sunday of March at 2AM CST, ends 1st Sunday of November at 2AM CDT.
+function getCentralOffset(): number {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+
+  // 2nd Sunday of March: find March 1 day-of-week, then compute 2nd Sunday
+  const marchFirst = new Date(Date.UTC(year, 2, 1));
+  const marchFirstDay = marchFirst.getUTCDay(); // 0=Sun
+  const secondSunday = marchFirstDay === 0 ? 8 : 15 - marchFirstDay;
+  const dstStart = new Date(Date.UTC(year, 2, secondSunday, 8, 0)); // 2AM CST = 8AM UTC
+
+  // 1st Sunday of November
+  const novFirst = new Date(Date.UTC(year, 10, 1));
+  const novFirstDay = novFirst.getUTCDay();
+  const firstSunday = novFirstDay === 0 ? 1 : 8 - novFirstDay;
+  const dstEnd = new Date(Date.UTC(year, 10, firstSunday, 7, 0)); // 2AM CDT = 7AM UTC
+
+  return (now >= dstStart && now < dstEnd) ? -5 : -6;
+}
+
 export interface SchedulerResult {
   posts: ScheduledPost[];
   diagnostics: {
@@ -163,8 +184,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const scheduledRivers = Object.keys(schedules);
   const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
   const now = new Date();
-  const CST_OFFSET = -6;
-  const cstDay = new Date(now.getTime() + CST_OFFSET * 3600000).getUTCDay();
+  const centralOffset = getCentralOffset();
+  const cstDay = new Date(now.getTime() + centralOffset * 3600000).getUTCDay();
   const todayKey = DAY_KEYS[cstDay];
 
   if (scheduledRivers.length === 0) {
@@ -256,12 +277,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   return { posts, diagnostics: diag };
 }
 
-// Check if a river's scheduled CST time falls within the current 30-min window
+// Check if a river's scheduled Central Time falls within the current 30-min window
 function isDueNow(scheduledTimeCst: string, windowMinutes: number = 30): boolean {
   const now = new Date();
-  // CST = UTC-6 (fixed offset; close enough for social posting)
-  const CST_OFFSET = -6;
-  const nowCstMinutes = ((now.getUTCHours() + 24 + CST_OFFSET) % 24) * 60 + now.getUTCMinutes();
+  const centralOffset = getCentralOffset();
+  const nowCstMinutes = ((now.getUTCHours() + 24 + centralOffset) % 24) * 60 + now.getUTCMinutes();
 
   const [schedH, schedM] = scheduledTimeCst.split(':').map(Number);
   if (isNaN(schedH) || isNaN(schedM)) return false;
@@ -297,7 +317,11 @@ async function hasPostedToday(
   }
 
   const { data } = await query.limit(1);
-  return (data && data.length > 0) || false;
+  if (data && data.length > 0) {
+    console.log(`${LOG_PREFIX} hasPostedToday: blocking record found for ${postType}/${riverSlug || 'global'} (id=${data[0].id})`);
+    return true;
+  }
+  return false;
 }
 
 // Check if current time is within 45 minutes of the configured digest time
