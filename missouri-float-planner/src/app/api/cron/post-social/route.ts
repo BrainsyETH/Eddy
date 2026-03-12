@@ -49,6 +49,27 @@ async function runSocialPosting(request: NextRequest) {
   const errors: string[] = [];
   let diagnostics: SchedulerResult['diagnostics'] | undefined;
 
+  // --- Clean up stale records BEFORE scheduling ---
+  // Records stuck in 'publishing' or 'pending' from earlier cron runs block
+  // hasPostedToday() inside getScheduledPosts(). Clean them up first so
+  // the scheduler can reschedule the post.
+  try {
+    const cleanupStart = new Date();
+    cleanupStart.setUTCHours(0, 0, 0, 0);
+    const { count: cleanedUp } = await supabase
+      .from('social_posts')
+      .delete({ count: 'exact' })
+      .in('status', ['publishing', 'pending'])
+      .gte('created_at', cleanupStart.toISOString())
+      .lt('updated_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()); // older than 5 min
+
+    if (cleanedUp && cleanedUp > 0) {
+      console.log(`${LOG_PREFIX} Cleaned up ${cleanedUp} stale publishing/pending records`);
+    }
+  } catch (err) {
+    console.error(`${LOG_PREFIX} Error cleaning stale records:`, err);
+  }
+
   // --- Process new scheduled posts ---
   try {
     const result = await getScheduledPosts({ skipTimeCheck });
