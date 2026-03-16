@@ -1,5 +1,5 @@
 // src/lib/eddy/gauge-trajectory.ts
-// Builds a rich gauge trajectory summary from 48h of USGS data + historical percentiles.
+// Builds a rich gauge trajectory summary from 5 days of USGS data + historical percentiles.
 // Replaces the old 2-reading trend comparison with real trajectory analysis.
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -20,9 +20,9 @@ export interface GaugeTrajectory {
   rateFtPerHour: number | null;
   /** Acceleration descriptor */
   acceleration: 'rising and accelerating' | 'rising but slowing' | 'falling and accelerating' | 'falling but slowing' | 'steady' | null;
-  /** Highest reading in 48h window */
+  /** Highest reading in 5-day window */
   peak48h: { heightFt: number; timestamp: string } | null;
-  /** Lowest reading in 48h window */
+  /** Lowest reading in 5-day window */
   trough48h: { heightFt: number; timestamp: string } | null;
   /** Current gauge height */
   currentHeightFt: number | null;
@@ -38,7 +38,7 @@ export interface GaugeTrajectory {
 
 /**
  * Builds a rich trajectory summary for a river's primary gauge.
- * Fetches 48h of USGS history + daily statistics, then computes
+ * Fetches 5 days of USGS history + daily statistics, then computes
  * trend direction, rate, acceleration, and a narrative summary.
  */
 export async function buildGaugeTrajectory(riverSlug: string): Promise<GaugeTrajectory | null> {
@@ -70,7 +70,7 @@ export async function buildGaugeTrajectory(riverSlug: string): Promise<GaugeTraj
     if (!station?.usgs_site_id) return null;
 
     // Fetch 48h of historical data (reuses existing USGS function)
-    const historical = await fetchHistoricalReadings(station.usgs_site_id, 2);
+    const historical = await fetchHistoricalReadings(station.usgs_site_id, 5);
     if (!historical || historical.readings.length < 4) {
       return null; // Not enough data points
     }

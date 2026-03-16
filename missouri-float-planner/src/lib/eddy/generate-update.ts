@@ -275,12 +275,22 @@ function buildPrompt(
   }
   if (gauge?.closureLevel != null) {
     lines.push(`Closure level: ${gauge.closureLevel} ft`);
+    if (gauge.gaugeHeightFt != null) {
+      const margin = gauge.closureLevel - gauge.gaugeHeightFt;
+      if (margin > 0) {
+        lines.push(`Margin to closure: ${margin.toFixed(1)} ft below closure`);
+      } else if (margin === 0) {
+        lines.push(`Margin to closure: AT closure level`);
+      } else {
+        lines.push(`Margin to closure: ${Math.abs(margin).toFixed(1)} ft ABOVE closure`);
+      }
+    }
   }
 
-  // 48-hour gauge trajectory (replaces old 2-reading trend)
+  // 5-day gauge trajectory
   if (trajectory) {
     lines.push('');
-    lines.push('--- 48-HOUR GAUGE TRAJECTORY ---');
+    lines.push('--- 5-DAY GAUGE TRAJECTORY ---');
     if (trajectory.change24h != null) {
       const sign24 = trajectory.change24h >= 0 ? '+' : '';
       const startHeight = trajectory.currentHeightFt != null
@@ -296,10 +306,10 @@ function buildPrompt(
       lines.push(`Rate: ${trajectory.acceleration} at ${Math.abs(trajectory.rateFtPerHour).toFixed(2)} ft/hr`);
     }
     if (trajectory.peak48h) {
-      lines.push(`48h peak: ${trajectory.peak48h.heightFt.toFixed(1)} ft`);
+      lines.push(`5-day peak: ${trajectory.peak48h.heightFt.toFixed(1)} ft`);
     }
     if (trajectory.trough48h) {
-      lines.push(`48h low: ${trajectory.trough48h.heightFt.toFixed(1)} ft`);
+      lines.push(`5-day low: ${trajectory.trough48h.heightFt.toFixed(1)} ft`);
     }
     lines.push(`Summary: ${trajectory.narrative}`);
 
