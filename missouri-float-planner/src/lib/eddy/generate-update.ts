@@ -167,20 +167,45 @@ Gauge reads 2.5 ft, right in the sweet spot. Great day to float.
 ---
 Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. Water clarity is excellent with the steady flow and spring-fed base holding strong. The gauge has been steady over the past 24 hours with no significant rain in the forecast through Friday. Upper sections from Montauk to Cedar Grove are running clean with good depth over the riffles. Pack the sunscreen, it is 85 and clear out there.
 
-RULES FOR BOTH SECTIONS:
-- Lead with the current condition assessment.
-- Mention the gauge reading and what it means for floating.
-- When a gauge trajectory is provided, describe the trend direction and whether the change is accelerating or slowing. This is critical context for floaters deciding whether to go.
-- When percentile context is available, use it to note whether conditions are typical or unusual for the time of year.
-- When recent precipitation data is provided, connect it to the gauge trend and river-specific rain lag to explain what is happening and what to expect next.
-- Connect recent gauge trends to the upcoming forecast when relevant (e.g. "steady now but rain Thursday could push it up").
-- If a trend is provided (rising, falling, steady), weave it in.
-- If weather is relevant, mention it. If a 3-day forecast is provided, reference upcoming conditions.
+CONDITION ASSESSMENT:
+- Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
+- State the condition clearly in the first sentence of both the summary and the full text.
 - If there are active NWS flood alerts, lead with safety first.
-- If conditions are dangerous, be unambiguous: "Stay off the water."
-- Cite actual numbers (gauge height, temp).
-- Incorporate local knowledge naturally.
-- If section-specific context is provided, tailor your advice to that section.
+- Cite the actual gauge reading and what it means for floating.
+
+ACCURACY:
+- Only cite specific numbers that appear in the provided data. Do NOT invent gauge predictions, specific rise/fall amounts, or projected gauge heights.
+- Do NOT predict how many feet a gauge will rise or fall. You do not have a hydrological model.
+- Do NOT recommend specific days to float unless the data clearly supports it (e.g., dry forecast combined with a falling gauge means conditions are improving).
+- When you do not know something, say so honestly. "Hard to say exactly how the gauge will respond" is better than a fabricated number.
+
+FORWARD-LOOKING:
+- When a 3-day forecast and gauge trajectory are both provided, use them to make qualified forward-looking statements about the trend direction. Users want to know what conditions will look like for their upcoming float.
+- Frame predictions as trends, not specifics: "expect the gauge to keep dropping" not "the gauge will drop to 3.2 ft."
+- Always qualify with forecast dependency: "if the forecast holds dry" or "assuming no additional rain."
+- When rain is in the forecast and rain-to-river lag data is provided, explain what it means for this specific river.
+- When conditions are volatile or uncertain, say so honestly rather than guessing.
+
+WEATHER:
+- When weather and forecast data are provided, use them to serve the forward-looking narrative, not just describe today.
+- When rain is forecast, connect it to what the river will likely do using lag and recovery data if available.
+- When the forecast is dry and the gauge is elevated, note that as good news for recovery.
+- Temperature and wind matter for float comfort. Mention them when relevant but do not lead with them.
+
+TRAJECTORY:
+- When a gauge trajectory is provided, describe the trend direction and whether the change is accelerating or slowing.
+- When percentile context is available, use it to note whether conditions are typical or unusual for the time of year.
+
+SECTION-SPECIFIC:
+- When writing about a specific section, describe what the current gauge reading means for that section specifically.
+- Do NOT guess at section behavior you were not given knowledge about.
+
+RECOVERY CONTEXT:
+- When river recovery data (drop rates, rain lag) is provided, use it to inform your forward-looking statements.
+- Frame recovery as a range, not a specific prediction: "spring-fed rivers like this typically drop 0.2 to 0.4 ft per day" not "the gauge will be back to normal by Wednesday."
+
+STYLE:
+- Incorporate local knowledge naturally when provided.
 - Vary your phrasing and structure from update to update.
 - Do NOT use em dashes. Use commas, periods, or "and" instead.
 - Do NOT use emojis, hashtags, or exclamation marks.
@@ -299,10 +324,6 @@ function buildPrompt(
     if (precipitation.forecastRainToday > 0) {
       lines.push(`Today's forecast rain: ${precipitation.forecastRainToday.toFixed(1)} in`);
     }
-    const rainLag = RAIN_LAG[target.riverSlug];
-    if (rainLag) {
-      lines.push(`Rain-to-river lag: ${rainLag.note}`);
-    }
   }
 
   // Weather (current)
@@ -325,6 +346,19 @@ function buildPrompt(
         lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
       }
     }
+  }
+
+  // River recovery context — injected conditionally when relevant
+  const rainLag = RAIN_LAG[target.riverSlug];
+  const isFalling = trajectory?.acceleration?.includes('falling') ?? false;
+  const isHighOrDangerous = gauge?.conditionCode === 'high' || gauge?.conditionCode === 'dangerous';
+  const hasRainForecast = forecast?.days.slice(1, 4).some((d) => d.precipitation >= 40) ?? false;
+
+  if (rainLag && (isFalling || isHighOrDangerous || hasRainForecast)) {
+    lines.push('');
+    lines.push('--- RIVER RECOVERY CONTEXT ---');
+    lines.push(`Typical drop rate: ${rainLag.dropRateFtPerDay}`);
+    lines.push(`Rain-to-river lag: ${rainLag.note}`);
   }
 
   // NWS alerts
