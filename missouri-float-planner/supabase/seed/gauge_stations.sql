@@ -156,10 +156,10 @@ VALUES (
 -- Link gauge stations to their rivers with thresholds
 -- Thresholds are approximate and should be refined with local knowledge
 
--- Meramec River - Eureka Gauge (Primary)
+-- Meramec River - Eureka Gauge (Secondary)
 INSERT INTO river_gauges (
-    river_id, 
-    gauge_station_id, 
+    river_id,
+    gauge_station_id,
     is_primary,
     distance_from_section_miles,
     threshold_unit,
@@ -170,10 +170,10 @@ INSERT INTO river_gauges (
     level_high,
     level_dangerous
 )
-SELECT 
+SELECT
     r.id,
     gs.id,
-    true,
+    false,
     5.0,
     'ft',
     1.5,
@@ -193,10 +193,10 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_high = EXCLUDED.level_high,
     level_dangerous = EXCLUDED.level_dangerous;
 
--- Meramec River - Sullivan Gauge (Secondary)
+-- Meramec River - Sullivan Gauge (Primary)
 INSERT INTO river_gauges (
-    river_id, 
-    gauge_station_id, 
+    river_id,
+    gauge_station_id,
     is_primary,
     distance_from_section_miles,
     threshold_unit,
@@ -207,10 +207,10 @@ INSERT INTO river_gauges (
     level_high,
     level_dangerous
 )
-SELECT 
+SELECT
     r.id,
     gs.id,
-    false,
+    true,
     2.0,
     'ft',
     1.2,
