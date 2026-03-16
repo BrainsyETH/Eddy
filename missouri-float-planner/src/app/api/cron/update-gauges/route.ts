@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { publishConditionChangeAlert } from '@/lib/social/condition-alerts';
+import { regenerateEddyForRiver } from '@/lib/eddy/regenerate';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -149,6 +150,28 @@ async function runUpdate(request: NextRequest) {
               `High-frequency polling enabled for ${reading.siteId}: ` +
               `rate=${rateInfo.rate_ft_per_hour?.toFixed(2)} ft/hr`
             );
+
+            // Rapid change detected — regenerate Eddy report for affected rivers
+            try {
+              const { data: affectedRivers } = await supabase
+                .from('river_gauges')
+                .select('rivers!inner(slug)')
+                .eq('gauge_station_id', station.id);
+
+              if (affectedRivers) {
+                for (const rawRg of affectedRivers) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const riverSlug = (rawRg as any).rivers?.slug;
+                  if (riverSlug) {
+                    regenerateEddyForRiver(riverSlug, 'rapid_change').catch((err) => {
+                      console.error(`Eddy regen error for ${riverSlug} (rapid):`, err);
+                    });
+                  }
+                }
+              }
+            } catch (regenErr) {
+              console.error(`Rapid-change regen lookup error for station ${station.id}:`, regenErr);
+            }
           }
         } else if (!isRapidChange && station.high_frequency_flag) {
           // Water level stabilized - disable high-frequency polling
@@ -222,6 +245,11 @@ async function runUpdate(request: NextRequest) {
                 gaugeHeightFt: reading.gaugeHeightFt,
               }).catch((err) => {
                 console.error(`Condition alert publish error for ${riverSlug}:`, err);
+              });
+
+              // Regenerate Eddy report for this river (async, throttled internally)
+              regenerateEddyForRiver(riverSlug, 'condition_change').catch((err) => {
+                console.error(`Eddy regen error for ${riverSlug}:`, err);
               });
             }
           }

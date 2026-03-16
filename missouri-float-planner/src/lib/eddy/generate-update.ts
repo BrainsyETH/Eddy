@@ -8,10 +8,13 @@ import { RIVER_NOTES } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
+import { fetchPrecipitationFromWeather, type PrecipitationSummary } from '@/lib/weather/openweather';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
+import { buildGaugeTrajectory, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
+import { RAIN_LAG } from '@/lib/eddy/rain-lag';
 
 export interface GaugeContext {
   gaugeName: string;
@@ -51,6 +54,7 @@ export async function generateEddyUpdate(
   // --- 2. Fetch weather (current + 3-day forecast) ---
   let weather: WeatherData | null = null;
   let forecast: ForecastData | null = null;
+  let precipitation: PrecipitationSummary | null = null;
   const cityInfo = getCityForRiver(target.riverSlug);
   const apiKey = process.env.OPENWEATHER_API_KEY;
   if (cityInfo && apiKey) {
@@ -60,6 +64,8 @@ export async function generateEddyUpdate(
         fetchForecast(cityInfo.lat, cityInfo.lon, apiKey).catch(() => null),
       ]);
       sourcesUsed.push('OpenWeather');
+      // Extract precipitation data from already-fetched responses
+      precipitation = fetchPrecipitationFromWeather(weather, forecast);
     } catch (e) {
       console.warn(`[EddyGen] Weather fetch failed for ${target.riverSlug}:`, e);
     }
@@ -79,14 +85,15 @@ export async function generateEddyUpdate(
   const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
   if (localKnowledge) sourcesUsed.push('local knowledge');
 
-  // --- 5. Fetch gauge trend (rising/falling/steady) ---
-  let trendLabel: string | null = null;
+  // --- 5. Fetch gauge trajectory (48h history + percentiles) ---
+  let trajectory: GaugeTrajectory | null = null;
   if (gaugeContext) {
-    trendLabel = await fetchGaugeTrend(target.riverSlug);
+    trajectory = await buildGaugeTrajectory(target.riverSlug);
+    if (trajectory) sourcesUsed.push('gauge trajectory');
   }
 
   // --- 6. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trendLabel);
+  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation);
 
   // --- 7. Call Claude Haiku ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -100,7 +107,7 @@ export async function generateEddyUpdate(
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+      max_tokens: 500,
       messages: [{ role: 'user', content: prompt }],
       system: EDDY_SYSTEM_PROMPT,
     });
@@ -141,7 +148,7 @@ export async function generateEddyUpdate(
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// System prompt
 // ---------------------------------------------------------------------------
 
 const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozarks float trip planning app. You provide condition updates for Missouri rivers.
@@ -163,6 +170,10 @@ Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. Water clar
 RULES FOR BOTH SECTIONS:
 - Lead with the current condition assessment.
 - Mention the gauge reading and what it means for floating.
+- When a gauge trajectory is provided, describe the trend direction and whether the change is accelerating or slowing. This is critical context for floaters deciding whether to go.
+- When percentile context is available, use it to note whether conditions are typical or unusual for the time of year.
+- When recent precipitation data is provided, connect it to the gauge trend and river-specific rain lag to explain what is happening and what to expect next.
+- Connect recent gauge trends to the upcoming forecast when relevant (e.g. "steady now but rain Thursday could push it up").
 - If a trend is provided (rising, falling, steady), weave it in.
 - If weather is relevant, mention it. If a 3-day forecast is provided, reference upcoming conditions.
 - If there are active NWS flood alerts, lead with safety first.
@@ -177,6 +188,10 @@ RULES FOR BOTH SECTIONS:
 - Do NOT say "I" or refer to yourself.
 - Output ONLY the summary and full text separated by ---. No labels, no quotes.`;
 
+// ---------------------------------------------------------------------------
+// Prompt assembly
+// ---------------------------------------------------------------------------
+
 function buildPrompt(
   target: UpdateTarget,
   gauge: GaugeContext | null,
@@ -184,7 +199,8 @@ function buildPrompt(
   forecast: ForecastData | null,
   alerts: NWSAlert[],
   localKnowledge: string,
-  trendLabel: string | null = null,
+  trajectory: GaugeTrajectory | null = null,
+  precipitation: PrecipitationSummary | null = null,
 ): string {
   const riverNotes = RIVER_NOTES[target.riverSlug];
   const lines: string[] = [];
@@ -205,33 +221,28 @@ function buildPrompt(
   }
 
   lines.push('');
-  lines.push('--- CURRENT DATA ---');
+  lines.push('--- CURRENT GAUGE DATA ---');
 
   // Gauge data
   if (gauge) {
     lines.push(`Gauge: ${gauge.gaugeName}`);
     lines.push(`Height: ${gauge.gaugeHeightFt !== null ? gauge.gaugeHeightFt.toFixed(1) + ' ft' : 'unavailable'}`);
     if (gauge.dischargeCfs !== null) {
-      lines.push(`Discharge: ${gauge.dischargeCfs} cfs`);
+      lines.push(`Discharge: ${gauge.dischargeCfs.toLocaleString()} cfs`);
     }
     lines.push(`Condition: ${gauge.conditionLabel} (${gauge.conditionCode})`);
     lines.push(`Optimal range: ${gauge.optimalRange}`);
     if (gauge.readingTimestamp) {
       const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
       if (ageHours > 6) {
-        lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old — data may be stale.`);
+        lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
       }
     }
   } else {
     lines.push('Gauge data: unavailable');
   }
 
-  // Gauge trend
-  if (trendLabel) {
-    lines.push(`Trend: ${trendLabel}`);
-  }
-
-  // Gauge threshold knowledge — prefer DB-sourced values from gauge context
+  // Gauge threshold knowledge
   if (gauge?.notes) {
     lines.push(`Gauge notes: ${gauge.notes}`);
   } else if (riverNotes) {
@@ -239,6 +250,59 @@ function buildPrompt(
   }
   if (gauge?.closureLevel != null) {
     lines.push(`Closure level: ${gauge.closureLevel} ft`);
+  }
+
+  // 48-hour gauge trajectory (replaces old 2-reading trend)
+  if (trajectory) {
+    lines.push('');
+    lines.push('--- 48-HOUR GAUGE TRAJECTORY ---');
+    if (trajectory.change24h != null) {
+      const sign24 = trajectory.change24h >= 0 ? '+' : '';
+      const startHeight = trajectory.currentHeightFt != null
+        ? (trajectory.currentHeightFt - trajectory.change24h).toFixed(1)
+        : '?';
+      lines.push(`24h change: ${sign24}${trajectory.change24h.toFixed(1)} ft (was ${startHeight} ft yesterday)`);
+    }
+    if (trajectory.change6h != null) {
+      const sign6 = trajectory.change6h >= 0 ? '+' : '';
+      lines.push(`6h change: ${sign6}${trajectory.change6h.toFixed(1)} ft`);
+    }
+    if (trajectory.rateFtPerHour != null && trajectory.acceleration) {
+      lines.push(`Rate: ${trajectory.acceleration} at ${Math.abs(trajectory.rateFtPerHour).toFixed(2)} ft/hr`);
+    }
+    if (trajectory.peak48h) {
+      lines.push(`48h peak: ${trajectory.peak48h.heightFt.toFixed(1)} ft`);
+    }
+    if (trajectory.trough48h) {
+      lines.push(`48h low: ${trajectory.trough48h.heightFt.toFixed(1)} ft`);
+    }
+    lines.push(`Summary: ${trajectory.narrative}`);
+
+    // Historical percentile context
+    if (trajectory.percentileContext) {
+      lines.push('');
+      lines.push('--- HISTORICAL CONTEXT ---');
+      lines.push(trajectory.percentileContext);
+    }
+  }
+
+  // Recent precipitation
+  if (precipitation && (precipitation.rain1h > 0 || precipitation.rain3h > 0 || precipitation.forecastRainToday > 0)) {
+    lines.push('');
+    lines.push('--- RECENT PRECIPITATION ---');
+    if (precipitation.rain1h > 0 || precipitation.rain3h > 0) {
+      const parts: string[] = [];
+      if (precipitation.rain1h > 0) parts.push(`Last 1h: ${precipitation.rain1h.toFixed(1)} in`);
+      if (precipitation.rain3h > 0) parts.push(`Last 3h: ${precipitation.rain3h.toFixed(1)} in`);
+      lines.push(parts.join(' | '));
+    }
+    if (precipitation.forecastRainToday > 0) {
+      lines.push(`Today's forecast rain: ${precipitation.forecastRainToday.toFixed(1)} in`);
+    }
+    const rainLag = RAIN_LAG[target.riverSlug];
+    if (rainLag) {
+      lines.push(`Rain-to-river lag: ${rainLag.note}`);
+    }
   }
 
   // Weather (current)
@@ -255,11 +319,9 @@ function buildPrompt(
       lines.push('');
       lines.push('--- 3-DAY FORECAST ---');
       for (const day of upcoming) {
-        const rainNote = day.precipitation >= 50
+        const rainNote = day.precipitation >= 20
           ? ` (${day.precipitation}% chance of rain)`
-          : day.precipitation >= 20
-            ? ` (${day.precipitation}% chance of rain)`
-            : '';
+          : '';
         lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
       }
     }
@@ -287,64 +349,9 @@ function buildPrompt(
   return lines.join('\n');
 }
 
-/**
- * Fetches the recent gauge trend (rising / falling / steady) by comparing
- * the two most recent readings for the river's primary gauge.
- */
-async function fetchGaugeTrend(riverSlug: string): Promise<string | null> {
-  try {
-    const supabase = createAdminClient();
-
-    const { data: riverData } = await supabase
-      .from('rivers')
-      .select('id')
-      .eq('slug', riverSlug)
-      .single();
-
-    if (!riverData) return null;
-
-    const { data: gaugeLink } = await supabase
-      .from('river_gauges')
-      .select('gauge_stations (id)')
-      .eq('river_id', riverData.id)
-      .eq('is_primary', true)
-      .single();
-
-    if (!gaugeLink) return null;
-
-    const station = Array.isArray(gaugeLink.gauge_stations)
-      ? gaugeLink.gauge_stations[0]
-      : gaugeLink.gauge_stations;
-
-    if (!station?.id) return null;
-
-    // Get the two most recent readings to determine trend
-    const { data: readings } = await supabase
-      .from('gauge_readings')
-      .select('gauge_height_ft, reading_timestamp')
-      .eq('gauge_station_id', station.id)
-      .order('reading_timestamp', { ascending: false })
-      .limit(2);
-
-    if (!readings || readings.length < 2) return null;
-
-    const newest = readings[0].gauge_height_ft;
-    const previous = readings[1].gauge_height_ft;
-    if (newest == null || previous == null) return null;
-
-    const delta = newest - previous;
-    const absDelta = Math.abs(delta);
-
-    if (absDelta < 0.1) return 'steady (little change)';
-    if (delta > 0.5) return `rising quickly (+${delta.toFixed(1)} ft since last reading)`;
-    if (delta > 0) return `rising slowly (+${delta.toFixed(1)} ft since last reading)`;
-    if (delta < -0.5) return `falling quickly (${delta.toFixed(1)} ft since last reading)`;
-    return `falling slowly (${delta.toFixed(1)} ft since last reading)`;
-  } catch (e) {
-    console.warn(`[EddyGen] Trend fetch failed for ${riverSlug}:`, e);
-    return null;
-  }
-}
+// ---------------------------------------------------------------------------
+// Gauge context fetcher
+// ---------------------------------------------------------------------------
 
 /**
  * Fetches the latest gauge reading and computes condition for a river.

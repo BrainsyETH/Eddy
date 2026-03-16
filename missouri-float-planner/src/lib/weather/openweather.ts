@@ -9,6 +9,10 @@ export interface WeatherData {
   windDirection: number;
   humidity: number;
   city: string;
+  /** Rain in last 1 hour (inches), 0 if not raining */
+  rain1hInches: number;
+  /** Rain in last 3 hours (inches), 0 if not raining */
+  rain3hInches: number;
 }
 
 // Map river slugs to nearby cities for weather lookup
@@ -44,6 +48,11 @@ export async function fetchWeather(
 
   const data = await response.json();
 
+  // OpenWeather returns rain.1h and rain.3h in mm when precipitating
+  const mmToInches = 0.03937;
+  const rain1hMm = data.rain?.['1h'] ?? 0;
+  const rain3hMm = data.rain?.['3h'] ?? 0;
+
   return {
     temp: Math.round(data.main.temp),
     condition: data.weather[0].main,
@@ -52,6 +61,8 @@ export async function fetchWeather(
     windDirection: data.wind?.deg || 0,
     humidity: data.main.humidity,
     city: data.name,
+    rain1hInches: Math.round(rain1hMm * mmToInches * 100) / 100,
+    rain3hInches: Math.round(rain3hMm * mmToInches * 100) / 100,
   };
 }
 
@@ -167,5 +178,36 @@ export async function fetchForecast(
   return {
     city: data.city?.name || 'Unknown',
     days: days.slice(0, 5),
+  };
+}
+
+// ============================================
+// PRECIPITATION EXTRACTION
+// ============================================
+
+export interface PrecipitationSummary {
+  /** Rain in the last 1 hour (inches), from current weather response */
+  rain1h: number;
+  /** Rain in the last 3 hours (inches), from current weather response */
+  rain3h: number;
+  /** Forecast rain total for today (inches), from forecast response */
+  forecastRainToday: number;
+}
+
+/**
+ * Extracts precipitation data from already-fetched weather and forecast responses.
+ * No additional API calls needed — uses fields already present in the responses.
+ */
+export function fetchPrecipitationFromWeather(
+  weather: WeatherData | null,
+  forecast: ForecastData | null,
+): PrecipitationSummary {
+  return {
+    rain1h: weather?.rain1hInches ?? 0,
+    rain3h: weather?.rain3hInches ?? 0,
+    // Today's forecast rain probability as a rough proxy
+    forecastRainToday: forecast?.days?.[0]?.precipitation
+      ? forecast.days[0].precipitation / 100 // Normalize to 0-1 range for display
+      : 0,
   };
 }
