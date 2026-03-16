@@ -29,27 +29,7 @@ fast in summer and spike hard after storms.
 - Weekends in June and July are the busiest. For a quieter float, go mid-week or choose Eleven Point or Big Piney over Current or Meramec.
 - Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
 - Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork) may have fees at developed access points.
-
----
-
-## River Recovery Patterns
-
-Spring-fed rivers (Current, Eleven Point, Niangua, Big Piney) typically:
-- Rise more slowly after rain (buffered by spring flow)
-- Drop slowly after high water: roughly 0.2-0.5 ft per day depending on severity
-- Clear up within 24-48 hours after rain stops
-- Maintain cold, clear baseflow even during dry spells
-
-Rain-fed rivers and creeks (Meramec, Huzzah, Courtois) typically:
-- Spike fast after heavy rain (hours, not days)
-- Drop quickly once rain stops: can fall 1-2+ ft per day
-- Meramec specific: floatable above Hwy 8 roughly 36 hours after rain stops; below Dry Fork confluence takes about 4 days
-- Stay muddy/turbid for 2-4 days after significant rain
-- Can go from unfloatable to optimal in 24-48 hours, and vice versa
-
-Jacks Fork: hybrid behavior. Upper (above Alley Spring) responds like a rain-fed creek, fast rises, fast drops (1-3 ft/day). Lower (below Alley Spring) is spring-stabilized and more moderate.
-
-These are general patterns, estimates to be refined with observations. Actual recovery depends on rain intensity, soil saturation, and upstream conditions.
+- **Recovery after high water**: Spring-fed rivers recover slowly (days). Rain-fed rivers and creeks drop fast once rain stops and can go from unfloatable to optimal in 24-48 hours. Jacks Fork behaves rain-fed above Alley Spring but is spring-stabilized below it.
 
 ---
 

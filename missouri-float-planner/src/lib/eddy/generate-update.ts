@@ -14,7 +14,7 @@ import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
 import { buildGaugeTrajectory, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
-import { RAIN_LAG } from '@/lib/eddy/rain-lag';
+
 
 export interface GaugeContext {
   gaugeName: string;
@@ -160,7 +160,7 @@ You must output exactly two sections, separated by the delimiter "---". No other
 
 SUMMARY: A single sentence (under 120 characters) giving the bottom line. This is used for share cards and compact views.
 ---
-FULL: The full 4-6 sentence update with details, trends, and context.
+FULL: 4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
 
 Example output:
 Gauge reads 2.5 ft, right in the sweet spot. Great day to float.
@@ -201,8 +201,8 @@ SECTION-SPECIFIC:
 - Do NOT guess at section behavior you were not given knowledge about.
 
 RECOVERY CONTEXT:
-- When river recovery data (drop rates, rain lag) is provided, use it to inform your forward-looking statements.
-- Frame recovery as a range, not a specific prediction: "spring-fed rivers like this typically drop 0.2 to 0.4 ft per day" not "the gauge will be back to normal by Wednesday."
+- Do not cite specific drop rates or recovery timelines in your output.
+- Use recovery knowledge to inform your tone (optimistic about recovery vs cautious), not as numbers to recite.
 
 STYLE:
 - Incorporate local knowledge naturally when provided.
@@ -346,19 +346,6 @@ function buildPrompt(
         lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
       }
     }
-  }
-
-  // River recovery context — injected conditionally when relevant
-  const rainLag = RAIN_LAG[target.riverSlug];
-  const isFalling = trajectory?.acceleration?.includes('falling') ?? false;
-  const isHighOrDangerous = gauge?.conditionCode === 'high' || gauge?.conditionCode === 'dangerous';
-  const hasRainForecast = forecast?.days.slice(1, 4).some((d) => d.precipitation >= 40) ?? false;
-
-  if (rainLag && (isFalling || isHighOrDangerous || hasRainForecast)) {
-    lines.push('');
-    lines.push('--- RIVER RECOVERY CONTEXT ---');
-    lines.push(`Typical drop rate: ${rainLag.dropRateFtPerDay}`);
-    lines.push(`Rain-to-river lag: ${rainLag.note}`);
   }
 
   // NWS alerts
