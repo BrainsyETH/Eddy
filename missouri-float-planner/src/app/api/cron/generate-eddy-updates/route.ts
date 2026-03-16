@@ -1,10 +1,11 @@
 // src/app/api/cron/generate-eddy-updates/route.ts
 // Cron job: generates AI-powered Eddy condition updates for all active rivers.
 // Runs every 6 hours via Vercel Cron. Stores results in eddy_updates table.
+// Uses concurrent processing (max 3 parallel) for faster execution.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getUpdateTargets } from '@/data/river-sections';
+import { getUpdateTargets, type UpdateTarget } from '@/data/river-sections';
 import { generateEddyUpdate } from '@/lib/eddy/generate-update';
 import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
 
@@ -12,6 +13,37 @@ export const dynamic = 'force-dynamic';
 
 // How long an update remains valid (hours)
 const UPDATE_TTL_HOURS = 7; // Slightly longer than the 6-hour cron interval
+
+// Maximum concurrent Haiku calls to avoid rate limiting
+const MAX_CONCURRENCY = 3;
+
+/**
+ * Simple concurrency limiter — processes items with at most `limit` in flight.
+ */
+async function processWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const currentIndex = index++;
+      try {
+        const result = await fn(items[currentIndex]);
+        results[currentIndex] = { status: 'fulfilled', value: result };
+      } catch (reason) {
+        results[currentIndex] = { status: 'rejected', reason };
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
 
 async function runGeneration(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -59,47 +91,56 @@ async function runGeneration(request: NextRequest) {
   let failed = 0;
   const errors: string[] = [];
 
-  // Process sequentially to avoid rate limits and keep costs predictable
-  for (const target of targets) {
-    try {
-      const update = await generateEddyUpdate(target);
+  // Process targets with bounded concurrency (3 parallel Haiku calls)
+  const processTarget = async (target: UpdateTarget) => {
+    const update = await generateEddyUpdate(target);
 
-      if (!update) {
-        failed++;
-        errors.push(`${target.riverSlug}/${target.sectionSlug || 'whole'}: generation returned null`);
-        continue;
-      }
+    if (!update) {
+      throw new Error(`generation returned null`);
+    }
 
-      // Store in database
-      const { error: insertError } = await supabase.from('eddy_updates').insert({
-        river_slug: update.riverSlug,
-        section_slug: update.sectionSlug,
-        condition_code: update.conditionCode,
-        gauge_height_ft: update.gaugeHeightFt,
-        discharge_cfs: update.dischargeCfs,
-        quote_text: update.quoteText,
-        summary_text: update.summaryText,
-        sources_used: update.sourcesUsed,
-        generated_at: new Date().toISOString(),
-        expires_at: expiresAt,
-      });
+    // Store in database
+    const { error: insertError } = await supabase.from('eddy_updates').insert({
+      river_slug: update.riverSlug,
+      section_slug: update.sectionSlug,
+      condition_code: update.conditionCode,
+      gauge_height_ft: update.gaugeHeightFt,
+      discharge_cfs: update.dischargeCfs,
+      quote_text: update.quoteText,
+      summary_text: update.summaryText,
+      sources_used: update.sourcesUsed,
+      generated_at: new Date().toISOString(),
+      expires_at: expiresAt,
+      trigger_reason: 'scheduled',
+      is_event_driven: false,
+    });
 
-      if (insertError) {
-        console.error(`[EddyCron] Insert failed for ${target.riverSlug}:`, insertError);
-        failed++;
-        errors.push(`${target.riverSlug}: DB insert failed`);
-        continue;
-      }
+    if (insertError) {
+      throw new Error(`DB insert failed: ${insertError.message}`);
+    }
 
+    return update;
+  };
+
+  const results = await processWithConcurrency(targets, MAX_CONCURRENCY, processTarget);
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const target = targets[i];
+    const label = `${target.riverSlug}/${target.sectionSlug || 'whole'}`;
+
+    if (result.status === 'fulfilled') {
       generated++;
+      const update = result.value;
       console.log(
-        `[EddyCron] Generated update for ${target.riverSlug}/${target.sectionSlug || 'whole'}: ` +
+        `[EddyCron] Generated update for ${label}: ` +
           `${update.conditionCode} @ ${update.gaugeHeightFt?.toFixed(1) ?? '?'} ft`
       );
-    } catch (e) {
-      console.error(`[EddyCron] Error processing ${target.riverSlug}:`, e);
+    } else {
       failed++;
-      errors.push(`${target.riverSlug}: ${e instanceof Error ? e.message : 'unknown error'}`);
+      const msg = result.reason instanceof Error ? result.reason.message : 'unknown error';
+      errors.push(`${label}: ${msg}`);
+      console.error(`[EddyCron] Error processing ${label}:`, result.reason);
     }
   }
 
@@ -117,6 +158,8 @@ async function runGeneration(request: NextRequest) {
         sources_used: globalUpdate.sourcesUsed,
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,
+        trigger_reason: 'scheduled',
+        is_event_driven: false,
       });
 
       if (globalInsertError) {

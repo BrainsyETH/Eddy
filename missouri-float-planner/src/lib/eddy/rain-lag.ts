@@ -1,0 +1,46 @@
+// src/lib/eddy/rain-lag.ts
+// Static per-river rain-to-river response times.
+// Used by buildPrompt() to give the AI model context about how quickly
+// each river responds to rainfall.
+
+export interface RainLagInfo {
+  /** Typical hours from local rain to gauge response */
+  hours: number;
+  /** Short description for the prompt */
+  note: string;
+}
+
+export const RAIN_LAG: Record<string, RainLagInfo> = {
+  'current': {
+    hours: 8,
+    note: 'Spring-fed base absorbs light rain. Heavy rain shows in 6-12 hours.',
+  },
+  'jacks-fork': {
+    hours: 4,
+    note: 'Small rain-dependent watershed responds fast, 3-6 hours. Flash rises are common.',
+  },
+  'meramec': {
+    hours: 6,
+    note: 'Rain-fed, responds in 4-8 hours depending on intensity. Can spike 5-10 ft after heavy storms.',
+  },
+  'eleven-point': {
+    hours: 8,
+    note: 'Partially rain-fed. Greer Spring stabilizes lower sections. Upper sections respond in 6-10 hours.',
+  },
+  'niangua': {
+    hours: 10,
+    note: 'Bennett Spring provides stable base flow. Rain response is moderate, 8-12 hours.',
+  },
+  'big-piney': {
+    hours: 6,
+    note: 'Spring-fed but lower volume. Responds to rain in 5-8 hours.',
+  },
+  'huzzah': {
+    hours: 3,
+    note: 'Small rain-fed creek. Responds quickly, 2-4 hours. Drops fast in dry spells.',
+  },
+  'courtois': {
+    hours: 3,
+    note: 'Small rain-fed creek, similar to Huzzah. Fast response, 2-4 hours.',
+  },
+};
