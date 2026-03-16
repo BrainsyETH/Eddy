@@ -230,7 +230,7 @@ export async function fetchDailyStatistics(
     });
 
     if (!response.ok) {
-      console.error(`USGS Statistics API error: ${response.status} ${response.statusText}`);
+      console.warn(`[USGS Stats] No statistics available for site ${siteId} (HTTP ${response.status})`);
       return null;
     }
 
