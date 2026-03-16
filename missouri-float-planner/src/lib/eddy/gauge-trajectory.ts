@@ -315,6 +315,12 @@ function buildNarrative(
     parts.push(`peaked at ${peak.heightFt.toFixed(1)} ft ${peakTime}`);
   }
 
+  // Note significant trough if different from current and not the same event as peak
+  if (trough && Math.abs(trough.heightFt - currentHeight) >= 0.3 && (!peak || trough.timestamp !== peak.timestamp)) {
+    const troughTime = formatTimeAgo(trough.timestamp);
+    parts.push(`low point of ${trough.heightFt.toFixed(1)} ft ${troughTime}`);
+  }
+
   return parts.join(', ') + '.';
 }
 
