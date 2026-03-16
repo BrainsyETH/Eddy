@@ -111,6 +111,8 @@ async function runGeneration(request: NextRequest) {
       sources_used: update.sourcesUsed,
       generated_at: new Date().toISOString(),
       expires_at: expiresAt,
+      trigger_reason: 'scheduled',
+      is_event_driven: false,
     });
 
     if (insertError) {
@@ -156,6 +158,8 @@ async function runGeneration(request: NextRequest) {
         sources_used: globalUpdate.sourcesUsed,
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,
+        trigger_reason: 'scheduled',
+        is_event_driven: false,
       });
 
       if (globalInsertError) {

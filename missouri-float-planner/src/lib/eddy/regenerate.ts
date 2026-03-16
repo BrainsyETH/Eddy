@@ -32,19 +32,35 @@ export async function regenerateEddyForRiver(
   const supabase = createAdminClient();
 
   // --- Throttle check: cooldown ---
-  // Check if ANY update was generated for this river recently (works with or without migration)
   const cooldownCutoff = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
-  const { data: recentUpdates } = await supabase
+  const { data: recentEventUpdates } = await supabase
     .from('eddy_updates')
     .select('id')
     .eq('river_slug', riverSlug)
-    .is('section_slug', null)
+    .eq('is_event_driven', true)
     .gte('generated_at', cooldownCutoff)
     .limit(1);
 
-  if (recentUpdates && recentUpdates.length > 0) {
+  if (recentEventUpdates && recentEventUpdates.length > 0) {
     console.log(
-      `[EddyRegen] Skipping ${riverSlug} (${triggerReason}): update generated within last ${COOLDOWN_HOURS}h`
+      `[EddyRegen] Skipping ${riverSlug} (${triggerReason}): event-driven update generated within last ${COOLDOWN_HOURS}h`
+    );
+    return 0;
+  }
+
+  // --- Throttle check: daily cap ---
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const { count: dailyCount } = await supabase
+    .from('eddy_updates')
+    .select('id', { count: 'exact', head: true })
+    .eq('river_slug', riverSlug)
+    .eq('is_event_driven', true)
+    .gte('generated_at', dayStart.toISOString());
+
+  if ((dailyCount ?? 0) >= MAX_DAILY_REGENS) {
+    console.log(
+      `[EddyRegen] Skipping ${riverSlug} (${triggerReason}): daily cap of ${MAX_DAILY_REGENS} event-driven regens reached`
     );
     return 0;
   }
@@ -81,6 +97,8 @@ export async function regenerateEddyForRiver(
         sources_used: update.sourcesUsed,
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,
+        trigger_reason: triggerReason,
+        is_event_driven: true,
       });
 
       if (insertError) {
