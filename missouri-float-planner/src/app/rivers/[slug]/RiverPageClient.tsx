@@ -11,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import RiverHeader from '@/components/river/RiverHeader';
 import EddyQuote from '@/components/river/EddyQuote';
-import PlannerPanel from '@/components/river/PlannerPanel';
+
 import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import PointsOfInterest from '@/components/river/PointsOfInterest';
@@ -66,7 +66,7 @@ export default function RiverPage() {
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
-  const { data: accessPoints, isLoading: accessPointsLoading } = useAccessPoints(slug);
+  const { data: accessPoints } = useAccessPoints(slug);
   const { data: conditionData } = useConditions(river?.id || null, {
     putInAccessPointId: selectedPutIn,
   });
@@ -223,31 +223,6 @@ export default function RiverPage() {
       setBothPoints(selectedPutIn, point.id);
     }
   }, [selectedPutIn, selectedTakeOut, setBothPoints]);
-
-  // PlannerPanel callbacks — auto-swap when both points would be in wrong order
-  const handlePutInChange = useCallback((id: string | null) => {
-    if (!id) {
-      setSelectedPutIn(null);
-      return;
-    }
-    if (selectedTakeOut) {
-      setBothPoints(id, selectedTakeOut);
-    } else {
-      setSelectedPutIn(id);
-    }
-  }, [selectedTakeOut, setBothPoints]);
-
-  const handleTakeOutChange = useCallback((id: string | null) => {
-    if (!id) {
-      setSelectedTakeOut(null);
-      return;
-    }
-    if (selectedPutIn) {
-      setBothPoints(selectedPutIn, id);
-    } else {
-      setSelectedTakeOut(id);
-    }
-  }, [selectedPutIn, setBothPoints]);
 
   // Handle report issue for access point
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
@@ -503,18 +478,6 @@ export default function RiverPage() {
               const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
               return `${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`;
             })()}
-          />
-        </div>
-
-        {/* Planner Selectors - always at top */}
-        <div className="mb-4">
-          <PlannerPanel
-            accessPoints={accessPoints || []}
-            isLoading={accessPointsLoading}
-            selectedPutIn={selectedPutIn}
-            selectedTakeOut={selectedTakeOut}
-            onPutInChange={handlePutInChange}
-            onTakeOutChange={handleTakeOutChange}
           />
         </div>
 
