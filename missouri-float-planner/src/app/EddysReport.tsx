@@ -1,12 +1,12 @@
 'use client';
 
 // EddysReport — Eddy Says conditions dashboard
-// Full-width stacked river cards with river selector dropdown
+// Clean white card with scrollable pill bar river selector
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { RiverListItem, ConditionCode } from '@/types/api';
@@ -16,12 +16,12 @@ const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.co
 
 const VERDICT_MAP: Record<ConditionCode, { text: string; color: string }> = {
   optimal:   { text: 'Float!',  color: '#059669' },
-  okay:      { text: 'Float',   color: '#84cc16' },
-  low:       { text: 'Low',     color: '#eab308' },
-  too_low:   { text: 'Wait',    color: '#9ca3af' },
-  high:      { text: 'Caution', color: '#f97316' },
-  dangerous: { text: 'Closed',  color: '#ef4444' },
-  unknown:   { text: '—',       color: '#9ca3af' },
+  okay:      { text: 'Float',   color: '#65a30d' },
+  low:       { text: 'Low',     color: '#ca8a04' },
+  too_low:   { text: 'Wait',    color: '#6b7280' },
+  high:      { text: 'Caution', color: '#ea580c' },
+  dangerous: { text: 'Closed',  color: '#dc2626' },
+  unknown:   { text: '—',       color: '#6b7280' },
 };
 
 interface EddysReportProps {
@@ -33,6 +33,7 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
   const [selectedRiver, setSelectedRiver] = useState<string>('all');
   const [globalQuote, setGlobalQuote] = useState<string | null>(null);
   const [globalQuoteAge, setGlobalQuoteAge] = useState<string | null>(null);
+  const pillsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +63,7 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
     : rivers.filter(r => r.slug === selectedRiver);
 
   return (
-    <div className="glass-card-dark rounded-2xl border border-white/10 overflow-hidden">
+    <div className="glass-card rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="p-5 lg:p-6 pb-4">
         <div className="flex items-center gap-3 mb-3">
@@ -74,40 +75,55 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
             className="w-12 h-12 md:w-14 md:h-14 object-contain"
           />
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl lg:text-2xl font-bold text-white">Eddy Says</h2>
+            <h2 className="text-xl lg:text-2xl font-bold text-neutral-800">Eddy Says</h2>
             {globalQuoteAge && (
-              <span className="text-[10px] text-white/40">{globalQuoteAge}</span>
+              <span className="text-[10px] text-neutral-400">{globalQuoteAge}</span>
             )}
           </div>
         </div>
 
         {/* Global summary quote */}
         {summaryText && (
-          <p className="text-sm md:text-base text-white/80 leading-relaxed mb-4">
+          <p className="text-sm md:text-base text-neutral-600 leading-relaxed mb-4">
             &ldquo;{summaryText}&rdquo;
           </p>
         )}
 
-        {/* River selector */}
-        <div className="relative">
-          <select
-            value={selectedRiver}
-            onChange={(e) => setSelectedRiver(e.target.value)}
-            className="w-full appearance-none bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-500/50"
+        {/* Scrollable pill bar */}
+        <div
+          ref={pillsRef}
+          className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 lg:-mx-6 lg:px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        >
+          <button
+            onClick={() => setSelectedRiver('all')}
+            className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              selectedRiver === 'all'
+                ? 'text-white'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+            style={selectedRiver === 'all' ? { backgroundColor: '#F07052' } : undefined}
           >
-            <option value="all" className="bg-primary-800 text-white">All Rivers</option>
-            {rivers.map(r => (
-              <option key={r.slug} value={r.slug} className="bg-primary-800 text-white">
-                {r.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+            All Rivers
+          </button>
+          {rivers.map(r => (
+            <button
+              key={r.slug}
+              onClick={() => setSelectedRiver(r.slug)}
+              className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                selectedRiver === r.slug
+                  ? 'text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+              style={selectedRiver === r.slug ? { backgroundColor: '#F07052' } : undefined}
+            >
+              {r.name}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* River cards */}
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-neutral-100">
         {displayRivers.map(river => {
           const code = river.currentCondition?.code ?? 'unknown';
           const verdict = VERDICT_MAP[code];
@@ -118,7 +134,7 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
             <Link
               key={river.id}
               href={`/rivers/${river.slug}`}
-              className="flex items-center gap-3 px-5 lg:px-6 py-4 hover:bg-white/5 transition-colors no-underline group"
+              className="flex items-center gap-3 px-5 lg:px-6 py-4 hover:bg-neutral-50 transition-colors no-underline group"
             >
               {/* Condition dot */}
               <span
@@ -129,7 +145,7 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
               {/* River info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="font-semibold text-white text-sm md:text-base truncate">
+                  <span className="font-semibold text-neutral-800 text-sm md:text-base truncate">
                     {river.name}
                   </span>
                   <span
@@ -139,19 +155,19 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
                     {verdict.text}
                   </span>
                 </div>
-                <p className="text-xs md:text-sm text-white/50 truncate mt-0.5">
+                <p className="text-xs md:text-sm text-neutral-400 truncate mt-0.5">
                   {blurb}
                 </p>
               </div>
 
               {/* Arrow */}
-              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors flex-shrink-0" />
+              <ChevronRight className="w-4 h-4 text-neutral-300 group-hover:text-neutral-500 transition-colors flex-shrink-0" />
             </Link>
           );
         })}
 
         {displayRivers.length === 0 && (
-          <div className="px-5 py-8 text-center text-white/40 text-sm">
+          <div className="px-5 py-8 text-center text-neutral-400 text-sm">
             No river data available
           </div>
         )}
