@@ -48,23 +48,23 @@ export const metadata: Metadata = {
     apple: EDDY_FAVICON_URL,
   },
   title: {
-    default: "Eddy — Missouri Float Trip Planner",
+    default: "Eddy - Your River Guide",
     template: "%s | Eddy",
   },
-  description: "Plan your Missouri float trip with live water conditions, access points, float times & weather. Current River, Jacks Fork, Eleven Point & more.",
+  description: "Plan your next float trip with live water conditions, access points, float times & weather. Check river levels before you go.",
   openGraph: {
     type: "website",
     locale: "en_US",
     siteName: "Eddy",
-    title: "Eddy — Missouri Float Trip Planner",
-    description: "Live water conditions, float times, access points & weather for Missouri's best float rivers. Check before you go!",
+    title: "Eddy - Your River Guide",
+    description: "Live water conditions, float times, access points & weather for your favorite float rivers. Check before you go!",
     url: BASE_URL,
     // OG image is auto-discovered from opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
-    title: "Eddy — Missouri Float Trip Planner",
-    description: "Live water conditions, float times, access points & weather for Missouri's best float rivers.",
+    title: "Eddy - Your River Guide",
+    description: "Live water conditions, float times, access points & weather for your favorite float rivers.",
     // Twitter image is auto-discovered from twitter-image.tsx
   },
 };

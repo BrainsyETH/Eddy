@@ -14,14 +14,14 @@ import type { ConditionCode } from '@/types/api';
 
 // Brief descriptions for each river
 const RIVER_DESCRIPTIONS: Record<string, string> = {
-  'meramec': 'One of Missouri\'s longest free-flowing rivers, winding through scenic bluffs and popular with paddlers of all levels.',
+  'meramec': 'One of the longest free-flowing rivers in the region, winding through scenic bluffs and popular with paddlers of all levels.',
   'current': 'A National Scenic Riverway fed by massive springs, known for crystal-clear water and excellent floating year-round.',
   'eleven-point': 'A designated National Scenic River offering remote floating through the Mark Twain National Forest.',
-  'jacks-fork': 'A spring-fed tributary of the Current River within the Ozark National Scenic Riverways, great for shorter float trips.',
-  'niangua': 'A scenic Ozark stream flowing through Camden and Dallas counties, popular for leisurely summer floats.',
-  'big-piney': 'A beautiful Ozark river with Class I-II rapids, bluffs, and a remote feel — excellent for intermediate paddlers.',
+  'jacks-fork': 'A spring-fed tributary of the Current River within the National Scenic Riverways, great for shorter float trips.',
+  'niangua': 'A scenic stream known for leisurely summer floats and beautiful surroundings.',
+  'big-piney': 'A beautiful river with Class I-II rapids, bluffs, and a remote feel — excellent for intermediate paddlers.',
   'huzzah': 'A smaller, spring-fed stream in the Meramec basin known for quick floats and family-friendly conditions.',
-  'courtois': 'A tributary of the Huzzah, offering intimate floating through wooded Ozark hills with relatively consistent water levels.',
+  'courtois': 'A tributary of the Huzzah, offering intimate floating through wooded hills with relatively consistent water levels.',
 };
 
 // Condition summary pill config
@@ -72,7 +72,7 @@ export default function RiversPage() {
             className="text-4xl md:text-5xl font-bold mb-3"
             style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
           >
-            Missouri Float Rivers
+            Float Rivers
           </h1>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
             Explore our supported rivers with live conditions, access points, and float planning tools.

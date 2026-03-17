@@ -6,16 +6,16 @@ import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'River Gauges | Eddy',
-  description: 'Real-time water levels and flow trends from USGS gauge stations across Missouri rivers. Check conditions before your float trip.',
+  description: 'Real-time water levels and flow trends from USGS gauge stations. Check river conditions before your float trip.',
   openGraph: {
     title: 'River Gauges | Eddy',
-    description: 'Real-time water levels and flow trends from USGS gauge stations across Missouri rivers.',
+    description: 'Real-time water levels and flow trends from USGS gauge stations. Check conditions before you float.',
     // OG image is auto-discovered from opengraph-image.tsx
   },
   twitter: {
     card: 'summary_large_image',
     title: 'River Gauges | Eddy',
-    description: 'Real-time water levels and flow trends from USGS gauge stations across Missouri rivers.',
+    description: 'Real-time water levels and flow trends from USGS gauge stations. Check conditions before you float.',
     // Twitter image is auto-discovered from twitter-image.tsx
   },
 };

@@ -92,7 +92,7 @@ function HomeContent() {
             Eddy
           </h1>
           <p className="text-xl md:text-2xl text-white/90 font-medium mb-8">
-            Your Ozark Float Trip Companion
+            Your River Guide
           </p>
 
           {/* Feature pills */}

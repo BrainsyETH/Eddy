@@ -24,7 +24,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const slug = resolvedParams?.slug;
 
   // Default fallback data
-  let riverName = 'Missouri River';
+  let riverName = 'River';
   let gaugeReading: number | null = null;
   const gaugeUnit = 'ft';
   let status: ConditionCode = 'unknown';

@@ -179,7 +179,7 @@ export default async function BlogPostPage({
               Ready to Plan Your Float Trip?
             </h2>
             <p className="text-gray-600 mb-6 max-w-lg mx-auto">
-              Use Eddy to plan your perfect Missouri float trip with real-time water conditions,
+              Use Eddy to plan your perfect float trip with real-time water conditions,
               access points, and float time estimates.
             </p>
             <Link

@@ -109,7 +109,7 @@ export default async function Image() {
               maxWidth: 540,
             }}
           >
-            Real-time USGS water levels and flow trends across Missouri
+            Real-time USGS water levels and flow trends for float rivers
           </span>
 
           {/* Eddy quote snippet */}
