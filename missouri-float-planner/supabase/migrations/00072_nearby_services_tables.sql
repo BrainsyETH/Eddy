@@ -179,19 +179,8 @@ CREATE POLICY service_rivers_delete ON service_rivers
 -- These are replaced by the more comprehensive nearby_services
 -- ============================================
 
--- Drop policies first
-DROP POLICY IF EXISTS shuttle_coverage_delete ON shuttle_service_coverage;
-DROP POLICY IF EXISTS shuttle_coverage_update ON shuttle_service_coverage;
-DROP POLICY IF EXISTS shuttle_coverage_insert ON shuttle_service_coverage;
-DROP POLICY IF EXISTS shuttle_coverage_select ON shuttle_service_coverage;
-DROP POLICY IF EXISTS shuttle_services_delete ON shuttle_services;
-DROP POLICY IF EXISTS shuttle_services_update ON shuttle_services;
-DROP POLICY IF EXISTS shuttle_services_insert ON shuttle_services;
-DROP POLICY IF EXISTS shuttle_services_select ON shuttle_services;
-
--- Drop trigger
-DROP TRIGGER IF EXISTS shuttle_services_updated_at ON shuttle_services;
-
--- Drop tables (coverage first due to FK)
+-- Drop tables (IF EXISTS handles missing tables gracefully).
+-- Dropping a table automatically drops its policies, triggers, and indexes.
+-- Drop coverage first due to FK dependency.
 DROP TABLE IF EXISTS shuttle_service_coverage;
 DROP TABLE IF EXISTS shuttle_services;
