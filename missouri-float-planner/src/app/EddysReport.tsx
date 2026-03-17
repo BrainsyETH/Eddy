@@ -1,9 +1,9 @@
 'use client';
 
 // EddysReport — Eddy Says conditions dashboard
-// Clean white card with scrollable pill bar river selector
+// Clean white card showing all rivers with condition verdicts
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
@@ -30,10 +30,8 @@ interface EddysReportProps {
 }
 
 export default function EddysReport({ rivers, fallbackSummary }: EddysReportProps) {
-  const [selectedRiver, setSelectedRiver] = useState<string>('all');
   const [globalQuote, setGlobalQuote] = useState<string | null>(null);
   const [globalQuoteAge, setGlobalQuoteAge] = useState<string | null>(null);
-  const pillsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,9 +56,6 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
   }, []);
 
   const summaryText = globalQuote || fallbackSummary;
-  const displayRivers = selectedRiver === 'all'
-    ? rivers
-    : rivers.filter(r => r.slug === selectedRiver);
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden">
@@ -84,47 +79,15 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
 
         {/* Global summary quote */}
         {summaryText && (
-          <p className="text-sm md:text-base text-neutral-600 leading-relaxed mb-4">
+          <p className="text-sm md:text-base text-neutral-600 leading-relaxed">
             &ldquo;{summaryText}&rdquo;
           </p>
         )}
-
-        {/* Scrollable pill bar */}
-        <div
-          ref={pillsRef}
-          className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 lg:-mx-6 lg:px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-        >
-          <button
-            onClick={() => setSelectedRiver('all')}
-            className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              selectedRiver === 'all'
-                ? 'text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-            }`}
-            style={selectedRiver === 'all' ? { backgroundColor: '#F07052' } : undefined}
-          >
-            All Rivers
-          </button>
-          {rivers.map(r => (
-            <button
-              key={r.slug}
-              onClick={() => setSelectedRiver(r.slug)}
-              className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                selectedRiver === r.slug
-                  ? 'text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-              }`}
-              style={selectedRiver === r.slug ? { backgroundColor: '#F07052' } : undefined}
-            >
-              {r.name}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* River cards */}
       <div className="divide-y divide-neutral-100">
-        {displayRivers.map(river => {
+        {rivers.map(river => {
           const code = river.currentCondition?.code ?? 'unknown';
           const verdict = VERDICT_MAP[code];
           const blurb = CONDITION_CARD_BLURBS[code];
@@ -160,13 +123,16 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
                 </p>
               </div>
 
-              {/* Arrow */}
-              <ChevronRight className="w-4 h-4 text-neutral-300 group-hover:text-neutral-500 transition-colors flex-shrink-0" />
+              {/* Details link */}
+              <span className="flex items-center gap-0.5 text-xs text-neutral-300 group-hover:text-neutral-500 transition-colors flex-shrink-0">
+                Details
+                <ChevronRight className="w-3.5 h-3.5" />
+              </span>
             </Link>
           );
         })}
 
-        {displayRivers.length === 0 && (
+        {rivers.length === 0 && (
           <div className="px-5 py-8 text-center text-neutral-400 text-sm">
             No river data available
           </div>
