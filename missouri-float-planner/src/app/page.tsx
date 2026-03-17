@@ -3,7 +3,6 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Clock, Activity } from 'lucide-react';
 import { getRivers } from '@/lib/data/rivers';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
@@ -38,21 +37,10 @@ export default async function Home() {
             Eddy
           </h1>
 
-          {/* Feature pills */}
-          <div className="flex flex-wrap justify-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
-              <Clock className="w-4 h-4" />
-              <span>Float Time Estimates</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
-              <Activity className="w-4 h-4" />
-              <span>Accurate River Conditions</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ backgroundColor: '#1D525F' }}>
-              <MapPin className="w-4 h-4" />
-              <span>Detailed Access Points</span>
-            </div>
-          </div>
+          {/* Feature subtitle */}
+          <p className="text-sm text-white/50 mt-1">
+            Conditions &middot; Float Times &middot; Access Points
+          </p>
         </div>
       </section>
 
