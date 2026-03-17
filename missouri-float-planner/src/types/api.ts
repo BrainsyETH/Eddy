@@ -414,31 +414,73 @@ export interface CreateReportRequest {
   description: string;
 }
 
-// Shuttle service types
-export interface ShuttleService {
+// Nearby service directory types (replaces old ShuttleService)
+export type NearbyServiceDirectoryType = 'outfitter' | 'campground' | 'cabin_lodge';
+
+export type NearbyServiceStatus =
+  | 'active'
+  | 'seasonal'
+  | 'temporarily_closed'
+  | 'permanently_closed'
+  | 'unverified';
+
+export type ServiceOffering =
+  | 'canoe_rental'
+  | 'kayak_rental'
+  | 'raft_rental'
+  | 'tube_rental'
+  | 'jon_boat_rental'
+  | 'shuttle'
+  | 'camping_primitive'
+  | 'camping_rv'
+  | 'cabins'
+  | 'lodge_rooms'
+  | 'general_store'
+  | 'food_service'
+  | 'showers'
+  | 'fishing_supplies'
+  | 'horseback_riding'
+  | 'swimming_pool'
+  | 'wifi';
+
+export interface NearbyServiceDirectory {
   id: string;
   name: string;
   slug: string;
-  description: string | null;
+  type: NearbyServiceDirectoryType;
   phone: string | null;
+  phoneTollFree: string | null;
   email: string | null;
   website: string | null;
-  primaryAccessPointId: string | null;
-  serviceRadiusMiles: number | null;
-  offersShuttle: boolean;
-  offersRental: boolean;
-  offersCamping: boolean;
-  rentalTypes: string[];
-  shuttlePriceRange: string | null;
-  rentalPriceRange: string | null;
-  hoursOfOperation: Record<string, string> | null;
+  addressLine1: string | null;
+  city: string;
+  state: string;
+  zip: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  description: string | null;
+  servicesOffered: ServiceOffering[];
   seasonalNotes: string | null;
-  active: boolean;
-  verified: boolean;
+  npsAuthorized: boolean;
+  usfsAuthorized: boolean;
+  ownerName: string | null;
+  ownershipChangedAt: string | null;
+  status: NearbyServiceStatus;
+  verifiedSource: string | null;
+  displayOrder: number;
+  rivers: ServiceRiverLink[];
 }
 
-export interface ShuttleServicesResponse {
-  services: ShuttleService[];
+export interface ServiceRiverLink {
+  riverId: string;
+  riverName: string;
+  riverSlug: string;
+  isPrimary: boolean;
+  sectionDescription: string | null;
+}
+
+export interface NearbyServicesDirectoryResponse {
+  services: NearbyServiceDirectory[];
 }
 
 // Admin Types
