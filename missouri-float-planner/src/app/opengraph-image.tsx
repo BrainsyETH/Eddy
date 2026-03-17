@@ -5,7 +5,7 @@ import { ImageResponse } from 'next/og';
 import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 
-export const alt = 'Eddy — Missouri River Float Trip Planner';
+export const alt = 'Eddy - Your River Guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

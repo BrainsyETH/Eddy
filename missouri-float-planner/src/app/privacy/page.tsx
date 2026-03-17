@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | Eddy',
-  description: 'Privacy policy for Eddy, your Ozark float trip companion.',
+  description: 'Privacy policy for Eddy, your river float trip companion.',
 };
 
 export default function PrivacyPage() {
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-2xl font-bold text-neutral-900 mb-3">Overview</h2>
           <p className="text-neutral-700 leading-relaxed">
-            Eddy (eddy.guide) is a Missouri river float trip planning tool. We are committed
+            Eddy (eddy.guide) is a river float trip planning tool. We are committed
             to keeping your experience simple and your data private. This policy explains what
             information we collect and how we use it.
           </p>
@@ -142,7 +142,7 @@ export default function PrivacyPage() {
             <Link href="/" className="hover:text-white transition-colors">
               Eddy
             </Link>{' '}
-            &middot; Missouri River Float Trip Planner
+            &middot; Your River Guide
           </p>
           <p className="text-sm text-primary-300">
             Water data from USGS &middot; Always check local conditions before floating

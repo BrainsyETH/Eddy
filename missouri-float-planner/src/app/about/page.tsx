@@ -173,15 +173,15 @@ export default function AboutPage() {
         >
           <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
             <p className="text-neutral-700 leading-relaxed mb-4">
-              Eddy is a Missouri River float trip planner that combines real-time water conditions,
+              Eddy is a river float trip planner that combines real-time water conditions,
               access point information, and float time estimates to help you plan the perfect river trip.
               Unlike static guides, Eddy pulls live data from USGS gauges every hour to give you accurate,
               up-to-date conditions.
             </p>
             <p className="text-neutral-700 leading-relaxed">
-              We currently support 8 rivers in the Missouri Ozarks with over 30 access points, covering
-              some of the region&apos;s most popular floating destinations including the Meramec, Current,
-              Eleven Point, Jacks Fork, Niangua, Big Piney, Huzzah, and Courtois rivers.
+              We currently support multiple rivers with dozens of access points, covering popular
+              floating destinations with real-time gauge data, float time estimates, and detailed
+              access point information.
             </p>
           </div>
         </CollapsibleSection>
@@ -534,7 +534,7 @@ export default function AboutPage() {
       <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-16">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-primary-200 mb-2">
-            Eddy &middot; Missouri River Float Trip Planner
+            Eddy &middot; Your River Guide
           </p>
           <p className="text-sm text-primary-300">
             Water data from USGS &middot; Always check local conditions before floating

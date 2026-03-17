@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata: Metadata = {
   title: "Eddy's Thoughts - Float Trip Guides & Resources",
-  description: 'Expert guides and tips for planning the perfect float trip on Missouri rivers. Learn about water conditions, access points, and the best times to float.',
+  description: 'Expert guides and tips for planning the perfect float trip. Learn about water conditions, access points, and the best times to float.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -56,7 +56,7 @@ export default async function BlogPage() {
             Eddy&apos;s Thoughts
           </h1>
           <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto">
-            Tips, guides, and planning advice for Missouri float trips
+            Tips, guides, and planning advice for your next float trip
           </p>
         </div>
       </section>

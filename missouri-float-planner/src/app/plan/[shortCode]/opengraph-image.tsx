@@ -36,7 +36,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
   const shortCode = resolvedParams?.shortCode;
 
   // Default fallback data
-  let riverName = 'Missouri River';
+  let riverName = 'River';
   let putInName = 'Start';
   let takeOutName = 'End';
   let condition: ConditionCode = 'unknown';

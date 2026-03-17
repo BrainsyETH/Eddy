@@ -832,7 +832,7 @@ export default function GaugesPage() {
                 River Levels
               </h1>
               <p className="text-base md:text-lg text-white/80 max-w-lg">
-                Real-time USGS gauge data for Ozark rivers. Check conditions before you float.
+                Real-time USGS gauge data for float rivers. Check conditions before you float.
               </p>
             </div>
           </div>

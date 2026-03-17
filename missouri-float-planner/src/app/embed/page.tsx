@@ -628,7 +628,7 @@ export default function EmbedPage() {
       <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-16">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-primary-200 mb-2">
-            Eddy &middot; Missouri River Float Trip Planner
+            Eddy &middot; Your River Guide
           </p>
           <p className="text-sm text-primary-300">
             Water data from USGS &middot; Always check local conditions before floating

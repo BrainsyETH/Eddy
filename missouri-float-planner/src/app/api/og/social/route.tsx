@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
             Eddy Says
           </span>
           <span style={{ fontSize: 32, color: 'rgba(255,255,255,0.6)', marginTop: 16 }}>
-            Missouri River Conditions
+            River Conditions
           </span>
           <span style={{ fontSize: 24, color: 'rgba(255,255,255,0.3)', marginTop: 32 }}>
             eddy.guide
@@ -162,7 +162,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
             marginBottom: 8,
           }}
         >
-          Ozarks River Report
+          River Report
         </span>
         <span
           style={{

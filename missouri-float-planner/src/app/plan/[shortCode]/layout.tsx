@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     if (!shortCode) {
       return {
         title: 'Float Plan',
-        description: 'View and share your Missouri float trip plan.',
+        description: 'View and share your float trip plan.',
       };
     }
 
@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
       supabase.from('access_points').select('name').eq('id', savedPlan.end_access_id).single(),
     ]);
 
-    const riverName = riverResult.data?.name || 'Missouri River';
+    const riverName = riverResult.data?.name || 'River';
     const putInName = putInResult.data?.name || 'Start';
     const takeOutName = takeOutResult.data?.name || 'End';
 
@@ -130,17 +130,17 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     console.error('Error generating plan metadata:', error);
     return {
       title: 'Float Plan',
-      description: 'View and share your Missouri float trip plan.',
+      description: 'View and share your float trip plan.',
       openGraph: {
         type: 'website',
         title: 'Float Plan | Eddy',
-        description: 'View and share your Missouri float trip plan.',
+        description: 'View and share your float trip plan.',
         siteName: 'Eddy',
       },
       twitter: {
         card: 'summary_large_image',
         title: 'Float Plan | Eddy',
-        description: 'View and share your Missouri float trip plan.',
+        description: 'View and share your float trip plan.',
       },
     };
   }

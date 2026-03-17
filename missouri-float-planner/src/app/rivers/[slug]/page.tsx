@@ -21,7 +21,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     if (!slug) {
       return {
         title: 'River',
-        description: 'Plan your float trip on Missouri rivers.',
+        description: 'Plan your next float trip with live conditions and access points.',
       };
     }
 
@@ -149,17 +149,17 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     console.error('Error generating river metadata:', error);
     return {
       title: 'River',
-      description: 'Plan your float trip on Missouri rivers.',
+      description: 'Plan your next float trip with live conditions and access points.',
       openGraph: {
         type: 'website',
         title: 'River | Eddy',
-        description: 'Plan your float trip on Missouri rivers.',
+        description: 'Plan your next float trip with live conditions and access points.',
         siteName: 'Eddy',
       },
       twitter: {
         card: 'summary_large_image',
         title: 'River | Eddy',
-        description: 'Plan your float trip on Missouri rivers.',
+        description: 'Plan your next float trip with live conditions and access points.',
       },
     };
   }
