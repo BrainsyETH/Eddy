@@ -14,6 +14,7 @@ import EddyQuote from '@/components/river/EddyQuote';
 
 import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
+import NearbyServices from '@/components/river/NearbyServices';
 import PointsOfInterest from '@/components/river/PointsOfInterest';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
@@ -564,6 +565,12 @@ export default function RiverPage() {
 
         {/* Info Sections - full width below planner/map */}
         <div className="space-y-4 mt-6">
+          {/* Outfitters & Services */}
+          <NearbyServices
+            riverSlug={slug}
+            defaultOpen={false}
+          />
+
           {/* Points of Interest */}
           <PointsOfInterest
             riverSlug={slug}
