@@ -11,6 +11,7 @@ import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
 
 const EDDY_OTTER_FALLBACK = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
+const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 // Sort types by canonical display order
 function sortTypes(types: string[]): string[] {
@@ -606,40 +607,58 @@ export default function AccessPointStrip({
 
   return (
     <div className="relative">
-      {/* Scroll arrows - desktop only, mobile uses native swipe */}
-      {showLeftArrow && (
-        <button
-          onClick={() => scroll('left')}
-          className="hidden lg:block absolute left-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
-        >
-          <ChevronLeft size={20} className="text-neutral-600" />
-        </button>
-      )}
-      {showRightArrow && (
-        <button
-          onClick={() => scroll('right')}
-          className="hidden lg:block absolute right-0 top-[60px] -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
-        >
-          <ChevronRight size={20} className="text-neutral-600" />
-        </button>
-      )}
-
-      {/* Horizontal scroll container */}
-      <div
-        ref={scrollRef}
-        className="flex gap-2 overflow-x-auto pb-2 px-2 scrollbar-hide"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {accessPoints.map((point) => (
-          <AccessPointCard
-            key={point.id}
-            point={point}
-            isPutIn={point.id === selectedPutInId}
-            isTakeOut={point.id === selectedTakeOutId}
-            onClick={() => handleCardClick(point)}
-            onHover={onHover ? () => onHover(point) : undefined}
+      {/* Branding + scrollable cards row */}
+      <div className="flex items-center">
+        {/* Plan Your Float branding */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-1 pl-2 pr-2">
+          <Image
+            src={EDDY_CANOE_IMAGE}
+            alt="Eddy the Otter in a canoe"
+            width={120}
+            height={120}
+            className="w-8 h-8 object-contain"
           />
-        ))}
+          <span className="text-[10px] font-bold text-neutral-600 whitespace-nowrap leading-tight text-center">Plan Your<br/>Float</span>
+        </div>
+
+        {/* Scrollable cards area */}
+        <div className="relative flex-1 min-w-0">
+          {/* Scroll arrows - desktop only, mobile uses native swipe */}
+          {showLeftArrow && (
+            <button
+              onClick={() => scroll('left')}
+              className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
+            >
+              <ChevronLeft size={20} className="text-neutral-600" />
+            </button>
+          )}
+          {showRightArrow && (
+            <button
+              onClick={() => scroll('right')}
+              className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
+            >
+              <ChevronRight size={20} className="text-neutral-600" />
+            </button>
+          )}
+
+          {/* Horizontal scroll container */}
+          <div
+            ref={scrollRef}
+            className="flex gap-2 overflow-x-auto pb-2 px-2 scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {accessPoints.map((point) => (
+              <AccessPointCard
+                key={point.id}
+                point={point}
+                isPutIn={point.id === selectedPutInId}
+                isTakeOut={point.id === selectedTakeOutId}
+                onClick={() => handleCardClick(point)}
+                onHover={onHover ? () => onHover(point) : undefined}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Expanded detail panel - side by side on desktop when both selected */}
