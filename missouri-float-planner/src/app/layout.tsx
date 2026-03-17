@@ -77,6 +77,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'Eddy',
+              url: BASE_URL,
+              description: 'Plan your next float trip with live water conditions, access points, float times & weather.',
+            }),
+          }}
+        />
         {GA_TRACKING_ID ? (
           <>
             <Script
