@@ -1,14 +1,18 @@
-'use client';
-
 // src/app/about/page.tsx
 // About page explaining how Eddy works and condition codes
 
-import { useState } from 'react';
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, ChevronDown, Database, Waves, Code2 } from 'lucide-react';
+import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, Database, Waves, Code2 } from 'lucide-react';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
+import AboutCollapsibleSection from '@/components/ui/AboutCollapsibleSection';
+
+export const metadata: Metadata = {
+  title: 'How Eddy Works',
+  description: 'Learn how Eddy uses real-time USGS gauge data to provide live river conditions, float time estimates, and access point information for planning your float trip.',
+};
 
 // Eddy otter images for different conditions
 const EDDY_IMAGES: Record<string, string> = {
@@ -35,47 +39,6 @@ const getEddyImageForCondition = (code: ConditionCode): string => {
       return EDDY_IMAGES.flag;
   }
 };
-
-// Collapsible section component
-function CollapsibleSection({
-  title,
-  icon,
-  children,
-  defaultExpanded = false,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  defaultExpanded?: boolean;
-}) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-
-  return (
-    <section>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-3 mb-6 w-full text-left group"
-      >
-        <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
-          {icon}
-        </div>
-        <h2 className="text-3xl font-bold text-neutral-900 flex-1">{title}</h2>
-        <ChevronDown
-          className={`w-6 h-6 text-neutral-500 transition-transform duration-200 ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
-        }`}
-      >
-        {children}
-      </div>
-    </section>
-  );
-}
 
 const conditionCodes: ConditionCode[] = ['too_low', 'low', 'okay', 'optimal', 'high', 'dangerous', 'unknown'];
 
@@ -166,7 +129,7 @@ export default function AboutPage() {
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-16">
 
         {/* What is Eddy */}
-        <CollapsibleSection
+        <AboutCollapsibleSection
           title="What is Eddy?"
           icon={<Info className="w-6 h-6 text-white" />}
           defaultExpanded={true}
@@ -184,10 +147,10 @@ export default function AboutPage() {
               access point information.
             </p>
           </div>
-        </CollapsibleSection>
+        </AboutCollapsibleSection>
 
         {/* How It Works */}
-        <CollapsibleSection
+        <AboutCollapsibleSection
           title="How It Works"
           icon={<Gauge className="w-6 h-6 text-white" />}
           defaultExpanded={false}
@@ -304,10 +267,10 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </CollapsibleSection>
+        </AboutCollapsibleSection>
 
         {/* Condition Codes Explained */}
-        <CollapsibleSection
+        <AboutCollapsibleSection
           title="Understanding Condition Codes"
           icon={<AlertTriangle className="w-6 h-6 text-white" />}
           defaultExpanded={false}
@@ -376,10 +339,10 @@ export default function AboutPage() {
               );
             })}
           </div>
-        </CollapsibleSection>
+        </AboutCollapsibleSection>
 
         {/* Data Sources */}
-        <CollapsibleSection
+        <AboutCollapsibleSection
           title="Data Sources"
           icon={<Database className="w-6 h-6 text-white" />}
           defaultExpanded={false}
@@ -434,10 +397,10 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </CollapsibleSection>
+        </AboutCollapsibleSection>
 
         {/* Developers */}
-        <CollapsibleSection
+        <AboutCollapsibleSection
           title="Developers"
           icon={<Code2 className="w-6 h-6 text-white" />}
           defaultExpanded={false}
@@ -472,7 +435,7 @@ export default function AboutPage() {
               View Embed Guide & API Docs
             </Link>
           </div>
-        </CollapsibleSection>
+        </AboutCollapsibleSection>
 
         {/* Safety Notice */}
         <section>
@@ -502,7 +465,7 @@ export default function AboutPage() {
         </section>
 
         {/* Rivers Covered */}
-        <CollapsibleSection
+        <AboutCollapsibleSection
           title="Rivers We Cover"
           icon={<Waves className="w-6 h-6 text-white" />}
           defaultExpanded={false}
@@ -526,7 +489,7 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-        </CollapsibleSection>
+        </AboutCollapsibleSection>
 
       </div>
 

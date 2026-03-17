@@ -91,8 +91,37 @@ export default async function BlogPostPage({
     });
   };
 
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
+
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.description || undefined,
+    datePublished: post.published_at || undefined,
+    image: post.featured_image_url || undefined,
+    url: `${BASE_URL}/blog/${post.slug}`,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Eddy',
+      url: BASE_URL,
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${BASE_URL}/blog` },
+      { '@type': 'ListItem', position: 3, name: post.title, item: `${BASE_URL}/blog/${post.slug}` },
+    ],
+  };
+
   return (
     <article className="min-h-screen bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-16">
         {/* Header */}
         <header className="mb-8 md:mb-12">

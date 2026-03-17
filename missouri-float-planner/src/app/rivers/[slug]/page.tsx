@@ -165,6 +165,32 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   }
 }
 
-export default function RiverPage() {
-  return <RiverPageClient />;
+export default async function RiverPage({ params }: Props) {
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug;
+
+  // Fetch river name for breadcrumb JSON-LD
+  let riverName = 'River';
+  if (slug) {
+    const supabase = await createClient();
+    const { data } = await supabase.from('rivers').select('name').eq('slug', slug).single();
+    if (data) riverName = data.name;
+  }
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Rivers', item: `${BASE_URL}/rivers` },
+      { '@type': 'ListItem', position: 3, name: riverName, item: `${BASE_URL}/rivers/${slug}` },
+    ],
+  };
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <RiverPageClient />
+    </>
+  );
 }

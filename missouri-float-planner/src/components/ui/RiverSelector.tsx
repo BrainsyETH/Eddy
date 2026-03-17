@@ -4,6 +4,7 @@
 // Themed dropdown component for selecting a river
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import type { RiverListItem, ConditionCode } from '@/types/api';
 
 interface RiverSelectorProps {
@@ -171,18 +172,16 @@ export default function RiverSelector({
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
-                  <a
+                  <Link
                     href={`/rivers/${river.slug}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
-                      window.location.href = `/rivers/${river.slug}`;
                     }}
                     className="px-2 py-1 text-xs text-primary-600 hover:text-accent-600 hover:bg-neutral-100 rounded transition-colors flex-shrink-0"
                     title="View river page"
                   >
                     View →
-                  </a>
+                  </Link>
                 </div>
               </button>
               ))
