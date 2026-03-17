@@ -22,9 +22,9 @@ export default async function Home() {
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
       {/* Hero */}
-      <section className="relative py-16 md:py-24 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
+      <section className="relative py-8 md:py-14 text-white" style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}>
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <div className="mb-2">
+          <div className="mb-1">
             <Image
               src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
               alt="Eddy the Otter"
@@ -34,12 +34,9 @@ export default async function Home() {
               priority
             />
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
+          <h1 className="text-5xl md:text-6xl font-bold text-white mb-3" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
             Eddy
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 font-medium mb-8">
-            Your River Guide
-          </p>
 
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-3">
@@ -60,17 +57,16 @@ export default async function Home() {
       </section>
 
       {/* Main content */}
-      <section className="flex-1 py-10 md:py-14">
-        <div className="max-w-5xl mx-auto px-4 space-y-10">
-          {/* Top Row: Float Estimator + Check River Levels side by side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Float Estimator - Half width */}
+      <section className="flex-1 py-8 md:py-10">
+        <div className="max-w-5xl mx-auto px-4 space-y-8">
+          {/* Eddy Says Dashboard — full width, primary */}
+          <EddysReport rivers={rivers} fallbackSummary={fallbackSummary} />
+
+          {/* Float Estimator — secondary */}
+          <div>
+            <h2 className="text-xl font-bold text-neutral-800 mb-3">Plan Your Float</h2>
             <FloatEstimator rivers={rivers} />
-
-            {/* Eddy's Report */}
-            <EddysReport fallbackSummary={fallbackSummary} />
           </div>
-
         </div>
       </section>
 
