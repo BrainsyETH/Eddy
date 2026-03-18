@@ -1,7 +1,7 @@
 // src/lib/social/meta-client.ts
 // Low-level Meta Graph API v21 client for Facebook and Instagram posting
 
-const META_GRAPH_URL = 'https://graph.facebook.com/v21.0';
+const META_GRAPH_URL = 'https://graph.facebook.com/v24.0';
 
 interface MetaApiError {
   error: {
