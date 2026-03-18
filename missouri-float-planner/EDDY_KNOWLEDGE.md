@@ -160,7 +160,7 @@ the Mark Twain National Forest.
 ## Huzzah Creek
 
 Short, accessible, and perfect for day trips. Pairs naturally with Courtois Creek for
-a weekend of floating.
+a weekend of floating. Upper sections usually only floatable in early spring.
 
 - Popular for day trips from the St. Louis area. Easy access, good outfitter infrastructure.
 - Can drop fast in summer dry spells and increase quick with heavy rain.
@@ -175,7 +175,7 @@ a weekend of floating.
 ## Courtois Creek
 
 More secluded than its neighbor Huzzah. Excellent for a quieter, scenic float without
-the weekend crowds.
+the weekend crowds. Upper sections usually only floatable in early spring.
 
 - Less crowded than Huzzah despite similar quality — the locals' choice.
 - Rain-fed — same dependency on recent rainfall as Huzzah.
