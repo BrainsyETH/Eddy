@@ -1,7 +1,7 @@
 // src/lib/social/meta-client.ts
 // Low-level Meta Graph API v21 client for Facebook and Instagram posting
 
-const META_GRAPH_URL = 'https://graph.facebook.com/v21.0';
+const META_GRAPH_URL = 'https://graph.facebook.com/v24.0';
 
 interface MetaApiError {
   error: {
@@ -149,12 +149,12 @@ export async function publishToInstagram(params: {
       }
     }
 
-    // Step 1: Create media container (feed image post)
+    // Step 1: Create media container (Story — image appears in Stories, not feed)
     // Use form-urlencoded body (not JSON, not URL params) — most reliable for Meta Graph API
-    // Note: STORIES media_type was deprecated by Meta — omitting media_type defaults to IMAGE
+    // Stories don't display captions; the generated image contains all the info
     const containerBody = new URLSearchParams({
       image_url: params.imageUrl,
-      caption: params.caption,
+      media_type: 'STORIES',
       access_token: accessToken,
     });
 
