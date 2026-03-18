@@ -29,7 +29,8 @@ fast in summer and spike hard after storms.
 - Weekends in June and July are the busiest. For a quieter float, go mid-week or choose Eleven Point or Big Piney over Current or Meramec.
 - Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
 - Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork) may have fees at developed access points.
-- **Recovery after high water**: Spring-fed rivers recover slowly (days). Rain-fed rivers and creeks drop fast once rain stops and can go from unfloatable to optimal in 24-48 hours. Jacks Fork behaves rain-fed above Alley Spring but is spring-stabilized below it.
+- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.
+- **Recovery after high water**: Spring-fed rivers recover slowly (days). Rain-fed rivers and creeks drop fast once rain stops and can go from unfloatable to optimal more quickly. Jacks Fork behaves rain-fed above Alley Spring but is spring-stabilized below it.
 
 ---
 
@@ -117,7 +118,7 @@ Rivers system. Excellent for paddlers who want solitude.
 The Jacks Fork is the wild card of Ozarks floating — rain-dependent, flashy, and
 stunning when conditions are right. It joins the Current River at Two Rivers.
 
-- **Rain-dependent**: Unlike the Current, the Jacks Fork has no massive spring inputs in the upper reaches. It needs recent rain to float.
+- **Rain-dependent**: Unlike the Current, the Jacks Fork has no massive spring inputs in the upper reaches. 
 - Rises and falls faster than any other Ozarks float stream. Flash floods are a serious concern.
 - Alley Spring (with the iconic red mill) is one of the most photographed spots in the Ozarks.
 - When it's running right (2.5-3.0 ft), it's arguably the most beautiful float in Missouri.
