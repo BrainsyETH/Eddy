@@ -184,7 +184,7 @@ WHERE rg.river_id = r.id
   AND gs.usgs_site_id = '07017200';
 
 -- ============================================
--- COURTOIS CREEK - BERRYMAN GAUGE (07017610)
+-- COURTOIS CREEK - COURTOIS GAUGE (07014100)
 -- ============================================
 -- Small tributary, rain-dependent
 -- Similar to Huzzah
@@ -200,7 +200,7 @@ FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
   AND r.slug = 'courtois'
-  AND gs.usgs_site_id = '07017610';
+  AND gs.usgs_site_id = '07014100';
 
 -- ============================================
 -- VERIFY UPDATES

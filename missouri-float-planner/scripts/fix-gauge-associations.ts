@@ -54,6 +54,7 @@ const GAUGE_RIVER_MAPPINGS: Record<string, string> = {
   'Huzzah Creek near Steelville': 'huzzah',
 
   // Courtois
+  'Courtois Creek at Courtois': 'courtois',
   'Courtois Creek at Berryman': 'courtois',
 };
 

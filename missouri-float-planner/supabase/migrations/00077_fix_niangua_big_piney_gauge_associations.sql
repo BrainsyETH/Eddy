@@ -1,11 +1,11 @@
--- supabase/migrations/00077_fix_niangua_big_piney_gauge_associations.sql
+-- supabase/migrations/00077_fix_niangua_big_piney_courtois_gauge_associations.sql
 --
--- Fix Niangua River and Big Piney River gauge associations.
+-- Fix Niangua River, Big Piney River, and Courtois Creek gauge associations.
 --
 -- The proximity-based link-gauges-to-rivers.sql script (10-mile radius)
 -- incorrectly associated many unrelated gauges from nearby rivers/tributaries
--- with both the Niangua and Big Piney. This migration removes all incorrect
--- associations and ensures only the correct USGS gauges are linked.
+-- with these rivers. This migration removes all incorrect associations and
+-- ensures only the correct USGS gauges are linked.
 --
 -- Correct gauges for Niangua River:
 --   06923250 - Niangua River at Windyville, MO (upper floatable section)
@@ -15,6 +15,10 @@
 -- Correct gauges for Big Piney River:
 --   06928900 - Big Piney River near Houston, MO (upper section)
 --   06930000 - Big Piney River near Big Piney, MO (lower/Pulaski County section)
+--
+-- Correct gauges for Courtois Creek:
+--   07014100 - Courtois Creek at Courtois, MO (lower section, primary)
+--   07014200 - Courtois Creek at Berryman, MO (upper section)
 
 -- ============================================
 -- STEP 1: Ensure all correct gauge stations exist
@@ -73,6 +77,27 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
+-- Courtois Creek gauges
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '07014100',
+    'Courtois Creek at Courtois, MO',
+    ST_SetSRID(ST_MakePoint(-91.1680, 37.9780), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '07014200',
+    'Courtois Creek at Berryman, MO',
+    ST_SetSRID(ST_MakePoint(-91.0986, 37.9047), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
 -- ============================================
 -- STEP 2: Remove ALL incorrect gauge associations
 -- ============================================
@@ -81,12 +106,15 @@ DO $$
 DECLARE
   niangua_id UUID;
   big_piney_id UUID;
+  courtois_id UUID;
   niangua_before INTEGER;
   big_piney_before INTEGER;
+  courtois_before INTEGER;
 BEGIN
   -- Get river IDs
   SELECT id INTO niangua_id FROM rivers WHERE slug = 'niangua' LIMIT 1;
   SELECT id INTO big_piney_id FROM rivers WHERE slug = 'big-piney' LIMIT 1;
+  SELECT id INTO courtois_id FROM rivers WHERE slug = 'courtois' LIMIT 1;
 
   IF niangua_id IS NULL THEN
     RAISE NOTICE 'Niangua River not found, skipping';
@@ -98,15 +126,23 @@ BEGIN
     RETURN;
   END IF;
 
+  IF courtois_id IS NULL THEN
+    RAISE NOTICE 'Courtois Creek not found, skipping';
+    RETURN;
+  END IF;
+
   -- Count current associations
   SELECT COUNT(*) INTO niangua_before FROM river_gauges WHERE river_id = niangua_id;
   SELECT COUNT(*) INTO big_piney_before FROM river_gauges WHERE river_id = big_piney_id;
+  SELECT COUNT(*) INTO courtois_before FROM river_gauges WHERE river_id = courtois_id;
   RAISE NOTICE 'Niangua gauge associations before fix: % (should be 3)', niangua_before;
   RAISE NOTICE 'Big Piney gauge associations before fix: % (should be 2)', big_piney_before;
+  RAISE NOTICE 'Courtois gauge associations before fix: % (should be 2)', courtois_before;
 
-  -- Delete ALL existing associations for both rivers
+  -- Delete ALL existing associations for all three rivers
   DELETE FROM river_gauges WHERE river_id = niangua_id;
   DELETE FROM river_gauges WHERE river_id = big_piney_id;
+  DELETE FROM river_gauges WHERE river_id = courtois_id;
 
   -- ============================================
   -- STEP 3: Re-insert correct Niangua gauges
@@ -224,6 +260,53 @@ BEGIN
     level_high = EXCLUDED.level_high,
     level_dangerous = EXCLUDED.level_dangerous;
 
+  -- ============================================
+  -- STEP 5: Re-insert correct Courtois Creek gauges
+  -- ============================================
+
+  -- Courtois Creek at Courtois (PRIMARY — lower section near Hwy Y)
+  INSERT INTO river_gauges (
+    gauge_station_id, river_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
+  )
+  SELECT gs.id, courtois_id, true, 1.0, 'ft',
+    1.5, 2.0, 2.5, 4.5, 6.0, 8.0
+  FROM gauge_stations gs WHERE gs.usgs_site_id = '07014100'
+  ON CONFLICT (gauge_station_id, river_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    distance_from_section_miles = EXCLUDED.distance_from_section_miles,
+    threshold_unit = EXCLUDED.threshold_unit,
+    level_too_low = EXCLUDED.level_too_low,
+    level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min,
+    level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high,
+    level_dangerous = EXCLUDED.level_dangerous;
+
+  -- Courtois Creek at Berryman (secondary — upper section)
+  INSERT INTO river_gauges (
+    gauge_station_id, river_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
+  )
+  SELECT gs.id, courtois_id, false, 1.0, 'ft',
+    1.0, 1.5, 2.0, 4.0, 6.0, 8.0
+  FROM gauge_stations gs WHERE gs.usgs_site_id = '07014200'
+  ON CONFLICT (gauge_station_id, river_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    distance_from_section_miles = EXCLUDED.distance_from_section_miles,
+    threshold_unit = EXCLUDED.threshold_unit,
+    level_too_low = EXCLUDED.level_too_low,
+    level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min,
+    level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high,
+    level_dangerous = EXCLUDED.level_dangerous;
+
   RAISE NOTICE 'Fixed: Niangua now has 3 gauges (Windyville, Bennett Spring, Tunnel Dam)';
   RAISE NOTICE 'Fixed: Big Piney now has 2 gauges (Houston, Big Piney)';
+  RAISE NOTICE 'Fixed: Courtois now has 2 gauges (Courtois, Berryman)';
 END $$;
