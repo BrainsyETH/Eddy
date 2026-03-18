@@ -97,7 +97,7 @@ SELECT
     'Private',
     55.3,
     true,
-    '<p><strong>Private access — fee required.</strong> Garrison''s is a major outfitter with direct river access. Their 10-mile float puts in at their own campground, 9-mile float from Fishing Springs, and 6-mile float from Bird''s Nest. Good facilities and well-maintained launch area.</p>',
+    '<p><strong>Private access — fee required.</strong> Garrison''s is a major outfitter with direct river access via a sandy beach/gravel bar. Their 10-mile float puts in at their own campground, 9-mile float from Fishing Springs, and 6-mile float from Bird''s Nest. Shuttle departures at 8, 9, 10, 11, 12, and 1 PM. Showers are quarter-operated.</p>',
     '[{"name": "Garrison''s River Resort", "type": "outfitter", "phone": "573-775-2410", "website": "https://garrisonscampground.com", "distance": "on-site", "notes": "180 campsites, canoe/kayak/raft/tube rentals, shuttle, pool, store"}]'::jsonb
 FROM rivers r WHERE r.slug = 'meramec'
 ON CONFLICT (river_id, slug) DO UPDATE SET
