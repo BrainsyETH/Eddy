@@ -17,8 +17,9 @@
 --   06930000 - Big Piney River near Big Piney, MO (lower/Pulaski County section)
 --
 -- Correct gauges for Courtois Creek:
---   07014100 - Courtois Creek at Courtois, MO (lower section, primary)
---   07014200 - Courtois Creek at Berryman, MO (upper section)
+--   07017200 - Huzzah Creek near Steelville, MO (proxy — Courtois has no active
+--              real-time gauge; local paddlers use Huzzah as the two creeks are
+--              similar in volume and receive similar precipitation)
 
 -- ============================================
 -- STEP 1: Ensure all correct gauge stations exist
@@ -77,22 +78,15 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
--- Courtois Creek gauges
+-- Courtois Creek uses the Huzzah gauge (07017200) as proxy
+-- (07014100 and 07014200 exist as USGS monitoring locations but have no
+-- active real-time gauge height data — they are water-quality-only stations)
+-- Ensure Huzzah gauge exists (it should from the Huzzah seed)
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
-    '07014100',
-    'Courtois Creek at Courtois, MO',
-    ST_SetSRID(ST_MakePoint(-91.1680, 37.9780), 4326),
-    true
-) ON CONFLICT (usgs_site_id) DO UPDATE SET
-    name = EXCLUDED.name,
-    active = EXCLUDED.active;
-
-INSERT INTO gauge_stations (usgs_site_id, name, location, active)
-VALUES (
-    '07014200',
-    'Courtois Creek at Berryman, MO',
-    ST_SetSRID(ST_MakePoint(-91.0986, 37.9047), 4326),
+    '07017200',
+    'Huzzah Creek near Steelville, MO',
+    ST_SetSRID(ST_MakePoint(-91.3219, 37.9519), 4326),
     true
 ) ON CONFLICT (usgs_site_id) DO UPDATE SET
     name = EXCLUDED.name,
@@ -137,7 +131,7 @@ BEGIN
   SELECT COUNT(*) INTO courtois_before FROM river_gauges WHERE river_id = courtois_id;
   RAISE NOTICE 'Niangua gauge associations before fix: % (should be 3)', niangua_before;
   RAISE NOTICE 'Big Piney gauge associations before fix: % (should be 2)', big_piney_before;
-  RAISE NOTICE 'Courtois gauge associations before fix: % (should be 2)', courtois_before;
+  RAISE NOTICE 'Courtois gauge associations before fix: % (should be 1)', courtois_before;
 
   -- Delete ALL existing associations for all three rivers
   DELETE FROM river_gauges WHERE river_id = niangua_id;
@@ -261,40 +255,22 @@ BEGIN
     level_dangerous = EXCLUDED.level_dangerous;
 
   -- ============================================
-  -- STEP 5: Re-insert correct Courtois Creek gauges
+  -- STEP 5: Re-insert correct Courtois Creek gauge
   -- ============================================
 
-  -- Courtois Creek at Courtois (PRIMARY — lower section near Hwy Y)
+  -- Courtois Creek uses the Huzzah gauge (07017200) as proxy
+  -- Courtois has no active real-time USGS gauge. The two creeks are in the
+  -- same watershed, similar in volume, and receive similar precipitation.
+  -- Local paddlers have always used the Huzzah gauge for Courtois conditions.
   INSERT INTO river_gauges (
     gauge_station_id, river_id, is_primary,
     distance_from_section_miles, threshold_unit,
     level_too_low, level_low, level_optimal_min,
     level_optimal_max, level_high, level_dangerous
   )
-  SELECT gs.id, courtois_id, true, 1.0, 'ft',
+  SELECT gs.id, courtois_id, true, 5.0, 'ft',
     1.5, 2.0, 2.5, 4.5, 6.0, 8.0
-  FROM gauge_stations gs WHERE gs.usgs_site_id = '07014100'
-  ON CONFLICT (gauge_station_id, river_id) DO UPDATE SET
-    is_primary = EXCLUDED.is_primary,
-    distance_from_section_miles = EXCLUDED.distance_from_section_miles,
-    threshold_unit = EXCLUDED.threshold_unit,
-    level_too_low = EXCLUDED.level_too_low,
-    level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min,
-    level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high,
-    level_dangerous = EXCLUDED.level_dangerous;
-
-  -- Courtois Creek at Berryman (secondary — upper section)
-  INSERT INTO river_gauges (
-    gauge_station_id, river_id, is_primary,
-    distance_from_section_miles, threshold_unit,
-    level_too_low, level_low, level_optimal_min,
-    level_optimal_max, level_high, level_dangerous
-  )
-  SELECT gs.id, courtois_id, false, 1.0, 'ft',
-    1.0, 1.5, 2.0, 4.0, 6.0, 8.0
-  FROM gauge_stations gs WHERE gs.usgs_site_id = '07014200'
+  FROM gauge_stations gs WHERE gs.usgs_site_id = '07017200'
   ON CONFLICT (gauge_station_id, river_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
     distance_from_section_miles = EXCLUDED.distance_from_section_miles,
@@ -308,5 +284,5 @@ BEGIN
 
   RAISE NOTICE 'Fixed: Niangua now has 3 gauges (Windyville, Bennett Spring, Tunnel Dam)';
   RAISE NOTICE 'Fixed: Big Piney now has 2 gauges (Houston, Big Piney)';
-  RAISE NOTICE 'Fixed: Courtois now has 2 gauges (Courtois, Berryman)';
+  RAISE NOTICE 'Fixed: Courtois now has 1 gauge (Huzzah proxy 07017200)';
 END $$;
