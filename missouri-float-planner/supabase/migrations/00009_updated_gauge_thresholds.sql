@@ -129,9 +129,9 @@ WHERE rg.river_id = r.id
   AND gs.usgs_site_id = '07018500';
 
 -- ============================================
--- NIANGUA RIVER - HARTVILLE GAUGE (06923500)
+-- NIANGUA RIVER - BENNETT SPRING GAUGE (06923700)
 -- ============================================
--- Ozark stream, moderate size
+-- Primary gauge at Bennett Spring State Park area
 UPDATE river_gauges rg
 SET
     level_too_low = 1.5,        -- Too shallow
@@ -144,7 +144,7 @@ FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
   AND r.slug = 'niangua'
-  AND gs.usgs_site_id = '06923500';
+  AND gs.usgs_site_id = '06923700';
 
 -- ============================================
 -- BIG PINEY RIVER - BIG PINEY GAUGE (06930000)
@@ -184,7 +184,7 @@ WHERE rg.river_id = r.id
   AND gs.usgs_site_id = '07017200';
 
 -- ============================================
--- COURTOIS CREEK - BERRYMAN GAUGE (07017610)
+-- COURTOIS CREEK - COURTOIS GAUGE (07014100)
 -- ============================================
 -- Small tributary, rain-dependent
 -- Similar to Huzzah
@@ -200,7 +200,7 @@ FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
   AND r.slug = 'courtois'
-  AND gs.usgs_site_id = '07017610';
+  AND gs.usgs_site_id = '07014100';
 
 -- ============================================
 -- VERIFY UPDATES

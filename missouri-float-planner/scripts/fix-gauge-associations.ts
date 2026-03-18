@@ -41,15 +41,20 @@ const GAUGE_RIVER_MAPPINGS: Record<string, string> = {
   'Jacks Fork at Eminence': 'jacks-fork',
 
   // Niangua
+  'Niangua River at Windyville': 'niangua',
+  'Niangua River at Bennett Spring': 'niangua',
+  'Niangua River at Tunnel Dam': 'niangua',
   'Niangua River near Hartville': 'niangua',
 
   // Big Piney
+  'Big Piney River near Houston': 'big-piney',
   'Big Piney River near Big Piney': 'big-piney',
 
   // Huzzah
   'Huzzah Creek near Steelville': 'huzzah',
 
   // Courtois
+  'Courtois Creek at Courtois': 'courtois',
   'Courtois Creek at Berryman': 'courtois',
 };
 
