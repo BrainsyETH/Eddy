@@ -2,6 +2,7 @@
 
 // EddysReport — Eddy Says conditions dashboard
 // Clean white card showing all rivers with condition verdicts
+// Fetches per-river AI summaries and shows them truncated (like river pages)
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -29,19 +30,24 @@ interface EddysReportProps {
   fallbackSummary: string | null;
 }
 
+type RiverAiData = Record<string, { summaryText: string | null; quoteText: string }>;
+
 export default function EddysReport({ rivers, fallbackSummary }: EddysReportProps) {
   const [globalQuote, setGlobalQuote] = useState<string | null>(null);
   const [globalQuoteAge, setGlobalQuoteAge] = useState<string | null>(null);
+  const [riverAi, setRiverAi] = useState<RiverAiData>({});
 
   useEffect(() => {
     let cancelled = false;
+
+    // Fetch global quote
     async function fetchGlobalQuote() {
       try {
         const res = await fetch('/api/eddy-update/global');
         if (!res.ok) return;
         const data: EddyUpdateResponse = await res.json();
         if (!cancelled && data.available && data.update) {
-          setGlobalQuote(data.update.quoteText);
+          setGlobalQuote(data.update.summaryText || data.update.quoteText);
           const hours = (Date.now() - new Date(data.update.generatedAt).getTime()) / (1000 * 60 * 60);
           if (hours < 1) setGlobalQuoteAge('Updated just now');
           else if (hours < 2) setGlobalQuoteAge('Updated 1 hr ago');
@@ -51,9 +57,34 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
         // Silently fail — static fallback will be used
       }
     }
+
+    // Fetch per-river AI summaries
+    async function fetchRiverSummaries() {
+      const results: RiverAiData = {};
+      await Promise.allSettled(
+        rivers.map(async (river) => {
+          try {
+            const res = await fetch(`/api/eddy-update/${river.slug}`);
+            if (!res.ok) return;
+            const data: EddyUpdateResponse = await res.json();
+            if (data.available && data.update) {
+              results[river.slug] = {
+                summaryText: data.update.summaryText,
+                quoteText: data.update.quoteText,
+              };
+            }
+          } catch {
+            // Skip — will fall back to static blurb
+          }
+        })
+      );
+      if (!cancelled) setRiverAi(results);
+    }
+
     fetchGlobalQuote();
+    fetchRiverSummaries();
     return () => { cancelled = true; };
-  }, []);
+  }, [rivers]);
 
   const summaryText = globalQuote || fallbackSummary;
 
@@ -90,8 +121,11 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
         {rivers.map(river => {
           const code = river.currentCondition?.code ?? 'unknown';
           const verdict = VERDICT_MAP[code];
-          const blurb = CONDITION_CARD_BLURBS[code];
           const dotColor = CONDITION_COLORS[code];
+
+          // Use AI summary if available, otherwise fall back to static blurb
+          const ai = riverAi[river.slug];
+          const blurb = ai?.summaryText || ai?.quoteText || CONDITION_CARD_BLURBS[code];
 
           return (
             <Link
@@ -118,8 +152,8 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
                     {verdict.text}
                   </span>
                 </div>
-                <p className="text-xs md:text-sm text-neutral-400 truncate mt-0.5">
-                  {blurb}
+                <p className="text-xs md:text-sm text-neutral-400 line-clamp-2 mt-0.5">
+                  {ai ? `\u201C${blurb}\u201D` : blurb}
                 </p>
               </div>
 

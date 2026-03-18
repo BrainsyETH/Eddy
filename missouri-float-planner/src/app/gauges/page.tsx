@@ -1184,7 +1184,7 @@ export default function GaugesPage() {
         )}
       </div>
 
-      <SiteFooter subtitle="Water data from USGS &middot; Updated hourly" maxWidth="max-w-6xl" className="mt-12" />
+      <SiteFooter maxWidth="max-w-6xl" className="mt-12" />
 
       {/* Desktop Slide-Over Drawer */}
       {isDesktop && expandedGaugeId && (() => {
