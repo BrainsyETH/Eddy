@@ -57,6 +57,12 @@ interface AccessPoint {
   imageUrls?: string[];
   googleMapsUrl?: string | null;
   approved: boolean;
+  roadSurface?: string[];
+  parkingCapacity?: string | null;
+  managingAgency?: string | null;
+  officialSiteUrl?: string | null;
+  localTips?: string | null;
+  nearbyServices?: { name: string; type: string; phone?: string; website?: string; distance?: string; notes?: string }[];
   riverName?: string;
   hasInvalidCoords?: boolean;
   hasMissingCoords?: boolean;
@@ -292,6 +298,12 @@ export default function GeographyEditor() {
           drivingLng: editingDetails.drivingLng,
           imageUrls: editingDetails.imageUrls,
           googleMapsUrl: editingDetails.googleMapsUrl,
+          roadSurface: editingDetails.roadSurface,
+          parkingCapacity: editingDetails.parkingCapacity,
+          managingAgency: editingDetails.managingAgency,
+          officialSiteUrl: editingDetails.officialSiteUrl,
+          localTips: editingDetails.localTips,
+          nearbyServices: editingDetails.nearbyServices,
         }),
       });
 
