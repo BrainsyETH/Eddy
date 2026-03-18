@@ -184,10 +184,10 @@ WHERE rg.river_id = r.id
   AND gs.usgs_site_id = '07017200';
 
 -- ============================================
--- COURTOIS CREEK - COURTOIS GAUGE (07014100)
+-- COURTOIS CREEK - HUZZAH PROXY GAUGE (07017200)
 -- ============================================
--- Small tributary, rain-dependent
--- Similar to Huzzah
+-- Uses Huzzah gauge as proxy (no active real-time gauge on Courtois)
+-- Small tributary, rain-dependent, similar to Huzzah
 UPDATE river_gauges rg
 SET
     level_too_low = 1.5,        -- Too shallow
@@ -200,7 +200,7 @@ FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
   AND r.slug = 'courtois'
-  AND gs.usgs_site_id = '07014100';
+  AND gs.usgs_site_id = '07017200';
 
 -- ============================================
 -- VERIFY UPDATES

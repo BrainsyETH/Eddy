@@ -168,26 +168,9 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
--- Courtois Creek Gauges
-INSERT INTO gauge_stations (usgs_site_id, name, location, active)
-VALUES (
-    '07014100',
-    'Courtois Creek at Courtois, MO',
-    ST_SetSRID(ST_MakePoint(-91.1680, 37.9780), 4326),
-    true
-) ON CONFLICT (usgs_site_id) DO UPDATE SET
-    name = EXCLUDED.name,
-    active = EXCLUDED.active;
-
-INSERT INTO gauge_stations (usgs_site_id, name, location, active)
-VALUES (
-    '07014200',
-    'Courtois Creek at Berryman, MO',
-    ST_SetSRID(ST_MakePoint(-91.0986, 37.9047), 4326),
-    true
-) ON CONFLICT (usgs_site_id) DO UPDATE SET
-    name = EXCLUDED.name,
-    active = EXCLUDED.active;
+-- Courtois Creek — no active real-time USGS gauge exists on Courtois.
+-- Uses the Huzzah Creek gauge (07017200) as proxy (same watershed,
+-- similar volume, similar precipitation patterns).
 
 
 -- ============================================
@@ -581,34 +564,19 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_high = EXCLUDED.level_high,
     level_dangerous = EXCLUDED.level_dangerous;
 
--- Courtois Creek - Courtois Gauge (PRIMARY, lower section near Hwy Y)
+-- Courtois Creek - Huzzah Gauge as Proxy (PRIMARY)
+-- Courtois has no active real-time USGS gauge. Local paddlers use the Huzzah
+-- gauge since the two creeks are similar in volume and precipitation.
 INSERT INTO river_gauges (
     river_id, gauge_station_id, is_primary,
     distance_from_section_miles, threshold_unit,
     level_too_low, level_low, level_optimal_min,
     level_optimal_max, level_high, level_dangerous
 )
-SELECT r.id, gs.id, true, 1.0, 'ft',
+SELECT r.id, gs.id, true, 5.0, 'ft',
     1.5, 2.0, 2.5, 4.5, 6.0, 8.0
 FROM rivers r, gauge_stations gs
-WHERE r.slug = 'courtois' AND gs.usgs_site_id = '07014100'
-ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
-    is_primary = EXCLUDED.is_primary,
-    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
-
--- Courtois Creek - Berryman Gauge (Secondary, upper section)
-INSERT INTO river_gauges (
-    river_id, gauge_station_id, is_primary,
-    distance_from_section_miles, threshold_unit,
-    level_too_low, level_low, level_optimal_min,
-    level_optimal_max, level_high, level_dangerous
-)
-SELECT r.id, gs.id, false, 1.0, 'ft',
-    1.0, 1.5, 2.0, 4.0, 6.0, 8.0
-FROM rivers r, gauge_stations gs
-WHERE r.slug = 'courtois' AND gs.usgs_site_id = '07014200'
+WHERE r.slug = 'courtois' AND gs.usgs_site_id = '07017200'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
     level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
