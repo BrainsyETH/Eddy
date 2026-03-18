@@ -226,6 +226,114 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
     nearby_services = EXCLUDED.nearby_services,
     approved = EXCLUDED.approved;
 
+-- Lucky Clover Lakeside River Resort — Mile ~53
+-- Guide: "Many private campgrounds in this area" (mile 47 area)
+-- Research confirms ~1 mile of Meramec frontage, explicit personal launch fees.
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, fee_notes, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_upstream, approved,
+    local_tips, nearby_services
+)
+SELECT
+    r.id,
+    'Lucky Clover Resort',
+    'lucky-clover',
+    ST_SetSRID(ST_MakePoint(-91.3846, 37.9926), 4326),
+    'access',
+    ARRAY['access', 'campground'],
+    false,
+    'private',
+    'Private 100-acre resort on the Meramec River between Steelville and Garrison''s with approximately 1 mile of river frontage. Offers canoe, kayak, raft, and tube rentals with shuttle. Also has two stocked lakes (20-acre and 4-acre) for fishing. Personal watercraft launch permitted weekdays only with armband and fees.',
+    ARRAY['parking', 'restrooms', 'camping', 'picnic', 'store'],
+    'On-site parking. Gravel pads at RV sites. Space for 30+ vehicles. Pull-through RV sites up to 80 ft.',
+    'From I-44 Exit 208 (Cuba), take Hwy 19 south 5.5 miles. Turn right onto Becker Road, then immediately left onto Lucky Clover Road. Follow approximately 0.5 miles to the end — when you see the sign, stay left. Address: 69 Lucky Clover Rd, Steelville, MO 65565.',
+    '100-acre resort: 44+ tent sites (many lakefront, some with electric and river access), 26–29 RV sites with 30-amp electric and water (gravel pads, pull-throughs up to 80 ft, 40 ft max RV length). 2 cabins. Bathrooms with hot showers. Swimming pool, playground, beach, dump station, camp store, Wi-Fi. Two stocked fishing lakes. Canoe/kayak/raft/tube rentals with shuttle. Pet-friendly. Open May 1 – October 31.',
+    true,
+    'Personal watercraft launch: $15/craft + $15 parking pass (weekdays only — weekend launches no longer permitted). Shuttle for personal boats: $45/craft (canoes/kayaks only, no rafts/tubes, may not be available on holidays). Rental and camping rates vary — call (573) 775-2419.',
+    ARRAY['paved', 'gravel_maintained']::text[],
+    '30',
+    'Private',
+    'https://www.luckyclovercampground.com',
+    53.0,
+    true,
+    '<p><strong>Private access — fee required.</strong> Personal watercraft launch is weekdays only ($15/craft + $15 parking). Armbands must be purchased and worn while floating — anyone landing without an armband will not be permitted. Shuttle for personal canoes/kayaks is $45/craft (no rafts or tubes). Weekend personal launches are no longer permitted due to traffic.</p><p><strong>Fishing:</strong> Two stocked lakes on-site (20-acre and 4-acre) — a nice option if the river is too high or low.</p>',
+    '[{"name": "Lucky Clover Lakeside River Resort", "type": "outfitter", "phone": "573-775-2419", "website": "https://www.luckyclovercampground.com", "distance": "on-site", "notes": "100 acres, 70+ campsites, 2 cabins, pool, store, 2 stocked lakes, canoe/kayak/raft/tube rentals"}]'::jsonb
+FROM rivers r WHERE r.slug = 'meramec'
+ON CONFLICT (river_id, slug) DO UPDATE SET
+    description = EXCLUDED.description,
+    types = EXCLUDED.types,
+    is_public = EXCLUDED.is_public,
+    ownership = EXCLUDED.ownership,
+    road_access = EXCLUDED.road_access,
+    facilities = EXCLUDED.facilities,
+    parking_info = EXCLUDED.parking_info,
+    amenities = EXCLUDED.amenities,
+    fee_required = EXCLUDED.fee_required,
+    fee_notes = EXCLUDED.fee_notes,
+    road_surface = EXCLUDED.road_surface,
+    parking_capacity = EXCLUDED.parking_capacity,
+    managing_agency = EXCLUDED.managing_agency,
+    official_site_url = EXCLUDED.official_site_url,
+    local_tips = EXCLUDED.local_tips,
+    nearby_services = EXCLUDED.nearby_services,
+    approved = EXCLUDED.approved;
+
+-- Riverview Ranch — Mile ~73.5
+-- Guide: mile 78.0 "Private access canoe rental and campground"
+-- Research places this at Campbell Bridge area (mile 73-74), 7945 Hwy N, Bourbon.
+INSERT INTO access_points (
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
+    description, amenities, parking_info, road_access, facilities,
+    fee_required, fee_notes, road_surface, parking_capacity, managing_agency,
+    official_site_url, river_mile_upstream, approved,
+    local_tips, nearby_services
+)
+SELECT
+    r.id,
+    'Riverview Ranch',
+    'riverview-ranch',
+    ST_SetSRID(ST_MakePoint(-91.2070, 38.0450), 4326),
+    'access',
+    ARRAY['access', 'campground'],
+    false,
+    'private',
+    'Private resort on the Meramec River near Campbell Bridge at approximately mile 73.5. Direct riverfront tent camping with fire rings and picnic tables. Canoe, kayak, raft, and tube rentals with 5-mile and 10-mile shuttle floats ending at the ranch. Cabins and RV sites also available. The float trip take-out is at the ranch near Campbell Bridge.',
+    ARRAY['parking', 'restrooms', 'camping', 'picnic'],
+    'On-site parking. Reviewers describe "plenty of available parking." Space for 20+ vehicles. Likely gravel surface.',
+    'From I-44, take Exit 218 (Bourbon). Head south on Hwy N approximately 9 miles to the river. Hwy N is paved all the way. Address: 7945 Hwy N, Bourbon, MO 65441.',
+    'Private resort: tent sites (many directly on riverbank with picnic table and fire ring), two large group camping areas (separated for louder parties). RV sites with 30-amp electric hookups. Rustic cabins and bunkhouses (unfurnished — bring own bedding). Flush restrooms with hot showers (low water pressure reported). Swimming pool. Canoe/kayak/raft/tube rentals with shuttle. Quiet hours 11 PM – 7 AM. Pets allowed ($15/pet fee). Open seasonally.',
+    true,
+    'Access fee required. Rental and camping rates vary — call (573) 732-5544 or (800) 748-8439. Confirm whether BYO boat launch is permitted and any associated fee.',
+    ARRAY['paved']::text[],
+    '20',
+    'Private',
+    'https://www.riverviewranch.org',
+    73.5,
+    true,
+    '<p><strong>Private access — fee required.</strong> Riverview Ranch serves as the take-out for 5-mile and 10-mile shuttle floats. Riverfront tent sites are right on the water. Near Campbell Bridge Access (mile 73.7, public). Confirm BYO boat access policy by calling (573) 732-5544.</p><p><strong>Note:</strong> River access quality varies by site — the group camp area has rougher access than the standard riverside tent sites.</p>',
+    '[{"name": "Riverview Ranch", "type": "outfitter", "phone": "573-732-5544", "website": "https://www.riverviewranch.org", "distance": "on-site", "notes": "Tent/RV camping, cabins, canoe/kayak/raft/tube rentals, shuttle, pool"}, {"name": "Campbell Bridge Access (MDC)", "type": "campground", "distance": "0.2 miles (mile 73.7)", "notes": "Free public access with boat/fishing access"}]'::jsonb
+FROM rivers r WHERE r.slug = 'meramec'
+ON CONFLICT (river_id, slug) DO UPDATE SET
+    description = EXCLUDED.description,
+    types = EXCLUDED.types,
+    is_public = EXCLUDED.is_public,
+    ownership = EXCLUDED.ownership,
+    road_access = EXCLUDED.road_access,
+    facilities = EXCLUDED.facilities,
+    parking_info = EXCLUDED.parking_info,
+    amenities = EXCLUDED.amenities,
+    fee_required = EXCLUDED.fee_required,
+    fee_notes = EXCLUDED.fee_notes,
+    road_surface = EXCLUDED.road_surface,
+    parking_capacity = EXCLUDED.parking_capacity,
+    managing_agency = EXCLUDED.managing_agency,
+    official_site_url = EXCLUDED.official_site_url,
+    local_tips = EXCLUDED.local_tips,
+    nearby_services = EXCLUDED.nearby_services,
+    approved = EXCLUDED.approved;
+
 -- ============================================
 -- ADD MISSING BUSINESSES TO nearby_services
 -- ============================================
@@ -240,9 +348,9 @@ VALUES
 
   ('Meramec Caverns Campground', 'meramec-caverns-campground', 'campground', '573-468-3166', NULL, NULL, 'https://www.americascave.com', NULL, 'Stanton', 'MO', '63079', NULL, NULL, 'LaJolla Natural Park campground at the famous Meramec Caverns. Riverfront tent and RV sites, motel rooms, canoe/kayak/raft rentals with shuttle (6-mile and 11-mile trips). Cave tours, zip line, concession stand, playground.', ARRAY['camping_rv','camping_primitive','canoe_rental','kayak_rental','raft_rental','shuttle','showers']::service_offering[], 'Campground open April 1 – October 31. Cave tours year-round.', FALSE, FALSE, NULL, NULL, 'active', 'americascave.com, thedyrt.com, campendium, hipcamp', 'Canoe/raft rentals operated as Cavern Canoe and Raft Rental. Shuttle takes you upstream, float back to caverns. Motel also on-site.', 47),
 
-  ('Lucky Clover Lakeside River Resort', 'lucky-clover-resort', 'outfitter', NULL, NULL, NULL, 'https://www.luckyclovercampground.com', NULL, 'Steelville', 'MO', '65565', NULL, NULL, 'Full-service river outfitter and campground near Steelville on the upper Meramec River. Tent sites, RV sites, and on-site lake. Canoe, kayak, raft, and tube rentals with shuttle.', ARRAY['canoe_rental','kayak_rental','raft_rental','tube_rental','shuttle','camping_rv','camping_primitive']::service_offering[], 'Seasonal — typically April through October.', FALSE, FALSE, NULL, NULL, 'unverified', 'luckyclovercampground.com, hipcamp, naturallymeramec.org', 'Has on-site lake in addition to Meramec River access. Verify phone and exact address.', 28),
+  ('Lucky Clover Lakeside River Resort', 'lucky-clover-resort', 'outfitter', '573-775-2419', NULL, NULL, 'https://www.luckyclovercampground.com', '69 Lucky Clover Rd', 'Steelville', 'MO', '65565', 37.9926, -91.3846, '100-acre resort on the Meramec River with ~1 mile of river frontage and two stocked lakes (20-acre and 4-acre). 44+ tent sites, 26–29 RV sites, 2 cabins. Canoe/kayak/raft/tube rentals with shuttle. Personal watercraft launch permitted weekdays only ($15/craft + $15 parking). Pool, store, playground, Wi-Fi.', ARRAY['canoe_rental','kayak_rental','raft_rental','tube_rental','shuttle','camping_rv','camping_primitive','showers','swimming_pool','general_store']::service_offering[], 'Open May 1 – October 31.', FALSE, FALSE, NULL, NULL, 'active', 'luckyclovercampground.com, hipcamp, naturallymeramec.org, yelp, campendium, allstays', 'Personal launch: $15/craft + $15 parking (weekdays only). Shuttle for personal canoes/kayaks $45 (no rafts/tubes). Property listed for sale at $1.9M — verify operating status. Military and Fire/Rescue discounts.', 28),
 
-  ('Riverview Ranch', 'riverview-ranch', 'outfitter', NULL, NULL, NULL, 'https://www.riverviewranch.org', NULL, 'Steelville', 'MO', '65565', NULL, NULL, 'Resort on the upper Meramec River offering cabins, riverfront tent and RV camping, canoe/kayak/raft/tube rentals with shuttle. Located in the historic Missouri Ozark Heritage Region.', ARRAY['canoe_rental','kayak_rental','raft_rental','tube_rental','shuttle','camping_rv','camping_primitive','cabins']::service_offering[], 'Seasonal.', FALSE, FALSE, NULL, NULL, 'unverified', 'riverviewranch.org, unearththevoyage.com', 'Verify phone, exact address, and current operating status.', 29)
+  ('Riverview Ranch', 'riverview-ranch', 'outfitter', '573-732-5544', '800-748-8439', NULL, 'https://www.riverviewranch.org', '7945 Hwy N', 'Bourbon', 'MO', '65441', NULL, NULL, 'Resort near Campbell Bridge on the Meramec River (mile ~73.5). Riverfront tent camping, RV sites with 30-amp electric, rustic cabins/bunkhouses. Canoe/kayak/raft/tube rentals with 5-mile and 10-mile shuttle floats. Pool, fire rings. 9 miles south of Bourbon off Hwy N.', ARRAY['canoe_rental','kayak_rental','raft_rental','tube_rental','shuttle','camping_rv','camping_primitive','cabins','showers','swimming_pool']::service_offering[], 'Seasonal. Mon-Thu 8am-5pm, Fri-Sat 8am-9pm, Sun 8am-5pm.', FALSE, FALSE, NULL, NULL, 'active', 'riverviewranch.org, yelp, campendium, exploresteelville.com, groupon', 'Address is Bourbon, MO (not Steelville). 9 miles south on Hwy N from I-44 Exit 218. Cabins unfurnished — bring own bedding. Quiet hours 11 PM – 7 AM. Pets allowed ($15/pet). Low water pressure in showers.', 29)
 
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name, type = EXCLUDED.type, phone = EXCLUDED.phone, phone_toll_free = EXCLUDED.phone_toll_free,
