@@ -8,6 +8,7 @@ import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, Databa
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import AboutCollapsibleSection from '@/components/ui/AboutCollapsibleSection';
+import SiteFooter from '@/components/ui/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'How Eddy Works',
@@ -493,17 +494,7 @@ export default function AboutPage() {
 
       </div>
 
-      {/* Footer */}
-      <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-primary-200 mb-2">
-            Eddy &middot; Your River Guide
-          </p>
-          <p className="text-sm text-primary-300">
-            Water data from USGS &middot; Always check local conditions before floating
-          </p>
-        </div>
-      </footer>
+      <SiteFooter maxWidth="max-w-4xl" className="mt-16" />
     </div>
   );
 }

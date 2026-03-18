@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import SiteFooter from '@/components/ui/SiteFooter';
 
 export const metadata: Metadata = {
   title: "Eddy's Thoughts - Float Trip Guides & Resources",
@@ -137,25 +138,7 @@ export default async function BlogPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-4 p-4 bg-primary-700/50 rounded-lg border border-primary-600/30">
-            <p className="text-sm text-primary-100 text-center">
-              <strong className="text-white">Safety First:</strong> Eddy is a planning guide only. Always consult local outfitters and authorities for current conditions before floating.
-            </p>
-          </div>
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-primary-200">
-            <div className="flex items-center gap-4">
-              <p>Eddy &middot; Water data from USGS</p>
-              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            </div>
-            <p className="text-center md:text-right text-primary-300">
-              &copy; {new Date().getFullYear()} eddy.guide &middot; For informational purposes only
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

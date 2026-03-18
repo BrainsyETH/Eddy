@@ -1,13 +1,13 @@
 // src/app/page.tsx
 // Landing page for Eddy (server-rendered with client islands)
 
-import Link from 'next/link';
 import Image from 'next/image';
 import { getRivers } from '@/lib/data/rivers';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 import FloatEstimator from './FloatEstimator';
 import EddysReport from './EddysReport';
+import SiteFooter from '@/components/ui/SiteFooter';
 
 export const revalidate = 300; // ISR every 5 minutes
 
@@ -58,30 +58,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-6">
-        <div className="max-w-5xl mx-auto">
-          {/* Safety Disclaimer */}
-          <div className="mb-4 p-4 bg-primary-700/50 rounded-lg border border-primary-600/30">
-            <p className="text-sm text-primary-100 text-center">
-              <strong className="text-white">Safety First:</strong> Eddy is a planning guide only. Always consult local outfitters and authorities for current conditions before floating. Water levels can change rapidly. Wear life jackets and never float alone.
-            </p>
-          </div>
-
-          {/* Footer Links */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-primary-200">
-            <div className="flex items-center gap-4">
-              <p>Eddy &middot; Water data from USGS</p>
-              <Link href="/about" className="hover:text-white transition-colors">About</Link>
-              <Link href="/embed" className="hover:text-white transition-colors">Embed Widgets</Link>
-              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            </div>
-            <p className="text-center md:text-right text-primary-300">
-              &copy; {new Date().getFullYear()} eddy.guide &middot; For informational purposes only
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

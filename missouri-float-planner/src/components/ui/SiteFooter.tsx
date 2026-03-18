@@ -1,27 +1,24 @@
 // src/components/ui/SiteFooter.tsx
-// Shared footer component used across all pages
+// Shared footer component used across all pages — matches landing page footer
 
 import Link from 'next/link';
 
 interface SiteFooterProps {
   /** Show the safety disclaimer block above the footer text */
   showSafetyDisclaimer?: boolean;
-  /** Optional subtitle override (defaults to USGS attribution) */
-  subtitle?: string;
   /** Max width class (defaults to max-w-5xl) */
   maxWidth?: string;
-  /** Additional top margin class */
+  /** Additional classes */
   className?: string;
 }
 
 export default function SiteFooter({
-  showSafetyDisclaimer = false,
-  subtitle = 'Water data from USGS \u00b7 Always check local conditions before floating',
+  showSafetyDisclaimer = true,
   maxWidth = 'max-w-5xl',
   className = '',
 }: SiteFooterProps) {
   return (
-    <footer className={`bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 ${className}`}>
+    <footer className={`bg-primary-800 border-t-2 border-neutral-900 px-4 py-6 ${className}`}>
       <div className={`${maxWidth} mx-auto`}>
         {showSafetyDisclaimer && (
           <div className="mb-4 p-4 bg-primary-700/50 rounded-lg border border-primary-600/30">
@@ -30,15 +27,15 @@ export default function SiteFooter({
             </p>
           </div>
         )}
-        <div className="text-center">
-          <p className="text-primary-200 mb-2">
-            <Link href="/" className="hover:text-white transition-colors">
-              Eddy
-            </Link>
-            {' '}&middot; Missouri River Float Trip Planner
-          </p>
-          <p className="text-sm text-primary-300">
-            {subtitle}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-primary-200">
+          <div className="flex items-center gap-4">
+            <p>Eddy &middot; Water data from USGS</p>
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
+            <Link href="/embed" className="hover:text-white transition-colors">Embed Widgets</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+          </div>
+          <p className="text-center md:text-right text-primary-300">
+            &copy; {new Date().getFullYear()} eddy.guide &middot; For informational purposes only
           </p>
         </div>
       </div>

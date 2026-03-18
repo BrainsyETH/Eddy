@@ -7,6 +7,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Copy, Check, ExternalLink, ChevronDown } from 'lucide-react';
+import SiteFooter from '@/components/ui/SiteFooter';
 
 const EDDY_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
@@ -624,17 +625,7 @@ export default function EmbedPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 mt-16">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-primary-200 mb-2">
-            Eddy &middot; Your River Guide
-          </p>
-          <p className="text-sm text-primary-300">
-            Water data from USGS &middot; Always check local conditions before floating
-          </p>
-        </div>
-      </footer>
+      <SiteFooter maxWidth="max-w-3xl" className="mt-16" />
     </div>
   );
 }
