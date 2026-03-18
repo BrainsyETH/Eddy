@@ -57,6 +57,12 @@ interface AccessPoint {
   imageUrls?: string[];
   googleMapsUrl?: string | null;
   approved: boolean;
+  roadSurface?: string[];
+  parkingCapacity?: string | null;
+  managingAgency?: string | null;
+  officialSiteUrl?: string | null;
+  localTips?: string | null;
+  nearbyServices?: { name: string; type: string; phone?: string; website?: string; distance?: string; notes?: string }[];
   riverName?: string;
   hasInvalidCoords?: boolean;
   hasMissingCoords?: boolean;
