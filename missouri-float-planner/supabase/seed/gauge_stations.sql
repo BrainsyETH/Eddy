@@ -105,18 +105,48 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
--- Niangua River Gauge
+-- Niangua River Gauges
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
-    '06923500',
-    'Niangua River near Hartville, MO',
-    ST_SetSRID(ST_MakePoint(-92.5017, 37.3178), 4326),
+    '06923250',
+    'Niangua River at Windyville, MO',
+    ST_SetSRID(ST_MakePoint(-92.8693, 37.6694), 4326),
     true
 ) ON CONFLICT (usgs_site_id) DO UPDATE SET
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
--- Big Piney River Gauge
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '06923700',
+    'Niangua River at Bennett Spring, MO',
+    ST_SetSRID(ST_MakePoint(-92.8544, 37.7167), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '06923950',
+    'Niangua River at Tunnel Dam near Macks Creek, MO',
+    ST_SetSRID(ST_MakePoint(-92.8514, 37.9369), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
+-- Big Piney River Gauges
+INSERT INTO gauge_stations (usgs_site_id, name, location, active)
+VALUES (
+    '06928900',
+    'Big Piney River near Houston, MO',
+    ST_SetSRID(ST_MakePoint(-91.9971, 37.3231), 4326),
+    true
+) ON CONFLICT (usgs_site_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active;
+
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
     '06930000',
@@ -419,79 +449,90 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
     level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
 
--- Niangua River - Hartville Gauge (Primary)
+-- Niangua River - Windyville Gauge (Secondary, upper section)
 INSERT INTO river_gauges (
-    river_id, 
-    gauge_station_id, 
-    is_primary,
-    distance_from_section_miles,
-    threshold_unit,
-    level_too_low,
-    level_low,
-    level_optimal_min,
-    level_optimal_max,
-    level_high,
-    level_dangerous
+    river_id, gauge_station_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
 )
-SELECT 
-    r.id,
-    gs.id,
-    true,
-    8.0,
-    'ft',
-    1.2,
-    2.0,
-    2.8,
-    5.0,
-    7.0,
-    10.0
+SELECT r.id, gs.id, false, 0.0, 'ft',
+    1.5, 2.0, 2.5, 5.0, 7.0, 10.0
 FROM rivers r, gauge_stations gs
-WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923500'
+WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923250'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
-    level_too_low = EXCLUDED.level_too_low,
-    level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min,
-    level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high,
-    level_dangerous = EXCLUDED.level_dangerous;
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
 
--- Big Piney River - Big Piney Gauge (Primary)
+-- Niangua River - Bennett Spring Gauge (PRIMARY, core float section)
 INSERT INTO river_gauges (
-    river_id, 
-    gauge_station_id, 
-    is_primary,
-    distance_from_section_miles,
-    threshold_unit,
-    level_too_low,
-    level_low,
-    level_optimal_min,
-    level_optimal_max,
-    level_high,
-    level_dangerous
+    river_id, gauge_station_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
 )
-SELECT 
-    r.id,
-    gs.id,
-    true,
-    3.0,
-    'ft',
-    1.5,
-    2.3,
-    3.0,
-    5.5,
-    7.5,
-    11.0
+SELECT r.id, gs.id, true, 0.0, 'ft',
+    1.5, 2.0, 2.5, 5.0, 7.0, 10.0
+FROM rivers r, gauge_stations gs
+WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923700'
+ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
+
+-- Niangua River - Tunnel Dam Gauge (Secondary, lower section)
+INSERT INTO river_gauges (
+    river_id, gauge_station_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
+)
+SELECT r.id, gs.id, false, 0.0, 'ft',
+    1.5, 2.0, 2.5, 5.0, 7.0, 10.0
+FROM rivers r, gauge_stations gs
+WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923950'
+ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
+
+-- Big Piney River - Houston Gauge (Secondary, upper section)
+INSERT INTO river_gauges (
+    river_id, gauge_station_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
+)
+SELECT r.id, gs.id, false, 0.0, 'ft',
+    1.5, 2.0, 2.5, 5.0, 7.0, 10.0
+FROM rivers r, gauge_stations gs
+WHERE r.slug = 'big-piney' AND gs.usgs_site_id = '06928900'
+ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
+    is_primary = EXCLUDED.is_primary,
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
+
+-- Big Piney River - Big Piney Gauge (PRIMARY, lower/Pulaski County section)
+INSERT INTO river_gauges (
+    river_id, gauge_station_id, is_primary,
+    distance_from_section_miles, threshold_unit,
+    level_too_low, level_low, level_optimal_min,
+    level_optimal_max, level_high, level_dangerous
+)
+SELECT r.id, gs.id, true, 0.0, 'ft',
+    1.8, 2.3, 3.0, 5.5, 7.0, 10.0
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'big-piney' AND gs.usgs_site_id = '06930000'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
-    level_too_low = EXCLUDED.level_too_low,
-    level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min,
-    level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high,
-    level_dangerous = EXCLUDED.level_dangerous;
+    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
+    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
+    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
 
 -- Huzzah Creek - Steelville Gauge (Primary)
 INSERT INTO river_gauges (
