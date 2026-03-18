@@ -194,17 +194,17 @@ SELECT
     'Private campground and river access at the famous Meramec Caverns in Stanton at mile 94.3. The LaJolla Natural Park campground sits along the Meramec River with direct launch access. Canoe, kayak, and raft rentals with shuttle — 6-mile and 11-mile float options with shuttle upstream and float back to the caverns. Also home to Missouri''s most visited show cave.',
     ARRAY['parking', 'restrooms', 'camping', 'picnic', 'store'],
     'Large paved parking lot shared with cave visitors. Ample space for 50+ vehicles. Trailer-friendly.',
-    'From I-44, take Exit 230 (Stanton). Follow signs to Meramec Caverns — approximately 3 miles south on Hwy W. Well-signed from the interstate. All paved roads. Address: Stanton, MO 63079.',
-    'LaJolla Natural Park campground: tent sites and RV sites with water/electric hookups. Motel rooms also available. Shower houses with restrooms. Concession stand, pavilions, playground, barbecue pits. Canoe/kayak/raft rentals with shuttle (seasonal, April–September, weather permitting). Zip line on-site. Meramec Caverns cave tours available. Riverfront gravel bar launch.',
+    'From I-44, take Exit 230 (Stanton). Follow signs to Meramec Caverns — approximately 3 miles south on Hwy W. Well-signed from the interstate. All paved roads. Address: 1135 Highway W, Stanton, MO 63079.',
+    'LaJolla Natural Park campground: ~40 electric-only sites, ~40 electric/water sites, primitive tent sites. Dump station at entrance (no sewer hookups at sites). Motel rooms also available. Shower houses with restrooms. Concession stand/restaurant, pavilions, playground, barbecue pits. Canoe/kayak/raft rentals via Cavern Canoe and Raft Rental (seasonal, April–September). Zip line, Jesse James Wax Museum, cave tours. One vehicle per campsite; extra vehicles must park in visitor lot.',
     true,
-    'Access fee required for non-guests. Campground open April 1 – October 31. Canoe/kayak/raft rentals seasonal. Cave tours year-round. Call (573) 468-3166 for campground reservations.',
+    'Rental-only river access — personal watercraft (canoes, kayaks, tubes) NOT permitted to launch or take out on the property. Must rent from Cavern Canoe and Raft Rental. For BYO boats, use MDC Sand Ford Access (mile 95.4) next door instead. Campground open April 1 – October 31. Call (573) 468-3166 for reservations.',
     ARRAY['paved']::text[],
     '50+',
     'Private',
     'https://www.americascave.com',
     94.3,
     true,
-    '<p><strong>Private access — fee required.</strong> Meramec Caverns offers 6-mile and 11-mile float trips. Their shuttle takes you upstream and you float back to the caverns parking area. This is 1 mile downstream of MDC Sand Ford Access (mile 95.4), so Sand Ford is the free public alternative nearby.</p><p><strong>Cave tours:</strong> While you''re here, Meramec Caverns is worth the visit — one of Missouri''s most spectacular show caves.</p>',
+    '<p><strong>Rental-only access — no personal watercraft allowed.</strong> Meramec Caverns does NOT permit BYO canoes, kayaks, or tubes to launch or take out on their property. You must rent from Cavern Canoe and Raft Rental (6-mile and 11-mile float options; shuttle takes you upstream, you float back). For your own boats, use the free MDC Sand Ford Access (mile 95.4) essentially next door off Hwy W.</p><p><strong>Cave tours:</strong> While you''re here, Meramec Caverns is worth the visit — one of Missouri''s most spectacular show caves.</p>',
     '[{"name": "Meramec Caverns", "type": "outfitter", "phone": "573-468-3166", "website": "https://www.americascave.com", "distance": "on-site", "notes": "Canoe/kayak/raft rentals, shuttle, campground, motel, cave tours, zip line"}, {"name": "Sand Ford Access (MDC)", "type": "campground", "distance": "1 mile upstream (mile 95.4)", "notes": "Free public access with two boat ramps. Open 4 AM – 10 PM."}]'::jsonb
 FROM rivers r WHERE r.slug = 'meramec'
 ON CONFLICT (river_id, slug) DO UPDATE SET
