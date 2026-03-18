@@ -292,6 +292,12 @@ export default function GeographyEditor() {
           drivingLng: editingDetails.drivingLng,
           imageUrls: editingDetails.imageUrls,
           googleMapsUrl: editingDetails.googleMapsUrl,
+          roadSurface: editingDetails.roadSurface,
+          parkingCapacity: editingDetails.parkingCapacity,
+          managingAgency: editingDetails.managingAgency,
+          officialSiteUrl: editingDetails.officialSiteUrl,
+          localTips: editingDetails.localTips,
+          nearbyServices: editingDetails.nearbyServices,
         }),
       });
 

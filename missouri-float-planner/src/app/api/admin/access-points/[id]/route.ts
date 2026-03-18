@@ -361,6 +361,13 @@ export async function PUT(
 
     if (updateError) {
       console.error('Error updating access point:', updateError);
+      // Handle unique constraint violation (duplicate slug within same river)
+      if (updateError.code === '23505') {
+        return NextResponse.json(
+          { error: 'An access point with this name already exists on this river' },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         { error: 'Could not update access point' },
         { status: 500 }
