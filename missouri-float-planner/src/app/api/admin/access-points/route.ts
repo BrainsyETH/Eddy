@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Pagination params
     const url = new URL(request.url);
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+    const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get('limit') || '1000', 10)));
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
