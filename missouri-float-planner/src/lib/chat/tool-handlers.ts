@@ -28,6 +28,8 @@ const SLUG_MAP: Record<string, string> = {
   'big-piney': 'big-piney',
   'big_piney': 'big-piney',
   'gasconade': 'gasconade',
+  'niangua': 'niangua',
+  'niangua_river': 'niangua',
 };
 
 function normalizeSlug(input: string): string {
@@ -74,7 +76,7 @@ async function handleGetRiverConditions(input: Record<string, unknown>) {
     .single();
 
   if (!river) {
-    return { error: `River not found: ${riverSlug}. Available rivers: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade` };
+    return { error: `River not found: ${riverSlug}. Available rivers: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade, niangua` };
   }
 
   // Get primary gauge with thresholds

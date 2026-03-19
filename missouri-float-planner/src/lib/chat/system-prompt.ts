@@ -26,6 +26,7 @@ RIVER NAME → SLUG MAP (use these slugs when calling tools):
 - Meramec / Merimac / Meremec → meramec
 - Big Piney → big-piney
 - Gasconade → gasconade
+- Niangua / Niangua River → niangua
 
 TOOL PRIORITY:
 1. Always check your database tools first (conditions, access points, services)
