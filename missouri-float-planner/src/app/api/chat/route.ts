@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         let continueLoop = true;
         while (continueLoop) {
           const response = await client.messages.create({
-            model: 'claude-haiku-4-5-20251001',
+            model: process.env.CHAT_MODEL || 'claude-sonnet-4-5-20241022',
             max_tokens: 2048,
             system: [
               {
@@ -103,6 +103,11 @@ export async function POST(request: Request) {
           inputTokens += response.usage?.input_tokens || 0;
           outputTokens += response.usage?.output_tokens || 0;
 
+          // Check stop reason to decide whether to stream text to the user.
+          // If stop_reason is 'tool_use', any text in this turn is intermediate
+          // thinking/narration — discard it. Only stream text on the final turn.
+          const isFinalTurn = response.stop_reason === 'end_turn';
+
           // Process response content blocks
           // Collect all tool results so we can send them together in one user message
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
@@ -110,7 +115,10 @@ export async function POST(request: Request) {
           for (const block of response.content) {
             if (block.type === 'text') {
               fullResponse += block.text;
-              send({ type: 'text', content: block.text });
+              // Only send text to client on the final turn (no intermediate narration)
+              if (isFinalTurn) {
+                send({ type: 'text', content: block.text });
+              }
             } else if (block.type === 'tool_use') {
               const toolName = block.name;
               const toolLabel = TOOL_LABELS[toolName] || `Using ${toolName}...`;
@@ -152,15 +160,8 @@ export async function POST(request: Request) {
             ];
           }
 
-          // Check if we should continue the loop
-          if (response.stop_reason === 'end_turn') {
-            continueLoop = false;
-          } else if (response.stop_reason === 'tool_use') {
-            // Claude wants to use tools — continue the loop
-            continueLoop = true;
-          } else {
-            continueLoop = false;
-          }
+          // Continue loop only if Claude wants to use more tools
+          continueLoop = !isFinalTurn && response.stop_reason === 'tool_use';
         }
 
         send({ type: 'done' });
