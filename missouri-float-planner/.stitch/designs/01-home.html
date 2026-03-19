@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ========================================
+       DESIGN SYSTEM TOKENS — Organic Brutalist
+       ======================================== */
+
+    :root {
+      /* Primary — Deep River Teal */
+      --primary-900: #0F2D35;
+      --primary-800: #163F4A;
+      --primary-700: #1D525F;
+      --primary-600: #256574;
+      --primary-500: #2D7889;
+      --primary-400: #4A9AAD;
+      --primary-300: #72B5C4;
+      --primary-200: #A3D1DB;
+      --primary-100: #D4EAEF;
+      --primary-50: #EBF5F7;
+
+      /* Secondary — Sandbar Tan */
+      --secondary-500: #B89D72;
+      --secondary-200: #E8DFD0;
+      --secondary-100: #F4EFE7;
+      --secondary-50: #FAF8F4;
+
+      /* Accent — Sunset Coral */
+      --accent-500: #F07052;
+      --accent-600: #E5573F;
+      --accent-400: #F48E76;
+      --accent-300: #F7AC9A;
+      --accent-100: #FDE7E1;
+      --accent-50: #FEF5F3;
+
+      /* Support — Trail Green */
+      --support-500: #4EB86B;
+      --support-700: #347A47;
+      --support-300: #95D9A7;
+      --support-100: #DCF4E2;
+
+      /* Neutrals — Warm Stone */
+      --neutral-950: #1A1814;
+      --neutral-900: #2D2A24;
+      --neutral-800: #3F3B33;
+      --neutral-700: #524D43;
+      --neutral-600: #6B6459;
+      --neutral-500: #857D70;
+      --neutral-400: #A49C8E;
+      --neutral-300: #C2BAAC;
+      --neutral-200: #DBD5CA;
+      --neutral-100: #EDEBE6;
+      --neutral-50: #F7F6F3;
+
+      /* Semantic */
+      --background: #F7F6F3;
+      --surface: #FFFFFF;
+      --success: #4EB86B;
+      --warning: #E5A000;
+      --error: #DC2626;
+      --info: #2D7889;
+
+      /* Shadows — Organic Brutalist offset */
+      --shadow-xs: 1px 1px 0 #C2BAAC;
+      --shadow-sm: 2px 2px 0 #C2BAAC;
+      --shadow-md: 3px 3px 0 #A49C8E;
+      --shadow-lg: 4px 4px 0 #857D70;
+      --shadow-xl: 6px 6px 0 #6B6459;
+      --shadow-soft-sm: 0 1px 3px rgba(45,42,36,0.1);
+      --shadow-soft-md: 0 4px 6px rgba(45,42,36,0.1);
+      --shadow-soft-lg: 0 10px 15px rgba(45,42,36,0.1);
+
+      /* Fonts */
+      --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-display: 'Fredoka', sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', monospace;
+
+      /* Borders */
+      --border-thin: 1px;
+      --border-base: 2px;
+      --border-thick: 3px;
+
+      /* Radius */
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 12px;
+      --radius-full: 9999px;
+
+      /* Transitions */
+      --transition-fast: 100ms;
+      --transition-normal: 200ms;
+      --transition-slow: 300ms;
+    }
+
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: var(--font-body);
+      background: var(--background);
+      color: var(--neutral-900);
+      line-height: 1.5;
+    }
+    a { text-decoration: none; color: inherit; }
+    img { max-width: 100%; height: auto; display: block; }
+    button { cursor: pointer; font-family: inherit; }
+
+    /* ========================================
+       ANIMATIONS
+       ======================================== */
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ========================================
+       HEADER
+       ======================================== */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--primary-800);
+      border-bottom: var(--border-thick) solid var(--neutral-900);
+      height: 56px;
+    }
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+    .logo-img {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+    }
+    .logo-text {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--accent-500);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-left: 2rem;
+    }
+    .nav-link {
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--primary-100);
+      transition: all var(--transition-fast);
+    }
+    .nav-link:hover {
+      color: white;
+      background: rgba(255,255,255,0.1);
+    }
+    .nav-link.active {
+      color: white;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* ========================================
+       HERO
+       ======================================== */
+    .hero {
+      background: linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35);
+      padding: 3.5rem 1rem 3rem;
+      text-align: center;
+      color: white;
+    }
+    .hero-mascot {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 0.25rem;
+      animation: float 6s ease-in-out infinite;
+      filter: drop-shadow(0 4px 24px rgba(240,112,82,0.3));
+    }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 3.75rem;
+      font-weight: 700;
+      color: var(--accent-500);
+      line-height: 1.05;
+      margin-bottom: 0.75rem;
+    }
+    .hero-subtitle {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.05em;
+    }
+
+    @media (min-width: 768px) {
+      .hero { padding: 5rem 1rem 4rem; }
+      .hero-mascot { width: 256px; height: 256px; }
+    }
+
+    /* ========================================
+       MAIN CONTENT
+       ======================================== */
+    .main-content {
+      flex: 1;
+      padding: 2rem 1rem 2.5rem;
+    }
+    .content-container {
+      max-width: 1024px;
+      margin: 0 auto;
+    }
+    .section-gap {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* ========================================
+       EDDY SAYS CARD
+       ======================================== */
+    .eddy-says {
+      background: var(--surface);
+      border: var(--border-base) solid var(--primary-700);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      animation: fadeIn 500ms ease-out;
+    }
+    .eddy-says-header {
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .eddy-says-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+    }
+    .eddy-says-title {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--neutral-900);
+    }
+    .eddy-says-age {
+      font-size: 0.75rem;
+      color: var(--neutral-500);
+    }
+    .eddy-says-quote {
+      font-size: 0.9375rem;
+      color: var(--neutral-600);
+      font-style: italic;
+      margin-top: 0.25rem;
+      line-height: 1.5;
+    }
+
+    /* River condition rows */
+    .river-row {
+      display: flex;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--neutral-100);
+      transition: background var(--transition-fast);
+      gap: 0.75rem;
+    }
+    .river-row:hover {
+      background: var(--neutral-50);
+    }
+    .condition-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: var(--radius-full);
+      flex-shrink: 0;
+    }
+    .condition-dot.optimal { background: var(--support-500); }
+    .condition-dot.low { background: var(--warning); }
+    .condition-dot.high { background: #F97316; }
+    .condition-dot.okay { background: #84CC16; }
+    .condition-dot.danger { background: var(--error); }
+    .condition-dot.unknown { background: var(--neutral-400); }
+
+    .river-info { flex: 1; min-width: 0; }
+    .river-name {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--neutral-900);
+    }
+    .river-verdict {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+    }
+    .verdict-optimal { color: var(--support-500); }
+    .verdict-low { color: var(--warning); }
+    .verdict-okay { color: #84CC16; }
+    .verdict-high { color: #F97316; }
+    .river-blurb {
+      font-size: 0.8125rem;
+      color: var(--neutral-500);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-top: 0.125rem;
+    }
+    .river-chevron {
+      color: var(--neutral-400);
+      flex-shrink: 0;
+    }
+
+    /* ========================================
+       ASK EDDY CTA
+       ======================================== */
+    .ask-eddy {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--surface);
+      border: var(--border-base) solid var(--neutral-200);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      transition: all var(--transition-normal);
+      box-shadow: var(--shadow-soft-sm);
+      animation: fadeIn 500ms ease-out 100ms both;
+    }
+    .ask-eddy:hover {
+      border-color: var(--primary-300);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+    .ask-eddy-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-lg);
+      flex-shrink: 0;
+    }
+    .ask-eddy-content { flex: 1; }
+    .ask-eddy-title {
+      font-family: var(--font-display);
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--neutral-800);
+      transition: color var(--transition-fast);
+    }
+    .ask-eddy:hover .ask-eddy-title {
+      color: var(--primary-700);
+    }
+    .ask-eddy-desc {
+      font-size: 0.875rem;
+      color: var(--neutral-500);
+      margin-top: 0.125rem;
+      line-height: 1.5;
+    }
+    .ask-eddy-arrow {
+      color: var(--neutral-400);
+      flex-shrink: 0;
+      transition: color var(--transition-fast);
+    }
+    .ask-eddy:hover .ask-eddy-arrow {
+      color: var(--primary-500);
+    }
+
+    /* ========================================
+       FLOAT ESTIMATOR
+       ======================================== */
+    .float-estimator-section {
+      animation: fadeIn 500ms ease-out 200ms both;
+    }
+    .float-estimator-heading {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--neutral-800);
+      margin-bottom: 0.75rem;
+      font-family: var(--font-heading);
+      letter-spacing: -0.02em;
+    }
+    .float-estimator {
+      background: rgba(15,45,53,0.95);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1rem;
+      padding: 1.25rem 1.5rem;
+      backdrop-filter: blur(8px);
+    }
+    .estimator-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .estimator-img {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+    }
+    .estimator-title {
+      font-family: var(--font-display);
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: white;
+    }
+    .estimator-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .estimator-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .field-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--primary-200);
+      margin-bottom: 0.25rem;
+    }
+    .field-select {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-md);
+      color: white;
+      font-size: 0.875rem;
+      appearance: none;
+      backdrop-filter: blur(4px);
+    }
+    .field-select:focus {
+      outline: none;
+      border-color: var(--primary-400);
+      box-shadow: 0 0 0 3px rgba(42,120,137,0.3);
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent-500);
+      color: white;
+      border: var(--border-base) solid var(--neutral-900);
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-md);
+      transition: all var(--transition-fast);
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg);
+      background: var(--accent-600);
+    }
+    .btn-primary:active {
+      transform: translateY(2px);
+      box-shadow: var(--shadow-xs);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+    .site-footer {
+      background: var(--primary-800);
+      border-top: var(--border-base) solid var(--neutral-900);
+      padding: 1.5rem 1rem;
+    }
+    .footer-inner {
+      max-width: 1024px;
+      margin: 0 auto;
+    }
+    .footer-safety {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: rgba(29,82,95,0.5);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(37,101,116,0.3);
+    }
+    .footer-safety p {
+      font-size: 0.875rem;
+      color: var(--primary-100);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .footer-safety strong {
+      color: white;
+    }
+    .footer-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--primary-200);
+    }
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .footer-link {
+      color: var(--primary-200);
+      transition: color var(--transition-fast);
+    }
+    .footer-link:hover {
+      color: white;
+    }
+    .footer-copy {
+      color: var(--primary-300);
+      text-align: center;
+    }
+
+    @media (min-width: 768px) {
+      .footer-bottom {
+        flex-direction: row;
+        justify-content: space-between;
+      }
+    }
+
+    /* ========================================
+       CHAT BUBBLE FAB
+       ======================================== */
+    .chat-fab {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 40;
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-full);
+      background: var(--accent-500);
+      border: var(--border-base) solid var(--neutral-900);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    .chat-fab:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: var(--shadow-xl);
+    }
+    .chat-fab img {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+    }
+
+    /* ========================================
+       LAYOUT HELPERS
+       ======================================== */
+    .page-wrapper {
+      min-height: calc(100vh - 56px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 767px) {
+      .nav-links { display: none; }
+      .hero-title { font-size: 3rem; }
+      .estimator-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========== HEADER ========== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#" class="nav-link active">Plan Your Float</a>
+        <a href="#" class="nav-link">River Levels</a>
+        <a href="#" class="nav-link">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-wrapper">
+    <!-- ========== HERO ========== -->
+    <section class="hero">
+      <div>
+        <img
+          src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+          alt="Eddy the Otter"
+          class="hero-mascot"
+        >
+        <h1 class="hero-title">Eddy</h1>
+        <p class="hero-subtitle">Conditions &middot; Float Times &middot; Access Points</p>
+      </div>
+    </section>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <section class="main-content">
+      <div class="content-container section-gap">
+
+        <!-- Eddy Says Dashboard -->
+        <div class="eddy-says">
+          <div class="eddy-says-header">
+            <img
+              src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20in%20a%20canoe.png"
+              alt="Eddy"
+              class="eddy-says-avatar"
+            >
+            <div>
+              <div class="eddy-says-title">Eddy Says</div>
+              <div class="eddy-says-age">Updated 1 hr ago</div>
+              <p class="eddy-says-quote">&ldquo;Most rivers are running optimal today! Great conditions for floating on the Current and Jacks Fork. The Meramec is a bit high after recent rain &mdash; check gauges before you go.&rdquo;</p>
+            </div>
+          </div>
+
+          <!-- River rows -->
+          <a href="#" class="river-row">
+            <span class="condition-dot optimal"></span>
+            <div class="river-info">
+              <span class="river-name">Current River</span>
+              <span class="river-verdict verdict-optimal">Float!</span>
+              <p class="river-blurb">Crystal clear and running at ideal levels. Perfect for a lazy float with the family.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot optimal"></span>
+            <div class="river-info">
+              <span class="river-name">Jacks Fork</span>
+              <span class="river-verdict verdict-optimal">Float!</span>
+              <p class="river-blurb">Beautiful conditions on the Jacks Fork. Spring-fed sections are running clear and cool.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot okay"></span>
+            <div class="river-info">
+              <span class="river-name">Eleven Point</span>
+              <span class="river-verdict verdict-okay">Okay</span>
+              <p class="river-blurb">Levels are decent but a touch low. Stick to the deeper sections near Greer Spring.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot high"></span>
+            <div class="river-info">
+              <span class="river-name">Meramec River</span>
+              <span class="river-verdict verdict-high">High</span>
+              <p class="river-blurb">Running high after recent rains. Experienced paddlers only &mdash; check the gauge before heading out.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot low"></span>
+            <div class="river-info">
+              <span class="river-name">Huzzah Creek</span>
+              <span class="river-verdict verdict-low">Wait</span>
+              <p class="river-blurb">Pretty shallow right now. You might scrape bottom in spots. Best to wait for rain.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot optimal"></span>
+            <div class="river-info">
+              <span class="river-name">Big Piney</span>
+              <span class="river-verdict verdict-optimal">Float!</span>
+              <p class="river-blurb">Great levels! One of the best-kept secrets in Missouri. Crystal clear water today.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot optimal"></span>
+            <div class="river-info">
+              <span class="river-name">North Fork</span>
+              <span class="river-verdict verdict-optimal">Float!</span>
+              <p class="river-blurb">Spring-fed and consistently beautiful. Rainbow trout territory &mdash; bring your rod!</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="#" class="river-row">
+            <span class="condition-dot okay"></span>
+            <div class="river-info">
+              <span class="river-name">Courtois Creek</span>
+              <span class="river-verdict verdict-okay">Okay</span>
+              <p class="river-blurb">Decent float conditions. A few rocky stretches might slow you down.</p>
+            </div>
+            <svg class="river-chevron" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+
+        <!-- Ask Eddy CTA -->
+        <a href="#" class="ask-eddy">
+          <img
+            src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png"
+            alt="Eddy"
+            class="ask-eddy-icon"
+          >
+          <div class="ask-eddy-content">
+            <div class="ask-eddy-title">Ask Eddy Anything</div>
+            <p class="ask-eddy-desc">Which river should I float? Can I float this weekend? What outfitters are nearby? Eddy checks real-time conditions and helps you plan.</p>
+          </div>
+          <svg class="ask-eddy-arrow" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+
+        <!-- Float Estimator -->
+        <div class="float-estimator-section">
+          <h2 class="float-estimator-heading">Plan Your Float</h2>
+          <div class="float-estimator">
+            <div class="estimator-header">
+              <img
+                src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20in%20a%20canoe.png"
+                alt="Eddy"
+                class="estimator-img"
+              >
+              <span class="estimator-title">Plan Your Float</span>
+            </div>
+            <div class="estimator-fields">
+              <div>
+                <label class="field-label">Select a River</label>
+                <select class="field-select">
+                  <option>Choose a river...</option>
+                  <option>Current River</option>
+                  <option>Jacks Fork</option>
+                  <option>Eleven Point</option>
+                  <option>Meramec River</option>
+                  <option>Huzzah Creek</option>
+                  <option>Big Piney</option>
+                  <option>North Fork</option>
+                  <option>Courtois Creek</option>
+                </select>
+              </div>
+              <div class="estimator-row">
+                <div>
+                  <label class="field-label">Put-In</label>
+                  <select class="field-select" disabled>
+                    <option>Select river first</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-label">Take-Out</label>
+                  <select class="field-select" disabled>
+                    <option>Select put-in first</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn-primary" disabled>Select all options above</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-safety">
+          <p><strong>Safety First:</strong> Eddy is a planning guide only. Always consult local outfitters and authorities for current conditions before floating. Water levels can change rapidly. Wear life jackets and never float alone.</p>
+        </div>
+        <div class="footer-bottom">
+          <div class="footer-links">
+            <span>Eddy &middot; Water data from USGS</span>
+            <a href="#" class="footer-link">About</a>
+            <a href="#" class="footer-link">Embed Widgets</a>
+            <a href="#" class="footer-link">Privacy Policy</a>
+          </div>
+          <p class="footer-copy">&copy; 2026 eddy.guide &middot; For informational purposes only</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Chat FAB -->
+  <button class="chat-fab" aria-label="Ask Eddy">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+  </button>
+
+</body>
+</html>

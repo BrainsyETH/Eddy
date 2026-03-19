@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — How Eddy Works</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-900:#0F2D35;--primary-800:#163F4A;--primary-700:#1D525F;
+      --primary-600:#256574;--primary-500:#2D7889;--primary-400:#4A9AAD;
+      --primary-300:#72B5C4;--primary-200:#A3D1DB;--primary-100:#D4EAEF;--primary-50:#EBF5F7;
+      --secondary-500:#B89D72;--secondary-200:#E8DFD0;--secondary-100:#F4EFE7;--secondary-50:#FAF8F4;
+      --accent-500:#F07052;--accent-600:#E5573F;--accent-400:#F48E76;--accent-100:#FDE7E1;--accent-50:#FEF5F3;
+      --support-500:#4EB86B;--support-700:#347A47;--support-300:#95D9A7;--support-100:#DCF4E2;
+      --neutral-900:#2D2A24;--neutral-800:#3F3B33;--neutral-700:#524D43;--neutral-600:#6B6459;
+      --neutral-500:#857D70;--neutral-400:#A49C8E;--neutral-300:#C2BAAC;--neutral-200:#DBD5CA;
+      --neutral-100:#EDEBE6;--neutral-50:#F7F6F3;
+      --background:#F7F6F3;--surface:#FFFFFF;
+      --warning:#E5A000;--error:#DC2626;
+      --shadow-md:3px 3px 0 #A49C8E;--shadow-lg:4px 4px 0 #857D70;
+      --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --font-display:'Fredoka',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-body);background:var(--background);color:var(--neutral-900);line-height:1.5}
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;height:auto;display:block}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    .site-header{position:sticky;top:0;z-index:50;background:var(--primary-800);border-bottom:3px solid var(--neutral-900);height:56px}
+    .header-inner{max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;height:100%}
+    .logo{display:flex;align-items:center;gap:0.625rem}
+    .logo-img{width:32px;height:32px;border-radius:6px}
+    .logo-text{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--accent-500)}
+    .nav-links{display:flex;align-items:center;gap:0.25rem;margin-left:2rem}
+    .nav-link{padding:0.5rem 0.75rem;border-radius:6px;font-size:0.875rem;font-weight:600;color:var(--primary-100);transition:all 100ms}
+    .nav-link:hover,.nav-link.active{color:white;background:rgba(255,255,255,0.1)}
+
+    /* Hero */
+    .hero{background:linear-gradient(to bottom right,#0F2D35,#163F4A,#0F2D35);padding:3rem 1rem 2.5rem;text-align:center;color:white}
+    .hero-mascot{width:140px;height:140px;margin:0 auto 0.75rem;animation:float 6s ease-in-out infinite;filter:drop-shadow(0 4px 16px rgba(240,112,82,0.3))}
+    .hero-title{font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:0.375rem}
+    .hero-subtitle{font-size:0.9375rem;color:rgba(255,255,255,0.6);max-width:480px;margin:0 auto}
+
+    /* Content */
+    .main{max-width:720px;margin:2rem auto;padding:0 1rem}
+
+    /* Accordion sections */
+    .accordion{margin-bottom:1rem;background:var(--surface);border:2px solid var(--neutral-200);border-radius:8px;box-shadow:var(--shadow-md);overflow:hidden;animation:fadeIn 500ms ease-out both}
+    .accordion:nth-child(2){animation-delay:50ms}
+    .accordion:nth-child(3){animation-delay:100ms}
+    .accordion:nth-child(4){animation-delay:150ms}
+    .accordion-header{display:flex;align-items:center;gap:0.75rem;padding:1rem 1.25rem;cursor:pointer;transition:background 100ms}
+    .accordion-header:hover{background:var(--neutral-50)}
+    .accordion-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.125rem;flex-shrink:0}
+    .accordion-title{flex:1;font-size:1rem;font-weight:600;color:var(--neutral-800)}
+    .accordion-chevron{color:var(--neutral-400);font-size:0.75rem;transition:transform 200ms}
+    .accordion.open .accordion-chevron{transform:rotate(180deg)}
+    .accordion-body{padding:0 1.25rem 1.25rem 3.25rem;font-size:0.9375rem;color:var(--neutral-600);line-height:1.7}
+    .accordion-body p{margin-bottom:0.75rem}
+
+    /* How it works cards */
+    .how-cards{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem}
+    @media(max-width:640px){.how-cards{grid-template-columns:1fr}}
+    .how-card{padding:1rem;border-radius:8px;border:2px solid}
+    .how-card-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.875rem;margin-bottom:0.5rem}
+    .how-card-title{font-size:0.875rem;font-weight:600;color:var(--neutral-900);margin-bottom:0.25rem}
+    .how-card-desc{font-size:0.8125rem;color:var(--neutral-600);line-height:1.5}
+    .how-card.orange{border-color:#FDBA74;background:#FFF7ED}
+    .how-card.orange .how-card-icon{background:#FB923C;color:white}
+    .how-card.green{border-color:var(--support-300);background:var(--support-100)}
+    .how-card.green .how-card-icon{background:var(--support-500);color:white}
+    .how-card.brown{border-color:var(--secondary-200);background:var(--secondary-50)}
+    .how-card.brown .how-card-icon{background:var(--secondary-500);color:white}
+    .how-card.teal{border-color:var(--primary-200);background:var(--primary-50)}
+    .how-card.teal .how-card-icon{background:var(--primary-500);color:white}
+
+    /* Condition cards */
+    .condition-grid{display:flex;flex-direction:column;gap:0.75rem;margin-top:0.75rem}
+    .cond-card{display:flex;gap:0.75rem;padding:0.75rem;border-radius:8px;border:2px solid;align-items:flex-start}
+    .cond-card-img{width:48px;height:48px;border-radius:8px;flex-shrink:0;object-fit:cover}
+    .cond-card-body{flex:1}
+    .cond-card-header{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem}
+    .cond-card-title{font-size:0.875rem;font-weight:600}
+    .cond-card-badge{padding:0.0625rem 0.375rem;border-radius:9999px;font-size:0.6875rem;font-weight:600}
+    .cond-card-desc{font-size:0.8125rem;color:var(--neutral-600);line-height:1.5}
+    .cond-card-rec{font-size:0.75rem;color:var(--neutral-500);margin-top:0.25rem;font-style:italic}
+
+    .cond-card.optimal{border-color:var(--support-300);background:var(--support-100)}
+    .cond-card.optimal .cond-card-title{color:var(--support-700)}
+    .cond-card.optimal .cond-card-badge{background:var(--support-500);color:white}
+    .cond-card.okay{border-color:#BEF264;background:#F7FEE7}
+    .cond-card.okay .cond-card-title{color:#3F6212}
+    .cond-card.okay .cond-card-badge{background:#84CC16;color:white}
+    .cond-card.low{border-color:#FCD34D;background:#FFFBEB}
+    .cond-card.low .cond-card-title{color:#92400E}
+    .cond-card.low .cond-card-badge{background:var(--warning);color:white}
+    .cond-card.high{border-color:#FDBA74;background:#FFF7ED}
+    .cond-card.high .cond-card-title{color:#9A3412}
+    .cond-card.high .cond-card-badge{background:#F97316;color:white}
+    .cond-card.danger{border-color:#FCA5A5;background:#FEF2F2}
+    .cond-card.danger .cond-card-title{color:#991B1B}
+    .cond-card.danger .cond-card-badge{background:var(--error);color:white}
+
+    /* Safety warning */
+    .safety-box{padding:1rem;background:#FEF2F2;border:2px solid #FCA5A5;border-radius:8px;margin-top:0.75rem}
+    .safety-box-title{font-size:0.875rem;font-weight:600;color:#991B1B;margin-bottom:0.5rem}
+    .safety-box ul{list-style:disc;padding-left:1.25rem;font-size:0.8125rem;color:#991B1B;line-height:1.6}
+
+    /* Rivers grid */
+    .rivers-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin-top:0.75rem}
+    @media(min-width:640px){.rivers-grid{grid-template-columns:repeat(4,1fr)}}
+    .river-box{padding:0.5rem;background:var(--primary-50);border:1px solid var(--primary-100);border-radius:6px;font-size:0.8125rem;font-weight:500;color:var(--primary-700);text-align:center}
+
+    /* Data sources */
+    .source-list{list-style:none;margin-top:0.5rem}
+    .source-list li{padding:0.375rem 0;font-size:0.875rem}
+    .source-list a{color:var(--primary-500);font-weight:500}
+    .source-list a:hover{color:var(--primary-700);text-decoration:underline}
+
+    /* Footer */
+    .site-footer{background:var(--primary-800);border-top:2px solid var(--neutral-900);padding:1.5rem 1rem;margin-top:1rem}
+    .footer-inner{max-width:720px;margin:0 auto}
+    .footer-bottom{display:flex;flex-direction:column;align-items:center;gap:0.75rem;font-size:0.875rem;color:var(--primary-200)}
+    .footer-links{display:flex;align-items:center;gap:1rem}
+    .footer-link{color:var(--primary-200);transition:color 100ms}
+    .footer-link:hover{color:white}
+    @media(min-width:768px){.footer-bottom{flex-direction:row;justify-content:space-between}}
+
+    .chat-fab{position:fixed;bottom:1.5rem;right:1.5rem;z-index:40;width:56px;height:56px;border-radius:9999px;background:var(--accent-500);border:2px solid var(--neutral-900);box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;transition:all 100ms;cursor:pointer}
+    .chat-fab:hover{transform:translateY(-2px) scale(1.05)}
+    .chat-fab img{width:32px;height:32px;border-radius:9999px}
+
+    @media(max-width:767px){.nav-links{display:none}}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="01-home.html" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+      <nav class="nav-links">
+        <a href="02-rivers-list.html" class="nav-link">Plan Your Float</a>
+        <a href="05-gauges.html" class="nav-link">River Levels</a>
+        <a href="#" class="nav-link active">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20floatie.png" alt="Eddy in a floatie" class="hero-mascot">
+    <h1 class="hero-title">How Eddy Works</h1>
+    <p class="hero-subtitle">Learn about the data, features, and technology behind your AI float trip guide.</p>
+  </section>
+
+  <main class="main">
+    <!-- What is Eddy -->
+    <div class="accordion open">
+      <div class="accordion-header">
+        <span class="accordion-icon" style="background:var(--accent-50)">🦦</span>
+        <span class="accordion-title">What is Eddy?</span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body">
+        <p>Eddy is a free, AI-powered float trip planner for Missouri rivers. Named after the swirling currents found along riverbanks, Eddy helps you check real-time water conditions, plan your route, and find access points &mdash; all in one place.</p>
+        <p>Whether you&rsquo;re a first-time floater or a seasoned river rat, Eddy gives you the information you need to plan a safe and fun trip on the water.</p>
+      </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="accordion open">
+      <div class="accordion-header">
+        <span class="accordion-icon" style="background:var(--primary-50)">⚙️</span>
+        <span class="accordion-title">How It Works</span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body">
+        <div class="how-cards">
+          <div class="how-card orange">
+            <div class="how-card-icon">💧</div>
+            <div class="how-card-title">Live USGS Data</div>
+            <div class="how-card-desc">We pull real-time water level and flow data from USGS gauges across Missouri every 15 minutes.</div>
+          </div>
+          <div class="how-card green">
+            <div class="how-card-icon">📊</div>
+            <div class="how-card-title">Condition Calculation</div>
+            <div class="how-card-desc">Custom thresholds for each gauge determine if conditions are optimal, low, high, or dangerous.</div>
+          </div>
+          <div class="how-card brown">
+            <div class="how-card-icon">⏱️</div>
+            <div class="how-card-title">Float Time Estimates</div>
+            <div class="how-card-desc">We calculate float times based on river distance, current flow rates, and vessel type.</div>
+          </div>
+          <div class="how-card teal">
+            <div class="how-card-icon">📍</div>
+            <div class="how-card-title">Segment-Aware</div>
+            <div class="how-card-desc">Different stretches of the same river can have different conditions &mdash; Eddy tracks each segment separately.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Condition Codes -->
+    <div class="accordion open">
+      <div class="accordion-header">
+        <span class="accordion-icon" style="background:var(--support-100)">🚦</span>
+        <span class="accordion-title">Understanding Condition Codes</span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body">
+        <p>Eddy uses a color-coded system to communicate river conditions at a glance:</p>
+        <div class="condition-grid">
+          <div class="cond-card optimal">
+            <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png" alt="Optimal" class="cond-card-img">
+            <div class="cond-card-body">
+              <div class="cond-card-header">
+                <span class="cond-card-title">Optimal</span>
+                <span class="cond-card-badge">Float!</span>
+              </div>
+              <div class="cond-card-desc">Water levels are ideal for floating. Clear water, good flow, and safe conditions.</div>
+              <div class="cond-card-rec">Recommended: Great for all skill levels</div>
+            </div>
+          </div>
+          <div class="cond-card okay">
+            <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png" alt="Okay" class="cond-card-img">
+            <div class="cond-card-body">
+              <div class="cond-card-header">
+                <span class="cond-card-title">Okay</span>
+                <span class="cond-card-badge">Decent</span>
+              </div>
+              <div class="cond-card-desc">Conditions are acceptable but not ideal. May be slightly above or below optimal range.</div>
+              <div class="cond-card-rec">Recommended: Experienced floaters, shorter trips</div>
+            </div>
+          </div>
+          <div class="cond-card low">
+            <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png" alt="Low" class="cond-card-img">
+            <div class="cond-card-body">
+              <div class="cond-card-header">
+                <span class="cond-card-title">Low</span>
+                <span class="cond-card-badge">Wait</span>
+              </div>
+              <div class="cond-card-desc">Water is below comfortable floating level. Expect shallow spots and potential scraping.</div>
+              <div class="cond-card-rec">Recommended: Wait for rain or choose a spring-fed river</div>
+            </div>
+          </div>
+          <div class="cond-card high">
+            <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png" alt="High" class="cond-card-img">
+            <div class="cond-card-body">
+              <div class="cond-card-header">
+                <span class="cond-card-title">High</span>
+                <span class="cond-card-badge">Caution</span>
+              </div>
+              <div class="cond-card-desc">Water is elevated with faster current. Increased hazards including strainers and debris.</div>
+              <div class="cond-card-rec">Recommended: Experienced paddlers only</div>
+            </div>
+          </div>
+          <div class="cond-card danger">
+            <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20flood.png" alt="Dangerous" class="cond-card-img">
+            <div class="cond-card-body">
+              <div class="cond-card-header">
+                <span class="cond-card-title">Dangerous / Flood</span>
+                <span class="cond-card-badge">Stay Out</span>
+              </div>
+              <div class="cond-card-desc">Water levels are dangerously high. Flood conditions present extreme risk to life.</div>
+              <div class="cond-card-rec">DO NOT float under any circumstances</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Sources -->
+    <div class="accordion">
+      <div class="accordion-header">
+        <span class="accordion-icon" style="background:#FFFBEB">📡</span>
+        <span class="accordion-title">Data Sources</span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body">
+        <ul class="source-list">
+          <li><a href="#">USGS National Water Information System</a> — Real-time water level and flow data</li>
+          <li><a href="#">National Hydrography Dataset (NHD)</a> — River geometry and distance calculations</li>
+          <li><a href="#">Missouri Department of Conservation</a> — Access point data and regulations</li>
+          <li><a href="#">National Park Service</a> — Ozark National Scenic Riverways information</li>
+          <li><a href="#">Recreation.gov</a> — Campground and facility data</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Safety -->
+    <div class="accordion">
+      <div class="accordion-header">
+        <span class="accordion-icon" style="background:#FEF2F2">⚠️</span>
+        <span class="accordion-title">Safety &amp; Disclaimer</span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body">
+        <div class="safety-box">
+          <div class="safety-box-title">Important Safety Information</div>
+          <ul>
+            <li>Eddy is a planning tool only &mdash; not a substitute for local knowledge</li>
+            <li>Always check conditions with local outfitters before floating</li>
+            <li>Water levels can change rapidly, especially after rain</li>
+            <li>Always wear a life jacket (PFD)</li>
+            <li>Never float alone</li>
+            <li>Avoid floating in high water or flood conditions</li>
+            <li>Tell someone your float plan before you go</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rivers We Cover -->
+    <div class="accordion">
+      <div class="accordion-header">
+        <span class="accordion-icon" style="background:var(--primary-50)">🗺️</span>
+        <span class="accordion-title">Rivers We Cover</span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body">
+        <div class="rivers-grid">
+          <div class="river-box">Current River</div>
+          <div class="river-box">Jacks Fork</div>
+          <div class="river-box">Eleven Point</div>
+          <div class="river-box">Meramec River</div>
+          <div class="river-box">Huzzah Creek</div>
+          <div class="river-box">Big Piney</div>
+          <div class="river-box">North Fork</div>
+          <div class="river-box">Courtois Creek</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-bottom">
+        <div class="footer-links">
+          <span>Eddy &middot; Water data from USGS</span>
+          <a href="#" class="footer-link">Embed Widgets</a>
+          <a href="#" class="footer-link">Privacy</a>
+        </div>
+        <p style="color:var(--primary-300)">&copy; 2026 eddy.guide</p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="chat-fab" aria-label="Ask Eddy">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+  </button>
+
+</body>
+</html>

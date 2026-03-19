@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — Float Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-900:#0F2D35;--primary-800:#163F4A;--primary-700:#1D525F;
+      --primary-600:#256574;--primary-500:#2D7889;--primary-400:#4A9AAD;
+      --primary-300:#72B5C4;--primary-200:#A3D1DB;--primary-100:#D4EAEF;--primary-50:#EBF5F7;
+      --secondary-500:#B89D72;--secondary-200:#E8DFD0;--secondary-100:#F4EFE7;--secondary-50:#FAF8F4;
+      --accent-500:#F07052;--accent-600:#E5573F;--accent-100:#FDE7E1;--accent-50:#FEF5F3;
+      --support-500:#4EB86B;--support-700:#347A47;--support-300:#95D9A7;--support-100:#DCF4E2;
+      --neutral-900:#2D2A24;--neutral-800:#3F3B33;--neutral-700:#524D43;--neutral-600:#6B6459;
+      --neutral-500:#857D70;--neutral-400:#A49C8E;--neutral-300:#C2BAAC;--neutral-200:#DBD5CA;
+      --neutral-100:#EDEBE6;--neutral-50:#F7F6F3;
+      --background:#F7F6F3;--surface:#FFFFFF;
+      --shadow-md:3px 3px 0 #A49C8E;--shadow-lg:4px 4px 0 #857D70;
+      --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --font-display:'Fredoka',sans-serif;
+      --font-mono:'SF Mono','Fira Code',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-body);background:var(--background);color:var(--neutral-900);line-height:1.5;height:100vh;display:flex;flex-direction:column}
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;height:auto;display:block}
+
+    .site-header{background:var(--primary-800);border-bottom:3px solid var(--neutral-900);height:56px;flex-shrink:0}
+    .header-inner{max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;height:100%}
+    .logo{display:flex;align-items:center;gap:0.625rem}
+    .logo-img{width:32px;height:32px;border-radius:6px}
+    .logo-text{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--accent-500)}
+
+    /* Title bar */
+    .title-bar{background:var(--surface);border-bottom:1px solid var(--neutral-200);padding:0.75rem 1rem;text-align:center;flex-shrink:0}
+    .title-bar h1{font-size:1rem;font-weight:600;color:var(--neutral-800)}
+    .title-bar h1 span{color:var(--primary-500)}
+
+    /* Plan summary */
+    .plan-summary{background:var(--surface);border-bottom:2px solid var(--neutral-200);padding:1.25rem 1rem;flex-shrink:0}
+    .plan-summary-inner{max-width:720px;margin:0 auto}
+
+    .trip-card{background:var(--secondary-50);border:3px solid var(--primary-600);border-radius:12px;box-shadow:var(--shadow-lg);padding:1.25rem 1.5rem}
+    .trip-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+    .trip-card-title{font-family:var(--font-display);font-size:1.25rem;font-weight:700;color:var(--neutral-900)}
+    .trip-card-badge{padding:0.25rem 0.75rem;border-radius:6px;font-size:0.75rem;font-weight:600;background:var(--support-100);color:var(--support-700);border:1px solid var(--support-300)}
+
+    .trip-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
+    .trip-stat{text-align:center}
+    .trip-stat-value{font-family:var(--font-mono);font-size:1.25rem;font-weight:700;color:var(--neutral-900)}
+    .trip-stat-label{font-size:0.6875rem;color:var(--neutral-500);text-transform:uppercase;letter-spacing:0.04em}
+
+    .trip-route{display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--surface);border:1px solid var(--neutral-200);border-radius:8px}
+    .route-marker{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6875rem;font-weight:700;flex-shrink:0}
+    .route-marker.start{background:var(--support-100);color:var(--support-700);border:2px solid var(--support-300)}
+    .route-marker.end{background:var(--accent-100);color:var(--accent-600);border:2px solid var(--accent-300)}
+    .route-line{flex:1;height:2px;background:repeating-linear-gradient(90deg,var(--primary-300) 0,var(--primary-300) 6px,transparent 6px,transparent 12px)}
+    .route-name{font-size:0.8125rem;font-weight:500;color:var(--neutral-700);flex-shrink:0;max-width:120px}
+    .route-vessel{text-align:center;font-size:0.75rem;color:var(--neutral-500);margin-top:0.75rem}
+    .route-vessel span{font-weight:600;color:var(--neutral-700)}
+
+    /* Share bar */
+    .share-bar{display:flex;justify-content:center;gap:0.5rem;margin-top:1rem}
+    .share-btn{padding:0.5rem 1rem;border-radius:6px;font-size:0.8125rem;font-weight:600;border:2px solid;cursor:pointer;transition:all 100ms}
+    .share-btn.primary{background:var(--accent-500);color:white;border-color:var(--neutral-900);box-shadow:var(--shadow-md)}
+    .share-btn.primary:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+    .share-btn.secondary{background:var(--surface);color:var(--primary-500);border-color:var(--primary-500)}
+    .share-btn.secondary:hover{background:var(--primary-50)}
+
+    /* Map */
+    .map-section{flex:1;position:relative;background:linear-gradient(135deg,#D4EAEF 0%,#A3D1DB 50%,#72B5C4 100%)}
+    .map-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+    .map-placeholder::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(29,82,95,0.06) 40px,rgba(29,82,95,0.06) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(29,82,95,0.06) 40px,rgba(29,82,95,0.06) 41px)}
+    .map-label{background:rgba(255,255,255,0.95);padding:0.75rem 1.5rem;border-radius:8px;border:2px solid var(--neutral-200);box-shadow:0 4px 6px rgba(45,42,36,0.1);font-size:0.8125rem;color:var(--neutral-500);z-index:1;text-align:center}
+    .map-label strong{color:var(--primary-500);display:block;margin-bottom:0.25rem}
+
+    /* Route markers on map */
+    .map-marker{position:absolute;z-index:2}
+    .map-marker.start{top:40%;left:30%}
+    .map-marker.end{top:60%;right:30%}
+    .map-marker-pin{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+    .map-marker-pin.green{background:var(--support-500);color:white;border:2px solid white}
+    .map-marker-pin.red{background:var(--accent-500);color:white;border:2px solid white}
+
+    /* Footer disclaimer */
+    .plan-footer{background:var(--primary-900);padding:0.75rem 1rem;text-align:center;flex-shrink:0}
+    .plan-footer p{font-size:0.75rem;color:var(--primary-300)}
+
+    @media(max-width:640px){.trip-stats{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="01-home.html" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+    </div>
+  </header>
+
+  <div class="title-bar">
+    <h1>Float Plan &middot; <span>Current River</span></h1>
+  </div>
+
+  <div class="plan-summary">
+    <div class="plan-summary-inner">
+      <div class="trip-card">
+        <div class="trip-card-header">
+          <span class="trip-card-title">Your Float Trip</span>
+          <span class="trip-card-badge">Optimal</span>
+        </div>
+
+        <div class="trip-stats">
+          <div class="trip-stat">
+            <div class="trip-stat-value">12.4</div>
+            <div class="trip-stat-label">Miles</div>
+          </div>
+          <div class="trip-stat">
+            <div class="trip-stat-value">4–5</div>
+            <div class="trip-stat-label">Hours</div>
+          </div>
+          <div class="trip-stat">
+            <div class="trip-stat-value">I</div>
+            <div class="trip-stat-label">Class</div>
+          </div>
+          <div class="trip-stat">
+            <div class="trip-stat-value">3.42</div>
+            <div class="trip-stat-label">Ft Level</div>
+          </div>
+        </div>
+
+        <div class="trip-route">
+          <div class="route-marker start">A</div>
+          <span class="route-name">Montauk State Park</span>
+          <div class="route-line"></div>
+          <span class="route-name">Akers Ferry</span>
+          <div class="route-marker end">B</div>
+        </div>
+        <div class="route-vessel">Vessel: <span>Canoe</span></div>
+
+        <div class="share-bar">
+          <button class="share-btn primary">Share Trip</button>
+          <button class="share-btn secondary">Copy Link</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="map-section">
+    <div class="map-placeholder">
+      <div class="map-marker start">
+        <div class="map-marker-pin green">A</div>
+      </div>
+      <div class="map-marker end">
+        <div class="map-marker-pin red">B</div>
+      </div>
+      <div class="map-label">
+        <strong>Route Map</strong>
+        Montauk State Park → Akers Ferry<br>
+        12.4 miles along the Current River
+      </div>
+    </div>
+  </div>
+
+  <div class="plan-footer">
+    <p>Eddy is a planning guide only. Always check current conditions before floating. Water data from USGS.</p>
+  </div>
+
+</body>
+</html>

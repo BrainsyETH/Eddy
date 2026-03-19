@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — River Levels</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-900:#0F2D35;--primary-800:#163F4A;--primary-700:#1D525F;
+      --primary-600:#256574;--primary-500:#2D7889;--primary-400:#4A9AAD;
+      --primary-300:#72B5C4;--primary-200:#A3D1DB;--primary-100:#D4EAEF;--primary-50:#EBF5F7;
+      --secondary-500:#B89D72;--secondary-200:#E8DFD0;--secondary-100:#F4EFE7;--secondary-50:#FAF8F4;
+      --accent-500:#F07052;--accent-600:#E5573F;--accent-400:#F48E76;--accent-100:#FDE7E1;--accent-50:#FEF5F3;
+      --support-500:#4EB86B;--support-700:#347A47;--support-300:#95D9A7;--support-100:#DCF4E2;
+      --neutral-900:#2D2A24;--neutral-800:#3F3B33;--neutral-700:#524D43;--neutral-600:#6B6459;
+      --neutral-500:#857D70;--neutral-400:#A49C8E;--neutral-300:#C2BAAC;--neutral-200:#DBD5CA;
+      --neutral-100:#EDEBE6;--neutral-50:#F7F6F3;
+      --background:#F7F6F3;--surface:#FFFFFF;
+      --warning:#E5A000;--error:#DC2626;
+      --shadow-md:3px 3px 0 #A49C8E;--shadow-lg:4px 4px 0 #857D70;--shadow-xl:6px 6px 0 #6B6459;
+      --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --font-display:'Fredoka',sans-serif;
+      --font-mono:'SF Mono','Fira Code',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-body);background:linear-gradient(180deg,var(--neutral-100),var(--neutral-50));color:var(--neutral-900);line-height:1.5;min-height:100vh}
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;height:auto;display:block}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    .site-header{position:sticky;top:0;z-index:50;background:var(--primary-800);border-bottom:3px solid var(--neutral-900);height:56px}
+    .header-inner{max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;height:100%}
+    .logo{display:flex;align-items:center;gap:0.625rem}
+    .logo-img{width:32px;height:32px;border-radius:6px}
+    .logo-text{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--accent-500)}
+    .nav-links{display:flex;align-items:center;gap:0.25rem;margin-left:2rem}
+    .nav-link{padding:0.5rem 0.75rem;border-radius:6px;font-size:0.875rem;font-weight:600;color:var(--primary-100);transition:all 100ms}
+    .nav-link:hover,.nav-link.active{color:white;background:rgba(255,255,255,0.1)}
+
+    /* Hero */
+    .hero{background:linear-gradient(to bottom right,#0F2D35,#163F4A,#0F2D35);padding:2.5rem 1rem 2rem;text-align:center;color:white}
+    .hero-mascot{width:120px;height:120px;margin:0 auto 0.5rem;animation:float 6s ease-in-out infinite;filter:drop-shadow(0 4px 16px rgba(240,112,82,0.3))}
+    .hero-title{font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:0.25rem}
+    .hero-subtitle{font-size:0.875rem;color:rgba(255,255,255,0.5)}
+
+    /* Filter bar */
+    .filter-bar{max-width:1024px;margin:1.5rem auto 0;padding:0 1rem}
+    .filter-card{background:var(--surface);border:2px solid var(--neutral-200);border-radius:8px;padding:1rem;box-shadow:var(--shadow-md)}
+    .filter-top{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.75rem}
+    .search-input{flex:1;min-width:200px;padding:0.5rem 0.75rem 0.5rem 2rem;border:2px solid var(--neutral-300);border-radius:6px;font-size:0.875rem;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke='%23857D70'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E") no-repeat 0.625rem center}
+    .search-input:focus{outline:none;border-color:var(--primary-500);box-shadow:0 0 0 3px var(--primary-100)}
+    .river-select{padding:0.5rem 0.75rem;border:2px solid var(--neutral-300);border-radius:6px;font-size:0.875rem;background:var(--surface);color:var(--neutral-800)}
+    .group-btn{padding:0.5rem 0.75rem;border:2px solid var(--neutral-300);border-radius:6px;font-size:0.8125rem;font-weight:600;background:var(--surface);color:var(--neutral-600);cursor:pointer;transition:all 100ms}
+    .group-btn:hover{border-color:var(--primary-400);background:var(--primary-50)}
+    .group-btn.active{background:var(--primary-500);color:white;border-color:var(--primary-500)}
+
+    .condition-filters{display:flex;flex-wrap:wrap;gap:0.375rem}
+    .cond-pill{display:inline-flex;align-items:center;gap:0.375rem;padding:0.3125rem 0.625rem;border-radius:9999px;font-size:0.75rem;font-weight:600;border:1.5px solid var(--neutral-200);background:var(--surface);color:var(--neutral-600);cursor:pointer;transition:all 100ms}
+    .cond-pill:hover{border-color:var(--neutral-400)}
+    .cond-pill.selected{border-color:var(--primary-500);background:var(--primary-50);color:var(--primary-700)}
+    .cond-dot{width:8px;height:8px;border-radius:50%}
+    .cond-dot.optimal{background:var(--support-500)}.cond-dot.okay{background:#84CC16}
+    .cond-dot.low{background:var(--warning)}.cond-dot.high{background:#F97316}
+    .cond-dot.danger{background:var(--error)}.cond-dot.unknown{background:var(--neutral-400)}
+    .cond-count{background:var(--neutral-100);padding:0.0625rem 0.3125rem;border-radius:9999px;font-size:0.625rem;color:var(--neutral-500)}
+
+    /* Eddy Says */
+    .eddy-says-row{max-width:1024px;margin:1rem auto 0;padding:0 1rem}
+    .eddy-says{display:flex;align-items:flex-start;gap:0.75rem;padding:0.75rem 1rem;background:var(--surface);border:2px solid var(--primary-700);border-radius:8px;box-shadow:var(--shadow-md)}
+    .eddy-says-avatar{width:36px;height:36px;border-radius:6px;flex-shrink:0}
+    .eddy-says-text{font-size:0.8125rem;color:var(--neutral-600);font-style:italic;line-height:1.5}
+    .eddy-says-label{font-size:0.6875rem;font-weight:600;color:var(--primary-500)}
+
+    /* Gauge cards grid */
+    .gauges-section{max-width:1024px;margin:1.5rem auto 2rem;padding:0 1rem}
+    .gauges-grid{display:grid;grid-template-columns:1fr;gap:1rem}
+    @media(min-width:640px){.gauges-grid{grid-template-columns:1fr 1fr}}
+    @media(min-width:1024px){.gauges-grid{grid-template-columns:1fr 1fr 1fr}}
+
+    .gauge-card{background:var(--surface);border:2px solid var(--neutral-200);border-radius:8px;box-shadow:var(--shadow-md);overflow:hidden;transition:all 200ms;cursor:pointer;animation:fadeIn 500ms ease-out both}
+    .gauge-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--primary-400)}
+    .gauge-card-header{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem 0}
+    .gauge-river-link{font-size:0.6875rem;color:var(--primary-500);font-weight:500}
+    .gauge-badge{padding:0.125rem 0.5rem;border-radius:6px;font-size:0.6875rem;font-weight:600}
+    .gauge-badge.optimal{background:var(--support-100);color:var(--support-700);border:1px solid var(--support-300)}
+    .gauge-badge.okay{background:#ECFCCB;color:#3F6212;border:1px solid #BEF264}
+    .gauge-badge.low{background:#FFFBEB;color:#92400E;border:1px solid #FCD34D}
+    .gauge-badge.high{background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74}
+    .gauge-badge.danger{background:#FEF2F2;color:#991B1B;border:1px solid #FCA5A5}
+    .gauge-card-body{padding:0.5rem 1rem 0.75rem}
+    .gauge-name{font-size:0.9375rem;font-weight:600;color:var(--neutral-900)}
+    .gauge-site{font-size:0.6875rem;color:var(--neutral-500)}
+    .gauge-value-row{display:flex;align-items:baseline;gap:0.5rem;margin-top:0.5rem}
+    .gauge-value{font-family:var(--font-mono);font-size:1.75rem;font-weight:700;color:var(--neutral-900)}
+    .gauge-unit{font-size:0.8125rem;color:var(--neutral-500)}
+    .gauge-card-footer{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 1rem;border-top:1px solid var(--neutral-100);font-size:0.6875rem;color:var(--neutral-400)}
+    .gauge-chart-label{color:var(--primary-500);font-weight:500}
+
+    /* Desktop drawer (preview) */
+    .drawer-preview{display:none}
+    @media(min-width:1024px){
+      .drawer-preview{display:block;position:fixed;top:56px;right:0;bottom:0;width:540px;background:var(--surface);border-left:2px solid var(--neutral-200);box-shadow:-10px 0 30px rgba(45,42,36,0.1);z-index:30;overflow-y:auto}
+      .gauges-section{margin-right:560px}
+    }
+    .drawer-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--neutral-200)}
+    .drawer-title{font-size:1.125rem;font-weight:700;color:var(--neutral-900)}
+    .drawer-close{width:36px;height:36px;border-radius:6px;border:2px solid var(--neutral-200);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.25rem;color:var(--neutral-500)}
+    .drawer-body{padding:1.25rem}
+    .drawer-reading-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.25rem}
+    .drawer-reading{background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:6px;padding:0.75rem}
+    .drawer-reading-label{font-size:0.6875rem;color:var(--neutral-500);text-transform:uppercase;letter-spacing:0.04em}
+    .drawer-reading-value{font-family:var(--font-mono);font-size:1.5rem;font-weight:700;color:var(--neutral-900)}
+    .drawer-chart{background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:8px;padding:1rem;margin-bottom:1rem}
+    .drawer-chart-title{font-size:0.8125rem;font-weight:600;color:var(--neutral-800);margin-bottom:0.75rem}
+    .drawer-chart-buttons{display:flex;gap:0.25rem;margin-bottom:0.75rem}
+    .chart-range-btn{padding:0.25rem 0.5rem;border-radius:4px;font-size:0.6875rem;font-weight:600;border:1px solid var(--neutral-200);background:var(--surface);color:var(--neutral-600);cursor:pointer}
+    .chart-range-btn.active{background:var(--primary-500);color:white;border-color:var(--primary-500)}
+    .chart-placeholder{height:160px;background:linear-gradient(180deg,var(--primary-50),var(--surface));border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--neutral-400)}
+
+    /* Footer */
+    .site-footer{background:var(--primary-800);border-top:2px solid var(--neutral-900);padding:1.5rem 1rem}
+    .footer-inner{max-width:1024px;margin:0 auto}
+    .footer-bottom{display:flex;flex-direction:column;align-items:center;gap:0.75rem;font-size:0.875rem;color:var(--primary-200)}
+    .footer-links{display:flex;align-items:center;gap:1rem}
+    .footer-link{color:var(--primary-200);transition:color 100ms}
+    .footer-link:hover{color:white}
+    @media(min-width:768px){.footer-bottom{flex-direction:row;justify-content:space-between}}
+
+    .chat-fab{position:fixed;bottom:1.5rem;right:1.5rem;z-index:40;width:56px;height:56px;border-radius:9999px;background:var(--accent-500);border:2px solid var(--neutral-900);box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;transition:all 100ms;cursor:pointer}
+    .chat-fab:hover{transform:translateY(-2px) scale(1.05)}
+    .chat-fab img{width:32px;height:32px;border-radius:9999px}
+
+    @media(max-width:767px){.nav-links{display:none}}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="01-home.html" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+      <nav class="nav-links">
+        <a href="02-rivers-list.html" class="nav-link">Plan Your Float</a>
+        <a href="#" class="nav-link active">River Levels</a>
+        <a href="09-about.html" class="nav-link">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20flood.png" alt="Eddy monitoring levels" class="hero-mascot">
+    <h1 class="hero-title">River Levels</h1>
+    <p class="hero-subtitle">Real-time USGS gauge data for Missouri float streams</p>
+  </section>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <div class="filter-card">
+      <div class="filter-top">
+        <input type="text" class="search-input" placeholder="Search gauges...">
+        <select class="river-select">
+          <option>All Rivers</option>
+          <option>Current River</option>
+          <option>Jacks Fork</option>
+          <option>Meramec River</option>
+        </select>
+        <button class="group-btn">Group by River</button>
+      </div>
+      <div class="condition-filters">
+        <button class="cond-pill selected"><span class="cond-dot optimal"></span>Optimal<span class="cond-count">8</span></button>
+        <button class="cond-pill"><span class="cond-dot okay"></span>Okay<span class="cond-count">4</span></button>
+        <button class="cond-pill"><span class="cond-dot low"></span>Low<span class="cond-count">3</span></button>
+        <button class="cond-pill"><span class="cond-dot high"></span>High<span class="cond-count">2</span></button>
+        <button class="cond-pill"><span class="cond-dot danger"></span>Danger<span class="cond-count">0</span></button>
+        <button class="cond-pill"><span class="cond-dot unknown"></span>Unknown<span class="cond-count">1</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Eddy Says -->
+  <div class="eddy-says-row">
+    <div class="eddy-says">
+      <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="eddy-says-avatar">
+      <div>
+        <span class="eddy-says-label">Eddy Says &middot; Updated 45 min ago</span>
+        <p class="eddy-says-text">&ldquo;Most gauges are reading in the optimal range today. The Current River at Akers is sitting pretty at 3.42 ft. The Meramec is still high from Tuesday&rsquo;s rain &mdash; give it another day or two.&rdquo;</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gauge Cards -->
+  <div class="gauges-section">
+    <div class="gauges-grid">
+      <div class="gauge-card" style="animation-delay:0ms">
+        <div class="gauge-card-header">
+          <span class="gauge-river-link">Current River</span>
+          <span class="gauge-badge optimal">Optimal</span>
+        </div>
+        <div class="gauge-card-body">
+          <div class="gauge-name">Current River at Akers</div>
+          <div class="gauge-site">USGS 07064533 &middot; 15 min ago</div>
+          <div class="gauge-value-row">
+            <span class="gauge-value">3.42</span>
+            <span class="gauge-unit">ft</span>
+          </div>
+        </div>
+        <div class="gauge-card-footer">
+          <span>Report Issue &middot; Share</span>
+          <span class="gauge-chart-label">View Chart →</span>
+        </div>
+      </div>
+
+      <div class="gauge-card" style="animation-delay:50ms">
+        <div class="gauge-card-header">
+          <span class="gauge-river-link">Current River</span>
+          <span class="gauge-badge optimal">Optimal</span>
+        </div>
+        <div class="gauge-card-body">
+          <div class="gauge-name">Current River at Van Buren</div>
+          <div class="gauge-site">USGS 07067000 &middot; 30 min ago</div>
+          <div class="gauge-value-row">
+            <span class="gauge-value">4.18</span>
+            <span class="gauge-unit">ft</span>
+          </div>
+        </div>
+        <div class="gauge-card-footer">
+          <span>Report Issue &middot; Share</span>
+          <span class="gauge-chart-label">View Chart →</span>
+        </div>
+      </div>
+
+      <div class="gauge-card" style="animation-delay:100ms">
+        <div class="gauge-card-header">
+          <span class="gauge-river-link">Jacks Fork</span>
+          <span class="gauge-badge optimal">Optimal</span>
+        </div>
+        <div class="gauge-card-body">
+          <div class="gauge-name">Jacks Fork at Eminence</div>
+          <div class="gauge-site">USGS 07066000 &middot; 15 min ago</div>
+          <div class="gauge-value-row">
+            <span class="gauge-value">2.76</span>
+            <span class="gauge-unit">ft</span>
+          </div>
+        </div>
+        <div class="gauge-card-footer">
+          <span>Report Issue &middot; Share</span>
+          <span class="gauge-chart-label">View Chart →</span>
+        </div>
+      </div>
+
+      <div class="gauge-card" style="animation-delay:150ms">
+        <div class="gauge-card-header">
+          <span class="gauge-river-link">Meramec River</span>
+          <span class="gauge-badge high">High</span>
+        </div>
+        <div class="gauge-card-body">
+          <div class="gauge-name">Meramec at Steelville</div>
+          <div class="gauge-site">USGS 07013000 &middot; 30 min ago</div>
+          <div class="gauge-value-row">
+            <span class="gauge-value">7.82</span>
+            <span class="gauge-unit">ft</span>
+          </div>
+        </div>
+        <div class="gauge-card-footer">
+          <span>Report Issue &middot; Share</span>
+          <span class="gauge-chart-label">View Chart →</span>
+        </div>
+      </div>
+
+      <div class="gauge-card" style="animation-delay:200ms">
+        <div class="gauge-card-header">
+          <span class="gauge-river-link">Eleven Point</span>
+          <span class="gauge-badge okay">Okay</span>
+        </div>
+        <div class="gauge-card-body">
+          <div class="gauge-name">Eleven Point near Thomasville</div>
+          <div class="gauge-site">USGS 07071500 &middot; 45 min ago</div>
+          <div class="gauge-value-row">
+            <span class="gauge-value">2.14</span>
+            <span class="gauge-unit">ft</span>
+          </div>
+        </div>
+        <div class="gauge-card-footer">
+          <span>Report Issue &middot; Share</span>
+          <span class="gauge-chart-label">View Chart →</span>
+        </div>
+      </div>
+
+      <div class="gauge-card" style="animation-delay:250ms">
+        <div class="gauge-card-header">
+          <span class="gauge-river-link">Huzzah Creek</span>
+          <span class="gauge-badge low">Low</span>
+        </div>
+        <div class="gauge-card-body">
+          <div class="gauge-name">Huzzah Creek near Steelville</div>
+          <div class="gauge-site">USGS 07014500 &middot; 15 min ago</div>
+          <div class="gauge-value-row">
+            <span class="gauge-value">1.08</span>
+            <span class="gauge-unit">ft</span>
+          </div>
+        </div>
+        <div class="gauge-card-footer">
+          <span>Report Issue &middot; Share</span>
+          <span class="gauge-chart-label">View Chart →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Desktop Drawer -->
+  <aside class="drawer-preview">
+    <div class="drawer-header">
+      <div>
+        <span class="gauge-badge optimal" style="margin-right:0.5rem">Optimal</span>
+        <span class="drawer-title">Current River at Akers</span>
+      </div>
+      <button class="drawer-close">×</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-reading-grid">
+        <div class="drawer-reading">
+          <div class="drawer-reading-label">Water Level</div>
+          <div class="drawer-reading-value">3.42 ft</div>
+        </div>
+        <div class="drawer-reading">
+          <div class="drawer-reading-label">Flow Rate</div>
+          <div class="drawer-reading-value">485 cfs</div>
+        </div>
+        <div class="drawer-reading">
+          <div class="drawer-reading-label">Water Temp</div>
+          <div class="drawer-reading-value">68°F</div>
+        </div>
+        <div class="drawer-reading">
+          <div class="drawer-reading-label">Weather</div>
+          <div class="drawer-reading-value">☀️ 82°F</div>
+        </div>
+      </div>
+
+      <div class="drawer-chart">
+        <div class="drawer-chart-title">Flow Trend</div>
+        <div class="drawer-chart-buttons">
+          <button class="chart-range-btn active">7 days</button>
+          <button class="chart-range-btn">14 days</button>
+          <button class="chart-range-btn">30 days</button>
+        </div>
+        <div class="chart-placeholder">📈 Recharts Flow Trend Chart</div>
+      </div>
+
+      <div class="drawer-chart">
+        <div class="drawer-chart-title">Condition Thresholds</div>
+        <div style="font-size:0.8125rem;color:var(--neutral-600);line-height:1.6">
+          <div style="display:flex;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--neutral-100)"><span>Too Low</span><span style="font-family:var(--font-mono)">< 1.5 ft</span></div>
+          <div style="display:flex;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--neutral-100)"><span>Low</span><span style="font-family:var(--font-mono)">1.5–2.5 ft</span></div>
+          <div style="display:flex;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--neutral-100);background:var(--support-100);margin:0 -0.5rem;padding:0.25rem 0.5rem;border-radius:4px"><span style="font-weight:600;color:var(--support-700)">Optimal</span><span style="font-family:var(--font-mono);color:var(--support-700)">2.5–5.0 ft ✓</span></div>
+          <div style="display:flex;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--neutral-100)"><span>High</span><span style="font-family:var(--font-mono)">5.0–8.0 ft</span></div>
+          <div style="display:flex;justify-content:space-between;padding:0.25rem 0"><span>Dangerous</span><span style="font-family:var(--font-mono)">> 8.0 ft</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-bottom">
+        <div class="footer-links">
+          <span>Eddy &middot; Water data from USGS</span>
+          <a href="#" class="footer-link">About</a>
+          <a href="#" class="footer-link">Privacy</a>
+        </div>
+        <p style="color:var(--primary-300)">&copy; 2026 eddy.guide</p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="chat-fab" aria-label="Ask Eddy">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+  </button>
+
+</body>
+</html>

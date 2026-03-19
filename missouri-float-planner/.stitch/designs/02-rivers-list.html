@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — Float Rivers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-900: #0F2D35; --primary-800: #163F4A; --primary-700: #1D525F;
+      --primary-600: #256574; --primary-500: #2D7889; --primary-400: #4A9AAD;
+      --primary-300: #72B5C4; --primary-200: #A3D1DB; --primary-100: #D4EAEF;
+      --primary-50: #EBF5F7;
+      --secondary-500: #B89D72; --secondary-200: #E8DFD0; --secondary-100: #F4EFE7; --secondary-50: #FAF8F4;
+      --accent-500: #F07052; --accent-600: #E5573F; --accent-400: #F48E76;
+      --accent-300: #F7AC9A; --accent-100: #FDE7E1; --accent-50: #FEF5F3;
+      --support-500: #4EB86B; --support-700: #347A47; --support-300: #95D9A7; --support-100: #DCF4E2;
+      --neutral-950: #1A1814; --neutral-900: #2D2A24; --neutral-800: #3F3B33;
+      --neutral-700: #524D43; --neutral-600: #6B6459; --neutral-500: #857D70;
+      --neutral-400: #A49C8E; --neutral-300: #C2BAAC; --neutral-200: #DBD5CA;
+      --neutral-100: #EDEBE6; --neutral-50: #F7F6F3;
+      --background: #F7F6F3; --surface: #FFFFFF;
+      --success: #4EB86B; --warning: #E5A000; --error: #DC2626; --info: #2D7889;
+      --shadow-xs: 1px 1px 0 #C2BAAC; --shadow-sm: 2px 2px 0 #C2BAAC;
+      --shadow-md: 3px 3px 0 #A49C8E; --shadow-lg: 4px 4px 0 #857D70;
+      --shadow-xl: 6px 6px 0 #6B6459;
+      --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-display: 'Fredoka', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-body); background: var(--background); color: var(--neutral-900); line-height: 1.5; }
+    a { text-decoration: none; color: inherit; }
+    img { max-width: 100%; height: auto; display: block; }
+
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}}
+
+    /* Header */
+    .site-header { position:sticky;top:0;z-index:50;background:var(--primary-800);border-bottom:3px solid var(--neutral-900);height:56px; }
+    .header-inner { max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;height:100%; }
+    .logo { display:flex;align-items:center;gap:0.625rem; }
+    .logo-img { width:32px;height:32px;border-radius:6px; }
+    .logo-text { font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--accent-500); }
+    .nav-links { display:flex;align-items:center;gap:0.25rem;margin-left:2rem; }
+    .nav-link { padding:0.5rem 0.75rem;border-radius:6px;font-size:0.875rem;font-weight:600;color:var(--primary-100);transition:all 100ms; }
+    .nav-link:hover,.nav-link.active { color:white;background:rgba(255,255,255,0.1); }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35);
+      padding: 3rem 1rem 2.5rem;
+      text-align: center;
+      color: white;
+    }
+    .hero-mascot {
+      width: 160px; height: 160px;
+      margin: 0 auto 0.75rem;
+      animation: float 6s ease-in-out infinite;
+      filter: drop-shadow(0 4px 24px rgba(240,112,82,0.3));
+    }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+    .hero-subtitle {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.6);
+      max-width: 480px;
+      margin: 0 auto 1.5rem;
+    }
+
+    /* Condition pills */
+    .condition-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.8);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .pill-dot { width:8px;height:8px;border-radius:50%; }
+    .pill-dot.optimal { background:var(--support-500); }
+    .pill-dot.okay { background:#84CC16; }
+    .pill-dot.low { background:var(--warning); }
+    .pill-dot.high { background:#F97316; }
+    .pill-count {
+      background: rgba(255,255,255,0.15);
+      padding: 0.125rem 0.375rem;
+      border-radius: 9999px;
+      font-size: 0.6875rem;
+    }
+
+    /* Eddy quote in hero */
+    .hero-quote {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      text-align: left;
+    }
+    .hero-quote-avatar {
+      width: 36px; height: 36px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .hero-quote-text {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.75);
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* River cards grid */
+    .rivers-grid {
+      max-width: 1024px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    @media(min-width:768px) {
+      .rivers-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .river-card {
+      background: var(--surface);
+      border: 2px solid var(--primary-700);
+      border-radius: 8px;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      transition: all 200ms;
+      animation: fadeIn 500ms ease-out both;
+    }
+    .river-card:nth-child(2) { animation-delay: 50ms; }
+    .river-card:nth-child(3) { animation-delay: 100ms; }
+    .river-card:nth-child(4) { animation-delay: 150ms; }
+    .river-card:nth-child(5) { animation-delay: 200ms; }
+    .river-card:nth-child(6) { animation-delay: 250ms; }
+    .river-card:nth-child(7) { animation-delay: 300ms; }
+    .river-card:nth-child(8) { animation-delay: 350ms; }
+    .river-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .river-card-image {
+      position: relative;
+      height: 160px;
+      background: linear-gradient(135deg, var(--primary-900), var(--primary-700));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .river-card-image img {
+      width: 80px; height: 80px;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+    }
+    .river-card-badge {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-optimal { background:var(--support-100);color:var(--support-700);border:1px solid var(--support-300); }
+    .badge-okay { background:#ECFCCB;color:#3F6212;border:1px solid #BEF264; }
+    .badge-low { background:#FFFBEB;color:#92400E;border:1px solid #FCD34D; }
+    .badge-high { background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74; }
+    .river-card-blurb {
+      position: absolute;
+      bottom: 0;
+      left: 0; right: 0;
+      padding: 0.5rem 0.75rem;
+      background: linear-gradient(transparent, rgba(15,45,53,0.9));
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.8);
+      font-style: italic;
+    }
+
+    .river-card-body {
+      padding: 1rem 1.25rem;
+    }
+    .river-card-name {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--neutral-900);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+    .river-card-desc {
+      font-size: 0.8125rem;
+      color: var(--neutral-500);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.5;
+    }
+    .river-card-footer {
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--neutral-100);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--neutral-500);
+    }
+    .river-card-stat {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    /* Footer */
+    .site-footer { background:var(--primary-800);border-top:2px solid var(--neutral-900);padding:1.5rem 1rem; }
+    .footer-inner { max-width:1024px;margin:0 auto; }
+    .footer-safety { margin-bottom:1rem;padding:1rem;background:rgba(29,82,95,0.5);border-radius:8px;border:1px solid rgba(37,101,116,0.3); }
+    .footer-safety p { font-size:0.875rem;color:var(--primary-100);text-align:center; }
+    .footer-safety strong { color:white; }
+    .footer-bottom { display:flex;flex-direction:column;align-items:center;gap:0.75rem;font-size:0.875rem;color:var(--primary-200); }
+    .footer-links { display:flex;align-items:center;gap:1rem; }
+    .footer-link { color:var(--primary-200);transition:color 100ms; }
+    .footer-link:hover { color:white; }
+    .footer-copy { color:var(--primary-300); }
+    @media(min-width:768px) { .footer-bottom { flex-direction:row;justify-content:space-between; } }
+
+    /* Chat FAB */
+    .chat-fab { position:fixed;bottom:1.5rem;right:1.5rem;z-index:40;width:56px;height:56px;border-radius:9999px;background:var(--accent-500);border:2px solid var(--neutral-900);box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;transition:all 100ms;cursor:pointer; }
+    .chat-fab:hover { transform:translateY(-2px) scale(1.05);box-shadow:var(--shadow-xl); }
+    .chat-fab img { width:32px;height:32px;border-radius:9999px; }
+
+    @media(max-width:767px) { .nav-links{display:none} .hero-title{font-size:1.875rem} }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="01-home.html" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#" class="nav-link active">Plan Your Float</a>
+        <a href="05-gauges.html" class="nav-link">River Levels</a>
+        <a href="09-about.html" class="nav-link">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20in%20a%20canoe.png" alt="Eddy in a canoe" class="hero-mascot">
+    <h1 class="hero-title">Float Rivers</h1>
+    <p class="hero-subtitle">Browse Missouri&rsquo;s best float streams with live conditions, access points, and AI-powered recommendations.</p>
+
+    <div class="condition-pills">
+      <span class="pill"><span class="pill-dot optimal"></span>Optimal<span class="pill-count">4</span></span>
+      <span class="pill"><span class="pill-dot okay"></span>Okay<span class="pill-count">2</span></span>
+      <span class="pill"><span class="pill-dot low"></span>Low<span class="pill-count">1</span></span>
+      <span class="pill"><span class="pill-dot high"></span>High<span class="pill-count">1</span></span>
+    </div>
+
+    <div class="hero-quote">
+      <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="hero-quote-avatar">
+      <p class="hero-quote-text">&ldquo;Great day to float! Most rivers are running at ideal levels. The Current and Jacks Fork are crystal clear &mdash; perfect for families. Avoid the Meramec until levels drop.&rdquo;</p>
+    </div>
+  </section>
+
+  <div class="rivers-grid">
+    <!-- Current River -->
+    <a href="03-river-detail.html" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png" alt="Eddy - Optimal">
+        <span class="river-card-badge badge-optimal">Optimal</span>
+        <div class="river-card-blurb">&ldquo;Crystal clear and perfect for floating!&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Current River</h3>
+        <p class="river-card-desc">Missouri&rsquo;s crown jewel. Spring-fed, crystal clear water flowing through the Ozark National Scenic Riverways.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 134.2 mi</span>
+        <span class="river-card-stat">🚣 12 access points</span>
+        <span class="river-card-stat">📍 Ozark Highlands</span>
+      </div>
+    </a>
+
+    <!-- Jacks Fork -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png" alt="Eddy - Optimal">
+        <span class="river-card-badge badge-optimal">Optimal</span>
+        <div class="river-card-blurb">&ldquo;Beautiful spring-fed waters running clear&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Jacks Fork</h3>
+        <p class="river-card-desc">Wild and scenic tributary of the Current River. Known for dramatic bluffs and spring-fed swimming holes.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 42.8 mi</span>
+        <span class="river-card-stat">🚣 8 access points</span>
+        <span class="river-card-stat">📍 Ozark Highlands</span>
+      </div>
+    </a>
+
+    <!-- Eleven Point -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png" alt="Eddy - Okay">
+        <span class="river-card-badge badge-okay">Okay</span>
+        <div class="river-card-blurb">&ldquo;Decent levels, stick to deeper sections&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Eleven Point</h3>
+        <p class="river-card-desc">Remote and wild. One of the original National Wild &amp; Scenic Rivers with excellent smallmouth bass fishing.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 44.5 mi</span>
+        <span class="river-card-stat">🚣 6 access points</span>
+        <span class="river-card-stat">📍 Southeast Ozarks</span>
+      </div>
+    </a>
+
+    <!-- Meramec -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png" alt="Eddy - High">
+        <span class="river-card-badge badge-high">High</span>
+        <div class="river-card-blurb">&ldquo;Running high &mdash; experienced paddlers only&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Meramec River</h3>
+        <p class="river-card-desc">The closest float to St. Louis. Great for beginners when water is normal, with outfitters galore along the upper sections.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 218.0 mi</span>
+        <span class="river-card-stat">🚣 15 access points</span>
+        <span class="river-card-stat">📍 Eastern Ozarks</span>
+      </div>
+    </a>
+
+    <!-- Huzzah -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png" alt="Eddy - Low">
+        <span class="river-card-badge badge-low">Low</span>
+        <div class="river-card-blurb">&ldquo;Pretty shallow — best to wait for rain&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Huzzah Creek</h3>
+        <p class="river-card-desc">Popular weekend destination near St. Louis. Beautiful bluffs and gravel bars, but can get crowded in summer.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 28.3 mi</span>
+        <span class="river-card-stat">🚣 5 access points</span>
+        <span class="river-card-stat">📍 Eastern Ozarks</span>
+      </div>
+    </a>
+
+    <!-- Big Piney -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png" alt="Eddy - Optimal">
+        <span class="river-card-badge badge-optimal">Optimal</span>
+        <div class="river-card-blurb">&ldquo;Hidden gem running crystal clear!&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Big Piney</h3>
+        <p class="river-card-desc">One of Missouri&rsquo;s best-kept secrets. Challenging in spots with Class II rapids, surrounded by Mark Twain National Forest.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 61.7 mi</span>
+        <span class="river-card-stat">🚣 7 access points</span>
+        <span class="river-card-stat">📍 Central Ozarks</span>
+      </div>
+    </a>
+
+    <!-- North Fork -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png" alt="Eddy - Optimal">
+        <span class="river-card-badge badge-optimal">Optimal</span>
+        <div class="river-card-blurb">&ldquo;Spring-fed trout waters at their finest&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">North Fork</h3>
+        <p class="river-card-desc">Premier trout stream with rainbow and brown trout. Cold, spring-fed water from Rainbow and North Fork Springs.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 52.1 mi</span>
+        <span class="river-card-stat">🚣 9 access points</span>
+        <span class="river-card-stat">📍 South-Central Ozarks</span>
+      </div>
+    </a>
+
+    <!-- Courtois -->
+    <a href="#" class="river-card">
+      <div class="river-card-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png" alt="Eddy - Okay">
+        <span class="river-card-badge badge-okay">Okay</span>
+        <div class="river-card-blurb">&ldquo;Decent conditions with a few rocky stretches&rdquo;</div>
+      </div>
+      <div class="river-card-body">
+        <h3 class="river-card-name">Courtois Creek</h3>
+        <p class="river-card-desc">A Meramec tributary with scenic beauty and moderate floating. Great for intermediate paddlers seeking quieter water.</p>
+      </div>
+      <div class="river-card-footer">
+        <span class="river-card-stat">📏 36.2 mi</span>
+        <span class="river-card-stat">🚣 4 access points</span>
+        <span class="river-card-stat">📍 Eastern Ozarks</span>
+      </div>
+    </a>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-safety"><p><strong>Safety First:</strong> Eddy is a planning guide only. Always consult local outfitters and authorities for current conditions before floating.</p></div>
+      <div class="footer-bottom">
+        <div class="footer-links">
+          <span>Eddy &middot; Water data from USGS</span>
+          <a href="#" class="footer-link">About</a>
+          <a href="#" class="footer-link">Embed Widgets</a>
+          <a href="#" class="footer-link">Privacy</a>
+        </div>
+        <p class="footer-copy">&copy; 2026 eddy.guide</p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="chat-fab" aria-label="Ask Eddy">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+  </button>
+
+</body>
+</html>
