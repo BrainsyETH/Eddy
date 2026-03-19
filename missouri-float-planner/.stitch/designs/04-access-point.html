@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — Akers Ferry Access Point</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-900:#0F2D35;--primary-800:#163F4A;--primary-700:#1D525F;
+      --primary-600:#256574;--primary-500:#2D7889;--primary-400:#4A9AAD;
+      --primary-300:#72B5C4;--primary-200:#A3D1DB;--primary-100:#D4EAEF;--primary-50:#EBF5F7;
+      --secondary-500:#B89D72;--secondary-200:#E8DFD0;--secondary-100:#F4EFE7;--secondary-50:#FAF8F4;
+      --accent-500:#F07052;--accent-600:#E5573F;--accent-400:#F48E76;--accent-100:#FDE7E1;--accent-50:#FEF5F3;
+      --support-500:#4EB86B;--support-700:#347A47;--support-300:#95D9A7;--support-100:#DCF4E2;
+      --neutral-900:#2D2A24;--neutral-800:#3F3B33;--neutral-700:#524D43;--neutral-600:#6B6459;
+      --neutral-500:#857D70;--neutral-400:#A49C8E;--neutral-300:#C2BAAC;--neutral-200:#DBD5CA;
+      --neutral-100:#EDEBE6;--neutral-50:#F7F6F3;
+      --background:#F7F6F3;--surface:#FFFFFF;
+      --shadow-md:3px 3px 0 #A49C8E;--shadow-lg:4px 4px 0 #857D70;
+      --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --font-display:'Fredoka',sans-serif;
+      --font-mono:'SF Mono','Fira Code',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-body);background:var(--neutral-100);color:var(--neutral-900);line-height:1.5}
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;height:auto;display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    /* Header */
+    .site-header{position:sticky;top:0;z-index:50;background:var(--primary-800);border-bottom:3px solid var(--neutral-900);height:56px}
+    .header-inner{max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;height:100%}
+    .logo{display:flex;align-items:center;gap:0.625rem}
+    .logo-img{width:32px;height:32px;border-radius:6px}
+    .logo-text{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--accent-500)}
+
+    /* Sticky sub-header */
+    .sub-header {
+      position: sticky;
+      top: 56px;
+      z-index: 40;
+      background: var(--surface);
+      border-bottom: 1px solid var(--neutral-200);
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .back-link {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--primary-500);
+    }
+    .back-link:hover { color: var(--primary-700); }
+    .share-btn {
+      padding: 0.375rem 0.75rem;
+      border: 2px solid var(--neutral-200);
+      border-radius: 6px;
+      background: var(--surface);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--neutral-600);
+      cursor: pointer;
+      transition: all 100ms;
+    }
+    .share-btn:hover { border-color: var(--primary-400); background: var(--primary-50); }
+
+    /* Main content */
+    .main { max-width: 720px; margin: 1.5rem auto; padding: 0 1rem; animation: fadeIn 500ms ease-out; }
+
+    /* Hero card */
+    .hero-card {
+      background: var(--surface);
+      border: 2px solid var(--primary-700);
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+    .hero-image {
+      height: 200px;
+      background: linear-gradient(135deg, var(--primary-900), var(--primary-700));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .hero-image img { width: 100px; height: 100px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+    .hero-body { padding: 1.25rem; }
+    .hero-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--neutral-900);
+      margin-bottom: 0.25rem;
+    }
+    .hero-meta {
+      font-size: 0.8125rem;
+      color: var(--neutral-500);
+      margin-bottom: 0.75rem;
+    }
+    .hero-gauge {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--support-100);
+      border: 1px solid var(--support-300);
+      border-radius: 8px;
+    }
+    .hero-gauge-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--support-500); flex-shrink: 0; }
+    .hero-gauge-label { font-size: 0.8125rem; font-weight: 600; color: var(--support-700); }
+    .hero-gauge-value { font-family: var(--font-mono); font-size: 0.875rem; color: var(--support-700); margin-left: auto; }
+
+    /* Nav buttons */
+    .nav-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 0.625rem;
+      background: var(--surface);
+      border: 2px solid var(--neutral-200);
+      border-radius: 6px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--neutral-700);
+      text-align: center;
+      cursor: pointer;
+      transition: all 100ms;
+    }
+    .nav-btn:hover { border-color: var(--primary-400); background: var(--primary-50); }
+    .nav-btn-label { font-size: 0.6875rem; color: var(--neutral-400); display: block; }
+
+    /* Collapsible sections */
+    .sections-card {
+      background: var(--surface);
+      border: 2px solid var(--neutral-200);
+      border-radius: 8px;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+    .section-item {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--neutral-100);
+    }
+    .section-item:last-child { border-bottom: none; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+    .section-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+      flex-shrink: 0;
+    }
+    .section-icon.road { background: #FFF7ED; }
+    .section-icon.parking { background: #EBF5F7; }
+    .section-icon.facilities { background: #F0FDF4; }
+    .section-icon.outfitters { background: #FEF5F3; }
+    .section-icon.notes { background: #FFFBEB; }
+    .section-title {
+      flex: 1;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--neutral-800);
+    }
+    .section-badge {
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: var(--support-100);
+      color: var(--support-700);
+    }
+    .section-badge.gravel { background: #FFFBEB; color: #92400E; }
+    .section-chevron { color: var(--neutral-400); font-size: 0.75rem; }
+    .section-body {
+      margin-top: 0.75rem;
+      padding-left: 2.75rem;
+      font-size: 0.875rem;
+      color: var(--neutral-600);
+      line-height: 1.6;
+    }
+    .section-body ul { list-style: none; }
+    .section-body li { padding: 0.25rem 0; }
+    .section-body li::before { content: '✓ '; color: var(--support-500); font-weight: 600; }
+
+    /* Eddy Tip */
+    .eddy-tip {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: var(--secondary-50);
+      border: 2px solid var(--secondary-200);
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+    }
+    .eddy-tip-avatar { width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0; }
+    .eddy-tip-title { font-family: var(--font-display); font-size: 0.875rem; font-weight: 600; color: var(--neutral-800); }
+    .eddy-tip-text { font-size: 0.8125rem; color: var(--neutral-600); font-style: italic; margin-top: 0.25rem; line-height: 1.5; }
+
+    /* Nearby access points */
+    .nearby-section {
+      margin-bottom: 2rem;
+    }
+    .nearby-title {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--neutral-800);
+      margin-bottom: 0.75rem;
+    }
+    .nearby-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .nearby-card {
+      background: var(--surface);
+      border: 2px solid var(--neutral-200);
+      border-radius: 6px;
+      padding: 0.75rem;
+      transition: all 100ms;
+    }
+    .nearby-card:hover { border-color: var(--primary-400); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    .nearby-name { font-size: 0.8125rem; font-weight: 600; color: var(--neutral-800); }
+    .nearby-meta { font-size: 0.6875rem; color: var(--neutral-500); }
+    .nearby-dir { font-size: 0.75rem; color: var(--primary-500); font-weight: 500; margin-top: 0.25rem; }
+
+    /* Chat FAB */
+    .chat-fab{position:fixed;bottom:1.5rem;right:1.5rem;z-index:40;width:56px;height:56px;border-radius:9999px;background:var(--accent-500);border:2px solid var(--neutral-900);box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;transition:all 100ms;cursor:pointer}
+    .chat-fab:hover{transform:translateY(-2px) scale(1.05);box-shadow:6px 6px 0 #6B6459}
+    .chat-fab img{width:32px;height:32px;border-radius:9999px}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="01-home.html" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+    </div>
+  </header>
+
+  <div class="sub-header">
+    <a href="03-river-detail.html" class="back-link">← Current River</a>
+    <button class="share-btn">Share</button>
+  </div>
+
+  <main class="main">
+    <!-- Hero Card -->
+    <div class="hero-card">
+      <div class="hero-image">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png" alt="Optimal conditions">
+      </div>
+      <div class="hero-body">
+        <h1 class="hero-name">Akers Ferry</h1>
+        <p class="hero-meta">Current River &middot; Mile 68.2 &middot; Shannon County, MO</p>
+        <div class="hero-gauge">
+          <span class="hero-gauge-dot"></span>
+          <span class="hero-gauge-label">Optimal — 3.42 ft</span>
+          <span class="hero-gauge-value">485 cfs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav Buttons -->
+    <div class="nav-buttons">
+      <a href="#" class="nav-btn">
+        <span class="nav-btn-label">← Upstream</span>
+        Cedargrove
+      </a>
+      <a href="#" class="nav-btn">
+        <span class="nav-btn-label">Downstream →</span>
+        Pulltite Spring
+      </a>
+    </div>
+
+    <!-- Eddy Tip -->
+    <div class="eddy-tip">
+      <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="eddy-tip-avatar">
+      <div>
+        <div class="eddy-tip-title">Eddy&rsquo;s Tip</div>
+        <p class="eddy-tip-text">&ldquo;Akers Ferry is one of the most popular put-in spots on the Current. Arrive early on weekends to grab parking. The stretch downstream to Pulltite has great swimming holes and easy Class I rapids.&rdquo;</p>
+      </div>
+    </div>
+
+    <!-- Collapsible Sections -->
+    <div class="sections-card">
+      <div class="section-item">
+        <div class="section-header">
+          <span class="section-icon road">🛣️</span>
+          <span class="section-title">Road Access</span>
+          <span class="section-badge">PAVED</span>
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <p>Take Highway KK from Salem. The road is fully paved to the access area. A well-maintained gravel lot sits adjacent to the ferry crossing site.</p>
+        </div>
+      </div>
+
+      <div class="section-item">
+        <div class="section-header">
+          <span class="section-icon parking">🅿️</span>
+          <span class="section-title">Parking</span>
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <ul>
+            <li>Free gravel parking lot (approx. 40 vehicles)</li>
+            <li>Additional overflow parking on weekends</li>
+            <li>Trailer-friendly turnaround</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-item">
+        <div class="section-header">
+          <span class="section-icon facilities">🏕️</span>
+          <span class="section-title">Facilities</span>
+          <span class="section-badge">NPS</span>
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <ul>
+            <li>Vault toilets (year-round)</li>
+            <li>Picnic tables and grills</li>
+            <li>Designated campground nearby</li>
+            <li>No running water — bring your own</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-item">
+        <div class="section-header">
+          <span class="section-icon outfitters">🛶</span>
+          <span class="section-title">Outfitters</span>
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <ul>
+            <li>Akers Ferry Canoe Rental — 0.2 mi</li>
+            <li>Current River Canoe & Kayak — 1.5 mi</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-item">
+        <div class="section-header">
+          <span class="section-icon notes">📝</span>
+          <span class="section-title">River Notes</span>
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <p>The historic Akers Ferry once carried travelers across the Current River. Today the crossing is gone, but the access area remains one of the most scenic spots on the river. Watch for the old ferry cable supports on either bank.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nearby Access Points -->
+    <div class="nearby-section">
+      <h3 class="nearby-title">Nearby Access Points</h3>
+      <div class="nearby-grid">
+        <a href="#" class="nearby-card">
+          <div class="nearby-name">Cedargrove</div>
+          <div class="nearby-meta">6.3 mi upstream</div>
+          <div class="nearby-dir">← Upstream</div>
+        </a>
+        <a href="#" class="nearby-card">
+          <div class="nearby-name">Pulltite Spring</div>
+          <div class="nearby-meta">7.8 mi downstream</div>
+          <div class="nearby-dir">Downstream →</div>
+        </a>
+        <a href="#" class="nearby-card">
+          <div class="nearby-name">Round Spring</div>
+          <div class="nearby-meta">14.2 mi downstream</div>
+          <div class="nearby-dir">Downstream →</div>
+        </a>
+        <a href="#" class="nearby-card">
+          <div class="nearby-name">Two Rivers</div>
+          <div class="nearby-meta">22.1 mi downstream</div>
+          <div class="nearby-dir">Downstream →</div>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <button class="chat-fab" aria-label="Ask Eddy">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddy — Embed Widgets</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-900:#0F2D35;--primary-800:#163F4A;--primary-700:#1D525F;
+      --primary-600:#256574;--primary-500:#2D7889;--primary-400:#4A9AAD;
+      --primary-300:#72B5C4;--primary-200:#A3D1DB;--primary-100:#D4EAEF;--primary-50:#EBF5F7;
+      --secondary-500:#B89D72;--secondary-200:#E8DFD0;--secondary-100:#F4EFE7;--secondary-50:#FAF8F4;
+      --accent-500:#F07052;--accent-600:#E5573F;--accent-400:#F48E76;--accent-100:#FDE7E1;--accent-50:#FEF5F3;
+      --support-500:#4EB86B;--support-700:#347A47;--support-300:#95D9A7;--support-100:#DCF4E2;
+      --neutral-900:#2D2A24;--neutral-800:#3F3B33;--neutral-700:#524D43;--neutral-600:#6B6459;
+      --neutral-500:#857D70;--neutral-400:#A49C8E;--neutral-300:#C2BAAC;--neutral-200:#DBD5CA;
+      --neutral-100:#EDEBE6;--neutral-50:#F7F6F3;
+      --background:#F7F6F3;--surface:#FFFFFF;
+      --shadow-md:3px 3px 0 #A49C8E;--shadow-lg:4px 4px 0 #857D70;
+      --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --font-display:'Fredoka',sans-serif;
+      --font-mono:'SF Mono','Fira Code',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-body);background:var(--background);color:var(--neutral-900);line-height:1.5}
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;height:auto;display:block}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    .site-header{position:sticky;top:0;z-index:50;background:var(--primary-800);border-bottom:3px solid var(--neutral-900);height:56px}
+    .header-inner{max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;height:100%}
+    .logo{display:flex;align-items:center;gap:0.625rem}
+    .logo-img{width:32px;height:32px;border-radius:6px}
+    .logo-text{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--accent-500)}
+    .nav-links{display:flex;align-items:center;gap:0.25rem;margin-left:2rem}
+    .nav-link{padding:0.5rem 0.75rem;border-radius:6px;font-size:0.875rem;font-weight:600;color:var(--primary-100);transition:all 100ms}
+    .nav-link:hover,.nav-link.active{color:white;background:rgba(255,255,255,0.1)}
+
+    /* Hero */
+    .hero{background:linear-gradient(to bottom right,#0F2D35,#163F4A,#0F2D35);padding:3rem 1rem 2.5rem;text-align:center;color:white}
+    .hero-mascot{width:120px;height:120px;margin:0 auto 0.75rem;animation:float 6s ease-in-out infinite;filter:drop-shadow(0 4px 16px rgba(240,112,82,0.3))}
+    .hero-title{font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:0.375rem}
+    .hero-subtitle{font-size:0.9375rem;color:rgba(255,255,255,0.6);max-width:520px;margin:0 auto}
+    .hero-value{margin-top:0.75rem;font-size:0.8125rem;color:rgba(255,255,255,0.4)}
+
+    /* Content */
+    .main{max-width:800px;margin:2rem auto;padding:0 1rem}
+
+    /* Step sections */
+    .step{margin-bottom:2rem;animation:fadeIn 500ms ease-out both}
+    .step:nth-child(2){animation-delay:100ms}
+    .step:nth-child(3){animation-delay:200ms}
+    .step-header{display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem}
+    .step-number{width:32px;height:32px;border-radius:50%;background:var(--primary-500);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875rem;font-weight:700;flex-shrink:0}
+    .step-title{font-size:1.125rem;font-weight:700;color:var(--neutral-900);letter-spacing:-0.02em}
+
+    /* Config row */
+    .config-row{display:flex;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap}
+    .config-select{padding:0.5rem 0.75rem;border:2px solid var(--neutral-300);border-radius:6px;font-size:0.875rem;background:var(--surface);flex:1;min-width:160px}
+    .config-select:focus{outline:none;border-color:var(--primary-500);box-shadow:0 0 0 3px var(--primary-100)}
+    .theme-toggle{display:flex;border:2px solid var(--neutral-300);border-radius:6px;overflow:hidden}
+    .theme-btn{padding:0.5rem 0.75rem;font-size:0.8125rem;font-weight:600;border:none;cursor:pointer;transition:all 100ms;background:var(--surface);color:var(--neutral-600)}
+    .theme-btn.active{background:var(--primary-500);color:white}
+
+    /* Widget cards */
+    .widget-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    @media(max-width:640px){.widget-grid{grid-template-columns:1fr}}
+
+    .widget-card{background:var(--surface);border:2px solid var(--neutral-200);border-radius:8px;box-shadow:var(--shadow-md);overflow:hidden;transition:all 200ms}
+    .widget-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+    .widget-card.recommended{border-color:var(--primary-500)}
+    .widget-card.new{border-color:var(--support-500)}
+    .widget-card.accent{border-color:var(--accent-500)}
+
+    .widget-tag{display:inline-flex;align-items:center;gap:0.25rem;padding:0.125rem 0.5rem;border-radius:9999px;font-size:0.6875rem;font-weight:600;margin:0.75rem 0.75rem 0}
+    .widget-tag.rec{background:var(--primary-50);color:var(--primary-700)}
+    .widget-tag.new-tag{background:var(--support-100);color:var(--support-700)}
+    .widget-tag.best{background:var(--accent-50);color:var(--accent-600)}
+    .widget-tag.standard{background:var(--neutral-100);color:var(--neutral-600)}
+
+    .widget-category{font-size:0.6875rem;color:var(--neutral-400);text-transform:uppercase;letter-spacing:0.04em;padding:0.5rem 0.75rem 0}
+    .widget-name{font-size:1rem;font-weight:700;color:var(--neutral-900);padding:0.25rem 0.75rem 0.5rem}
+
+    .widget-preview{margin:0 0.75rem;background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:6px;height:120px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--neutral-400)}
+
+    .widget-code{margin:0.75rem;background:var(--neutral-900);border-radius:6px;padding:0.75rem;overflow-x:auto}
+    .widget-code code{font-family:var(--font-mono);font-size:0.6875rem;color:var(--primary-300);white-space:pre;line-height:1.5}
+    .widget-code .tag{color:var(--accent-400)}
+    .widget-code .attr{color:var(--support-300)}
+    .widget-code .val{color:#FCD34D}
+
+    .copy-btn{display:flex;align-items:center;justify-content:center;margin:0 0.75rem 0.75rem;padding:0.5rem;background:var(--accent-500);color:white;border:2px solid var(--neutral-900);border-radius:6px;font-size:0.8125rem;font-weight:600;cursor:pointer;box-shadow:var(--shadow-md);transition:all 100ms}
+    .copy-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+
+    /* Platform instructions */
+    .platform-tabs{display:flex;gap:0.25rem;margin-bottom:1rem;flex-wrap:wrap}
+    .platform-tab{padding:0.375rem 0.75rem;border:2px solid var(--neutral-200);border-radius:6px;font-size:0.8125rem;font-weight:600;background:var(--surface);color:var(--neutral-600);cursor:pointer;transition:all 100ms}
+    .platform-tab.active{background:var(--primary-500);color:white;border-color:var(--primary-500)}
+    .platform-tab:hover:not(.active){border-color:var(--neutral-400)}
+
+    .platform-instructions{background:var(--surface);border:2px solid var(--neutral-200);border-radius:8px;padding:1.25rem}
+    .platform-instructions ol{padding-left:1.25rem;font-size:0.875rem;color:var(--neutral-600);line-height:1.8}
+    .platform-instructions li{margin-bottom:0.25rem}
+    .platform-instructions strong{color:var(--neutral-800)}
+
+    /* FAQ */
+    .faq-section{margin-top:2rem}
+    .faq-title{font-size:1.125rem;font-weight:700;color:var(--neutral-900);margin-bottom:1rem}
+    .faq-item{background:var(--surface);border:2px solid var(--neutral-200);border-radius:8px;margin-bottom:0.5rem;overflow:hidden}
+    .faq-question{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem;cursor:pointer;font-size:0.875rem;font-weight:600;color:var(--neutral-800);transition:background 100ms}
+    .faq-question:hover{background:var(--neutral-50)}
+    .faq-chevron{color:var(--neutral-400);font-size:0.75rem}
+    .faq-answer{padding:0 1rem 0.75rem;font-size:0.8125rem;color:var(--neutral-600);line-height:1.6}
+
+    /* Outfitter CTA */
+    .outfitter-cta{margin-top:2rem;text-align:center;padding:2rem;background:var(--secondary-50);border:2px solid var(--secondary-200);border-radius:12px;box-shadow:var(--shadow-md)}
+    .outfitter-title{font-family:var(--font-display);font-size:1.25rem;font-weight:700;color:var(--neutral-900);margin-bottom:0.375rem}
+    .outfitter-desc{font-size:0.875rem;color:var(--neutral-500);margin-bottom:1rem}
+    .outfitter-btn{display:inline-flex;padding:0.75rem 1.5rem;background:var(--accent-500);color:white;border:2px solid var(--neutral-900);border-radius:6px;font-weight:600;box-shadow:var(--shadow-md);transition:all 100ms}
+    .outfitter-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+
+    /* Footer */
+    .site-footer{background:var(--primary-800);border-top:2px solid var(--neutral-900);padding:1.5rem 1rem;margin-top:2rem}
+    .footer-inner{max-width:800px;margin:0 auto}
+    .footer-bottom{display:flex;flex-direction:column;align-items:center;gap:0.75rem;font-size:0.875rem;color:var(--primary-200)}
+    .footer-links{display:flex;align-items:center;gap:1rem}
+    .footer-link{color:var(--primary-200);transition:color 100ms}
+    .footer-link:hover{color:white}
+    @media(min-width:768px){.footer-bottom{flex-direction:row;justify-content:space-between}}
+
+    .chat-fab{position:fixed;bottom:1.5rem;right:1.5rem;z-index:40;width:56px;height:56px;border-radius:9999px;background:var(--accent-500);border:2px solid var(--neutral-900);box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;transition:all 100ms;cursor:pointer}
+    .chat-fab:hover{transform:translateY(-2px) scale(1.05)}
+    .chat-fab img{width:32px;height:32px;border-radius:9999px}
+
+    @media(max-width:767px){.nav-links{display:none}}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="01-home.html" class="logo">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="logo-img">
+        <span class="logo-text">Eddy</span>
+      </a>
+      <nav class="nav-links">
+        <a href="02-rivers-list.html" class="nav-link">Plan Your Float</a>
+        <a href="05-gauges.html" class="nav-link">River Levels</a>
+        <a href="09-about.html" class="nav-link">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20in%20a%20canoe.png" alt="Eddy in a canoe" class="hero-mascot">
+    <h1 class="hero-title">Add Eddy to Your Website</h1>
+    <p class="hero-subtitle">Free, embeddable widgets that show live river conditions, Eddy&rsquo;s daily quote, and a float trip planner.</p>
+    <p class="hero-value">Perfect for outfitters, campgrounds, and tourism sites.</p>
+  </section>
+
+  <main class="main">
+    <!-- Step 1: Config -->
+    <div class="step">
+      <div class="step-header">
+        <span class="step-number">1</span>
+        <span class="step-title">Pick Your River &amp; Theme</span>
+      </div>
+      <div class="config-row">
+        <select class="config-select">
+          <option>Current River</option>
+          <option>Jacks Fork</option>
+          <option>Eleven Point</option>
+          <option>Meramec River</option>
+          <option>Huzzah Creek</option>
+          <option>Big Piney</option>
+          <option>North Fork</option>
+          <option>Courtois Creek</option>
+        </select>
+        <div class="theme-toggle">
+          <button class="theme-btn active">Light</button>
+          <button class="theme-btn">Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Choose Widget -->
+    <div class="step">
+      <div class="step-header">
+        <span class="step-number">2</span>
+        <span class="step-title">Choose a Widget</span>
+      </div>
+
+      <div class="widget-grid">
+        <!-- Live Conditions -->
+        <div class="widget-card recommended">
+          <span class="widget-tag rec">Recommended</span>
+          <div class="widget-category">Data Widgets</div>
+          <div class="widget-name">Live Conditions</div>
+          <div class="widget-preview">📊 Live gauge reading, condition badge, and flow chart</div>
+          <div class="widget-code">
+            <code><span class="tag">&lt;iframe</span> <span class="attr">src</span>=<span class="val">"https://eddy.guide/embed/widget/current-river"</span>
+  <span class="attr">width</span>=<span class="val">"100%"</span> <span class="attr">height</span>=<span class="val">"400"</span>
+  <span class="attr">frameborder</span>=<span class="val">"0"</span><span class="tag">&gt;&lt;/iframe&gt;</span></code>
+          </div>
+          <button class="copy-btn">Copy Embed Code</button>
+        </div>
+
+        <!-- Eddy's Quote -->
+        <div class="widget-card new">
+          <span class="widget-tag new-tag">New</span>
+          <div class="widget-category">Data Widgets</div>
+          <div class="widget-name">Eddy&rsquo;s Daily Quote</div>
+          <div class="widget-preview">🦦 AI-generated daily condition summary</div>
+          <div class="widget-code">
+            <code><span class="tag">&lt;iframe</span> <span class="attr">src</span>=<span class="val">"https://eddy.guide/embed/eddy-quote/current-river"</span>
+  <span class="attr">width</span>=<span class="val">"100%"</span> <span class="attr">height</span>=<span class="val">"200"</span>
+  <span class="attr">frameborder</span>=<span class="val">"0"</span><span class="tag">&gt;&lt;/iframe&gt;</span></code>
+          </div>
+          <button class="copy-btn">Copy Embed Code</button>
+        </div>
+
+        <!-- Float Planner -->
+        <div class="widget-card accent">
+          <span class="widget-tag best">Best for Outfitters</span>
+          <div class="widget-category">Action Widgets</div>
+          <div class="widget-name">Float Trip Planner</div>
+          <div class="widget-preview">🗺️ Interactive put-in/take-out selector with route details</div>
+          <div class="widget-code">
+            <code><span class="tag">&lt;iframe</span> <span class="attr">src</span>=<span class="val">"https://eddy.guide/embed/planner?partner=your-name"</span>
+  <span class="attr">width</span>=<span class="val">"100%"</span> <span class="attr">height</span>=<span class="val">"500"</span>
+  <span class="attr">frameborder</span>=<span class="val">"0"</span><span class="tag">&gt;&lt;/iframe&gt;</span></code>
+          </div>
+          <button class="copy-btn">Copy Embed Code</button>
+        </div>
+
+        <!-- Condition Badge -->
+        <div class="widget-card">
+          <span class="widget-tag standard">Simple</span>
+          <div class="widget-category">Static Widgets</div>
+          <div class="widget-name">Condition Badge</div>
+          <div class="widget-preview" style="height:60px">
+            <span style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.375rem 0.75rem;background:var(--support-100);border:1px solid var(--support-300);border-radius:9999px;font-size:0.8125rem;font-weight:600;color:var(--support-700)">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--support-500)"></span>
+              Current River: Optimal
+            </span>
+          </div>
+          <div class="widget-code">
+            <code><span class="tag">&lt;a</span> <span class="attr">href</span>=<span class="val">"https://eddy.guide/rivers/current-river"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;img</span> <span class="attr">src</span>=<span class="val">"https://eddy.guide/api/badge/current-river"</span>
+       <span class="attr">alt</span>=<span class="val">"Current River Conditions"</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;/a&gt;</span></code>
+          </div>
+          <button class="copy-btn">Copy Embed Code</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Platform Instructions -->
+    <div class="step">
+      <div class="step-header">
+        <span class="step-number">3</span>
+        <span class="step-title">Paste Into Your Website</span>
+      </div>
+
+      <div class="platform-tabs">
+        <button class="platform-tab active">WordPress</button>
+        <button class="platform-tab">Squarespace</button>
+        <button class="platform-tab">Wix</button>
+        <button class="platform-tab">Other</button>
+      </div>
+
+      <div class="platform-instructions">
+        <ol>
+          <li>Go to your page editor and switch to <strong>HTML/Code view</strong></li>
+          <li>Paste the embed code where you want the widget to appear</li>
+          <li>If using Gutenberg, add a <strong>Custom HTML</strong> block first</li>
+          <li>Save and preview &mdash; the widget loads automatically</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="faq-section">
+      <div class="faq-title">Frequently Asked Questions</div>
+
+      <div class="faq-item">
+        <div class="faq-question">
+          <span>Do I need to update the widget?</span>
+          <span class="faq-chevron">▾</span>
+        </div>
+        <div class="faq-answer">Nope! The widget loads live data automatically. Once embedded, it stays up to date with no maintenance.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">
+          <span>Is this free?</span>
+          <span class="faq-chevron">▾</span>
+        </div>
+        <div class="faq-answer">Yes, all Eddy widgets are completely free to use on any website.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">
+          <span>Can I show more than one widget?</span>
+          <span class="faq-chevron">▾</span>
+        </div>
+        <div class="faq-answer">Absolutely! We recommend pairing the Live Conditions widget with the Float Trip Planner for the best experience.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">
+          <span>Will it slow down my site?</span>
+          <span class="faq-chevron">▾</span>
+        </div>
+        <div class="faq-answer">No. Widgets load in iframes and won&rsquo;t affect your page performance. They&rsquo;re lightweight and optimized.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">
+          <span>Can I add my business name?</span>
+          <span class="faq-chevron">▾</span>
+        </div>
+        <div class="faq-answer">Yes! Add <code>?partner=Your+Business</code> to the Float Planner URL to include your branding.</div>
+      </div>
+    </div>
+
+    <!-- Outfitter CTA -->
+    <div class="outfitter-cta">
+      <div class="outfitter-title">Are You an Outfitter?</div>
+      <p class="outfitter-desc">Get a custom widget setup, priority support, and your business featured in Eddy&rsquo;s recommendations.</p>
+      <a href="mailto:hello@eddy.guide" class="outfitter-btn">Get in Touch →</a>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-bottom">
+        <div class="footer-links">
+          <span>Eddy &middot; Water data from USGS</span>
+          <a href="09-about.html" class="footer-link">About</a>
+          <a href="#" class="footer-link">Privacy</a>
+        </div>
+        <p style="color:var(--primary-300)">&copy; 2026 eddy.guide</p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="chat-fab" aria-label="Ask Eddy">
+    <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+  </button>
+
+</body>
+</html>
