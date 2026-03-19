@@ -78,21 +78,23 @@ export default function ChatBubble() {
           style={{ bottom: fabBottom }}
           aria-label="Ask Eddy"
         >
-          <div className="relative w-14 h-14 rounded-full bg-primary-800 shadow-lg border-2 border-accent-400 flex items-center justify-center overflow-hidden group-hover:scale-110 group-hover:shadow-xl transition-all duration-200">
-            <Image
-              src={EDDY_IMAGES.favicon}
-              alt="Ask Eddy"
-              width={48}
-              height={48}
-              className="w-11 h-11 object-cover rounded-full"
-            />
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="relative w-14 h-14 rounded-full bg-primary-800 shadow-lg border-2 border-accent-400 flex items-center justify-center overflow-hidden group-hover:scale-110 group-hover:shadow-xl transition-all duration-200">
+              <Image
+                src={EDDY_IMAGES.favicon}
+                alt="Ask Eddy"
+                width={48}
+                height={48}
+                className="w-11 h-11 object-cover rounded-full"
+              />
+            </div>
+            <span
+              className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-accent-500 text-white shadow-sm whitespace-nowrap"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Ask Eddy
+            </span>
           </div>
-          <span
-            className="absolute -top-1 -left-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-accent-500 text-white shadow-sm whitespace-nowrap"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            Ask Eddy
-          </span>
         </button>
       )}
 

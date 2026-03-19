@@ -7,9 +7,8 @@
 
 import type { ToolResultData } from '@/lib/chat/types';
 import { CONDITION_COLORS } from '@/constants';
-import { Droplets, Thermometer, Wind, Clock, Car, AlertTriangle, ExternalLink, ChevronRight, ChevronDown } from 'lucide-react';
+import { Droplets, Thermometer, Wind, Clock, Car, AlertTriangle, ExternalLink, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
 
 interface ToolCardsProps {
   toolData: ToolResultData[];
