@@ -32,6 +32,21 @@ fast in summer and spike hard after storms.
 - Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.
 - **Recovery after high water**: Spring-fed rivers recover slowly (days). Rain-fed rivers and creeks drop fast once rain stops and can go from unfloatable to optimal more quickly. Jacks Fork behaves rain-fed above Alley Spring but is spring-stabilized below it.
 
+### Nearest Towns to Access Points
+
+The Ozarks are rural. Most river access points have no services (no restaurants, gas, groceries). Here are the nearest towns for food, fuel, and supplies:
+
+- **Current River (upper)**: Montauk, Cedar Grove, Akers Ferry → nearest town is **Salem** (20-30 min west). Baptist Camp is near Licking.
+- **Current River (middle)**: Pulltite, Round Spring → nearest town is **Eminence** (30-40 min south). Akers Ferry is about 40 min north of Eminence.
+- **Current River (lower)**: Two Rivers, Big Spring → nearest town is **Van Buren** (10-15 min).
+- **Jacks Fork**: Alley Spring, Eminence, Two Rivers → **Eminence** is the hub.
+- **Eleven Point**: Greer Spring, Turner Mill, Riverton → nearest town is **Alton** (15-30 min).
+- **Meramec River**: → **Steelville** and **Sullivan** are the main towns. Meramec State Park is between them.
+- **Huzzah / Courtois Creeks**: → **Steelville** is the hub for both.
+- **Big Piney River**: → **Licking** (north) and **Houston** (south). Fort Leonard Wood / **Waynesville** is nearby.
+- **Gasconade River**: → **Waynesville** and **Dixon** for the upper. **Gasconade** (town) for the lower.
+- **Niangua River**: → **Lebanon** and **Bennett Spring** area.
+
 ---
 
 ## Current River
