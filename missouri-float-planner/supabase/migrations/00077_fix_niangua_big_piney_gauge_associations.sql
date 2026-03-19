@@ -8,9 +8,9 @@
 -- ensures only the correct USGS gauges are linked.
 --
 -- Correct gauges for Niangua River:
---   06923250 - Niangua River at Windyville, MO (upper floatable section)
---   06923700 - Niangua River at Bennett Spring, MO (core float section)
+--   06923250 - Niangua River at Windyville, MO (primary — upper/core float section)
 --   06923950 - Niangua River at Tunnel Dam near Macks Creek, MO (lower section)
+--   NOTE: 06923700 (Bennett Spring) is water-quality-only — no real-time gauge height
 --
 -- Correct gauges for Big Piney River:
 --   06928900 - Big Piney River near Houston, MO (upper section)
@@ -36,15 +36,7 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
-INSERT INTO gauge_stations (usgs_site_id, name, location, active)
-VALUES (
-    '06923700',
-    'Niangua River at Bennett Spring, MO',
-    ST_SetSRID(ST_MakePoint(-92.8544, 37.7167), 4326),
-    true
-) ON CONFLICT (usgs_site_id) DO UPDATE SET
-    name = EXCLUDED.name,
-    active = EXCLUDED.active;
+-- 06923700 (Bennett Spring) omitted — water-quality-only station, no real-time gauge height
 
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
@@ -129,7 +121,7 @@ BEGIN
   SELECT COUNT(*) INTO niangua_before FROM river_gauges WHERE river_id = niangua_id;
   SELECT COUNT(*) INTO big_piney_before FROM river_gauges WHERE river_id = big_piney_id;
   SELECT COUNT(*) INTO courtois_before FROM river_gauges WHERE river_id = courtois_id;
-  RAISE NOTICE 'Niangua gauge associations before fix: % (should be 3)', niangua_before;
+  RAISE NOTICE 'Niangua gauge associations before fix: % (should be 2)', niangua_before;
   RAISE NOTICE 'Big Piney gauge associations before fix: % (should be 2)', big_piney_before;
   RAISE NOTICE 'Courtois gauge associations before fix: % (should be 1)', courtois_before;
 
@@ -142,29 +134,10 @@ BEGIN
   -- STEP 3: Re-insert correct Niangua gauges
   -- ============================================
 
-  -- Niangua at Windyville (upper section, secondary)
-  -- Near Moon Valley Access, upstream of Bennett Spring
-  INSERT INTO river_gauges (
-    gauge_station_id, river_id, is_primary,
-    distance_from_section_miles, threshold_unit,
-    level_too_low, level_low, level_optimal_min,
-    level_optimal_max, level_high, level_dangerous
-  )
-  SELECT gs.id, niangua_id, false, 0.0, 'ft',
-    1.5, 2.0, 2.5, 5.0, 7.0, 10.0
-  FROM gauge_stations gs WHERE gs.usgs_site_id = '06923250'
-  ON CONFLICT (gauge_station_id, river_id) DO UPDATE SET
-    is_primary = EXCLUDED.is_primary,
-    distance_from_section_miles = EXCLUDED.distance_from_section_miles,
-    threshold_unit = EXCLUDED.threshold_unit,
-    level_too_low = EXCLUDED.level_too_low,
-    level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min,
-    level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high,
-    level_dangerous = EXCLUDED.level_dangerous;
-
-  -- Niangua at Bennett Spring (PRIMARY — core float section)
+  -- Niangua at Windyville (PRIMARY — upper/core float section)
+  -- Near Moon Valley Access, upstream of Bennett Spring. Best gauge for the
+  -- popular Bennett Spring float section. 06923700 (Bennett Spring) is
+  -- water-quality-only with no real-time gauge height data.
   INSERT INTO river_gauges (
     gauge_station_id, river_id, is_primary,
     distance_from_section_miles, threshold_unit,
@@ -173,7 +146,7 @@ BEGIN
   )
   SELECT gs.id, niangua_id, true, 0.0, 'ft',
     1.5, 2.0, 2.5, 5.0, 7.0, 10.0
-  FROM gauge_stations gs WHERE gs.usgs_site_id = '06923700'
+  FROM gauge_stations gs WHERE gs.usgs_site_id = '06923250'
   ON CONFLICT (gauge_station_id, river_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
     distance_from_section_miles = EXCLUDED.distance_from_section_miles,
@@ -282,7 +255,7 @@ BEGIN
     level_high = EXCLUDED.level_high,
     level_dangerous = EXCLUDED.level_dangerous;
 
-  RAISE NOTICE 'Fixed: Niangua now has 3 gauges (Windyville, Bennett Spring, Tunnel Dam)';
+  RAISE NOTICE 'Fixed: Niangua now has 2 gauges (Windyville primary, Tunnel Dam secondary)';
   RAISE NOTICE 'Fixed: Big Piney now has 2 gauges (Houston, Big Piney)';
   RAISE NOTICE 'Fixed: Courtois now has 1 gauge (Huzzah proxy 07017200)';
 END $$;

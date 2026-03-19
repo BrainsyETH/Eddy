@@ -129,9 +129,10 @@ WHERE rg.river_id = r.id
   AND gs.usgs_site_id = '07018500';
 
 -- ============================================
--- NIANGUA RIVER - BENNETT SPRING GAUGE (06923700)
+-- NIANGUA RIVER - WINDYVILLE GAUGE (06923250)
 -- ============================================
--- Primary gauge at Bennett Spring State Park area
+-- Primary gauge — upstream of Bennett Spring, covers core float section
+-- (06923700 Bennett Spring is water-quality-only, no real-time gauge height)
 UPDATE river_gauges rg
 SET
     level_too_low = 1.5,        -- Too shallow
@@ -144,7 +145,7 @@ FROM rivers r, gauge_stations gs
 WHERE rg.river_id = r.id
   AND rg.gauge_station_id = gs.id
   AND r.slug = 'niangua'
-  AND gs.usgs_site_id = '06923700';
+  AND gs.usgs_site_id = '06923250';
 
 -- ============================================
 -- BIG PINEY RIVER - BIG PINEY GAUGE (06930000)
