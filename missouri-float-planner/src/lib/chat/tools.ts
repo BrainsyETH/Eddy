@@ -122,15 +122,42 @@ WHEN TO CALL: When the user asks about outfitters, canoe rentals, shuttle servic
     name: 'web_search',
     description: `Search the web for information not in your database. Returns relevant search results with titles, descriptions, and URLs.
 
-WHEN TO CALL: Use for questions your database tools can't answer — burn bans, local events, campsite reservation links, restaurant recommendations near rivers, fishing regulations, news about river closures or bridge repairs, shuttle service contact info, gear shop locations, or any question about rivers outside your 9 covered rivers.
+WHEN TO CALL: Use for questions your database tools can't answer, including burn bans, local events, campsite reservation links, restaurant recommendations near rivers, fishing regulations, news about river closures or bridge repairs, shuttle service contact info, gear shop locations, outfitter rates/hours/booking, or any question about rivers outside your 9 covered rivers.
 
-DO NOT use for water levels or conditions — your database tools are authoritative for those. Use this as supplementary info.`,
+DO NOT use for water levels or conditions. Your database tools are authoritative for those. Use this as supplementary info.
+
+PREFERRED SOURCES by category (include the domain or site name in your query when relevant):
+
+Government (closures, regulations, safety, reservations):
+- nps.gov (Ozark National Scenic Riverways closures, access updates, regulations)
+- mdc.mo.gov (Missouri Dept of Conservation, fishing regs, conservation alerts)
+- dnr.mo.gov (water quality advisories, state alerts)
+- weather.gov (burn bans, flood warnings, NWS alerts)
+- fs.usda.gov (Mark Twain National Forest, Eleven Point access/closures)
+- recreation.gov (campsite reservations, availability)
+
+Community float condition resources:
+- missouriscenicrivers.com (outfitter-sourced condition notes, seasonal tips, outfitter directories)
+- rivers.moherp.org (community-calibrated float ratings, recent trip reports)
+- missouricanoe.org (Missouri Canoe & Floaters Association, outfitter directory)
+
+Outfitters and private campgrounds (rates, hours, booking, equipment):
+- currentrivercanoe.com (Akers Ferry Canoe Rental)
+- harveysalleyspring.com (Harvey's Alley Spring Canoe Rental)
+- hufstedlers.com (Hufstedler's Canoe Rental, Eleven Point)
+- jadwincanoe.com (Jadwin Canoe Rental)
+- huzzahvalley.com (Huzzah Valley Resort)
+- ozarkoutdoorsresort.com (Ozark Outdoors Resort, Meramec)
+- gasconadehills.com (Gasconade Hills Resort)
+- carrscurrentriver.com (Carr's Current River)
+- crystalcreekranch.com (Crystal Creek Ranch)
+- facebook.com (many outfitters post hours, closures, and conditions on Facebook more than their own site)`,
     input_schema: {
       type: 'object' as const,
       properties: {
         query: {
           type: 'string',
-          description: 'Search query. Be specific and include "Missouri" or river name for local results. E.g. "Huzzah Creek burn ban 2024" or "Current River shuttle service hours"',
+          description: 'Search query. Be specific and include "Missouri" or the river name for local results. When searching for outfitter info, include the outfitter name or site domain. E.g. "Huzzah Valley Resort rates 2026", "Current River shuttle service hours site:jadwincanoe.com", "Dent County burn ban", "Akers Ferry canoe rental booking"',
         },
       },
       required: ['query'],
