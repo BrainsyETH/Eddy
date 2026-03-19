@@ -17,7 +17,7 @@ If the result shows "high" or "dangerous", lead your response with a clear safet
       properties: {
         river_slug: {
           type: 'string',
-          description: 'River key: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade',
+          description: 'River key: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade, niangua',
         },
       },
       required: ['river_slug'],
@@ -116,6 +116,24 @@ WHEN TO CALL: When the user asks about outfitters, canoe rentals, shuttle servic
         },
       },
       required: ['river_slug'],
+    },
+  },
+  {
+    name: 'web_search',
+    description: `Search the web for information not in your database. Returns relevant search results with titles, descriptions, and URLs.
+
+WHEN TO CALL: Use for questions your database tools can't answer — burn bans, local events, campsite reservation links, restaurant recommendations near rivers, fishing regulations, news about river closures or bridge repairs, shuttle service contact info, gear shop locations, or any question about rivers outside your 9 covered rivers.
+
+DO NOT use for water levels or conditions — your database tools are authoritative for those. Use this as supplementary info.`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query. Be specific and include "Missouri" or river name for local results. E.g. "Huzzah Creek burn ban 2024" or "Current River shuttle service hours"',
+        },
+      },
+      required: ['query'],
     },
   },
 ];

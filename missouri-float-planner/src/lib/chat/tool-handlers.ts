@@ -57,6 +57,8 @@ export async function executeToolCall(
       return handleGetWeather(toolInput);
     case 'get_nearby_services':
       return handleGetNearbyServices(toolInput);
+    case 'web_search':
+      return handleWebSearch(toolInput);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -585,4 +587,51 @@ async function handleGetNearbyServices(input: Record<string, unknown>) {
     services,
     npsCampgrounds: (!category || category === 'camping') ? uniqueNps : [],
   };
+}
+
+// ─── Tool 7: web_search ──────────────────────────────────────────────────────
+
+async function handleWebSearch(input: Record<string, unknown>) {
+  const query = input.query as string;
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+
+  if (!apiKey) {
+    return { error: 'Web search not configured. BRAVE_SEARCH_API_KEY is missing.' };
+  }
+
+  try {
+    const url = new URL('https://api.search.brave.com/res/v1/web/search');
+    url.searchParams.set('q', query);
+    url.searchParams.set('count', '5');
+    url.searchParams.set('text_decorations', 'false');
+    url.searchParams.set('search_lang', 'en');
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'X-Subscription-Token': apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[ChatTool] Brave Search failed: ${response.status}`);
+      return { error: `Search failed (HTTP ${response.status})` };
+    }
+
+    const data = await response.json();
+    const results = data.web?.results || [];
+
+    return {
+      query,
+      results: results.slice(0, 5).map((r: { title?: string; url?: string; description?: string }) => ({
+        title: r.title || '',
+        url: r.url || '',
+        description: r.description || '',
+      })),
+    };
+  } catch (e) {
+    console.error('[ChatTool] Web search error:', e);
+    return { error: `Search failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
 }
