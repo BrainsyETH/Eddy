@@ -104,6 +104,9 @@ export async function POST(request: Request) {
           outputTokens += response.usage?.output_tokens || 0;
 
           // Process response content blocks
+          // Collect all tool results so we can send them together in one user message
+          const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
           for (const block of response.content) {
             if (block.type === 'text') {
               fullResponse += block.text;
@@ -126,21 +129,22 @@ export async function POST(request: Request) {
 
               send({ type: 'tool_end', tool: toolName });
 
-              // Add the assistant's response (with tool_use) and tool result to messages
-              // so Claude can continue with the tool results
-              anthropicMessages = [
-                ...anthropicMessages,
-                { role: 'assistant', content: response.content },
-                {
-                  role: 'user',
-                  content: [{
-                    type: 'tool_result',
-                    tool_use_id: block.id,
-                    content: JSON.stringify(toolResult),
-                  }],
-                },
-              ];
+              toolResults.push({
+                type: 'tool_result',
+                tool_use_id: block.id,
+                content: JSON.stringify(toolResult),
+              });
             }
+          }
+
+          // Append assistant message + all tool results together
+          // Each tool_use in the assistant message must have a matching tool_result
+          if (toolResults.length > 0) {
+            anthropicMessages = [
+              ...anthropicMessages,
+              { role: 'assistant', content: response.content },
+              { role: 'user', content: toolResults },
+            ];
           }
 
           // Check if we should continue the loop
