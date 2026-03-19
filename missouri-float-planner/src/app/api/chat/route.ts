@@ -129,6 +129,11 @@ export async function POST(request: Request) {
 
               send({ type: 'tool_end', tool: toolName });
 
+              // Send structured data for rich card rendering
+              if (toolResult && typeof toolResult === 'object' && !('error' in (toolResult as Record<string, unknown>))) {
+                send({ type: 'tool_data', tool: toolName, data: toolResult as Record<string, unknown> });
+              }
+
               toolResults.push({
                 type: 'tool_result',
                 tool_use_id: block.id,

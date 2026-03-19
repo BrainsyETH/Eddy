@@ -12,7 +12,15 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   toolCalls?: ToolCallStatus[];
+  /** Structured tool result data for rendering rich visual cards */
+  toolData?: ToolResultData[];
   timestamp: number;
+}
+
+/** A structured tool result that can be rendered as a rich card */
+export interface ToolResultData {
+  tool: string;
+  data: Record<string, unknown>;
 }
 
 /** Tracks tool call status for UI feedback */
@@ -20,10 +28,14 @@ export interface ToolCallStatus {
   name: string;
   label: string;
   status: 'calling' | 'done' | 'error';
+  /** Number of calls with this label (for dedup display) */
+  count?: number;
+  /** Number completed so far */
+  doneCount?: number;
 }
 
 /** SSE event types sent from /api/chat */
-export type SSEEventType = 'text' | 'tool_start' | 'tool_end' | 'done' | 'error';
+export type SSEEventType = 'text' | 'tool_start' | 'tool_end' | 'tool_data' | 'done' | 'error';
 
 export interface SSEEvent {
   type: SSEEventType;
@@ -31,6 +43,8 @@ export interface SSEEvent {
   tool?: string;
   label?: string;
   message?: string;
+  /** Structured tool result data for rich cards */
+  data?: Record<string, unknown>;
 }
 
 /** Request body for POST /api/chat */

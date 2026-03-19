@@ -1,12 +1,13 @@
 'use client';
 
 // src/components/chat/ChatPanel.tsx
-// Branded chat UI with streaming messages, tool status indicators, rich markdown,
+// Branded chat UI with streaming messages, tool status indicators, rich visual cards,
 // and quick actions. Used inside ChatBubble (widget) and /chat (full page).
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useChat } from '@/hooks/useChat';
 import type { ChatMessage, ToolCallStatus } from '@/lib/chat/types';
+import ToolCards from './ToolCards';
 import ReactMarkdown from 'react-markdown';
 import { Send, Loader2, AlertCircle, Trash2, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
@@ -36,12 +37,10 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';
@@ -74,10 +73,10 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
         {showWelcome && (
           <div className="text-center py-6">
             <Image
-              src={EDDY_IMAGES.canoe}
+              src={EDDY_IMAGES.favicon}
               alt="Eddy"
-              width={80}
-              height={80}
+              width={72}
+              height={72}
               className="mx-auto mb-3 rounded-2xl shadow-md"
             />
             <h2
@@ -92,7 +91,6 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
                 : "I know every creek in the Ozarks. Ask me about conditions or which river to float."}
             </p>
 
-            {/* Quick action pills */}
             <div className="flex flex-wrap justify-center gap-2">
               {quickActions.map((action) => (
                 <button
@@ -169,10 +167,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start gap-2'}`}>
-      {/* Eddy avatar for assistant messages */}
       {!isUser && (
         <Image
-          src={EDDY_IMAGES.canoe}
+          src={EDDY_IMAGES.favicon}
           alt=""
           width={28}
           height={28}
@@ -180,39 +177,53 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         />
       )}
 
-      <div
-        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm ${
-          isUser
-            ? 'bg-primary-800 text-white rounded-br-md'
-            : 'bg-white text-neutral-900 border border-neutral-200 shadow-sm rounded-bl-md'
-        }`}
-      >
-        {/* Tool status indicators */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="mb-2 space-y-1">
+      <div className={`max-w-[85%] ${isUser ? '' : 'space-y-2'}`}>
+        {/* Tool status indicators — collapsed into single line per label */}
+        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="space-y-0.5 mb-1">
             {message.toolCalls.map((tool, i) => (
               <ToolStatusIndicator key={i} tool={tool} />
             ))}
           </div>
         )}
 
+        {/* Rich visual cards from tool data */}
+        {!isUser && message.toolData && message.toolData.length > 0 && (
+          <ToolCards toolData={message.toolData} />
+        )}
+
         {/* Message content */}
-        {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
-        ) : message.content ? (
-          <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-p:text-neutral-800 prose-p:leading-relaxed prose-headings:text-primary-800 prose-strong:text-primary-900 prose-a:text-primary-600 prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-li:text-neutral-700">
-            <ReactMarkdown
-              components={{
-                a: ({ href, children }) => <RichLink href={href}>{children}</RichLink>,
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+        {(isUser || message.content) && (
+          <div
+            className={`rounded-2xl px-3.5 py-2.5 text-sm ${
+              isUser
+                ? 'bg-primary-800 text-white rounded-br-md'
+                : 'bg-white text-neutral-900 border border-neutral-200 shadow-sm rounded-bl-md'
+            }`}
+          >
+            {isUser ? (
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            ) : (
+              <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-p:text-neutral-800 prose-p:leading-relaxed prose-headings:text-primary-800 prose-strong:text-primary-900 prose-a:text-primary-600 prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-li:text-neutral-700">
+                <ReactMarkdown
+                  components={{
+                    a: ({ href, children }) => <RichLink href={href}>{children}</RichLink>,
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
-        ) : message.toolCalls && message.toolCalls.length > 0 ? null : (
-          <div className="flex items-center gap-2 text-neutral-400">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Thinking...</span>
+        )}
+
+        {/* Thinking state — no content, no tool calls yet */}
+        {!isUser && !message.content && (!message.toolCalls || message.toolCalls.length === 0) && !message.toolData && (
+          <div className="rounded-2xl px-3.5 py-2.5 text-sm bg-white border border-neutral-200 shadow-sm rounded-bl-md">
+            <div className="flex items-center gap-2 text-neutral-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Thinking...</span>
+            </div>
           </div>
         )}
       </div>
@@ -245,18 +256,29 @@ function RichLink({ href, children }: { href?: string; children: ReactNode }) {
 // ─── Tool Status Indicator ───────────────────────────────────────────────────
 
 function ToolStatusIndicator({ tool }: { tool: ToolCallStatus }) {
+  const count = tool.count || 1;
+  const doneCount = tool.doneCount || 0;
+  const allDone = tool.status === 'done';
+
   return (
-    <div className="flex items-center gap-2 text-xs text-neutral-500">
+    <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
       {tool.status === 'calling' ? (
         <Loader2 className="w-3 h-3 animate-spin text-accent-500" />
-      ) : tool.status === 'done' ? (
+      ) : allDone ? (
         <svg className="w-3 h-3 text-support-500" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
         </svg>
       ) : (
         <AlertCircle className="w-3 h-3 text-red-500" />
       )}
-      <span>{tool.label}</span>
+      <span>
+        {tool.label}
+        {count > 1 && (
+          <span className="text-neutral-300 ml-1">
+            {allDone ? `(${count})` : `(${doneCount}/${count})`}
+          </span>
+        )}
+      </span>
     </div>
   );
 }
