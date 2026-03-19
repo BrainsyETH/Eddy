@@ -176,6 +176,8 @@ async function handleGetRiverConditions(input: Record<string, unknown>) {
     trend,
     trendDetail,
     readingTimestamp,
+    riverUrl: `/rivers/${river.slug}`,
+    usgsUrl: `https://waterdata.usgs.gov/monitoring-location/${station.usgs_site_id}/`,
   };
 }
 
@@ -361,11 +363,13 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
 
   return {
     riverName: river.name,
+    riverSlug,
     startPoint: startAp.name,
     endPoint: endAp.name,
     distanceMiles: Math.round(distanceMiles * 10) / 10,
     estimatedHours,
     shuttleDriveMinutes,
+    planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,
     hazards: (hazards || []).map(h => ({
       name: h.name,
       type: h.type,
