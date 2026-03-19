@@ -213,7 +213,7 @@ General (many outfitters post hours, closures, and conditions on Facebook):
       properties: {
         query: {
           type: 'string',
-          description: 'Search query. Be specific and include "Missouri" or the river name for local results. When searching for outfitter info, include the outfitter name or site domain. E.g. "Huzzah Valley Resort rates 2026", "Current River shuttle service hours site:jadwincanoe.com", "Dent County burn ban", "Akers Ferry canoe rental booking"',
+          description: 'Search query. Be specific and include "Missouri" or the river name for local results. When searching for outfitter info, include the outfitter name or site domain. For location-based searches (restaurants, gas stations, grocery stores), search by the nearest TOWN name, not by the access point name. Access points like Pulltite, Akers, Round Spring, etc. are remote with no services — search for the nearest town instead (e.g. "restaurants Eminence MO" not "restaurants Pulltite"). Key towns: Eminence (Current/Jacks Fork), Van Buren (lower Current), Steelville (Meramec/Huzzah), Salem (upper Current), Licking (Big Piney), Alton (Eleven Point), Waynesville (Gasconade), Lebanon (Niangua). E.g. "Huzzah Valley Resort rates 2026", "restaurants Eminence MO", "Dent County burn ban"',
         },
       },
       required: ['query'],
