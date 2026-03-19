@@ -141,4 +141,5 @@ export const TOOL_LABELS: Record<string, string> = {
   get_river_hazards: 'Checking for hazards...',
   get_weather: 'Checking the weather...',
   get_nearby_services: 'Finding nearby services...',
+  web_search: 'Searching the web...',
 };
