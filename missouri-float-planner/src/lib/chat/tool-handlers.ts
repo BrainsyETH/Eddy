@@ -9,7 +9,7 @@ import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { fetchWeather, fetchForecast, getCityForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime } from '@/lib/calculations/floatTime';
-import { getDriveTime } from '@/lib/mapbox/directions';
+import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 
 // Slug map: user-facing names → DB slugs
 const SLUG_MAP: Record<string, string> = {
@@ -317,9 +317,15 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     : { low: distanceMiles / 3, high: distanceMiles / 1.5 };
 
   // Calculate shuttle drive time
+  // Priority: directions_override (geocoded) > driving_lat/lng > location_snap > location_orig
+  // Matches the float planner (/api/plan) coordinate resolution
   let shuttleDriveMinutes: number | null = null;
   try {
-    const getCoords = (ap: typeof startAp): [number, number] | null => {
+    const getCoords = async (ap: typeof startAp): Promise<[number, number] | null> => {
+      if (ap.directions_override) {
+        const geocoded = await geocodeAddress(ap.directions_override);
+        if (geocoded) return geocoded;
+      }
       if (ap.driving_lat && ap.driving_lng) {
         return [parseFloat(ap.driving_lng), parseFloat(ap.driving_lat)];
       }
@@ -327,8 +333,8 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
       return coords ? [coords[0], coords[1]] : null;
     };
 
-    const startCoords = getCoords(startAp);
-    const endCoords = getCoords(endAp);
+    const startCoords = await getCoords(startAp);
+    const endCoords = await getCoords(endAp);
 
     if (startCoords && endCoords) {
       const drive = await getDriveTime(endCoords[0], endCoords[1], startCoords[0], startCoords[1]);
