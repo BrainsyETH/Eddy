@@ -141,18 +141,6 @@ export default function SiteHeader() {
               River Levels
             </Link>
 
-            {/* Ask Eddy link */}
-            <Link
-              href="/chat"
-              className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
-                pathname === '/chat'
-                  ? 'text-white bg-white/10'
-                  : 'text-primary-100 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Ask Eddy
-            </Link>
-
             {/* About link */}
             <Link
               href="/about"
@@ -188,35 +176,23 @@ export default function SiteHeader() {
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#72B5C4' }}>
               Plan Your Float
             </p>
-            <div className="space-y-0.5 mb-3">
+            <div className="grid grid-cols-2 gap-1 mb-3">
               {rivers?.map((river) => (
                 <Link
                   key={river.id}
                   href={`/rivers/${river.slug}`}
-                  className={`flex items-center justify-between px-3 py-3 rounded-md no-underline transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-md no-underline transition-colors ${
                     river.slug === activeRiverSlug
                       ? 'bg-white/10 text-white'
                       : 'text-primary-100 hover:bg-white/5 hover:text-white'
                   }`}
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{river.name}</span>
-                      {river.currentCondition && (
-                        <span
-                          className={`w-2 h-2 rounded-full ${conditionColors[river.currentCondition.code]}`}
-                        />
-                      )}
-                    </div>
-                    <span className="text-xs" style={{ color: '#72B5C4' }}>
-                      {river.lengthMiles.toFixed(1)} mi &middot; {river.difficultyRating}
-                    </span>
-                  </div>
-                  {river.slug === activeRiverSlug && (
-                    <svg className="w-4 h-4 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                  {river.currentCondition && (
+                    <span
+                      className={`w-2 h-2 rounded-full flex-shrink-0 ${conditionColors[river.currentCondition.code]}`}
+                    />
                   )}
+                  <span className="font-medium text-sm truncate">{river.name}</span>
                 </Link>
               ))}
             </div>
@@ -231,18 +207,6 @@ export default function SiteHeader() {
               }`}
             >
               <span className="font-medium">River Levels</span>
-            </Link>
-
-            {/* Ask Eddy */}
-            <Link
-              href="/chat"
-              className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-1 ${
-                pathname === '/chat'
-                  ? 'bg-white/10 text-white'
-                  : 'text-primary-100 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <span className="font-medium">Ask Eddy</span>
             </Link>
 
             {/* About */}
