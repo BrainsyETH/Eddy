@@ -9,7 +9,7 @@ import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { fetchWeather, fetchForecast, getCityForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime } from '@/lib/calculations/floatTime';
-import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
+// Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
 
 // Slug map: user-facing names → DB slugs
 const SLUG_MAP: Record<string, string> = {
@@ -322,32 +322,24 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     ? { low: Math.round((floatTime.minutes * 0.8) / 6) / 10, high: Math.round((floatTime.minutes * 1.3) / 6) / 10 }
     : { low: distanceMiles / 3, high: distanceMiles / 1.5 };
 
-  // Calculate shuttle drive time
-  // Priority: directions_override (geocoded) > driving_lat/lng > location_snap > location_orig
-  // Matches the float planner (/api/plan) coordinate resolution
-  let shuttleDriveMinutes: number | null = null;
+  // Build Google Maps shuttle directions URL (take-out → put-in)
+  // Uses directions_override if available, otherwise lat/lng coordinates
+  let shuttleUrl: string | null = null;
   try {
-    const getCoords = async (ap: typeof startAp): Promise<[number, number] | null> => {
-      if (ap.directions_override) {
-        const geocoded = await geocodeAddress(ap.directions_override);
-        if (geocoded) return geocoded;
-      }
-      if (ap.driving_lat && ap.driving_lng) {
-        return [parseFloat(ap.driving_lng), parseFloat(ap.driving_lat)];
-      }
+    const getDirectionsParam = (ap: typeof startAp): string | null => {
+      if (ap.directions_override) return encodeURIComponent(ap.directions_override);
+      if (ap.driving_lat && ap.driving_lng) return `${ap.driving_lat},${ap.driving_lng}`;
       const coords = ap.location_snap?.coordinates || ap.location_orig?.coordinates;
-      return coords ? [coords[0], coords[1]] : null;
+      return coords ? `${coords[1]},${coords[0]}` : null; // lat,lng
     };
 
-    const startCoords = await getCoords(startAp);
-    const endCoords = await getCoords(endAp);
-
-    if (startCoords && endCoords) {
-      const drive = await getDriveTime(endCoords[0], endCoords[1], startCoords[0], startCoords[1]);
-      shuttleDriveMinutes = drive.minutes;
+    const origin = getDirectionsParam(endAp); // shuttle starts at take-out
+    const dest = getDirectionsParam(startAp); // shuttle ends at put-in
+    if (origin && dest) {
+      shuttleUrl = `https://www.google.com/maps/dir/${origin}/${dest}`;
     }
   } catch (e) {
-    console.warn('[ChatTool] Shuttle drive time failed:', e);
+    console.warn('[ChatTool] Shuttle URL generation failed:', e);
   }
 
   // Get hazards along route
@@ -372,7 +364,7 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     endPoint: endAp.name,
     distanceMiles: Math.round(distanceMiles * 10) / 10,
     estimatedHours,
-    shuttleDriveMinutes,
+    shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,
     hazards: (hazards || []).map(h => ({
       name: h.name,
