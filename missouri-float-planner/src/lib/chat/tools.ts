@@ -142,16 +142,72 @@ Community float condition resources:
 - missouricanoe.org (Missouri Canoe & Floaters Association, outfitter directory)
 
 Outfitters and private campgrounds (rates, hours, booking, equipment):
-- currentrivercanoe.com (Akers Ferry Canoe Rental)
-- harveysalleyspring.com (Harvey's Alley Spring Canoe Rental)
-- hufstedlers.com (Hufstedler's Canoe Rental, Eleven Point)
-- jadwincanoe.com (Jadwin Canoe Rental)
-- huzzahvalley.com (Huzzah Valley Resort)
-- ozarkoutdoorsresort.com (Ozark Outdoors Resort, Meramec)
-- gasconadehills.com (Gasconade Hills Resort)
-- carrscurrentriver.com (Carr's Current River)
-- crystalcreekranch.com (Crystal Creek Ranch)
-- facebook.com (many outfitters post hours, closures, and conditions on Facebook more than their own site)`,
+
+Current River:
+- currentrivercanoe.com (Current River Canoe Rental, upper Current)
+- runningrivercanoe.com (Running River Canoe Rental, upper Current)
+- akersferrycanoe.com (Akers Ferry Canoe Rental, NPS authorized)
+- jadwincanoe.com (Jadwin Canoe Rental, NPS authorized)
+- carrscanoerental.com (Carr's Canoe Rental, Eminence area, also Jacks Fork)
+- windysfloats.com (Windy's Floats, NPS authorized, Eminence area)
+- thelandingcurrentriver.com (The Landing, Van Buren, lodge + outfitter)
+
+Jacks Fork River:
+- harveysalleyspring.com (Harvey's Alley Spring Canoe Rental, NPS authorized)
+- 2riverscanoe.com (Two Rivers Canoe Rental, confluence area)
+- jacksforkcanoe.com (Jacks Fork Canoe Rental & Campground)
+- circlebcampground.com (Circle B Campground & Resort)
+- eminencemocabins.com (Jack's Fork River Resort)
+- adventureriverresort.com (Adventure River Resort)
+- eminencecottagescamp.com (Eminence Cottages and Camp)
+- crosscountrytrailrides.com (Cross Country Trail Rides, cabins + horseback)
+
+Eleven Point River:
+- hufstedlers.com (Hufstedler's Canoe Rental, USFS authorized)
+- richardscanoerentals.com (Richard's Canoe Rental, Greer Spring area)
+- elevenpointcottages.com (Eleven Point River Canoe Rental / Cottages, Brian Sloss)
+
+Huzzah Creek / Courtois Creek:
+- huzzahvalley.com (Huzzah Valley Resort, also serves Courtois + Meramec)
+- bassresort.com (Bass River Resort, primary Courtois, also Huzzah + Meramec)
+
+Meramec River:
+- ozarkoutdoors.net (Ozark Outdoors Resort, Leasburg, also Huzzah shuttle)
+- meramecriverresort.com (Bird's Nest Lodge / Meramec River Resort, Steelville)
+- oldcovecanoe.com (Old Cove Canoe & Kayak)
+- garrisonscampground.com (Garrison's River Resort, 180 sites)
+- luckyclovercampground.com (Lucky Clover Resort, 100 acres)
+- riverviewranch.org (Riverview Ranch, near Campbell Bridge)
+- adventureoutdoorcanoeing.com (Adventure Outdoors, upper Meramec)
+- americascave.com (Meramec Caverns Campground, canoe rental + cave tours)
+- cobblestonelodge.com (Cobblestone Lodge, Steelville)
+
+Gasconade River:
+- gasconadehills.com (Gasconade Hills Resort, cabins + pool)
+- rubyslanding.com (Ruby's Landing River Resort, Waynesville, 115 acres)
+- bscoutdoors.com (BSC Outdoors / Boiling Spring Campground, also Big Piney)
+- devilselbowriversafariandcampground.com (Devils Elbow River Safari)
+
+Big Piney River:
+- wildernessridgeresort.com (Wilderness Ridge Resort, Duke)
+- peckslastresort.com (Peck's Last Resort)
+- boilingspringscampground.com (Resort at Boiling Springs, Licking)
+
+Niangua River:
+- nianguariver.com (Maggard Canoe & Corkery Campground, since 1972)
+- mo-adventures.com (Adventures Float Trips LLC)
+- nrocanoe.com (Niangua River Oasis / NRO)
+- riverfrontcampcanoe.com (RiverFront Campground and Canoe Rental)
+- sandspringresort.com (Sand Spring Resort)
+- mountaincreekfamilyresort.com (Mountain Creek Family Resort, Eldridge)
+- majesticviewsfloats.com (Majestic Views Floats, Bennett Spring)
+- bigbearriverresort.com (Big Bear River Resort, formerly One Eyed Willy's)
+
+State parks (lodging, camping, base camps for floaters):
+- mostateparks.com (Montauk, Echo Bluff, Current River, Onondaga Cave, Meramec, Dillard Mill)
+
+General (many outfitters post hours, closures, and conditions on Facebook):
+- facebook.com`,
     input_schema: {
       type: 'object' as const,
       properties: {
