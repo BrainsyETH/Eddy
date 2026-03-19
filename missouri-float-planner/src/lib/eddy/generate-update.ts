@@ -121,15 +121,8 @@ export async function generateEddyUpdate(
       return null;
     }
 
-    // Parse summary and full text from the --- delimiter
-    let summaryText: string | null = null;
-    let quoteText = rawText;
-
-    const delimiterIndex = rawText.indexOf('---');
-    if (delimiterIndex !== -1) {
-      summaryText = rawText.slice(0, delimiterIndex).trim();
-      quoteText = rawText.slice(delimiterIndex + 3).trim();
-    }
+    // Parse summary and full text from the model output
+    const { summaryText, quoteText } = parseEddyResponse(rawText);
 
     return {
       riverSlug: target.riverSlug,
@@ -148,6 +141,64 @@ export async function generateEddyUpdate(
 }
 
 // ---------------------------------------------------------------------------
+// Response parser — extracts summary + full text from Haiku output
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses the raw model response into summary and full report text.
+ * Tries multiple strategies in order of specificity:
+ *  1. [SUMMARY] / [FULL] block markers (preferred, unambiguous)
+ *  2. Legacy --- delimiter (backward compat with cached/in-flight responses)
+ *  3. Fallback: first sentence as summary, full text as quote
+ */
+export function parseEddyResponse(rawText: string): {
+  summaryText: string | null;
+  quoteText: string;
+} {
+  // Strategy 1: [SUMMARY] and [FULL] block markers
+  const summaryMatch = rawText.match(/\[SUMMARY\]\s*\n?([\s\S]*?)(?=\[FULL\])/i);
+  const fullMatch = rawText.match(/\[FULL\]\s*\n?([\s\S]*?)$/i);
+
+  if (summaryMatch && fullMatch) {
+    const summary = summaryMatch[1].trim();
+    const full = fullMatch[1].trim();
+    if (summary && full) {
+      return { summaryText: summary, quoteText: full };
+    }
+  }
+
+  // Strategy 2: Legacy --- delimiter (single occurrence on its own line)
+  // Only match --- that appears as a line separator, not inside text
+  const legacyMatch = rawText.match(/^([\s\S]+?)\n\s*---\s*\n([\s\S]+)$/);
+  if (legacyMatch) {
+    const summary = legacyMatch[1].trim();
+    const full = legacyMatch[2].trim();
+    if (summary && full) {
+      console.warn('[EddyGen] Parsed using legacy --- delimiter; model may not be following new format');
+      return { summaryText: summary, quoteText: full };
+    }
+  }
+
+  // Strategy 3: Fallback — extract first sentence as summary
+  // This ensures we always populate both fields even if the model ignores the format
+  const firstSentenceEnd = rawText.match(/[.!?](?:\s|$)/);
+  if (firstSentenceEnd && firstSentenceEnd.index !== undefined) {
+    const cutoff = firstSentenceEnd.index + 1;
+    const candidate = rawText.slice(0, cutoff).trim();
+    const remainder = rawText.slice(cutoff).trim();
+    // Only split if the remainder is meaningfully longer (not just a fragment)
+    if (remainder.length > 40 && candidate.length <= 140) {
+      console.warn('[EddyGen] Model did not use expected format; falling back to first-sentence extraction');
+      return { summaryText: candidate, quoteText: rawText };
+    }
+  }
+
+  // Last resort: no summary, entire text as quote
+  console.warn('[EddyGen] Could not extract summary from model output; storing as quote_text only');
+  return { summaryText: null, quoteText: rawText };
+}
+
+// ---------------------------------------------------------------------------
 // System prompt
 // ---------------------------------------------------------------------------
 
@@ -155,16 +206,21 @@ const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozar
 
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
-OUTPUT FORMAT:
-You must output exactly two sections, separated by the delimiter "---". No other formatting.
+OUTPUT FORMAT (strict):
+Your response MUST contain exactly two labeled blocks. Use the markers [SUMMARY] and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
 
-SUMMARY: A single sentence (under 120 characters) giving the bottom line. This is used for share cards and compact views.
----
-FULL: 4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
+[SUMMARY]
+A single sentence, under 120 characters. This is for share cards and compact views.
 
-Example output:
+[FULL]
+4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
+
+Example response:
+
+[SUMMARY]
 Gauge reads 2.5 ft, right in the sweet spot. Great day to float.
----
+
+[FULL]
 Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. Water clarity is excellent with the steady flow and spring-fed base holding strong. The gauge has been steady over the past 24 hours with no significant rain in the forecast through Friday. Upper sections from Montauk to Cedar Grove are running clean with good depth over the riffles. Pack the sunscreen, it is 85 and clear out there.
 
 CONDITION ASSESSMENT:
@@ -211,7 +267,7 @@ STYLE:
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself.
-- Output ONLY the summary and full text separated by ---. No labels, no quotes.`;
+- Your entire output must be ONLY the [SUMMARY] and [FULL] blocks. Nothing else.`;
 
 // ---------------------------------------------------------------------------
 // Prompt assembly
@@ -246,7 +302,7 @@ function buildPrompt(
   }
 
   lines.push('');
-  lines.push('--- CURRENT GAUGE DATA ---');
+  lines.push('[CURRENT GAUGE DATA]');
 
   // Gauge data
   if (gauge) {
@@ -290,7 +346,7 @@ function buildPrompt(
   // 5-day gauge trajectory
   if (trajectory) {
     lines.push('');
-    lines.push('--- 5-DAY GAUGE TRAJECTORY ---');
+    lines.push('[5-DAY GAUGE TRAJECTORY]');
     if (trajectory.change24h != null) {
       const sign24 = trajectory.change24h >= 0 ? '+' : '';
       const startHeight = trajectory.currentHeightFt != null
@@ -316,7 +372,7 @@ function buildPrompt(
     // Historical percentile context
     if (trajectory.percentileContext) {
       lines.push('');
-      lines.push('--- HISTORICAL CONTEXT ---');
+      lines.push('[HISTORICAL CONTEXT]');
       lines.push(trajectory.percentileContext);
     }
   }
@@ -324,7 +380,7 @@ function buildPrompt(
   // Recent precipitation
   if (precipitation && (precipitation.rain1h > 0 || precipitation.rain3h > 0 || precipitation.forecastRainToday > 0)) {
     lines.push('');
-    lines.push('--- RECENT PRECIPITATION ---');
+    lines.push('[RECENT PRECIPITATION]');
     if (precipitation.rain1h > 0 || precipitation.rain3h > 0) {
       const parts: string[] = [];
       if (precipitation.rain1h > 0) parts.push(`Last 1h: ${precipitation.rain1h.toFixed(1)} in`);
@@ -348,7 +404,7 @@ function buildPrompt(
     const upcoming = forecast.days.slice(1, 4);
     if (upcoming.length > 0) {
       lines.push('');
-      lines.push('--- 3-DAY FORECAST ---');
+      lines.push('[3-DAY FORECAST]');
       for (const day of upcoming) {
         const rainNote = day.precipitation >= 20
           ? ` (${day.precipitation}% chance of rain)`
@@ -361,7 +417,7 @@ function buildPrompt(
   // NWS alerts
   if (alerts.length > 0) {
     lines.push('');
-    lines.push('--- ACTIVE NWS ALERTS ---');
+    lines.push('[ACTIVE NWS ALERTS]');
     for (const alert of alerts.slice(0, 3)) {
       lines.push(`[${alert.severity}] ${alert.event}: ${alert.headline}`);
       if (alert.description) {
@@ -373,7 +429,7 @@ function buildPrompt(
   // Local knowledge from EDDY_KNOWLEDGE.md
   if (localKnowledge) {
     lines.push('');
-    lines.push('--- LOCAL KNOWLEDGE (use to inform your update, not recite) ---');
+    lines.push('[LOCAL KNOWLEDGE — use to inform your update, not recite]');
     lines.push(localKnowledge);
   }
 
