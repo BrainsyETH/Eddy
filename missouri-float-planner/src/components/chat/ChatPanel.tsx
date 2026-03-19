@@ -9,6 +9,7 @@ import { useChat } from '@/hooks/useChat';
 import type { ChatMessage, ToolCallStatus } from '@/lib/chat/types';
 import ToolCards from './ToolCards';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { Send, Loader2, AlertCircle, Trash2, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { EDDY_IMAGES } from '@/constants';
@@ -206,6 +207,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ) : (
               <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-p:text-neutral-800 prose-p:leading-relaxed prose-headings:text-primary-800 prose-strong:text-primary-900 prose-a:text-primary-600 prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-li:text-neutral-700">
                 <ReactMarkdown
+                  remarkPlugins={[remarkBreaks]}
                   components={{
                     a: ({ href, children }) => <RichLink href={href}>{children}</RichLink>,
                   }}
