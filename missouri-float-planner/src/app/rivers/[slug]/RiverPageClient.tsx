@@ -480,6 +480,15 @@ export default function RiverPage() {
               return `${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`;
             })()}
           />
+          <a
+            href={`/chat?river=${slug}`}
+            className="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-lg text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors no-underline"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Ask Eddy about this river
+          </a>
         </div>
 
         {/* Map + Access Points */}

@@ -141,6 +141,18 @@ export default function SiteHeader() {
               River Levels
             </Link>
 
+            {/* Ask Eddy link */}
+            <Link
+              href="/chat"
+              className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+                pathname === '/chat'
+                  ? 'text-white bg-white/10'
+                  : 'text-primary-100 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Ask Eddy
+            </Link>
+
             {/* About link */}
             <Link
               href="/about"
@@ -219,6 +231,18 @@ export default function SiteHeader() {
               }`}
             >
               <span className="font-medium">River Levels</span>
+            </Link>
+
+            {/* Ask Eddy */}
+            <Link
+              href="/chat"
+              className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-1 ${
+                pathname === '/chat'
+                  ? 'bg-white/10 text-white'
+                  : 'text-primary-100 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <span className="font-medium">Ask Eddy</span>
             </Link>
 
             {/* About */}

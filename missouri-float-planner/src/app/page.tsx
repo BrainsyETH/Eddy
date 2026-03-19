@@ -2,6 +2,7 @@
 // Landing page for Eddy (server-rendered with client islands)
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { getRivers } from '@/lib/data/rivers';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
@@ -49,6 +50,33 @@ export default async function Home() {
         <div className="max-w-5xl mx-auto px-4 space-y-8">
           {/* Eddy Says Dashboard — full width, primary */}
           <EddysReport rivers={rivers} fallbackSummary={fallbackSummary} />
+
+          {/* Ask Eddy CTA */}
+          <Link
+            href="/chat"
+            className="block rounded-xl border-2 border-neutral-200 bg-white p-6 hover:border-primary-300 hover:shadow-md transition-all no-underline group"
+          >
+            <div className="flex items-center gap-4">
+              <Image
+                src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png"
+                alt="Eddy"
+                width={48}
+                height={48}
+                className="rounded-lg flex-shrink-0"
+              />
+              <div>
+                <h2 className="text-lg font-bold text-neutral-800 group-hover:text-primary-700 transition-colors" style={{ fontFamily: 'var(--font-display)' }}>
+                  Ask Eddy Anything
+                </h2>
+                <p className="text-sm text-neutral-500">
+                  Which river should I float? Can I float this weekend? What outfitters are nearby? Eddy checks real-time conditions and helps you plan.
+                </p>
+              </div>
+              <svg className="w-5 h-5 text-neutral-400 group-hover:text-primary-500 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </Link>
 
           {/* Float Estimator — secondary */}
           <div>
