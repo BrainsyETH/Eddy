@@ -40,9 +40,8 @@ const GAUGE_RIVER_MAPPINGS: Record<string, string> = {
   'Jacks Fork at Alley Spring': 'jacks-fork',
   'Jacks Fork at Eminence': 'jacks-fork',
 
-  // Niangua
+  // Niangua (06923700 Bennett Spring is water-quality-only, not linked)
   'Niangua River at Windyville': 'niangua',
-  'Niangua River at Bennett Spring': 'niangua',
   'Niangua River at Tunnel Dam': 'niangua',
   'Niangua River near Hartville': 'niangua',
 

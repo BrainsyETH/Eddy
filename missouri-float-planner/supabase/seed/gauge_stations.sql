@@ -116,15 +116,7 @@ VALUES (
     name = EXCLUDED.name,
     active = EXCLUDED.active;
 
-INSERT INTO gauge_stations (usgs_site_id, name, location, active)
-VALUES (
-    '06923700',
-    'Niangua River at Bennett Spring, MO',
-    ST_SetSRID(ST_MakePoint(-92.8544, 37.7167), 4326),
-    true
-) ON CONFLICT (usgs_site_id) DO UPDATE SET
-    name = EXCLUDED.name,
-    active = EXCLUDED.active;
+-- 06923700 (Bennett Spring) omitted — water-quality-only, no real-time gauge height
 
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
@@ -442,24 +434,9 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
     level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
 
--- Niangua River - Windyville Gauge (Secondary, upper section)
-INSERT INTO river_gauges (
-    river_id, gauge_station_id, is_primary,
-    distance_from_section_miles, threshold_unit,
-    level_too_low, level_low, level_optimal_min,
-    level_optimal_max, level_high, level_dangerous
-)
-SELECT r.id, gs.id, false, 0.0, 'ft',
-    1.5, 2.0, 2.5, 5.0, 7.0, 10.0
-FROM rivers r, gauge_stations gs
-WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923250'
-ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
-    is_primary = EXCLUDED.is_primary,
-    level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
-    level_optimal_min = EXCLUDED.level_optimal_min, level_optimal_max = EXCLUDED.level_optimal_max,
-    level_high = EXCLUDED.level_high, level_dangerous = EXCLUDED.level_dangerous;
-
--- Niangua River - Bennett Spring Gauge (PRIMARY, core float section)
+-- Niangua River - Windyville Gauge (PRIMARY, upper/core float section)
+-- Best gauge for the popular Bennett Spring float area.
+-- 06923700 (Bennett Spring) is water-quality-only with no real-time data.
 INSERT INTO river_gauges (
     river_id, gauge_station_id, is_primary,
     distance_from_section_miles, threshold_unit,
@@ -469,7 +446,7 @@ INSERT INTO river_gauges (
 SELECT r.id, gs.id, true, 0.0, 'ft',
     1.5, 2.0, 2.5, 5.0, 7.0, 10.0
 FROM rivers r, gauge_stations gs
-WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923700'
+WHERE r.slug = 'niangua' AND gs.usgs_site_id = '06923250'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     is_primary = EXCLUDED.is_primary,
     level_too_low = EXCLUDED.level_too_low, level_low = EXCLUDED.level_low,
