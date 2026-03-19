@@ -312,12 +312,17 @@ function RouteCard({ data }: { data: Record<string, unknown> }) {
             <span className="text-sm font-bold text-neutral-900">{hours.low}&ndash;{hours.high} hrs</span>
           </div>
         )}
-        {data.shuttleDriveMinutes != null && (
-          <div className="flex items-center gap-1">
+        {typeof data.shuttleUrl === 'string' && (
+          <a
+            href={data.shuttleUrl as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:opacity-70 transition-opacity"
+          >
             <Car className="w-3 h-3 text-neutral-500" />
-            <span className="text-sm font-bold text-neutral-900">{Math.round(data.shuttleDriveMinutes as number)} min</span>
-            <span className="text-[10px] text-neutral-400">shuttle</span>
-          </div>
+            <span className="text-[11px] font-medium text-primary-600">Shuttle</span>
+            <ExternalLink className="w-2.5 h-2.5 text-primary-400" />
+          </a>
         )}
         {hazards && hazards.length > 0 && (
           <div className="flex items-center gap-1 text-xs text-neutral-500">
