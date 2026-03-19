@@ -4,7 +4,8 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import type { ChatMessage, ToolCallStatus, SSEEvent } from '@/lib/chat/types';
+import type { ChatMessage, ToolCallStatus, ToolResultData, SSEEvent } from '@/lib/chat/types';
+import { TOOL_LABELS } from '@/lib/chat/types';
 
 interface UseChatOptions {
   riverSlug?: string;
@@ -133,15 +134,24 @@ export function useChat({ riverSlug }: UseChatOptions = {}): UseChatReturn {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
                   if (last && last.role === 'assistant') {
-                    const toolCall: ToolCallStatus = {
-                      name: event.tool || '',
-                      label: event.label || 'Working...',
-                      status: 'calling',
-                    };
-                    updated[updated.length - 1] = {
-                      ...last,
-                      toolCalls: [...(last.toolCalls || []), toolCall],
-                    };
+                    const existing = last.toolCalls || [];
+                    // Deduplicate: if same label already exists, increment count
+                    const label = event.label || 'Working...';
+                    const existingIdx = existing.findIndex(tc => tc.label === label);
+                    let newToolCalls: ToolCallStatus[];
+                    if (existingIdx >= 0) {
+                      newToolCalls = existing.map((tc, i) =>
+                        i === existingIdx ? { ...tc, count: (tc.count || 1) + 1, status: 'calling' as const } : tc
+                      );
+                    } else {
+                      newToolCalls = [...existing, {
+                        name: event.tool || '',
+                        label,
+                        status: 'calling' as const,
+                        count: 1,
+                      }];
+                    }
+                    updated[updated.length - 1] = { ...last, toolCalls: newToolCalls };
                   }
                   return updated;
                 });
@@ -152,10 +162,35 @@ export function useChat({ riverSlug }: UseChatOptions = {}): UseChatReturn {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
                   if (last && last.role === 'assistant' && last.toolCalls) {
-                    const toolCalls = last.toolCalls.map(tc =>
-                      tc.name === event.tool ? { ...tc, status: 'done' as const } : tc
-                    );
+                    const label = TOOL_LABELS[event.tool || ''] || '';
+                    const toolCalls = last.toolCalls.map(tc => {
+                      // Match by name or label
+                      if (tc.name === event.tool || tc.label === label) {
+                        const doneCount = (tc.doneCount || 0) + 1;
+                        const total = tc.count || 1;
+                        return { ...tc, doneCount, status: (doneCount >= total ? 'done' : 'calling') as 'done' | 'calling' };
+                      }
+                      return tc;
+                    });
                     updated[updated.length - 1] = { ...last, toolCalls };
+                  }
+                  return updated;
+                });
+                break;
+
+              case 'tool_data':
+                setMessages(prev => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last && last.role === 'assistant') {
+                    const entry: ToolResultData = {
+                      tool: event.tool || '',
+                      data: event.data || {},
+                    };
+                    updated[updated.length - 1] = {
+                      ...last,
+                      toolData: [...(last.toolData || []), entry],
+                    };
                   }
                   return updated;
                 });

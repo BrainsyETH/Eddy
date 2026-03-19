@@ -19,7 +19,7 @@ function ChatPageInner() {
       {/* Branded header */}
       <div className="flex items-center gap-2.5 px-4 py-3 bg-primary-800 border-b border-primary-700">
         <Image
-          src={EDDY_IMAGES.canoe}
+          src={EDDY_IMAGES.favicon}
           alt="Eddy"
           width={32}
           height={32}
