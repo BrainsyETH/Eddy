@@ -27,7 +27,7 @@ const CONDITION_LABELS: Record<string, string> = {
 
 const CONDITION_WARNINGS: Record<string, string> = {
   dangerous: 'River is at flood stage — do not float.',
-  high: 'High water — experienced paddlers only.',
+  high: 'High water — use caution.',
   too_low: 'Too low to float comfortably.',
 };
 

@@ -44,9 +44,9 @@ const QUOTE_TEMPLATES: QuoteTemplates = {
     "Not today. {gauge} ft means you'll be dragging. Check back after some rain.",
   ],
   high: [
-    "{gauge} ft — running hot. Strong current, limited visibility. Not for beginners.",
-    "Water's up to {gauge} ft. Experienced paddlers only. Check with outfitters before heading out.",
-    "{gauge} ft and moving fast. {note} Stay safe out there.",
+    "{gauge} ft — running hot. Strong current, use caution out there.",
+    "Water's up to {gauge} ft. Use caution and check with outfitters before heading out.",
+    "{gauge} ft and moving fast. {note} Use caution out there.",
   ],
   dangerous: [
     "{gauge} ft — stay off the water. River is closed.",

@@ -11,7 +11,7 @@ export function getConditionLabel(code: ConditionCode): string {
     case 'dangerous':
       return 'Dangerous - Do Not Float';
     case 'high':
-      return 'High Water - Experienced Only';
+      return 'High Water - Use Caution';
     case 'optimal':
       return 'Optimal Conditions';
     case 'okay':
@@ -79,7 +79,7 @@ export type FlowRating = 'flood' | 'high' | 'good' | 'low' | 'poor' | 'unknown';
 /** Flow descriptions keyed by rating */
 export const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
   flood: 'Dangerous flooding - do not float',
-  high: 'Fast current - experienced paddlers only',
+  high: 'Fast current - use caution',
   good: 'Good conditions - minimal dragging expected',
   low: 'Expect some dragging in the shallow areas',
   poor: 'Frequent dragging and portaging may occur',
@@ -95,7 +95,7 @@ export function getThresholdBasedDescription(code: ConditionCode): string {
     case 'okay': return 'Good conditions - minimal dragging expected';
     case 'low': return 'Expect some dragging in shallow areas';
     case 'too_low': return 'Frequent dragging and portaging likely';
-    case 'high': return 'Fast current - experienced paddlers only';
+    case 'high': return 'Fast current - use caution';
     case 'dangerous': return 'Dangerous conditions - do not float';
     default: return 'Conditions unknown';
   }

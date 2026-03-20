@@ -75,7 +75,7 @@ const conditionDescriptions: Record<ConditionCode, {
     icon: '🎯',
   },
   high: {
-    title: 'High Water - Experienced Only',
+    title: 'High Water - Use Caution',
     description: 'Water levels are elevated across most sections with faster currents and increased hazards. Strainers, sweepers, and hydraulics pose greater risks. Some sections may be more affected than others depending on the river\'s geography.',
     recommendation: 'It is recommended to try another day. If you do go out, know your skill level and check section-specific conditions.',
     icon: '🌊',
@@ -200,7 +200,7 @@ export default function AboutPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
-                      <span><span className="font-semibold">High:</span> 4.0 - 4.49 ft - Fast current, experienced only</span>
+                      <span><span className="font-semibold">High:</span> 4.0 - 4.49 ft - Fast current, use caution</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-600 flex-shrink-0"></span>

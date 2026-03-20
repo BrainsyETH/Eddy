@@ -79,7 +79,24 @@ export default function FlowTrendChart({
     minVal = Math.max(0, minVal - padding);
     maxVal = maxVal + padding;
 
-    const range = maxVal - minVal || 1;
+    // Use sqrt scaling when the data range is very large relative to the
+    // threshold zone (e.g. flood spikes dwarfing normal operating range).
+    // This compresses outlier peaks while keeping the normal range readable.
+    // For ft (stage) data the range is typically small, so keep linear.
+    const rangeRatio = maxVal / (minVal || 1);
+    const useSqrt = !isFt && rangeRatio > 5;
+
+    // Map a data value to a 0-100 Y coordinate (0 = top, 100 = bottom)
+    const toY = (val: number): number => {
+      if (useSqrt) {
+        const sqrtMin = Math.sqrt(minVal);
+        const sqrtMax = Math.sqrt(maxVal);
+        const sqrtRange = sqrtMax - sqrtMin || 1;
+        return 100 - ((Math.sqrt(val) - sqrtMin) / sqrtRange) * 100;
+      }
+      const range = maxVal - minVal || 1;
+      return 100 - ((val - minVal) / range) * 100;
+    };
 
     const sampleStep = Math.max(1, Math.floor(readings.length / 50));
     const sampledReadings = readings.filter((_: unknown, i: number) => i % sampleStep === 0);
@@ -87,9 +104,7 @@ export default function FlowTrendChart({
     const points = sampledReadings.map((reading: { dischargeCfs: number | null; gaugeHeightFt: number | null; timestamp: string }, index: number) => {
       const val = isFt ? reading.gaugeHeightFt : reading.dischargeCfs;
       const x = (index / (sampledReadings.length - 1)) * 100;
-      const y = val !== null
-        ? 100 - ((val - minVal) / range) * 100
-        : 50;
+      const y = val !== null ? toY(val) : 50;
       return { x, y, value: val, timestamp: reading.timestamp };
     });
 
@@ -102,7 +117,7 @@ export default function FlowTrendChart({
           .map(t => ({
             ...t,
             value: thresholds[t.key]!,
-            y: 100 - ((thresholds[t.key]! - minVal) / range) * 100,
+            y: toY(thresholds[t.key]!),
           }))
           .filter(t => t.y >= -5 && t.y <= 105)
       : [];
@@ -132,6 +147,25 @@ export default function FlowTrendChart({
       }
     }
 
+    // Generate Y-axis tick values. With sqrt scaling, evenly-spaced ticks in
+    // sqrt-space correspond to unevenly-spaced values that feel natural.
+    const yAxisTicks: { value: number; y: number }[] = [];
+    const tickCount = 3;
+    if (useSqrt) {
+      const sqrtMin = Math.sqrt(minVal);
+      const sqrtMax = Math.sqrt(maxVal);
+      for (let i = 0; i < tickCount; i++) {
+        const sqrtVal = sqrtMin + (sqrtMax - sqrtMin) * (i / (tickCount - 1));
+        const val = sqrtVal * sqrtVal;
+        yAxisTicks.push({ value: val, y: toY(val) });
+      }
+    } else {
+      for (let i = 0; i < tickCount; i++) {
+        const val = minVal + (maxVal - minVal) * (i / (tickCount - 1));
+        yAxisTicks.push({ value: val, y: toY(val) });
+      }
+    }
+
     const lastReading = readings[readings.length - 1];
     return {
       points,
@@ -139,6 +173,8 @@ export default function FlowTrendChart({
       areaD,
       minVal,
       maxVal,
+      useSqrt,
+      yAxisTicks,
       currentVal: isFt ? lastReading?.gaugeHeightFt : lastReading?.dischargeCfs,
       startDate: new Date(readings[0].timestamp),
       endDate: new Date(readings[readings.length - 1].timestamp),
@@ -332,10 +368,18 @@ export default function FlowTrendChart({
         </svg>
 
         {/* Y-axis labels */}
-        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-neutral-500 -ml-1">
-          <span>{formatVal(chartData.maxVal)}</span>
-          <span>{formatVal(chartData.minVal)}</span>
-        </div>
+        {chartData.yAxisTicks.map((tick, i) => (
+          <div
+            key={`ytick-${i}`}
+            className="absolute left-0 text-[10px] text-neutral-500 -ml-1 leading-none"
+            style={{
+              top: `${tick.y}%`,
+              transform: 'translateY(-50%)',
+            }}
+          >
+            {formatVal(tick.value)}
+          </div>
+        ))}
 
         {/* Threshold labels on right side (de-overlapped) */}
         {chartData.thresholdLabels.map((t) => (

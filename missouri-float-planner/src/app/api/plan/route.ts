@@ -456,7 +456,7 @@ export async function GET(request: NextRequest) {
       warnings.push('Water conditions are dangerous - do not float');
     }
     if (conditionCode === 'high') {
-      warnings.push('High water conditions - experienced paddlers only');
+      warnings.push('High water conditions - use caution');
     }
 
     // Warn if put-in or take-out may not have direct road access
