@@ -125,7 +125,7 @@ const HIGHLIGHT_HOOKS: Record<string, string[]> = {
   high: [
     '{river} is running hot \u2014 {gauge} ft. Know before you go.',
     'Heads up: {river} is high and fast right now.',
-    '{river} at {gauge} ft \u2014 experienced paddlers only.',
+    '{river} at {gauge} ft \u2014 use caution out there.',
   ],
   dangerous: [
     'Stay off {river} right now. Here\u2019s why.',
@@ -151,7 +151,7 @@ const CONDITION_CHANGE_HOOKS: Record<string, string[]> = {
     '{river} just hit flood stage. Do not launch.',
   ],
   high: [
-    '{river} is running high now \u2014 experienced paddlers only.',
+    '{river} is running high now \u2014 use caution.',
     'Heads up: {river} just moved to high water.',
   ],
   from_dangerous: [

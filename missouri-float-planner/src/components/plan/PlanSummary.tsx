@@ -55,7 +55,7 @@ const CONDITION_CONFIG: Record<ConditionCode, {
     bgClass: 'bg-orange-500',
     textClass: 'text-white',
     borderClass: 'border-orange-400',
-    explanation: 'Fast current — experienced paddlers only.',
+    explanation: 'Fast current — use caution.',
   },
   dangerous: {
     label: 'Flood',

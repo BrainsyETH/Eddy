@@ -76,7 +76,7 @@ export const CONDITION_LABELS = {
   low: 'Low - Scraping Likely',
   okay: 'Okay - Floatable',
   optimal: 'Optimal Conditions',
-  high: 'High Water - Experienced Only',
+  high: 'High Water - Use Caution',
   dangerous: 'Flood - Do Not Float',
   unknown: 'Unknown',
 } as const;

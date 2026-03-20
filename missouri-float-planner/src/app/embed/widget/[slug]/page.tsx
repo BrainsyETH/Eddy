@@ -63,7 +63,7 @@ const CONDITION_HELPERS: Record<string, string> = {
   okay: 'Good conditions',
   low: 'Shallow — expect scraping',
   too_low: 'Too low to float',
-  high: 'Fast water — experienced only',
+  high: 'Fast water — use caution',
   dangerous: 'Do not float',
   unknown: 'Check locally',
 };

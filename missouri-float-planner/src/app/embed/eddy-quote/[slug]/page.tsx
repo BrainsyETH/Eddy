@@ -51,7 +51,7 @@ const FLOAT_RECOMMENDATIONS: Record<string, string> = {
   okay: 'Good to go',
   low: 'Proceed with caution',
   too_low: 'Not recommended',
-  high: 'Experienced paddlers only',
+  high: 'Use caution',
   dangerous: 'Do not float',
   unknown: 'Check conditions locally',
 };

@@ -343,7 +343,7 @@ SELECT
     -0.25,  -- Floatable but slow, some dragging on riffles
     0.5,    -- Good flow begins, ~1,800+ cfs
     3.0,    -- Solid flow, ~3,000+ cfs, clear water likely
-    3.0,    -- Fast and muddy, experienced only (cautious threshold)
+    3.0,    -- Fast and muddy, use caution (cautious threshold)
     10.0    -- NWS flood stage is 13.0 ft; 10 ft safety buffer
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'current' AND gs.usgs_site_id = '07068000'
