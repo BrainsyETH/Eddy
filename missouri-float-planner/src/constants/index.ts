@@ -143,6 +143,44 @@ export function getEddyImageForCondition(code: string): string {
   }
 }
 
+// Condition-themed background classes for Eddy Says cards and detail views
+export const BG_BY_CONDITION: Record<string, string> = {
+  optimal: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
+  okay: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
+  low: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200',
+  too_low: 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
+  high: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200',
+  dangerous: 'bg-gradient-to-r from-red-100 to-red-50 border-red-300',
+  unknown: 'bg-gradient-to-r from-neutral-50 to-slate-50 border-neutral-200',
+};
+
+export const TEXT_BY_CONDITION: Record<string, string> = {
+  optimal: 'text-emerald-900', okay: 'text-emerald-900',
+  low: 'text-amber-900', too_low: 'text-orange-900',
+  high: 'text-red-900', dangerous: 'text-red-900',
+  unknown: 'text-neutral-700',
+};
+
+export const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = {
+  optimal: { text: 'Optimal', className: 'bg-emerald-100 text-emerald-700' },
+  okay: { text: 'Okay', className: 'bg-emerald-100 text-emerald-700' },
+  low: { text: 'Low', className: 'bg-amber-100 text-amber-700' },
+  too_low: { text: 'Too Low', className: 'bg-orange-100 text-orange-700' },
+  high: { text: 'High', className: 'bg-red-100 text-red-700' },
+  dangerous: { text: 'Flood', className: 'bg-red-200 text-red-800' },
+  unknown: { text: 'Unknown', className: 'bg-neutral-100 text-neutral-600' },
+};
+
+// Default threshold descriptions for the condition thresholds table
+export const DEFAULT_THRESHOLD_DESCRIPTIONS: Record<string, string> = {
+  tooLow: 'Expect frequent dragging on gravel bars. Recommended for wading only.',
+  low: 'Floatable but expect occasional scraping. Lighter boats recommended.',
+  okay: 'Floatable conditions. Some shallow spots possible.',
+  optimal: 'Ideal conditions. All boats clear, gentle current, crystal clear water.',
+  high: 'Moving quick. Experienced paddlers only; expect submerged obstacles and root-balls.',
+  flood: 'Dangerous. High water, heavy debris, and flood warnings usually in effect.',
+};
+
 // API cache times (in milliseconds)
 export const CACHE_TIMES = {
   rivers: 5 * 60 * 1000,        // 5 minutes

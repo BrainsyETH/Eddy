@@ -284,6 +284,43 @@ export default function FlowTrendChart({
             </linearGradient>
           </defs>
 
+          {/* High/Warning zone fill */}
+          {chartData.thresholdLineData.length > 0 && (() => {
+            const high = chartData.thresholdLineData.find(t => t.key === 'levelHigh');
+            const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
+            if (high) {
+              const topY = dangerous ? Math.min(dangerous.y, high.y) : 0;
+              const bottomY = high.y;
+              if (bottomY > topY) {
+                return (
+                  <rect
+                    x="0" width="100"
+                    y={topY}
+                    height={bottomY - topY}
+                    fill="#f97316" fillOpacity="0.08"
+                  />
+                );
+              }
+            }
+            return null;
+          })()}
+
+          {/* Flood zone fill */}
+          {chartData.thresholdLineData.length > 0 && (() => {
+            const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
+            if (dangerous && dangerous.y > 0) {
+              return (
+                <rect
+                  x="0" width="100"
+                  y={0}
+                  height={dangerous.y}
+                  fill="#ef4444" fillOpacity="0.06"
+                />
+              );
+            }
+            return null;
+          })()}
+
           {/* Optimal range shaded band */}
           {chartData.thresholdLineData.length > 0 && (() => {
             const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
@@ -294,7 +331,7 @@ export default function FlowTrendChart({
                   x="0" width="100"
                   y={Math.min(optMin.y, optMax.y)}
                   height={Math.abs(optMax.y - optMin.y)}
-                  fill="#059669" fillOpacity="0.1"
+                  fill="#059669" fillOpacity="0.12"
                 />
               );
             }
@@ -412,10 +449,33 @@ export default function FlowTrendChart({
         )}
       </div>
 
-      {/* X-axis labels */}
+      {/* X-axis labels — show day abbreviations for 7-day view, dates otherwise */}
       <div className="flex justify-between text-[10px] text-neutral-500 mt-1 px-2">
-        <span>{formatDate(chartData.startDate)}</span>
-        <span>{formatDate(chartData.endDate)}</span>
+        {days <= 7 ? (() => {
+          const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+          const start = chartData.startDate;
+          const end = chartData.endDate;
+          const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          const labels: { label: string; position: number }[] = [];
+          for (let i = 0; i <= totalDays; i++) {
+            const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+            const isToday = i === totalDays;
+            labels.push({
+              label: isToday ? 'TODAY' : dayNames[d.getDay()],
+              position: totalDays > 0 ? i / totalDays : 0,
+            });
+          }
+          return labels.map((l, i) => (
+            <span key={i} className={`${l.label === 'TODAY' ? 'font-semibold text-primary-600' : ''}`}>
+              {l.label}
+            </span>
+          ));
+        })() : (
+          <>
+            <span>{formatDate(chartData.startDate)}</span>
+            <span>{formatDate(chartData.endDate)}</span>
+          </>
+        )}
       </div>
     </div>
   );
