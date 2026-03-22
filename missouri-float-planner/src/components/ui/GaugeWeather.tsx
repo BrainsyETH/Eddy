@@ -11,9 +11,10 @@ interface GaugeWeatherProps {
   lat: number;
   lon: number;
   enabled?: boolean;
+  variant?: 'default' | 'compact';
 }
 
-export default function GaugeWeather({ lat, lon, enabled = true }: GaugeWeatherProps) {
+export default function GaugeWeather({ lat, lon, enabled = true, variant = 'default' }: GaugeWeatherProps) {
   const { data: weather, isLoading, error } = useWeatherByCoords(lat, lon, enabled);
 
   if (!enabled) return null;
@@ -52,6 +53,37 @@ export default function GaugeWeather({ lat, lon, enabled = true }: GaugeWeatherP
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-3 bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-center text-neutral-500 text-sm">
             Weather unavailable
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Compact variant — matches Stitch reference design
+  if (variant === 'compact') {
+    return (
+      <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <div className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+          {weather.city} Weather
+        </div>
+        <div className="flex items-center gap-4">
+          <Image
+            src={getWeatherIconUrl(weather.conditionIcon)}
+            alt={weather.condition}
+            width={48}
+            height={48}
+            className="w-12 h-12 flex-shrink-0"
+            unoptimized
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-neutral-900">{weather.temp}°F</span>
+            </div>
+            <div className="text-sm text-neutral-600 capitalize">{weather.condition}</div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Wind</div>
+            <div className="text-sm font-semibold text-neutral-900">{weather.windDirection} {weather.windSpeed} mph</div>
           </div>
         </div>
       </div>
