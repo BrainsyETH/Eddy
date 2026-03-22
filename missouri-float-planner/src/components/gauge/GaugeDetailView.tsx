@@ -1,9 +1,9 @@
 'use client';
 
 // src/components/gauge/GaugeDetailView.tsx
-// Full-page gauge detail view matching the Stitch reference design
+// Full-page gauge detail view for individual gauges (fallback when no river association)
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, MapPin, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
@@ -29,6 +29,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState(7);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
   // Eddy AI update
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
@@ -53,10 +54,32 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     fetchGauge();
   }, [siteId]);
 
+  const primaryRiver = gauge?.thresholds?.find(t => t.isPrimary) || gauge?.thresholds?.[0];
+  const riverSlug = primaryRiver?.riverSlug || null;
+  const primaryUnit = primaryRiver?.thresholdUnit || 'ft';
+
+  // Initialize displayUnit from threshold
+  useEffect(() => {
+    if (!primaryRiver) return;
+    const stored = localStorage.getItem(`gauge-unit-${siteId}`);
+    if (stored === 'ft' || stored === 'cfs') {
+      setDisplayUnit(stored);
+    } else {
+      setDisplayUnit(primaryRiver.thresholdUnit);
+    }
+  }, [primaryRiver, siteId]);
+
+  const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
+    setDisplayUnit(unit);
+    localStorage.setItem(`gauge-unit-${siteId}`, unit);
+  }, [siteId]);
+
+  const effectiveUnit = displayUnit || primaryUnit;
+  const showingAlt = effectiveUnit !== primaryUnit;
+
   // Compute condition
   const condition = (() => {
     if (!gauge) return { code: 'unknown' as ConditionCode, label: 'Unknown', tailwindColor: 'bg-neutral-400' };
-    const primaryRiver = gauge.thresholds?.find(t => t.isPrimary) || gauge.thresholds?.[0];
     if (!primaryRiver) return { code: 'unknown' as ConditionCode, label: 'Unknown', tailwindColor: 'bg-neutral-400' };
 
     const thresholds: ConditionThresholds = {
@@ -76,9 +99,6 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
       tailwindColor: getConditionTailwindColor(result.code),
     };
   })();
-
-  const primaryRiver = gauge?.thresholds?.find(t => t.isPrimary) || gauge?.thresholds?.[0];
-  const riverSlug = primaryRiver?.riverSlug || null;
 
   // Fetch Eddy update
   useEffect(() => {
@@ -129,18 +149,53 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     } catch { /* clipboard failed */ }
   };
 
-  // Build chart thresholds
-  const chartThresholds = primaryRiver ? {
-    levelTooLow: primaryRiver.levelTooLow,
-    levelLow: primaryRiver.levelLow,
-    levelOptimalMin: primaryRiver.levelOptimalMin,
-    levelOptimalMax: primaryRiver.levelOptimalMax,
-    levelHigh: primaryRiver.levelHigh,
-    levelDangerous: primaryRiver.levelDangerous,
-  } : null;
+  // Build chart thresholds based on selected unit
+  const chartThresholds = (() => {
+    if (!primaryRiver) return null;
+    if (showingAlt) {
+      return {
+        levelTooLow: primaryRiver.altLevelTooLow,
+        levelLow: primaryRiver.altLevelLow,
+        levelOptimalMin: primaryRiver.altLevelOptimalMin,
+        levelOptimalMax: primaryRiver.altLevelOptimalMax,
+        levelHigh: primaryRiver.altLevelHigh,
+        levelDangerous: primaryRiver.altLevelDangerous,
+      };
+    }
+    return {
+      levelTooLow: primaryRiver.levelTooLow,
+      levelLow: primaryRiver.levelLow,
+      levelOptimalMin: primaryRiver.levelOptimalMin,
+      levelOptimalMax: primaryRiver.levelOptimalMax,
+      levelHigh: primaryRiver.levelHigh,
+      levelDangerous: primaryRiver.levelDangerous,
+    };
+  })();
 
-  const displayUnit = primaryRiver?.thresholdUnit === 'cfs' ? 'cfs' : 'ft' as const;
-  const latestValue = displayUnit === 'cfs' ? gauge?.dischargeCfs : gauge?.gaugeHeightFt;
+  const latestValue = effectiveUnit === 'cfs' ? gauge?.dischargeCfs : gauge?.gaugeHeightFt;
+
+  // Alt thresholds for ThresholdTable
+  const altThresholds = (() => {
+    if (!primaryRiver) return null;
+    const hasAny = primaryRiver.altLevelTooLow !== null ||
+      primaryRiver.altLevelLow !== null ||
+      primaryRiver.altLevelOptimalMin !== null ||
+      primaryRiver.altLevelOptimalMax !== null ||
+      primaryRiver.altLevelHigh !== null ||
+      primaryRiver.altLevelDangerous !== null;
+    if (!hasAny) return null;
+    return {
+      levelTooLow: primaryRiver.altLevelTooLow,
+      levelLow: primaryRiver.altLevelLow,
+      levelOptimalMin: primaryRiver.altLevelOptimalMin,
+      levelOptimalMax: primaryRiver.altLevelOptimalMax,
+      levelHigh: primaryRiver.altLevelHigh,
+      levelDangerous: primaryRiver.altLevelDangerous,
+    };
+  })();
+
+  const altUnit = primaryUnit === 'ft' ? 'cfs' as const : 'ft' as const;
+  const hasAltThresholds = altThresholds !== null;
 
   // Eddy Says display
   const eddyConditionCode = (eddyUpdate?.conditionCode as ConditionCode) || condition.code;
@@ -235,7 +290,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
           <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
             <span>Gauge near {primaryRiver?.riverName || 'Unknown'}, Missouri</span>
-            <span className="text-neutral-300">·</span>
+            <span className="text-neutral-300">&middot;</span>
             <a
               href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
               target="_blank"
@@ -247,7 +302,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
             </a>
             {ageText && (
               <>
-                <span className="text-neutral-300">·</span>
+                <span className="text-neutral-300">&middot;</span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5" />
                   {ageText}
@@ -274,22 +329,50 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 pt-4 pb-0">
               <h2 className="text-base font-bold text-neutral-900">
-                {dateRange}-Day {displayUnit === 'ft' ? 'Stage' : 'Flow'} Trend
+                {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
-              <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                {[{ days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
-                  <button
-                    key={opt.days}
-                    onClick={() => setDateRange(opt.days)}
-                    className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                      dateRange === opt.days
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex gap-2">
+                {/* Unit toggle */}
+                {hasAltThresholds && (
+                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                    <button
+                      onClick={() => handleUnitToggle('ft')}
+                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                        effectiveUnit === 'ft'
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      ft
+                    </button>
+                    <button
+                      onClick={() => handleUnitToggle('cfs')}
+                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                        effectiveUnit === 'cfs'
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      cfs
+                    </button>
+                  </div>
+                )}
+                {/* Date range toggle */}
+                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                  {[{ days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
+                    <button
+                      key={opt.days}
+                      onClick={() => setDateRange(opt.days)}
+                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                        dateRange === opt.days
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <FlowTrendChart
@@ -297,7 +380,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               days={dateRange}
               thresholds={chartThresholds}
               latestValue={latestValue}
-              displayUnit={displayUnit}
+              displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
             />
           </div>
@@ -388,6 +471,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               levelOptimalMax={primaryRiver.levelOptimalMax}
               levelHigh={primaryRiver.levelHigh}
               levelDangerous={primaryRiver.levelDangerous}
+              altThresholds={altThresholds}
+              altUnit={altUnit}
               thresholdDescriptions={gauge.thresholdDescriptions}
               currentCondition={condition.code}
             />
