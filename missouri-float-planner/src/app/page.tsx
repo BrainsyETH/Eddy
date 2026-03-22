@@ -35,11 +35,7 @@ export default async function Home() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
           <div className="flex items-center justify-between gap-8">
             <div className="flex-1 max-w-xl">
-              {/* Live badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 mb-6">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-medium text-white/80">Live Flow Updates</span>
-              </div>
+              {/* Live badge removed */}
 
               <h1
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
@@ -59,13 +55,13 @@ export default async function Home() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-all no-underline"
                   style={{ backgroundColor: '#163F4A', color: 'white', border: '2px solid #2D7889' }}
                 >
-                  Explore Rivers
+                  Plan Your Float
                 </Link>
                 <Link
                   href="/gauges"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
-                  View Gauges
+                  River Reports
                 </Link>
               </div>
             </div>
