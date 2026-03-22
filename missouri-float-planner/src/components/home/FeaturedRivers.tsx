@@ -12,32 +12,27 @@ import { CONDITION_COLORS } from '@/constants';
 import type { RiverGroup } from '@/lib/river-groups';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 
-// Priority ordering for featuring rivers (best conditions first)
-const CONDITION_PRIORITY: Record<string, number> = {
-  optimal: 0,
-  okay: 1,
-  low: 2,
-  too_low: 3,
-  high: 4,
-  dangerous: 5,
-  unknown: 6,
-};
+// Hardcoded featured river slugs
+const FEATURED_SLUGS = ['current', 'meramec'];
 
-function pickFeaturedRivers(groups: RiverGroup[], count: number): RiverGroup[] {
-  return [...groups]
-    .sort((a, b) => (CONDITION_PRIORITY[a.condition.code] ?? 6) - (CONDITION_PRIORITY[b.condition.code] ?? 6))
-    .slice(0, count);
+function pickFeaturedRivers(groups: RiverGroup[]): RiverGroup[] {
+  const bySlug = new Map(groups.map(g => [g.riverSlug, g]));
+  const featured: RiverGroup[] = [];
+  for (const slug of FEATURED_SLUGS) {
+    const g = bySlug.get(slug);
+    if (g) featured.push(g);
+  }
+  return featured;
 }
 
 export default function FeaturedRivers() {
   const { riverGroups, isLoading } = useRiverGroups();
 
-  const featured = useMemo(() => pickFeaturedRivers(riverGroups, 2), [riverGroups]);
+  const featured = useMemo(() => pickFeaturedRivers(riverGroups), [riverGroups]);
   const secondary = useMemo(() => {
     const featuredIds = new Set(featured.map(r => r.riverId));
     return riverGroups
       .filter(r => !featuredIds.has(r.riverId))
-      .sort((a, b) => (CONDITION_PRIORITY[a.condition.code] ?? 6) - (CONDITION_PRIORITY[b.condition.code] ?? 6))
       .slice(0, 3);
   }, [riverGroups, featured]);
 
