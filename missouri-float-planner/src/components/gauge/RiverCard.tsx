@@ -168,7 +168,7 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
               {eddyLoading && !eddyUpdate ? (
                 <p className="text-xs text-neutral-500 italic">Loading...</p>
               ) : (
-                <p className={`text-xs leading-relaxed font-medium line-clamp-2 ${textClass}`}>
+                <p className={`text-xs leading-relaxed font-medium ${showFull ? '' : 'line-clamp-2'} ${textClass}`}>
                   &ldquo;{displayText}&rdquo;
                 </p>
               )}
