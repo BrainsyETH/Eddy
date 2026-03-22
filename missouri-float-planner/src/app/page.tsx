@@ -45,9 +45,9 @@ export default async function Home() {
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
                 style={{ fontFamily: 'var(--font-display)' }}
               >
-                Navigate the{' '}
+                Plan Your Next{' '}
                 <br className="hidden sm:block" />
-                <span style={{ color: '#F07052' }}>Current.</span>
+                <span style={{ color: '#F07052' }}>Float.</span>
               </h1>
               <p className="text-base md:text-lg text-white/60 max-w-lg mb-8 leading-relaxed">
                 Real-time USGS gauge data, river analysis, and trip insights for paddlers, tubers, and float enthusiasts.
@@ -161,7 +161,7 @@ export default async function Home() {
             {/* Feature highlights */}
             <div>
               <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2 leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
-                Expert Analysis.<br />
+                AI Analysis.<br />
                 Friendly Delivery.
               </h2>
               <p className="text-sm text-neutral-500 mb-8 max-w-md leading-relaxed">
@@ -210,28 +210,22 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ─── Stay Ahead CTA ─── */}
+      {/* ─── Embed Widgets CTA ─── */}
       <section className="bg-neutral-50 border-t border-neutral-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-            Stay ahead of the surge.
+            Add live data to your site.
           </h2>
           <p className="text-sm text-neutral-500 max-w-md mx-auto mb-8 leading-relaxed">
-            Get weekly flow predictions, safety analysis, and the best float trip ideas delivered to your inbox every Thursday.
+            Embed real-time gauge readings, condition badges, and Eddy&apos;s analysis directly on your outfitter site, blog, or community page.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full sm:flex-1 px-4 py-3 bg-white border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-            />
-            <button className="w-full sm:w-auto px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors text-sm">
-              Subscribe
-            </button>
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-3">
-            No spam. Unsubscribe anytime.
-          </p>
+          <Link
+            href="/embed"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors text-sm no-underline"
+          >
+            Explore Embed Widgets
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 
