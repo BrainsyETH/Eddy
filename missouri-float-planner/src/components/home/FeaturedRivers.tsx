@@ -89,10 +89,11 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             <span
-              className="w-3 h-3 rounded-full"
+              className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white"
               style={{ backgroundColor: conditionColor }}
-              title={condition.label}
-            />
+            >
+              {condition.label}
+            </span>
             {primaryValue !== null && (
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-bold text-neutral-900 tabular-nums leading-none">

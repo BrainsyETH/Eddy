@@ -129,7 +129,7 @@ export default function SiteHeader() {
               )}
             </div>
 
-            {/* River Levels link */}
+            {/* River Reports link */}
             <Link
               href="/gauges"
               className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
@@ -138,7 +138,7 @@ export default function SiteHeader() {
                   : 'text-primary-100 hover:text-white hover:bg-white/10'
               }`}
             >
-              River Levels
+              River Reports
             </Link>
 
             {/* About link */}
@@ -197,7 +197,7 @@ export default function SiteHeader() {
               ))}
             </div>
 
-            {/* River Levels */}
+            {/* River Reports */}
             <Link
               href="/gauges"
               className={`flex items-center px-3 py-3 rounded-md no-underline transition-colors mb-1 ${
@@ -206,7 +206,7 @@ export default function SiteHeader() {
                   : 'text-primary-100 hover:bg-white/5 hover:text-white'
               }`}
             >
-              <span className="font-medium">River Levels</span>
+              <span className="font-medium">River Reports</span>
             </Link>
 
             {/* About */}

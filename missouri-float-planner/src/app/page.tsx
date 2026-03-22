@@ -52,8 +52,8 @@ export default async function Home() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/rivers"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-all no-underline"
-                  style={{ backgroundColor: '#163F4A', color: 'white', border: '2px solid #2D7889' }}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all no-underline hover:brightness-110"
+                  style={{ backgroundColor: '#F07052' }}
                 >
                   Plan Your Float
                 </Link>
@@ -104,27 +104,6 @@ export default async function Home() {
 
         {/* Featured Rivers (client component with live data) */}
         <FeaturedRivers />
-
-        {/* Float Planning CTA */}
-        <div className="rounded-2xl overflow-hidden mt-10" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4F5C 100%)' }}>
-          <div className="px-6 py-8 md:px-8 md:py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-                Plan Your Next Float
-              </h3>
-              <p className="text-sm text-white/60 max-w-md">
-                Browse access points, campgrounds, and put-in locations across Missouri float rivers.
-              </p>
-            </div>
-            <Link
-              href="/rivers"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition-colors no-underline flex-shrink-0"
-            >
-              Browse Rivers
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
       </section>
 
       {/* ─── Plan Your Float ─── */}
