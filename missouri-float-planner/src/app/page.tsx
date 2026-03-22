@@ -90,7 +90,7 @@ export default async function Home() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14 md:pb-20">
         <div className="flex items-end justify-between mb-2">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-            Live Gauge Data
+            Check River Levels
           </h2>
           <Link
             href="/gauges"
