@@ -265,18 +265,30 @@ export default function FlowTrendChart({
         )}
       </div>
 
-      <div
-        ref={chartContainerRef}
-        className={`relative ${chartClassName ?? 'h-32'} cursor-crosshair`}
-        onMouseMove={(e) => handleInteraction(e.clientX)}
-        onMouseLeave={() => setTooltip(null)}
-        onTouchMove={(e) => {
-          e.preventDefault();
-          if (e.touches[0]) handleInteraction(e.touches[0].clientX);
-        }}
-        onTouchEnd={() => setTooltip(null)}
-      >
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+      <div className="flex">
+        {/* Y-axis labels (outside chart) */}
+        <div className="flex flex-col justify-between py-0.5 pr-1.5 flex-shrink-0 w-10 text-right">
+          {[...chartData.yAxisTicks].reverse().map((tick, i) => (
+            <span key={`ytick-${i}`} className="text-[10px] text-neutral-400 tabular-nums leading-none">
+              {formatVal(tick.value)}
+            </span>
+          ))}
+        </div>
+
+        {/* Chart area */}
+        <div className="flex-1 min-w-0 relative">
+          <div
+            ref={chartContainerRef}
+            className={`relative ${chartClassName ?? 'h-32'} cursor-crosshair`}
+            onMouseMove={(e) => handleInteraction(e.clientX)}
+            onMouseLeave={() => setTooltip(null)}
+            onTouchMove={(e) => {
+              e.preventDefault();
+              if (e.touches[0]) handleInteraction(e.touches[0].clientX);
+            }}
+            onTouchEnd={() => setTooltip(null)}
+          >
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
           <defs>
             <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
@@ -404,53 +416,45 @@ export default function FlowTrendChart({
           )}
         </svg>
 
-        {/* Y-axis labels */}
-        {chartData.yAxisTicks.map((tick, i) => (
-          <div
-            key={`ytick-${i}`}
-            className="absolute left-0 text-[10px] text-neutral-500 -ml-1 leading-none"
-            style={{
-              top: `${tick.y}%`,
-              transform: 'translateY(-50%)',
-            }}
-          >
-            {formatVal(tick.value)}
+            {/* Tooltip popup */}
+            {tooltip && (
+              <div
+                className="absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap"
+                style={{
+                  left: `${tooltip.x}%`,
+                  top: `${tooltip.y}%`,
+                  transform: `translate(${tooltip.x > 70 ? '-100%' : '8px'}, -120%)`,
+                }}
+              >
+                <div className="font-bold tabular-nums">{formatTooltipVal(tooltip.value)} {unitLabel}</div>
+                <div className="text-neutral-400 text-[10px]">{formatTooltipDate(tooltip.timestamp)}</div>
+              </div>
+            )}
           </div>
-        ))}
 
-        {/* Threshold labels on right side (de-overlapped) */}
-        {chartData.thresholdLabels.map((t) => (
-          <div
-            key={`label-${t.key}`}
-            className="absolute right-0 text-[9px] font-medium -mr-1 leading-none"
-            style={{
-              top: `${t.y}%`,
-              color: t.color,
-              transform: 'translateY(-50%)',
-            }}
-          >
-            {t.label}
-          </div>
-        ))}
-
-        {/* Tooltip popup */}
-        {tooltip && (
-          <div
-            className="absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap"
-            style={{
-              left: `${tooltip.x}%`,
-              top: `${tooltip.y}%`,
-              transform: `translate(${tooltip.x > 70 ? '-100%' : '8px'}, -120%)`,
-            }}
-          >
-            <div className="font-bold tabular-nums">{formatTooltipVal(tooltip.value)} {unitLabel}</div>
-            <div className="text-neutral-400 text-[10px]">{formatTooltipDate(tooltip.timestamp)}</div>
-          </div>
-        )}
+          {/* Threshold labels (right side, outside chart) */}
+          {chartData.thresholdLabels.length > 0 && (
+            <div className="relative flex-shrink-0 w-12 pl-1.5">
+              {chartData.thresholdLabels.map((t) => (
+                <div
+                  key={`label-${t.key}`}
+                  className="absolute text-[9px] font-semibold leading-none whitespace-nowrap"
+                  style={{
+                    top: `${t.y}%`,
+                    color: t.color,
+                    transform: 'translateY(-50%)',
+                  }}
+                >
+                  {t.label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* X-axis labels — show day abbreviations for 7-day view, dates otherwise */}
-      <div className="flex justify-between text-[10px] text-neutral-500 mt-1 px-2">
+      <div className="flex justify-between text-[10px] text-neutral-400 mt-1 ml-10 px-2">
         {days <= 7 ? (() => {
           const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
           const start = chartData.startDate;

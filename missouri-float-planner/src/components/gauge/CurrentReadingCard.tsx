@@ -103,20 +103,25 @@ export default function CurrentReadingCard({
 
         {/* Trend indicator */}
         {trend && (
-          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg ${
-            trend.direction === 'up' ? 'bg-white/10 text-emerald-300' :
-            trend.direction === 'down' ? 'bg-white/10 text-blue-300' :
-            'bg-white/10 text-white/50'
-          }`}>
-            {trend.direction === 'up' ? (
-              <TrendingUp className="w-3.5 h-3.5" />
-            ) : trend.direction === 'down' ? (
-              <TrendingDown className="w-3.5 h-3.5" />
-            ) : (
-              <Minus className="w-3.5 h-3.5" />
-            )}
-            <span className="text-sm font-semibold tabular-nums">
-              {trend.delta > 0 ? '+' : ''}{isCfsPrimary ? Math.round(trend.delta) : trend.delta.toFixed(2)}
+          <div className={`flex flex-col items-end gap-0.5`}>
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg ${
+              trend.direction === 'up' ? 'bg-white/10 text-emerald-300' :
+              trend.direction === 'down' ? 'bg-white/10 text-blue-300' :
+              'bg-white/10 text-white/50'
+            }`}>
+              {trend.direction === 'up' ? (
+                <TrendingUp className="w-3.5 h-3.5" />
+              ) : trend.direction === 'down' ? (
+                <TrendingDown className="w-3.5 h-3.5" />
+              ) : (
+                <Minus className="w-3.5 h-3.5" />
+              )}
+              <span className="text-sm font-semibold tabular-nums">
+                {trend.delta > 0 ? '+' : ''}{isCfsPrimary ? Math.round(trend.delta) : trend.delta.toFixed(2)} {primaryUnit}
+              </span>
+            </div>
+            <span className="text-[10px] text-white/40">
+              {trend.direction === 'up' ? 'Rising' : trend.direction === 'down' ? 'Falling' : 'Steady'} over 6h
             </span>
           </div>
         )}

@@ -33,30 +33,32 @@ export function groupGaugesByRiver(gauges: GaugeStation[]): RiverGroup[] {
   for (const gauge of gauges) {
     if (!gauge.thresholds) continue;
 
-    // Find the primary threshold for this gauge
-    const primaryThreshold = gauge.thresholds.find(t => t.isPrimary) || gauge.thresholds[0];
-    if (!primaryThreshold) continue;
+    // Iterate ALL thresholds so a gauge appears under every river it serves
+    for (const threshold of gauge.thresholds) {
+      const { riverId, riverName, riverSlug } = threshold;
 
-    const { riverId, riverName, riverSlug } = primaryThreshold;
+      if (!riverMap.has(riverId)) {
+        riverMap.set(riverId, {
+          riverId,
+          riverName,
+          riverSlug,
+          gauges: [],
+          primaryGauge: null,
+          primaryThreshold: null,
+        });
+      }
 
-    if (!riverMap.has(riverId)) {
-      riverMap.set(riverId, {
-        riverId,
-        riverName,
-        riverSlug,
-        gauges: [],
-        primaryGauge: null,
-        primaryThreshold: null,
-      });
-    }
+      const group = riverMap.get(riverId)!;
+      // Avoid adding the same gauge twice for the same river
+      if (!group.gauges.some(g => g.usgsSiteId === gauge.usgsSiteId)) {
+        group.gauges.push(gauge);
+      }
 
-    const group = riverMap.get(riverId)!;
-    group.gauges.push(gauge);
-
-    // The primary gauge is the one whose isPrimary threshold matches this river
-    if (primaryThreshold.isPrimary) {
-      group.primaryGauge = gauge;
-      group.primaryThreshold = primaryThreshold;
+      // The primary gauge for this river is the one marked isPrimary for it
+      if (threshold.isPrimary) {
+        group.primaryGauge = gauge;
+        group.primaryThreshold = threshold;
+      }
     }
   }
 

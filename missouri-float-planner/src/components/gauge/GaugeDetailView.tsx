@@ -359,7 +359,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                 )}
                 {/* Date range toggle */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
+                  {[{ days: 7, label: '7D' }, { days: 14, label: '14D' }, { days: 30, label: '30D' }].map((opt) => (
                     <button
                       key={opt.days}
                       onClick={() => setDateRange(opt.days)}
