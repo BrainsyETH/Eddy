@@ -31,7 +31,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const prefetchHistory = useGaugeHistoryPrefetch();
 
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState(7);
+  const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
@@ -52,7 +52,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     if (!riverGroup) return;
     const timeout = setTimeout(() => {
       const siteIds = riverGroup.allGauges.map(g => g.usgsSiteId);
-      prefetchHistory(siteIds, 7);
+      prefetchHistory(siteIds, 14);
     }, 500);
     return () => clearTimeout(timeout);
   }, [riverGroup, prefetchHistory]);

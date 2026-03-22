@@ -16,11 +16,12 @@ the relevant parts into each Haiku call, so it stays efficient even as it grows.
 
 ## General
 
-Ozarks rivers fall into two categories: **spring-fed** (Current, Eleven Point, Big Piney,
-Niangua) and **rain-fed** (Meramec, Huzzah, Courtois). Jacks Fork is a hybrid,
-rain-dependent above Alley Spring but spring-stabilized below it. Spring-fed rivers maintain
-more consistent base flows and are more forgiving in dry spells. Rain-fed rivers can drop
-fast in summer and spike hard after storms.
+Every Ozarks river responds differently to rainfall depending on its spring inputs and
+watershed size. What matters most for floaters is whether the water is **rising**, **falling**,
+or **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua)
+hold steadier base flows and change slowly. Rivers driven mainly by rainfall (Meramec,
+Huzzah, Courtois) can drop fast in summer and spike hard after storms. Jacks Fork behaves
+like a rainfall-driven stream above Alley Spring but is stabilized by springs below it.
 
 - Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.
 - Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).
@@ -30,7 +31,7 @@ fast in summer and spike hard after storms.
 - Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
 - Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork) may have fees at developed access points.
 - Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.
-- **Recovery after high water**: Spring-fed rivers recover slowly (days). Rain-fed rivers and creeks drop fast once rain stops and can go from unfloatable to optimal more quickly. Jacks Fork behaves rain-fed above Alley Spring but is spring-stabilized below it.
+- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.
 
 ### Nearest Towns to Access Points
 
@@ -184,6 +185,7 @@ a weekend of floating. Upper sections usually only floatable in early spring.
 - Steelville is the hub for both Huzzah and Courtois access and outfitters.
 - The creek is smaller and shallower than the rivers — lighter craft (kayaks, canoes) are better than rafts.
 - Nice bluffs and clear water when conditions are right.
+- **Gauge note**: The Huzzah gauge (07017200 near Steelville) also serves as the proxy gauge for Courtois Creek. Both creeks will show similar conditions, so do not recommend Courtois as an alternative when Huzzah is low.
 
 ---
 
@@ -193,7 +195,8 @@ More secluded than its neighbor Huzzah. Excellent for a quieter, scenic float wi
 the weekend crowds. Upper sections usually only floatable in early spring.
 
 - Less crowded than Huzzah despite similar quality — the locals' choice.
-- Rain-fed — same dependency on recent rainfall as Huzzah.
+- Same dependency on recent rainfall as Huzzah.
+- **Shared gauge**: Courtois Creek has no active real-time USGS gauge. Conditions are estimated using the Huzzah Creek gauge (07017200 near Steelville). When Huzzah is low, Courtois is also low. Do not recommend pivoting to Courtois as an alternative when Huzzah is poor.
 - Slightly more remote access points than Huzzah.
 - Pairs well with Huzzah for a weekend float trip.
 - Beautiful bluffs and gravel bars. Great for wading and swimming when the water is up.

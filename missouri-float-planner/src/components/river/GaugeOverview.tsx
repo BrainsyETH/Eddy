@@ -102,7 +102,7 @@ function GaugeExpandedDetail({
   riverId: string;
   condition: { code: ConditionCode; label: string; color: string };
 }) {
-  const [dateRange, setDateRange] = useState(7);
+  const [dateRange, setDateRange] = useState(14);
 
   const threshold = gauge.thresholds?.find(t => t.riverId === riverId && t.isPrimary)
     || gauge.thresholds?.find(t => t.riverId === riverId);

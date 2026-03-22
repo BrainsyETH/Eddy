@@ -124,14 +124,17 @@ export async function generateEddyUpdate(
     // Parse summary and full text from the model output
     const { summaryText, quoteText } = parseEddyResponse(rawText);
 
+    // Strip any stray [FULL] / [SUMMARY] markers that leaked into parsed text
+    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY)\]/gi, '').trim();
+
     return {
       riverSlug: target.riverSlug,
       sectionSlug: target.sectionSlug,
       conditionCode: gaugeContext?.conditionCode ?? 'unknown',
       gaugeHeightFt: gaugeContext?.gaugeHeightFt ?? null,
       dischargeCfs: gaugeContext?.dischargeCfs ?? null,
-      quoteText,
-      summaryText,
+      quoteText: cleanMarkers(quoteText),
+      summaryText: summaryText ? cleanMarkers(summaryText) : null,
       sourcesUsed,
     };
   } catch (e) {
@@ -208,6 +211,7 @@ VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauge
 
 OUTPUT FORMAT (strict):
 Your response MUST contain exactly two labeled blocks. Use the markers [SUMMARY] and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
+IMPORTANT: [SUMMARY] and [FULL] are one-time section headers, not tags. Use each exactly once at the start of its section. Do NOT repeat them, use them as closing markers, or include the literal text "[FULL]" or "[SUMMARY]" anywhere in your prose.
 
 [SUMMARY]
 A single sentence, under 120 characters. This is for share cards and compact views.
@@ -221,7 +225,7 @@ Example response:
 Gauge reads 2.5 ft, right in the sweet spot. Great day to float.
 
 [FULL]
-Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. Water clarity is excellent with the steady flow and spring-fed base holding strong. The gauge has been steady over the past 24 hours with no significant rain in the forecast through Friday. Upper sections from Montauk to Cedar Grove are running clean with good depth over the riffles. Pack the sunscreen, it is 85 and clear out there.
+Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. The gauge has held steady over the past 24 hours and the trend is flat, so expect consistent conditions through the weekend. Water clarity is excellent with good depth over the riffles. No significant rain in the forecast through Friday, so the river should hold right where it is. Pack the sunscreen, it is 85 and clear out there.
 
 CONDITION ASSESSMENT:
 - Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
@@ -229,6 +233,12 @@ CONDITION ASSESSMENT:
 - If there are active NWS flood alerts, lead with safety first.
 - Cite the actual gauge reading and what it means for floating.
 - For high water: use "use caution" language rather than "experienced paddlers only." High water deserves a clear warning but not a blanket restriction unless conditions are solidly high or approaching dangerous.
+- For "low" conditions: The river IS floatable. Low water means scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Frame this as practical information, not a reason to stay home. Mention that lighter craft (kayaks, canoes) handle low water better than rafts. Do NOT say "too low to run," "wait for rain," or recommend against floating when the condition code is "low." That language is reserved for "too_low" only.
+- For "too_low" conditions: This is the only condition where you should actively recommend waiting or pivoting. The river is genuinely not floatable at this level.
+
+ALTERNATIVES:
+- Do NOT recommend pivoting to a different river as an alternative unless you have independent gauge data confirming that river is in better shape.
+- Some rivers share gauge data (e.g., Courtois uses Huzzah's gauge). Recommending an alternative that relies on the same gauge reading is misleading.
 
 TREND-AWARE TONE:
 - When conditions are just above a threshold and the gauge is steadily falling, moderate your tone. A river at 4.1 ft falling toward a 4.0 ft optimal max is very different from one at 4.1 ft and rising.
@@ -237,6 +247,13 @@ TREND-AWARE TONE:
 - A steady or slowly falling gauge in the high range warrants "use caution" and a note that conditions are improving.
 - A rapidly rising gauge in the high range warrants stronger warnings.
 - Let the trend shape your confidence and urgency, not just the snapshot reading.
+
+WATER TRENDS:
+- Lead with the water trend: is the river rising, falling, or stable? What does that mean for someone floating today vs this weekend?
+- If rising: explain what rising water means for hazards — stronger current, more debris, undercut banks, strainers harder to avoid. Rising water after dry conditions could mean incoming flooding upstream.
+- If falling: explain that conditions are improving. Note how quickly this river typically drops if rain-lag data is provided. Falling water after a flood event means things are getting better.
+- If stable: note that conditions are predictable and reference how long the gauge has held steady.
+- Do NOT classify the river as "spring-fed" or "rain-fed" in your output. Use behavioral descriptors instead (e.g., "this river responds quickly to rain" or "spring inputs keep the base flow steady").
 
 ACCURACY:
 - Only cite specific numbers that appear in the provided data. Do NOT invent gauge predictions, specific rise/fall amounts, or projected gauge heights.
@@ -355,7 +372,7 @@ function buildPrompt(
   // 5-day gauge trajectory
   if (trajectory) {
     lines.push('');
-    lines.push('[5-DAY GAUGE TRAJECTORY]');
+    lines.push('[10-DAY GAUGE TRAJECTORY]');
     if (trajectory.change24h != null) {
       const sign24 = trajectory.change24h >= 0 ? '+' : '';
       const startHeight = trajectory.currentHeightFt != null

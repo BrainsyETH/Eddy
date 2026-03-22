@@ -27,7 +27,7 @@ interface GaugeDetailViewProps {
 export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const [gauge, setGauge] = useState<GaugeStation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState(7);
+  const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
