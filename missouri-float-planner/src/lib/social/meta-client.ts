@@ -248,6 +248,182 @@ async function waitForContainer(
   return { success: false, error: 'Container processing timed out' };
 }
 
+// Publish a video reel to Instagram (Reels API — 3-step container flow)
+export async function publishInstagramReel(params: {
+  caption: string;
+  videoUrl: string;
+}): Promise<{ success: boolean; postId?: string; error?: string }> {
+  const { accessToken, instagramAccountId } = getCredentials();
+
+  if (!accessToken || !instagramAccountId) {
+    return { success: false, error: 'Missing META_PAGE_ACCESS_TOKEN or META_INSTAGRAM_ACCOUNT_ID' };
+  }
+
+  try {
+    console.log(`[MetaClient] Instagram Reel video_url: ${params.videoUrl}`);
+
+    // Step 1: Create REELS container with video URL
+    const containerBody = new URLSearchParams({
+      media_type: 'REELS',
+      video_url: params.videoUrl,
+      caption: params.caption,
+      share_to_feed: 'true',
+      access_token: accessToken,
+    });
+
+    const containerResponse = await fetch(
+      `${META_GRAPH_URL}/${instagramAccountId}/media`,
+      { method: 'POST', body: containerBody }
+    );
+
+    const containerData = await containerResponse.json();
+
+    if (!containerResponse.ok) {
+      const apiError = containerData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${containerResponse.status}`;
+      console.error('[MetaClient] Instagram Reel container creation failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    const containerId = containerData.id;
+    if (!containerId) {
+      return { success: false, error: 'No container ID returned for Instagram Reel' };
+    }
+
+    // Step 2: Wait for video processing (reels take longer than images)
+    const ready = await waitForContainer(containerId, accessToken, 30, 5000);
+    if (!ready.success) {
+      return { success: false, error: ready.error || 'Reel container not ready' };
+    }
+
+    // Step 3: Publish the container
+    const publishResponse = await fetch(
+      `${META_GRAPH_URL}/${instagramAccountId}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: containerId,
+          access_token: accessToken,
+        }),
+      }
+    );
+
+    const publishData = await publishResponse.json();
+
+    if (!publishResponse.ok) {
+      const apiError = publishData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${publishResponse.status}`;
+      console.error('[MetaClient] Instagram Reel publish failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    return { success: true, postId: publishData.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[MetaClient] Instagram Reel publish error:', msg);
+    return { success: false, error: msg };
+  }
+}
+
+// Publish a video reel to Facebook (Page Video Reels API)
+export async function publishFacebookReel(params: {
+  caption: string;
+  videoUrl: string;
+}): Promise<{ success: boolean; postId?: string; error?: string }> {
+  const { accessToken, pageId } = getCredentials();
+
+  if (!accessToken || !pageId) {
+    return { success: false, error: 'Missing META_PAGE_ACCESS_TOKEN or META_PAGE_ID' };
+  }
+
+  try {
+    console.log(`[MetaClient] Facebook Reel video_url: ${params.videoUrl}`);
+
+    // Download the video to get its binary content
+    const videoResponse = await fetch(params.videoUrl);
+    if (!videoResponse.ok) {
+      return { success: false, error: `Failed to download video: HTTP ${videoResponse.status}` };
+    }
+    const videoBlob = await videoResponse.blob();
+
+    // Use the single-request upload for short reels (<1GB)
+    // POST /{page-id}/video_reels with file_url
+    const reelBody = new URLSearchParams({
+      upload_phase: 'start',
+      access_token: accessToken,
+    });
+
+    const startResponse = await fetch(
+      `${META_GRAPH_URL}/${pageId}/video_reels`,
+      { method: 'POST', body: reelBody }
+    );
+
+    const startData = await startResponse.json();
+
+    if (!startResponse.ok) {
+      const apiError = startData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${startResponse.status}`;
+      console.error('[MetaClient] Facebook Reel start failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    const videoId = startData.video_id;
+    if (!videoId) {
+      return { success: false, error: 'No video_id returned from Facebook Reel start' };
+    }
+
+    // Upload the video binary
+    const uploadForm = new FormData();
+    uploadForm.append('access_token', accessToken);
+    uploadForm.append('upload_phase', 'transfer');
+    uploadForm.append('video_id', videoId);
+    uploadForm.append('source', videoBlob, 'reel.mp4');
+
+    const uploadResponse = await fetch(
+      `${META_GRAPH_URL}/${pageId}/video_reels`,
+      { method: 'POST', body: uploadForm }
+    );
+
+    if (!uploadResponse.ok) {
+      const uploadData = await uploadResponse.json();
+      const apiError = uploadData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${uploadResponse.status}`;
+      console.error('[MetaClient] Facebook Reel upload failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    // Finish the upload
+    const finishBody = new URLSearchParams({
+      access_token: accessToken,
+      upload_phase: 'finish',
+      video_id: videoId,
+      title: '',
+      description: params.caption,
+    });
+
+    const finishResponse = await fetch(
+      `${META_GRAPH_URL}/${pageId}/video_reels`,
+      { method: 'POST', body: finishBody }
+    );
+
+    const finishData = await finishResponse.json();
+
+    if (!finishResponse.ok) {
+      const apiError = finishData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${finishResponse.status}`;
+      console.error('[MetaClient] Facebook Reel finish failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    return { success: true, postId: finishData.post_id || videoId };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[MetaClient] Facebook Reel publish error:', msg);
+    return { success: false, error: msg };
+  }
+}
+
 // Validate that the access token is still valid
 export async function validateToken(): Promise<{ valid: boolean; error?: string }> {
   const { accessToken } = getCredentials();

@@ -6,7 +6,9 @@ import { FacebookAdapter } from './facebook-adapter';
 import { InstagramAdapter } from './instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from './meta-client';
 import { formatConditionChangeCaption } from './content-formatter';
-import type { SocialPlatform, PlatformAdapter } from './types';
+import type { SocialPlatform, PlatformAdapter, MediaType } from './types';
+import { shouldGenerateAlertReel, getReelHashtags } from '@/lib/video/reel-scheduler';
+import { generateConditionAlertReel } from '@/lib/video/reel-generator';
 
 const LOG_PREFIX = '[ConditionAlert]';
 
@@ -89,17 +91,40 @@ export async function publishConditionChangeAlert(params: {
   const platforms: SocialPlatform[] = ['facebook', 'instagram'];
   let published = 0;
 
+  // Check if this alert should get a video reel
+  const isReel = shouldGenerateAlertReel(oldCondition, newCondition);
+  let alertVideoUrl: string | null = null;
+  if (isReel) {
+    console.log(`${LOG_PREFIX} Generating condition alert reel for ${riverSlug}...`);
+    alertVideoUrl = await generateConditionAlertReel(
+      riverSlug,
+      oldCondition as Parameters<typeof generateConditionAlertReel>[1],
+      newCondition as Parameters<typeof generateConditionAlertReel>[2]
+    );
+    if (alertVideoUrl) {
+      console.log(`${LOG_PREFIX} Alert reel rendered: ${alertVideoUrl}`);
+    } else {
+      console.log(`${LOG_PREFIX} Alert reel generation failed, falling back to image`);
+    }
+  }
+
+  const mediaType: MediaType = alertVideoUrl ? 'video' : 'image';
+
   for (const platform of platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) continue;
 
-    const { caption, hashtags } = formatConditionChangeCaption({
+    const { caption, hashtags: baseHashtags } = formatConditionChangeCaption({
       riverSlug,
       oldCondition,
       newCondition,
       gaugeHeightFt,
       platform,
     });
+
+    const hashtags = alertVideoUrl
+      ? [...baseHashtags, ...getReelHashtags(platform)]
+      : baseHashtags;
 
     const imageUrl = `${baseUrl}/api/og/social?type=highlight&river=${riverSlug}&platform=${platform}`;
 
@@ -112,6 +137,8 @@ export async function publishConditionChangeAlert(params: {
         river_slug: riverSlug,
         caption,
         image_url: imageUrl,
+        video_url: alertVideoUrl,
+        media_type: mediaType,
         hashtags,
         eddy_update_id: null,
         status: 'publishing',
@@ -125,7 +152,12 @@ export async function publishConditionChangeAlert(params: {
     }
 
     try {
-      const result = await adapter.publishPost({ caption, imageUrl });
+      const result = await adapter.publishPost({
+        caption,
+        imageUrl,
+        videoUrl: alertVideoUrl || undefined,
+        mediaType,
+      });
 
       if (result.success) {
         await supabase
