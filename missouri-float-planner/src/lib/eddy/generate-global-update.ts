@@ -19,7 +19,7 @@ RULES:
 - Mention how many rivers are in good shape and call out any that are problematic.
 - If most rivers are optimal, be encouraging. If most are low or high, set expectations.
 - If there are active weather alerts or dangerous conditions, lead with safety.
-- Reference patterns when useful (e.g. "Spring-fed rivers are holding steady while rain-fed creeks are running low").
+- Reference water trend patterns when useful (e.g. "Most rivers are holding steady this week, though smaller creeks are dropping after Monday's rain"). Do not classify rivers as "spring-fed" or "rain-fed" in the output.
 - Cite specific river names when highlighting standouts (best or worst conditions).
 - Do NOT use em dashes. Use commas, periods, or "and" instead.
 - Do NOT use emojis, hashtags, or exclamation marks.

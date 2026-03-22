@@ -1,5 +1,5 @@
 // src/hooks/useGaugeHistory.ts
-// React Query hook for fetching 7-day gauge history
+// React Query hook for fetching gauge history (default 14-day)
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
@@ -22,7 +22,7 @@ export interface GaugeHistoryResponse {
   };
 }
 
-export function useGaugeHistory(siteId: string | null, days: number = 7) {
+export function useGaugeHistory(siteId: string | null, days: number = 14) {
   return useQuery<GaugeHistoryResponse | null, Error>({
     queryKey: ['gaugeHistory', siteId, days],
     queryFn: async (): Promise<GaugeHistoryResponse | null> => {
@@ -52,7 +52,7 @@ export function useGaugeHistory(siteId: string | null, days: number = 7) {
 export function useGaugeHistoryPrefetch() {
   const queryClient = useQueryClient();
 
-  return useCallback((siteIds: string[], days: number = 7) => {
+  return useCallback((siteIds: string[], days: number = 14) => {
     for (const siteId of siteIds) {
       queryClient.prefetchQuery({
         queryKey: ['gaugeHistory', siteId, days],
