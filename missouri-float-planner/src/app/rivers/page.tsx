@@ -9,6 +9,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import { getRivers } from '@/lib/data/rivers';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const revalidate = 300; // ISR every 5 minutes
 
@@ -29,8 +30,29 @@ const RIVER_DESCRIPTIONS: Record<string, string> = {
   'courtois': 'A tributary of the Huzzah, offering intimate floating through wooded hills with relatively consistent water levels.',
 };
 
+async function getRiverImages(riverIds: string[]): Promise<Record<string, string>> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('access_points')
+    .select('river_id, image_urls')
+    .in('river_id', riverIds)
+    .eq('approved', true)
+    .not('image_urls', 'eq', '{}');
+
+  const images: Record<string, string> = {};
+  for (const row of data || []) {
+    if (!images[row.river_id] && row.image_urls?.length > 0) {
+      images[row.river_id] = row.image_urls[0];
+    }
+  }
+  return images;
+}
+
 export default async function RiversPage() {
   const rivers = await getRivers();
+
+  // Fetch one representative image per river from access points
+  const riverImages = await getRiverImages(rivers.map(r => r.id));
 
   // Build Eddy's summary across all rivers
   const conditionCodes = rivers.map(r => r.currentCondition?.code ?? null);
@@ -81,6 +103,7 @@ export default async function RiversPage() {
             const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
             const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
             const description = RIVER_DESCRIPTIONS[river.slug] || river.description;
+            const imageUrl = riverImages[river.id];
 
             return (
               <Link
@@ -88,6 +111,18 @@ export default async function RiversPage() {
                 href={`/rivers/${river.slug}`}
                 className="group bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300 no-underline"
               >
+                {imageUrl && (
+                  <div className="relative h-36 overflow-hidden">
+                    <Image
+                      src={imageUrl}
+                      alt={`${river.name} access point`}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                  </div>
+                )}
                 <div className="px-4 pt-4 pb-3 sm:px-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">

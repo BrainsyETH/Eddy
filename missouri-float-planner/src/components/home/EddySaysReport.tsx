@@ -1,140 +1,87 @@
 'use client';
 
 // src/components/home/EddySaysReport.tsx
-// Full Eddy Says report for the landing page — fetches real updates per river
+// Overall Eddy Says report for the landing page — fetches the global summary
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
+import { getEddyImageForCondition } from '@/constants';
+import { buildRiversSummary } from '@/data/eddy-quotes';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
-import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
-import { CONDITION_CARD_BLURBS, RIVER_NOTES } from '@/data/eddy-quotes';
-import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
-interface EddyUpdate {
-  quoteText: string;
-  summaryText: string | null;
-  conditionCode: string;
-}
-
 export default function EddySaysReport() {
-  const { riverGroups, isLoading } = useRiverGroups();
-  const [updates, setUpdates] = useState<Record<string, EddyUpdate>>({});
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const { riverGroups, isLoading: groupsLoading } = useRiverGroups();
+  const [globalUpdate, setGlobalUpdate] = useState<{ quoteText: string; summaryText: string | null } | null>(null);
+  const [showFull, setShowFull] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch Eddy updates for all rivers
+  // Fetch global Eddy update
   useEffect(() => {
-    if (riverGroups.length === 0) return;
     let cancelled = false;
-
-    async function fetchAll() {
-      const results: Record<string, EddyUpdate> = {};
-      await Promise.all(
-        riverGroups.map(async (rg) => {
-          if (!rg.riverSlug) return;
-          try {
-            const res = await fetch(`/api/eddy-update/${rg.riverSlug}`);
-            if (!res.ok) return;
-            const data: EddyUpdateResponse = await res.json();
-            if (data.available && data.update) {
-              results[rg.riverSlug] = {
-                quoteText: data.update.quoteText,
-                summaryText: data.update.summaryText,
-                conditionCode: data.update.conditionCode,
-              };
-            }
-          } catch { /* silent */ }
-        })
-      );
-      if (!cancelled) setUpdates(results);
+    async function fetchGlobal() {
+      try {
+        const res = await fetch('/api/eddy-update/global');
+        if (!res.ok) return;
+        const data: EddyUpdateResponse = await res.json();
+        if (!cancelled && data.available && data.update) {
+          setGlobalUpdate({
+            quoteText: data.update.quoteText,
+            summaryText: data.update.summaryText,
+          });
+        }
+      } catch { /* silent */ } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    fetchAll();
+    fetchGlobal();
     return () => { cancelled = true; };
-  }, [riverGroups]);
+  }, []);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} className="bg-neutral-100 rounded-lg h-20 animate-pulse" />
-        ))}
-      </div>
-    );
+  if (loading || groupsLoading) {
+    return <div className="bg-neutral-100 rounded-lg h-24 animate-pulse" />;
   }
 
-  if (riverGroups.length === 0) return null;
+  // Fallback to buildRiversSummary if no global update
+  const fallbackText = buildRiversSummary(
+    riverGroups.map(rg => rg.condition.code)
+  );
+
+  const displayText = globalUpdate
+    ? (showFull || !globalUpdate.summaryText ? globalUpdate.quoteText : globalUpdate.summaryText)
+    : fallbackText;
 
   return (
-    <div className="space-y-3">
-      {riverGroups.map((rg) => {
-        const update = rg.riverSlug ? updates[rg.riverSlug] : null;
-        const condCode = (update?.conditionCode as ConditionCode) || rg.condition.code;
-        const bgClass = BG_BY_CONDITION[condCode] ?? BG_BY_CONDITION.unknown;
-        const textClass = TEXT_BY_CONDITION[condCode] ?? TEXT_BY_CONDITION.unknown;
-        const label = LABEL_BY_CONDITION[condCode] ?? LABEL_BY_CONDITION.unknown;
-        const isExpanded = rg.riverSlug ? expanded[rg.riverSlug] : false;
-
-        // Build fallback text
-        const fallbackParts: string[] = [];
-        if (rg.primaryGauge.gaugeHeightFt !== null) {
-          fallbackParts.push(`Reading ${rg.primaryGauge.gaugeHeightFt.toFixed(1)} ft.`);
-        }
-        fallbackParts.push(CONDITION_CARD_BLURBS[rg.condition.code] || CONDITION_CARD_BLURBS.unknown);
-        if (rg.riverSlug && RIVER_NOTES[rg.riverSlug]) {
-          fallbackParts.push(RIVER_NOTES[rg.riverSlug]);
-        }
-        const fallbackText = fallbackParts.join(' ');
-
-        const displayText = update?.summaryText && !isExpanded
-          ? update.summaryText
-          : update ? update.quoteText : fallbackText;
-
-        const href = rg.riverSlug ? `/gauges/${rg.riverSlug}` : '#';
-
-        return (
-          <div key={rg.riverId} className={`border rounded-lg overflow-hidden ${bgClass}`}>
-            <div className="flex items-start gap-2.5 px-3 py-2.5">
-              <div className="flex-shrink-0 w-9 h-9 relative">
-                <Image
-                  src={getEddyImageForCondition(condCode)}
-                  alt="Eddy"
-                  fill
-                  className="object-contain"
-                  sizes="36px"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-bold text-neutral-900">{rg.riverName}</span>
-                  <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
-                    {label.text}
-                  </span>
-                </div>
-                <p className={`text-xs leading-relaxed font-medium ${textClass} ${!isExpanded && update?.summaryText ? 'line-clamp-2' : ''}`}>
-                  &ldquo;{displayText}&rdquo;
-                </p>
-                {update?.summaryText && (
-                  <button
-                    onClick={() => setExpanded(prev => ({ ...prev, [rg.riverSlug!]: !isExpanded }))}
-                    className={`flex items-center gap-1 text-[10px] font-semibold transition-colors mt-0.5 ${textClass} opacity-60 hover:opacity-100`}
-                  >
-                    {isExpanded ? <>Less <ChevronUp className="w-2.5 h-2.5" /></> : <>More <ChevronDown className="w-2.5 h-2.5" /></>}
-                  </button>
-                )}
-              </div>
-              <Link
-                href={href}
-                className="flex-shrink-0 mt-1 text-neutral-400 hover:text-neutral-700 transition-colors"
-              >
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+    <div className="bg-white rounded-2xl border border-neutral-200 p-5 md:p-6 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 w-10 h-10 relative">
+          <Image
+            src={getEddyImageForCondition('optimal')}
+            alt="Eddy"
+            fill
+            className="object-contain"
+            sizes="40px"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold tracking-wide uppercase text-neutral-400">Eddy says</span>
           </div>
-        );
-      })}
+          <p className="text-sm text-neutral-700 leading-relaxed font-medium">
+            &ldquo;{displayText}&rdquo;
+          </p>
+          {globalUpdate?.summaryText && (
+            <button
+              onClick={() => setShowFull(!showFull)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-neutral-400 hover:text-neutral-600 transition-colors mt-1.5"
+            >
+              {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" /></> : <>Full report <ChevronDown className="w-2.5 h-2.5" /></>}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -81,17 +81,17 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ─── Eddy Says ─── */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8">
+        <EddySaysReport />
+      </section>
+
       {/* ─── Live Gauge Data ─── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14 md:pb-20">
         <div className="flex items-end justify-between mb-2">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-              Live Gauge Data
-            </h2>
-            <p className="text-sm text-neutral-500 mt-1">
-              Pulled directly from USGS gauge data across Missouri.
-            </p>
-          </div>
+          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+            Live Gauge Data
+          </h2>
           <Link
             href="/gauges"
             className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors no-underline"
@@ -105,7 +105,7 @@ export default async function Home() {
         {/* Featured Rivers (client component with live data) */}
         <FeaturedRivers />
 
-        {/* Explore Gauges CTA */}
+        {/* Float Planning CTA */}
         <div className="rounded-2xl overflow-hidden mt-10" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4F5C 100%)' }}>
           <div className="px-6 py-8 md:px-8 md:py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
@@ -113,7 +113,7 @@ export default async function Home() {
                 Plan Your Next Float
               </h3>
               <p className="text-sm text-white/60 max-w-md">
-                Check real-time flow data for any river across Missouri to find the best conditions.
+                Browse access points, campgrounds, and put-in locations across Missouri float rivers.
               </p>
             </div>
             <Link
@@ -124,24 +124,6 @@ export default async function Home() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* ─── Eddy Says ─── */}
-      <section className="bg-neutral-50 border-t border-neutral-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
-          <div className="flex items-end justify-between mb-2">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-                Eddy Says
-              </h2>
-              <p className="text-sm text-neutral-500 mt-1">
-                Current conditions across all rivers.
-              </p>
-            </div>
-          </div>
-          <div className="w-16 h-0.5 bg-neutral-200 mb-8" />
-          <EddySaysReport />
         </div>
       </section>
 

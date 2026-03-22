@@ -29,26 +29,13 @@ export default function FeaturedRivers() {
   const { riverGroups, isLoading } = useRiverGroups();
 
   const featured = useMemo(() => pickFeaturedRivers(riverGroups), [riverGroups]);
-  const secondary = useMemo(() => {
-    const featuredIds = new Set(featured.map(r => r.riverId));
-    return riverGroups
-      .filter(r => !featuredIds.has(r.riverId))
-      .slice(0, 3);
-  }, [riverGroups, featured]);
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[0, 1].map(i => (
-            <div key={i} className="bg-neutral-50 rounded-2xl p-6 h-56 animate-pulse" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="bg-neutral-50 rounded-xl p-5 h-24 animate-pulse" />
-          ))}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {[0, 1].map(i => (
+          <div key={i} className="bg-neutral-50 rounded-2xl p-6 h-56 animate-pulse" />
+        ))}
       </div>
     );
   }
@@ -56,22 +43,10 @@ export default function FeaturedRivers() {
   if (featured.length === 0) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Top 2 featured cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {featured.map((river) => (
-          <FeaturedCard key={river.riverId} river={river} />
-        ))}
-      </div>
-
-      {/* Secondary row */}
-      {secondary.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {secondary.map((river) => (
-            <SecondaryCard key={river.riverId} river={river} />
-          ))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {featured.map((river) => (
+        <FeaturedCard key={river.riverId} river={river} />
+      ))}
     </div>
   );
 }
@@ -150,46 +125,6 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
             View details <ArrowRight className="w-3 h-3" />
           </span>
         </div>
-      </div>
-    </Link>
-  );
-}
-
-function SecondaryCard({ river }: { river: RiverGroup }) {
-  const { riverName, riverSlug, condition, primaryGauge, primaryThreshold } = river;
-  const href = riverSlug ? `/gauges/${riverSlug}` : '#';
-
-  const isCfsPrimary = primaryThreshold.thresholdUnit === 'cfs';
-  const primaryValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;
-  const unitLabel = isCfsPrimary ? 'cfs' : 'ft';
-  const conditionColor = CONDITION_COLORS[condition.code] || CONDITION_COLORS.unknown;
-
-  return (
-    <Link
-      href={href}
-      className="group flex items-center justify-between gap-3 bg-white border border-neutral-200 rounded-xl px-4 py-4 hover:shadow-md hover:border-neutral-300 transition-all no-underline"
-    >
-      <div className="min-w-0">
-        <h3 className="text-sm font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
-          {riverName}
-        </h3>
-        <div className="flex items-center gap-2 mt-1">
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: conditionColor }}
-          />
-          <span className="text-xs text-neutral-500">{condition.label}</span>
-        </div>
-      </div>
-      <div className="flex-shrink-0 text-right">
-        {primaryValue !== null && (
-          <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-neutral-900 tabular-nums">
-              {isCfsPrimary ? primaryValue.toLocaleString() : primaryValue.toFixed(1)}
-            </span>
-            <span className="text-xs text-neutral-400">{unitLabel}</span>
-          </div>
-        )}
       </div>
     </Link>
   );
