@@ -3,17 +3,17 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Shield, Activity, Bell } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { getRivers } from '@/lib/data/rivers';
 import { CONDITION_COLORS } from '@/constants';
 import FloatEstimator from './FloatEstimator';
 import FeaturedRivers from '@/components/home/FeaturedRivers';
+import EddySaysReport from '@/components/home/EddySaysReport';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const revalidate = 300; // ISR every 5 minutes
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
-const EDDY_GREEN = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png';
 
 export default async function Home() {
   const rivers = await getRivers();
@@ -130,70 +130,18 @@ export default async function Home() {
       {/* ─── Eddy Says ─── */}
       <section className="bg-neutral-50 border-t border-neutral-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
-            {/* Eddy's Analysis Card */}
-            <div className="bg-white rounded-2xl border border-neutral-200 p-6 md:p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-5">
-                <Image
-                  src={EDDY_GREEN}
-                  alt="Eddy the Otter"
-                  width={48}
-                  height={48}
-                  className="w-12 h-12"
-                />
-                <div>
-                  <p className="text-sm font-bold text-neutral-900">Eddy Says</p>
-                  <p className="text-xs text-neutral-500">Your river guide</p>
-                </div>
-              </div>
-              <blockquote className="text-sm text-neutral-700 leading-relaxed mb-5 italic">
-                &ldquo;Several rivers are running above normal this week. Keep an eye on the gauge readings and plan accordingly — optimal windows can shift quickly.&rdquo;
-              </blockquote>
-              <div className="flex items-center gap-4 text-xs text-neutral-500">
-                <span className="tabular-nums">Updated hourly</span>
-              </div>
-            </div>
-
-            {/* Feature highlights */}
+          <div className="flex items-end justify-between mb-2">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2 leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
-                Eddy Says.<br />
-                Friendly Delivery.
+              <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                Eddy Says
               </h2>
-              <p className="text-sm text-neutral-500 mb-8 max-w-md leading-relaxed">
-                Eddy isn&apos;t just a mascot. He processes thousands of USGS data points and community reports to give you the most accurate safety briefing available.
+              <p className="text-sm text-neutral-500 mt-1">
+                Current conditions across all rivers.
               </p>
-              <div className="space-y-5">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                    <Shield className="w-4.5 h-4.5 text-red-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-900">Hazard Detection</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Real-time conditions matched to threshold data for risk alerts.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3.5">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <Activity className="w-4.5 h-4.5 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-900">Real-time Conditions</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Live USGS data cross-referenced for accurate float-or-wait calls.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3.5">
-                  <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <Bell className="w-4.5 h-4.5 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-900">Optimal Window Alerts</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Notifications when a river hits your preferred conditions.</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
+          <div className="w-16 h-0.5 bg-neutral-200 mb-8" />
+          <EddySaysReport />
         </div>
       </section>
 
