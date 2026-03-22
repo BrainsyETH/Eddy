@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Share2 } from 'lucide-react';
 
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { CONDITION_COLORS } from '@/constants';
@@ -121,7 +121,22 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
       {/* Footer */}
       <div className="px-5 pb-4 pt-1 sm:px-6">
         <div className="flex items-center justify-between text-xs text-neutral-400 pt-2 border-t border-neutral-100">
-          <span className="font-medium">{condition.label}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const url = `${window.location.origin}${href}`;
+              if (navigator.share) {
+                navigator.share({ title: `${riverName} River Report`, url });
+              } else {
+                navigator.clipboard.writeText(url);
+              }
+            }}
+            className="flex items-center gap-1 font-medium text-neutral-400 hover:text-neutral-700 transition-colors"
+          >
+            <Share2 className="w-3 h-3" /> Share
+          </button>
           <span className="flex items-center gap-1 group-hover:text-neutral-700 transition-colors">
             View details <ArrowRight className="w-3 h-3" />
           </span>

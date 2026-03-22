@@ -23,7 +23,7 @@ export default async function Home() {
       {/* ─── Hero ─── */}
       <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 40%, #1A4F5C 100%)' }}>
         {/* Topographic wave pattern */}
-        <div className="absolute inset-0 opacity-[0.07]">
+        <div className="absolute inset-0 opacity-[0.07] pointer-events-none">
           <svg className="absolute bottom-0 w-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
             <path fill="white" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
           </svg>
@@ -32,7 +32,7 @@ export default async function Home() {
           </svg>
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
           <div className="flex items-center justify-between gap-8">
             <div className="flex-1 max-w-xl">
               {/* Live badge removed */}
@@ -90,7 +90,7 @@ export default async function Home() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14 md:pb-20">
         <div className="flex items-end justify-between mb-2">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-            Live Gauge Data
+            Check River Levels
           </h2>
           <Link
             href="/gauges"
