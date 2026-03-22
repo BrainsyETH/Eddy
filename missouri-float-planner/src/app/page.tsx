@@ -62,10 +62,10 @@ export default async function Home() {
                   Explore Rivers
                 </Link>
                 <Link
-                  href="/map"
+                  href="/gauges"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
-                  View Live Map
+                  View Gauges
                 </Link>
               </div>
             </div>
@@ -93,14 +93,14 @@ export default async function Home() {
               Live Gauge Data
             </h2>
             <p className="text-sm text-neutral-500 mt-1">
-              Real-time readings from {rivers.length} monitoring stations across Missouri.
+              Pulled directly from USGS gauge data across Missouri.
             </p>
           </div>
           <Link
             href="/gauges"
             className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors no-underline"
           >
-            View All Gauges
+            Full River Reports
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -114,24 +114,24 @@ export default async function Home() {
           <div className="px-6 py-8 md:px-8 md:py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h3 className="text-xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-                Explore Gauges Nearby
+                Plan Your Next Float
               </h3>
               <p className="text-sm text-white/60 max-w-md">
                 Check real-time flow data for any river across Missouri to find the best conditions.
               </p>
             </div>
             <Link
-              href="/map"
+              href="/rivers"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition-colors no-underline flex-shrink-0"
             >
-              View Interactive Map
+              Browse Rivers
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ─── Expert Analysis ─── */}
+      {/* ─── Eddy Says ─── */}
       <section className="bg-neutral-50 border-t border-neutral-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
@@ -146,8 +146,8 @@ export default async function Home() {
                   className="w-12 h-12"
                 />
                 <div>
-                  <p className="text-sm font-bold text-neutral-900">Eddy&apos;s Analysis</p>
-                  <p className="text-xs text-neutral-500">AI-powered river insights</p>
+                  <p className="text-sm font-bold text-neutral-900">Eddy Says</p>
+                  <p className="text-xs text-neutral-500">Your river guide</p>
                 </div>
               </div>
               <blockquote className="text-sm text-neutral-700 leading-relaxed mb-5 italic">
@@ -161,11 +161,11 @@ export default async function Home() {
             {/* Feature highlights */}
             <div>
               <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2 leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
-                AI Analysis.<br />
+                Eddy Says.<br />
                 Friendly Delivery.
               </h2>
               <p className="text-sm text-neutral-500 mb-8 max-w-md leading-relaxed">
-                Eddy isn&apos;t just a mascot. He&apos;s an integrated AI guide that processes thousands of USGS data points and community reports to give you the most accurate safety briefing available.
+                Eddy isn&apos;t just a mascot. He processes thousands of USGS data points and community reports to give you the most accurate safety briefing available.
               </p>
               <div className="space-y-5">
                 <div className="flex items-start gap-3.5">
