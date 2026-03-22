@@ -108,6 +108,8 @@ async function runSocialPosting(request: NextRequest) {
           river_slug: post.riverSlug,
           caption: post.caption,
           image_url: post.imageUrl,
+          video_url: post.videoUrl || null,
+          media_type: post.mediaType || 'image',
           hashtags: post.hashtags,
           eddy_update_id: post.eddyUpdateId,
           status: 'publishing',
@@ -125,6 +127,8 @@ async function runSocialPosting(request: NextRequest) {
         const result = await adapter.publishPost({
           caption: post.caption,
           imageUrl: post.imageUrl,
+          videoUrl: post.videoUrl,
+          mediaType: post.mediaType,
         });
 
         if (result.success) {
@@ -204,6 +208,8 @@ async function runSocialPosting(request: NextRequest) {
         const result = await adapter.publishPost({
           caption: fullPost.caption,
           imageUrl: fullPost.image_url,
+          videoUrl: fullPost.video_url || undefined,
+          mediaType: fullPost.media_type || 'image',
         });
 
         if (result.success) {

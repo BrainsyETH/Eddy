@@ -3,6 +3,7 @@
 
 export type SocialPlatform = 'instagram' | 'facebook';
 export type PostType = 'daily_digest' | 'river_highlight' | 'manual' | 'condition_change';
+export type MediaType = 'image' | 'video';
 export type PostStatus = 'pending' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
@@ -13,6 +14,8 @@ export interface SocialPost {
   river_slug: string | null;
   caption: string;
   image_url: string | null;
+  video_url: string | null;
+  media_type: MediaType;
   hashtags: string[];
   platform_post_id: string | null;
   status: PostStatus;
@@ -62,6 +65,8 @@ export interface PlatformAdapter {
 export interface PublishParams {
   caption: string;
   imageUrl: string;
+  videoUrl?: string;
+  mediaType?: MediaType;
 }
 
 export interface PublishResult {
@@ -77,6 +82,8 @@ export interface ScheduledPost {
   riverSlug: string | null;
   caption: string;
   imageUrl: string;
+  videoUrl?: string;
+  mediaType: MediaType;
   hashtags: string[];
   eddyUpdateId: string | null;
 }

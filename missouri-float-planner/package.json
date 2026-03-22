@@ -20,11 +20,18 @@
     "db:import-floatmissouri": "tsx scripts/import-floatmissouri.ts",
     "db:seed": "echo 'Run seed SQL files via Supabase CLI or SQL Editor. See scripts/run-seeds.ts for details.'",
     "db:setup": "npm run db:seed && npm run db:snap-access-points",
-    "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points"
+    "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points",
+    "remotion:preview": "npx remotion preview src/remotion/Root.tsx",
+    "remotion:render": "npx remotion render src/remotion/Root.tsx",
+    "remotion:deploy-lambda": "tsx scripts/deploy-remotion-lambda.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@floating-ui/dom": "^1.7.5",
+    "@remotion/bundler": "^4.0.438",
+    "@remotion/cli": "^4.0.438",
+    "@remotion/lambda": "^4.0.438",
+    "@remotion/renderer": "^4.0.438",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.0",
     "@tanstack/react-query": "^5.90.19",
@@ -50,6 +57,7 @@
     "react-dom": "^18",
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
+    "remotion": "^4.0.438",
     "sanitize-html": "^2.17.0"
   },
   "devDependencies": {

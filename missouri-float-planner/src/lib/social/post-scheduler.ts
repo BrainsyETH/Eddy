@@ -14,6 +14,15 @@ import type {
   SocialPlatform,
   ScheduledPost,
 } from './types';
+import {
+  shouldGenerateDigestReel,
+  shouldGenerateHighlightReel,
+  getReelHashtags,
+} from '@/lib/video/reel-scheduler';
+import {
+  generateDailyDigestReel,
+  generateGaugeReel,
+} from '@/lib/video/reel-generator';
 
 const LOG_PREFIX = '[SocialScheduler]';
 
@@ -157,14 +166,32 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     } else if (!isNearDigestTime(config.digest_time_utc) && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
     } else {
+      // Check if this digest should be a video reel
+      const isReelDigest = shouldGenerateDigestReel();
+      let digestVideoUrl: string | null = null;
+      if (isReelDigest) {
+        console.log(`${LOG_PREFIX} Generating daily digest reel...`);
+        digestVideoUrl = await generateDailyDigestReel();
+        if (digestVideoUrl) {
+          console.log(`${LOG_PREFIX} Digest reel rendered: ${digestVideoUrl}`);
+        } else {
+          console.log(`${LOG_PREFIX} Digest reel generation failed, falling back to image`);
+        }
+      }
+
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
       for (const platform of platforms) {
-        const { caption, hashtags } = formatDailyDigestCaption(
+        const { caption, hashtags: baseHashtags } = formatDailyDigestCaption(
           updates,
           globalSummary,
           customContent,
           platform
         );
+
+        const isVideo = Boolean(digestVideoUrl);
+        const hashtags = isVideo
+          ? [...baseHashtags, ...getReelHashtags(platform)]
+          : baseHashtags;
 
         posts.push({
           postType: 'daily_digest',
@@ -172,6 +199,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
           riverSlug: null,
           caption,
           imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
+          videoUrl: digestVideoUrl || undefined,
+          mediaType: isVideo ? 'video' : 'image',
           hashtags,
           eddyUpdateId: null,
         });
@@ -250,14 +279,32 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
     diag.due_rivers.push(riverSlug);
 
+    // Check if this highlight should be a video reel
+    const isReelHighlight = shouldGenerateHighlightReel(riverSlug, cstDay);
+    let highlightVideoUrl: string | null = null;
+    if (isReelHighlight) {
+      console.log(`${LOG_PREFIX} Generating gauge reel for ${riverSlug}...`);
+      highlightVideoUrl = await generateGaugeReel(riverSlug);
+      if (highlightVideoUrl) {
+        console.log(`${LOG_PREFIX} Gauge reel rendered for ${riverSlug}: ${highlightVideoUrl}`);
+      } else {
+        console.log(`${LOG_PREFIX} Gauge reel generation failed for ${riverSlug}, falling back to image`);
+      }
+    }
+
     // Create posts for both platforms
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
     for (const platform of platforms) {
-      const { caption, hashtags } = formatRiverHighlightCaption(
+      const { caption, hashtags: baseHashtags } = formatRiverHighlightCaption(
         update,
         customContent,
         platform
       );
+
+      const isVideo = Boolean(highlightVideoUrl);
+      const hashtags = isVideo
+        ? [...baseHashtags, ...getReelHashtags(platform)]
+        : baseHashtags;
 
       posts.push({
         postType: 'river_highlight',
@@ -265,6 +312,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         riverSlug: update.river_slug,
         caption,
         imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
+        videoUrl: highlightVideoUrl || undefined,
+        mediaType: isVideo ? 'video' : 'image',
         hashtags,
         eddyUpdateId: update.id,
       });
