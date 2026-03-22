@@ -20,12 +20,43 @@ function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 1).trim() + '...';
 }
 
-export default async function Image({ params }: { params: Promise<{ siteId: string }> }) {
+export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
-  const siteId = resolvedParams?.siteId;
+  const rawSlug = resolvedParams?.slug;
+
+  // Handle both numeric siteId and alphabetic river slug
+  let siteId = rawSlug && /^\d+$/.test(rawSlug) ? rawSlug : null;
+
+  // If it's a river slug, look up the primary gauge's siteId
+  if (!siteId && rawSlug) {
+    try {
+      const supabase = await createClient();
+      const { data: river } = await supabase
+        .from('rivers')
+        .select('id')
+        .eq('slug', rawSlug)
+        .eq('active', true)
+        .single();
+      if (river) {
+        const { data: rg } = await supabase
+          .from('river_gauges')
+          .select('gauge_stations!inner(usgs_site_id)')
+          .eq('river_id', river.id)
+          .eq('is_primary', true)
+          .limit(1)
+          .maybeSingle();
+        if (rg) {
+          const gs = rg.gauge_stations as unknown as { usgs_site_id: string };
+          siteId = gs.usgs_site_id;
+        }
+      }
+    } catch {
+      // fallback
+    }
+  }
 
   // Default fallback data
-  let gaugeName = `Gauge ${siteId || ''}`;
+  let gaugeName = rawSlug ? `Gauge ${rawSlug}` : 'Gauge';
   let gaugeHeightFt: number | null = null;
   let dischargeCfs: number | null = null;
   let status: ConditionCode = 'unknown';
