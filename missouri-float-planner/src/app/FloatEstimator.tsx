@@ -87,15 +87,11 @@ export default function FloatEstimator({ rivers }: FloatEstimatorProps) {
               className="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-neutral-900 appearance-none cursor-pointer focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
             >
               <option value="">Select river...</option>
-              {rivers.map(river => {
-                const condCode = river.currentCondition?.code ?? 'unknown';
-                const dotColor = CONDITION_COLORS[condCode] || CONDITION_COLORS.unknown;
-                return (
+              {rivers.map(river => (
                   <option key={river.id} value={river.slug}>
                     {river.name} ({river.lengthMiles} mi)
                   </option>
-                );
-              })}
+              ))}
             </select>
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
               {selectedRiver && (
