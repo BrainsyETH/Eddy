@@ -12,7 +12,6 @@ import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { BG_BY_CONDITION, TEXT_BY_CONDITION, getEddyImageForCondition } from '@/constants';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { RiverGroup } from '@/lib/river-groups';
-import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
 // Priority ordering for featuring rivers (best conditions first)
