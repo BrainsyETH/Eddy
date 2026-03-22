@@ -18,6 +18,18 @@ export const metadata: Metadata = {
   description: 'Browse all supported rivers with live conditions, access points, and float planning tools. Check real-time water levels before your next float trip.',
 };
 
+// Curated hero images for each river (Unsplash, free to use)
+const RIVER_HERO_IMAGES: Record<string, string> = {
+  'meramec': 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&q=80',
+  'current': 'https://images.unsplash.com/photo-1527489377706-5bf97e608852?w=800&q=80',
+  'eleven-point': 'https://images.unsplash.com/photo-1472396961693-142e6e269027?w=800&q=80',
+  'jacks-fork': 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?w=800&q=80',
+  'niangua': 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&q=80',
+  'big-piney': 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&q=80',
+  'huzzah': 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80',
+  'courtois': 'https://images.unsplash.com/photo-1440581572325-0bea30075d9d?w=800&q=80',
+};
+
 // Brief descriptions for each river
 const RIVER_DESCRIPTIONS: Record<string, string> = {
   'meramec': 'One of the longest free-flowing rivers in the region, winding through scenic bluffs and popular with paddlers of all levels.',
@@ -103,7 +115,7 @@ export default async function RiversPage() {
             const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
             const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
             const description = RIVER_DESCRIPTIONS[river.slug] || river.description;
-            const imageUrl = riverImages[river.id];
+            const imageUrl = riverImages[river.id] || RIVER_HERO_IMAGES[river.slug];
 
             return (
               <Link
@@ -111,18 +123,20 @@ export default async function RiversPage() {
                 href={`/rivers/${river.slug}`}
                 className="group bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300 no-underline"
               >
-                {imageUrl && (
-                  <div className="relative h-36 overflow-hidden">
+                <div className="relative h-36 overflow-hidden">
+                  {imageUrl ? (
                     <Image
                       src={imageUrl}
-                      alt={`${river.name} access point`}
+                      alt={`${river.name}`}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                       sizes="(max-width: 768px) 100vw, 50vw"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                  </div>
-                )}
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                </div>
                 <div className="px-4 pt-4 pb-3 sm:px-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
