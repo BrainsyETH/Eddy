@@ -20,14 +20,14 @@ export const metadata: Metadata = {
 
 // Curated hero images for each river (Unsplash, free to use)
 const RIVER_HERO_IMAGES: Record<string, string> = {
-  'meramec': 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&q=80',
-  'current': 'https://images.unsplash.com/photo-1527489377706-5bf97e608852?w=800&q=80',
-  'eleven-point': 'https://images.unsplash.com/photo-1472396961693-142e6e269027?w=800&q=80',
-  'jacks-fork': 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?w=800&q=80',
+  'meramec': '/blog/planning-first-trip/01-hero-missouri-river-float.png',
+  'current': '/blog/planning-first-trip/07-missouri-river-bluffs.png',
+  'eleven-point': '/blog/planning-first-trip/04-missouri-river-campsite.png',
+  'jacks-fork': '/blog/planning-first-trip/06-friends-floating-missouri-river.png',
   'niangua': 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&q=80',
-  'big-piney': 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&q=80',
-  'huzzah': 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80',
-  'courtois': 'https://images.unsplash.com/photo-1440581572325-0bea30075d9d?w=800&q=80',
+  'big-piney': 'https://images.unsplash.com/photo-1414609245224-afa02bfb3fda?w=800&q=80',
+  'huzzah': 'https://images.unsplash.com/photo-1469521669194-babb45599def?w=800&q=80',
+  'courtois': 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&q=80',
 };
 
 // Brief descriptions for each river
