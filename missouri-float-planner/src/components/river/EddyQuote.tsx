@@ -26,8 +26,8 @@ interface EddyQuoteProps {
 import { getEddyImageForCondition } from '@/constants';
 
 const BG_BY_CONDITION: Record<string, string> = {
-  optimal: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
-  okay: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
+  flowing: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
+  good: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
   low: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200',
   too_low: 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
   high: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200',
@@ -36,8 +36,8 @@ const BG_BY_CONDITION: Record<string, string> = {
 };
 
 const TEXT_BY_CONDITION: Record<string, string> = {
-  optimal: 'text-emerald-900',
-  okay: 'text-emerald-900',
+  flowing: 'text-emerald-900',
+  good: 'text-emerald-900',
   low: 'text-amber-900',
   too_low: 'text-orange-900',
   high: 'text-red-900',
@@ -46,8 +46,8 @@ const TEXT_BY_CONDITION: Record<string, string> = {
 };
 
 const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = {
-  optimal: { text: 'Optimal', className: 'bg-emerald-100 text-emerald-700' },
-  okay: { text: 'Okay', className: 'bg-emerald-100 text-emerald-700' },
+  flowing: { text: 'Flowing', className: 'bg-emerald-100 text-emerald-700' },
+  good: { text: 'Good', className: 'bg-emerald-100 text-emerald-700' },
   low: { text: 'Low', className: 'bg-amber-100 text-amber-700' },
   too_low: { text: 'Too Low', className: 'bg-orange-100 text-orange-700' },
   high: { text: 'High', className: 'bg-red-100 text-red-700' },

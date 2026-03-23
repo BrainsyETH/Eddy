@@ -34,8 +34,8 @@ const RIVER_SHORT_NAMES: Record<string, string> = {
 const SHORT_CONDITION_LABELS: Record<string, string> = {
   too_low: 'Too Low',
   low: 'Low',
-  okay: 'Okay',
-  optimal: 'Optimal',
+  good: 'Good',
+  flowing: 'Flowing',
   high: 'High',
   dangerous: 'Flood',
   unknown: 'Unknown',
@@ -45,8 +45,8 @@ const SHORT_CONDITION_LABELS: Record<string, string> = {
 const CONDITION_EMOJI: Record<string, string> = {
   too_low: '\u{1F6AB}',
   low: '\u{1F4A7}',
-  okay: '\u{1F44D}',
-  optimal: '\u{2705}',
+  good: '\u{1F44D}',
+  flowing: '\u{2705}',
   high: '\u{26A0}\uFE0F',
   dangerous: '\u{1F6D1}',
   unknown: '\u{2753}',
@@ -79,8 +79,8 @@ const RIVER_HASHTAGS: Record<string, string[]> = {
 
 // Condition-specific hashtags (IG only)
 const CONDITION_HASHTAGS: Record<string, string[]> = {
-  optimal: ['#perfectconditions', '#getonthewater'],
-  okay: ['#floatable', '#riverday'],
+  flowing: ['#perfectconditions', '#getonthewater'],
+  good: ['#floatable', '#riverday'],
   low: ['#lowwater'],
   too_low: ['#waitforrain'],
   high: ['#highwater', '#swiftwater'],
@@ -101,13 +101,13 @@ function getSeasonalHashtags(): string[] {
 // ---------------------------------------------------------------------------
 
 const HIGHLIGHT_HOOKS: Record<string, string[]> = {
-  optimal: [
+  flowing: [
     '{river} is running perfect right now.',
     '{river} just hit the sweet spot \u2014 {gauge} ft and dialed in.',
     'If you\u2019ve been waiting for the right time on {river}, this is it.',
     'Green light on {river}. Conditions are locked in.',
   ],
-  okay: [
+  good: [
     '{river} is looking good \u2014 {gauge} ft and floatable.',
     '{river} is in solid shape right now.',
     'Good news: {river} is running and ready at {gauge} ft.',
@@ -142,8 +142,8 @@ const DIGEST_HOOKS: string[] = [
 ];
 
 const CONDITION_CHANGE_HOOKS: Record<string, string[]> = {
-  optimal: [
-    '{river} just hit optimal \u2014 it\u2019s go time.',
+  flowing: [
+    '{river} just hit ideal conditions \u2014 it\u2019s go time.',
     'The wait is over. {river} is running perfect.',
   ],
   dangerous: [
@@ -164,7 +164,7 @@ const CONDITION_CHANGE_HOOKS: Record<string, string[]> = {
   ],
 };
 
-// Weekend engagement questions (appended to optimal/okay posts Thu-Sun)
+// Weekend engagement questions (appended to flowing/good posts Thu-Sun)
 const ENGAGEMENT_QUESTIONS: string[] = [
   'Where are you putting in this weekend?',
   'Who\u2019s hitting the water this week?',
@@ -291,7 +291,7 @@ export function formatRiverHighlightCaption(
   const lines: string[] = [];
 
   // 1. Hook line (first thing visible before "See more")
-  const hookTemplates = HIGHLIGHT_HOOKS[condition] || HIGHLIGHT_HOOKS.okay;
+  const hookTemplates = HIGHLIGHT_HOOKS[condition] || HIGHLIGHT_HOOKS.good;
   const hook = interpolate(pickTemplate(hookTemplates, seed), {
     river: riverName,
     gauge,
@@ -320,7 +320,7 @@ export function formatRiverHighlightCaption(
   // 4. Weekend engagement question (only for floatable conditions)
   if (
     isWeekendWindow() &&
-    (condition === 'optimal' || condition === 'okay')
+    (condition === 'flowing' || condition === 'good')
   ) {
     lines.push(pickTemplate(ENGAGEMENT_QUESTIONS, seed + '-q'));
     lines.push('');
@@ -407,7 +407,7 @@ export function formatDailyDigestCaption(
     lines.push(snippets.join('\n'));
   }
 
-  const hashtags = buildInstagramHashtags(null, 'optimal', [
+  const hashtags = buildInstagramHashtags(null, 'flowing', [
     '#ozarksriverreport',
     '#riverconditions',
   ]);
@@ -441,8 +441,8 @@ export function formatConditionChangeCaption(params: {
 
   // 1. Hook line
   let hookPool: string[];
-  if (params.newCondition === 'optimal') {
-    hookPool = CONDITION_CHANGE_HOOKS.optimal;
+  if (params.newCondition === 'flowing') {
+    hookPool = CONDITION_CHANGE_HOOKS.flowing;
   } else if (params.newCondition === 'dangerous') {
     hookPool = CONDITION_CHANGE_HOOKS.dangerous;
   } else if (params.newCondition === 'high') {

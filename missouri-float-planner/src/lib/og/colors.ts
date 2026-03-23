@@ -22,8 +22,8 @@ export const BRAND_COLORS = {
 export const STATUS_COLORS: Record<ConditionCode, string> = {
   too_low: '#9ca3af',
   low: '#eab308',
-  okay: '#84cc16',
-  optimal: '#059669',
+  good: '#84cc16',
+  flowing: '#059669',
   high: '#f97316',
   dangerous: '#ef4444',
   unknown: '#9ca3af',
@@ -45,19 +45,19 @@ export function getStatusStyles(status: ConditionCode): StatusStyle {
       border: 'rgba(234,179,8,0.3)',
       label: 'Low',
     },
-    okay: {
+    good: {
       solid: '#84cc16',
       text: '#84cc16',
       bg: 'rgba(132,204,22,0.15)',
       border: 'rgba(132,204,22,0.3)',
-      label: 'Okay',
+      label: 'Good',
     },
-    optimal: {
+    flowing: {
       solid: '#059669',
       text: '#059669',
       bg: 'rgba(5,150,105,0.2)',
       border: 'rgba(5,150,105,0.35)',
-      label: 'Optimal',
+      label: 'Flowing',
     },
     high: {
       solid: '#f97316',
@@ -88,8 +88,8 @@ export function getStatusGradient(status: ConditionCode): [string, string] {
   const gradients: Record<ConditionCode, [string, string]> = {
     too_low: ['#9ca3af', '#b8bfc7'],
     low: ['#eab308', '#fbbf24'],
-    okay: ['#84cc16', '#a3e635'],
-    optimal: ['#059669', '#10b981'],
+    good: ['#84cc16', '#a3e635'],
+    flowing: ['#059669', '#10b981'],
     high: ['#f97316', '#fb923c'],
     dangerous: ['#ef4444', '#f87171'],
     unknown: ['#9ca3af', '#b8bfc7'],

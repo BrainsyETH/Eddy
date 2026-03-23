@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
   highlight_cooldown_hours: 12,
   enabled_rivers: null,
   disabled_rivers: [] as string[],
-  highlight_conditions: ['optimal', 'dangerous', 'high', 'too_low'],
+  highlight_conditions: ['flowing', 'dangerous', 'high', 'too_low'],
   weekend_boost_enabled: false,
   river_schedules: {
     'meramec': { mon: '07:00', tue: '07:00', wed: '07:00', thu: '07:00', fri: '07:00', sat: '09:00', sun: '09:00' },

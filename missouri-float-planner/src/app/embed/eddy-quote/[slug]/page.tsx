@@ -36,8 +36,8 @@ const EDDY_IMAGES: Record<string, string> = {
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 
 const CONDITION_COLORS: Record<string, string> = {
-  optimal: '#059669',
-  okay: '#65a30d',
+  flowing: '#059669',
+  good: '#65a30d',
   low: '#d97706',
   too_low: '#9ca3af',
   high: '#ea580c',
@@ -47,8 +47,8 @@ const CONDITION_COLORS: Record<string, string> = {
 
 // Bold yes/no float recommendation (#12)
 const FLOAT_RECOMMENDATIONS: Record<string, string> = {
-  optimal: 'Great day to float!',
-  okay: 'Good to go',
+  flowing: 'Great day to float!',
+  good: 'Good to go',
   low: 'Proceed with caution',
   too_low: 'Not recommended',
   high: 'Use caution',
@@ -59,11 +59,11 @@ const FLOAT_RECOMMENDATIONS: Record<string, string> = {
 // Condition-tinted quote backgrounds (#13)
 function getQuoteColors(code: string, isDark: boolean): { bg: string; border: string; text: string } {
   switch (code) {
-    case 'optimal':
+    case 'flowing':
       return isDark
         ? { bg: '#1f2d20', border: '#2d4a2e', text: '#a7f3d0' }
         : { bg: '#f0fdf4', border: '#bbf7d0', text: '#065f46' };
-    case 'okay':
+    case 'good':
       return isDark
         ? { bg: '#1f2d1a', border: '#3d5a2e', text: '#bef264' }
         : { bg: '#f7fee7', border: '#d9f99d', text: '#3f6212' };
@@ -93,8 +93,8 @@ function getQuoteColors(code: string, isDark: boolean): { bg: string; border: st
 function getEddyImage(code?: string | null): string {
   if (!code) return EDDY_IMAGES.flag;
   switch (code) {
-    case 'optimal':
-    case 'okay':
+    case 'flowing':
+    case 'good':
       return EDDY_IMAGES.canoe;
     case 'high':
     case 'dangerous':
@@ -110,8 +110,8 @@ function getEddyImage(code?: string | null): string {
 
 function getConditionLabel(code: string): string {
   const labels: Record<string, string> = {
-    optimal: 'Optimal',
-    okay: 'Okay',
+    flowing: 'Flowing',
+    good: 'Good',
     low: 'Low',
     too_low: 'Too Low',
     high: 'High',

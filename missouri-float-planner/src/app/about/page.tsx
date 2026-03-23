@@ -26,8 +26,8 @@ const EDDY_IMAGES: Record<string, string> = {
 // Map condition codes to Eddy images
 const getEddyImageForCondition = (code: ConditionCode): string => {
   switch (code) {
-    case 'optimal':
-    case 'okay': // "Okay - Floatable"
+    case 'flowing':
+    case 'good': // "Good - Floatable"
       return EDDY_IMAGES.green;
     case 'high':
     case 'dangerous': // Flood
@@ -41,9 +41,9 @@ const getEddyImageForCondition = (code: ConditionCode): string => {
   }
 };
 
-const conditionCodes: ConditionCode[] = ['too_low', 'low', 'okay', 'optimal', 'high', 'dangerous', 'unknown'];
+const conditionCodes: ConditionCode[] = ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous', 'unknown'];
 
-// Condition descriptions ordered: Too Low → Low → Okay → Optimal → High → Flood
+// Condition descriptions ordered: Too Low → Low → Good → Flowing → High → Flood
 const conditionDescriptions: Record<ConditionCode, {
   title: string;
   description: string;
@@ -62,14 +62,14 @@ const conditionDescriptions: Record<ConditionCode, {
     recommendation: 'Not ideal for beginners or large groups. Some river sections may float better than others — consider checking with local outfitters for section-specific advice.',
     icon: '⚠️',
   },
-  okay: {
-    title: 'Okay - Floatable',
+  good: {
+    title: 'Good - Floatable',
     description: 'Water levels are below optimal but generally floatable across most sections. You may encounter some shallow spots, especially in wider or upper sections, but most of the river should have enough water. Float times may run a bit longer than estimates.',
     recommendation: 'Suitable for most paddlers. Be prepared for occasional shallow spots — conditions can vary by section.',
     icon: '✓',
   },
-  optimal: {
-    title: 'Optimal Conditions',
+  flowing: {
+    title: 'Flowing - Ideal Conditions',
     description: 'Water levels are in the ideal range for floating. Most river sections will have good depth without dangerously fast currents. This is generally the best time to be on the water, though conditions may still vary somewhat between sections.',
     recommendation: 'Great conditions for floating. Always check local conditions before heading out.',
     icon: '🎯',

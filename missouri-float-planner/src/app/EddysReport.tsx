@@ -16,8 +16,8 @@ import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 const VERDICT_MAP: Record<ConditionCode, { text: string; color: string }> = {
-  optimal:   { text: 'Float!',  color: '#059669' },
-  okay:      { text: 'Float',   color: '#65a30d' },
+  flowing:   { text: 'Float!',  color: '#059669' },
+  good:      { text: 'Float',   color: '#65a30d' },
   low:       { text: 'Low',     color: '#ca8a04' },
   too_low:   { text: 'Wait',    color: '#6b7280' },
   high:      { text: 'Caution', color: '#ea580c' },

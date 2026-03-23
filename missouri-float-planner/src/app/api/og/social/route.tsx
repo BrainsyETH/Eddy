@@ -119,7 +119,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
   // Load otter
   let otterImage: string | null = null;
   try {
-    otterImage = await loadConditionOtter('optimal');
+    otterImage = await loadConditionOtter('flowing');
   } catch {
     // Skip otter if fetch fails
   }
@@ -569,7 +569,7 @@ async function generateTipImage(contentId: string, size: { width: number; height
   // Load otter
   let otterImage: string | null = null;
   try {
-    otterImage = await loadConditionOtter('optimal');
+    otterImage = await loadConditionOtter('flowing');
   } catch {
     // Skip otter
   }

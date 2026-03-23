@@ -23,12 +23,12 @@ export const RIVER_NOTES: Record<string, string> = {
 type QuoteTemplates = Record<ConditionCode, string[]>;
 
 const QUOTE_TEMPLATES: QuoteTemplates = {
-  optimal: [
+  flowing: [
     "Sitting at {gauge} ft — right in the sweet spot. It's a great day to float.",
     "{gauge} ft at the gauge. Conditions are dialed. Grab your paddle.",
     "Reading {gauge} ft — optimal range is {range} and we're right in it. Get out there.",
   ],
-  okay: [
+  good: [
     "{gauge} ft — a little outside the sweet spot but still a solid day on the water.",
     "Gauge reads {gauge} ft. Not textbook, but you'll have a good time out there.",
     "{gauge} ft today. Floatable and fun — just keep your eyes on the water.",
@@ -105,8 +105,8 @@ const EDDY_IMAGES: Record<string, string> = {
 
 function conditionToImage(code: ConditionCode): string {
   switch (code) {
-    case 'optimal':
-    case 'okay':
+    case 'flowing':
+    case 'good':
       return EDDY_IMAGES.canoe;
     case 'low':
       return EDDY_IMAGES.yellow;
@@ -166,8 +166,8 @@ export function buildEddyQuote(
 
 /** Short card-level blurb for condition (no gauge data needed). */
 export const CONDITION_CARD_BLURBS: Record<ConditionCode, string> = {
-  optimal: 'Great day to float!',
-  okay: 'Solid conditions out there.',
+  flowing: 'Great day to float!',
+  good: 'Solid conditions out there.',
   low: 'Running shallow — pack light.',
   too_low: 'Too low to float right now.',
   high: 'High water — use caution.',
@@ -183,7 +183,7 @@ export function buildRiversSummary(conditionCodes: (ConditionCode | null)[]): st
     counts[key] = (counts[key] ?? 0) + 1;
   }
 
-  const good = (counts.optimal ?? 0) + (counts.okay ?? 0);
+  const good = (counts.flowing ?? 0) + (counts.good ?? 0);
   const low = (counts.low ?? 0) + (counts.too_low ?? 0);
   const high = (counts.high ?? 0) + (counts.dangerous ?? 0);
 

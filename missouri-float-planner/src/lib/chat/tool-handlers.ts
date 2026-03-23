@@ -316,7 +316,7 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     speedLowWater: 2.0,
     speedNormal: 2.5,
     speedHighWater: 3.5,
-  }, 'optimal');
+  }, 'flowing');
 
   const estimatedHours = floatTime
     ? { low: Math.round((floatTime.minutes * 0.8) / 6) / 10, high: Math.round((floatTime.minutes * 1.3) / 6) / 10 }

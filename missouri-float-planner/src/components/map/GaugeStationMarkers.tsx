@@ -37,10 +37,10 @@ function getConditionFromReading(
   }
   if (t.levelOptimalMin !== null && t.levelOptimalMax !== null &&
       gaugeHeight >= t.levelOptimalMin && gaugeHeight <= t.levelOptimalMax) {
-    return { code: 'optimal', label: 'Optimal', color: '#059669' };
+    return { code: 'flowing', label: 'Flowing', color: '#059669' };
   }
   if (t.levelLow !== null && gaugeHeight >= t.levelLow) {
-    return { code: 'okay', label: 'Okay', color: '#84cc16' };
+    return { code: 'good', label: 'Good', color: '#84cc16' };
   }
   if (t.levelTooLow !== null && gaugeHeight >= t.levelTooLow) {
     return { code: 'low', label: 'Low', color: '#eab308' };

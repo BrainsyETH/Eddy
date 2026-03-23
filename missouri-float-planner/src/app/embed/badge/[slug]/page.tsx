@@ -11,8 +11,8 @@ import { useParams, useSearchParams } from 'next/navigation';
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 
 const CONDITION_COLORS: Record<string, string> = {
-  optimal: '#059669',
-  okay: '#84cc16',
+  flowing: '#059669',
+  good: '#84cc16',
   low: '#eab308',
   too_low: '#9ca3af',
   high: '#f97316',
@@ -21,8 +21,8 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 const CONDITION_LABELS: Record<string, string> = {
-  optimal: 'Optimal',
-  okay: 'Okay',
+  flowing: 'Flowing',
+  good: 'Good',
   low: 'Low',
   too_low: 'Too Low',
   high: 'High',

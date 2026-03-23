@@ -4,8 +4,8 @@
 export type ConditionCode =
   | 'dangerous'
   | 'high'
-  | 'optimal'
-  | 'okay'
+  | 'flowing'
+  | 'good'
   | 'low'
   | 'too_low'
   | 'unknown';

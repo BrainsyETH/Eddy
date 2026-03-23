@@ -69,7 +69,7 @@ export default function EddySaysReport() {
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 w-10 h-10 relative">
           <Image
-            src={getEddyImageForCondition('optimal')}
+            src={getEddyImageForCondition('flowing')}
             alt="Eddy"
             fill
             className="object-contain"

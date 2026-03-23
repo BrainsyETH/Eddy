@@ -314,7 +314,7 @@ function GaugeExpandedDetail({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                        <span className="text-neutral-600 font-medium">Optimal</span>
+                        <span className="text-neutral-600 font-medium">Flowing</span>
                       </div>
                       <div className="text-right">
                         <span className="font-mono text-neutral-900">
@@ -322,15 +322,15 @@ function GaugeExpandedDetail({
                             ? formatRange(tv.levelOptimalMin, tv.levelOptimalMax)
                             : 'N/A'}
                         </span>
-                        {desc?.optimal && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{desc.optimal}</p>
+                        {desc?.flowing && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.flowing}</p>
                         )}
                       </div>
                     </div>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-lime-500"></span>
-                        <span className="text-neutral-600 font-medium">Okay</span>
+                        <span className="text-neutral-600 font-medium">Good</span>
                       </div>
                       <div className="text-right">
                         <span className="font-mono text-neutral-900">
@@ -340,8 +340,8 @@ function GaugeExpandedDetail({
                             ? `≥ ${formatValue(tv.levelLow)} ${unit}`
                             : 'N/A'}
                         </span>
-                        {desc?.okay && (
-                          <p className="text-xs text-neutral-500 mt-0.5">{desc.okay}</p>
+                        {desc?.good && (
+                          <p className="text-xs text-neutral-500 mt-0.5">{desc.good}</p>
                         )}
                       </div>
                     </div>
@@ -497,7 +497,7 @@ export default function GaugeOverview({
   }
 
   // Condition order for range display (low water to high water)
-  const CONDITION_ORDER: ConditionCode[] = ['too_low', 'low', 'okay', 'optimal', 'high', 'dangerous'];
+  const CONDITION_ORDER: ConditionCode[] = ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous'];
 
   // Get condition range for the badge
   const conditions = gauges.map(g => getGaugeCondition(g, riverId));
