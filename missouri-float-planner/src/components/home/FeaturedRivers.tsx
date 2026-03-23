@@ -34,7 +34,7 @@ export default function FeaturedRivers() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {[0, 1].map(i => (
-          <div key={i} className="bg-neutral-50 rounded-2xl p-6 h-56 animate-pulse" />
+          <div key={i} className="bg-neutral-50 rounded-2xl p-6 h-56 md:h-72 animate-pulse" />
         ))}
       </div>
     );
@@ -114,7 +114,7 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
           thresholds={chartThresholds}
           latestValue={latestValue}
           displayUnit={displayUnit}
-          chartClassName="h-32"
+          chartClassName="h-32 md:h-44"
         />
       </div>
 
