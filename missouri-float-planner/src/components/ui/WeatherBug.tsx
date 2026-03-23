@@ -42,6 +42,8 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
     return (
       <button
         onClick={() => setIsExpanded(true)}
+        aria-expanded="false"
+        aria-label="Expand weather details"
         className={`absolute top-4 left-4 z-20 glass-card-dark rounded-lg px-3 py-2
                     backdrop-blur-md border border-primary-600/30 shadow-lg
                     hover:border-primary-500/50 transition-colors ${className}`}
@@ -57,7 +59,7 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
           ) : (
             <span className="text-neutral-400">Weather unavailable</span>
           )}
-          <ChevronUp className="w-4 h-4 text-neutral-400" />
+          <ChevronUp className="w-4 h-4 text-neutral-400" aria-hidden="true" />
         </div>
       </button>
     );
@@ -85,9 +87,10 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
             <h3 className="text-sm font-semibold text-white">Weather & Conditions</h3>
             <button
               onClick={() => setIsExpanded(false)}
+              aria-label="Collapse weather details"
               className="p-1 hover:bg-white/10 rounded transition-colors"
             >
-              <ChevronDown className="w-4 h-4 text-neutral-400" />
+              <ChevronDown className="w-4 h-4 text-neutral-400" aria-hidden="true" />
             </button>
           </div>
 

@@ -175,9 +175,11 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
               {eddyUpdate?.summaryText && (
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowFull(!showFull); }}
+                  aria-expanded={showFull}
+                  aria-label={showFull ? 'Show less' : 'Show more details'}
                   className={`flex items-center gap-1 text-[10px] font-semibold transition-colors mt-0.5 ${textClass} opacity-60 hover:opacity-100`}
                 >
-                  {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" /></> : <>More <ChevronDown className="w-2.5 h-2.5" /></>}
+                  {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" aria-hidden="true" /></> : <>More <ChevronDown className="w-2.5 h-2.5" aria-hidden="true" /></>}
                 </button>
               )}
             </div>

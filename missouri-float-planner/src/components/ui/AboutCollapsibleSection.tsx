@@ -20,6 +20,7 @@ export default function AboutCollapsibleSection({
     <section>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
+        aria-expanded={isExpanded}
         className="flex items-center gap-3 mb-6 w-full text-left group"
       >
         <div className="p-3 rounded-lg" style={{ backgroundColor: '#2D7889' }}>
@@ -27,6 +28,7 @@ export default function AboutCollapsibleSection({
         </div>
         <h2 className="text-3xl font-bold text-neutral-900 flex-1">{title}</h2>
         <ChevronDown
+          aria-hidden="true"
           className={`w-6 h-6 text-neutral-500 transition-transform duration-200 ${
             isExpanded ? 'rotate-180' : ''
           }`}

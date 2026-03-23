@@ -108,15 +108,16 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
   ) : null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="presentation">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
         <div className="flex items-center justify-between p-4 border-b border-bluff-200">
           <div className="flex items-center gap-2">
-            <Flag size={20} className="text-accent-500" />
-            <h2 className="text-lg font-semibold text-ozark-800">Report Issue</h2>
+            <Flag size={20} className="text-accent-500" aria-hidden="true" />
+            <h2 id="feedback-modal-title" className="text-lg font-semibold text-ozark-800">Report Issue</h2>
           </div>
           <button
             onClick={handleClose}
+            aria-label="Close feedback form"
             className="p-1 hover:bg-bluff-100 rounded-full transition-colors"
           >
             <X size={20} className="text-bluff-500" />

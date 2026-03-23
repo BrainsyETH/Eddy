@@ -366,7 +366,7 @@ export default function MapContainer({
   }, [initialBounds]);
 
   return (
-    <div className={`${isExpanded ? 'fixed inset-0 z-50 bg-black' : 'relative w-full h-full min-h-[400px]'}`}>
+    <div className={`${isExpanded ? 'fixed inset-0 z-50 bg-black' : 'relative w-full h-full min-h-[400px]'}`} role="region" aria-label="Interactive river map">
       <div
         ref={mapContainer}
         className="w-full h-full"

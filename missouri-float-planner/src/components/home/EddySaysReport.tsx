@@ -86,9 +86,11 @@ export default function EddySaysReport() {
           {globalUpdate?.summaryText && (
             <button
               onClick={() => setShowFull(!showFull)}
+              aria-expanded={showFull}
+              aria-label={showFull ? 'Show less of Eddy report' : 'Show full Eddy report'}
               className="flex items-center gap-1 text-[11px] font-semibold text-neutral-400 hover:text-neutral-600 transition-colors mt-1.5"
             >
-              {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" /></> : <>Full report <ChevronDown className="w-2.5 h-2.5" /></>}
+              {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" aria-hidden="true" /></> : <>Full report <ChevronDown className="w-2.5 h-2.5" aria-hidden="true" /></>}
             </button>
           )}
         </div>
