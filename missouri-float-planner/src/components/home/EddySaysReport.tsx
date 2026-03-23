@@ -41,7 +41,18 @@ export default function EddySaysReport() {
   }, []);
 
   if (loading || groupsLoading) {
-    return <div className="bg-neutral-100 rounded-lg h-24 animate-pulse" />;
+    return (
+      <div className="bg-white rounded-2xl border border-neutral-200 p-5 md:p-6 shadow-sm animate-pulse">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-neutral-200 rounded-full" />
+          <div className="flex-1 min-w-0">
+            <div className="h-3 bg-neutral-200 rounded w-16 mb-2.5" />
+            <div className="h-3.5 bg-neutral-100 rounded w-full mb-1.5" />
+            <div className="h-3.5 bg-neutral-100 rounded w-3/4" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Fallback to buildRiversSummary if no global update
