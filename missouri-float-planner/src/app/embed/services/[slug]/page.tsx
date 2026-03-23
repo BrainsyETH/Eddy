@@ -73,7 +73,8 @@ export default function EmbedServicesPage() {
   const theme = searchParams.get('theme') || 'light';
   const typeFilter = searchParams.get('type') || '';
   const excludeFilter = searchParams.get('exclude') || '';
-  const highlight = searchParams.get('highlight') || '';
+  const highlightParam = searchParams.get('highlight') || '';
+  const highlightSlugs = highlightParam ? highlightParam.split(',').map(s => s.trim()).filter(Boolean) : [];
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
 
@@ -219,7 +220,7 @@ export default function EmbedServicesPage() {
             )}
 
             {grouped[type]?.map(service => {
-              const isHighlighted = highlight === service.slug;
+              const isHighlighted = highlightSlugs.includes(service.slug);
               const highlightBorder = isHighlighted ? '#2D7889' : borderColor;
               const highlightBg = isHighlighted
                 ? (isDark ? '#1a2f35' : '#f0f9fb')
@@ -304,50 +305,47 @@ export default function EmbedServicesPage() {
                   )}
 
                   {/* Contact row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {service.phone && (
-                      <a
-                        href={`tel:${service.phone}`}
-                        style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
-                      >
-                        {service.phone}
-                      </a>
-                    )}
-                    {service.isNpsCampground && service.reservationUrl && (
-                      <a
-                        href={service.reservationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 11, color: '#059669', textDecoration: 'none', fontWeight: 600 }}
-                      >
-                        Reserve &rarr;
-                      </a>
-                    )}
-                    {service.website && !service.isNpsCampground && (
-                      <a
-                        href={service.website.startsWith('http') ? service.website : `https://${service.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}
-                      >
-                        Website &rarr;
-                      </a>
-                    )}
-                    {service.latitude && service.longitude && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${service.latitude},${service.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 2 }}
-                      >
-                        <span style={{ fontSize: 12 }}>&#x1F4CD;</span> Map
-                      </a>
-                    )}
-                    {!service.phone && !service.website && !service.isNpsCampground && service.city && (
-                      <span style={{ fontSize: 11, color: textSecondary }}>
-                        {service.city}, {service.state}
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontSize: 11 }}>
+                    {(() => {
+                      const links: React.ReactNode[] = [];
+                      if (service.phone) {
+                        links.push(
+                          <a key="phone" href={`tel:${service.phone}`} style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
+                            {service.phone}
+                          </a>
+                        );
+                      }
+                      if (service.isNpsCampground && service.reservationUrl) {
+                        links.push(
+                          <a key="reserve" href={service.reservationUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#059669', textDecoration: 'none', fontWeight: 600 }}>
+                            Reserve
+                          </a>
+                        );
+                      }
+                      if (service.website && !service.isNpsCampground) {
+                        links.push(
+                          <a key="website" href={service.website.startsWith('http') ? service.website : `https://${service.website}`} target="_blank" rel="noopener noreferrer" style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}>
+                            Website
+                          </a>
+                        );
+                      }
+                      if (service.latitude && service.longitude) {
+                        links.push(
+                          <a key="map" href={`https://www.google.com/maps/search/?api=1&query=${service.latitude},${service.longitude}`} target="_blank" rel="noopener noreferrer" style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}>
+                            Map
+                          </a>
+                        );
+                      }
+                      if (links.length === 0 && service.city) {
+                        return <span style={{ color: textSecondary }}>{service.city}, {service.state}</span>;
+                      }
+                      return links.map((link, i) => (
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          {link}
+                          {i < links.length - 1 && <span style={{ margin: '0 6px', color: isDark ? '#555' : '#ccc' }}>&middot;</span>}
+                        </span>
+                      ));
+                    })()}
                   </div>
 
                   {/* Seasonal note */}
