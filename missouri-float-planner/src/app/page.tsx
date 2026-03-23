@@ -96,7 +96,7 @@ export default async function Home() {
             href="/gauges"
             className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors no-underline"
           >
-            Full River Reports
+            View all rivers
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
