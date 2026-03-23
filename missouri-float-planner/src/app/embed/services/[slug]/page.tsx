@@ -72,6 +72,7 @@ export default function EmbedServicesPage() {
   const slug = params.slug as string;
   const theme = searchParams.get('theme') || 'light';
   const typeFilter = searchParams.get('type') || '';
+  const excludeFilter = searchParams.get('exclude') || '';
   const highlight = searchParams.get('highlight') || '';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
@@ -99,9 +100,12 @@ export default function EmbedServicesPage() {
           let items: ServiceItem[] = data.services || [];
           // Filter by status
           items = items.filter(s => s.status === 'active' || s.status === 'seasonal');
-          // Filter by type if specified
+          // Filter by type (include) or exclude
           if (typeFilter) {
             items = items.filter(s => s.type === typeFilter);
+          } else if (excludeFilter) {
+            const excludeTypes = excludeFilter.split(',').map(t => t.trim());
+            items = items.filter(s => !excludeTypes.includes(s.type));
           }
           setServices(items);
         }
@@ -112,7 +116,7 @@ export default function EmbedServicesPage() {
       }
     }
     fetchData();
-  }, [slug, typeFilter]);
+  }, [slug, typeFilter, excludeFilter]);
 
   const bg = isDark ? '#1a1a1a' : '#ffffff';
   const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';

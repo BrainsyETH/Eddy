@@ -36,6 +36,8 @@ export default function EmbedPlannerPage() {
   const theme = searchParams.get('theme') || 'light';
   const preselectedRiver = searchParams.get('river') || '';
   const partner = searchParams.get('partner') || ''; // (#19) partner branding
+  const mode = searchParams.get('mode') || ''; // 'shuttle' for shuttle-focused view
+  const isShuttleMode = mode === 'shuttle';
   const isDark = theme === 'dark';
 
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
@@ -45,6 +47,8 @@ export default function EmbedPlannerPage() {
   const [selectedTakeOut, setSelectedTakeOut] = useState('');
   const [loadingAP, setLoadingAP] = useState(false);
   const [tripSummary, setTripSummary] = useState<{ distanceMiles: number; estimatedMinutes: number } | null>(null);
+  const [shuttleInfo, setShuttleInfo] = useState<{ minutes: number; miles: number; formatted: string; routeSummary: string | null } | null>(null);
+  const [loadingShuttle, setLoadingShuttle] = useState(false);
   const [nearbyOutfitters, setNearbyOutfitters] = useState<{ name: string; phone: string | null; website: string | null; latitude: number | null; longitude: number | null; city: string | null; servicesOffered: string[] }[]>([]);
 
   // Get the selected river's condition (#17)
@@ -120,6 +124,29 @@ export default function EmbedPlannerPage() {
     }
   }, [selectedPutIn, selectedTakeOut, accessPoints]);
 
+  // Fetch shuttle route when in shuttle mode and both points selected
+  useEffect(() => {
+    if (!isShuttleMode || !selectedPutIn || !selectedTakeOut || !selectedRiverData) {
+      setShuttleInfo(null);
+      return;
+    }
+    setLoadingShuttle(true);
+    fetch(`/api/plan?riverId=${selectedRiverData.id}&startId=${selectedPutIn}&endId=${selectedTakeOut}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.plan?.driveBack) {
+          setShuttleInfo({
+            minutes: data.plan.driveBack.minutes,
+            miles: data.plan.driveBack.miles,
+            formatted: data.plan.driveBack.formatted,
+            routeSummary: data.plan.driveBack.routeSummary,
+          });
+        }
+      })
+      .catch(() => setShuttleInfo(null))
+      .finally(() => setLoadingShuttle(false));
+  }, [isShuttleMode, selectedPutIn, selectedTakeOut, selectedRiverData]);
+
   // Filter take-out to downstream of put-in
   const takeOutOptions = useMemo(() => {
     if (!selectedPutIn) return accessPoints;
@@ -167,7 +194,7 @@ export default function EmbedPlannerPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <Image src={EDDY_CANOE} alt="Eddy" width={36} height={36} style={{ width: 32, height: 32, objectFit: 'contain' }} />
-        <div style={{ fontWeight: 700, fontSize: 15 }}>Plan Your Float</div>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>{isShuttleMode ? 'Shuttle Route' : 'Plan Your Float'}</div>
       </div>
 
       {/* River Select with condition dot (#17) */}
@@ -313,6 +340,35 @@ export default function EmbedPlannerPage() {
                 </span>
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Shuttle route info (shuttle mode only) */}
+      {isShuttleMode && canSubmit && loadingShuttle && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', marginBottom: 10, borderRadius: 8, background: cardBg, border: `1px solid ${borderColor}`, fontSize: 12, color: textSecondary }}>
+          Calculating shuttle route...
+        </div>
+      )}
+      {isShuttleMode && canSubmit && shuttleInfo && !loadingShuttle && (
+        <div style={{ padding: '10px 12px', marginBottom: 10, borderRadius: 8, background: cardBg, border: `1px solid ${borderColor}` }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+            Shuttle Drive Back
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, fontSize: 12, color: textSecondary }}>
+            <div>
+              <span style={{ fontWeight: 700, color: textPrimary, fontSize: 16 }}>{shuttleInfo.formatted}</span>
+            </div>
+            <div style={{ width: 1, height: 20, background: borderColor }} />
+            <div>
+              <span style={{ fontWeight: 700, color: textPrimary, fontSize: 16 }}>{shuttleInfo.miles.toFixed(1)}</span>
+              <span style={{ marginLeft: 3 }}>mi</span>
+            </div>
+          </div>
+          {shuttleInfo.routeSummary && (
+            <div style={{ textAlign: 'center', fontSize: 11, color: textSecondary, marginTop: 4 }}>
+              {shuttleInfo.routeSummary}
+            </div>
           )}
         </div>
       )}

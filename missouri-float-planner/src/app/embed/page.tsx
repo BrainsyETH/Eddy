@@ -4,7 +4,7 @@
 // API docs-style guide for adding Eddy river widgets to external websites.
 // Left sidebar navigation with structured widget documentation.
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Copy, Check, ExternalLink, ChevronDown } from 'lucide-react';
@@ -40,6 +40,7 @@ const NAV_SECTIONS = [
       { id: 'float-planner', label: 'Float Trip Planner' },
       { id: 'services-directory', label: 'Services Directory' },
       { id: 'condition-badge', label: 'Condition Badge' },
+      { id: 'shuttle-route', label: 'Shuttle Route' },
     ],
   },
   {
@@ -106,8 +107,8 @@ function WidgetPreview({ src, height, theme }: { src: string; height: number; th
   return (
     <div className="mb-4">
       <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
-      <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-        <div style={{ maxWidth: 480 }}>
+      <div className={`rounded-xl border-2 p-4 flex justify-center ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+        <div className="w-full" style={{ maxWidth: 540 }}>
           <iframe
             src={src}
             width="100%"
@@ -133,10 +134,42 @@ function ParamRow({ name, values, description }: { name: string; values: string;
   );
 }
 
+// All section IDs for scroll tracking
+const ALL_SECTION_IDS = NAV_SECTIONS.flatMap(s => s.items.map(i => i.id));
+
 export default function EmbedPage() {
   const [selectedRiver, setSelectedRiver] = useState('current');
   const [selectedRivers, setSelectedRivers] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [activeSection, setActiveSection] = useState('configuration');
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Scroll-spy: track which section is in view
+  const setupObserver = useCallback(() => {
+    observerRef.current?.disconnect();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the topmost visible section
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 0 }
+    );
+    ALL_SECTION_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    observerRef.current = observer;
+  }, []);
+
+  useEffect(() => {
+    setupObserver();
+    return () => observerRef.current?.disconnect();
+  }, [setupObserver]);
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const selectedRiverName = RIVER_OPTIONS.find(r => r.slug === selectedRiver)?.name || '';
@@ -179,6 +212,14 @@ export default function EmbedPage() {
   width="280" height="44"
   style="border:none; overflow:hidden;"
   title="${selectedRiverName} - Condition Badge from Eddy"
+  loading="lazy"
+></iframe>`;
+
+  const shuttleCode = `<iframe
+  src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}&mode=shuttle"
+  width="100%" height="320"
+  style="border:none; border-radius:12px; max-width:600px;"
+  title="${selectedRiverName} - Shuttle Route from Eddy"
   loading="lazy"
 ></iframe>`;
 
@@ -246,7 +287,11 @@ export default function EmbedPage() {
                       <li key={item.id}>
                         <button
                           onClick={() => scrollTo(item.id)}
-                          className="block w-full text-left text-sm text-neutral-600 hover:text-primary-700 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+                          className={`block w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                            activeSection === item.id
+                              ? 'text-primary-700 bg-primary-50 font-semibold'
+                              : 'text-neutral-600 hover:text-primary-700 hover:bg-primary-50'
+                          }`}
                         >
                           {item.label}
                         </button>
@@ -448,8 +493,8 @@ export default function EmbedPage() {
 
               <div className="mt-4 bg-neutral-50 border border-neutral-200 rounded-xl p-4">
                 <h4 className="text-sm font-semibold text-neutral-800 mb-2">Filtering</h4>
-                <p className="text-xs text-neutral-600 mb-2">
-                  Filter the directory to show only specific service types:
+                <p className="text-xs text-neutral-600 mb-3">
+                  Show or hide specific service categories:
                 </p>
                 <div className="space-y-1.5">
                   <div className="text-xs">
@@ -464,7 +509,15 @@ export default function EmbedPage() {
                     <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=cabin_lodge</code>
                     <span className="text-neutral-500 ml-2">Show only cabins and lodges</span>
                   </div>
+                  <div className="text-xs mt-3 pt-3 border-t border-neutral-200">
+                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?exclude=campground</code>
+                    <span className="text-neutral-500 ml-2">Hide campgrounds, show everything else</span>
+                  </div>
                   <div className="text-xs">
+                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?exclude=outfitter,cabin_lodge</code>
+                    <span className="text-neutral-500 ml-2">Hide multiple types (comma-separated)</span>
+                  </div>
+                  <div className="text-xs mt-3 pt-3 border-t border-neutral-200">
                     <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?highlight=your-business-slug</code>
                     <span className="text-neutral-500 ml-2">Highlight your listing with a blue border</span>
                   </div>
@@ -484,7 +537,7 @@ export default function EmbedPage() {
 
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
-                <div className={`rounded-xl border-2 p-6 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+                <div className={`rounded-xl border-2 p-6 flex justify-center ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
                   <iframe
                     src={`${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}`}
                     width="280"
@@ -497,6 +550,34 @@ export default function EmbedPage() {
 
               <CodeBlock code={badgeCode} />
               <CopyButton text={badgeCode} large />
+            </section>
+
+            <hr className="border-neutral-200" />
+
+            {/* ===== SHUTTLE ROUTE ===== */}
+            <section id="shuttle-route">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-bold text-neutral-900">Shuttle Route</h2>
+                <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">New</span>
+              </div>
+              <p className="text-sm text-neutral-600 mb-4">
+                Shows the drive-back shuttle route between put-in and take-out with estimated drive time,
+                distance, and route summary (e.g. &ldquo;via US-60&rdquo;). Powered by Mapbox Directions.
+                Visitors select access points and see the shuttle info before viewing the full trip on Eddy.
+              </p>
+
+              <WidgetPreview
+                src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}&mode=shuttle`}
+                height={320}
+                theme={theme}
+              />
+              <CodeBlock code={shuttleCode} />
+              <CopyButton text={shuttleCode} large />
+
+              <p className="text-xs text-neutral-500 mt-3">
+                Uses the same Float Trip Planner with <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;mode=shuttle</code> to
+                focus on shuttle route details. Drive time adjusts for current river conditions (high water may affect road access).
+              </p>
             </section>
 
             <hr className="border-neutral-200" />
@@ -574,12 +655,13 @@ export default function EmbedPage() {
                 </div>
 
                 <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
-                  <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner</h4>
+                  <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner / Shuttle Route</h4>
                 </div>
                 <div className="px-4 py-2">
                   <table className="w-full">
                     <tbody>
                       <ParamRow name="river" values="slug" description="Pre-select a river (e.g. current, meramec)." />
+                      <ParamRow name="mode" values="shuttle" description="Focus on shuttle route details instead of full trip planner." />
                     </tbody>
                   </table>
                 </div>
@@ -590,7 +672,8 @@ export default function EmbedPage() {
                 <div className="px-4 py-2">
                   <table className="w-full">
                     <tbody>
-                      <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Filter to show only one service type." />
+                      <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type." />
+                      <ParamRow name="exclude" values="outfitter, campground, cabin_lodge" description="Hide specific types (comma-separated). Cannot be used with type." />
                       <ParamRow name="highlight" values="slug" description="Highlight a specific listing with a blue border." />
                     </tbody>
                   </table>
@@ -604,7 +687,7 @@ export default function EmbedPage() {
             <section id="api">
               <h2 className="text-xl font-bold text-neutral-900 mb-1">API Access</h2>
               <p className="text-sm text-neutral-600 mb-4">
-                Fetch data directly and build your own display. Keep requests reasonable.
+                Fetch data directly and build your own display.
               </p>
 
               <div className="space-y-4">
@@ -617,6 +700,18 @@ export default function EmbedPage() {
                 <div>
                   <CodeBlock code={`GET ${baseUrl}/api/gauges`} label="Gauges — all gauge stations with latest readings and thresholds" />
                 </div>
+              </div>
+
+              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-amber-800 mb-1">Rate Limits</h4>
+                <p className="text-xs text-amber-700">
+                  API endpoints are rate limited per IP. The rivers and gauges endpoints allow
+                  60 requests per minute. The services endpoint allows 60 requests per minute.
+                  The plan endpoint allows 30 requests per minute.
+                  Exceeding the limit returns a <code className="bg-amber-100 px-1 py-0.5 rounded">429</code> response
+                  with a <code className="bg-amber-100 px-1 py-0.5 rounded">Retry-After</code> header.
+                  Embed widgets handle caching automatically.
+                </p>
               </div>
             </section>
 

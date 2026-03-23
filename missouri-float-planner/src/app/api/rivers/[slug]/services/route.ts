@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,10 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    // Rate limit: 60 requests per IP per minute
+    const rateLimitResult = rateLimit(`services:${getClientIp(request)}`, 60, 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const { slug } = await params;
     const supabase = await createClient();
 
