@@ -89,7 +89,7 @@ export default function AccessPointMarkers({
       // Note: Avoid position: relative and will-change: transform as they interfere with MapLibre's positioning
       // Use larger base size on touch devices for better tap targets
       const isTouchDevice = !supportsHoverRef.current;
-      const baseSize = isTouchDevice ? 36 : 32;
+      const baseSize = isTouchDevice ? 30 : 26;
       const el = document.createElement('div');
       el.className = 'access-point-marker';
       el.style.cssText = `
@@ -97,8 +97,8 @@ export default function AccessPointMarkers({
         width: ${baseSize * scale}px;
         height: ${baseSize * scale}px;
         border-radius: 50%;
-        border: 3px solid ${borderColor};
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1);
+        border: 2px solid ${borderColor};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
         cursor: ${onMarkerClick ? 'pointer' : 'default'};
         display: flex;
         align-items: center;
@@ -110,9 +110,9 @@ export default function AccessPointMarkers({
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
       `;
-      
+
       // Render lucide icon using React
-      const iconSize = (isTouchDevice ? 18 : 16) * scale;
+      const iconSize = (isTouchDevice ? 14 : 13) * scale;
       let IconComponent: LucideIcon;
       
       if (iconType === 'putin') {
@@ -132,18 +132,18 @@ export default function AccessPointMarkers({
 
       // Hover effect - no transform to prevent marker movement
       el.addEventListener('mouseenter', () => {
-        const glowColor = isPutIn 
+        const glowColor = isPutIn
           ? 'rgba(71, 133, 89, 0.4)' // river-forest
-          : isTakeOut 
+          : isTakeOut
           ? 'rgba(249, 93, 155, 0.4)' // sky-warm
           : 'rgba(57, 160, 202, 0.3)'; // river-water
-        el.style.boxShadow = `0 6px 20px rgba(0,0,0,0.4), 0 0 20px ${glowColor}`;
-        el.style.borderWidth = '4px';
+        el.style.boxShadow = `0 4px 14px rgba(0,0,0,0.35), 0 0 12px ${glowColor}`;
+        el.style.borderWidth = '3px';
         el.style.opacity = '1';
       });
       el.addEventListener('mouseleave', () => {
-        el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1)';
-        el.style.borderWidth = '3px';
+        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
+        el.style.borderWidth = '2px';
         el.style.opacity = '1';
       });
 
