@@ -495,31 +495,35 @@ export default function EmbedWidgetPage() {
               >
                 {primaryGauge.conditionLabel}
               </div>
-            </div>
-
-            {/* Toggle for secondary gauges */}
-            {secondaryGauges.length > 0 && (
-              <>
+              {/* Expand arrow for secondary gauges */}
+              {secondaryGauges.length > 0 && (
                 <button
                   onClick={() => setShowAllGauges(prev => !prev)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 4,
-                    padding: '4px 8px',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: '#2D7889',
+                    width: 20,
+                    height: 20,
+                    padding: 0,
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
-                    borderRadius: 6,
+                    flexShrink: 0,
+                    borderRadius: 4,
+                    color: textSecondary,
+                    transition: 'color 0.15s',
                   }}
+                  title={showAllGauges ? 'Hide gauges' : `Show ${secondaryGauges.length} more`}
                 >
-                  {showAllGauges ? 'Hide' : `Show ${secondaryGauges.length} more gauge${secondaryGauges.length > 1 ? 's' : ''}`}
-                  <span style={{ fontSize: 8, transform: showAllGauges ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                  <span style={{ fontSize: 10, transform: showAllGauges ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', lineHeight: 1 }}>▼</span>
                 </button>
+              )}
+            </div>
+
+            {/* Secondary gauges (toggled by arrow) */}
+            {secondaryGauges.length > 0 && (
+              <>
                 {showAllGauges && secondaryGauges.map((gauge) => {
                   const trend = gaugeTrends[gauge.usgsSiteId] ?? null;
                   return (

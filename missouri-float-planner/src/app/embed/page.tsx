@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Copy, Check, ExternalLink, ChevronDown } from 'lucide-react';
+import { Copy, Check, ExternalLink, ChevronDown, X, Search } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
@@ -143,7 +143,11 @@ export default function EmbedPage() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [activeSection, setActiveSection] = useState('configuration');
   const [serviceFilter, setServiceFilter] = useState<'all' | 'outfitter' | 'campground' | 'cabin_lodge'>('all');
-  const [highlightSlug, setHighlightSlug] = useState('');
+  const [highlightSlugs, setHighlightSlugs] = useState<string[]>([]);
+  const [servicesList, setServicesList] = useState<{ slug: string; name: string; type: string }[]>([]);
+  const [highlightSearch, setHighlightSearch] = useState('');
+  const [highlightDropdownOpen, setHighlightDropdownOpen] = useState(false);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Scroll-spy: track which section is in view
@@ -172,6 +176,34 @@ export default function EmbedPage() {
     setupObserver();
     return () => observerRef.current?.disconnect();
   }, [setupObserver]);
+
+  // Fetch services list for the selected river
+  useEffect(() => {
+    fetch(`/api/rivers/${selectedRiver}/services`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.services) {
+          setServicesList(
+            data.services
+              .filter((s: { status: string }) => s.status === 'active' || s.status === 'seasonal')
+              .map((s: { slug: string; name: string; type: string }) => ({ slug: s.slug, name: s.name, type: s.type }))
+          );
+        }
+      })
+      .catch(() => {});
+    setHighlightSlugs([]);
+  }, [selectedRiver]);
+
+  // Close highlight dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (highlightRef.current && !highlightRef.current.contains(e.target as Node)) {
+        setHighlightDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const selectedRiverName = RIVER_OPTIONS.find(r => r.slug === selectedRiver)?.name || '';
@@ -203,7 +235,7 @@ export default function EmbedPage() {
 
   const servicesParams = new URLSearchParams({ theme });
   if (serviceFilter !== 'all') servicesParams.set('type', serviceFilter);
-  if (highlightSlug) servicesParams.set('highlight', highlightSlug);
+  if (highlightSlugs.length > 0) servicesParams.set('highlight', highlightSlugs.join(','));
   const servicesQueryString = servicesParams.toString();
 
   const servicesCode = `<iframe
@@ -507,16 +539,73 @@ export default function EmbedPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-600 mb-1">
-                    Highlight a listing (optional)
+                    Highlight listings (optional)
                   </label>
-                  <input
-                    type="text"
-                    value={highlightSlug}
-                    onChange={e => setHighlightSlug(e.target.value)}
-                    placeholder="e.g. akers-ferry"
-                    className="w-full max-w-xs px-3 py-1.5 border border-neutral-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
-                  />
-                  <p className="text-xs text-neutral-400 mt-1">Enter your business slug to highlight it with a blue border.</p>
+                  {/* Selected chips */}
+                  {highlightSlugs.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {highlightSlugs.map(slug => {
+                        const svc = servicesList.find(s => s.slug === slug);
+                        return (
+                          <span
+                            key={slug}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 border border-primary-200 text-primary-700 text-xs font-medium rounded-md"
+                          >
+                            {svc?.name || slug}
+                            <button
+                              onClick={() => setHighlightSlugs(prev => prev.filter(s => s !== slug))}
+                              className="hover:text-primary-900 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Searchable dropdown */}
+                  <div className="relative" ref={highlightRef}>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={highlightSearch}
+                        onChange={e => { setHighlightSearch(e.target.value); setHighlightDropdownOpen(true); }}
+                        onFocus={() => setHighlightDropdownOpen(true)}
+                        placeholder="Search listings..."
+                        className="w-full max-w-xs pl-8 pr-3 py-1.5 border border-neutral-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+                      />
+                    </div>
+                    {highlightDropdownOpen && (
+                      <div className="absolute z-10 mt-1 w-full max-w-xs bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {servicesList
+                          .filter(s => !highlightSlugs.includes(s.slug))
+                          .filter(s =>
+                            !highlightSearch ||
+                            s.name.toLowerCase().includes(highlightSearch.toLowerCase()) ||
+                            s.slug.toLowerCase().includes(highlightSearch.toLowerCase())
+                          )
+                          .map(s => (
+                            <button
+                              key={s.slug}
+                              onClick={() => {
+                                setHighlightSlugs(prev => [...prev, s.slug]);
+                                setHighlightSearch('');
+                                setHighlightDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary-50 transition-colors flex items-center justify-between"
+                            >
+                              <span className="truncate">{s.name}</span>
+                              <span className="text-[10px] text-neutral-400 ml-2 flex-shrink-0">{s.type === 'outfitter' ? 'Outfitter' : s.type === 'campground' ? 'Campground' : 'Cabin & Lodge'}</span>
+                            </button>
+                          ))}
+                        {servicesList.filter(s => !highlightSlugs.includes(s.slug)).filter(s => !highlightSearch || s.name.toLowerCase().includes(highlightSearch.toLowerCase()) || s.slug.toLowerCase().includes(highlightSearch.toLowerCase())).length === 0 && (
+                          <div className="px-3 py-2 text-xs text-neutral-400">No matching listings</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-1">Select listings to highlight with a blue border.</p>
                 </div>
               </div>
 
@@ -696,7 +785,7 @@ export default function EmbedPage() {
                   <table className="w-full">
                     <tbody>
                       <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type. Use the filter buttons above to set this." />
-                      <ParamRow name="highlight" values="slug" description="Highlight a specific listing with a blue border." />
+                      <ParamRow name="highlight" values="slug,slug,..." description="Highlight one or more listings with a blue border. Comma-separated slugs." />
                     </tbody>
                   </table>
                 </div>
