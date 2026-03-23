@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, Car, ParkingSquare, Bath } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
@@ -461,87 +461,6 @@ function AlongYourRoute({ items }: { items: RouteItem[] }) {
   );
 }
 
-// Logistics badges — always-visible summary chips for road, parking, facilities
-function LogisticsBadges({ point }: { point: AccessPoint }) {
-  const badges: { icon: React.ReactNode; label: string; colorClass: string }[] = [];
-
-  // Road surface badge
-  if (point.roadSurface && point.roadSurface.length > 0) {
-    const primary = point.roadSurface[0];
-    const isPaved = primary === 'paved';
-    const is4wd = primary === '4wd_required';
-    const isSeasonal = primary === 'seasonal';
-    badges.push({
-      icon: <Car size={12} />,
-      label: formatRoadSurface(primary),
-      colorClass: isPaved ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-        : is4wd ? 'bg-amber-50 text-amber-700 border-amber-200'
-        : isSeasonal ? 'bg-blue-50 text-blue-700 border-blue-200'
-        : 'bg-neutral-50 text-neutral-600 border-neutral-200',
-    });
-  }
-
-  // Parking badge
-  if (point.parkingCapacity) {
-    const isLimited = point.parkingCapacity === 'limited' || point.parkingCapacity === 'roadside';
-    badges.push({
-      icon: <ParkingSquare size={12} />,
-      label: formatParkingCapacity(point.parkingCapacity),
-      colorClass: isLimited ? 'bg-amber-50 text-amber-700 border-amber-200'
-        : 'bg-neutral-50 text-neutral-600 border-neutral-200',
-    });
-  }
-
-  // Facilities badge
-  if (point.facilities || point.npsCampground) {
-    const hasCamping = !!point.npsCampground;
-    const hasRestrooms = point.facilities?.toLowerCase().includes('restroom') ||
-      point.facilities?.toLowerCase().includes('privy') ||
-      point.facilities?.toLowerCase().includes('toilet') ||
-      (point.npsCampground?.amenities?.toilets && point.npsCampground.amenities.toilets.length > 0);
-    badges.push({
-      icon: <Bath size={12} />,
-      label: hasCamping ? 'Campground' : hasRestrooms ? 'Restrooms' : 'Facilities',
-      colorClass: hasCamping ? 'bg-teal-50 text-teal-700 border-teal-200'
-        : 'bg-neutral-50 text-neutral-600 border-neutral-200',
-    });
-  }
-
-  // Fee badge
-  if (point.feeRequired) {
-    badges.push({
-      icon: <span className="text-[10px] font-bold">$</span>,
-      label: 'Fee',
-      colorClass: 'bg-amber-50 text-amber-700 border-amber-200',
-    });
-  }
-
-  // Private badge
-  if (!point.isPublic) {
-    badges.push({
-      icon: null,
-      label: 'Private',
-      colorClass: 'bg-neutral-100 text-neutral-500 border-neutral-200',
-    });
-  }
-
-  if (badges.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-1.5 px-3 py-2 border-t border-neutral-100">
-      {badges.map((badge, i) => (
-        <span
-          key={i}
-          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full border ${badge.colorClass}`}
-        >
-          {badge.icon}
-          {badge.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // Access Point Detail Card (used in both single and dual selection states)
 function AccessPointDetailCard({
   point,
@@ -633,9 +552,6 @@ function AccessPointDetailCard({
         </div>
       )}
 
-      {/* Logistics badges — always visible at a glance */}
-      <LogisticsBadges point={point} />
-
       {/* Description as the expandable toggle (replaces Hide/Show details) */}
       {point.description && showExpandToggle && (
         <button
@@ -655,137 +571,152 @@ function AccessPointDetailCard({
             <p className="text-sm text-neutral-600 mb-3">{point.description}</p>
           )}
 
-          {/* Road Access section */}
-          {((point.roadSurface && point.roadSurface.length > 0) || point.roadAccess) && (
-            <CollapsibleDetailSection title="Road Access" iconUrl={DETAIL_ICONS.road} defaultOpen={true}>
-              <div className="space-y-2">
-                {point.roadSurface && point.roadSurface.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    {point.roadSurface.map((surface, idx) => (
-                      <span
-                        key={idx}
-                        className={`px-2 py-0.5 text-xs rounded ${
-                          surface === 'paved' ? 'bg-green-100 text-green-700' :
-                          surface === '4wd_required' ? 'bg-amber-100 text-amber-700' :
-                          surface === 'seasonal' ? 'bg-blue-100 text-blue-700' :
-                          'bg-neutral-100 text-neutral-600'
-                        }`}
-                      >
-                        {formatRoadSurface(surface)}
-                      </span>
-                    ))}
+          {/* Access & Facilities — combined section */}
+          {((point.roadSurface && point.roadSurface.length > 0) || point.roadAccess || point.parkingCapacity || point.parkingInfo || point.facilities || nps) && (
+            <CollapsibleDetailSection title="Access & Facilities" iconUrl={DETAIL_ICONS.road} defaultOpen={true}>
+              <div className="space-y-3">
+                {/* Road Access */}
+                {((point.roadSurface && point.roadSurface.length > 0) || point.roadAccess) && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Image src={DETAIL_ICONS.road} alt="" width={14} height={14} />
+                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Road</span>
+                    </div>
+                    {point.roadSurface && point.roadSurface.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 items-center mb-1">
+                        {point.roadSurface.map((surface, idx) => (
+                          <span
+                            key={idx}
+                            className={`px-2 py-0.5 text-xs rounded ${
+                              surface === 'paved' ? 'bg-green-100 text-green-700' :
+                              surface === '4wd_required' ? 'bg-amber-100 text-amber-700' :
+                              surface === 'seasonal' ? 'bg-blue-100 text-blue-700' :
+                              'bg-neutral-100 text-neutral-600'
+                            }`}
+                          >
+                            {formatRoadSurface(surface)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {point.roadAccess && (
+                      <p className="text-sm text-neutral-600">{point.roadAccess}</p>
+                    )}
                   </div>
                 )}
-                {point.roadAccess && (
-                  <p className="text-sm">{point.roadAccess}</p>
-                )}
-              </div>
-            </CollapsibleDetailSection>
-          )}
 
-          {/* Parking section */}
-          {(point.parkingCapacity || point.parkingInfo) && (
-            <CollapsibleDetailSection title="Parking" iconUrl={DETAIL_ICONS.parking} defaultOpen={true}>
-              <div className="space-y-1.5">
-                {point.parkingCapacity && (
-                  <span className="text-sm font-medium">{formatParkingCapacity(point.parkingCapacity)}</span>
-                )}
-                {point.parkingInfo && (
-                  <p className="text-sm">{point.parkingInfo}</p>
-                )}
-              </div>
-            </CollapsibleDetailSection>
-          )}
-
-          {/* Facilities section (with NPS campground nested inside) */}
-          {(point.facilities || nps) && (
-            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={true}>
-              <div className="space-y-3">
-                {point.facilities && (
-                  <p>{point.facilities}</p>
+                {/* Parking */}
+                {(point.parkingCapacity || point.parkingInfo) && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Image src={DETAIL_ICONS.parking} alt="" width={14} height={14} />
+                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Parking</span>
+                    </div>
+                    {point.parkingCapacity && (
+                      <p className="text-sm font-medium text-neutral-700">{formatParkingCapacity(point.parkingCapacity)}</p>
+                    )}
+                    {point.parkingInfo && (
+                      <p className="text-sm text-neutral-600">{point.parkingInfo}</p>
+                    )}
+                  </div>
                 )}
 
-                {/* NPS Campground Info nested inside Facilities */}
-                {nps && (
-                  <CollapsibleDetailSection title="NPS Campground Info" iconUrl={DETAIL_ICONS.camping} defaultOpen={true}>
-                    <div className="space-y-3">
-                      {nps.fees.length > 0 && (
-                        <div className="space-y-1">
-                          {nps.fees.map((fee, i) => (
-                            <div key={i} className="flex justify-between items-start gap-3">
-                              <span className="text-sm text-neutral-600">{fee.title}</span>
-                              <span className="text-sm text-neutral-900 font-semibold whitespace-nowrap">
-                                ${parseFloat(fee.cost).toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
+                {/* Facilities */}
+                {(point.facilities || nps) && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Image src={DETAIL_ICONS.facilities} alt="" width={14} height={14} />
+                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Facilities</span>
+                    </div>
+                    {point.facilities && (
+                      <p className="text-sm text-neutral-600">{point.facilities}</p>
+                    )}
+
+                    {/* NPS Campground Info */}
+                    {nps && (
+                      <div className="mt-2 p-2.5 bg-neutral-50 rounded-lg space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Image src={DETAIL_ICONS.camping} alt="" width={14} height={14} />
+                          <span className="text-xs font-semibold text-neutral-600">NPS Campground</span>
                         </div>
-                      )}
-                      {nps.reservationUrl && (
-                        <a
-                          href={nps.reservationUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                        >
-                          <span className="text-sm text-primary-700 font-medium">Reserve on Recreation.gov</span>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600 flex-shrink-0">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                          </svg>
-                        </a>
-                      )}
-                      {nps.totalSites > 0 && (
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
-                          <div className="flex justify-between"><span className="text-neutral-500">Total sites</span><span className="font-medium">{nps.totalSites}</span></div>
-                          {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
-                          {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
-                          {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
+                        {nps.fees.length > 0 && (
+                          <div className="space-y-0.5">
+                            {nps.fees.map((fee, i) => (
+                              <div key={i} className="flex justify-between items-start gap-3">
+                                <span className="text-xs text-neutral-600">{fee.title}</span>
+                                <span className="text-xs text-neutral-900 font-semibold whitespace-nowrap">
+                                  ${parseFloat(fee.cost).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {nps.reservationUrl && (
+                          <a
+                            href={nps.reservationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-between gap-2 p-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                          >
+                            <span className="text-xs text-primary-700 font-medium">Reserve on Recreation.gov</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600 flex-shrink-0">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                          </a>
+                        )}
+                        {nps.totalSites > 0 && (
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                            <div className="flex justify-between"><span className="text-neutral-500">Total sites</span><span className="font-medium">{nps.totalSites}</span></div>
+                            {nps.sitesFirstCome > 0 && <div className="flex justify-between"><span className="text-neutral-500">First-come</span><span className="font-medium">{nps.sitesFirstCome}</span></div>}
+                            {nps.sitesReservable > 0 && <div className="flex justify-between"><span className="text-neutral-500">Reservable</span><span className="font-medium">{nps.sitesReservable}</span></div>}
+                            {nps.sitesGroup > 0 && <div className="flex justify-between"><span className="text-neutral-500">Group</span><span className="font-medium">{nps.sitesGroup}</span></div>}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1.5">
+                          {nps.amenities.toilets.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                              <Tent className="w-3 h-3" />
+                              {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
+                               nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
+                            </span>
+                          )}
+                          {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                              <Droplets className="w-3 h-3" />Water
+                            </span>
+                          )}
+                          {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                              <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
+                            </span>
+                          )}
+                          {nps.amenities.firewoodForSale === 'Yes' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                              <Flame className="w-3 h-3" />Firewood
+                            </span>
+                          )}
+                          {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
+                              <Trash2 className="w-3 h-3" />Trash
+                            </span>
+                          )}
                         </div>
-                      )}
-                      <div className="flex flex-wrap gap-1.5">
-                        {nps.amenities.toilets.length > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                            <Tent className="w-3 h-3" />
-                            {nps.amenities.toilets.some(t => t.toLowerCase().includes('flush')) ? 'Flush toilets' :
-                             nps.amenities.toilets.some(t => t.toLowerCase().includes('vault')) ? 'Vault toilets' : 'Restrooms'}
-                          </span>
-                        )}
-                        {nps.amenities.potableWater.length > 0 && !nps.amenities.potableWater.every(w => w === 'No water') && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                            <Droplets className="w-3 h-3" />Water
-                          </span>
-                        )}
-                        {nps.amenities.cellPhoneReception && nps.amenities.cellPhoneReception !== 'No' && nps.amenities.cellPhoneReception !== 'Unknown' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                            <Phone className="w-3 h-3" />Cell: {nps.amenities.cellPhoneReception}
-                          </span>
-                        )}
-                        {nps.amenities.firewoodForSale === 'Yes' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                            <Flame className="w-3 h-3" />Firewood
-                          </span>
-                        )}
-                        {nps.amenities.trashCollection && nps.amenities.trashCollection !== 'No' && nps.amenities.trashCollection !== 'Unknown' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs">
-                            <Trash2 className="w-3 h-3" />Trash
-                          </span>
+                        {nps.npsUrl && (
+                          <a
+                            href={nps.npsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-primary-600 hover:underline"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            View on NPS.gov
+                          </a>
                         )}
                       </div>
-                      {nps.npsUrl && (
-                        <a
-                          href={nps.npsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                          </svg>
-                          View on NPS.gov
-                        </a>
-                      )}
-                    </div>
-                  </CollapsibleDetailSection>
+                    )}
+                  </div>
                 )}
               </div>
             </CollapsibleDetailSection>
@@ -844,8 +775,8 @@ function AccessPointDetailCard({
       )}
 
       {/* Navigation Apps - Always visible */}
-      <div className="p-3 border-t border-neutral-100">
-        <div className="grid grid-cols-4 gap-1.5">
+      <div className="px-3 py-2 border-t border-neutral-100">
+        <div className="grid grid-cols-4 gap-1">
           {generateNavLinks(
             { lat: point.coordinates.lat, lng: point.coordinates.lng, label: point.name },
             point.directionsOverride
@@ -853,22 +784,22 @@ function AccessPointDetailCard({
             <button
               key={link.app}
               onClick={() => handleNavClick(link, detectPlatform())}
-              className="flex flex-col items-center justify-center gap-1 p-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[56px]"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-1 bg-neutral-50 border border-neutral-200 rounded-md hover:border-primary-400 hover:bg-primary-50 transition-colors"
             >
-              <div className="flex items-center justify-center w-6 h-6">
+              <div className="flex items-center justify-center w-4 h-4 flex-shrink-0">
                 {NAV_APP_ICONS[link.app] ? (
                   <Image
                     src={NAV_APP_ICONS[link.app]}
                     alt={link.label}
-                    width={24}
-                    height={24}
-                    className="rounded object-contain"
+                    width={16}
+                    height={16}
+                    className="rounded-sm object-contain"
                   />
                 ) : (
-                  <span className="text-base">{link.icon}</span>
+                  <span className="text-xs">{link.icon}</span>
                 )}
               </div>
-              <span className="text-[10px] font-medium text-neutral-700 text-center">{link.label}</span>
+              <span className="text-[10px] font-medium text-neutral-600">{link.label}</span>
             </button>
           ))}
         </div>
