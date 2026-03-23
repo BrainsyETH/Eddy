@@ -9,7 +9,6 @@ import Image from 'next/image';
 import { Copy, Check, ExternalLink, ChevronDown } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 
-const EDDY_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 const RIVER_OPTIONS = [
