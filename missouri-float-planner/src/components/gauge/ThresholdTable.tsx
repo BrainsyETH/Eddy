@@ -93,7 +93,7 @@ export default function ThresholdTable({
     });
   }
 
-  // 2. Okay — levelLow to (levelOptimalMin - decrement)
+  // 2. Good — levelLow to (levelOptimalMin - decrement)
   if (tv.levelLow !== null || tv.levelOptimalMin !== null) {
     const lower = tv.levelLow;
     const upper = tv.levelOptimalMin !== null ? +(tv.levelOptimalMin - decrement).toFixed(activeUnit === 'cfs' ? 0 : 2) : null;

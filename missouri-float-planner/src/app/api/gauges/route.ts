@@ -92,6 +92,23 @@ export interface ThresholdDescriptions {
   flood?: string;
 }
 
+/**
+ * Maps legacy DB threshold_descriptions JSON keys to new frontend keys.
+ * DB may store "okay" and "optimal" — frontend expects "good" and "flowing".
+ */
+function mapThresholdDescriptionKeys(
+  raw: Record<string, string> | null | undefined
+): ThresholdDescriptions | null {
+  if (!raw) return null;
+  const mapped: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === 'okay') mapped['good'] = value;
+    else if (key === 'optimal') mapped['flowing'] = value;
+    else mapped[key] = value;
+  }
+  return mapped as ThresholdDescriptions;
+}
+
 export interface GaugeStation {
   id: string;
   usgsSiteId: string;
@@ -411,7 +428,7 @@ export async function GET(request: NextRequest) {
         dischargeCfs: reading?.dischargeCfs ?? null,
         readingTimestamp: reading?.readingTimestamp ?? null,
         readingAgeHours,
-        thresholdDescriptions: station.threshold_descriptions ?? null,
+        thresholdDescriptions: mapThresholdDescriptionKeys(station.threshold_descriptions),
         thresholds,
       };
     });

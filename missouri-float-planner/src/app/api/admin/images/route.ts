@@ -14,7 +14,7 @@ const BUCKET_NAME = 'images';
 const EDDY_IMAGES = [
   {
     id: 'eddy-green',
-    name: 'Eddy Green (Optimal)',
+    name: 'Eddy Green (Flowing)',
     url: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
     category: 'eddy',
     isSystem: true,

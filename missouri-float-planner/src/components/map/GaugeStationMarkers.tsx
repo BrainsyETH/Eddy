@@ -147,14 +147,14 @@ export default function GaugeStationMarkers({
               ${t.levelOptimalMin !== null && t.levelOptimalMax !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: #059669;"></span>
-                  <span style="color: #a3a3a3;">Optimal:</span>
+                  <span style="color: #a3a3a3;">Flowing:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ft</span>
               ` : ''}
               ${t.levelLow !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: #84cc16;"></span>
-                  <span style="color: #a3a3a3;">Okay:</span>
+                  <span style="color: #a3a3a3;">Good:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelLow} ft</span>
               ` : ''}

@@ -274,7 +274,7 @@ export default function AdminDashboard() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { name: 'Green (Optimal)', key: 'green', url: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png' },
+              { name: 'Green (Flowing)', key: 'green', url: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png' },
               { name: 'Yellow (Caution)', key: 'yellow', url: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png' },
               { name: 'Red (Warning)', key: 'red', url: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png' },
               { name: 'Flag (Unknown)', key: 'flag', url: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png' },
