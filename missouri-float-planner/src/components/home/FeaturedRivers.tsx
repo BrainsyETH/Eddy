@@ -34,7 +34,34 @@ export default function FeaturedRivers() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {[0, 1].map(i => (
-          <div key={i} className="bg-neutral-50 rounded-2xl p-6 h-56 animate-pulse" />
+          <div key={i} className="bg-white border border-neutral-200 rounded-2xl overflow-hidden animate-pulse">
+            {/* Header skeleton */}
+            <div className="px-5 pt-5 pb-2 sm:px-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="h-3 bg-neutral-200 rounded w-24 mb-2.5" />
+                  <div className="h-5 bg-neutral-200 rounded w-36" />
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="h-6 bg-neutral-200 rounded-md w-16" />
+                  <div className="h-7 bg-neutral-100 rounded w-20" />
+                </div>
+              </div>
+            </div>
+            {/* Chart skeleton */}
+            <div className="px-2">
+              <div className="h-32 mx-3 mb-1 rounded-lg bg-neutral-50 relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-neutral-100 to-transparent rounded-b-lg" />
+              </div>
+            </div>
+            {/* Footer skeleton */}
+            <div className="px-5 pb-4 pt-1 sm:px-6">
+              <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                <div className="h-3 bg-neutral-100 rounded w-12" />
+                <div className="h-3 bg-neutral-100 rounded w-20" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     );
