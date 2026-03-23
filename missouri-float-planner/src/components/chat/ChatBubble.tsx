@@ -53,8 +53,9 @@ export default function ChatBubble() {
     setIsFullscreen(false);
   };
 
-  // Don't show on the dedicated /chat page
+  // Don't show on the dedicated /chat page or embedded widget pages
   if (pathname === '/chat') return null;
+  if (pathname?.startsWith('/embed/widget') || pathname?.startsWith('/embed/planner') || pathname?.startsWith('/embed/eddy-quote') || pathname?.startsWith('/embed/services') || pathname?.startsWith('/embed/badge')) return null;
 
   const hideFab = bottomSheetExpanded && !isOpen;
   const fabBottom = bottomSheetVisible && !bottomSheetExpanded

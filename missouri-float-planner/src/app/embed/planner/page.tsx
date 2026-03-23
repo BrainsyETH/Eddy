@@ -45,6 +45,7 @@ export default function EmbedPlannerPage() {
   const [selectedTakeOut, setSelectedTakeOut] = useState('');
   const [loadingAP, setLoadingAP] = useState(false);
   const [tripSummary, setTripSummary] = useState<{ distanceMiles: number; estimatedMinutes: number } | null>(null);
+  const [nearbyOutfitters, setNearbyOutfitters] = useState<{ name: string; phone: string | null; servicesOffered: string[] }[]>([]);
 
   // Get the selected river's condition (#17)
   const selectedRiverData = rivers.find(r => r.slug === selectedRiver);
@@ -65,21 +66,38 @@ export default function EmbedPlannerPage() {
       .catch(() => {});
   }, [preselectedRiver]);
 
-  // Fetch access points when river changes
+  // Fetch access points and outfitters when river changes
   useEffect(() => {
     if (!selectedRiver) {
       setAccessPoints([]);
+      setNearbyOutfitters([]);
       return;
     }
     setLoadingAP(true);
     setSelectedPutIn('');
     setSelectedTakeOut('');
     setTripSummary(null);
+    setNearbyOutfitters([]);
     fetch(`/api/rivers/${selectedRiver}/access-points`)
       .then(r => r.ok ? r.json() : { accessPoints: [] })
       .then(data => setAccessPoints(data.accessPoints || []))
       .catch(() => setAccessPoints([]))
       .finally(() => setLoadingAP(false));
+    // Fetch outfitters for "rent gear" section
+    fetch(`/api/rivers/${selectedRiver}/services`)
+      .then(r => r.ok ? r.json() : { services: [] })
+      .then(data => {
+        const outfitters = (data.services || [])
+          .filter((s: { type: string; status: string }) => s.type === 'outfitter' && (s.status === 'active' || s.status === 'seasonal'))
+          .slice(0, 2)
+          .map((s: { name: string; phone: string | null; servicesOffered: string[] }) => ({
+            name: s.name,
+            phone: s.phone,
+            servicesOffered: s.servicesOffered || [],
+          }));
+        setNearbyOutfitters(outfitters);
+      })
+      .catch(() => {});
   }, [selectedRiver]);
 
   // Compute mini trip summary when both points selected (#18)
@@ -340,6 +358,43 @@ export default function EmbedPlannerPage() {
           }}
         >
           Select all options above
+        </div>
+      )}
+
+      {/* Nearby outfitters (shown after trip is planned) */}
+      {canSubmit && nearbyOutfitters.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+            Rent Gear Nearby
+          </div>
+          {nearbyOutfitters.map((outfitter, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '5px 8px',
+                borderRadius: 6,
+                background: cardBg,
+                border: `1px solid ${borderColor}`,
+                marginBottom: i < nearbyOutfitters.length - 1 ? 4 : 0,
+                fontSize: 12,
+              }}
+            >
+              <span style={{ fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {outfitter.name}
+              </span>
+              {outfitter.phone && (
+                <a
+                  href={`tel:${outfitter.phone}`}
+                  style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600, flexShrink: 0, marginLeft: 8 }}
+                >
+                  {outfitter.phone}
+                </a>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

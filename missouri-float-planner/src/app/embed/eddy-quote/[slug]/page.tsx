@@ -134,6 +134,7 @@ export default function EddyQuoteEmbedPage() {
   const searchParams = useSearchParams();
   const slug = params.slug as string;
   const theme = searchParams.get('theme') || 'light';
+  const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
 
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
@@ -350,7 +351,7 @@ export default function EddyQuoteEmbedPage() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: partner ? 'space-between' : 'space-between',
           borderTop: `1px solid ${borderColor}`,
           paddingTop: 8,
           marginTop: 2,
@@ -364,28 +365,35 @@ export default function EddyQuoteEmbedPage() {
         >
           Full conditions &rarr;
         </a>
-        <a
-          href={origin}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            fontSize: 10,
-            color: textSecondary,
-            textDecoration: 'none',
-          }}
-        >
-          <Image
-            src={EDDY_LOGO}
-            alt="Eddy"
-            width={16}
-            height={16}
-            style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
-          />
-          Powered by Eddy
-        </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {partner && (
+            <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>
+              via {partner}
+            </span>
+          )}
+          <a
+            href={origin}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 10,
+              color: textSecondary,
+              textDecoration: 'none',
+            }}
+          >
+            <Image
+              src={EDDY_LOGO}
+              alt="Eddy"
+              width={16}
+              height={16}
+              style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
+            />
+            Powered by Eddy
+          </a>
+        </div>
       </div>
     </div>
   );

@@ -126,6 +126,7 @@ export default function EmbedWidgetPage() {
   const searchParams = useSearchParams();
   const slug = params.slug as string;
   const theme = searchParams.get('theme') || 'light';
+  const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
@@ -497,29 +498,44 @@ export default function EmbedWidgetPage() {
           >
             Water levels &rarr;
           </a>
+          <a
+            href={`${origin}/rivers/${river.slug}#services`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
+          >
+            Find outfitters &rarr;
+          </a>
         </div>
-        <a
-          href={origin}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            fontSize: 10,
-            color: textSecondary,
-            textDecoration: 'none',
-          }}
-        >
-          <Image
-            src={EDDY_LOGO}
-            alt="Eddy"
-            width={16}
-            height={16}
-            style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
-          />
-          Powered by Eddy
-        </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {partner && (
+            <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>
+              via {partner}
+            </span>
+          )}
+          <a
+            href={origin}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 10,
+              color: textSecondary,
+              textDecoration: 'none',
+            }}
+          >
+            <Image
+              src={EDDY_LOGO}
+              alt="Eddy"
+              width={16}
+              height={16}
+              style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
+            />
+            Powered by Eddy
+          </a>
+        </div>
       </div>
     </div>
   );
