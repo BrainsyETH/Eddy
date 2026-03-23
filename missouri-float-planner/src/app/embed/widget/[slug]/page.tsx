@@ -606,10 +606,10 @@ export default function EmbedWidgetPage() {
         if (chartData.thresholds) {
           const t = chartData.thresholds;
           if (t.levelOptimalMin !== null && t.levelOptimalMin >= padded_min && t.levelOptimalMin <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelOptimalMin), color: '#059669', label: 'Optimal' });
+            thresholdLines.push({ y: toY(t.levelOptimalMin), color: '#059669', label: 'Flowing' });
           }
           if (t.levelOptimalMax !== null && t.levelOptimalMax >= padded_min && t.levelOptimalMax <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelOptimalMax), color: '#059669', label: 'Optimal' });
+            thresholdLines.push({ y: toY(t.levelOptimalMax), color: '#059669', label: 'Flowing' });
           }
           if (t.levelHigh !== null && t.levelHigh >= padded_min && t.levelHigh <= padded_max) {
             thresholdLines.push({ y: toY(t.levelHigh), color: '#f97316', label: 'High' });

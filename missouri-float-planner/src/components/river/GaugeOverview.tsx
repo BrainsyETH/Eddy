@@ -665,11 +665,11 @@ export default function GaugeOverview({
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-lime-500" />
-              <span className="text-neutral-600">Okay</span>
+              <span className="text-neutral-600">Good</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-600" />
-              <span className="text-neutral-600">Optimal</span>
+              <span className="text-neutral-600">Flowing</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-orange-500" />

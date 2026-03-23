@@ -17,9 +17,9 @@ export interface ChartThresholdLines {
 }
 
 const THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Okay', color: '#65a30d', dash: '3,3' },
-  { key: 'levelOptimalMin', label: 'Optimal', color: '#059669', dash: '2,2' },
-  { key: 'levelOptimalMax', label: 'Optimal', color: '#059669', dash: '2,2' },
+  { key: 'levelLow', label: 'Good', color: '#65a30d', dash: '3,3' },
+  { key: 'levelOptimalMin', label: 'Flowing', color: '#059669', dash: '2,2' },
+  { key: 'levelOptimalMax', label: 'Flowing', color: '#059669', dash: '2,2' },
   { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
