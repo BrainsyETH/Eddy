@@ -50,8 +50,8 @@ export default function ToolCards({ toolData }: ToolCardsProps) {
 // ─── Compact Conditions Comparison (multi-river) ────────────────────────────
 
 function ConditionsComparisonCard({ items }: { items: Record<string, unknown>[] }) {
-  // Sort: optimal/okay first, then low, then high/dangerous
-  const order: Record<string, number> = { optimal: 0, okay: 1, low: 2, too_low: 3, high: 4, dangerous: 5, unknown: 6 };
+  // Sort: flowing/good first, then low, then high/dangerous
+  const order: Record<string, number> = { flowing: 0, good: 1, low: 2, too_low: 3, high: 4, dangerous: 5, unknown: 6 };
   const sorted = [...items].sort((a, b) =>
     (order[a.conditionCode as string] ?? 6) - (order[b.conditionCode as string] ?? 6)
   );
@@ -93,7 +93,7 @@ function ConditionsComparisonCard({ items }: { items: Record<string, unknown>[] 
                   </span>
                 )}
                 <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full" style={{ color, backgroundColor: `${color}15` }}>
-                  {code === 'okay' ? 'OK' : code === 'optimal' ? 'OPT' : code === 'too_low' ? 'LOW' : code === 'dangerous' ? 'DANGER' : (code || '?').toUpperCase()}
+                  {code === 'good' ? 'GOOD' : code === 'flowing' ? 'FLOW' : code === 'too_low' ? 'LOW' : code === 'dangerous' ? 'DANGER' : (code || '?').toUpperCase()}
                 </span>
               </div>
 

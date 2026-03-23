@@ -16,8 +16,8 @@ const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_
 
 // Condition helper labels (#17)
 const CONDITION_LABELS: Record<string, string> = {
-  optimal: 'Optimal',
-  okay: 'Okay',
+  flowing: 'Flowing',
+  good: 'Good',
   low: 'Low',
   too_low: 'Too Low',
   high: 'High',

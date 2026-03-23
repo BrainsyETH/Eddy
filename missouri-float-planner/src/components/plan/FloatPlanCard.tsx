@@ -43,8 +43,8 @@ const EDDY_CONDITION_IMAGES: Record<string, string> = {
 // Get the appropriate Eddy image for a condition code
 function getEddyImageForCondition(code: ConditionCode): string {
   switch (code) {
-    case 'optimal':
-    case 'okay':
+    case 'flowing':
+    case 'good':
       return EDDY_CONDITION_IMAGES.green;
     case 'low':
       return EDDY_CONDITION_IMAGES.yellow;
@@ -66,15 +66,15 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   textClass: string;
   borderClass: string;
 }> = {
-  optimal: {
-    label: 'Optimal',
+  flowing: {
+    label: 'Flowing',
     emoji: '✓',
     bgClass: 'bg-emerald-500',
     textClass: 'text-white',
     borderClass: 'border-emerald-400',
   },
-  okay: {
-    label: 'Okay',
+  good: {
+    label: 'Good',
     emoji: '✓',
     bgClass: 'bg-lime-500',
     textClass: 'text-white',

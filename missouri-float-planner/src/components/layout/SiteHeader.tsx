@@ -13,8 +13,8 @@ import type { ConditionCode } from '@/types/api';
 
 // Matches GaugeOverview colors
 const conditionColors: Record<ConditionCode, string> = {
-  optimal: 'bg-emerald-500',
-  okay: 'bg-lime-500',
+  flowing: 'bg-emerald-500',
+  good: 'bg-lime-500',
   low: 'bg-yellow-500',
   high: 'bg-orange-500',
   too_low: 'bg-neutral-400',

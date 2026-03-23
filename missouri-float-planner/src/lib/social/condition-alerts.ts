@@ -11,10 +11,10 @@ import type { SocialPlatform, PlatformAdapter } from './types';
 const LOG_PREFIX = '[ConditionAlert]';
 
 // Notable transitions worth posting about
-const NOTABLE_NEW_CONDITIONS = ['optimal', 'dangerous', 'high'];
+const NOTABLE_NEW_CONDITIONS = ['flowing', 'dangerous', 'high'];
 
 function isNotableTransition(oldCondition: string, newCondition: string): boolean {
-  // Any → optimal, dangerous, or high
+  // Any → flowing, dangerous, or high
   if (NOTABLE_NEW_CONDITIONS.includes(newCondition)) return true;
   // dangerous → anything else (flood warning lifted)
   if (oldCondition === 'dangerous' && newCondition !== 'dangerous') return true;

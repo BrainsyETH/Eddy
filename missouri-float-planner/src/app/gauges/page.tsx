@@ -20,8 +20,8 @@ const getComputedPillColor = (code: ConditionCode): string => {
   switch (code) {
     case 'too_low': return '#737373';
     case 'low': return '#eab308';
-    case 'okay': return '#84cc16';
-    case 'optimal': return '#10b981';
+    case 'good': return '#84cc16';
+    case 'flowing': return '#10b981';
     case 'high': return '#f97316';
     case 'dangerous': return '#ef4444';
     default: return '#737373';
@@ -85,12 +85,12 @@ export default function GaugesPage() {
 
   // Stats for condition pills (count rivers, not gauges)
   const stats = useMemo(() => {
-    const counts = { total: 0, optimal: 0, okay: 0, low: 0, high: 0, flood: 0, tooLow: 0 };
+    const counts = { total: 0, flowing: 0, good: 0, low: 0, high: 0, flood: 0, tooLow: 0 };
     riverGroups.forEach(river => {
       counts.total++;
       switch (river.condition.code) {
-        case 'optimal': counts.optimal++; break;
-        case 'okay': counts.okay++; break;
+        case 'flowing': counts.flowing++; break;
+        case 'good': counts.good++; break;
         case 'low': counts.low++; break;
         case 'high': counts.high++; break;
         case 'dangerous': counts.flood++; break;
@@ -196,8 +196,8 @@ export default function GaugesPage() {
                 {([
                   { key: 'too_low' as ConditionCode, count: stats.tooLow, label: 'Too Low', dot: 'bg-neutral-500' },
                   { key: 'low' as ConditionCode, count: stats.low, label: 'Low', dot: 'bg-yellow-500' },
-                  { key: 'okay' as ConditionCode, count: stats.okay, label: 'Okay', dot: 'bg-lime-500' },
-                  { key: 'optimal' as ConditionCode, count: stats.optimal, label: 'Optimal', dot: 'bg-emerald-500' },
+                  { key: 'good' as ConditionCode, count: stats.good, label: 'Good', dot: 'bg-lime-500' },
+                  { key: 'flowing' as ConditionCode, count: stats.flowing, label: 'Flowing', dot: 'bg-emerald-500' },
                   { key: 'high' as ConditionCode, count: stats.high, label: 'High', dot: 'bg-orange-500' },
                   { key: 'dangerous' as ConditionCode, count: stats.flood, label: 'Flood', dot: 'bg-red-500' },
                 ]).map(stat => {

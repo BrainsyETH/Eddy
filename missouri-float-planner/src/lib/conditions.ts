@@ -80,17 +80,17 @@ export function computeCondition(
     compareValue <= thresholds.levelOptimalMax
   ) {
     return {
-      code: 'optimal',
-      label: CONDITION_LABELS.optimal,
-      color: CONDITION_COLORS.optimal,
+      code: 'flowing',
+      label: CONDITION_LABELS.flowing,
+      color: CONDITION_COLORS.flowing,
     };
   }
 
   if (thresholds.levelLow !== null && compareValue >= thresholds.levelLow) {
     return {
-      code: 'okay',
-      label: CONDITION_LABELS.okay,
-      color: CONDITION_COLORS.okay,
+      code: 'good',
+      label: CONDITION_LABELS.good,
+      color: CONDITION_COLORS.good,
     };
   }
 
@@ -120,9 +120,9 @@ export function getConditionTailwindColor(code: ConditionCode): string {
       return 'bg-red-600';
     case 'high':
       return 'bg-orange-500';
-    case 'optimal':
+    case 'flowing':
       return 'bg-emerald-600';
-    case 'okay':
+    case 'good':
       return 'bg-lime-500';
     case 'low':
       return 'bg-yellow-500';
@@ -137,13 +137,15 @@ export function getConditionTailwindColor(code: ConditionCode): string {
 
 /**
  * Maps legacy database condition codes to aligned frontend codes.
- * The database RPC returns 'low' (meaning "okay/floatable") and 'very_low' (meaning "low/scraping").
- * Frontend uses 'okay' and 'low' respectively for clarity.
+ * The database RPC returns 'optimal', 'low' (meaning "good/floatable"),
+ * and 'very_low' (meaning "low/scraping").
+ * Frontend uses 'flowing', 'good', and 'low' respectively for clarity.
  */
 export function mapConditionCode(dbCode: string): ConditionCode {
   switch (dbCode) {
+    case 'optimal': return 'flowing';
     case 'very_low': return 'low';
-    case 'low': return 'okay';
+    case 'low': return 'good';
     default: return dbCode as ConditionCode;
   }
 }
@@ -158,10 +160,10 @@ export function getConditionShortLabel(code: ConditionCode): string {
       return 'Flood';
     case 'high':
       return 'High';
-    case 'optimal':
-      return 'Optimal';
-    case 'okay':
-      return 'Okay';
+    case 'flowing':
+      return 'Flowing';
+    case 'good':
+      return 'Good';
     case 'low':
       return 'Low';
     case 'too_low':

@@ -59,8 +59,8 @@ interface WeatherData {
 
 // Condition helper text for first-time floaters (#9)
 const CONDITION_HELPERS: Record<string, string> = {
-  optimal: 'Great day to float',
-  okay: 'Good conditions',
+  flowing: 'Great day to float',
+  good: 'Good conditions',
   low: 'Shallow — expect scraping',
   too_low: 'Too low to float',
   high: 'Fast water — use caution',
@@ -80,8 +80,8 @@ const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_
 function getEddyImage(code?: ConditionCode | null): string {
   if (!code) return EDDY_IMAGES.flag;
   switch (code) {
-    case 'optimal':
-    case 'okay':
+    case 'flowing':
+    case 'good':
       return EDDY_IMAGES.green;
     case 'high':
     case 'dangerous':

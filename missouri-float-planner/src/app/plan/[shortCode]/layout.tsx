@@ -85,8 +85,8 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const conditionCode = savedPlan.condition_at_creation || 'unknown';
 
     const conditionLabels: Record<string, string> = {
-      optimal: 'Optimal',
-      okay: 'Low - Floatable',
+      flowing: 'Flowing',
+      good: 'Good - Floatable',
       low: 'Very Low',
       high: 'High Water',
       too_low: 'Too Low',

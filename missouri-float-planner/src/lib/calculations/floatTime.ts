@@ -34,11 +34,11 @@ export function calculateFloatTime(
       speedMph = speeds.speedHighWater;
       break;
 
-    case 'optimal':
+    case 'flowing':
       speedMph = speeds.speedNormal;
       break;
 
-    case 'okay':
+    case 'good':
       speedMph = speeds.speedLowWater;
       break;
 

@@ -22,8 +22,8 @@ interface ThresholdTableProps extends ThresholdValues {
   thresholdDescriptions?: {
     tooLow?: string;
     low?: string;
-    okay?: string;
-    optimal?: string;
+    good?: string;
+    flowing?: string;
     high?: string;
     flood?: string;
   } | null;
@@ -81,15 +81,15 @@ export default function ThresholdTable({
   // 1. Optimal — levelOptimalMin to levelOptimalMax
   if (tv.levelOptimalMin !== null || tv.levelOptimalMax !== null) {
     rows.push({
-      key: 'optimal',
-      label: 'Optimal',
+      key: 'flowing',
+      label: 'Flowing',
       dotColor: 'bg-emerald-500',
       range: tv.levelOptimalMin !== null && tv.levelOptimalMax !== null
         ? `${fmt(tv.levelOptimalMin)} – ${fmt(tv.levelOptimalMax)} ${unitLabel}`
         : tv.levelOptimalMin !== null
           ? `Above ${fmt(tv.levelOptimalMin)} ${unitLabel}`
           : `Below ${fmt(tv.levelOptimalMax)} ${unitLabel}`,
-      description: thresholdDescriptions?.optimal || DEFAULT_THRESHOLD_DESCRIPTIONS.optimal,
+      description: thresholdDescriptions?.flowing || DEFAULT_THRESHOLD_DESCRIPTIONS.flowing,
     });
   }
 
@@ -98,8 +98,8 @@ export default function ThresholdTable({
     const lower = tv.levelLow;
     const upper = tv.levelOptimalMin !== null ? +(tv.levelOptimalMin - decrement).toFixed(activeUnit === 'cfs' ? 0 : 2) : null;
     rows.push({
-      key: 'okay',
-      label: 'Okay',
+      key: 'good',
+      label: 'Good',
       dotColor: 'bg-lime-500',
       range: lower !== null && upper !== null
         ? `${fmt(lower)} – ${fmt(upper)} ${unitLabel}`
@@ -108,7 +108,7 @@ export default function ThresholdTable({
           : upper !== null
             ? `Below ${fmt(upper)} ${unitLabel}`
             : '—',
-      description: thresholdDescriptions?.okay || DEFAULT_THRESHOLD_DESCRIPTIONS.okay,
+      description: thresholdDescriptions?.good || DEFAULT_THRESHOLD_DESCRIPTIONS.good,
     });
   }
 

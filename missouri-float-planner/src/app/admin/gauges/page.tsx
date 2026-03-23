@@ -23,8 +23,8 @@ import {
 interface ThresholdDescriptions {
   tooLow?: string;
   low?: string;
-  okay?: string;
-  optimal?: string;
+  good?: string;
+  flowing?: string;
   high?: string;
   flood?: string;
 }
@@ -81,8 +81,8 @@ interface River {
 const THRESHOLD_LABELS = [
   { key: 'tooLow', label: 'Too Low', color: 'bg-neutral-400' },
   { key: 'low', label: 'Low', color: 'bg-yellow-500' },
-  { key: 'okay', label: 'Okay', color: 'bg-lime-500' },
-  { key: 'optimal', label: 'Optimal', color: 'bg-emerald-600' },
+  { key: 'good', label: 'Good', color: 'bg-lime-500' },
+  { key: 'flowing', label: 'Flowing', color: 'bg-emerald-600' },
   { key: 'high', label: 'High', color: 'bg-orange-500' },
   { key: 'flood', label: 'Flood', color: 'bg-red-600' },
 ];
@@ -622,8 +622,8 @@ export default function AdminGaugesPage() {
 
                                 if (key === 'tooLow' && tooLow !== null) rangeText = `< ${fmt(tooLow)} ${u}`;
                                 if (key === 'low' && tooLow !== null && low !== null) rangeText = `${fmt(tooLow)} - ${fmt(low - dec)} ${u}`;
-                                if (key === 'okay' && low !== null && optMin !== null) rangeText = `${fmt(low)} - ${fmt(optMin - dec)} ${u}`;
-                                if (key === 'optimal' && optMin !== null && optMax !== null) rangeText = `${fmt(optMin)} - ${fmt(optMax)} ${u}`;
+                                if (key === 'good' && low !== null && optMin !== null) rangeText = `${fmt(low)} - ${fmt(optMin - dec)} ${u}`;
+                                if (key === 'flowing' && optMin !== null && optMax !== null) rangeText = `${fmt(optMin)} - ${fmt(optMax)} ${u}`;
                                 if (key === 'high' && high !== null && dangerous !== null) rangeText = `${fmt(high)} - ${fmt(dangerous - dec)} ${u}`;
                                 if (key === 'flood' && dangerous !== null) rangeText = `>= ${fmt(dangerous)} ${u}`;
                               }

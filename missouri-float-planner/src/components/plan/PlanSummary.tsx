@@ -17,16 +17,16 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   borderClass: string;
   explanation: string;
 }> = {
-  optimal: {
-    label: 'Optimal',
+  flowing: {
+    label: 'Flowing',
     emoji: '✓',
     bgClass: 'bg-emerald-500',
     textClass: 'text-white',
     borderClass: 'border-emerald-400',
     explanation: 'Ideal conditions for floating.',
   },
-  okay: {
-    label: 'Okay',
+  good: {
+    label: 'Good',
     emoji: '✓',
     bgClass: 'bg-lime-500',
     textClass: 'text-white',

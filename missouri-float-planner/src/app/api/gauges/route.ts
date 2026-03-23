@@ -86,8 +86,8 @@ function hexToDouble(hex: string, littleEndian: boolean): number {
 export interface ThresholdDescriptions {
   tooLow?: string;
   low?: string;
-  okay?: string;
-  optimal?: string;
+  good?: string;
+  flowing?: string;
   high?: string;
   flood?: string;
 }

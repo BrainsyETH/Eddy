@@ -7,7 +7,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 export const EDDY_TOOLS: Anthropic.Tool[] = [
   {
     name: 'get_river_conditions',
-    description: `Check current floating conditions for a Missouri river. Returns the live gauge reading, calibrated condition (too_low / low / okay / optimal / high / dangerous), what that level means for floating, and recent trend.
+    description: `Check current floating conditions for a Missouri river. Returns the live gauge reading, calibrated condition (too_low / low / good / flowing / high / dangerous), what that level means for floating, and recent trend.
 
 WHEN TO CALL: Any time the user asks about current conditions, whether they can float, or anything involving water levels. Always call this BEFORE recommending floating. Never guess at conditions.
 
