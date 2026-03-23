@@ -1,9 +1,10 @@
 // src/app/api/gauges/route.ts
 // API endpoint to fetch all gauge stations with their readings and thresholds
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,8 +135,12 @@ export interface GaugesResponse {
   gauges: GaugeStation[];
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Rate limit: 60 requests per IP per minute
+    const rateLimitResult = rateLimit(`gauges:${getClientIp(request)}`, 60, 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const supabase = await createClient();
 
     // Fetch all active gauge stations
