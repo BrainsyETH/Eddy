@@ -67,7 +67,13 @@ export default function FeaturedRivers() {
     );
   }
 
-  if (featured.length === 0) return null;
+  if (featured.length === 0) {
+    return (
+      <div className="text-center py-8 text-neutral-500 text-sm">
+        River conditions are temporarily unavailable. Check back shortly.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

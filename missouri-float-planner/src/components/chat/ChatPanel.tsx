@@ -106,13 +106,15 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
           </div>
         )}
 
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
+        <div aria-live="polite" aria-relevant="additions">
+          {messages.map((message) => (
+            <MessageBubble key={message.id} message={message} />
+          ))}
+        </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 border border-red-200">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div role="alert" className="flex items-center gap-2 text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 border border-red-200">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
@@ -147,12 +149,13 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
+            aria-label={isLoading ? 'Sending message' : 'Send message'}
             className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-accent-500 hover:bg-accent-600 transition-colors disabled:opacity-40 shadow-sm"
           >
             {isLoading ? (
-              <Loader2 className="w-4 h-4 text-white animate-spin" />
+              <Loader2 className="w-4 h-4 text-white animate-spin" aria-hidden="true" />
             ) : (
-              <Send className="w-4 h-4 text-white" />
+              <Send className="w-4 h-4 text-white" aria-hidden="true" />
             )}
           </button>
         </form>

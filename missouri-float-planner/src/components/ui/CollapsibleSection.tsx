@@ -29,6 +29,7 @@ export default function CollapsibleSection({
     <div className={`bg-white border-2 border-neutral-200 rounded-lg shadow-sm overflow-hidden ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
         className={`w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 transition-colors ${headerClassName}`}
       >
         <div className="flex items-center gap-2">
@@ -36,6 +37,7 @@ export default function CollapsibleSection({
           {badge}
         </div>
         <ChevronDown
+          aria-hidden="true"
           className={`w-5 h-5 text-neutral-500 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
           }`}
@@ -43,6 +45,7 @@ export default function CollapsibleSection({
       </button>
 
       <div
+        role="region"
         className={`transition-all duration-200 ease-in-out ${
           isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
         }`}

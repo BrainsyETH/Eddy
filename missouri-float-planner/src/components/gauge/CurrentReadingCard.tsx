@@ -69,9 +69,9 @@ export default function CurrentReadingCard({
   };
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }}>
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }} aria-label="Current gauge reading">
       {/* Primary reading */}
-      <div className="px-5 pt-5 pb-3">
+      <div className="px-5 pt-5 pb-3" aria-live="polite">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold tracking-wider text-emerald-400 uppercase">
             {primaryLabel}
