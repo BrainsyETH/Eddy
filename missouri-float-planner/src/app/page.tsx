@@ -100,15 +100,14 @@ export default async function Home() {
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="w-16 h-0.5 bg-neutral-200 mb-8" />
 
         {/* Featured Rivers (client component with live data) */}
         <FeaturedRivers />
       </section>
 
       {/* ─── Plan Your Float ─── */}
-      <section className="border-t border-neutral-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+      <section>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-16">
           <div className="max-w-2xl mx-auto">
             <FloatEstimator rivers={rivers} />
           </div>

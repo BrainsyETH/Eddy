@@ -21,14 +21,14 @@ export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: Gauge
   if (gauges.length <= 1) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mb-1 sm:flex-wrap sm:overflow-visible">
       {gauges.map((gauge) => {
         const isActive = gauge.siteId === activeSiteId;
         return (
           <button
             key={gauge.siteId}
             onClick={() => onTabChange(gauge.siteId)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
               isActive
                 ? 'bg-primary-500 text-white shadow-sm'
                 : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
