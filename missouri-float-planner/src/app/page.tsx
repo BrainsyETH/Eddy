@@ -87,7 +87,7 @@ export default async function Home() {
       </section>
 
       {/* ─── Live Gauge Data ─── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8 md:pb-10">
+      <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 pb-8 md:pb-10">
         <div className="flex items-end justify-between mb-2">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
             Check River Levels
