@@ -79,9 +79,36 @@ function FAQ({ question, children }: { question: string; children: React.ReactNo
   );
 }
 
+type SiteType = 'outfitter' | 'campground' | 'tourism' | 'blog' | '';
+
+const SITE_TYPE_CONFIG: Record<Exclude<SiteType, ''>, { label: string; tip: string; recommended: string[] }> = {
+  outfitter: {
+    label: 'Outfitter',
+    tip: 'Show visitors live conditions and let them plan trips right from your site. Add your business name with the partner param.',
+    recommended: ['planner', 'widget', 'services', 'quote'],
+  },
+  campground: {
+    label: 'Campground',
+    tip: 'Help guests check conditions before arriving. Show nearby outfitters so they can plan rentals.',
+    recommended: ['widget', 'services', 'planner', 'quote'],
+  },
+  tourism: {
+    label: 'Tourism / Visitor Bureau',
+    tip: 'Cover multiple rivers for your region. Use the multi-river generator below for batch embed codes.',
+    recommended: ['widget', 'quote', 'planner', 'services'],
+  },
+  blog: {
+    label: 'Blog / Other',
+    tip: 'A compact badge or quote widget works great in sidebars and blog posts without overwhelming your layout.',
+    recommended: ['badge', 'quote', 'widget', 'planner'],
+  },
+};
+
 export default function EmbedPage() {
   const [selectedRiver, setSelectedRiver] = useState('current');
+  const [selectedRivers, setSelectedRivers] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [siteType, setSiteType] = useState<SiteType>('');
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const selectedRiverName = RIVER_OPTIONS.find(r => r.slug === selectedRiver)?.name || '';
@@ -95,12 +122,40 @@ export default function EmbedPage() {
   loading="lazy"
 ></iframe>`;
 
-  // (#15) Condition Badge instead of plain link button
-  const badgeCode = `<a href="${baseUrl}/rivers/${selectedRiver}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:${theme === 'dark' ? '#1a1a1a' : '#ffffff'};color:${theme === 'dark' ? '#e5e5e5' : '#1a1a1a'};border:1.5px solid ${theme === 'dark' ? '#333' : '#e5e5e5'};border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;">
-  <img src="${EDDY_IMAGE}" alt="Eddy" width="20" height="20" style="border-radius:50%;" />
-  ${selectedRiverName} Conditions
-  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#059669;"></span>
-</a>`;
+  // Live Condition Badge (replaces static HTML badge)
+  const badgeCode = `<iframe
+  src="${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}"
+  width="280"
+  height="44"
+  style="border: none; overflow: hidden;"
+  title="${selectedRiverName} - Condition Badge from Eddy"
+  loading="lazy"
+></iframe>`;
+
+  // Services Directory
+  const servicesCode = `<iframe
+  src="${baseUrl}/embed/services/${selectedRiver}?theme=${theme}"
+  width="100%"
+  height="400"
+  style="border: none; border-radius: 12px; max-width: 600px;"
+  title="${selectedRiverName} - Outfitters & Services from Eddy"
+  loading="lazy"
+></iframe>`;
+
+  // Multi-river embed code
+  const multiRiverCode = selectedRivers.length > 0
+    ? selectedRivers.map(slug => {
+        const name = RIVER_OPTIONS.find(r => r.slug === slug)?.name || slug;
+        return `<iframe
+  src="${baseUrl}/embed/widget/${slug}?theme=${theme}"
+  width="100%"
+  height="380"
+  style="border: none; border-radius: 12px; max-width: 600px; margin-bottom: 16px;"
+  title="${name} - River Conditions from Eddy"
+  loading="lazy"
+></iframe>`;
+      }).join('\n\n')
+    : '';
 
   const plannerCode = `<iframe
   src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
@@ -158,7 +213,35 @@ export default function EmbedPage() {
 
       <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
 
-        {/* (#1) REMOVED duplicate "How It Works" section — the numbered steps below communicate the flow */}
+        {/* Site type selector — personalized recommendations */}
+        <section>
+          <div className="bg-white border-2 border-primary-200 rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-neutral-900 mb-1">What type of site do you run?</h2>
+            <p className="text-sm text-neutral-500 mb-4">We&apos;ll recommend the best widgets for your needs.</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {(Object.entries(SITE_TYPE_CONFIG) as [Exclude<SiteType, ''>, typeof SITE_TYPE_CONFIG[keyof typeof SITE_TYPE_CONFIG]][]).map(([key, config]) => (
+                <button
+                  key={key}
+                  onClick={() => setSiteType(siteType === key ? '' : key)}
+                  className={`px-3 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    siteType === key
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  }`}
+                >
+                  {config.label}
+                </button>
+              ))}
+            </div>
+            {siteType && (
+              <div className="mt-4 p-3 rounded-xl bg-primary-50 border border-primary-200">
+                <p className="text-sm text-primary-800 font-medium">
+                  {SITE_TYPE_CONFIG[siteType].tip}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* Step 1: Pick your river + global theme toggle (#3) */}
         <section>
@@ -391,36 +474,28 @@ export default function EmbedPage() {
             </div>
           </div>
 
-          {/* === OPTION D: Condition Badge (#15 evolved from Simple Link Button) === */}
+          {/* === OPTION D: Live Condition Badge === */}
           <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b-2 border-neutral-100">
-              <h3 className="text-lg font-bold text-neutral-900">Condition Badge</h3>
+              <h3 className="text-lg font-bold text-neutral-900">Live Condition Badge</h3>
               <p className="text-sm text-neutral-600 mt-1">
                 A compact inline badge showing the river name and live condition dot.
-                Great for blog posts, sidebars, or anywhere a full widget is too heavy.
+                Updates automatically — great for blog posts, sidebars, or anywhere a full widget is too heavy.
               </p>
             </div>
 
             <div className="p-6">
-              {/* Preview (#4 theme-aware) */}
+              {/* Preview */}
               <div className="mb-4">
                 <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
                 <div className={`rounded-xl border-2 p-6 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <a
-                    href={`/rivers/${selectedRiver}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold no-underline"
-                    style={{
-                      backgroundColor: theme === 'dark' ? '#1a1a1a' : '#ffffff',
-                      color: theme === 'dark' ? '#e5e5e5' : '#1a1a1a',
-                      border: theme === 'dark' ? '1.5px solid #333' : '1.5px solid #e5e5e5',
-                    }}
-                  >
-                    <Image src={EDDY_IMAGE} alt="Eddy" width={20} height={20} className="w-5 h-5 rounded-full" />
-                    {selectedRiverName} Conditions
-                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                  </a>
+                  <iframe
+                    src={`${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}`}
+                    width="280"
+                    height="44"
+                    style={{ border: 'none', overflow: 'hidden' }}
+                    title="Badge preview"
+                  />
                 </div>
               </div>
 
@@ -438,8 +513,64 @@ export default function EmbedPage() {
               <CopyButton text={badgeCode} large />
 
               <p className="text-xs text-neutral-500 mt-3">
-                The condition dot is static in the code snippet. For a live-updating dot,
-                use the Live Conditions Widget or Eddy&apos;s Daily Quote instead.
+                The condition dot updates automatically based on live gauge data.
+                Adjust <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">width</code> as needed for your layout.
+              </p>
+            </div>
+          </div>
+
+          {/* Category: Directory Widgets */}
+          <div className="mb-4 mt-10">
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Directory Widgets — Connect Visitors to Services</h3>
+          </div>
+
+          {/* === OPTION E: Services Directory === */}
+          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#2D788910' }}>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-full">New</span>
+                <h3 className="text-lg font-bold text-neutral-900">Services Directory</h3>
+              </div>
+              <p className="text-sm text-neutral-600 mt-1">
+                Show outfitters, campgrounds, and lodging near the river. Includes click-to-call phone numbers,
+                website links, and service tags (canoes, kayaks, shuttle, camping, etc.).
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Preview */}
+              <div className="mb-4">
+                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
+                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+                  <div style={{ maxWidth: 480 }}>
+                    <iframe
+                      src={`${baseUrl}/embed/services/${selectedRiver}?theme=${theme}`}
+                      width="100%"
+                      height="400"
+                      style={{ border: 'none', borderRadius: '12px' }}
+                      title="Services directory preview"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Code block */}
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
+                  <CopyButton text={servicesCode} />
+                </div>
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
+                  <code>{servicesCode}</code>
+                </pre>
+              </div>
+
+              <CopyButton text={servicesCode} large />
+
+              <p className="text-xs text-neutral-500 mt-3">
+                Filter by type with <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;type=outfitter</code> or{' '}
+                <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;type=campground</code>.
+                Highlight your listing with <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;highlight=your-business-slug</code>.
               </p>
             </div>
           </div>
@@ -454,6 +585,63 @@ export default function EmbedPage() {
             then plan their trip — all without leaving your page. Just copy both code snippets
             and paste them where you want them to appear.
           </p>
+        </section>
+
+        {/* Multi-river generator */}
+        <section>
+          <div className="bg-white border-2 border-neutral-200 rounded-2xl p-6">
+            <h3 className="font-bold text-neutral-900 mb-1">Multi-River Embed</h3>
+            <p className="text-sm text-neutral-500 mb-4">
+              Cover multiple rivers on one page. Select the rivers you serve and copy all embed codes at once.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              {RIVER_OPTIONS.map(r => (
+                <label
+                  key={r.slug}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer border transition-all ${
+                    selectedRivers.includes(r.slug)
+                      ? 'border-primary-400 bg-primary-50 text-primary-700 font-medium'
+                      : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedRivers.includes(r.slug)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedRivers(prev => [...prev, r.slug]);
+                      } else {
+                        setSelectedRivers(prev => prev.filter(s => s !== r.slug));
+                      }
+                    }}
+                    className="accent-primary-600"
+                  />
+                  <span className="truncate">{r.name}</span>
+                </label>
+              ))}
+            </div>
+            {selectedRivers.length > 0 && multiRiverCode && (
+              <>
+                <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+                    <span className="text-xs text-neutral-400 font-medium">
+                      HTML code &middot; {selectedRivers.length} {selectedRivers.length === 1 ? 'river' : 'rivers'}
+                    </span>
+                    <CopyButton text={multiRiverCode} />
+                  </div>
+                  <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full max-h-48 overflow-y-auto">
+                    <code>{multiRiverCode}</code>
+                  </pre>
+                </div>
+                <CopyButton text={multiRiverCode} large />
+              </>
+            )}
+            {selectedRivers.length === 0 && (
+              <p className="text-xs text-neutral-400 text-center py-2">
+                Select rivers above to generate embed codes.
+              </p>
+            )}
+          </div>
         </section>
 
         {/* Step 3: Paste into your site */}
@@ -531,8 +719,9 @@ export default function EmbedPage() {
             </FAQ>
             <FAQ question="Can I show more than one river?">
               <p>
-                Absolutely. Just come back to this page, select a different river, copy the new code,
-                and paste it wherever you&apos;d like. You can add as many rivers as you want.
+                Absolutely. Use the <strong>Multi-River Embed</strong> section above to select multiple
+                rivers and copy all embed codes at once. Or come back to this page, select a different
+                river, and copy individual widget codes.
               </p>
             </FAQ>
             <FAQ question="Will it slow down my website?">
@@ -551,8 +740,9 @@ export default function EmbedPage() {
             </FAQ>
             <FAQ question="Can I add my business name to the widget?">
               <p>
-                Yes! For the Float Trip Planner, add <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;partner=YourBusiness</code> to
-                the iframe src URL. Your business name will appear in the widget footer.
+                Yes! Add <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;partner=YourBusiness</code> to
+                any iframe src URL. Your business name will appear as &quot;via YourBusiness&quot; in the widget footer.
+                This works on the Float Trip Planner, Live Conditions Widget, Eddy&apos;s Daily Quote, and Services Directory.
               </p>
             </FAQ>
             <FAQ question="What if I need help?">
@@ -586,12 +776,29 @@ export default function EmbedPage() {
                   <code>{`GET ${baseUrl}/api/rivers`}</code>
                 </pre>
               </div>
-              <p className="text-xs text-neutral-500 leading-relaxed">
+              <p className="text-xs text-neutral-500 leading-relaxed mb-4">
                 Returns JSON with all rivers including <code className="bg-neutral-100 px-1 py-0.5 rounded">name</code>,{' '}
                 <code className="bg-neutral-100 px-1 py-0.5 rounded">slug</code>,{' '}
                 <code className="bg-neutral-100 px-1 py-0.5 rounded">lengthMiles</code>,{' '}
                 <code className="bg-neutral-100 px-1 py-0.5 rounded">accessPointCount</code>, and{' '}
                 <code className="bg-neutral-100 px-1 py-0.5 rounded">currentCondition</code> (code + label).
+              </p>
+              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+                  <span className="text-xs text-neutral-400 font-medium">GET request — Services</span>
+                  <CopyButton text={`${baseUrl}/api/rivers/{slug}/services`} />
+                </div>
+                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
+                  <code>{`GET ${baseUrl}/api/rivers/{slug}/services`}</code>
+                </pre>
+              </div>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                Returns outfitters, campgrounds, and lodging for a river including{' '}
+                <code className="bg-neutral-100 px-1 py-0.5 rounded">name</code>,{' '}
+                <code className="bg-neutral-100 px-1 py-0.5 rounded">phone</code>,{' '}
+                <code className="bg-neutral-100 px-1 py-0.5 rounded">website</code>,{' '}
+                <code className="bg-neutral-100 px-1 py-0.5 rounded">servicesOffered</code>, and{' '}
+                <code className="bg-neutral-100 px-1 py-0.5 rounded">type</code>.
                 Please keep requests reasonable — if you plan heavy usage, reach out first.
               </p>
             </div>
