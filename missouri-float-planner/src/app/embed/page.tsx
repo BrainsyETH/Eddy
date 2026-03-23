@@ -1,7 +1,8 @@
 'use client';
 
 // src/app/embed/page.tsx
-// Beginner-friendly guide for adding Eddy river conditions to external websites
+// API docs-style guide for adding Eddy river widgets to external websites.
+// Left sidebar navigation with structured widget documentation.
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -20,6 +21,35 @@ const RIVER_OPTIONS = [
   { slug: 'big-piney', name: 'Big Piney River' },
   { slug: 'huzzah', name: 'Huzzah Creek' },
   { slug: 'courtois', name: 'Courtois Creek' },
+];
+
+// Navigation structure
+const NAV_SECTIONS = [
+  {
+    title: 'Getting Started',
+    items: [
+      { id: 'configuration', label: 'Configuration' },
+      { id: 'installation', label: 'Installation' },
+    ],
+  },
+  {
+    title: 'Widgets',
+    items: [
+      { id: 'live-conditions', label: 'Live Conditions' },
+      { id: 'eddy-quote', label: 'Eddy\'s Daily Quote' },
+      { id: 'float-planner', label: 'Float Trip Planner' },
+      { id: 'services-directory', label: 'Services Directory' },
+      { id: 'condition-badge', label: 'Condition Badge' },
+    ],
+  },
+  {
+    title: 'Advanced',
+    items: [
+      { id: 'multi-river', label: 'Multi-River Embed' },
+      { id: 'parameters', label: 'Parameters Reference' },
+      { id: 'api', label: 'API Access' },
+    ],
+  },
 ];
 
 function CopyButton({ text, large = false }: { text: string; large?: boolean }) {
@@ -58,435 +88,402 @@ function CopyButton({ text, large = false }: { text: string; large?: boolean }) 
   );
 }
 
-function FAQ({ question, children }: { question: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+function CodeBlock({ code, label = 'HTML' }: { code: string; label?: string }) {
   return (
-    <div className="border-b border-neutral-200 last:border-b-0">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-4 text-left"
-      >
-        <span className="font-semibold text-neutral-900 text-sm">{question}</span>
-        <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="pb-4 text-sm text-neutral-600 leading-relaxed">
-          {children}
-        </div>
-      )}
+    <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
+        <span className="text-xs text-neutral-400 font-medium">{label}</span>
+        <CopyButton text={code} />
+      </div>
+      <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
+        <code>{code}</code>
+      </pre>
     </div>
   );
 }
 
-type SiteType = 'outfitter' | 'campground' | 'tourism' | 'blog' | '';
+function WidgetPreview({ src, height, theme }: { src: string; height: number; theme: string }) {
+  return (
+    <div className="mb-4">
+      <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
+      <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
+        <div style={{ maxWidth: 480 }}>
+          <iframe
+            src={src}
+            width="100%"
+            height={height}
+            style={{ border: 'none', borderRadius: '12px' }}
+            title="Widget preview"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-const SITE_TYPE_CONFIG: Record<Exclude<SiteType, ''>, { label: string; tip: string; recommended: string[] }> = {
-  outfitter: {
-    label: 'Outfitter',
-    tip: 'Show visitors live conditions and let them plan trips right from your site. Add your business name with the partner param.',
-    recommended: ['planner', 'widget', 'services', 'quote'],
-  },
-  campground: {
-    label: 'Campground',
-    tip: 'Help guests check conditions before arriving. Show nearby outfitters so they can plan rentals.',
-    recommended: ['widget', 'services', 'planner', 'quote'],
-  },
-  tourism: {
-    label: 'Tourism / Visitor Bureau',
-    tip: 'Cover multiple rivers for your region. Use the multi-river generator below for batch embed codes.',
-    recommended: ['widget', 'quote', 'planner', 'services'],
-  },
-  blog: {
-    label: 'Blog / Other',
-    tip: 'A compact badge or quote widget works great in sidebars and blog posts without overwhelming your layout.',
-    recommended: ['badge', 'quote', 'widget', 'planner'],
-  },
-};
+function ParamRow({ name, values, description }: { name: string; values: string; description: string }) {
+  return (
+    <tr className="border-b border-neutral-100 last:border-b-0">
+      <td className="py-2 pr-3 align-top">
+        <code className="text-xs bg-neutral-100 px-1.5 py-0.5 rounded font-semibold text-primary-700">{name}</code>
+      </td>
+      <td className="py-2 pr-3 align-top text-xs text-neutral-500">{values}</td>
+      <td className="py-2 align-top text-xs text-neutral-600">{description}</td>
+    </tr>
+  );
+}
 
 export default function EmbedPage() {
   const [selectedRiver, setSelectedRiver] = useState('current');
   const [selectedRivers, setSelectedRivers] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [siteType, setSiteType] = useState<SiteType>('');
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const selectedRiverName = RIVER_OPTIONS.find(r => r.slug === selectedRiver)?.name || '';
 
+  // Embed codes
   const widgetCode = `<iframe
   src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
-  width="100%"
-  height="380"
-  style="border: none; border-radius: 12px; max-width: 600px;"
+  width="100%" height="380"
+  style="border:none; border-radius:12px; max-width:600px;"
   title="${selectedRiverName} - River Conditions from Eddy"
   loading="lazy"
 ></iframe>`;
 
-  // Live Condition Badge (replaces static HTML badge)
-  const badgeCode = `<iframe
-  src="${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}"
-  width="280"
-  height="44"
-  style="border: none; overflow: hidden;"
-  title="${selectedRiverName} - Condition Badge from Eddy"
+  const eddyQuoteCode = `<iframe
+  src="${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}"
+  width="100%" height="300"
+  style="border:none; border-radius:12px; max-width:600px;"
+  title="${selectedRiverName} - Eddy's Take"
   loading="lazy"
 ></iframe>`;
 
-  // Services Directory
+  const plannerCode = `<iframe
+  src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
+  width="100%" height="420"
+  style="border:none; border-radius:12px; max-width:600px;"
+  title="Plan Your Float - Eddy"
+  loading="lazy"
+></iframe>`;
+
   const servicesCode = `<iframe
   src="${baseUrl}/embed/services/${selectedRiver}?theme=${theme}"
-  width="100%"
-  height="400"
-  style="border: none; border-radius: 12px; max-width: 600px;"
+  width="100%" height="400"
+  style="border:none; border-radius:12px; max-width:600px;"
   title="${selectedRiverName} - Outfitters & Services from Eddy"
   loading="lazy"
 ></iframe>`;
 
-  // Multi-river embed code
+  const badgeCode = `<iframe
+  src="${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}"
+  width="280" height="44"
+  style="border:none; overflow:hidden;"
+  title="${selectedRiverName} - Condition Badge from Eddy"
+  loading="lazy"
+></iframe>`;
+
   const multiRiverCode = selectedRivers.length > 0
     ? selectedRivers.map(slug => {
         const name = RIVER_OPTIONS.find(r => r.slug === slug)?.name || slug;
         return `<iframe
   src="${baseUrl}/embed/widget/${slug}?theme=${theme}"
-  width="100%"
-  height="380"
-  style="border: none; border-radius: 12px; max-width: 600px; margin-bottom: 16px;"
+  width="100%" height="380"
+  style="border:none; border-radius:12px; max-width:600px; margin-bottom:16px;"
   title="${name} - River Conditions from Eddy"
   loading="lazy"
 ></iframe>`;
       }).join('\n\n')
     : '';
 
-  const plannerCode = `<iframe
-  src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
-  width="100%"
-  height="380"
-  style="border: none; border-radius: 12px; max-width: 600px;"
-  title="Plan Your Float - Eddy"
-  loading="lazy"
-></iframe>`;
-
-  const eddyQuoteCode = `<iframe
-  src="${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}"
-  width="100%"
-  height="260"
-  style="border: none; border-radius: 12px; max-width: 600px;"
-  title="${selectedRiverName} - Eddy's Take"
-  loading="lazy"
-></iframe>`;
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 overflow-x-hidden">
       {/* Header */}
       <section
-        className="relative py-12 md:py-16 text-white"
+        className="relative py-10 md:py-14 text-white"
         style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}
       >
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <div className="-mb-1">
-            <Image
-              src={EDDY_CANOE_IMAGE}
-              alt="Eddy the Otter"
-              width={300}
-              height={300}
-              className="mx-auto h-28 md:h-36 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
-              priority
-            />
+        <div className="max-w-6xl mx-auto px-4 flex items-center gap-6">
+          <Image
+            src={EDDY_CANOE_IMAGE}
+            alt="Eddy the Otter"
+            width={200}
+            height={200}
+            className="h-20 md:h-28 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)] hidden md:block"
+            priority
+          />
+          <div>
+            <h1
+              className="text-3xl md:text-4xl font-bold mb-2"
+              style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
+            >
+              Embed Widgets
+            </h1>
+            <p className="text-base text-white/80 max-w-xl">
+              Add live river conditions, trip planning, and outfitter directories
+              to your website. Free for outfitters, campgrounds, and tourism sites.
+            </p>
           </div>
-          <h1
-            className="text-4xl md:text-5xl font-bold mb-3"
-            style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
-          >
-            Add Eddy to Your Website
-          </h1>
-          <p className="text-lg text-white/80 max-w-xl mx-auto">
-            Show your visitors live river conditions right on your site.
-            No coding experience needed.
-          </p>
-          {/* (#5) Value proposition for outfitters */}
-          <p className="text-sm text-white/50 mt-3 max-w-md mx-auto">
-            Perfect for outfitters, campgrounds, tourism sites, and fishing guides — give
-            your visitors the info they&apos;re already looking for.
-          </p>
         </div>
       </section>
 
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
-
-        {/* Site type selector — personalized recommendations */}
-        <section>
-          <div className="bg-white border-2 border-primary-200 rounded-2xl p-6">
-            <h2 className="text-lg font-bold text-neutral-900 mb-1">What type of site do you run?</h2>
-            <p className="text-sm text-neutral-500 mb-4">We&apos;ll recommend the best widgets for your needs.</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {(Object.entries(SITE_TYPE_CONFIG) as [Exclude<SiteType, ''>, typeof SITE_TYPE_CONFIG[keyof typeof SITE_TYPE_CONFIG]][]).map(([key, config]) => (
-                <button
-                  key={key}
-                  onClick={() => setSiteType(siteType === key ? '' : key)}
-                  className={`px-3 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                    siteType === key
-                      ? 'border-primary-500 bg-primary-50 text-primary-700'
-                      : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                  }`}
-                >
-                  {config.label}
-                </button>
-              ))}
-            </div>
-            {siteType && (
-              <div className="mt-4 p-3 rounded-xl bg-primary-50 border border-primary-200">
-                <p className="text-sm text-primary-800 font-medium">
-                  {SITE_TYPE_CONFIG[siteType].tip}
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Step 1: Pick your river + global theme toggle (#3) */}
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style={{ backgroundColor: '#F07052' }}>
-              1
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900">Pick Your River &amp; Theme</h2>
-          </div>
-
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* River selector */}
-              <div>
-                <label className="block text-sm font-semibold text-neutral-700 mb-2">
-                  Which river do you want to show?
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedRiver}
-                    onChange={(e) => setSelectedRiver(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl text-base bg-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
-                  >
-                    {RIVER_OPTIONS.map((r) => (
-                      <option key={r.slug} value={r.slug}>{r.name}</option>
+      {/* Main layout: sidebar + content */}
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex gap-8">
+          {/* Left sidebar nav */}
+          <nav className="hidden lg:block w-56 flex-shrink-0">
+            <div className="sticky top-8 space-y-6">
+              {NAV_SECTIONS.map(section => (
+                <div key={section.title}>
+                  <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                    {section.title}
+                  </h4>
+                  <ul className="space-y-1">
+                    {section.items.map(item => (
+                      <li key={item.id}>
+                        <button
+                          onClick={() => scrollTo(item.id)}
+                          className="block w-full text-left text-sm text-neutral-600 hover:text-primary-700 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          {item.label}
+                        </button>
+                      </li>
                     ))}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                  </ul>
                 </div>
-              </div>
+              ))}
 
-              {/* (#3) Global theme toggle */}
-              <div>
-                <p className="text-sm font-semibold text-neutral-700 mb-2">Widget theme:</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setTheme('light')}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-all flex-1 ${
-                      theme === 'light'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full bg-white border border-neutral-300" />
-                    Light
-                  </button>
-                  <button
-                    onClick={() => setTheme('dark')}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-all flex-1 ${
-                      theme === 'dark'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full bg-neutral-800 border border-neutral-600" />
-                    Dark
-                  </button>
-                </div>
+              {/* Outfitter CTA in sidebar */}
+              <div className="border-t border-neutral-200 pt-4">
+                <p className="text-xs text-neutral-500 mb-2">Running an outfitter?</p>
+                <a
+                  href="mailto:hello@eddy.guide"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg no-underline"
+                  style={{ backgroundColor: '#F07052' }}
+                >
+                  Get in Touch
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
               </div>
             </div>
-          </div>
-        </section>
+          </nav>
 
-        {/* Step 2: Choose a widget (#2 fixed copy — 4 options in 2 categories) */}
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style={{ backgroundColor: '#F07052' }}>
-              2
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900">Choose a Widget</h2>
-          </div>
+          {/* Main content */}
+          <main className="flex-1 min-w-0 space-y-12">
 
-          <p className="text-neutral-600 mb-6">
-            We offer four widgets in two categories. Pick what works best for your site.
-          </p>
-
-          {/* Category: Data Widgets */}
-          <div className="mb-4">
-            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Data Widgets — Show Live Conditions</h3>
-          </div>
-
-          {/* === OPTION A: Live Widget === */}
-          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden mb-6">
-            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#2D788910' }}>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 bg-primary-600 text-white text-xs font-bold rounded-full">Recommended</span>
-                <h3 className="text-lg font-bold text-neutral-900">Live Conditions Widget</h3>
-              </div>
-              <p className="text-sm text-neutral-600 mt-1">
-                Shows current river status with gauge readings, weather, and trend arrows. Updates automatically.
+            {/* ===== CONFIGURATION ===== */}
+            <section id="configuration">
+              <h2 className="text-2xl font-bold text-neutral-900 mb-4">Configuration</h2>
+              <p className="text-sm text-neutral-600 mb-6">
+                Select your river and theme. All widget codes on this page will update automatically.
               </p>
-            </div>
 
-            <div className="p-6">
-              {/* Live Preview */}
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
-                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 480 }}>
-                    <iframe
-                      src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
-                      width="100%"
-                      height="380"
-                      style={{ border: 'none', borderRadius: '12px' }}
-                      title="Widget preview"
-                    />
+              <div className="bg-white border border-neutral-200 rounded-xl p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-neutral-700 mb-2">River</label>
+                    <div className="relative">
+                      <select
+                        value={selectedRiver}
+                        onChange={(e) => setSelectedRiver(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-neutral-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+                      >
+                        {RIVER_OPTIONS.map((r) => (
+                          <option key={r.slug} value={r.slug}>{r.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-neutral-700 mb-2">Theme</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setTheme('light')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all flex-1 ${
+                          theme === 'light'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        <div className="w-3.5 h-3.5 rounded-full bg-white border border-neutral-300" />
+                        Light
+                      </button>
+                      <button
+                        onClick={() => setTheme('dark')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all flex-1 ${
+                          theme === 'dark'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        <div className="w-3.5 h-3.5 rounded-full bg-neutral-800 border border-neutral-600" />
+                        Dark
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+            </section>
 
-              {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
-                  <CopyButton text={widgetCode} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
-                  <code>{widgetCode}</code>
-                </pre>
+            {/* ===== INSTALLATION ===== */}
+            <section id="installation">
+              <h2 className="text-2xl font-bold text-neutral-900 mb-4">Installation</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                Copy any widget code below and paste it into your website. All widgets are free and update automatically.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { name: 'WordPress', steps: 'Add a Custom HTML block, paste the code, and publish.' },
+                  { name: 'Squarespace', steps: 'Add a Code block (under "More"), paste, and publish.' },
+                  { name: 'Wix', steps: 'Add Elements \u2192 Embed Code \u2192 Embed HTML, paste the code.' },
+                  { name: 'Other', steps: 'Look for "Custom HTML" or "Embed Code" in your page editor.' },
+                ].map(platform => (
+                  <div key={platform.name} className="bg-white border border-neutral-200 rounded-xl p-4">
+                    <h3 className="font-semibold text-neutral-900 text-sm mb-1">{platform.name}</h3>
+                    <p className="text-xs text-neutral-500">{platform.steps}</p>
+                  </div>
+                ))}
               </div>
+            </section>
 
+            <hr className="border-neutral-200" />
+
+            {/* ===== LIVE CONDITIONS ===== */}
+            <section id="live-conditions">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-bold text-neutral-900">Live Conditions Widget</h2>
+                <span className="px-2 py-0.5 bg-primary-600 text-white text-xs font-bold rounded-full">Recommended</span>
+              </div>
+              <p className="text-sm text-neutral-600 mb-4">
+                Gauge readings, weather, condition badges, and trend arrows. Updates automatically.
+              </p>
+
+              <WidgetPreview
+                src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
+                height={380}
+                theme={theme}
+              />
+              <CodeBlock code={widgetCode} />
               <CopyButton text={widgetCode} large />
 
-              {/* (#11) Height adjustment note */}
               <p className="text-xs text-neutral-500 mt-3">
-                Adjust the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">height</code> value
-                if your river has more gauge stations. Rivers with 3+ gauges may need 400-450px.
+                Rivers with 3+ gauges may need <code className="bg-neutral-100 px-1 py-0.5 rounded">height=&quot;450&quot;</code>.
+                Add <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;partner=YourBusiness</code> for branding.
               </p>
-            </div>
-          </div>
+            </section>
 
-          {/* === OPTION B: Eddy Quote === */}
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden mb-6">
-            <div className="px-6 py-4 border-b-2 border-neutral-100">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-full">New</span>
-                <h3 className="text-lg font-bold text-neutral-900">Eddy&apos;s Daily Quote</h3>
+            <hr className="border-neutral-200" />
+
+            {/* ===== EDDY QUOTE ===== */}
+            <section id="eddy-quote">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-bold text-neutral-900">Eddy&apos;s Daily Quote</h2>
               </div>
-              <p className="text-sm text-neutral-600 mt-1">
-                AI-generated condition summary in Eddy&apos;s voice with a clear float/no-float recommendation.
-                Updates throughout the day with gauge readings, weather, and local knowledge.
+              <p className="text-sm text-neutral-600 mb-4">
+                AI-generated condition summary with a clear float/no-float recommendation.
+                Updates throughout the day.
               </p>
-            </div>
 
-            <div className="p-6">
-              {/* Live Preview */}
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
-                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 480 }}>
-                    <iframe
-                      src={`${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}`}
-                      width="100%"
-                      height="260"
-                      style={{ border: 'none', borderRadius: '12px' }}
-                      title="Eddy quote preview"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
-                  <CopyButton text={eddyQuoteCode} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
-                  <code>{eddyQuoteCode}</code>
-                </pre>
-              </div>
-
+              <WidgetPreview
+                src={`${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}`}
+                height={300}
+                theme={theme}
+              />
+              <CodeBlock code={eddyQuoteCode} />
               <CopyButton text={eddyQuoteCode} large />
-            </div>
-          </div>
+            </section>
 
-          {/* Category: Action Widgets */}
-          <div className="mb-4 mt-10">
-            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Action Widgets — Help Visitors Plan</h3>
-          </div>
+            <hr className="border-neutral-200" />
 
-          {/* === OPTION C: Float Planner (#16 moved up) === */}
-          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden mb-6">
-            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#F0705210' }}>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 text-white text-xs font-bold rounded-full" style={{ backgroundColor: '#F07052' }}>Best for Outfitters</span>
-                <h3 className="text-lg font-bold text-neutral-900">Float Trip Planner</h3>
+            {/* ===== FLOAT PLANNER ===== */}
+            <section id="float-planner">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-bold text-neutral-900">Float Trip Planner</h2>
+                <span className="px-2 py-0.5 text-white text-xs font-bold rounded-full" style={{ backgroundColor: '#F07052' }}>Best for Outfitters</span>
               </div>
-              <p className="text-sm text-neutral-600 mt-1">
-                Let visitors pick a river, put-in, and take-out right from your site. Shows distance,
-                float time estimate, and current conditions before sending them to Eddy for full details.
+              <p className="text-sm text-neutral-600 mb-4">
+                Visitors pick a river, put-in, and take-out. Shows distance, estimated float time,
+                conditions, and nearby outfitters with contact info.
+                The shuttle route between access points is shown on the full trip details page.
               </p>
-            </div>
 
-            <div className="p-6">
-              {/* Preview */}
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
-                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 480 }}>
-                    <iframe
-                      src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
-                      width="100%"
-                      height="380"
-                      style={{ border: 'none', borderRadius: '12px' }}
-                      title="Float planner preview"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
-                  <CopyButton text={plannerCode} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
-                  <code>{plannerCode}</code>
-                </pre>
-              </div>
-
+              <WidgetPreview
+                src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
+                height={420}
+                theme={theme}
+              />
+              <CodeBlock code={plannerCode} />
               <CopyButton text={plannerCode} large />
 
               <p className="text-xs text-neutral-500 mt-3">
-                The selected river will be pre-selected. Visitors can still change rivers.
-                Add <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;partner=YourBusiness</code> to
-                the src URL to show your business name in the widget footer.
+                Add <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;partner=YourBusiness</code> for
+                branding. The selected river is pre-selected but visitors can change it.
               </p>
-            </div>
-          </div>
+            </section>
 
-          {/* === OPTION D: Live Condition Badge === */}
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b-2 border-neutral-100">
-              <h3 className="text-lg font-bold text-neutral-900">Live Condition Badge</h3>
-              <p className="text-sm text-neutral-600 mt-1">
-                A compact inline badge showing the river name and live condition dot.
-                Updates automatically — great for blog posts, sidebars, or anywhere a full widget is too heavy.
+            <hr className="border-neutral-200" />
+
+            {/* ===== SERVICES DIRECTORY ===== */}
+            <section id="services-directory">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-bold text-neutral-900">Services Directory</h2>
+                <span className="px-2 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-full">New</span>
+              </div>
+              <p className="text-sm text-neutral-600 mb-4">
+                Outfitters, campgrounds (including NPS primitive campgrounds reservable through recreation.gov),
+                and lodging with click-to-call phone numbers, website links, reservation links, and Google Maps.
               </p>
-            </div>
 
-            <div className="p-6">
-              {/* Preview */}
+              <WidgetPreview
+                src={`${baseUrl}/embed/services/${selectedRiver}?theme=${theme}`}
+                height={400}
+                theme={theme}
+              />
+              <CodeBlock code={servicesCode} />
+              <CopyButton text={servicesCode} large />
+
+              <div className="mt-4 bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-neutral-800 mb-2">Filtering</h4>
+                <p className="text-xs text-neutral-600 mb-2">
+                  Filter the directory to show only specific service types:
+                </p>
+                <div className="space-y-1.5">
+                  <div className="text-xs">
+                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=outfitter</code>
+                    <span className="text-neutral-500 ml-2">Show only canoe/kayak rental outfitters</span>
+                  </div>
+                  <div className="text-xs">
+                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=campground</code>
+                    <span className="text-neutral-500 ml-2">Show only campgrounds (commercial + NPS)</span>
+                  </div>
+                  <div className="text-xs">
+                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=cabin_lodge</code>
+                    <span className="text-neutral-500 ml-2">Show only cabins and lodges</span>
+                  </div>
+                  <div className="text-xs">
+                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?highlight=your-business-slug</code>
+                    <span className="text-neutral-500 ml-2">Highlight your listing with a blue border</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <hr className="border-neutral-200" />
+
+            {/* ===== CONDITION BADGE ===== */}
+            <section id="condition-badge">
+              <h2 className="text-xl font-bold text-neutral-900 mb-1">Condition Badge</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                Compact inline badge with river name and live condition dot.
+                Great for sidebars and blog posts.
+              </p>
+
               <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
+                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
                 <div className={`rounded-xl border-2 p-6 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
                   <iframe
                     src={`${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}`}
@@ -498,340 +495,161 @@ export default function EmbedPage() {
                 </div>
               </div>
 
-              {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
-                  <CopyButton text={badgeCode} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto whitespace-pre-wrap max-w-full">
-                  <code>{badgeCode}</code>
-                </pre>
-              </div>
-
+              <CodeBlock code={badgeCode} />
               <CopyButton text={badgeCode} large />
+            </section>
 
-              <p className="text-xs text-neutral-500 mt-3">
-                The condition dot updates automatically based on live gauge data.
-                Adjust <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">width</code> as needed for your layout.
+            <hr className="border-neutral-200" />
+
+            {/* ===== MULTI-RIVER ===== */}
+            <section id="multi-river">
+              <h2 className="text-xl font-bold text-neutral-900 mb-1">Multi-River Embed</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                Embed conditions for multiple rivers on one page. Select the rivers you want
+                and copy the combined code. Each river gets its own widget, stacked vertically.
               </p>
-            </div>
-          </div>
 
-          {/* Category: Directory Widgets */}
-          <div className="mb-4 mt-10">
-            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Directory Widgets — Connect Visitors to Services</h3>
-          </div>
+              <div className="bg-white border border-neutral-200 rounded-xl p-5 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                  {RIVER_OPTIONS.map(r => (
+                    <label
+                      key={r.slug}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer border transition-all ${
+                        selectedRivers.includes(r.slug)
+                          ? 'border-primary-400 bg-primary-50 text-primary-700 font-medium'
+                          : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRivers.includes(r.slug)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedRivers(prev => [...prev, r.slug]);
+                          } else {
+                            setSelectedRivers(prev => prev.filter(s => s !== r.slug));
+                          }
+                        }}
+                        className="accent-primary-600"
+                      />
+                      <span className="truncate">{r.name}</span>
+                    </label>
+                  ))}
+                </div>
 
-          {/* === OPTION E: Services Directory === */}
-          <div className="bg-white border-2 border-primary-200 rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b-2 border-primary-100" style={{ backgroundColor: '#2D788910' }}>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-full">New</span>
-                <h3 className="text-lg font-bold text-neutral-900">Services Directory</h3>
+                {selectedRivers.length > 0 && multiRiverCode ? (
+                  <>
+                    <CodeBlock code={multiRiverCode} label={`HTML \u00B7 ${selectedRivers.length} ${selectedRivers.length === 1 ? 'river' : 'rivers'}`} />
+                    <CopyButton text={multiRiverCode} large />
+                  </>
+                ) : (
+                  <p className="text-xs text-neutral-400 text-center py-2">
+                    Select rivers above to generate embed codes.
+                  </p>
+                )}
               </div>
-              <p className="text-sm text-neutral-600 mt-1">
-                Show outfitters, campgrounds, and lodging near the river. Includes click-to-call phone numbers,
-                website links, and service tags (canoes, kayaks, shuttle, camping, etc.).
-              </p>
-            </div>
+            </section>
 
-            <div className="p-6">
-              {/* Preview */}
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Preview</p>
-                <div className={`rounded-xl border-2 p-4 ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <div style={{ maxWidth: 480 }}>
-                    <iframe
-                      src={`${baseUrl}/embed/services/${selectedRiver}?theme=${theme}`}
-                      width="100%"
-                      height="400"
-                      style={{ border: 'none', borderRadius: '12px' }}
-                      title="Services directory preview"
-                    />
-                  </div>
+            <hr className="border-neutral-200" />
+
+            {/* ===== PARAMETERS REFERENCE ===== */}
+            <section id="parameters">
+              <h2 className="text-xl font-bold text-neutral-900 mb-1">Parameters Reference</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                All widgets accept URL query parameters to customize behavior.
+                Add these to the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">src</code> URL in the iframe.
+              </p>
+
+              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-neutral-100 bg-neutral-50">
+                  <h4 className="text-sm font-semibold text-neutral-800">All Widgets</h4>
+                </div>
+                <div className="px-4 py-2">
+                  <table className="w-full">
+                    <tbody>
+                      <ParamRow name="theme" values="light | dark" description="Widget color scheme. Defaults to light." />
+                      <ParamRow name="partner" values="string" description='Shows "via YourBusiness" in the widget footer.' />
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                  <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner</h4>
+                </div>
+                <div className="px-4 py-2">
+                  <table className="w-full">
+                    <tbody>
+                      <ParamRow name="river" values="slug" description="Pre-select a river (e.g. current, meramec)." />
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                  <h4 className="text-sm font-semibold text-neutral-800">Services Directory</h4>
+                </div>
+                <div className="px-4 py-2">
+                  <table className="w-full">
+                    <tbody>
+                      <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Filter to show only one service type." />
+                      <ParamRow name="highlight" values="slug" description="Highlight a specific listing with a blue border." />
+                    </tbody>
+                  </table>
                 </div>
               </div>
+            </section>
 
-              {/* Code block */}
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">HTML code</span>
-                  <CopyButton text={servicesCode} />
+            <hr className="border-neutral-200" />
+
+            {/* ===== API ACCESS ===== */}
+            <section id="api">
+              <h2 className="text-xl font-bold text-neutral-900 mb-1">API Access</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                Fetch data directly and build your own display. Keep requests reasonable.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <CodeBlock code={`GET ${baseUrl}/api/rivers`} label="Rivers — conditions, lengths, access point counts" />
                 </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
-                  <code>{servicesCode}</code>
-                </pre>
+                <div>
+                  <CodeBlock code={`GET ${baseUrl}/api/rivers/{slug}/services`} label="Services — outfitters, campgrounds, lodging for a river" />
+                </div>
+                <div>
+                  <CodeBlock code={`GET ${baseUrl}/api/gauges`} label="Gauges — all gauge stations with latest readings and thresholds" />
+                </div>
               </div>
+            </section>
 
-              <CopyButton text={servicesCode} large />
-
-              <p className="text-xs text-neutral-500 mt-3">
-                Filter by type with <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;type=outfitter</code> or{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;type=campground</code>.
-                Highlight your listing with <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;highlight=your-business-slug</code>.
+            {/* CTA */}
+            <section className="bg-white border-2 border-primary-200 rounded-xl p-6 text-center">
+              <h3 className="font-bold text-neutral-900 mb-2">Running an Outfitter or Campground?</h3>
+              <p className="text-sm text-neutral-600 mb-4 max-w-md mx-auto">
+                We&apos;d love to partner with you. Get custom widgets, priority support,
+                and help driving visitors to your business.
               </p>
+              <a
+                href="mailto:hello@eddy.guide"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold no-underline transition-colors"
+                style={{ backgroundColor: '#F07052' }}
+              >
+                Get in Touch
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+              </a>
+            </section>
+
+            <div className="text-center">
+              <Link
+                href="/"
+                className="text-primary-600 hover:text-primary-700 font-medium text-sm"
+              >
+                &larr; Back to Eddy
+              </Link>
             </div>
-          </div>
-        </section>
-
-        {/* (#6) Combination guidance */}
-        <section className="bg-primary-50 border-2 border-primary-200 rounded-2xl p-6">
-          <h3 className="font-bold text-neutral-900 mb-2">Pro Tip: Pair Widgets Together</h3>
-          <p className="text-sm text-neutral-700 leading-relaxed">
-            For the best experience, combine the <strong>Live Conditions Widget</strong> with the{' '}
-            <strong>Float Trip Planner</strong> on your site. Visitors see current conditions first,
-            then plan their trip — all without leaving your page. Just copy both code snippets
-            and paste them where you want them to appear.
-          </p>
-        </section>
-
-        {/* Multi-river generator */}
-        <section>
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl p-6">
-            <h3 className="font-bold text-neutral-900 mb-1">Multi-River Embed</h3>
-            <p className="text-sm text-neutral-500 mb-4">
-              Cover multiple rivers on one page. Select the rivers you serve and copy all embed codes at once.
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-              {RIVER_OPTIONS.map(r => (
-                <label
-                  key={r.slug}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer border transition-all ${
-                    selectedRivers.includes(r.slug)
-                      ? 'border-primary-400 bg-primary-50 text-primary-700 font-medium'
-                      : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedRivers.includes(r.slug)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedRivers(prev => [...prev, r.slug]);
-                      } else {
-                        setSelectedRivers(prev => prev.filter(s => s !== r.slug));
-                      }
-                    }}
-                    className="accent-primary-600"
-                  />
-                  <span className="truncate">{r.name}</span>
-                </label>
-              ))}
-            </div>
-            {selectedRivers.length > 0 && multiRiverCode && (
-              <>
-                <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                    <span className="text-xs text-neutral-400 font-medium">
-                      HTML code &middot; {selectedRivers.length} {selectedRivers.length === 1 ? 'river' : 'rivers'}
-                    </span>
-                    <CopyButton text={multiRiverCode} />
-                  </div>
-                  <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full max-h-48 overflow-y-auto">
-                    <code>{multiRiverCode}</code>
-                  </pre>
-                </div>
-                <CopyButton text={multiRiverCode} large />
-              </>
-            )}
-            {selectedRivers.length === 0 && (
-              <p className="text-xs text-neutral-400 text-center py-2">
-                Select rivers above to generate embed codes.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* Step 3: Paste into your site */}
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style={{ backgroundColor: '#F07052' }}>
-              3
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900">Paste Into Your Website</h2>
-          </div>
-
-          <div className="space-y-4">
-            {/* WordPress */}
-            <div className="bg-white border-2 border-neutral-200 rounded-2xl p-5">
-              <h3 className="font-bold text-neutral-900 mb-2">WordPress</h3>
-              <ol className="list-decimal list-inside space-y-1.5 text-sm text-neutral-700 leading-relaxed">
-                <li>Open the page or post where you want the widget to appear.</li>
-                <li>Add a <strong>Custom HTML</strong> block (click the <strong>+</strong> button and search for &quot;HTML&quot;).</li>
-                <li>Paste the code you copied above into the block.</li>
-                <li>Click <strong>Preview</strong> to see it, then <strong>Publish</strong> or <strong>Update</strong>.</li>
-              </ol>
-            </div>
-
-            {/* Squarespace */}
-            <div className="bg-white border-2 border-neutral-200 rounded-2xl p-5">
-              <h3 className="font-bold text-neutral-900 mb-2">Squarespace</h3>
-              <ol className="list-decimal list-inside space-y-1.5 text-sm text-neutral-700 leading-relaxed">
-                <li>Edit the page where you want the widget.</li>
-                <li>Click <strong>Add Block</strong> and choose <strong>Code</strong> (under &quot;More&quot;).</li>
-                <li>Paste the code into the code block. Make sure <strong>Display Source</strong> is unchecked.</li>
-                <li>Click outside the block to save, then publish your changes.</li>
-              </ol>
-            </div>
-
-            {/* Wix */}
-            <div className="bg-white border-2 border-neutral-200 rounded-2xl p-5">
-              <h3 className="font-bold text-neutral-900 mb-2">Wix</h3>
-              <ol className="list-decimal list-inside space-y-1.5 text-sm text-neutral-700 leading-relaxed">
-                <li>Open the Wix Editor for your page.</li>
-                <li>Click <strong>Add Elements</strong> &rarr; <strong>Embed Code</strong> &rarr; <strong>Embed HTML</strong>.</li>
-                <li>Choose <strong>Code</strong> mode and paste the copied code.</li>
-                <li>Resize the box as needed and publish your site.</li>
-              </ol>
-            </div>
-
-            {/* Other / General */}
-            <div className="bg-white border-2 border-neutral-200 rounded-2xl p-5">
-              <h3 className="font-bold text-neutral-900 mb-2">Other Website Builders</h3>
-              <p className="text-sm text-neutral-700 leading-relaxed">
-                Most website builders (Weebly, GoDaddy, Shopify, etc.) have an option to add
-                &quot;custom HTML&quot; or &quot;embed code.&quot; Look for that in your page editor,
-                paste the code in, and save. If you&apos;re not sure where to find it,
-                search your platform&apos;s help docs for <strong>&quot;add HTML code&quot;</strong> or <strong>&quot;embed code.&quot;</strong>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ Section */}
-        <section>
-          <h2 className="text-2xl font-bold text-neutral-900 mb-4">Common Questions</h2>
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl px-6">
-            <FAQ question="Do I need to update the widget myself?">
-              <p>
-                No. The widget pulls live data from Eddy automatically. Once you paste the code
-                into your site, the river conditions will always be up to date — you never need
-                to touch it again.
-              </p>
-            </FAQ>
-            <FAQ question="Is this free to use?">
-              <p>
-                Yes, it&apos;s completely free. We want paddlers to have easy access to river conditions
-                no matter where they find information.
-              </p>
-            </FAQ>
-            <FAQ question="Can I show more than one river?">
-              <p>
-                Absolutely. Use the <strong>Multi-River Embed</strong> section above to select multiple
-                rivers and copy all embed codes at once. Or come back to this page, select a different
-                river, and copy individual widget codes.
-              </p>
-            </FAQ>
-            <FAQ question="Will it slow down my website?">
-              <p>
-                No. The widget loads separately from the rest of your page, so it won&apos;t affect
-                your site&apos;s speed. It also loads lazily, meaning it only activates when a
-                visitor scrolls to it.
-              </p>
-            </FAQ>
-            <FAQ question="Can I change the size of the widget?">
-              <p>
-                Yes. In the code you copied, you can change the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">height</code> number
-                to make it taller or shorter. The <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">max-width</code> value
-                (currently 600px) controls how wide it gets. Feel free to adjust these numbers until it looks right on your page.
-              </p>
-            </FAQ>
-            <FAQ question="Can I add my business name to the widget?">
-              <p>
-                Yes! Add <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">&amp;partner=YourBusiness</code> to
-                any iframe src URL. Your business name will appear as &quot;via YourBusiness&quot; in the widget footer.
-                This works on the Float Trip Planner, Live Conditions Widget, Eddy&apos;s Daily Quote, and Services Directory.
-              </p>
-            </FAQ>
-            <FAQ question="What if I need help?">
-              <p>
-                Reach out to us through{' '}
-                <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
-                  eddy.guide
-                </Link>{' '}
-                and we&apos;ll help you get set up.
-              </p>
-            </FAQ>
-          </div>
-        </section>
-
-        {/* For Developers (collapsed) */}
-        <section>
-          <details className="bg-white border-2 border-neutral-200 rounded-2xl overflow-hidden">
-            <summary className="px-6 py-4 cursor-pointer text-sm font-semibold text-neutral-500 hover:text-neutral-700 transition-colors">
-              For developers: API access
-            </summary>
-            <div className="px-6 pb-6 pt-2">
-              <p className="text-sm text-neutral-600 mb-3">
-                You can fetch river condition data directly from our API and build your own display.
-              </p>
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">GET request</span>
-                  <CopyButton text={`${baseUrl}/api/rivers`} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
-                  <code>{`GET ${baseUrl}/api/rivers`}</code>
-                </pre>
-              </div>
-              <p className="text-xs text-neutral-500 leading-relaxed mb-4">
-                Returns JSON with all rivers including <code className="bg-neutral-100 px-1 py-0.5 rounded">name</code>,{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">slug</code>,{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">lengthMiles</code>,{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">accessPointCount</code>, and{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">currentCondition</code> (code + label).
-              </p>
-              <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-                  <span className="text-xs text-neutral-400 font-medium">GET request — Services</span>
-                  <CopyButton text={`${baseUrl}/api/rivers/{slug}/services`} />
-                </div>
-                <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
-                  <code>{`GET ${baseUrl}/api/rivers/{slug}/services`}</code>
-                </pre>
-              </div>
-              <p className="text-xs text-neutral-500 leading-relaxed">
-                Returns outfitters, campgrounds, and lodging for a river including{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">name</code>,{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">phone</code>,{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">website</code>,{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">servicesOffered</code>, and{' '}
-                <code className="bg-neutral-100 px-1 py-0.5 rounded">type</code>.
-                Please keep requests reasonable — if you plan heavy usage, reach out first.
-              </p>
-            </div>
-          </details>
-        </section>
-
-        {/* (#7) Outfitter contact CTA */}
-        <section className="bg-white border-2 border-primary-200 rounded-2xl p-6 text-center">
-          <h3 className="font-bold text-neutral-900 mb-2">Running an Outfitter or Campground?</h3>
-          <p className="text-sm text-neutral-600 mb-4 max-w-md mx-auto">
-            We&apos;d love to partner with you. Get custom widgets, priority support,
-            and help driving visitors to your business.
-          </p>
-          <a
-            href="mailto:hello@eddy.guide"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold no-underline transition-colors"
-            style={{ backgroundColor: '#F07052' }}
-          >
-            Get in Touch
-            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-          </a>
-        </section>
-
-        <div className="text-center">
-          <Link
-            href="/"
-            className="text-primary-600 hover:text-primary-700 font-medium text-sm"
-          >
-            &larr; Back to Eddy
-          </Link>
+          </main>
         </div>
       </div>
 
-      <SiteFooter maxWidth="max-w-3xl" className="mt-16" />
+      <SiteFooter maxWidth="max-w-6xl" className="mt-16" />
     </div>
   );
 }
