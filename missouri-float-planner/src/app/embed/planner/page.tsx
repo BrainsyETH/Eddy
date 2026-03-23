@@ -36,8 +36,6 @@ export default function EmbedPlannerPage() {
   const theme = searchParams.get('theme') || 'light';
   const preselectedRiver = searchParams.get('river') || '';
   const partner = searchParams.get('partner') || ''; // (#19) partner branding
-  const mode = searchParams.get('mode') || ''; // 'shuttle' for shuttle-focused view
-  const isShuttleMode = mode === 'shuttle';
   const isDark = theme === 'dark';
 
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
@@ -47,9 +45,6 @@ export default function EmbedPlannerPage() {
   const [selectedTakeOut, setSelectedTakeOut] = useState('');
   const [loadingAP, setLoadingAP] = useState(false);
   const [tripSummary, setTripSummary] = useState<{ distanceMiles: number; estimatedMinutes: number } | null>(null);
-  const [shuttleInfo, setShuttleInfo] = useState<{ minutes: number; miles: number; formatted: string; routeSummary: string | null } | null>(null);
-  const [loadingShuttle, setLoadingShuttle] = useState(false);
-  const [nearbyOutfitters, setNearbyOutfitters] = useState<{ name: string; phone: string | null; website: string | null; latitude: number | null; longitude: number | null; city: string | null; servicesOffered: string[] }[]>([]);
 
   // Get the selected river's condition (#17)
   const selectedRiverData = rivers.find(r => r.slug === selectedRiver);
@@ -70,42 +65,21 @@ export default function EmbedPlannerPage() {
       .catch(() => {});
   }, [preselectedRiver]);
 
-  // Fetch access points and outfitters when river changes
+  // Fetch access points when river changes
   useEffect(() => {
     if (!selectedRiver) {
       setAccessPoints([]);
-      setNearbyOutfitters([]);
       return;
     }
     setLoadingAP(true);
     setSelectedPutIn('');
     setSelectedTakeOut('');
     setTripSummary(null);
-    setNearbyOutfitters([]);
     fetch(`/api/rivers/${selectedRiver}/access-points`)
       .then(r => r.ok ? r.json() : { accessPoints: [] })
       .then(data => setAccessPoints(data.accessPoints || []))
       .catch(() => setAccessPoints([]))
       .finally(() => setLoadingAP(false));
-    // Fetch outfitters for "rent gear" section
-    fetch(`/api/rivers/${selectedRiver}/services`)
-      .then(r => r.ok ? r.json() : { services: [] })
-      .then(data => {
-        const outfitters = (data.services || [])
-          .filter((s: { type: string; status: string }) => s.type === 'outfitter' && (s.status === 'active' || s.status === 'seasonal'))
-          .slice(0, 2)
-          .map((s: { name: string; phone: string | null; website: string | null; latitude: number | null; longitude: number | null; city: string | null; servicesOffered: string[] }) => ({
-            name: s.name,
-            phone: s.phone,
-            website: s.website,
-            latitude: s.latitude,
-            longitude: s.longitude,
-            city: s.city,
-            servicesOffered: s.servicesOffered || [],
-          }));
-        setNearbyOutfitters(outfitters);
-      })
-      .catch(() => {});
   }, [selectedRiver]);
 
   // Compute mini trip summary when both points selected (#18)
@@ -123,29 +97,6 @@ export default function EmbedPlannerPage() {
       setTripSummary({ distanceMiles: Math.round(distance * 10) / 10, estimatedMinutes: minutes });
     }
   }, [selectedPutIn, selectedTakeOut, accessPoints]);
-
-  // Fetch shuttle route when in shuttle mode and both points selected
-  useEffect(() => {
-    if (!isShuttleMode || !selectedPutIn || !selectedTakeOut || !selectedRiverData) {
-      setShuttleInfo(null);
-      return;
-    }
-    setLoadingShuttle(true);
-    fetch(`/api/plan?riverId=${selectedRiverData.id}&startId=${selectedPutIn}&endId=${selectedTakeOut}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.plan?.driveBack) {
-          setShuttleInfo({
-            minutes: data.plan.driveBack.minutes,
-            miles: data.plan.driveBack.miles,
-            formatted: data.plan.driveBack.formatted,
-            routeSummary: data.plan.driveBack.routeSummary,
-          });
-        }
-      })
-      .catch(() => setShuttleInfo(null))
-      .finally(() => setLoadingShuttle(false));
-  }, [isShuttleMode, selectedPutIn, selectedTakeOut, selectedRiverData]);
 
   // Filter take-out to downstream of put-in
   const takeOutOptions = useMemo(() => {
@@ -194,7 +145,7 @@ export default function EmbedPlannerPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <Image src={EDDY_CANOE} alt="Eddy" width={36} height={36} style={{ width: 32, height: 32, objectFit: 'contain' }} />
-        <div style={{ fontWeight: 700, fontSize: 15 }}>{isShuttleMode ? 'Shuttle Route' : 'Plan Your Float'}</div>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>Plan Your Float</div>
       </div>
 
       {/* River Select with condition dot (#17) */}
@@ -344,35 +295,6 @@ export default function EmbedPlannerPage() {
         </div>
       )}
 
-      {/* Shuttle route info (shuttle mode only) */}
-      {isShuttleMode && canSubmit && loadingShuttle && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', marginBottom: 10, borderRadius: 8, background: cardBg, border: `1px solid ${borderColor}`, fontSize: 12, color: textSecondary }}>
-          Calculating shuttle route...
-        </div>
-      )}
-      {isShuttleMode && canSubmit && shuttleInfo && !loadingShuttle && (
-        <div style={{ padding: '10px 12px', marginBottom: 10, borderRadius: 8, background: cardBg, border: `1px solid ${borderColor}` }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-            Shuttle Drive Back
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, fontSize: 12, color: textSecondary }}>
-            <div>
-              <span style={{ fontWeight: 700, color: textPrimary, fontSize: 16 }}>{shuttleInfo.formatted}</span>
-            </div>
-            <div style={{ width: 1, height: 20, background: borderColor }} />
-            <div>
-              <span style={{ fontWeight: 700, color: textPrimary, fontSize: 16 }}>{shuttleInfo.miles.toFixed(1)}</span>
-              <span style={{ marginLeft: 3 }}>mi</span>
-            </div>
-          </div>
-          {shuttleInfo.routeSummary && (
-            <div style={{ textAlign: 'center', fontSize: 11, color: textSecondary, marginTop: 4 }}>
-              {shuttleInfo.routeSummary}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Submit */}
       {canSubmit ? (
         <a
@@ -421,66 +343,58 @@ export default function EmbedPlannerPage() {
         </div>
       )}
 
-      {/* Nearby outfitters (shown after trip is planned) */}
-      {canSubmit && nearbyOutfitters.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-            Rent Gear Nearby
-          </div>
-          {nearbyOutfitters.map((outfitter, i) => (
-            <div
-              key={i}
-              style={{
-                padding: '6px 8px',
-                borderRadius: 6,
-                background: cardBg,
-                border: `1px solid ${borderColor}`,
-                marginBottom: i < nearbyOutfitters.length - 1 ? 4 : 0,
-                fontSize: 12,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {outfitter.name}
-                </span>
-                {outfitter.phone && (
-                  <a
-                    href={`tel:${outfitter.phone}`}
-                    style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600, flexShrink: 0, marginLeft: 8 }}
-                  >
-                    {outfitter.phone}
-                  </a>
-                )}
+      {/* Shuttle Route button (shown after trip is planned) */}
+      {canSubmit && (() => {
+        const putIn = accessPoints.find(ap => ap.id === selectedPutIn);
+        const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
+        if (!putIn || !takeOut) return null;
+        const originParam = putIn.directionsOverride
+          ? encodeURIComponent(putIn.directionsOverride)
+          : `${putIn.coordinates.lat},${putIn.coordinates.lng}`;
+        const destParam = takeOut.directionsOverride
+          ? encodeURIComponent(takeOut.directionsOverride)
+          : `${takeOut.coordinates.lat},${takeOut.coordinates.lng}`;
+        const mapsUrl = `https://www.google.com/maps/dir/${originParam}/${destParam}`;
+        return (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              padding: '8px 12px',
+              marginTop: 8,
+              borderRadius: 8,
+              background: isDark ? '#1e3a3f' : '#EEF6F8',
+              border: `1px solid ${isDark ? '#2D7889' : '#c8dfe5'}`,
+              textDecoration: 'none',
+              boxSizing: 'border-box',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#2D7889', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="5" cy="18" r="3"/>
+                  <circle cx="19" cy="6" r="3"/>
+                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
+                  <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                </svg>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                {outfitter.website && (
-                  <a
-                    href={outfitter.website.startsWith('http') ? outfitter.website : `https://${outfitter.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 10, color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}
-                  >
-                    Website &rarr;
-                  </a>
-                )}
-                {outfitter.latitude && outfitter.longitude && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${outfitter.latitude},${outfitter.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 10, color: '#2D7889', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 2 }}
-                  >
-                    <span style={{ fontSize: 12 }}>&#x1F4CD;</span> Map
-                  </a>
-                )}
-                {!outfitter.latitude && outfitter.city && (
-                  <span style={{ fontSize: 10, color: textSecondary }}>{outfitter.city}</span>
-                )}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: textPrimary }}>Shuttle Route</div>
+                <div style={{ fontSize: 11, color: textSecondary }}>View in Google Maps</div>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#5BA3B5' : '#5BA3B5'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </a>
+        );
+      })()}
 
       {/* Footer with optional partner branding (#19) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: partner ? 'space-between' : 'flex-end', marginTop: 10, paddingTop: 8, borderTop: `1px solid ${borderColor}` }}>
