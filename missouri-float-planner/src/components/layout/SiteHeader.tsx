@@ -107,12 +107,10 @@ export default function SiteHeader() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-neutral-900">{river.name}</span>
-                              {river.currentCondition && (
-                                <span
-                                  className={`w-2 h-2 rounded-full ${conditionColors[river.currentCondition.code]}`}
-                                  title={river.currentCondition.label}
-                                />
-                              )}
+                              <span
+                                className={`w-2 h-2 rounded-full ${river.currentCondition ? conditionColors[river.currentCondition.code] : conditionColors.unknown}`}
+                                title={river.currentCondition?.label || 'Unknown'}
+                              />
                             </div>
                             <span className="text-xs text-neutral-500">
                               {river.lengthMiles.toFixed(1)} mi &middot; {river.region} &middot; {river.difficultyRating}
@@ -189,11 +187,9 @@ export default function SiteHeader() {
                       : 'text-primary-100 hover:bg-white/5 hover:text-white'
                   }`}
                 >
-                  {river.currentCondition && (
-                    <span
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${conditionColors[river.currentCondition.code]}`}
-                    />
-                  )}
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${river.currentCondition ? conditionColors[river.currentCondition.code] : conditionColors.unknown}`}
+                  />
                   <span className="font-medium text-sm truncate">{river.name}</span>
                 </Link>
               ))}

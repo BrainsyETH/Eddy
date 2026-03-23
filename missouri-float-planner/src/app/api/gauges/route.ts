@@ -2,7 +2,7 @@
 // API endpoint to fetch all gauge stations with their readings and thresholds
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
     const rateLimitResult = rateLimit(`gauges:${getClientIp(request)}`, 60, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Fetch all active gauge stations
     // Note: The RPC get_gauge_stations_with_geojson() is missing newer columns

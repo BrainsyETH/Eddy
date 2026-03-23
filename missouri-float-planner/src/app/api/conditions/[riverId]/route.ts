@@ -2,7 +2,7 @@
 // GET /api/conditions/[riverId] - Get current river conditions
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
@@ -75,7 +75,7 @@ export async function GET(
 ) {
   try {
     const { riverId } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     
     // Check for optional put-in access point ID for segment-aware gauge selection
     const searchParams = request.nextUrl.searchParams;

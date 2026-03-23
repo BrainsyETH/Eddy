@@ -2,7 +2,7 @@
 // Dual-mode route: handles both numeric USGS siteId (redirects to river) and river slugs (renders detail)
 
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { Metadata } from 'next';
 import GaugeDetailView from '@/components/gauge/GaugeDetailView';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
@@ -13,7 +13,7 @@ interface Props {
 
 async function getGaugeData(siteId: string) {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: station } = await supabase
       .from('gauge_stations')
       .select('id, usgs_site_id, name')
@@ -28,7 +28,7 @@ async function getGaugeData(siteId: string) {
 
 async function getRiverData(slug: string) {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: river } = await supabase
       .from('rivers')
       .select('id, name, slug')
@@ -43,7 +43,7 @@ async function getRiverData(slug: string) {
 
 async function getPrimaryRiverSlugForGauge(siteId: string): Promise<string | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: station } = await supabase
       .from('gauge_stations')
       .select('id')
