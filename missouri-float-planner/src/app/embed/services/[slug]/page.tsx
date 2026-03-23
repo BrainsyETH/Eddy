@@ -55,6 +55,10 @@ interface ServiceItem {
   npsAuthorized: boolean;
   usfsAuthorized: boolean;
   status: string;
+  isNpsCampground?: boolean;
+  reservationUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface RiverBasic {
@@ -305,7 +309,17 @@ export default function EmbedServicesPage() {
                         {service.phone}
                       </a>
                     )}
-                    {service.website && (
+                    {service.isNpsCampground && service.reservationUrl && (
+                      <a
+                        href={service.reservationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 11, color: '#059669', textDecoration: 'none', fontWeight: 600 }}
+                      >
+                        Reserve &rarr;
+                      </a>
+                    )}
+                    {service.website && !service.isNpsCampground && (
                       <a
                         href={service.website.startsWith('http') ? service.website : `https://${service.website}`}
                         target="_blank"
@@ -315,7 +329,17 @@ export default function EmbedServicesPage() {
                         Website &rarr;
                       </a>
                     )}
-                    {!service.phone && !service.website && service.city && (
+                    {service.latitude && service.longitude && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${service.latitude},${service.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 2 }}
+                      >
+                        <span style={{ fontSize: 12 }}>&#x1F4CD;</span> Map
+                      </a>
+                    )}
+                    {!service.phone && !service.website && !service.isNpsCampground && service.city && (
                       <span style={{ fontSize: 11, color: textSecondary }}>
                         {service.city}, {service.state}
                       </span>

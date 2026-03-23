@@ -95,7 +95,75 @@ export async function GET(
         };
       });
 
-    return NextResponse.json({ services });
+    // Also fetch NPS campgrounds linked via access_points for this river
+    const { data: npsAccessPoints } = await supabase
+      .from('access_points')
+      .select('nps_campground_id')
+      .eq('river_id', river.id)
+      .not('nps_campground_id', 'is', null);
+
+    const npsIds = (npsAccessPoints || [])
+      .map(ap => ap.nps_campground_id)
+      .filter((id): id is string => !!id);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const npsCampgrounds: any[] = [];
+    if (npsIds.length > 0) {
+      const { data: campgrounds } = await supabase
+        .from('nps_campgrounds')
+        .select('id, name, nps_url, reservation_url, latitude, longitude, total_sites, sites_reservable, sites_first_come, fees, amenities, classification')
+        .in('id', npsIds);
+
+      for (const cg of campgrounds || []) {
+        // Skip if already represented in nearby_services by name
+        const alreadyListed = services.some(
+          (s: { name: string }) => s.name.toLowerCase().includes(cg.name.toLowerCase().replace(/ campground$/i, ''))
+        );
+        if (alreadyListed) continue;
+
+        const feesData = typeof cg.fees === 'string' ? JSON.parse(cg.fees) : cg.fees || [];
+        const firstFee = feesData[0];
+        const feeNote = firstFee ? `$${firstFee.cost}/night` : null;
+
+        // Build amenities list from NPS data
+        const amenitiesObj = typeof cg.amenities === 'string' ? JSON.parse(cg.amenities) : cg.amenities || {};
+        const offeredServices: string[] = ['camping_primitive'];
+        if (amenitiesObj.potableWater?.some((v: string) => v !== 'No')) offeredServices.push('showers');
+
+        npsCampgrounds.push({
+          id: cg.id,
+          name: cg.name,
+          slug: cg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          type: 'campground',
+          phone: null,
+          phoneTollFree: null,
+          email: null,
+          website: cg.reservation_url || cg.nps_url || null,
+          addressLine1: null,
+          city: null,
+          state: 'MO',
+          zip: null,
+          latitude: cg.latitude,
+          longitude: cg.longitude,
+          description: null,
+          servicesOffered: offeredServices,
+          seasonalNotes: feeNote ? `${cg.total_sites || 0} sites \u00B7 ${feeNote}` : `${cg.total_sites || 0} sites`,
+          npsAuthorized: true,
+          usfsAuthorized: false,
+          status: 'active',
+          displayOrder: 900,
+          isPrimary: false,
+          sectionDescription: null,
+          isNpsCampground: true,
+          reservationUrl: cg.reservation_url,
+          totalSites: cg.total_sites,
+          sitesReservable: cg.sites_reservable,
+          sitesFirstCome: cg.sites_first_come,
+        });
+      }
+    }
+
+    return NextResponse.json({ services: [...services, ...npsCampgrounds] });
   } catch (error) {
     console.error('Error in services endpoint:', error);
     return NextResponse.json(

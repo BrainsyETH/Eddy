@@ -45,7 +45,7 @@ export default function EmbedPlannerPage() {
   const [selectedTakeOut, setSelectedTakeOut] = useState('');
   const [loadingAP, setLoadingAP] = useState(false);
   const [tripSummary, setTripSummary] = useState<{ distanceMiles: number; estimatedMinutes: number } | null>(null);
-  const [nearbyOutfitters, setNearbyOutfitters] = useState<{ name: string; phone: string | null; servicesOffered: string[] }[]>([]);
+  const [nearbyOutfitters, setNearbyOutfitters] = useState<{ name: string; phone: string | null; website: string | null; latitude: number | null; longitude: number | null; city: string | null; servicesOffered: string[] }[]>([]);
 
   // Get the selected river's condition (#17)
   const selectedRiverData = rivers.find(r => r.slug === selectedRiver);
@@ -90,9 +90,13 @@ export default function EmbedPlannerPage() {
         const outfitters = (data.services || [])
           .filter((s: { type: string; status: string }) => s.type === 'outfitter' && (s.status === 'active' || s.status === 'seasonal'))
           .slice(0, 2)
-          .map((s: { name: string; phone: string | null; servicesOffered: string[] }) => ({
+          .map((s: { name: string; phone: string | null; website: string | null; latitude: number | null; longitude: number | null; city: string | null; servicesOffered: string[] }) => ({
             name: s.name,
             phone: s.phone,
+            website: s.website,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            city: s.city,
             servicesOffered: s.servicesOffered || [],
           }));
         setNearbyOutfitters(outfitters);
@@ -371,10 +375,7 @@ export default function EmbedPlannerPage() {
             <div
               key={i}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '5px 8px',
+                padding: '6px 8px',
                 borderRadius: 6,
                 background: cardBg,
                 border: `1px solid ${borderColor}`,
@@ -382,17 +383,44 @@ export default function EmbedPlannerPage() {
                 fontSize: 12,
               }}
             >
-              <span style={{ fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {outfitter.name}
-              </span>
-              {outfitter.phone && (
-                <a
-                  href={`tel:${outfitter.phone}`}
-                  style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600, flexShrink: 0, marginLeft: 8 }}
-                >
-                  {outfitter.phone}
-                </a>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {outfitter.name}
+                </span>
+                {outfitter.phone && (
+                  <a
+                    href={`tel:${outfitter.phone}`}
+                    style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600, flexShrink: 0, marginLeft: 8 }}
+                  >
+                    {outfitter.phone}
+                  </a>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                {outfitter.website && (
+                  <a
+                    href={outfitter.website.startsWith('http') ? outfitter.website : `https://${outfitter.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 10, color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}
+                  >
+                    Website &rarr;
+                  </a>
+                )}
+                {outfitter.latitude && outfitter.longitude && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${outfitter.latitude},${outfitter.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 10, color: '#2D7889', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 2 }}
+                  >
+                    <span style={{ fontSize: 12 }}>&#x1F4CD;</span> Map
+                  </a>
+                )}
+                {!outfitter.latitude && outfitter.city && (
+                  <span style={{ fontSize: 10, color: textSecondary }}>{outfitter.city}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

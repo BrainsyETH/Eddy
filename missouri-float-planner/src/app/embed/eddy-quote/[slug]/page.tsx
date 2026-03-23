@@ -332,8 +332,6 @@ export default function EddyQuoteEmbedPage() {
           borderRadius: 10,
           padding: '10px 14px',
           boxShadow: `0 1px 2px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)'}`,
-          maxHeight: 120,
-          overflowY: 'auto',
         }}
       >
         <p style={{ fontSize: 13, lineHeight: 1.5, color: quoteColors.text, margin: 0, fontWeight: 500 }}>
