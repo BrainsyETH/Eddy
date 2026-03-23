@@ -136,6 +136,7 @@ export default function EmbedWidgetPage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [gaugeTrends, setGaugeTrends] = useState<Record<string, 'rising' | 'falling' | 'steady' | null>>({});
   const [chartData, setChartData] = useState<{ readings: { timestamp: string; value: number }[]; unit: string; thresholds: ChartThresholds | null } | null>(null);
+  const [showAllGauges, setShowAllGauges] = useState(false);
 
   interface ChartThresholds {
     levelOptimalMin: number | null;
@@ -279,8 +280,8 @@ export default function EmbedWidgetPage() {
                         timestamp: r.timestamp,
                         value: useCfs ? r.dischargeCfs : r.gaugeHeightFt,
                       }))
-                      .filter((r: { value: number | null }) => r.value !== null)
-                      .reverse(); // oldest first for chart
+                      .filter((r: { value: number | null }) => r.value !== null);
+                    // API returns oldest-first, which is correct for left-to-right chart
                     setChartData({
                       readings,
                       unit: useCfs ? 'cfs' : 'ft',
@@ -433,84 +434,143 @@ export default function EmbedWidgetPage() {
         </div>
       )}
 
-      {/* Gauge stations */}
-      {gauges.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Gauge Stations
-            </div>
-            {/* Last updated timestamp (#8) */}
-            {oldestReadingAge !== null && (
-              <div style={{ fontSize: 9, color: textSecondary, fontWeight: 500 }}>
-                {formatReadingAge(oldestReadingAge)}
+      {/* Gauge stations — primary shown, others toggleable */}
+      {gauges.length > 0 && (() => {
+        const primaryGauge = gauges.find(g => g.isPrimary) || gauges[0];
+        const secondaryGauges = gauges.filter(g => g.id !== primaryGauge.id);
+        const primaryTrend = gaugeTrends[primaryGauge.usgsSiteId] ?? null;
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Primary Gauge
               </div>
-            )}
-          </div>
-          {gauges.map((gauge) => {
-            const trend = gaugeTrends[gauge.usgsSiteId] ?? null;
-            return (
+              {oldestReadingAge !== null && (
+                <div style={{ fontSize: 9, color: textSecondary, fontWeight: 500 }}>
+                  {formatReadingAge(oldestReadingAge)}
+                </div>
+              )}
+            </div>
+
+            {/* Primary gauge — always visible */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 10px',
+                borderRadius: 8,
+                background: cardBg,
+                border: `1px solid ${borderColor}`,
+                boxShadow: `0 1px 2px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)'}`,
+              }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: primaryGauge.conditionColor, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {primaryGauge.name}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'ui-monospace, monospace' }}>
+                  {primaryGauge.value}
+                  <span style={{ fontWeight: 400, fontSize: 10, color: textSecondary, marginLeft: 2 }}>{primaryGauge.unit}</span>
+                </span>
+                {primaryTrend && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: getTrendColor(primaryTrend, isDark) }}>
+                    {getTrendArrow(primaryTrend)}
+                  </span>
+                )}
+              </div>
               <div
-                key={gauge.id}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  background: cardBg,
-                  border: `1px solid ${borderColor}`,
-                  boxShadow: `0 1px 2px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)'}`,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: primaryGauge.conditionColor,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  backgroundColor: `${primaryGauge.conditionColor}15`,
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {/* Condition dot */}
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: gauge.conditionColor, flexShrink: 0 }} />
-                {/* Gauge name */}
-                <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {gauge.name}
-                  {gauge.isPrimary && (
-                    <span style={{ fontSize: 9, fontWeight: 600, color: '#2D7889', marginLeft: 4, opacity: 0.8 }}>PRIMARY</span>
-                  )}
-                </div>
-                {/* Reading value + trend arrow (#22) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'ui-monospace, monospace' }}>
-                    {gauge.value}
-                    <span style={{ fontWeight: 400, fontSize: 10, color: textSecondary, marginLeft: 2 }}>{gauge.unit}</span>
-                  </span>
-                  {trend && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: getTrendColor(trend, isDark),
-                      }}
-                      title={`${trend.charAt(0).toUpperCase() + trend.slice(1)}`}
-                    >
-                      {getTrendArrow(trend)}
-                    </span>
-                  )}
-                </div>
-                {/* Condition label */}
-                <div
+                {primaryGauge.conditionLabel}
+              </div>
+            </div>
+
+            {/* Toggle for secondary gauges */}
+            {secondaryGauges.length > 0 && (
+              <>
+                <button
+                  onClick={() => setShowAllGauges(prev => !prev)}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    padding: '4px 8px',
                     fontSize: 10,
-                    fontWeight: 700,
-                    color: gauge.conditionColor,
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    backgroundColor: `${gauge.conditionColor}15`,
-                    flexShrink: 0,
-                    whiteSpace: 'nowrap',
+                    fontWeight: 600,
+                    color: '#2D7889',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    borderRadius: 6,
                   }}
                 >
-                  {gauge.conditionLabel}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  {showAllGauges ? 'Hide' : `Show ${secondaryGauges.length} more gauge${secondaryGauges.length > 1 ? 's' : ''}`}
+                  <span style={{ fontSize: 8, transform: showAllGauges ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                </button>
+                {showAllGauges && secondaryGauges.map((gauge) => {
+                  const trend = gaugeTrends[gauge.usgsSiteId] ?? null;
+                  return (
+                    <div
+                      key={gauge.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '5px 10px',
+                        borderRadius: 8,
+                        background: cardBg,
+                        border: `1px solid ${borderColor}`,
+                        fontSize: 11,
+                      }}
+                    >
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: gauge.conditionColor, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {gauge.name}
+                      </div>
+                      <span style={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', flexShrink: 0 }}>
+                        {gauge.value}
+                        <span style={{ fontWeight: 400, fontSize: 9, color: textSecondary, marginLeft: 2 }}>{gauge.unit}</span>
+                      </span>
+                      {trend && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: getTrendColor(trend, isDark) }}>
+                          {getTrendArrow(trend)}
+                        </span>
+                      )}
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          color: gauge.conditionColor,
+                          padding: '1px 5px',
+                          borderRadius: 3,
+                          backgroundColor: `${gauge.conditionColor}15`,
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {gauge.conditionLabel}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 14-day trend chart for primary gauge */}
       {chartData && chartData.readings.length > 1 && (() => {
