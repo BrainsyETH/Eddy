@@ -310,9 +310,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
-            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm ${condition.tailwindColor}`}>
-              {condition.label}
-            </span>
             <span className="text-sm text-neutral-500">
               {riverGroup.allGauges.length} gauge{riverGroup.allGauges.length !== 1 ? 's' : ''}
             </span>
@@ -439,6 +436,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               gaugeHeightFt={activeGauge.gaugeHeightFt}
               dischargeCfs={activeGauge.dischargeCfs}
               thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
+              conditionLabel={condition.label}
+              conditionTailwindColor={condition.tailwindColor}
             />
             <GaugeWeather
               key={`weather-${activeSiteId}`}
