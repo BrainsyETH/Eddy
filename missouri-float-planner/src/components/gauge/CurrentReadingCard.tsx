@@ -11,6 +11,8 @@ interface CurrentReadingCardProps {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   thresholdUnit: 'ft' | 'cfs';
+  conditionLabel?: string;
+  conditionTailwindColor?: string;
 }
 
 export default function CurrentReadingCard({
@@ -18,6 +20,8 @@ export default function CurrentReadingCard({
   gaugeHeightFt,
   dischargeCfs,
   thresholdUnit,
+  conditionLabel,
+  conditionTailwindColor,
 }: CurrentReadingCardProps) {
   const { data: history } = useGaugeHistory(siteId, 7);
 
@@ -68,9 +72,16 @@ export default function CurrentReadingCard({
     <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }}>
       {/* Primary reading */}
       <div className="px-5 pt-5 pb-3">
-        <span className="text-[11px] font-semibold tracking-wider text-emerald-400 uppercase">
-          {primaryLabel}
-        </span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-semibold tracking-wider text-emerald-400 uppercase">
+            {primaryLabel}
+          </span>
+          {conditionLabel && conditionTailwindColor && (
+            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white ${conditionTailwindColor}`}>
+              {conditionLabel}
+            </span>
+          )}
+        </div>
         <div className="flex items-baseline gap-2 mt-1">
           {primaryValue !== null ? (
             <>
