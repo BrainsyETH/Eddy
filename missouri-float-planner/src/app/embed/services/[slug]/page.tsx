@@ -108,6 +108,10 @@ export default function EmbedServicesPage() {
             const excludeTypes = excludeFilter.split(',').map(t => t.trim());
             items = items.filter(s => !excludeTypes.includes(s.type));
           }
+          // Filter to only highlighted listings when specified
+          if (highlightSlugs.length > 0) {
+            items = items.filter(s => highlightSlugs.includes(s.slug));
+          }
           setServices(items);
         }
       } catch {
@@ -117,7 +121,7 @@ export default function EmbedServicesPage() {
       }
     }
     fetchData();
-  }, [slug, typeFilter, excludeFilter]);
+  }, [slug, typeFilter, excludeFilter, highlightParam]);
 
   const bg = isDark ? '#1a1a1a' : '#ffffff';
   const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';

@@ -539,7 +539,7 @@ export default function EmbedPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-600 mb-1">
-                    Highlight listings (optional)
+                    Show specific listings (optional)
                   </label>
                   {/* Selected chips */}
                   {highlightSlugs.length > 0 && (
@@ -605,7 +605,7 @@ export default function EmbedPage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-400 mt-1">Select listings to highlight with a blue border.</p>
+                  <p className="text-xs text-neutral-400 mt-1">Only selected listings will be shown in the widget.</p>
                 </div>
               </div>
 
@@ -785,7 +785,7 @@ export default function EmbedPage() {
                   <table className="w-full">
                     <tbody>
                       <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type. Use the filter buttons above to set this." />
-                      <ParamRow name="highlight" values="slug,slug,..." description="Highlight one or more listings with a blue border. Comma-separated slugs." />
+                      <ParamRow name="highlight" values="slug,slug,..." description="Show only specific listings. Comma-separated slugs." />
                     </tbody>
                   </table>
                 </div>
