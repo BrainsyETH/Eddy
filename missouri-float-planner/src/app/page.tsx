@@ -46,7 +46,7 @@ export default async function Home() {
                 <span style={{ color: '#F07052' }}>Float.</span>
               </h1>
               <p className="text-base md:text-lg text-white/60 max-w-lg mb-8 leading-relaxed">
-                Real-time USGS gauge data, river analysis, and trip insights for paddlers, tubers, and float enthusiasts.
+                Real-time USGS gauge data, river analysis, and trip insights for paddlers, anglers, and float enthusiasts.
               </p>
 
               <div className="flex flex-wrap gap-3">
@@ -87,7 +87,7 @@ export default async function Home() {
       </section>
 
       {/* ─── Live Gauge Data ─── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14 md:pb-20">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8 md:pb-10">
         <div className="flex items-end justify-between mb-2">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
             Check River Levels
