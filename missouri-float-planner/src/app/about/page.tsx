@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, Database, Waves, Code2 } from 'lucide-react';
-import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { CONDITION_COLORS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import AboutCollapsibleSection from '@/components/ui/AboutCollapsibleSection';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -156,118 +156,48 @@ export default function AboutPage() {
           icon={<Gauge className="w-6 h-6 text-white" />}
           defaultExpanded={false}
         >
-          <div className="space-y-4">
-            {/* Live USGS Data */}
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                     style={{ backgroundColor: '#F07052' }}>
-                  <Droplets className="w-6 h-6 text-white" />
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
+            {[
+              {
+                num: '01',
+                icon: <Droplets className="w-5 h-5" />,
+                title: 'Live gauge data',
+                body: 'Eddy pulls readings from USGS gauges every hour — gauge height (ft), discharge (cfs), and temperature when available.',
+              },
+              {
+                num: '02',
+                icon: <TrendingUp className="w-5 h-5" />,
+                title: 'Condition thresholds',
+                body: 'Each river has researched thresholds based on outfitter experience and NPS guidance. Readings are compared against these to produce a condition code.',
+              },
+              {
+                num: '03',
+                icon: <MapPin className="w-5 h-5" />,
+                title: 'Segment-aware accuracy',
+                body: 'When you pick a put-in, Eddy uses the nearest gauge so your conditions reflect the actual section you\'re floating, not just the river as a whole.',
+              },
+              {
+                num: '04',
+                icon: <Clock className="w-5 h-5" />,
+                title: 'Float time estimates',
+                body: 'Times factor in river miles, vessel type (kayak, canoe, raft, tube), and current water levels — higher water means faster floats.',
+              },
+            ].map((step, i, arr) => (
+              <div key={step.num} className={`flex items-start gap-4 px-5 py-5 sm:px-6 ${i < arr.length - 1 ? 'border-b border-neutral-100' : ''}`}>
+                <span className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: '#163F4A' }}>
+                  {step.num}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-neutral-900 mb-0.5">{step.title}</h3>
+                  <p className="text-sm text-neutral-600 leading-relaxed">{step.body}</p>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-neutral-900 mb-2">Live USGS Gauge Data</h3>
-                  <p className="text-neutral-700 leading-relaxed mb-3">
-                    Eddy connects directly to the United States Geological Survey (USGS) Water Services API
-                    to fetch real-time gauge readings every hour. Each gauge measures:
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-neutral-700 ml-4">
-                    <li><strong>Gauge Height</strong> - Water level in feet above gauge datum</li>
-                    <li><strong>Discharge</strong> - Flow rate in cubic feet per second (CFS)</li>
-                    <li><strong>Temperature</strong> - Water temperature when available</li>
-                  </ul>
-                </div>
+                <span className="flex-shrink-0 text-neutral-300 mt-0.5">{step.icon}</span>
               </div>
-            </div>
-
-            {/* Condition Calculation */}
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                     style={{ backgroundColor: '#4EB86B' }}>
-                  <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-neutral-900 mb-2">Condition Calculation</h3>
-                  <p className="text-neutral-700 leading-relaxed mb-3">
-                    Each river has carefully researched gauge height thresholds based on local outfitter
-                    experience, National Park Service guidance, and historical data. For example,
-                    the Current River at Akers gauge uses these thresholds:
-                  </p>
-                  <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 font-mono text-sm space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Flood:</span> ≥ 4.5 ft - River closed by NPS</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
-                      <span><span className="font-semibold">High:</span> 4.0 - 4.49 ft - Fast current, use caution</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-600 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Optimal:</span> 2.0 - 3.5 ft - Ideal conditions</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-lime-500 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Okay:</span> 1.5 - 1.99 ft - Floatable, some dragging</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Low:</span> 1.0 - 1.49 ft - Frequent dragging</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-neutral-400 flex-shrink-0"></span>
-                      <span><span className="font-semibold">Too Low:</span> &lt; 1.0 ft - Not recommended</span>
-                    </div>
-                  </div>
-                  <p className="text-neutral-600 text-sm mt-3 italic">
-                    Thresholds vary by river and gauge location. Visit the <Link href="/gauges" className="text-primary-600 hover:text-primary-700 font-semibold">Gauges page</Link> to
-                    see specific thresholds for each gauge station.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Float Time Estimates */}
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                     style={{ backgroundColor: '#B89D72' }}>
-                  <Clock className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-neutral-900 mb-2">Float Time Estimates</h3>
-                  <p className="text-neutral-700 leading-relaxed mb-3">
-                    Float times are calculated based on:
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-neutral-700 ml-4">
-                    <li><strong>Distance</strong> - River miles between access points</li>
-                    <li><strong>Vessel Type</strong> - Different speeds for rafts, canoes, kayaks, and tubes</li>
-                    <li><strong>Current Conditions</strong> - Higher water means faster float times, lower water means slower</li>
-                    <li><strong>Typical Speed Ranges</strong> - Raft: 1.5-2.5 mph, Canoe: 2.0-3.5 mph, Kayak: 2.5-4.0 mph, Tube: 1.0-2.0 mph</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Segment-Aware */}
-            <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                     style={{ backgroundColor: '#2D7889' }}>
-                  <MapPin className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-neutral-900 mb-2">Segment-Aware Conditions</h3>
-                  <p className="text-neutral-700 leading-relaxed">
-                    When you select a put-in point, Eddy uses the gauge nearest to your starting location
-                    to provide the most accurate conditions for your specific float segment. This is especially
-                    important on longer rivers where conditions can vary significantly between upstream and
-                    downstream sections.
-                  </p>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
+          <p className="text-xs text-neutral-500 mt-3 text-center">
+            Thresholds vary by river and gauge. Visit the <Link href="/gauges" className="text-primary-600 hover:text-primary-700 font-semibold">Gauges page</Link> to see specifics for each station.
+          </p>
         </AboutCollapsibleSection>
 
         {/* Condition Codes Explained */}
@@ -276,66 +206,34 @@ export default function AboutPage() {
           icon={<AlertTriangle className="w-6 h-6 text-white" />}
           defaultExpanded={false}
         >
-          <p className="text-neutral-700 mb-6 leading-relaxed">
-            Eddy uses seven condition codes to communicate water levels and safety. Here&apos;s what each
-            condition means and when you should (or shouldn&apos;t) float:
-          </p>
-
-          <div className="space-y-4">
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm divide-y divide-neutral-100">
             {conditionCodes.map((code) => {
               const info = conditionDescriptions[code];
               const eddyImage = getEddyImageForCondition(code);
               return (
-                <div
-                  key={code}
-                  className="bg-white border-2 rounded-xl shadow-sm overflow-hidden"
-                  style={{ borderColor: CONDITION_COLORS[code] }}
-                >
-                  <div
-                    className="px-6 py-4 border-b-2"
-                    style={{
-                      borderColor: CONDITION_COLORS[code],
-                      backgroundColor: `${CONDITION_COLORS[code]}15`
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Image
-                        src={eddyImage}
-                        alt={`Eddy for ${info.title}`}
-                        width={48}
-                        height={48}
-                        className="w-12 h-12 object-contain"
-                      />
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold text-neutral-900">{info.title}</h3>
-                        <p className="text-sm text-neutral-600">{CONDITION_LABELS[code]}</p>
-                      </div>
-                      <div
-                        className="px-4 py-2 rounded-full text-white font-semibold text-sm"
-                        style={{ backgroundColor: CONDITION_COLORS[code] }}
-                      >
-                        {code.toUpperCase().replace('_', ' ')}
+                <div key={code} className="px-5 py-4 sm:px-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Image
+                      src={eddyImage}
+                      alt={`Eddy for ${info.title}`}
+                      width={36}
+                      height={36}
+                      className="w-9 h-9 object-contain flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-neutral-900">{info.title}</h3>
+                        <span
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold text-white uppercase tracking-wide"
+                          style={{ backgroundColor: CONDITION_COLORS[code] }}
+                        >
+                          {code.replace('_', ' ')}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="px-6 py-5 space-y-3">
-                    <div>
-                      <h4 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-                        Description
-                      </h4>
-                      <p className="text-neutral-700 leading-relaxed">
-                        {info.description}
-                      </p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-                        Recommendation
-                      </h4>
-                      <p className="text-neutral-900 font-medium leading-relaxed">
-                        {info.recommendation}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-sm text-neutral-600 leading-relaxed mb-1.5">{info.description}</p>
+                  <p className="text-sm text-neutral-900 font-medium leading-relaxed">{info.recommendation}</p>
                 </div>
               );
             })}

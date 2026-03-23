@@ -141,7 +141,7 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
           thresholds={chartThresholds}
           latestValue={latestValue}
           displayUnit={displayUnit}
-          chartClassName="h-32"
+          chartClassName="h-32 md:h-44"
         />
       </div>
 
