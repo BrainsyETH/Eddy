@@ -491,12 +491,20 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   )}
                 </button>
               )}
+
+              {/* Plan Trip CTA - below text on mobile, inline on desktop */}
+              <Link
+                href={`/rivers/${riverSlug}`}
+                className="inline-flex sm:hidden mt-3 px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
+              >
+                Plan Trip
+              </Link>
             </div>
 
-            {/* Plan Trip CTA */}
+            {/* Plan Trip CTA - aligned right on desktop */}
             <Link
               href={`/rivers/${riverSlug}`}
-              className="flex-shrink-0 self-center px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
+              className="hidden sm:flex flex-shrink-0 self-center px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
             >
               Plan Trip
             </Link>
