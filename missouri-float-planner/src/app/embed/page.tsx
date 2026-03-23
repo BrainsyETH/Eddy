@@ -142,6 +142,8 @@ export default function EmbedPage() {
   const [selectedRivers, setSelectedRivers] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [activeSection, setActiveSection] = useState('configuration');
+  const [serviceFilter, setServiceFilter] = useState<'all' | 'outfitter' | 'campground' | 'cabin_lodge'>('all');
+  const [highlightSlug, setHighlightSlug] = useState('');
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Scroll-spy: track which section is in view
@@ -177,7 +179,7 @@ export default function EmbedPage() {
   // Embed codes
   const widgetCode = `<iframe
   src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
-  width="100%" height="380"
+  width="100%" height="480"
   style="border:none; border-radius:12px; max-width:600px;"
   title="${selectedRiverName} - River Conditions from Eddy"
   loading="lazy"
@@ -199,8 +201,13 @@ export default function EmbedPage() {
   loading="lazy"
 ></iframe>`;
 
+  const servicesParams = new URLSearchParams({ theme });
+  if (serviceFilter !== 'all') servicesParams.set('type', serviceFilter);
+  if (highlightSlug) servicesParams.set('highlight', highlightSlug);
+  const servicesQueryString = servicesParams.toString();
+
   const servicesCode = `<iframe
-  src="${baseUrl}/embed/services/${selectedRiver}?theme=${theme}"
+  src="${baseUrl}/embed/services/${selectedRiver}?${servicesQueryString}"
   width="100%" height="400"
   style="border:none; border-radius:12px; max-width:600px;"
   title="${selectedRiverName} - Outfitters & Services from Eddy"
@@ -215,20 +222,12 @@ export default function EmbedPage() {
   loading="lazy"
 ></iframe>`;
 
-  const shuttleCode = `<iframe
-  src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}&mode=shuttle"
-  width="100%" height="320"
-  style="border:none; border-radius:12px; max-width:600px;"
-  title="${selectedRiverName} - Shuttle Route from Eddy"
-  loading="lazy"
-></iframe>`;
-
   const multiRiverCode = selectedRivers.length > 0
     ? selectedRivers.map(slug => {
         const name = RIVER_OPTIONS.find(r => r.slug === slug)?.name || slug;
         return `<iframe
   src="${baseUrl}/embed/widget/${slug}?theme=${theme}"
-  width="100%" height="380"
+  width="100%" height="480"
   style="border:none; border-radius:12px; max-width:600px; margin-bottom:16px;"
   title="${name} - River Conditions from Eddy"
   loading="lazy"
@@ -275,8 +274,8 @@ export default function EmbedPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           {/* Left sidebar nav */}
-          <nav className="hidden lg:block w-56 flex-shrink-0">
-            <div className="sticky top-8 space-y-6">
+          <nav className="hidden lg:block w-56 flex-shrink-0 self-start sticky top-8">
+            <div className="space-y-6">
               {NAV_SECTIONS.map(section => (
                 <div key={section.title}>
                   <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
@@ -409,14 +408,14 @@ export default function EmbedPage() {
 
               <WidgetPreview
                 src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
-                height={380}
+                height={480}
                 theme={theme}
               />
               <CodeBlock code={widgetCode} />
               <CopyButton text={widgetCode} large />
 
               <p className="text-xs text-neutral-500 mt-3">
-                Rivers with 3+ gauges may need <code className="bg-neutral-100 px-1 py-0.5 rounded">height=&quot;450&quot;</code>.
+                Includes a 14-day trend chart for the primary gauge. Rivers with 3+ gauges may need <code className="bg-neutral-100 px-1 py-0.5 rounded">height=&quot;540&quot;</code>.
                 Add <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;partner=YourBusiness</code> for branding.
               </p>
             </section>
@@ -483,46 +482,51 @@ export default function EmbedPage() {
                 and lodging with click-to-call phone numbers, website links, reservation links, and Google Maps.
               </p>
 
+              {/* Filter controls */}
+              <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+                <h4 className="text-sm font-semibold text-neutral-800 mb-3">Filter by Category</h4>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {([
+                    { value: 'all', label: 'All Services' },
+                    { value: 'outfitter', label: 'Outfitters' },
+                    { value: 'campground', label: 'Campgrounds' },
+                    { value: 'cabin_lodge', label: 'Cabins & Lodges' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setServiceFilter(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                        serviceFilter === opt.value
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-600 mb-1">
+                    Highlight a listing (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={highlightSlug}
+                    onChange={e => setHighlightSlug(e.target.value)}
+                    placeholder="e.g. akers-ferry"
+                    className="w-full max-w-xs px-3 py-1.5 border border-neutral-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">Enter your business slug to highlight it with a blue border.</p>
+                </div>
+              </div>
+
               <WidgetPreview
-                src={`${baseUrl}/embed/services/${selectedRiver}?theme=${theme}`}
+                src={`${baseUrl}/embed/services/${selectedRiver}?${servicesQueryString}`}
                 height={400}
                 theme={theme}
               />
               <CodeBlock code={servicesCode} />
               <CopyButton text={servicesCode} large />
-
-              <div className="mt-4 bg-neutral-50 border border-neutral-200 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-neutral-800 mb-2">Filtering</h4>
-                <p className="text-xs text-neutral-600 mb-3">
-                  Show or hide specific service categories:
-                </p>
-                <div className="space-y-1.5">
-                  <div className="text-xs">
-                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=outfitter</code>
-                    <span className="text-neutral-500 ml-2">Show only canoe/kayak rental outfitters</span>
-                  </div>
-                  <div className="text-xs">
-                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=campground</code>
-                    <span className="text-neutral-500 ml-2">Show only campgrounds (commercial + NPS)</span>
-                  </div>
-                  <div className="text-xs">
-                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?type=cabin_lodge</code>
-                    <span className="text-neutral-500 ml-2">Show only cabins and lodges</span>
-                  </div>
-                  <div className="text-xs mt-3 pt-3 border-t border-neutral-200">
-                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?exclude=campground</code>
-                    <span className="text-neutral-500 ml-2">Hide campgrounds, show everything else</span>
-                  </div>
-                  <div className="text-xs">
-                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?exclude=outfitter,cabin_lodge</code>
-                    <span className="text-neutral-500 ml-2">Hide multiple types (comma-separated)</span>
-                  </div>
-                  <div className="text-xs mt-3 pt-3 border-t border-neutral-200">
-                    <code className="bg-neutral-200 px-1.5 py-0.5 rounded">?highlight=your-business-slug</code>
-                    <span className="text-neutral-500 ml-2">Highlight your listing with a blue border</span>
-                  </div>
-                </div>
-              </div>
             </section>
 
             <hr className="border-neutral-200" />
@@ -558,25 +562,45 @@ export default function EmbedPage() {
             <section id="shuttle-route">
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-xl font-bold text-neutral-900">Shuttle Route</h2>
-                <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">New</span>
               </div>
               <p className="text-sm text-neutral-600 mb-4">
-                Shows the drive-back shuttle route between put-in and take-out with estimated drive time,
-                distance, and route summary (e.g. &ldquo;via US-60&rdquo;). Powered by Mapbox Directions.
-                Visitors select access points and see the shuttle info before viewing the full trip on Eddy.
+                After selecting put-in and take-out in the Float Trip Planner, a &ldquo;Shuttle Route&rdquo;
+                button appears that opens Google Maps directions between the two access points.
+                This is built into the planner widget automatically — no extra embed needed.
               </p>
 
-              <WidgetPreview
-                src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}&mode=shuttle`}
-                height={320}
-                theme={theme}
-              />
-              <CodeBlock code={shuttleCode} />
-              <CopyButton text={shuttleCode} large />
+              {/* Visual preview of the button */}
+              <div className="mb-4">
+                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Appears in Float Trip Planner</p>
+                <div className="rounded-xl border-2 border-neutral-200 bg-neutral-50 p-6 flex justify-center">
+                  <div
+                    className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg"
+                    style={{ maxWidth: 400, background: '#EEF6F8' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="5" cy="18" r="3"/>
+                          <circle cx="19" cy="6" r="3"/>
+                          <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
+                          <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-800">Shuttle Route</p>
+                        <p className="text-xs text-neutral-500">View in Google Maps</p>
+                      </div>
+                    </div>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5BA3B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
 
-              <p className="text-xs text-neutral-500 mt-3">
-                Uses the same Float Trip Planner with <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;mode=shuttle</code> to
-                focus on shuttle route details. Drive time adjusts for current river conditions (high water may affect road access).
+              <p className="text-xs text-neutral-500">
+                The button constructs a Google Maps directions URL from the put-in coordinates to the take-out coordinates.
+                If custom driving directions are configured for an access point, those are used instead.
               </p>
             </section>
 
@@ -655,13 +679,12 @@ export default function EmbedPage() {
                 </div>
 
                 <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
-                  <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner / Shuttle Route</h4>
+                  <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner</h4>
                 </div>
                 <div className="px-4 py-2">
                   <table className="w-full">
                     <tbody>
                       <ParamRow name="river" values="slug" description="Pre-select a river (e.g. current, meramec)." />
-                      <ParamRow name="mode" values="shuttle" description="Focus on shuttle route details instead of full trip planner." />
                     </tbody>
                   </table>
                 </div>
@@ -672,8 +695,7 @@ export default function EmbedPage() {
                 <div className="px-4 py-2">
                   <table className="w-full">
                     <tbody>
-                      <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type." />
-                      <ParamRow name="exclude" values="outfitter, campground, cabin_lodge" description="Hide specific types (comma-separated). Cannot be used with type." />
+                      <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type. Use the filter buttons above to set this." />
                       <ParamRow name="highlight" values="slug" description="Highlight a specific listing with a blue border." />
                     </tbody>
                   </table>
