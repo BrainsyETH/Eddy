@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, Car, ParkingSquare, Bath } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
@@ -183,7 +183,26 @@ interface FloatPlanCardProps {
   pointsAlongRoute?: RouteItem[];
 }
 
-// Shareable capture component - optimized view for image export
+// Helper: compact logistics line for share card
+function getLogisticsLine(point: AccessPoint): string {
+  const parts: string[] = [];
+  if (point.roadSurface && point.roadSurface.length > 0) {
+    parts.push(formatRoadSurface(point.roadSurface[0]));
+  }
+  if (point.parkingCapacity) {
+    parts.push(formatParkingCapacity(point.parkingCapacity));
+  }
+  if (point.npsCampground) {
+    parts.push('Campground');
+  } else if (point.facilities) {
+    const f = point.facilities.toLowerCase();
+    if (f.includes('restroom') || f.includes('privy') || f.includes('toilet')) parts.push('Restrooms');
+    else parts.push('Facilities');
+  }
+  return parts.join(' · ');
+}
+
+// Shareable capture component - branded card for image export
 function ShareableCapture({
   plan,
   putInPoint,
@@ -199,95 +218,95 @@ function ShareableCapture({
 }) {
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
   const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+  const putInLogistics = getLogisticsLine(putInPoint);
+  const takeOutLogistics = getLogisticsLine(takeOutPoint);
 
   return (
     <div
       ref={captureRef}
-      className="absolute left-[-9999px] top-0 w-[400px] bg-white p-4"
+      className="absolute left-[-9999px] top-0 w-[420px]"
       style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
-      {/* Header with Eddy mascot and branding */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-neutral-200">
-        <div className="flex items-center gap-3">
+      {/* Top branded bar */}
+      <div className="px-5 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4F5C 100%)' }}>
+        <div className="flex items-center gap-2.5">
           <Image
-            src="/blog/planning-first-trip/eddy-reference.png"
-            alt="Eddy the Otter"
-            width={48}
-            height={48}
+            src={getEddyImageForCondition(conditionCode)}
+            alt="Eddy"
+            width={36}
+            height={36}
             className="object-contain"
           />
           <div>
-            <h1 className="text-xl font-bold text-neutral-900">{riverName || 'Float Plan'}</h1>
-            <p className="text-sm text-neutral-500">eddy.guide</p>
+            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
+              {riverName || 'Float Plan'}
+            </h1>
+            <p className="text-[11px] text-white/50 font-medium">eddy.guide</p>
           </div>
         </div>
         <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass} flex items-center gap-1.5`}>
-          <Image
-            src={getEddyImageForCondition(conditionCode)}
-            alt={conditionConfig.label}
-            width={24}
-            height={24}
-          />
           <span className={`text-sm font-bold ${conditionConfig.textClass}`}>
             {conditionConfig.label}
           </span>
         </div>
       </div>
 
-      {/* Route Summary */}
-      <div className="bg-neutral-50 rounded-xl p-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center">
-            <div className="w-4 h-4 rounded-full bg-support-500"></div>
-            <div className="w-0.5 h-10 bg-gradient-to-b from-support-400 to-accent-400"></div>
-            <div className="w-4 h-4 rounded-full bg-accent-500"></div>
+      {/* Main card body */}
+      <div className="bg-white px-5 py-4">
+        {/* Stats row */}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
+            <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Distance</p>
           </div>
-          <div className="flex-1 space-y-3">
-            <div>
-              <p className="text-xs font-bold text-support-600 uppercase">Put-in</p>
-              <p className="font-bold text-neutral-900">{putInPoint.name}</p>
-              <p className="text-xs text-neutral-500">Mile {putInPoint.riverMile.toFixed(1)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-accent-600 uppercase">Take-out</p>
-              <p className="font-bold text-neutral-900">{takeOutPoint.name}</p>
-              <p className="text-xs text-neutral-500">Mile {takeOutPoint.riverMile.toFixed(1)}</p>
-            </div>
+          <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
+            <p className="text-2xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Est. Time</p>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-            <p className="text-lg text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
+          <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
+            <p className="text-2xl font-bold text-neutral-900">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}<span className="text-sm text-neutral-400 ml-0.5">ft</span></p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Gauge</p>
           </div>
         </div>
-      </div>
 
-      {/* Conditions */}
-      <div className={`rounded-xl overflow-hidden ${conditionConfig.bgClass}`}>
-        <div className="px-4 py-3 flex items-center justify-center gap-2">
-          <Image
-            src={getEddyImageForCondition(conditionCode)}
-            alt={conditionConfig.label}
-            width={40}
-            height={40}
-          />
-          <span className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</span>
-        </div>
-        <div className="bg-white/95 px-4 py-3 flex justify-around">
-          <div className="text-center">
-            <p className="text-xl font-bold text-neutral-800">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}</p>
-            <p className="text-[10px] uppercase text-neutral-500 font-medium">Feet</p>
+        {/* Route with logistics */}
+        <div className="flex items-stretch gap-3">
+          {/* Connector dots */}
+          <div className="flex flex-col items-center pt-2 pb-1">
+            <div className="w-3.5 h-3.5 rounded-full bg-support-500 border-2 border-white shadow-sm"></div>
+            <div className="w-0.5 flex-1 bg-gradient-to-b from-support-300 to-accent-300 my-1"></div>
+            <div className="w-3.5 h-3.5 rounded-full bg-accent-500 border-2 border-white shadow-sm"></div>
           </div>
-          <div className="w-px bg-neutral-200"></div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-neutral-800">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'}</p>
-            <p className="text-[10px] uppercase text-neutral-500 font-medium">CFS</p>
+
+          {/* Route details */}
+          <div className="flex-1 space-y-3">
+            {/* Put-in */}
+            <div className="bg-support-50 border border-support-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-bold text-support-600 uppercase tracking-wider">Put-in · Mile {putInPoint.riverMile.toFixed(1)}</p>
+              <p className="font-bold text-neutral-900 text-[15px] mt-0.5">{putInPoint.name}</p>
+              {putInLogistics && (
+                <p className="text-[11px] text-neutral-500 mt-1">{putInLogistics}</p>
+              )}
+            </div>
+
+            {/* Take-out */}
+            <div className="bg-accent-50 border border-accent-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-bold text-accent-600 uppercase tracking-wider">Take-out · Mile {takeOutPoint.riverMile.toFixed(1)}</p>
+              <p className="font-bold text-neutral-900 text-[15px] mt-0.5">{takeOutPoint.name}</p>
+              {takeOutLogistics && (
+                <p className="text-[11px] text-neutral-500 mt-1">{takeOutLogistics}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-neutral-200 text-center">
-        <p className="text-xs text-neutral-400">Plan your float at eddy.guide</p>
+      <div className="px-5 py-2.5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between">
+        <p className="text-[11px] text-neutral-400 font-medium">Plan your float at eddy.guide</p>
+        <p className="text-[11px] text-neutral-400">
+          {plan.condition.dischargeCfs ? `${plan.condition.dischargeCfs.toLocaleString()} cfs` : ''}
+        </p>
       </div>
     </div>
   );
@@ -442,6 +461,87 @@ function AlongYourRoute({ items }: { items: RouteItem[] }) {
   );
 }
 
+// Logistics badges — always-visible summary chips for road, parking, facilities
+function LogisticsBadges({ point }: { point: AccessPoint }) {
+  const badges: { icon: React.ReactNode; label: string; colorClass: string }[] = [];
+
+  // Road surface badge
+  if (point.roadSurface && point.roadSurface.length > 0) {
+    const primary = point.roadSurface[0];
+    const isPaved = primary === 'paved';
+    const is4wd = primary === '4wd_required';
+    const isSeasonal = primary === 'seasonal';
+    badges.push({
+      icon: <Car size={12} />,
+      label: formatRoadSurface(primary),
+      colorClass: isPaved ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : is4wd ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : isSeasonal ? 'bg-blue-50 text-blue-700 border-blue-200'
+        : 'bg-neutral-50 text-neutral-600 border-neutral-200',
+    });
+  }
+
+  // Parking badge
+  if (point.parkingCapacity) {
+    const isLimited = point.parkingCapacity === 'limited' || point.parkingCapacity === 'roadside';
+    badges.push({
+      icon: <ParkingSquare size={12} />,
+      label: formatParkingCapacity(point.parkingCapacity),
+      colorClass: isLimited ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-neutral-50 text-neutral-600 border-neutral-200',
+    });
+  }
+
+  // Facilities badge
+  if (point.facilities || point.npsCampground) {
+    const hasCamping = !!point.npsCampground;
+    const hasRestrooms = point.facilities?.toLowerCase().includes('restroom') ||
+      point.facilities?.toLowerCase().includes('privy') ||
+      point.facilities?.toLowerCase().includes('toilet') ||
+      (point.npsCampground?.amenities?.toilets && point.npsCampground.amenities.toilets.length > 0);
+    badges.push({
+      icon: <Bath size={12} />,
+      label: hasCamping ? 'Campground' : hasRestrooms ? 'Restrooms' : 'Facilities',
+      colorClass: hasCamping ? 'bg-teal-50 text-teal-700 border-teal-200'
+        : 'bg-neutral-50 text-neutral-600 border-neutral-200',
+    });
+  }
+
+  // Fee badge
+  if (point.feeRequired) {
+    badges.push({
+      icon: <span className="text-[10px] font-bold">$</span>,
+      label: 'Fee',
+      colorClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    });
+  }
+
+  // Private badge
+  if (!point.isPublic) {
+    badges.push({
+      icon: null,
+      label: 'Private',
+      colorClass: 'bg-neutral-100 text-neutral-500 border-neutral-200',
+    });
+  }
+
+  if (badges.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 px-3 py-2 border-t border-neutral-100">
+      {badges.map((badge, i) => (
+        <span
+          key={i}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full border ${badge.colorClass}`}
+        >
+          {badge.icon}
+          {badge.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // Access Point Detail Card (used in both single and dual selection states)
 function AccessPointDetailCard({
   point,
@@ -533,6 +633,9 @@ function AccessPointDetailCard({
         </div>
       )}
 
+      {/* Logistics badges — always visible at a glance */}
+      <LogisticsBadges point={point} />
+
       {/* Description as the expandable toggle (replaces Hide/Show details) */}
       {point.description && showExpandToggle && (
         <button
@@ -547,18 +650,6 @@ function AccessPointDetailCard({
       {/* Details Content */}
       {(isExpanded || !showExpandToggle) && (
         <div className="p-3 border-t border-neutral-100">
-          {/* Badges - only show non-public and fee */}
-          {(!point.isPublic || point.feeRequired) && (
-            <div className="flex gap-2 flex-wrap mb-3">
-              {!point.isPublic && (
-                <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs font-medium rounded">Private</span>
-              )}
-              {point.feeRequired && (
-                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Fee Required</span>
-              )}
-            </div>
-          )}
-
           {/* Description text */}
           {point.description && (
             <p className="text-sm text-neutral-600 mb-3">{point.description}</p>
@@ -566,7 +657,7 @@ function AccessPointDetailCard({
 
           {/* Road Access section */}
           {((point.roadSurface && point.roadSurface.length > 0) || point.roadAccess) && (
-            <CollapsibleDetailSection title="Road Access" iconUrl={DETAIL_ICONS.road} defaultOpen={false}>
+            <CollapsibleDetailSection title="Road Access" iconUrl={DETAIL_ICONS.road} defaultOpen={true}>
               <div className="space-y-2">
                 {point.roadSurface && point.roadSurface.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 items-center">
@@ -594,7 +685,7 @@ function AccessPointDetailCard({
 
           {/* Parking section */}
           {(point.parkingCapacity || point.parkingInfo) && (
-            <CollapsibleDetailSection title="Parking" iconUrl={DETAIL_ICONS.parking} defaultOpen={false}>
+            <CollapsibleDetailSection title="Parking" iconUrl={DETAIL_ICONS.parking} defaultOpen={true}>
               <div className="space-y-1.5">
                 {point.parkingCapacity && (
                   <span className="text-sm font-medium">{formatParkingCapacity(point.parkingCapacity)}</span>
@@ -608,7 +699,7 @@ function AccessPointDetailCard({
 
           {/* Facilities section (with NPS campground nested inside) */}
           {(point.facilities || nps) && (
-            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={false}>
+            <CollapsibleDetailSection title="Facilities" iconUrl={DETAIL_ICONS.facilities} defaultOpen={true}>
               <div className="space-y-3">
                 {point.facilities && (
                   <p>{point.facilities}</p>
