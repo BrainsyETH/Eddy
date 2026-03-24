@@ -3,7 +3,7 @@
 // src/components/river/NearbyServices.tsx
 // Directory of outfitters, campgrounds, and lodging for a river
 
-import { Phone, Globe, Mail, ShieldCheck } from 'lucide-react';
+import { Phone, Globe, Mail, ShieldCheck, ExternalLink } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
@@ -44,6 +44,15 @@ const OFFERING_LABELS: Record<ServiceOffering, string> = {
   horseback_riding: 'Horseback',
   swimming_pool: 'Pool',
   wifi: 'Wi-Fi',
+  potable_water: 'Water',
+  fire_rings: 'Fire Rings',
+  picnic_tables: 'Picnic Tables',
+  boat_ramp: 'Boat Ramp',
+  dump_station: 'Dump Station',
+  flush_toilets: 'Flush Toilets',
+  vault_toilets: 'Vault Toilets',
+  laundry: 'Laundry',
+  playground: 'Playground',
 };
 
 function formatPhone(phone: string): string {
@@ -136,6 +145,19 @@ function ServiceCard({ service }: { service: NearbyServiceDirectory & { isPrimar
       {/* Seasonal notes */}
       {service.seasonalNotes && (
         <p className="text-xs text-neutral-500 italic mt-2">{service.seasonalNotes}</p>
+      )}
+
+      {/* Reservation link */}
+      {service.reservationUrl && (
+        <a
+          href={service.reservationUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Reserve
+        </a>
       )}
     </div>
   );
