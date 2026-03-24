@@ -489,7 +489,7 @@ export default function PlanSummary({
                   <span style={{ color: 'rgba(255,255,255,0.7)' }}>→</span>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#F07052' }}></span>
                 </span>
-                <span className="truncate">Shuttle Route</span>
+                <span className="truncate">Drive Route</span>
                 <svg className="w-3.5 h-3.5 ml-auto flex-shrink-0" style={{ color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
