@@ -9,15 +9,14 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
-import RiverHeader from '@/components/river/RiverHeader';
-import EddyQuote from '@/components/river/EddyQuote';
-
 import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import NearbyServices from '@/components/river/NearbyServices';
 import PointsOfInterest from '@/components/river/PointsOfInterest';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
+import { ShareableCapture } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
+import PlanSidebar from '@/components/plan/PlanSidebar';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
@@ -30,6 +29,7 @@ import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import { usePOIs } from '@/hooks/usePOIs';
 import { useWeather } from '@/hooks/useWeather';
 import type { AccessPoint, FeedbackContext } from '@/types/api';
+import { CONDITION_COLORS } from '@/constants';
 
 // Dynamic imports for map
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -75,7 +75,8 @@ export default function RiverPage() {
   const { data: vesselTypes } = useVesselTypes();
   const { data: allGaugeStations } = useGaugeStations();
   const { data: pois } = usePOIs(slug);
-  const { data: weatherData } = useWeather(slug);
+  // Pre-fetch weather data for child components (WeatherBug)
+  useWeather(slug);
 
   // Filter gauge stations to only show those linked to this river
   const gaugeStations = allGaugeStations?.filter(gauge =>
@@ -455,69 +456,65 @@ export default function RiverPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {/* River Header */}
-      <RiverHeader
-        river={river}
-        condition={condition}
-      />
-
-      {/* Main Content - add bottom padding on mobile when bottom sheet is visible */}
-      <div className={`max-w-7xl mx-auto px-4 py-6 ${putInPoint && takeOutPoint ? 'pb-36 lg:pb-6' : ''}`}>
-        {/* Eddy's daily conditions quote */}
-        <div className="mb-4">
-          <EddyQuote
+      {/* ─── DESKTOP: Split-panel layout ─── */}
+      <div className="hidden lg:flex" style={{ height: 'calc(100vh - 3.5rem)' }}>
+        {/* Left sidebar — plan info */}
+        <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col">
+          <PlanSidebar
+            riverName={river.name}
             riverSlug={slug}
             conditionCode={condition?.code ?? 'unknown'}
-            gaugeHeightFt={condition?.gaugeHeightFt ?? null}
-            weather={weatherData ? { condition: weatherData.condition, temp: weatherData.temp } : null}
-            readingAgeHours={condition?.readingAgeHours ?? null}
-            optimalRange={(() => {
-              const primary = gaugeStations
-                ?.flatMap(g => g.thresholds ?? [])
-                .find(t => t.riverId === river?.id && t.isPrimary);
-              if (!primary?.levelOptimalMin || !primary?.levelOptimalMax) return null;
-              const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-              return `${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`;
-            })()}
+            plan={plan || null}
+            isLoading={planLoading}
+            putInPoint={putInPoint}
+            takeOutPoint={takeOutPoint}
+            onClearPutIn={() => setSelectedPutIn(null)}
+            onClearTakeOut={() => setSelectedTakeOut(null)}
+            vesselTypeId={selectedVesselTypeId}
+            onVesselChange={setSelectedVesselTypeId}
+            onShare={handleShare}
+            onDownloadImage={handleDownloadImage}
+            shareStatus={shareStatus}
+            onReportIssue={handleReportAccessPointIssue}
+            pointsAlongRoute={pointsAlongRoute}
+            captureRef={captureRef}
           />
         </div>
 
-        {/* Map + Access Points */}
-        <div className="mb-4">
-          <div className="relative h-[420px] lg:h-[450px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-200">
-            {/* Weather Bug overlay */}
-            <WeatherBug riverSlug={slug} riverId={river.id} />
+        {/* Right side — Map hero */}
+        <div className="flex-1 relative">
+          <MapContainer
+            initialBounds={river.bounds}
+            showLegend={true}
+            showGauges={showGauges}
+            onGaugeToggle={setShowGauges}
+          >
+            {accessPoints && (
+              <AccessPointMarkers
+                accessPoints={accessPoints}
+                selectedPutIn={selectedPutIn}
+                selectedTakeOut={selectedTakeOut}
+                onMarkerClick={handleMarkerClick}
+              />
+            )}
+            {showGauges && gaugeStations && (
+              <GaugeStationMarkers
+                gauges={gaugeStations}
+                selectedRiverId={river.id}
+                nearestGaugeId={nearestGauge?.id}
+              />
+            )}
+            {pois && pois.length > 0 && (
+              <POIMarkers pois={pois} activeMileRange={activeMileRange} />
+            )}
+          </MapContainer>
 
-            <MapContainer
-              initialBounds={river.bounds}
-              showLegend={true}
-              showGauges={showGauges}
-              onGaugeToggle={setShowGauges}
-            >
-              {accessPoints && (
-                <AccessPointMarkers
-                  accessPoints={accessPoints}
-                  selectedPutIn={selectedPutIn}
-                  selectedTakeOut={selectedTakeOut}
-                  onMarkerClick={handleMarkerClick}
-                />
-              )}
-              {showGauges && gaugeStations && (
-                <GaugeStationMarkers
-                  gauges={gaugeStations}
-                  selectedRiverId={river.id}
-                  nearestGaugeId={nearestGauge?.id}
-                />
-              )}
-              {pois && pois.length > 0 && (
-                <POIMarkers pois={pois} activeMileRange={activeMileRange} />
-              )}
-            </MapContainer>
-          </div>
+          {/* Weather Bug overlay */}
+          <WeatherBug riverSlug={slug} riverId={river.id} />
 
-          {/* Access Point Strip - horizontal scroll below map (no expanded details) */}
+          {/* Access Point Strip — overlaid at bottom of map */}
           {accessPoints && accessPoints.length > 0 && (
-            <div className="mt-3">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2">
               <AccessPointStrip
                 accessPoints={accessPoints}
                 selectedPutInId={selectedPutIn}
@@ -531,61 +528,123 @@ export default function RiverPage() {
             </div>
           )}
         </div>
-
-        {/* Hint text - between map and cards */}
-        {!putInPoint && !takeOutPoint && (
-          <p className="text-center text-sm text-neutral-500 mb-4">
-            Select an access point for put-in, then another for take-out
-          </p>
-        )}
-
-        {/* Float Plan Journey Card - shows when any access point is selected */}
-        {(putInPoint || takeOutPoint) && (
-          <div ref={floatPlanCardRef} className="mb-4">
-            <FloatPlanCard
-              plan={plan || null}
-              isLoading={planLoading}
-              putInPoint={putInPoint}
-              takeOutPoint={takeOutPoint}
-              onClearPutIn={() => setSelectedPutIn(null)}
-              onClearTakeOut={() => setSelectedTakeOut(null)}
-              onShare={handleShare}
-              onDownloadImage={handleDownloadImage}
-              shareStatus={shareStatus}
-              riverSlug={slug}
-              riverName={river?.name}
-              vesselTypeId={selectedVesselTypeId}
-              onVesselChange={setSelectedVesselTypeId}
-              captureRef={captureRef}
-              onReportIssue={handleReportAccessPointIssue}
-              pointsAlongRoute={pointsAlongRoute}
-            />
-          </div>
-        )}
-
-        {/* Info Sections - full width below planner/map */}
-        <div className="space-y-4 mt-6">
-          {/* Outfitters & Services */}
-          <NearbyServices
-            riverSlug={slug}
-            defaultOpen={false}
-          />
-
-          {/* Points of Interest */}
-          <PointsOfInterest
-            riverSlug={slug}
-            defaultOpen={false}
-          />
-
-          {/* River Conditions - below Points of Interest */}
-          <GaugeOverview
-            gauges={gaugeStations}
-            riverId={river.id}
-            isLoading={!allGaugeStations}
-            putInCoordinates={selectedPutInPoint?.coordinates || null}
-          />
-        </div>
       </div>
+
+      {/* ─── MOBILE: Full-screen map + bottom sheet ─── */}
+      <div className="lg:hidden">
+        {/* Compact mobile header */}
+        <div className="px-4 py-2 bg-white border-b border-neutral-200 flex items-center justify-between">
+          <h1 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
+            {river.name}
+          </h1>
+          <span
+            className="px-2 py-0.5 rounded text-[10px] font-bold text-white"
+            style={{ backgroundColor: CONDITION_COLORS[condition?.code ?? 'unknown'] || CONDITION_COLORS.unknown }}
+          >
+            {condition?.code === 'flowing' ? 'Flowing' : condition?.code === 'good' ? 'Good' : condition?.code === 'low' ? 'Low' : condition?.code === 'too_low' ? 'Too Low' : condition?.code === 'high' ? 'High' : condition?.code === 'dangerous' ? 'Flood' : 'Unknown'}
+          </span>
+        </div>
+
+        {/* Map — fills remaining viewport */}
+        <div className="relative" style={{ height: `calc(100vh - 3.5rem - 2.5rem - ${putInPoint && takeOutPoint ? '80px' : '0px'})` }}>
+          <MapContainer
+            initialBounds={river.bounds}
+            showLegend={true}
+            showGauges={showGauges}
+            onGaugeToggle={setShowGauges}
+          >
+            {accessPoints && (
+              <AccessPointMarkers
+                accessPoints={accessPoints}
+                selectedPutIn={selectedPutIn}
+                selectedTakeOut={selectedTakeOut}
+                onMarkerClick={handleMarkerClick}
+              />
+            )}
+            {showGauges && gaugeStations && (
+              <GaugeStationMarkers
+                gauges={gaugeStations}
+                selectedRiverId={river.id}
+                nearestGaugeId={nearestGauge?.id}
+              />
+            )}
+            {pois && pois.length > 0 && (
+              <POIMarkers pois={pois} activeMileRange={activeMileRange} />
+            )}
+          </MapContainer>
+
+          {/* Weather Bug */}
+          <WeatherBug riverSlug={slug} riverId={river.id} />
+
+          {/* Access Point Strip — overlaid at bottom */}
+          {accessPoints && accessPoints.length > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1">
+              <AccessPointStrip
+                accessPoints={accessPoints}
+                selectedPutInId={selectedPutIn}
+                selectedTakeOutId={selectedTakeOut}
+                onSelect={handleMarkerClick}
+                onHover={handleAccessPointHover}
+                onReportIssue={handleReportAccessPointIssue}
+                hideExpandedDetails={true}
+                riverSlug={slug}
+              />
+            </div>
+          )}
+
+          {/* Selection hint */}
+          {!putInPoint && !takeOutPoint && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-neutral-200">
+              <p className="text-xs font-medium text-neutral-600">Tap a marker to set your put-in</p>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Bottom Sheet */}
+        {putInPoint && takeOutPoint && plan && (
+          <FloatPlanCard
+            plan={plan}
+            isLoading={planLoading}
+            putInPoint={putInPoint}
+            takeOutPoint={takeOutPoint}
+            onClearPutIn={() => setSelectedPutIn(null)}
+            onClearTakeOut={() => setSelectedTakeOut(null)}
+            onShare={handleShare}
+            onDownloadImage={handleDownloadImage}
+            shareStatus={shareStatus}
+            riverSlug={slug}
+            riverName={river.name}
+            vesselTypeId={selectedVesselTypeId}
+            onVesselChange={setSelectedVesselTypeId}
+            captureRef={captureRef}
+            onReportIssue={handleReportAccessPointIssue}
+            pointsAlongRoute={pointsAlongRoute}
+          />
+        )}
+      </div>
+
+      {/* ─── Info sections (below fold, full width) ─── */}
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+        <NearbyServices riverSlug={slug} defaultOpen={false} />
+        <PointsOfInterest riverSlug={slug} defaultOpen={false} />
+        <GaugeOverview
+          gauges={gaugeStations}
+          riverId={river.id}
+          isLoading={!allGaugeStations}
+          putInCoordinates={selectedPutInPoint?.coordinates || null}
+        />
+      </div>
+
+      {/* Hidden shareable capture component */}
+      {putInPoint && takeOutPoint && plan && captureRef && (
+        <ShareableCapture
+          plan={plan}
+          putInPoint={putInPoint}
+          takeOutPoint={takeOutPoint}
+          riverName={river.name}
+          captureRef={captureRef}
+        />
+      )}
 
       {/* Feedback Modal */}
       <FeedbackModal
