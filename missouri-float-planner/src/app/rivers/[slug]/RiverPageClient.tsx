@@ -75,7 +75,8 @@ export default function RiverPage() {
   const { data: vesselTypes } = useVesselTypes();
   const { data: allGaugeStations } = useGaugeStations();
   const { data: pois } = usePOIs(slug);
-  const { data: weatherData } = useWeather(slug);
+  // Pre-fetch weather data for child components (WeatherBug)
+  useWeather(slug);
 
   // Filter gauge stations to only show those linked to this river
   const gaugeStations = allGaugeStations?.filter(gauge =>

@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Flag, Lightbulb, Store, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Flag, Lightbulb, Store, Tent, Droplets, Flame } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
 import {

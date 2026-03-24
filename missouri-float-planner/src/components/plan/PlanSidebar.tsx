@@ -4,12 +4,12 @@
 // Left sidebar for the split-panel float planner — contains all plan info in a scrollable column
 // Desktop: visible as sidebar. Mobile: content rendered inside bottom sheet.
 
-import { useState, useRef } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Share2, Download, Check, ChevronRight, Info } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
-import { getEddyImageForCondition, CONDITION_COLORS } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
