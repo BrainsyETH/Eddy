@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, Info, X } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
@@ -22,14 +22,17 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   label: string;
   bgClass: string;
   textClass: string;
+  btnBg: string;
+  btnBorder: string;
+  btnText: string;
 }> = {
-  flowing: { label: 'Flowing', bgClass: 'bg-emerald-500', textClass: 'text-white' },
-  good: { label: 'Good', bgClass: 'bg-lime-500', textClass: 'text-white' },
-  low: { label: 'Low', bgClass: 'bg-yellow-500', textClass: 'text-neutral-900' },
-  too_low: { label: 'Too Low', bgClass: 'bg-neutral-400', textClass: 'text-white' },
-  high: { label: 'High', bgClass: 'bg-orange-500', textClass: 'text-white' },
-  dangerous: { label: 'Flood', bgClass: 'bg-red-600', textClass: 'text-white' },
-  unknown: { label: 'Unknown', bgClass: 'bg-neutral-500', textClass: 'text-white' },
+  flowing: { label: 'Flowing', bgClass: 'bg-emerald-500', textClass: 'text-white', btnBg: 'bg-emerald-50', btnBorder: 'border-emerald-200', btnText: 'text-emerald-800' },
+  good: { label: 'Good', bgClass: 'bg-lime-500', textClass: 'text-white', btnBg: 'bg-emerald-50', btnBorder: 'border-emerald-200', btnText: 'text-emerald-800' },
+  low: { label: 'Low', bgClass: 'bg-yellow-500', textClass: 'text-neutral-900', btnBg: 'bg-amber-50', btnBorder: 'border-amber-200', btnText: 'text-amber-800' },
+  too_low: { label: 'Too Low', bgClass: 'bg-neutral-400', textClass: 'text-white', btnBg: 'bg-orange-50', btnBorder: 'border-orange-200', btnText: 'text-orange-800' },
+  high: { label: 'High', bgClass: 'bg-orange-500', textClass: 'text-white', btnBg: 'bg-red-50', btnBorder: 'border-red-200', btnText: 'text-red-800' },
+  dangerous: { label: 'Flood', bgClass: 'bg-red-600', textClass: 'text-white', btnBg: 'bg-red-50', btnBorder: 'border-red-200', btnText: 'text-red-900' },
+  unknown: { label: 'Unknown', bgClass: 'bg-neutral-500', textClass: 'text-white', btnBg: 'bg-neutral-50', btnBorder: 'border-neutral-200', btnText: 'text-neutral-700' },
 };
 
 interface PlanSidebarProps {
@@ -92,8 +95,8 @@ export default function PlanSidebar({
           </span>
         </div>
         <button
-          onClick={() => setShowEddySays(!showEddySays)}
-          className="mt-2 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50 border border-primary-100 hover:bg-primary-100 transition-colors group"
+          onClick={() => setShowEddySays(true)}
+          className={`mt-2 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-colors group ${condConfig.btnBg} ${condConfig.btnBorder} hover:opacity-90`}
         >
           <Image
             src={getEddyImageForCondition(conditionCode)}
@@ -102,22 +105,34 @@ export default function PlanSidebar({
             height={20}
             className="flex-shrink-0"
           />
-          <span className="text-xs font-medium text-primary-700">Eddy Says — River Report</span>
-          {showEddySays
-            ? <ChevronUp size={14} className="text-primary-400 ml-auto" />
-            : <ChevronDown size={14} className="text-primary-400 ml-auto" />
-          }
+          <span className={`text-xs font-medium ${condConfig.btnText}`}>Eddy Says — River Report</span>
+          <ChevronRight size={14} className={`${condConfig.btnText} opacity-50 ml-auto group-hover:translate-x-0.5 transition-transform`} />
         </button>
-        {showEddySays && (
-          <div className="mt-2">
+      </div>
+
+      {/* Eddy Says Modal */}
+      {showEddySays && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setShowEddySays(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowEddySays(false)}
+              className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/10 hover:bg-black/20 transition-colors"
+              aria-label="Close"
+            >
+              <X size={16} className="text-neutral-600" />
+            </button>
             <EddyQuote
               riverSlug={riverSlug}
               conditionCode={conditionCode}
               gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
