@@ -3,6 +3,7 @@
 // src/components/river/NearbyServices.tsx
 // Directory of outfitters, campgrounds, and lodging for a river
 
+import { useState } from 'react';
 import { Phone, Globe, Mail, ShieldCheck, ExternalLink } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -163,10 +164,42 @@ function ServiceCard({ service }: { service: NearbyServiceDirectory & { isPrimar
   );
 }
 
+const CATEGORY_ORDER: NearbyServiceDirectoryType[] = ['outfitter', 'campground', 'cabin_lodge'];
+
+type FilterValue = 'all' | NearbyServiceDirectoryType;
+
+const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'outfitter', label: 'Outfitters' },
+  { value: 'campground', label: 'Campgrounds' },
+  { value: 'cabin_lodge', label: 'Cabins & Lodges' },
+];
+
 export default function NearbyServices({ riverSlug, defaultOpen = false }: NearbyServicesProps) {
   const { data: services, isLoading } = useNearbyServices(riverSlug);
+  const [filter, setFilter] = useState<FilterValue>('all');
 
   const serviceList = services || [];
+
+  // Sort by category order, then by displayOrder within each category
+  const sortedServices = [...serviceList].sort((a, b) => {
+    const catA = CATEGORY_ORDER.indexOf(a.type);
+    const catB = CATEGORY_ORDER.indexOf(b.type);
+    if (catA !== catB) return catA - catB;
+    return (a.displayOrder ?? 999) - (b.displayOrder ?? 999);
+  });
+
+  const filteredServices = filter === 'all'
+    ? sortedServices
+    : sortedServices.filter((s) => s.type === filter);
+
+  // Count per category for filter badges
+  const counts: Record<FilterValue, number> = {
+    all: serviceList.length,
+    outfitter: serviceList.filter((s) => s.type === 'outfitter').length,
+    campground: serviceList.filter((s) => s.type === 'campground').length,
+    cabin_lodge: serviceList.filter((s) => s.type === 'cabin_lodge').length,
+  };
 
   const badge = serviceList.length > 0 ? (
     <span className="px-2 py-0.5 rounded text-xs font-medium bg-neutral-200 text-neutral-700">
@@ -188,10 +221,36 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
   return (
     <CollapsibleSection title="Outfitters & Services" defaultOpen={defaultOpen} badge={badge}>
       {serviceList.length > 0 ? (
-        <div className="space-y-3">
-          {serviceList.map((service) => (
-            <ServiceCard key={service.id} service={service} />
-          ))}
+        <div>
+          {/* Category filter tabs */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {FILTER_OPTIONS.map((opt) => {
+              const count = counts[opt.value];
+              if (opt.value !== 'all' && count === 0) return null;
+              const isActive = filter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setFilter(opt.value)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
+                >
+                  {opt.label}
+                  <span className={`ml-1 ${isActive ? 'text-white/70' : 'text-neutral-400'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="space-y-3">
+            {filteredServices.map((service) => (
+              <ServiceCard key={service.id} service={service} />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="bg-neutral-50 rounded-lg p-6 text-center">

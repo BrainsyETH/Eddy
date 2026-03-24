@@ -916,25 +916,25 @@ function JourneyCenter({
       )}
 
       {/* Float Summary Card */}
-      <div className="bg-neutral-50 rounded-xl p-3 mb-3">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <div className="w-3 h-3 rounded-full bg-support-500"></div>
-          <div className="w-24 h-1 rounded-full bg-gradient-to-r from-support-400 to-accent-400"></div>
-          <div className="w-3 h-3 rounded-full bg-accent-500"></div>
+      <div className="bg-neutral-50 rounded-xl p-2.5 mb-3">
+        <div className="flex items-center justify-center gap-3 mb-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-support-500"></div>
+          <div className="w-20 h-0.5 rounded-full bg-gradient-to-r from-support-400 to-accent-400"></div>
+          <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
         </div>
         <div className="flex items-baseline justify-center gap-3">
           <div className="text-center">
-            <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+            <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
             <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
           </div>
           <span className="text-neutral-300 text-lg">|</span>
           <div className="text-center">
             {isLoading || recalculating ? (
-              <div className="flex items-center justify-center h-8">
+              <div className="flex items-center justify-center h-7">
                 <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
-              <p className="text-2xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
+              <p className="text-xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
             )}
             <p className="text-[10px] uppercase tracking-wider text-neutral-500 flex items-center gap-0.5">
               Est. Time
@@ -1034,15 +1034,15 @@ function JourneyCenter({
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="5" cy="18" r="3"/>
-                <circle cx="19" cy="6" r="3"/>
-                <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
-                <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
+                <path d="M14 6l-4 5h9"/>
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-neutral-800">Shuttle Route</p>
+              <p className="text-sm font-semibold text-neutral-800">Drive Route</p>
               <p className="text-xs text-neutral-500">View in Google Maps</p>
             </div>
           </div>
@@ -1233,20 +1233,20 @@ function MobileBottomSheet({
       {/* Expanded Content */}
       <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 90px)` }}>
         {/* Route Summary with Vessel Toggle */}
-        <div className="bg-neutral-50 rounded-xl p-4 mb-4">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="bg-neutral-50 rounded-xl p-3 mb-4">
+          <div className="flex items-center gap-3 mb-2">
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-support-500"></div>
-              <div className="w-0.5 h-6 bg-gradient-to-b from-support-400 to-accent-400"></div>
-              <div className="w-3 h-3 rounded-full bg-accent-500"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-support-500"></div>
+              <div className="w-0.5 h-5 bg-gradient-to-b from-support-400 to-accent-400"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-neutral-700">{putInPoint.name}</p>
-              <p className="text-sm font-medium text-neutral-700 mt-1">{takeOutPoint.name}</p>
+              <p className="text-xs font-medium text-neutral-700">{putInPoint.name}</p>
+              <p className="text-xs font-medium text-neutral-700 mt-0.5">{takeOutPoint.name}</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-              <p className="text-sm text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
+              <p className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</p>
+              <p className="text-xs text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
             </div>
           </div>
 
@@ -1332,14 +1332,14 @@ function MobileBottomSheet({
           >
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="5" cy="18" r="3"/>
-                  <circle cx="19" cy="6" r="3"/>
-                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
-                  <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                  <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                  <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
+                  <path d="M14 6l-4 5h9"/>
                 </svg>
               </div>
-              <span className="text-sm font-medium text-neutral-800">Shuttle Route</span>
+              <span className="text-sm font-medium text-neutral-800">Drive Route</span>
             </div>
             <ChevronRight size={16} className="text-primary-400" />
           </a>
