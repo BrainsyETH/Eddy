@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { Share2, Download, Check, ChevronRight, Info, X } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
@@ -95,7 +95,7 @@ export default function PlanSidebar({
           </span>
         </div>
         <button
-          onClick={() => setShowEddySays(true)}
+          onClick={() => setShowEddySays(!showEddySays)}
           className={`mt-2 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-colors group ${condConfig.btnBg} ${condConfig.btnBorder} hover:opacity-90`}
         >
           <Image
@@ -106,33 +106,21 @@ export default function PlanSidebar({
             className="flex-shrink-0"
           />
           <span className={`text-xs font-medium ${condConfig.btnText}`}>Eddy Says — River Report</span>
-          <ChevronRight size={14} className={`${condConfig.btnText} opacity-50 ml-auto group-hover:translate-x-0.5 transition-transform`} />
+          {showEddySays
+            ? <ChevronUp size={14} className={`${condConfig.btnText} opacity-50 ml-auto`} />
+            : <ChevronDown size={14} className={`${condConfig.btnText} opacity-50 ml-auto`} />
+          }
         </button>
-      </div>
-
-      {/* Eddy Says Modal */}
-      {showEddySays && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setShowEddySays(false)}>
-          <div className="absolute inset-0 bg-black/40" />
-          <div
-            className="relative w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowEddySays(false)}
-              className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/10 hover:bg-black/20 transition-colors"
-              aria-label="Close"
-            >
-              <X size={16} className="text-neutral-600" />
-            </button>
+        {showEddySays && (
+          <div className="mt-2">
             <EddyQuote
               riverSlug={riverSlug}
               conditionCode={conditionCode}
               gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
@@ -157,56 +145,57 @@ export default function PlanSidebar({
         {/* Route summary — only when both points selected and plan loaded */}
         {hasBothPoints && plan && (
           <div className="bg-neutral-50 rounded-xl p-3">
-            {/* Distance + Time */}
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex items-center gap-2 flex-1">
-                <div className="w-2.5 h-2.5 rounded-full bg-support-500"></div>
-                <div className="flex-1 h-0.5 bg-gradient-to-r from-support-300 to-accent-300 rounded-full"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
+            {/* Distance + Time as clear columns */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">Distance</p>
+                <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">
+                  Float Time
+                  <span className="relative group/tip inline-flex ml-1">
+                    <Info className="w-3 h-3 text-neutral-400 cursor-help inline" />
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal font-normal">
+                      Estimate for continuous paddling — does not include stops, swimming, or slowdowns.
+                    </span>
+                  </span>
+                </p>
+                {isLoading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mt-1"></span>
+                ) : (
+                  <p className="text-xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
+                )}
               </div>
             </div>
-            <div className="flex items-baseline justify-between">
-              <div>
-                <span className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</span>
-                <span className="text-neutral-400 mx-1.5">·</span>
-                {isLoading ? (
-                  <span className="inline-block w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full animate-spin align-middle"></span>
-                ) : (
-                  <span className="text-lg font-bold text-neutral-700">{plan.floatTime?.formatted || '--'}</span>
-                )}
-                <span className="relative group/tip inline-flex ml-1">
-                  <Info className="w-3 h-3 text-neutral-400 cursor-help" />
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal">
-                    Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
-                  </span>
-                </span>
-              </div>
-              {/* Vessel toggle */}
-              {canoeVessel && raftVessel && (
+
+            {/* Vessel toggle */}
+            {canoeVessel && raftVessel && (
+              <div className="flex items-center justify-center mt-2 pt-2 border-t border-neutral-200">
                 <div className="inline-flex items-center rounded-md p-0.5 bg-white border border-neutral-200">
                   <button
                     onClick={() => onVesselChange(canoeVessel.id)}
-                    className={`px-2 py-1 text-[11px] font-bold rounded transition-all ${
+                    className={`px-3 py-1 text-[11px] font-bold rounded transition-all ${
                       vesselTypeId === canoeVessel.id
                         ? 'bg-primary-600 text-white'
                         : 'text-neutral-500 hover:bg-neutral-50'
                     }`}
                   >
-                    🛶
+                    🛶 Canoe
                   </button>
                   <button
                     onClick={() => onVesselChange(raftVessel.id)}
-                    className={`px-2 py-1 text-[11px] font-bold rounded transition-all ${
+                    className={`px-3 py-1 text-[11px] font-bold rounded transition-all ${
                       vesselTypeId === raftVessel.id
                         ? 'bg-primary-600 text-white'
                         : 'text-neutral-500 hover:bg-neutral-50'
                     }`}
                   >
-                    🚣
+                    🚣 Raft
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Gauge reading */}
             <div className="flex items-center gap-3 mt-2 pt-2 border-t border-neutral-200">
@@ -246,6 +235,35 @@ export default function PlanSidebar({
           </div>
         )}
 
+        {/* Shuttle route — above put-in/take-out cards */}
+        {hasBothPoints && plan && (
+          <a
+            href={(() => {
+              const origin = plan.putIn.directionsOverride
+                ? encodeURIComponent(plan.putIn.directionsOverride)
+                : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
+              const dest = plan.takeOut.directionsOverride
+                ? encodeURIComponent(plan.takeOut.directionsOverride)
+                : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
+              return `https://www.google.com/maps/dir/${origin}/${dest}`;
+            })()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="5" cy="18" r="3"/><circle cx="19" cy="6" r="3"/>
+                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/><path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                </svg>
+              </div>
+              <span className="text-xs font-medium text-neutral-700">Shuttle Route</span>
+            </div>
+            <ChevronRight size={14} className="text-primary-400" />
+          </a>
+        )}
+
         {/* Put-in card */}
         {putInPoint && (
           <CompactAccessCard
@@ -273,35 +291,6 @@ export default function PlanSidebar({
             onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
 
           />
-        )}
-
-        {/* Shuttle route */}
-        {hasBothPoints && plan && (
-          <a
-            href={(() => {
-              const origin = plan.putIn.directionsOverride
-                ? encodeURIComponent(plan.putIn.directionsOverride)
-                : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
-              const dest = plan.takeOut.directionsOverride
-                ? encodeURIComponent(plan.takeOut.directionsOverride)
-                : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
-              return `https://www.google.com/maps/dir/${origin}/${dest}`;
-            })()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="5" cy="18" r="3"/><circle cx="19" cy="6" r="3"/>
-                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/><path d="M19 9v6a6 6 0 0 1-6 6h0"/>
-                </svg>
-              </div>
-              <span className="text-xs font-medium text-neutral-700">Shuttle Route</span>
-            </div>
-            <ChevronRight size={14} className="text-primary-400" />
-          </a>
         )}
 
         {/* Road access warnings */}
