@@ -84,15 +84,10 @@ export default function PlanSidebar({
     <div className="flex flex-col h-full">
       {/* Sidebar header — river name + condition */}
       <div className="px-4 pt-4 pb-3 border-b border-neutral-100 flex-shrink-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <Link href={`/rivers/${riverSlug}`} className="text-lg font-bold text-neutral-900 truncate block no-underline" style={{ fontFamily: 'var(--font-display)' }}>
-              {riverName}
-            </Link>
-          </div>
-          <span className={`px-2 py-1 rounded-md text-[11px] font-bold ${condConfig.bgClass} ${condConfig.textClass} flex-shrink-0`}>
-            {condConfig.label}
-          </span>
+        <div className="min-w-0">
+          <Link href={`/rivers/${riverSlug}`} className="text-lg font-bold text-neutral-900 truncate block no-underline" style={{ fontFamily: 'var(--font-display)' }}>
+            {riverName}
+          </Link>
         </div>
         <button
           onClick={() => setShowEddySays(!showEddySays)}
@@ -106,6 +101,9 @@ export default function PlanSidebar({
             className="flex-shrink-0"
           />
           <span className={`text-xs font-medium ${condConfig.btnText}`}>Eddy Says — River Report</span>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${condConfig.bgClass} ${condConfig.textClass} flex-shrink-0`}>
+            {condConfig.label}
+          </span>
           {showEddySays
             ? <ChevronUp size={14} className={`${condConfig.btnText} opacity-50 ml-auto`} />
             : <ChevronDown size={14} className={`${condConfig.btnText} opacity-50 ml-auto`} />
@@ -156,7 +154,7 @@ export default function PlanSidebar({
                   Float Time
                   <span className="relative group/tip inline-flex ml-1">
                     <Info className="w-3 h-3 text-neutral-400 cursor-help inline" />
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal font-normal">
+                    <span className="absolute top-full right-0 mt-1.5 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-left opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal font-normal">
                       Estimate for continuous paddling — does not include stops, swimming, or slowdowns.
                     </span>
                   </span>
@@ -196,28 +194,6 @@ export default function PlanSidebar({
                 </div>
               </div>
             )}
-
-            {/* Gauge reading */}
-            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-neutral-200">
-              <Image
-                src={getEddyImageForCondition(conditionCode)}
-                alt={condConfig.label}
-                width={24}
-                height={24}
-                className="flex-shrink-0"
-              />
-              <div className="flex items-center gap-2 text-xs text-neutral-600">
-                <span className="font-semibold">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'} ft</span>
-                <span className="text-neutral-300">|</span>
-                <span className="font-semibold">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'} cfs</span>
-                {plan.condition.gaugeName && (
-                  <>
-                    <span className="text-neutral-300">|</span>
-                    <span className="text-neutral-400 truncate">{plan.condition.gaugeName}</span>
-                  </>
-                )}
-              </div>
-            </div>
 
             {/* Upstream warning */}
             {plan.putIn.riverMile > plan.takeOut.riverMile && (
