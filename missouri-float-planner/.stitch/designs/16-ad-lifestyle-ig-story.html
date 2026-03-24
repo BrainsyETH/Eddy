@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad — Float Season Is Here (Instagram Stories)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1080px; height: 1920px; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, #FAF8F4 0%, #F4EFE7 30%, #FEF5F3 60%, #FAF8F4 100%);
+      color: #2D2A24;
+    }
+
+    .canvas {
+      width: 1080px;
+      height: 1920px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 100px 72px 120px;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    /* Background river names */
+    .bg-rivers {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 80px;
+      padding: 0 20px;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .bg-river-line {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 64px;
+      font-weight: 700;
+      color: rgba(184,157,114,0.08);
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .bg-river-line:nth-child(even) {
+      text-align: right;
+      color: rgba(45,120,137,0.06);
+    }
+
+    .top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .headline {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 72px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #F07052, #2D7889);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      font-size: 24px;
+      color: #A49C8E;
+      font-weight: 500;
+    }
+
+    .middle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .mascot {
+      width: 320px;
+      height: 320px;
+      filter: drop-shadow(0 8px 32px rgba(240,112,82,0.2));
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    .rivers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .river-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      background: white;
+      border: 2px solid #DBD5CA;
+      border-radius: 9999px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #2D2A24;
+      box-shadow: 2px 2px 0 #C2BAAC;
+    }
+
+    .river-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-teal { background: #2D7889; }
+    .dot-coral { background: #F07052; }
+    .dot-green { background: #4EB86B; }
+    .dot-tan { background: #B89D72; }
+
+    .bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 22px 52px;
+      background: #F07052;
+      color: white;
+      border: 2px solid #2D2A24;
+      border-radius: 8px;
+      font-size: 24px;
+      font-weight: 600;
+      box-shadow: 4px 4px 0 #A49C8E;
+      cursor: pointer;
+    }
+
+    .domain {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 20px;
+      color: #C2BAAC;
+    }
+
+    .domain img {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <!-- Background river names -->
+    <div class="bg-rivers">
+      <div class="bg-river-line">Current River &middot; Jacks Fork &middot; Meramec</div>
+      <div class="bg-river-line">Eleven Point &middot; Big Piney &middot; Huzzah</div>
+      <div class="bg-river-line">Niangua &middot; Courtois &middot; Current River</div>
+      <div class="bg-river-line">Jacks Fork &middot; Meramec &middot; Eleven Point</div>
+      <div class="bg-river-line">Big Piney &middot; Huzzah &middot; Niangua</div>
+    </div>
+
+    <div class="top">
+      <h1 class="headline">Float Season<br>Is Here</h1>
+      <p class="tagline">Ozarks rivers are calling</p>
+    </div>
+
+    <div class="middle">
+      <img
+        src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20in%20a%20canoe.png"
+        alt="Eddy in a canoe"
+        class="mascot"
+      >
+      <div class="rivers-list">
+        <span class="river-pill"><span class="river-dot dot-teal"></span> Current River</span>
+        <span class="river-pill"><span class="river-dot dot-green"></span> Jacks Fork</span>
+        <span class="river-pill"><span class="river-dot dot-coral"></span> Meramec River</span>
+        <span class="river-pill"><span class="river-dot dot-tan"></span> Eleven Point</span>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <button class="cta-btn">Plan Your Float &rarr;</button>
+      <div class="domain">
+        <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+        eddy.guide
+      </div>
+    </div>
+  </div>
+</body>
+</html>

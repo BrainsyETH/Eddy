@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad — Plan Your Next Float (Instagram Feed)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1080px; height: 1080px; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #FAF8F4;
+      color: #2D2A24;
+    }
+
+    .canvas {
+      width: 1080px;
+      height: 1080px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .canvas::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(184,157,114,0.1) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 80%, rgba(78,184,107,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(240,112,82,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .mascot {
+      width: 240px;
+      height: 240px;
+      filter: drop-shadow(0 4px 20px rgba(240,112,82,0.2));
+      animation: float 6s ease-in-out infinite;
+      position: relative;
+      z-index: 1;
+      margin-bottom: 24px;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .headline {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 56px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 32px;
+      position: relative;
+      z-index: 1;
+      background: linear-gradient(135deg, #F07052, #2D7889);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .feature-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 24px;
+      background: white;
+      border: 2px solid #1D525F;
+      border-radius: 8px;
+      box-shadow: 3px 3px 0 #A49C8E;
+      font-size: 17px;
+      font-weight: 600;
+      color: #2D2A24;
+    }
+
+    .badge-icon {
+      font-size: 20px;
+    }
+
+    .badge-accent {
+      border-color: #F07052;
+      box-shadow: 3px 3px 0 #E5573F;
+      color: #F07052;
+    }
+
+    .badge-green {
+      border-color: #4EB86B;
+      box-shadow: 3px 3px 0 #347A47;
+      color: #347A47;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 18px 44px;
+      background: #F07052;
+      color: white;
+      border: 2px solid #2D2A24;
+      border-radius: 8px;
+      font-size: 22px;
+      font-weight: 600;
+      box-shadow: 4px 4px 0 #A49C8E;
+      cursor: pointer;
+      position: relative;
+      z-index: 1;
+      margin-bottom: 20px;
+    }
+
+    .river-guide {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px;
+      color: #A49C8E;
+      position: relative;
+      z-index: 1;
+    }
+
+    .river-guide img {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+
+    .domain {
+      position: absolute;
+      bottom: 24px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      color: #C2BAAC;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <img
+      src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+      alt="Eddy the Otter"
+      class="mascot"
+    >
+    <h1 class="headline">Plan Your Next Float</h1>
+
+    <div class="badges">
+      <span class="feature-badge">
+        <span class="badge-icon">&#127754;</span>
+        Ozarks Rivers
+      </span>
+      <span class="feature-badge badge-green">
+        <span class="badge-icon">&#9899;</span>
+        Live Conditions
+      </span>
+      <span class="feature-badge">
+        <span class="badge-icon">&#128205;</span>
+        Access Points
+      </span>
+      <span class="feature-badge badge-accent">
+        <span class="badge-icon">&#10024;</span>
+        Free
+      </span>
+    </div>
+
+    <button class="cta-btn">Visit eddy.guide &rarr;</button>
+
+    <div class="river-guide">
+      <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy">
+      eddy.guide &mdash; Your River Guide
+    </div>
+  </div>
+</body>
+</html>

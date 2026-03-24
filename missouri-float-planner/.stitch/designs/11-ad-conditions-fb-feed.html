@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad — Know Before You Go (Facebook Feed)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1200px; height: 628px; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0F2D35 0%, #163F4A 50%, #0F2D35 100%);
+      color: white;
+    }
+
+    .canvas {
+      width: 1200px;
+      height: 628px;
+      display: flex;
+      align-items: center;
+      padding: 48px 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle water pattern overlay */
+    .canvas::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse at 20% 80%, rgba(45,120,137,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(78,184,107,0.08) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .left {
+      flex: 1;
+      position: relative;
+      z-index: 1;
+    }
+
+    .right {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .headline {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      color: #F07052;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .subhead {
+      font-size: 22px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.85);
+      line-height: 1.4;
+      margin-bottom: 28px;
+      max-width: 480px;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      background: #F07052;
+      color: white;
+      border: 2px solid #2D2A24;
+      border-radius: 6px;
+      font-size: 18px;
+      font-weight: 600;
+      box-shadow: 3px 3px 0 #A49C8E;
+      cursor: pointer;
+    }
+
+    .badge-free {
+      display: inline-block;
+      margin-left: 16px;
+      padding: 6px 16px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.7);
+      vertical-align: middle;
+    }
+
+    .mascot {
+      width: 200px;
+      height: 200px;
+      filter: drop-shadow(0 4px 24px rgba(240,112,82,0.3));
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* Sample river condition card */
+    .condition-card {
+      background: rgba(255,255,255,0.95);
+      border: 2px solid #1D525F;
+      border-radius: 8px;
+      box-shadow: 3px 3px 0 #A49C8E;
+      padding: 14px 20px;
+      width: 260px;
+      color: #2D2A24;
+    }
+
+    .card-river {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .card-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .condition-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-optimal {
+      background: #DCF4E2;
+      color: #347A47;
+      border: 1px solid #95D9A7;
+    }
+
+    .badge-high {
+      background: #FFF7ED;
+      color: #9A3412;
+      border: 1px solid #FDBA74;
+    }
+
+    .badge-low {
+      background: #FFFBEB;
+      color: #92400E;
+      border: 1px solid #FCD34D;
+    }
+
+    .gauge-reading {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      color: #6B6459;
+    }
+
+    .domain {
+      position: absolute;
+      bottom: 20px;
+      right: 32px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="left">
+      <h1 class="headline">Know Your River<br>Before You Go</h1>
+      <p class="subhead">Live water levels, conditions & float times for Ozarks rivers</p>
+      <div>
+        <button class="cta-btn">Plan Your Float &rarr;</button>
+        <span class="badge-free">Free &middot; No Account Needed</span>
+      </div>
+    </div>
+    <div class="right">
+      <img
+        src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png"
+        alt="Eddy the Otter"
+        class="mascot"
+      >
+      <div class="condition-card">
+        <div class="card-river">Current River</div>
+        <div class="card-row">
+          <span class="condition-badge badge-optimal">Optimal</span>
+          <span class="gauge-reading">3.2 ft &middot; 420 cfs</span>
+        </div>
+        <div style="margin-top: 8px;">
+          <div class="card-river" style="font-size:14px;">Meramec River</div>
+          <div class="card-row">
+            <span class="condition-badge badge-high">High</span>
+            <span class="gauge-reading">7.1 ft &middot; 2,100 cfs</span>
+          </div>
+        </div>
+        <div style="margin-top: 8px;">
+          <div class="card-river" style="font-size:14px;">Huzzah Creek</div>
+          <div class="card-row">
+            <span class="condition-badge badge-low">Low</span>
+            <span class="gauge-reading">1.8 ft &middot; 85 cfs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="domain">eddy.guide</span>
+  </div>
+</body>
+</html>
