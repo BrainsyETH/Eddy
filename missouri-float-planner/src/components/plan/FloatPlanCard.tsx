@@ -203,7 +203,7 @@ function getLogisticsLine(point: AccessPoint): string {
 }
 
 // Shareable capture component - branded card for image export
-function ShareableCapture({
+export function ShareableCapture({
   plan,
   putInPoint,
   takeOutPoint,
@@ -376,8 +376,8 @@ const POI_ICON_MAP: Record<string, React.ComponentType<{ size?: string | number;
   other: Star,
 };
 
-// Along Your Route section — shared between desktop and mobile
-function AlongYourRoute({ items }: { items: RouteItem[] }) {
+// Along Your Route section — shared between desktop, mobile, and sidebar
+export function AlongYourRoute({ items }: { items: RouteItem[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (items.length === 0) return null;
