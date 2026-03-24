@@ -17,15 +17,6 @@ import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 
 const EddyQuote = dynamic(() => import('@/components/river/EddyQuote'), { ssr: false });
 
-const CONDITION_BADGE: Record<string, { label: string; className: string }> = {
-  flowing: { label: 'Flowing', className: 'bg-emerald-500 text-white' },
-  good: { label: 'Good', className: 'bg-lime-500 text-white' },
-  low: { label: 'Low', className: 'bg-yellow-500 text-neutral-900' },
-  too_low: { label: 'Too Low', className: 'bg-neutral-400 text-white' },
-  high: { label: 'High', className: 'bg-orange-500 text-white' },
-  dangerous: { label: 'Flood', className: 'bg-red-600 text-white' },
-  unknown: { label: 'Unknown', className: 'bg-neutral-500 text-white' },
-};
 
 interface PlanSidebarProps {
   riverName: string;
@@ -93,9 +84,6 @@ export default function PlanSidebar({
               className="flex-shrink-0"
             />
             <span className="text-xs font-medium text-neutral-700">Eddy Says — River Report</span>
-            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 ${(CONDITION_BADGE[conditionCode] || CONDITION_BADGE.unknown).className}`}>
-              {(CONDITION_BADGE[conditionCode] || CONDITION_BADGE.unknown).label}
-            </span>
             {showEddySays
               ? <ChevronUp size={14} className="text-neutral-400 ml-auto" />
               : <ChevronDown size={14} className="text-neutral-400 ml-auto" />
