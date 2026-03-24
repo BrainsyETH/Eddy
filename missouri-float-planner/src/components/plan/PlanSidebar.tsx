@@ -76,7 +76,7 @@ export default function PlanSidebar({
   const { data: vesselTypes } = useVesselTypes();
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
-  const [showEddySays, setShowEddySays] = useState(false);
+  const [showEddySays, setShowEddySays] = useState(true);
   const condConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
   const hasBothPoints = putInPoint && takeOutPoint;
 
@@ -101,9 +101,6 @@ export default function PlanSidebar({
             className="flex-shrink-0"
           />
           <span className={`text-xs font-medium ${condConfig.btnText}`}>Eddy Says — River Report</span>
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${condConfig.bgClass} ${condConfig.textClass} flex-shrink-0`}>
-            {condConfig.label}
-          </span>
           {showEddySays
             ? <ChevronUp size={14} className={`${condConfig.btnText} opacity-50 ml-auto`} />
             : <ChevronDown size={14} className={`${condConfig.btnText} opacity-50 ml-auto`} />

@@ -79,7 +79,7 @@ function formatGeneratedAge(generatedAt: string): string {
 export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
-  const [showFull, setShowFull] = useState(false);
+  const [showFull, setShowFull] = useState(true);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   // Fetch AI-generated update on mount
