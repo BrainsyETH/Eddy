@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 // Temporary storage directory (public/tmp/)
 const TMP_DIR = join(process.cwd(), 'public', 'tmp');
@@ -26,6 +27,9 @@ const CLEANUP_DELAY_MS = 6 * 60 * 60 * 1000;
  */
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     // Parse multipart form data
     const formData = await request.formData();
     const videoFile = formData.get('video') as File | null;
@@ -108,8 +112,11 @@ export async function POST(request: NextRequest) {
  * 
  * Returns list of temporary videos (for debugging)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const { readdir, stat } = await import('fs/promises');
     
     // Ensure tmp directory exists
@@ -152,6 +159,9 @@ export async function GET() {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get('filename');
 
