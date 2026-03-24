@@ -107,6 +107,15 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     return () => { cancelled = true; };
   }, [riverSlug]);
 
+  // Determine which data to display
+  const useAi = aiLoaded && aiUpdate !== null;
+  const displayConditionCode = useAi
+    ? (aiUpdate.conditionCode as ConditionCode)
+    : conditionCode;
+
+  // Static fallback
+  const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather, optimalRange);
+
   // Share handler — only use native share on mobile (touch devices)
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/rivers/${riverSlug}`;
@@ -114,7 +123,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
 
     if (isMobile && navigator.share) {
       const title = `River conditions on Eddy`;
-      const text = aiUpdate?.summaryText || aiUpdate?.quoteText || 'Check the latest river conditions on Eddy';
+      const text = aiUpdate?.summaryText || aiUpdate?.quoteText || staticQuote.text;
       try {
         await navigator.share({ title, text, url });
         return;
@@ -130,16 +139,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     } catch {
       // Clipboard failed
     }
-  }, [riverSlug, aiUpdate]);
-
-  // Determine which data to display
-  const useAi = aiLoaded && aiUpdate !== null;
-  const displayConditionCode = useAi
-    ? (aiUpdate.conditionCode as ConditionCode)
-    : conditionCode;
-
-  // Static fallback
-  const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather, optimalRange);
+  }, [riverSlug, aiUpdate, staticQuote.text]);
 
   // Summary vs full text
   const hasSummary = useAi && aiUpdate.summaryText;
@@ -225,20 +225,18 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               </p>
             )}
 
-            {useAi && (
-              <button
-                onClick={handleShare}
-                className={`flex items-center gap-1.5 text-xs font-semibold transition-all ml-auto rounded-md px-2 py-1 ${
-                  shareStatus === 'copied'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : `${textClass} opacity-50 hover:opacity-100 hover:bg-black/5`
-                }`}
-                title="Share this report"
-              >
-                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                {shareStatus === 'copied' ? 'Copied!' : 'Share'}
-              </button>
-            )}
+            <button
+              onClick={handleShare}
+              className={`flex items-center gap-1.5 text-xs font-semibold transition-all ml-auto rounded-md px-2 py-1 ${
+                shareStatus === 'copied'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : `${textClass} opacity-50 hover:opacity-100 hover:bg-black/5`
+              }`}
+              title="Share this report"
+            >
+              {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+              {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+            </button>
           </div>
 
           {(optimalRange || notes) && hasSummary && showFull && (
