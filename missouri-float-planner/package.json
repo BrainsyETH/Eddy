@@ -20,7 +20,14 @@
     "db:import-floatmissouri": "tsx scripts/import-floatmissouri.ts",
     "db:seed": "echo 'Run seed SQL files via Supabase CLI or SQL Editor. See scripts/run-seeds.ts for details.'",
     "db:setup": "npm run db:seed && npm run db:snap-access-points",
-    "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points"
+    "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points",
+    "video:dev": "cd remotion && npx remotion studio",
+    "video:generate": "cd remotion && npx tsx scripts/generate-video.ts",
+    "video:generate:assets": "cd remotion && npx tsx scripts/generate-video.ts --assets-only",
+    "video:generate:render": "cd remotion && npx tsx scripts/generate-video.ts --render-only",
+    "video:render": "cd remotion && npx remotion render Root tutorial-full out/eddy-tutorial-landscape.mp4",
+    "video:render:vertical": "cd remotion && npx remotion render Root tutorial-full-vertical out/eddy-tutorial-vertical.mp4",
+    "video:render:all": "npm run video:render && npm run video:render:vertical"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
