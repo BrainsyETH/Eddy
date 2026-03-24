@@ -79,6 +79,7 @@ interface CompactAccessCardProps {
   isPutIn: boolean;
   onClear: () => void;
   onReportIssue?: () => void;
+  defaultExpanded?: boolean;
 }
 
 export default function CompactAccessCard({
@@ -86,8 +87,9 @@ export default function CompactAccessCard({
   isPutIn,
   onClear,
   onReportIssue,
+  defaultExpanded = false,
 }: CompactAccessCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const labelColor = isPutIn ? 'bg-support-500' : 'bg-accent-500';
