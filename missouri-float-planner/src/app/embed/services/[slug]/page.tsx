@@ -29,6 +29,15 @@ const SERVICE_LABELS: Record<string, string> = {
   horseback_riding: 'Horseback',
   swimming_pool: 'Pool',
   wifi: 'WiFi',
+  potable_water: 'Water',
+  fire_rings: 'Fire Rings',
+  picnic_tables: 'Picnic Tables',
+  boat_ramp: 'Boat Ramp',
+  dump_station: 'Dump Station',
+  flush_toilets: 'Flush Toilets',
+  vault_toilets: 'Vault Toilets',
+  laundry: 'Laundry',
+  playground: 'Playground',
 };
 
 // Type display config
@@ -57,6 +66,8 @@ interface ServiceItem {
   status: string;
   isNpsCampground?: boolean;
   reservationUrl?: string | null;
+  managingAgency?: string | null;
+  bookingPlatform?: string | null;
   latitude?: number | null;
   longitude?: number | null;
 }
@@ -266,7 +277,7 @@ export default function EmbedServicesPage() {
                         {TYPE_CONFIG[service.type]?.label}
                       </span>
                     )}
-                    {service.npsAuthorized && (
+                    {(service.npsAuthorized || service.managingAgency === 'NPS') && (
                       <span style={{
                         fontSize: 8,
                         fontWeight: 700,
@@ -278,6 +289,34 @@ export default function EmbedServicesPage() {
                         flexShrink: 0,
                       }}>
                         NPS
+                      </span>
+                    )}
+                    {service.managingAgency === 'MO State Parks' && (
+                      <span style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: '#7c3aed',
+                        padding: '1px 4px',
+                        borderRadius: 3,
+                        backgroundColor: '#7c3aed15',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}>
+                        State Park
+                      </span>
+                    )}
+                    {service.managingAgency === 'USFS' && (
+                      <span style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: '#059669',
+                        padding: '1px 4px',
+                        borderRadius: 3,
+                        backgroundColor: '#05966915',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}>
+                        USFS
                       </span>
                     )}
                   </div>
@@ -319,14 +358,14 @@ export default function EmbedServicesPage() {
                           </a>
                         );
                       }
-                      if (service.isNpsCampground && service.reservationUrl) {
+                      if (service.reservationUrl) {
                         links.push(
                           <a key="reserve" href={service.reservationUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#059669', textDecoration: 'none', fontWeight: 600 }}>
                             Reserve
                           </a>
                         );
                       }
-                      if (service.website && !service.isNpsCampground) {
+                      if (service.website && !service.reservationUrl) {
                         links.push(
                           <a key="website" href={service.website.startsWith('http') ? service.website : `https://${service.website}`} target="_blank" rel="noopener noreferrer" style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}>
                             Website

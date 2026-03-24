@@ -39,8 +39,9 @@ const NAV_SECTIONS = [
       { id: 'eddy-quote', label: 'Eddy\'s Daily Quote' },
       { id: 'float-planner', label: 'Float Trip Planner' },
       { id: 'services-directory', label: 'Services Directory' },
+      { id: 'gauge-report', label: 'Gauge Report' },
       { id: 'condition-badge', label: 'Condition Badge' },
-      { id: 'shuttle-route', label: 'Shuttle Route' },
+      { id: 'shuttle-route', label: 'Drive Route' },
     ],
   },
   {
@@ -246,6 +247,14 @@ export default function EmbedPage() {
   loading="lazy"
 ></iframe>`;
 
+  const gaugeReportCode = `<iframe
+  src="${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}"
+  width="100%" height="380"
+  style="border:none; border-radius:12px; max-width:600px;"
+  title="${selectedRiverName} - Gauge Report from Eddy"
+  loading="lazy"
+></iframe>`;
+
   const badgeCode = `<iframe
   src="${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}"
   width="280" height="44"
@@ -306,7 +315,7 @@ export default function EmbedPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           {/* Left sidebar nav */}
-          <nav className="hidden lg:block w-56 flex-shrink-0 self-start sticky top-8">
+          <nav className="hidden lg:block w-56 flex-shrink-0 sticky top-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="space-y-6">
               {NAV_SECTIONS.map(section => (
                 <div key={section.title}>
@@ -336,11 +345,11 @@ export default function EmbedPage() {
               <div className="border-t border-neutral-200 pt-4">
                 <p className="text-xs text-neutral-500 mb-2">Running an outfitter?</p>
                 <a
-                  href="mailto:hello@eddy.guide"
+                  href="/rivers/current?report=true"
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg no-underline"
                   style={{ backgroundColor: '#F07052' }}
                 >
-                  Get in Touch
+                  Contact Us
                   <ExternalLink className="w-3 h-3 opacity-60" />
                 </a>
               </div>
@@ -620,6 +629,45 @@ export default function EmbedPage() {
 
             <hr className="border-neutral-200" />
 
+            {/* ===== GAUGE REPORT ===== */}
+            <section id="gauge-report">
+              <h2 className="text-xl font-bold text-neutral-900 mb-1">Gauge Report</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                Shows a 7/14/30-day gauge height chart, current reading, and the AI-powered
+                &ldquo;Eddy Says&rdquo; condition report. Great for giving visitors a quick
+                visual sense of river conditions over time.
+              </p>
+
+              <WidgetPreview
+                src={`${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}`}
+                height={380}
+                theme={theme}
+              />
+
+              <CodeBlock code={gaugeReportCode} />
+              <CopyButton text={gaugeReportCode} large />
+
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-neutral-700 mb-2">Parameters</h4>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-neutral-50 rounded-lg px-3 py-2">
+                    <code className="font-mono text-primary-600">theme</code>
+                    <p className="text-neutral-500 mt-0.5">light / dark</p>
+                  </div>
+                  <div className="bg-neutral-50 rounded-lg px-3 py-2">
+                    <code className="font-mono text-primary-600">days</code>
+                    <p className="text-neutral-500 mt-0.5">7 / 14 / 30 (default chart period)</p>
+                  </div>
+                  <div className="bg-neutral-50 rounded-lg px-3 py-2">
+                    <code className="font-mono text-primary-600">partner</code>
+                    <p className="text-neutral-500 mt-0.5">Your business name</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <hr className="border-neutral-200" />
+
             {/* ===== CONDITION BADGE ===== */}
             <section id="condition-badge">
               <h2 className="text-xl font-bold text-neutral-900 mb-1">Condition Badge</h2>
@@ -647,13 +695,13 @@ export default function EmbedPage() {
 
             <hr className="border-neutral-200" />
 
-            {/* ===== SHUTTLE ROUTE ===== */}
+            {/* ===== DRIVE ROUTE ===== */}
             <section id="shuttle-route">
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-neutral-900">Shuttle Route</h2>
+                <h2 className="text-xl font-bold text-neutral-900">Drive Route</h2>
               </div>
               <p className="text-sm text-neutral-600 mb-4">
-                After selecting put-in and take-out in the Float Trip Planner, a &ldquo;Shuttle Route&rdquo;
+                After selecting put-in and take-out in the Float Trip Planner, a &ldquo;Drive Route&rdquo;
                 button appears that opens Google Maps directions between the two access points.
                 This is built into the planner widget automatically — no extra embed needed.
               </p>
@@ -668,15 +716,15 @@ export default function EmbedPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="5" cy="18" r="3"/>
-                          <circle cx="19" cy="6" r="3"/>
-                          <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
-                          <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                          <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                          <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
+                          <path d="M14 6l-4 5h9"/>
                         </svg>
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-neutral-800">Shuttle Route</p>
+                        <p className="text-sm font-semibold text-neutral-800">Drive Route</p>
                         <p className="text-xs text-neutral-500">View in Google Maps</p>
                       </div>
                     </div>
@@ -834,11 +882,11 @@ export default function EmbedPage() {
                 and help driving visitors to your business.
               </p>
               <a
-                href="mailto:hello@eddy.guide"
+                href="/rivers/current?report=true"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold no-underline transition-colors"
                 style={{ backgroundColor: '#F07052' }}
               >
-                Get in Touch
+                Contact Us
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
             </section>

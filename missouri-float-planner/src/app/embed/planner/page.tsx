@@ -171,7 +171,7 @@ export default function EmbedPlannerPage() {
           <option value="">Select river...</option>
           {rivers.map(r => (
             <option key={r.id} value={r.slug}>
-              {r.name}{r.currentCondition ? ` — ${CONDITION_LABELS[r.currentCondition.code] || 'Unknown'}` : ''}
+              {r.name}
             </option>
           ))}
         </select>
@@ -195,7 +195,7 @@ export default function EmbedPlannerPage() {
           }}
         >
           <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: conditionColor, flexShrink: 0 }} />
-          {conditionWarning || `${CONDITION_LABELS[conditionCode] || 'Unknown'} conditions`}
+          {conditionWarning || CONDITION_LABELS[conditionCode] || 'Unknown'}
         </div>
       )}
 
@@ -343,7 +343,7 @@ export default function EmbedPlannerPage() {
         </div>
       )}
 
-      {/* Shuttle Route button (shown after trip is planned) */}
+      {/* Drive Route button (shown after trip is planned) */}
       {canSubmit && (() => {
         const putIn = accessPoints.find(ap => ap.id === selectedPutIn);
         const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
@@ -377,15 +377,15 @@ export default function EmbedPlannerPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#2D7889', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="5" cy="18" r="3"/>
-                  <circle cx="19" cy="6" r="3"/>
-                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/>
-                  <path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                  <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                  <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
+                  <path d="M14 6l-4 5h9"/>
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: textPrimary }}>Shuttle Route</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: textPrimary }}>Drive Route</div>
                 <div style={{ fontSize: 11, color: textSecondary }}>View in Google Maps</div>
               </div>
             </div>
