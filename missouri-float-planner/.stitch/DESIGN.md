@@ -267,6 +267,12 @@ The signature "Organic Brutalist" depth system uses **hard-edged offset shadows*
 | 8 | **Blog** | 3-column content grid, category badges, featured images, article detail with rich text | Editorial, clean, readable |
 | 9 | **About** | Collapsible accordion sections, data source attribution, condition code legend | Informational, trustworthy, comprehensive |
 | 10 | **Embed Showcase** | Widget preview cards (4 types), copy-paste code blocks, platform instructions tabs | Developer-friendly, interactive demos |
+| 11 | **Ad: Conditions (FB Feed)** | 1200x628 fixed canvas, Eddy mascot, condition badges, gauge readings, CTA button | Data-driven, teal, trustworthy |
+| 12 | **Ad: Conditions (IG Feed)** | 1080x1080 fixed canvas, live conditions card, condition badges, Eddy mascot | Data-driven, teal, centered |
+| 13 | **Ad: Conditions (IG Story)** | 1080x1920 fixed canvas, brand gradient, condition card, "Learn More" CTA | Vertical, immersive, teal |
+| 14 | **Ad: Lifestyle (FB Feed)** | 1200x628 fixed canvas, trip summary card, Eddy in canoe, warm tan background | Warm, inviting, aspirational |
+| 15 | **Ad: Lifestyle (IG Feed)** | 1080x1080 fixed canvas, feature badges, Eddy mascot, sunset gradient headline | Playful, warm, badge-driven |
+| 16 | **Ad: Lifestyle (IG Story)** | 1080x1920 fixed canvas, river name background, river pills, Eddy in canoe | Seasonal, warm, river-focused |
 
 ---
 

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad — Float With Eddy (Facebook Feed)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1200px; height: 628px; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #FAF8F4;
+      color: #2D2A24;
+    }
+
+    .canvas {
+      width: 1200px;
+      height: 628px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Warm nature backdrop */
+    .canvas::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse at 80% 90%, rgba(78,184,107,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 20%, rgba(240,112,82,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 50%, rgba(184,157,114,0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* Stylized river wave at bottom */
+    .wave {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: linear-gradient(180deg, transparent 0%, rgba(45,120,137,0.08) 100%);
+    }
+    .wave::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -20px;
+      right: -20px;
+      height: 3px;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent 0px,
+        transparent 20px,
+        rgba(45,120,137,0.15) 20px,
+        rgba(45,120,137,0.15) 40px
+      );
+      border-radius: 2px;
+    }
+
+    .left {
+      flex: 1;
+      padding: 48px 48px 48px 64px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .right {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 64px 32px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .headline {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 50px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #F07052, #2D7889);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subhead {
+      font-size: 20px;
+      color: #6B6459;
+      line-height: 1.5;
+      margin-bottom: 28px;
+      max-width: 460px;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      background: #F07052;
+      color: white;
+      border: 2px solid #2D2A24;
+      border-radius: 6px;
+      font-size: 18px;
+      font-weight: 600;
+      box-shadow: 3px 3px 0 #A49C8E;
+      cursor: pointer;
+    }
+
+    .mascot {
+      width: 200px;
+      height: 200px;
+      filter: drop-shadow(0 4px 20px rgba(240,112,82,0.2));
+      animation: float 6s ease-in-out infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* Trip summary card */
+    .trip-card {
+      background: #FAF8F4;
+      border: 3px solid #256574;
+      border-radius: 12px;
+      box-shadow: 4px 4px 0 #857D70;
+      padding: 16px 24px;
+      width: 280px;
+    }
+
+    .trip-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #E8DFD0;
+    }
+
+    .trip-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+
+    .trip-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: #2D2A24;
+    }
+
+    .trip-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .trip-stat-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #A49C8E;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .trip-stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2D2A24;
+    }
+
+    .trip-condition {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #E8DFD0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .condition-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4EB86B;
+    }
+
+    .condition-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #347A47;
+    }
+
+    .domain {
+      position: absolute;
+      bottom: 20px;
+      right: 32px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      color: #C2BAAC;
+    }
+
+    .brand-tag {
+      position: absolute;
+      bottom: 20px;
+      left: 32px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 14px;
+      color: #A49C8E;
+    }
+
+    .brand-tag img {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="wave"></div>
+    <div class="left">
+      <h1 class="headline">Your Ozarks Float<br>Trip Starts Here</h1>
+      <p class="subhead">Live conditions, float times & access points for Missouri's best rivers</p>
+      <button class="cta-btn">Start Planning &rarr;</button>
+    </div>
+    <div class="right">
+      <img
+        src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
+        alt="Eddy in a canoe"
+        class="mascot"
+      >
+      <div class="trip-card">
+        <div class="trip-header">
+          <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="Eddy" class="trip-icon">
+          <span class="trip-title">Current River</span>
+        </div>
+        <div class="trip-stats">
+          <div>
+            <div class="trip-stat-label">Distance</div>
+            <div class="trip-stat-value">8.2 mi</div>
+          </div>
+          <div>
+            <div class="trip-stat-label">Float Time</div>
+            <div class="trip-stat-value">~4 hrs</div>
+          </div>
+          <div>
+            <div class="trip-stat-label">Put-In</div>
+            <div class="trip-stat-value">Akers</div>
+          </div>
+          <div>
+            <div class="trip-stat-label">Take-Out</div>
+            <div class="trip-stat-value">Pulltite</div>
+          </div>
+        </div>
+        <div class="trip-condition">
+          <span class="condition-dot"></span>
+          <span class="condition-text">Optimal Conditions</span>
+        </div>
+      </div>
+    </div>
+    <div class="brand-tag">
+      <img src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png" alt="">
+      Your River Guide
+    </div>
+    <span class="domain">eddy.guide</span>
+  </div>
+</body>
+</html>
