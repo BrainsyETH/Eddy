@@ -79,7 +79,6 @@ interface CompactAccessCardProps {
   isPutIn: boolean;
   onClear: () => void;
   onReportIssue?: () => void;
-  defaultExpanded?: boolean;
 }
 
 export default function CompactAccessCard({
@@ -87,9 +86,8 @@ export default function CompactAccessCard({
   isPutIn,
   onClear,
   onReportIssue,
-  defaultExpanded = false,
 }: CompactAccessCardProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const labelColor = isPutIn ? 'bg-support-500' : 'bg-accent-500';
@@ -124,6 +122,38 @@ export default function CompactAccessCard({
 
   return (
     <div className={`bg-white rounded-xl border ${borderColor} overflow-hidden`}>
+      {/* Hero image — always visible when images exist */}
+      {allImages.length > 0 && (
+        <div className="relative w-full aspect-[16/9] bg-neutral-100">
+          <Image
+            src={allImages[currentImageIndex]}
+            alt={point.name}
+            fill
+            className="object-cover"
+            sizes="400px"
+          />
+          {allImages.length > 1 && (
+            <>
+              <button
+                onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded">
+                {currentImageIndex + 1} / {allImages.length}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-3 py-2.5">
         <div className="flex items-start justify-between gap-2">
@@ -206,38 +236,6 @@ export default function CompactAccessCard({
       {/* Expanded details */}
       {expanded && (
         <div className="border-t border-neutral-100">
-          {/* Image carousel */}
-          {allImages.length > 0 && (
-            <div className="relative w-full aspect-[16/9] bg-neutral-100">
-              <Image
-                src={allImages[currentImageIndex]}
-                alt={point.name}
-                fill
-                className="object-cover"
-                sizes="400px"
-              />
-              {allImages.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
-                    className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                  <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded">
-                    {currentImageIndex + 1} / {allImages.length}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           <div className="px-3 py-2.5 space-y-3">
             {/* Description */}
             {point.description && (
