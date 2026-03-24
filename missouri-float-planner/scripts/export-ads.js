@@ -9,7 +9,7 @@
  * Output: .stitch/ads/*.png
  */
 
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
