@@ -180,20 +180,12 @@ export default function CompactAccessCard({
           </button>
         </div>
 
-        {/* Logistics chips — always visible */}
-        {logisticsChips.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {logisticsChips.map((chip, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-neutral-50 border border-neutral-200 rounded text-[10px] font-medium text-neutral-600">
-                <span className="text-[10px]">{chip.icon}</span>
-                {chip.label}
-              </span>
-            ))}
-            {!point.isPublic && (
-              <span className="inline-flex items-center px-1.5 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-[10px] font-medium text-neutral-500">
-                Private
-              </span>
-            )}
+        {/* Private badge */}
+        {!point.isPublic && (
+          <div className="mt-2">
+            <span className="inline-flex items-center px-1.5 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-[10px] font-medium text-neutral-500">
+              Private
+            </span>
           </div>
         )}
 
