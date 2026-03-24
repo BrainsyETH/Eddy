@@ -420,7 +420,7 @@ export function AlongYourRoute({ items }: { items: RouteItem[] }) {
                 </span>
 
                 {/* Expand chevron */}
-                {(item.description || item.npsUrl) && (
+                {(item.description || item.npsUrl || item.imageUrl) && (
                   isExpanded
                     ? <ChevronUp size={14} className="text-neutral-300 flex-shrink-0" />
                     : <ChevronDown size={14} className="text-neutral-300 flex-shrink-0" />
@@ -428,10 +428,21 @@ export function AlongYourRoute({ items }: { items: RouteItem[] }) {
               </div>
 
               {/* Expanded detail */}
-              {isExpanded && (item.description || item.npsUrl) && (
-                <div className="px-3 pb-2.5 pt-0">
+              {isExpanded && (item.description || item.npsUrl || item.imageUrl) && (
+                <div className="px-3 pb-2.5 pt-0 space-y-2">
+                  {item.imageUrl && (
+                    <div className="relative w-full aspect-[16/9] rounded-md overflow-hidden bg-neutral-100">
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                        sizes="350px"
+                      />
+                    </div>
+                  )}
                   {item.description && (
-                    <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{item.description}</p>
+                    <p className="text-xs text-neutral-500 leading-relaxed">{item.description}</p>
                   )}
                   {item.npsUrl && (
                     <a
@@ -439,7 +450,7 @@ export function AlongYourRoute({ items }: { items: RouteItem[] }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1.5"
+                      className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline"
                     >
                       {(() => {
                         try {

@@ -87,6 +87,20 @@ export default function PlanSidebar({
             {condConfig.label}
           </span>
         </div>
+        <Link
+          href={`/rivers/${riverSlug}#eddy-says`}
+          className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50 border border-primary-100 hover:bg-primary-100 transition-colors no-underline group"
+        >
+          <Image
+            src={getEddyImageForCondition(conditionCode)}
+            alt="Eddy"
+            width={20}
+            height={20}
+            className="flex-shrink-0"
+          />
+          <span className="text-xs font-medium text-primary-700">Eddy Says — River Report</span>
+          <ChevronRight size={14} className="text-primary-400 ml-auto group-hover:translate-x-0.5 transition-transform" />
+        </Link>
       </div>
 
       {/* Scrollable content */}
@@ -202,6 +216,7 @@ export default function PlanSidebar({
             isPutIn={true}
             onClear={onClearPutIn}
             onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
+            defaultExpanded={true}
           />
         )}
 
@@ -219,6 +234,7 @@ export default function PlanSidebar({
             isPutIn={false}
             onClear={onClearTakeOut}
             onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
+            defaultExpanded={true}
           />
         )}
 

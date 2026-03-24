@@ -485,7 +485,7 @@ export default function RiverPage() {
         <div className="flex-1 relative">
           <MapContainer
             initialBounds={river.bounds}
-            showLegend={true}
+            showLegend={false}
             showGauges={showGauges}
             onGaugeToggle={setShowGauges}
           >
@@ -549,7 +549,7 @@ export default function RiverPage() {
         <div className="relative" style={{ height: `calc(100vh - 3.5rem - 2.5rem - ${putInPoint && takeOutPoint ? '80px' : '0px'})` }}>
           <MapContainer
             initialBounds={river.bounds}
-            showLegend={true}
+            showLegend={false}
             showGauges={showGauges}
             onGaugeToggle={setShowGauges}
           >
