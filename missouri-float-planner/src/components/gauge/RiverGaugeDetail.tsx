@@ -468,6 +468,20 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                 <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${labelInfo.className}`}>
                   {labelInfo.text}
                 </span>
+                {eddyUpdate?.generatedAt && (
+                  <span className="text-[10px] opacity-50">
+                    &middot; {(() => {
+                      const diffMs = Date.now() - new Date(eddyUpdate.generatedAt).getTime();
+                      const mins = Math.floor(diffMs / 60000);
+                      if (mins < 1) return 'Updated just now';
+                      if (mins < 60) return `Updated ${mins}m ago`;
+                      const hours = Math.floor(mins / 60);
+                      if (hours < 2) return 'Updated 1 hr ago';
+                      if (hours < 24) return `Updated ${hours} hrs ago`;
+                      return `Updated ${Math.floor(hours / 24)}d ago`;
+                    })()}
+                  </span>
+                )}
               </div>
 
               {eddyLoading && !eddyUpdate ? (
