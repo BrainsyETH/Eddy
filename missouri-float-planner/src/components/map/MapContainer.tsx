@@ -291,6 +291,7 @@ export default function MapContainer({
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: mapStyleUrl,
+      attributionControl: false,
       center: initialBounds
         ? [
             (initialBounds[0] + initialBounds[2]) / 2,
@@ -330,6 +331,9 @@ export default function MapContainer({
 
     // Add navigation controls
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // Move attribution to bottom-left so it doesn't cover access points
+    map.current.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
 
     map.current.on('load', () => {
       setMapLoaded(true);

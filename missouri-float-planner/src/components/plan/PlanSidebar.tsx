@@ -209,12 +209,14 @@ export default function PlanSidebar({
           >
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="5" cy="18" r="3"/><circle cx="19" cy="6" r="3"/>
-                  <path d="M5 15V9a6 6 0 0 1 6-6h0"/><path d="M19 9v6a6 6 0 0 1-6 6h0"/>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                  <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
+                  <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
+                  <path d="M14 6l-4 5h9"/>
                 </svg>
               </div>
-              <span className="text-xs font-medium text-neutral-700">Shuttle Route</span>
+              <span className="text-xs font-medium text-neutral-700">Drive Route</span>
             </div>
             <ChevronRight size={14} className="text-primary-400" />
           </a>
