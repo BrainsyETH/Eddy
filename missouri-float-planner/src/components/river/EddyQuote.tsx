@@ -161,6 +161,18 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
       ? formatReadingAge(readingAgeHours)
       : null;
 
+  // Show a brief loading state until AI fetch resolves to prevent content flash
+  if (!aiLoaded) {
+    return (
+      <div className={embedded ? 'px-3 py-4' : `border rounded-xl overflow-hidden ${bgClass} px-3 py-4`}>
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs text-neutral-400">Loading river report…</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={embedded ? '' : `border rounded-xl overflow-hidden ${bgClass}`}>
       <div className="flex items-start gap-3 px-3 py-3 sm:px-4 sm:py-4">

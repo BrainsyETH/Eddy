@@ -17,21 +17,14 @@ import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 
 const EddyQuote = dynamic(() => import('@/components/river/EddyQuote'), { ssr: false });
 
-// Condition display config
-const CONDITION_CONFIG: Record<ConditionCode, {
-  label: string;
-  bgClass: string;
-  textClass: string;
-  cardBg: string;
-  cardText: string;
-}> = {
-  flowing: { label: 'Flowing', bgClass: 'bg-emerald-500', textClass: 'text-white', cardBg: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200', cardText: 'text-emerald-900' },
-  good: { label: 'Good', bgClass: 'bg-lime-500', textClass: 'text-white', cardBg: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200', cardText: 'text-emerald-900' },
-  low: { label: 'Low', bgClass: 'bg-yellow-500', textClass: 'text-neutral-900', cardBg: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200', cardText: 'text-amber-900' },
-  too_low: { label: 'Too Low', bgClass: 'bg-neutral-400', textClass: 'text-white', cardBg: 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200', cardText: 'text-orange-900' },
-  high: { label: 'High', bgClass: 'bg-orange-500', textClass: 'text-white', cardBg: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200', cardText: 'text-red-900' },
-  dangerous: { label: 'Flood', bgClass: 'bg-red-600', textClass: 'text-white', cardBg: 'bg-gradient-to-r from-red-100 to-red-50 border-red-300', cardText: 'text-red-900' },
-  unknown: { label: 'Unknown', bgClass: 'bg-neutral-500', textClass: 'text-white', cardBg: 'bg-gradient-to-r from-neutral-50 to-slate-50 border-neutral-200', cardText: 'text-neutral-700' },
+const CONDITION_BADGE: Record<string, { label: string; className: string }> = {
+  flowing: { label: 'Flowing', className: 'bg-emerald-500 text-white' },
+  good: { label: 'Good', className: 'bg-lime-500 text-white' },
+  low: { label: 'Low', className: 'bg-yellow-500 text-neutral-900' },
+  too_low: { label: 'Too Low', className: 'bg-neutral-400 text-white' },
+  high: { label: 'High', className: 'bg-orange-500 text-white' },
+  dangerous: { label: 'Flood', className: 'bg-red-600 text-white' },
+  unknown: { label: 'Unknown', className: 'bg-neutral-500 text-white' },
 };
 
 interface PlanSidebarProps {
@@ -76,7 +69,6 @@ export default function PlanSidebar({
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
   const [showEddySays, setShowEddySays] = useState(false);
-  const condConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
   const hasBothPoints = putInPoint && takeOutPoint;
 
   return (
@@ -88,7 +80,7 @@ export default function PlanSidebar({
             {riverName}
           </Link>
         </div>
-        <div className={`mt-2 border rounded-xl overflow-hidden ${condConfig.cardBg}`}>
+        <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden bg-white">
           <button
             onClick={() => setShowEddySays(!showEddySays)}
             className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-90 transition-colors"
@@ -100,10 +92,13 @@ export default function PlanSidebar({
               height={20}
               className="flex-shrink-0"
             />
-            <span className={`text-xs font-medium ${condConfig.cardText}`}>Eddy Says — River Report</span>
+            <span className="text-xs font-medium text-neutral-700">Eddy Says — River Report</span>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 ${(CONDITION_BADGE[conditionCode] || CONDITION_BADGE.unknown).className}`}>
+              {(CONDITION_BADGE[conditionCode] || CONDITION_BADGE.unknown).label}
+            </span>
             {showEddySays
-              ? <ChevronUp size={14} className={`${condConfig.cardText} opacity-50 ml-auto`} />
-              : <ChevronDown size={14} className={`${condConfig.cardText} opacity-50 ml-auto`} />
+              ? <ChevronUp size={14} className="text-neutral-400 ml-auto" />
+              : <ChevronDown size={14} className="text-neutral-400 ml-auto" />
             }
           </button>
           {showEddySays && (
