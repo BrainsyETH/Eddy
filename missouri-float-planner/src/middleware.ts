@@ -8,10 +8,9 @@ import { updateSession } from '@/lib/supabase/middleware';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Centralized admin API auth check (excludes login route and video upload)
-  if (pathname.startsWith('/api/admin') && 
-      pathname !== '/api/admin/login' && 
-      pathname !== '/api/admin/upload-temp-video') {
+  // Centralized admin API auth check (excludes login route only)
+  if (pathname.startsWith('/api/admin') &&
+      pathname !== '/api/admin/login') {
     const secret = process.env.ADMIN_API_SECRET || process.env.ADMIN_PASSWORD;
     if (!secret) {
       return NextResponse.json(

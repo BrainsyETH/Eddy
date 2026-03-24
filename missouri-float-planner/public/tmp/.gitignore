@@ -1,0 +1,9 @@
+# Temporary Video Storage
+
+Videos uploaded here are auto-deleted after 6 hours.
+Used by Instagram Reel publishing workflow.
+
+DO NOT commit videos to git - this directory should be empty in repo.
+
+*
+!.gitignore
