@@ -216,6 +216,7 @@ export interface Database {
           driving_lat: number | null;
           driving_lng: number | null;
           image_urls: string[] | null;
+          image_attribution: Json | null;
           google_maps_url: string | null;
           // New detail fields (migration 00034)
           road_surface: string[] | null;
@@ -255,6 +256,7 @@ export interface Database {
           driving_lat?: number | null;
           driving_lng?: number | null;
           image_urls?: string[] | null;
+          image_attribution?: Json | null;
           google_maps_url?: string | null;
           // New detail fields (migration 00034)
           road_surface?: string[] | null;
@@ -294,6 +296,7 @@ export interface Database {
           driving_lat?: number | null;
           driving_lng?: number | null;
           image_urls?: string[] | null;
+          image_attribution?: Json | null;
           google_maps_url?: string | null;
           // New detail fields (migration 00034)
           road_surface?: string[] | null;
