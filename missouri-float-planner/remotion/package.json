@@ -8,21 +8,28 @@
     "render": "remotion render Root tutorial-full out/eddy-tutorial-landscape.mp4",
     "render:vertical": "remotion render Root tutorial-full-vertical out/eddy-tutorial-vertical.mp4",
     "render:all": "npm run render && npm run render:vertical",
-    "render:scene": "remotion render Root"
+    "render:scene": "remotion render Root",
+    "generate": "tsx scripts/generate-video.ts",
+    "generate:assets": "tsx scripts/generate-video.ts --assets-only",
+    "generate:render": "tsx scripts/generate-video.ts --render-only"
   },
   "dependencies": {
     "@remotion/cli": "4.0.242",
+    "@remotion/renderer": "4.0.242",
     "@remotion/tailwind": "4.0.242",
     "react": "^18",
     "react-dom": "^18",
     "remotion": "4.0.242",
     "tailwindcss": "^3.4.1",
     "postcss": "^8",
-    "autoprefixer": "^10"
+    "autoprefixer": "^10",
+    "openai": "^4.73.0",
+    "puppeteer": "^23.0.0"
   },
   "devDependencies": {
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "tsx": "^4.19.0",
     "typescript": "^5"
   }
 }
