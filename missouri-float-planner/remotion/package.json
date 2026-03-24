@@ -1,0 +1,28 @@
+{
+  "name": "eddy-video-tutorial",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion video tutorial for Eddy - Missouri Float Trip Planner",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render Root tutorial-full out/eddy-tutorial-landscape.mp4",
+    "render:vertical": "remotion render Root tutorial-full-vertical out/eddy-tutorial-vertical.mp4",
+    "render:all": "npm run render && npm run render:vertical",
+    "render:scene": "remotion render Root"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.242",
+    "@remotion/tailwind": "4.0.242",
+    "react": "^18",
+    "react-dom": "^18",
+    "remotion": "4.0.242",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8",
+    "autoprefixer": "^10"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5"
+  }
+}
