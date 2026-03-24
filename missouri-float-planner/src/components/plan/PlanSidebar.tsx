@@ -4,15 +4,18 @@
 // Left sidebar for the split-panel float planner — contains all plan info in a scrollable column
 // Desktop: visible as sidebar. Mobile: content rendered inside bottom sheet.
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Share2, Download, Check, ChevronRight } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
+
+const EddyQuote = dynamic(() => import('@/components/river/EddyQuote'), { ssr: false });
 
 // Condition display config
 const CONDITION_CONFIG: Record<ConditionCode, {
@@ -70,6 +73,7 @@ export default function PlanSidebar({
   const { data: vesselTypes } = useVesselTypes();
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
+  const [showEddySays, setShowEddySays] = useState(false);
   const condConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
   const hasBothPoints = putInPoint && takeOutPoint;
 
@@ -87,9 +91,9 @@ export default function PlanSidebar({
             {condConfig.label}
           </span>
         </div>
-        <Link
-          href={`/rivers/${riverSlug}#eddy-says`}
-          className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50 border border-primary-100 hover:bg-primary-100 transition-colors no-underline group"
+        <button
+          onClick={() => setShowEddySays(!showEddySays)}
+          className="mt-2 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50 border border-primary-100 hover:bg-primary-100 transition-colors group"
         >
           <Image
             src={getEddyImageForCondition(conditionCode)}
@@ -99,8 +103,20 @@ export default function PlanSidebar({
             className="flex-shrink-0"
           />
           <span className="text-xs font-medium text-primary-700">Eddy Says — River Report</span>
-          <ChevronRight size={14} className="text-primary-400 ml-auto group-hover:translate-x-0.5 transition-transform" />
-        </Link>
+          {showEddySays
+            ? <ChevronUp size={14} className="text-primary-400 ml-auto" />
+            : <ChevronDown size={14} className="text-primary-400 ml-auto" />
+          }
+        </button>
+        {showEddySays && (
+          <div className="mt-2">
+            <EddyQuote
+              riverSlug={riverSlug}
+              conditionCode={conditionCode}
+              gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+            />
+          </div>
+        )}
       </div>
 
       {/* Scrollable content */}
@@ -143,6 +159,12 @@ export default function PlanSidebar({
                 ) : (
                   <span className="text-lg font-bold text-neutral-700">{plan.floatTime?.formatted || '--'}</span>
                 )}
+                <span className="relative group/tip inline-flex ml-1">
+                  <Info className="w-3 h-3 text-neutral-400 cursor-help" />
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal">
+                    Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
+                  </span>
+                </span>
               </div>
               {/* Vessel toggle */}
               {canoeVessel && raftVessel && (
@@ -216,7 +238,7 @@ export default function PlanSidebar({
             isPutIn={true}
             onClear={onClearPutIn}
             onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
-            defaultExpanded={true}
+
           />
         )}
 
@@ -234,7 +256,7 @@ export default function PlanSidebar({
             isPutIn={false}
             onClear={onClearTakeOut}
             onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
-            defaultExpanded={true}
+
           />
         )}
 

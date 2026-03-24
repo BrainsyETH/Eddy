@@ -57,6 +57,9 @@ export default function ChatBubble() {
   if (pathname === '/chat') return null;
   if (pathname?.startsWith('/embed/widget') || pathname?.startsWith('/embed/planner') || pathname?.startsWith('/embed/eddy-quote') || pathname?.startsWith('/embed/services') || pathname?.startsWith('/embed/badge')) return null;
 
+  // On river pages with the split-panel layout, hide the FAB on desktop to avoid covering map controls
+  const isRiverPage = pathname?.startsWith('/rivers/') && pathname?.split('/').length === 3;
+
   const hideFab = bottomSheetExpanded && !isOpen;
   const fabBottom = bottomSheetVisible && !bottomSheetExpanded
     ? BOTTOM_SHEET_COLLAPSED_HEIGHT + 16
@@ -75,7 +78,7 @@ export default function ChatBubble() {
           onClick={() => setIsOpen(true)}
           className={`fixed right-4 z-[60] transition-all duration-300 ease-out group ${
             hideFab ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 scale-100'
-          }`}
+          } ${isRiverPage ? 'lg:hidden' : ''}`}
           style={{ bottom: fabBottom }}
           aria-label="Ask Eddy"
         >
