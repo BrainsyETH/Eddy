@@ -53,7 +53,9 @@ function computeConditionFromReading(
     level_optimal_max: number | null;
     level_high: number | null;
     level_dangerous: number | null;
-  }
+    threshold_unit?: string;
+  },
+  dischargeCfs?: number | null,
 ): { label: string; code: ConditionCode } {
   // Convert database snake_case to camelCase for shared utility
   const thresholdsForCompute: ConditionThresholds = {
@@ -63,9 +65,10 @@ function computeConditionFromReading(
     levelOptimalMax: thresholds.level_optimal_max,
     levelHigh: thresholds.level_high,
     levelDangerous: thresholds.level_dangerous,
+    thresholdUnit: (thresholds.threshold_unit as 'ft' | 'cfs') || undefined,
   };
 
-  const result = computeCondition(gaugeHeightFt, thresholdsForCompute);
+  const result = computeCondition(gaugeHeightFt, thresholdsForCompute, dischargeCfs);
   return { label: result.label, code: result.code };
 }
 
@@ -265,6 +268,7 @@ export async function GET(
         level_optimal_max: number | null;
         level_high: number | null;
         level_dangerous: number | null;
+        threshold_unit?: string;
       } | null = null;
 
       // Get thresholds for the selected gauge
@@ -278,6 +282,7 @@ export async function GET(
             level_optimal_max,
             level_high,
             level_dangerous,
+            threshold_unit,
             gauge_stations!inner (
               usgs_site_id
             )
@@ -295,6 +300,7 @@ export async function GET(
             level_optimal_max: gaugeData.level_optimal_max,
             level_high: gaugeData.level_high,
             level_dangerous: gaugeData.level_dangerous,
+            threshold_unit: gaugeData.threshold_unit,
           };
         }
       }
@@ -311,6 +317,7 @@ export async function GET(
             level_optimal_max,
             level_high,
             level_dangerous,
+            threshold_unit,
             gauge_stations (
               id,
               name,
@@ -335,6 +342,7 @@ export async function GET(
             level_optimal_max: primaryGaugeData.level_optimal_max,
             level_high: primaryGaugeData.level_high,
             level_dangerous: primaryGaugeData.level_dangerous,
+            threshold_unit: primaryGaugeData.threshold_unit,
           };
         }
       }
@@ -343,11 +351,12 @@ export async function GET(
 
       if (selectedThresholds && usgsSiteId) {
         const usgsReading = usgsReadingMap.get(usgsSiteId);
+        const hasUsgsData = usgsReading && (usgsReading.gaugeHeightFt !== null || usgsReading.dischargeCfs !== null);
 
-        if (usgsReading && usgsReading.gaugeHeightFt !== null) {
-          console.log('[Conditions API] Using live USGS reading:', usgsReading.gaugeHeightFt, 'ft from', selectedGaugeName);
+        if (hasUsgsData) {
+          console.log('[Conditions API] Using live USGS reading:', usgsReading.gaugeHeightFt, 'ft /', usgsReading.dischargeCfs, 'cfs from', selectedGaugeName);
 
-          const computed = computeConditionFromReading(usgsReading.gaugeHeightFt, selectedThresholds);
+          const computed = computeConditionFromReading(usgsReading.gaugeHeightFt, selectedThresholds, usgsReading.dischargeCfs);
 
           const readingAgeHours = usgsReading.readingTimestamp
             ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)

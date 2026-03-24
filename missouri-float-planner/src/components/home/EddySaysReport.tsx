@@ -12,9 +12,22 @@ import { buildRiversSummary } from '@/data/eddy-quotes';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
+function formatGeneratedAge(isoString: string | null): string | null {
+  if (!isoString) return null;
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Updated just now';
+  if (mins < 60) return `Updated ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 2) return 'Updated 1 hr ago';
+  if (hours < 24) return `Updated ${hours} hrs ago`;
+  const days = Math.floor(hours / 24);
+  return `Updated ${days}d ago`;
+}
+
 export default function EddySaysReport() {
   const { riverGroups, isLoading: groupsLoading } = useRiverGroups();
-  const [globalUpdate, setGlobalUpdate] = useState<{ quoteText: string; summaryText: string | null } | null>(null);
+  const [globalUpdate, setGlobalUpdate] = useState<{ quoteText: string; summaryText: string | null; generatedAt: string | null } | null>(null);
   const [showFull, setShowFull] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +43,7 @@ export default function EddySaysReport() {
           setGlobalUpdate({
             quoteText: data.update.quoteText,
             summaryText: data.update.summaryText,
+            generatedAt: data.update.generatedAt,
           });
         }
       } catch { /* silent */ } finally {
@@ -79,6 +93,9 @@ export default function EddySaysReport() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-bold tracking-wide uppercase text-neutral-400">Eddy says</span>
+            {globalUpdate?.generatedAt && (
+              <span className="text-[10px] text-neutral-400">&middot; {formatGeneratedAge(globalUpdate.generatedAt)}</span>
+            )}
           </div>
           <p className="text-sm text-neutral-700 leading-relaxed font-medium">
             &ldquo;{displayText}&rdquo;
