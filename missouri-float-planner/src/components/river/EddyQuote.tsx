@@ -21,6 +21,8 @@ interface EddyQuoteProps {
   readingAgeHours?: number | null;
   /** Optimal range string built from DB thresholds, e.g. "3.5–6.0 ft" */
   optimalRange?: string | null;
+  /** When true, removes outer border/rounded/bg wrapper (parent provides it) */
+  embedded?: boolean;
 }
 
 import { getEddyImageForCondition } from '@/constants';
@@ -76,7 +78,7 @@ function formatGeneratedAge(generatedAt: string): string {
   return `Updated ${Math.round(hours)} hrs ago`;
 }
 
-export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange }: EddyQuoteProps) {
+export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange, embedded }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
   const [showFull, setShowFull] = useState(true);
@@ -160,7 +162,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
       : null;
 
   return (
-    <div className={`border rounded-xl overflow-hidden ${bgClass}`}>
+    <div className={embedded ? '' : `border rounded-xl overflow-hidden ${bgClass}`}>
       <div className="flex items-start gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {/* Eddy avatar */}
         <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 relative">
