@@ -441,7 +441,16 @@ export type ServiceOffering =
   | 'fishing_supplies'
   | 'horseback_riding'
   | 'swimming_pool'
-  | 'wifi';
+  | 'wifi'
+  | 'potable_water'
+  | 'fire_rings'
+  | 'picnic_tables'
+  | 'boat_ramp'
+  | 'dump_station'
+  | 'flush_toilets'
+  | 'vault_toilets'
+  | 'laundry'
+  | 'playground';
 
 export interface NearbyServiceDirectory {
   id: string;
@@ -469,6 +478,17 @@ export interface NearbyServiceDirectory {
   verifiedSource: string | null;
   displayOrder: number;
   rivers: ServiceRiverLink[];
+  managingAgency: string | null;
+  reservationUrl: string | null;
+  bookingPlatform: string | null;
+  tentSites: number | null;
+  rvSites: number | null;
+  cabinCount: number | null;
+  maxGuests: number | null;
+  feeRange: string | null;
+  seasonOpenMonth: number | null;
+  seasonCloseMonth: number | null;
+  details: Record<string, unknown>;
 }
 
 export interface ServiceRiverLink {
