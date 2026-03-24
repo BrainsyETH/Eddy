@@ -88,7 +88,7 @@ export default function PlanSidebar({
             {riverName}
           </Link>
         </div>
-        <div className={`mt-2 border rounded-xl overflow-hidden ${condConfig.cardBg}`}>
+        <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden bg-white">
           <button
             onClick={() => setShowEddySays(!showEddySays)}
             className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-90 transition-colors"
@@ -100,10 +100,10 @@ export default function PlanSidebar({
               height={20}
               className="flex-shrink-0"
             />
-            <span className={`text-xs font-medium ${condConfig.cardText}`}>Eddy Says — River Report</span>
+            <span className="text-xs font-medium text-neutral-700">Eddy Says — River Report</span>
             {showEddySays
-              ? <ChevronUp size={14} className={`${condConfig.cardText} opacity-50 ml-auto`} />
-              : <ChevronDown size={14} className={`${condConfig.cardText} opacity-50 ml-auto`} />
+              ? <ChevronUp size={14} className="text-neutral-400 ml-auto" />
+              : <ChevronDown size={14} className="text-neutral-400 ml-auto" />
             }
           </button>
           {showEddySays && (
