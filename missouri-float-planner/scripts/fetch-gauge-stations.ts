@@ -114,21 +114,22 @@ const GAUGE_STATIONS = [
       dangerous: 10.0,
     },
   },
-  // Niangua River
+  // Niangua River (06923250 = Windyville, the main river gauge)
+  // NOTE: Previously used 06923500 which is Bennett Spring — a spring gauge, not the river.
   {
-    usgs_site_id: '06923500',
-    name: 'Niangua River near Hartville, MO',
+    usgs_site_id: '06923250',
+    name: 'Niangua River at Windyville, MO',
     river_slug: 'niangua',
-    latitude: 37.3178,
-    longitude: -92.5017,
+    latitude: 37.4928,
+    longitude: -92.8753,
     is_primary: true,
     thresholds: {
-      too_low: 1.2,
-      low: 2.0,
-      optimal_min: 2.8,
-      optimal_max: 5.0,
-      high: 7.0,
-      dangerous: 10.0,
+      too_low: 0.8,
+      low: 1.0,
+      optimal_min: 1.5,
+      optimal_max: 3.5,
+      high: 5.0,
+      dangerous: 8.0,
     },
   },
   // Big Piney River

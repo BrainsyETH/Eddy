@@ -213,8 +213,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     } catch { /* clipboard failed */ }
   };
 
-  // Eddy Says
-  const eddyConditionCode = (eddyUpdate?.conditionCode as ConditionCode) || condition.code;
+  // Eddy Says — always use the live condition for visual indicators so badge,
+  // background, and otter image stay in sync with the current gauge reading
+  // even when the stored Eddy update was generated at a different level.
+  const eddyConditionCode = condition.code;
   const bgClass = BG_BY_CONDITION[eddyConditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
   const labelInfo = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;

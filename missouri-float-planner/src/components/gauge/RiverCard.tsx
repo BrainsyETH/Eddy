@@ -9,7 +9,6 @@ import Link from 'next/link';
 import { Droplets, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 
 import type { RiverGroup } from '@/lib/river-groups';
-import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
 import { CONDITION_CARD_BLURBS, RIVER_NOTES } from '@/data/eddy-quotes';
@@ -69,7 +68,8 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
     return parts.join(' ');
   };
 
-  const displayConditionCode = (eddyUpdate?.conditionCode as ConditionCode) || condition.code;
+  // Always use live condition so card badge matches the current gauge reading
+  const displayConditionCode = condition.code;
   const eddyBgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[displayConditionCode] ?? TEXT_BY_CONDITION.unknown;
   const label = LABEL_BY_CONDITION[displayConditionCode] ?? LABEL_BY_CONDITION.unknown;
