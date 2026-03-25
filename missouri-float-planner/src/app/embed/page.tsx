@@ -249,7 +249,7 @@ export default function EmbedPage() {
 
   const gaugeReportCode = `<iframe
   src="${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}"
-  width="100%" height="380"
+  width="100%" height="480"
   style="border:none; border-radius:12px; max-width:600px;"
   title="${selectedRiverName} - Gauge Report from Eddy"
   loading="lazy"
@@ -640,7 +640,7 @@ export default function EmbedPage() {
 
               <WidgetPreview
                 src={`${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}`}
-                height={380}
+                height={480}
                 theme={theme}
               />
 
