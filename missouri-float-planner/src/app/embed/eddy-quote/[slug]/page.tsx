@@ -25,7 +25,7 @@ interface RiverBasic {
   currentCondition?: { code: ConditionCode; label: string } | null;
 }
 
-const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
+const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 const CONDITION_COLORS: Record<string, string> = {
   flowing: '#059669',

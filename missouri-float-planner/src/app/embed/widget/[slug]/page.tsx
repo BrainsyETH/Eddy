@@ -68,7 +68,7 @@ const CONDITION_HELPERS: Record<string, string> = {
   unknown: 'Check locally',
 };
 
-const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
+const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 function formatReadingAge(hours: number | null): string {
   if (hours === null) return '';
