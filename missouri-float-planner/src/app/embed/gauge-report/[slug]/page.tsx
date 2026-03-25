@@ -207,7 +207,7 @@ export default function EmbedGaugeReportPage() {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
 
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
-  const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
+  const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
   const displayHeight = update?.gaugeHeightFt ?? currentHeight;
 
   // Age of Eddy update
