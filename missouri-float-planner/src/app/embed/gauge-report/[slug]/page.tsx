@@ -50,9 +50,10 @@ interface GaugeThreshold {
 }
 
 interface GaugeEntry {
-  siteId: string;
+  usgsSiteId: string;
   name: string;
   gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
   thresholds?: GaugeThreshold[] | null;
 }
 
@@ -176,7 +177,7 @@ export default function EmbedGaugeReportPage() {
           for (const gauge of (gaugeData.gauges as GaugeEntry[])) {
             const primary = gauge.thresholds?.find((t) => t.riverId === riverId && t.isPrimary);
             if (primary) {
-              setPrimarySiteId(gauge.siteId);
+              setPrimarySiteId(gauge.usgsSiteId);
               if (gauge.gaugeHeightFt != null) setCurrentHeight(gauge.gaugeHeightFt);
               fallbackGauge = null;
               break;
@@ -187,7 +188,7 @@ export default function EmbedGaugeReportPage() {
             }
           }
           if (fallbackGauge) {
-            setPrimarySiteId(fallbackGauge.siteId);
+            setPrimarySiteId(fallbackGauge.usgsSiteId);
             if (fallbackGauge.gaugeHeightFt != null) setCurrentHeight(fallbackGauge.gaugeHeightFt);
           }
         }
@@ -229,7 +230,8 @@ export default function EmbedGaugeReportPage() {
     return `Updated ${hrs}h ago`;
   }, [update?.generatedAt]);
 
-  const quoteText = update?.summaryText || update?.quoteText || null;
+  // Prefer summaryText (1 sentence) over full quoteText to keep widget compact
+  const quoteText = update?.summaryText || null;
 
   if (loading) {
     return (
@@ -249,13 +251,10 @@ export default function EmbedGaugeReportPage() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', background: bg, color: textPrimary, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box' }}>
+    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', background: bg, color: textPrimary, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', overflow: 'hidden' }}>
       {/* Header: River name + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Image src={EDDY_LOGO} alt="Eddy" width={28} height={28} style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }} />
-          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{river.name}</div>
-        </div>
+        <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{river.name}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 12, backgroundColor: `${conditionColor}15`, border: `1px solid ${conditionColor}30` }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: conditionColor }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: conditionColor }}>{CONDITION_LABELS[conditionCode] || 'Unknown'}</span>
