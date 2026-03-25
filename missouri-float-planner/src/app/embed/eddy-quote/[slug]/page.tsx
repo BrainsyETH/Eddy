@@ -25,14 +25,6 @@ interface RiverBasic {
   currentCondition?: { code: ConditionCode; label: string } | null;
 }
 
-const EDDY_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-  canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
-};
-
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -90,23 +82,7 @@ function getQuoteColors(code: string, isDark: boolean): { bg: string; border: st
   }
 }
 
-function getEddyImage(code?: string | null): string {
-  if (!code) return EDDY_IMAGES.flag;
-  switch (code) {
-    case 'flowing':
-    case 'good':
-      return EDDY_IMAGES.canoe;
-    case 'high':
-    case 'dangerous':
-      return EDDY_IMAGES.red;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    case 'too_low':
-      return EDDY_IMAGES.flag;
-    default:
-      return EDDY_IMAGES.flag;
-  }
-}
+
 
 function getConditionLabel(code: string): string {
   const labels: Record<string, string> = {
@@ -205,7 +181,6 @@ export default function EddyQuoteEmbedPage() {
   // Determine what to display
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
-  const eddyImage = getEddyImage(conditionCode);
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const quoteColors = getQuoteColors(conditionCode, isDark);
   const recommendation = FLOAT_RECOMMENDATIONS[conditionCode] || FLOAT_RECOMMENDATIONS.unknown;

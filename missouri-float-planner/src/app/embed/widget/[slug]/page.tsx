@@ -68,30 +68,7 @@ const CONDITION_HELPERS: Record<string, string> = {
   unknown: 'Check locally',
 };
 
-const EDDY_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-};
-
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
-
-function getEddyImage(code?: ConditionCode | null): string {
-  if (!code) return EDDY_IMAGES.flag;
-  switch (code) {
-    case 'flowing':
-    case 'good':
-      return EDDY_IMAGES.green;
-    case 'high':
-    case 'dangerous':
-      return EDDY_IMAGES.red;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    default:
-      return EDDY_IMAGES.flag;
-  }
-}
 
 function formatReadingAge(hours: number | null): string {
   if (hours === null) return '';
@@ -342,7 +319,6 @@ export default function EmbedWidgetPage() {
   const conditionCode = river.currentCondition?.code;
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionHelper = conditionCode ? CONDITION_HELPERS[conditionCode] : CONDITION_HELPERS.unknown;
-  const eddyImage = getEddyImage(conditionCode);
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
 
   return (
