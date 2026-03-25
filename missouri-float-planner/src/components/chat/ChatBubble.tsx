@@ -55,7 +55,7 @@ export default function ChatBubble() {
 
   // Don't show on the dedicated /chat page or embedded widget pages
   if (pathname === '/chat') return null;
-  if (pathname?.startsWith('/embed/widget') || pathname?.startsWith('/embed/planner') || pathname?.startsWith('/embed/eddy-quote') || pathname?.startsWith('/embed/services') || pathname?.startsWith('/embed/badge')) return null;
+  if (pathname?.startsWith('/embed/')) return null;
 
   // On river pages with the split-panel layout, hide the FAB on desktop to avoid covering map controls
   const isRiverPage = pathname?.startsWith('/rivers/') && pathname?.split('/').length === 3;

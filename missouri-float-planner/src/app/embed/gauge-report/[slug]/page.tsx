@@ -102,7 +102,7 @@ function MiniChart({
 
   if (!points || points.length < 2) {
     return (
-      <svg width={width} height={height}>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
         <text x={width / 2} y={height / 2} textAnchor="middle" fill={isDark ? '#555' : '#ccc'} fontSize={11}>
           No chart data
         </text>
@@ -114,7 +114,7 @@ function MiniChart({
   const areaPath = `${linePath} L${points[points.length - 1].x.toFixed(1)},${height} L${points[0].x.toFixed(1)},${height} Z`;
 
   return (
-    <svg width={width} height={height} style={{ display: 'block' }}>
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" preserveAspectRatio="none" style={{ display: 'block' }}>
       <defs>
         <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity={isDark ? 0.3 : 0.2} />
@@ -289,11 +289,11 @@ export default function EmbedGaugeReportPage() {
       </div>
 
       {/* Chart */}
-      <div style={{ background: cardBg, borderRadius: 8, padding: '6px 0', border: `1px solid ${borderColor}` }}>
+      <div style={{ background: cardBg, borderRadius: 8, padding: '6px 0', border: `1px solid ${borderColor}`, height: 160 }}>
         <MiniChart
           readings={history?.readings || []}
-          width={320}
-          height={100}
+          width={400}
+          height={160}
           color={conditionColor}
           isDark={isDark}
         />
