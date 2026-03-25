@@ -67,7 +67,7 @@ const CONDITION_LABELS: Record<string, string> = {
   unknown: 'Unknown',
 };
 
-const DAY_OPTIONS = [7, 14, 30] as const;
+const DEFAULT_DAYS = 14;
 
 // Simple SVG area chart
 function MiniChart({
@@ -134,10 +134,9 @@ export default function EmbedGaugeReportPage() {
   const slug = params.slug as string;
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
-  const defaultDays = parseInt(searchParams.get('days') || '7', 10);
   const isDark = theme === 'dark';
 
-  const [days, setDays] = useState<number>(DAY_OPTIONS.includes(defaultDays as 7 | 14 | 30) ? defaultDays : 7);
+  const days = parseInt(searchParams.get('days') || '', 10) || DEFAULT_DAYS;
   const [river, setRiver] = useState<RiverBasic | null>(null);
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [history, setHistory] = useState<GaugeHistoryResponse | null>(null);
@@ -252,49 +251,30 @@ export default function EmbedGaugeReportPage() {
 
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', background: bg, color: textPrimary, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', overflow: 'hidden' }}>
-      {/* Header: River name + condition badge */}
+      {/* Header: Eddy favicon + River name + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{river.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Image src={EDDY_LOGO} alt="Eddy" width={32} height={32} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{river.name}</div>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 12, backgroundColor: `${conditionColor}15`, border: `1px solid ${conditionColor}30` }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: conditionColor }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: conditionColor }}>{CONDITION_LABELS[conditionCode] || 'Unknown'}</span>
         </div>
       </div>
 
-      {/* Gauge height + chart period toggle */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          {displayHeight != null ? (
-            <>
-              <span style={{ fontSize: 28, fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
-                {displayHeight.toFixed(1)}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 500, color: textSecondary, marginLeft: 3 }}>ft</span>
-            </>
-          ) : (
-            <span style={{ fontSize: 16, fontWeight: 600, color: textSecondary }}>No reading</span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 2 }}>
-          {DAY_OPTIONS.map(d => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              style={{
-                padding: '2px 8px',
-                fontSize: 10,
-                fontWeight: days === d ? 700 : 500,
-                color: days === d ? '#fff' : textSecondary,
-                backgroundColor: days === d ? '#2D7889' : (isDark ? '#333' : '#f0f0f0'),
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
+      {/* Gauge height */}
+      <div>
+        {displayHeight != null ? (
+          <>
+            <span style={{ fontSize: 28, fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
+              {displayHeight.toFixed(1)}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: textSecondary, marginLeft: 3 }}>ft</span>
+          </>
+        ) : (
+          <span style={{ fontSize: 16, fontWeight: 600, color: textSecondary }}>No reading</span>
+        )}
       </div>
 
       {/* Chart */}

@@ -358,14 +358,14 @@ export default function EmbedWidgetPage() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Top: River name + Eddy mascot + overall condition */}
+      {/* Top: Eddy favicon + River name + overall condition */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Image
-          src={eddyImage}
+          src={EDDY_LOGO}
           alt="Eddy"
-          width={44}
-          height={44}
-          style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }}
+          width={32}
+          height={32}
+          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

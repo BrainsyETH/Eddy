@@ -269,14 +269,14 @@ export default function EddyQuoteEmbedPage() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Header: River name + gauge reading (#14) + condition badge */}
+      {/* Header: Eddy favicon + River name + gauge reading (#14) + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Image
-          src={eddyImage}
+          src={EDDY_LOGO}
           alt="Eddy"
-          width={48}
-          height={48}
-          style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }}
+          width={32}
+          height={32}
+          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
