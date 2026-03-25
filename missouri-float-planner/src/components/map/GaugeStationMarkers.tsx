@@ -10,6 +10,7 @@ import { Droplets } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 
 interface GaugeStationMarkersProps {
   gauges: GaugeStation[];
@@ -22,34 +23,40 @@ function getConditionFromReading(
   gaugeHeight: number | null,
   thresholds: GaugeStation['thresholds']
 ): { code: string; label: string; color: string } {
+  const resolve = (code: string) => ({
+    code,
+    label: CONDITION_SHORT_LABELS[code] || 'Unknown',
+    color: CONDITION_COLORS[code as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown,
+  });
+
   if (gaugeHeight === null || !thresholds || thresholds.length === 0) {
-    return { code: 'unknown', label: 'Unknown', color: '#9ca3af' };
+    return resolve('unknown');
   }
 
   // Use the first threshold set (primary river if available)
   const t = thresholds.find(th => th.isPrimary) || thresholds[0];
 
   if (t.levelDangerous !== null && gaugeHeight >= t.levelDangerous) {
-    return { code: 'dangerous', label: 'Flood', color: '#ef4444' };
+    return resolve('dangerous');
   }
   if (t.levelHigh !== null && gaugeHeight >= t.levelHigh) {
-    return { code: 'high', label: 'High', color: '#f97316' };
+    return resolve('high');
   }
   if (t.levelOptimalMin !== null && t.levelOptimalMax !== null &&
       gaugeHeight >= t.levelOptimalMin && gaugeHeight <= t.levelOptimalMax) {
-    return { code: 'flowing', label: 'Flowing', color: '#059669' };
+    return resolve('flowing');
   }
   if (t.levelLow !== null && gaugeHeight >= t.levelLow) {
-    return { code: 'good', label: 'Good', color: '#84cc16' };
+    return resolve('good');
   }
   if (t.levelTooLow !== null && gaugeHeight >= t.levelTooLow) {
-    return { code: 'low', label: 'Low', color: '#eab308' };
+    return resolve('low');
   }
   if (t.levelTooLow !== null && gaugeHeight < t.levelTooLow) {
-    return { code: 'too_low', label: 'Too Low', color: '#9ca3af' };
+    return resolve('too_low');
   }
 
-  return { code: 'unknown', label: 'Unknown', color: '#9ca3af' };
+  return resolve('unknown');
 }
 
 export default function GaugeStationMarkers({

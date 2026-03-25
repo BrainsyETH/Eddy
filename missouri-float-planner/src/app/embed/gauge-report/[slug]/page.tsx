@@ -7,7 +7,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
-import { CONDITION_COLORS } from '@/constants';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -68,15 +68,7 @@ interface GaugeEntry {
   thresholds?: GaugeThreshold[] | null;
 }
 
-const CONDITION_LABELS: Record<string, string> = {
-  flowing: 'Flowing',
-  good: 'Good',
-  low: 'Low',
-  too_low: 'Too Low',
-  high: 'High',
-  dangerous: 'Flood',
-  unknown: 'Unknown',
-};
+const CONDITION_LABELS: Record<string, string> = CONDITION_SHORT_LABELS;
 
 const DEFAULT_DAYS = 14;
 

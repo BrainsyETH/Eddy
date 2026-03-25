@@ -7,8 +7,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Copy, Check, ExternalLink, ChevronDown, X, Search } from 'lucide-react';
+import { Copy, Check, ChevronDown, X, Search } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
+import FeedbackModal from '@/components/ui/FeedbackModal';
 
 const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
@@ -145,6 +146,7 @@ export default function EmbedPage() {
   const [servicesList, setServicesList] = useState<{ slug: string; name: string; type: string }[]>([]);
   const [highlightSearch, setHighlightSearch] = useState('');
   const [highlightDropdownOpen, setHighlightDropdownOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const highlightRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -328,14 +330,13 @@ export default function EmbedPage() {
               {/* Outfitter CTA in sidebar */}
               <div className="border-t border-neutral-200 pt-4">
                 <p className="text-xs text-neutral-500 mb-2">Running an outfitter?</p>
-                <a
-                  href="mailto:contact@eddyfloat.com?subject=Outfitter%20Partnership"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg no-underline"
+                <button
+                  onClick={() => setFeedbackOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg cursor-pointer"
                   style={{ backgroundColor: '#F07052' }}
                 >
                   Contact Us
-                  <ExternalLink className="w-3 h-3 opacity-60" />
-                </a>
+                </button>
               </div>
             </div>
           </nav>
@@ -766,14 +767,13 @@ export default function EmbedPage() {
                 We&apos;d love to partner with you. Get custom widgets, priority support,
                 and help driving visitors to your business.
               </p>
-              <a
-                href="mailto:contact@eddyfloat.com?subject=Outfitter%20Partnership"
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold no-underline transition-colors"
+              <button
+                onClick={() => setFeedbackOpen(true)}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors cursor-pointer"
                 style={{ backgroundColor: '#F07052' }}
               >
                 Contact Us
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-              </a>
+              </button>
             </section>
 
             <div className="text-center">
@@ -783,12 +783,16 @@ export default function EmbedPage() {
               >
                 &larr; Back to Eddy
               </Link>
+              <SiteFooter maxWidth="max-w-full" className="mt-16" />
             </div>
           </main>
         </div>
       </div>
 
-      <SiteFooter maxWidth="max-w-6xl" className="mt-16" />
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+      />
     </div>
   );
 }

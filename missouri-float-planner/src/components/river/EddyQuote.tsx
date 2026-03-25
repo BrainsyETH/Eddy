@@ -25,37 +25,7 @@ interface EddyQuoteProps {
   embedded?: boolean;
 }
 
-import { getEddyImageForCondition } from '@/constants';
-
-const BG_BY_CONDITION: Record<string, string> = {
-  flowing: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
-  good: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
-  low: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200',
-  too_low: 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
-  high: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200',
-  dangerous: 'bg-gradient-to-r from-red-100 to-red-50 border-red-300',
-  unknown: 'bg-gradient-to-r from-neutral-50 to-slate-50 border-neutral-200',
-};
-
-const TEXT_BY_CONDITION: Record<string, string> = {
-  flowing: 'text-emerald-900',
-  good: 'text-emerald-900',
-  low: 'text-amber-900',
-  too_low: 'text-orange-900',
-  high: 'text-red-900',
-  dangerous: 'text-red-900',
-  unknown: 'text-neutral-700',
-};
-
-const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = {
-  flowing: { text: 'Flowing', className: 'bg-emerald-100 text-emerald-700' },
-  good: { text: 'Good', className: 'bg-emerald-100 text-emerald-700' },
-  low: { text: 'Low', className: 'bg-amber-100 text-amber-700' },
-  too_low: { text: 'Too Low', className: 'bg-orange-100 text-orange-700' },
-  high: { text: 'High', className: 'bg-red-100 text-red-700' },
-  dangerous: { text: 'Flood', className: 'bg-red-200 text-red-800' },
-  unknown: { text: 'Unknown', className: 'bg-neutral-100 text-neutral-600' },
-};
+import { getEddyImageForCondition, BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION } from '@/constants';
 
 function formatReadingAge(hours: number): string {
   if (hours < 1) {
