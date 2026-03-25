@@ -195,7 +195,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   })();
 
   const altUnit = primaryUnit === 'ft' ? 'cfs' as const : 'ft' as const;
-  const hasAltThresholds = altThresholds !== null;
+  const canToggleUnit = gauge?.gaugeHeightFt != null && gauge?.dischargeCfs != null;
 
   // Eddy Says display — use live condition for visual indicators
   const eddyConditionCode = condition.code;
@@ -332,8 +332,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                 {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
               <div className="flex gap-2">
-                {/* Unit toggle */}
-                {hasAltThresholds && (
+                {/* Unit toggle — show when gauge reports both ft and cfs */}
+                {canToggleUnit && (
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                     <button
                       onClick={() => handleUnitToggle('ft')}

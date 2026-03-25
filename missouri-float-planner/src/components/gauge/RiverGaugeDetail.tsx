@@ -258,8 +258,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       });
   }, [riverGroup]);
 
-  // Check if alt thresholds have data (for showing unit toggle on chart)
-  const hasAltThresholds = altThresholds !== null;
+  // Show unit toggle when the gauge reports both ft and cfs data
+  // (alt thresholds are a bonus — threshold lines just won't draw in the alt unit if missing)
+  const canToggleUnit = activeGauge?.gaugeHeightFt != null && activeGauge?.dischargeCfs != null;
 
   // Loading state
   if (isLoading) {
@@ -376,8 +377,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                 {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
               <div className="flex gap-2">
-                {/* Unit toggle */}
-                {hasAltThresholds && (
+                {/* Unit toggle — show when gauge reports both ft and cfs */}
+                {canToggleUnit && (
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                     <button
                       onClick={() => handleUnitToggle('ft')}
