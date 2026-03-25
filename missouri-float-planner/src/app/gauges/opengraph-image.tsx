@@ -4,7 +4,7 @@
 import { ImageResponse } from 'next/og';
 import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const alt = 'River Levels — Real-time water levels on eddy.guide';
 export const size = { width: 1200, height: 630 };
@@ -24,7 +24,7 @@ export default async function Image() {
   // Fetch global Eddy summary for the OG card
   let eddyQuoteSnippet: string | null = null;
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: eddyData } = await supabase
       .from('eddy_updates')
       .select('summary_text, quote_text')

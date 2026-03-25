@@ -2,7 +2,7 @@
 // GET /api/gauge-thresholds - Get all river gauge thresholds for About page
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export interface GaugeThreshold {
   riverId: string;
@@ -32,7 +32,7 @@ export const revalidate = 300;
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Fetch all rivers with their gauge thresholds
     const { data: riverGauges, error } = await supabase
