@@ -52,7 +52,7 @@ export default function EmbedBadgePage() {
   }
 
   const conditionCode = river.currentCondition?.code || 'unknown';
-  const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
+  const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
   const conditionLabel = CONDITION_SHORT_LABELS[conditionCode] || 'Unknown';
 
   return (

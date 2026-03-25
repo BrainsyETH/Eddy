@@ -163,7 +163,7 @@ export default function EddyQuoteEmbedPage() {
 
   // Determine what to display
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
-  const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
+  const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const quoteColors = getQuoteColors(conditionCode, isDark);
   const recommendation = FLOAT_RECOMMENDATIONS[conditionCode] || FLOAT_RECOMMENDATIONS.unknown;
