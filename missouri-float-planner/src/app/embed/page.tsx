@@ -41,13 +41,11 @@ const NAV_SECTIONS = [
       { id: 'services-directory', label: 'Services Directory' },
       { id: 'gauge-report', label: 'Gauge Report' },
       { id: 'condition-badge', label: 'Condition Badge' },
-      { id: 'shuttle-route', label: 'Drive Route' },
     ],
   },
   {
     title: 'Advanced',
     items: [
-      { id: 'multi-river', label: 'Multi-River Embed' },
       { id: 'parameters', label: 'Parameters Reference' },
       { id: 'api', label: 'API Access' },
     ],
@@ -140,7 +138,6 @@ const ALL_SECTION_IDS = NAV_SECTIONS.flatMap(s => s.items.map(i => i.id));
 
 export default function EmbedPage() {
   const [selectedRiver, setSelectedRiver] = useState('current');
-  const [selectedRivers, setSelectedRivers] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [activeSection, setActiveSection] = useState('configuration');
   const [serviceFilter, setServiceFilter] = useState<'all' | 'outfitter' | 'campground' | 'cabin_lodge'>('all');
@@ -263,19 +260,6 @@ export default function EmbedPage() {
   loading="lazy"
 ></iframe>`;
 
-  const multiRiverCode = selectedRivers.length > 0
-    ? selectedRivers.map(slug => {
-        const name = RIVER_OPTIONS.find(r => r.slug === slug)?.name || slug;
-        return `<iframe
-  src="${baseUrl}/embed/widget/${slug}?theme=${theme}"
-  width="100%" height="480"
-  style="border:none; border-radius:12px; max-width:600px; margin-bottom:16px;"
-  title="${name} - River Conditions from Eddy"
-  loading="lazy"
-></iframe>`;
-      }).join('\n\n')
-    : '';
-
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -315,7 +299,7 @@ export default function EmbedPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           {/* Left sidebar nav */}
-          <nav className="hidden lg:block w-56 flex-shrink-0 sticky top-8 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <nav className="hidden lg:block w-56 flex-shrink-0 sticky top-[4.5rem] self-start max-h-[calc(100vh-5rem)] overflow-y-auto">
             <div className="space-y-6">
               {NAV_SECTIONS.map(section => (
                 <div key={section.title}>
@@ -691,105 +675,6 @@ export default function EmbedPage() {
 
               <CodeBlock code={badgeCode} />
               <CopyButton text={badgeCode} large />
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== DRIVE ROUTE ===== */}
-            <section id="shuttle-route">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-neutral-900">Drive Route</h2>
-              </div>
-              <p className="text-sm text-neutral-600 mb-4">
-                After selecting put-in and take-out in the Float Trip Planner, a &ldquo;Drive Route&rdquo;
-                button appears that opens Google Maps directions between the two access points.
-                This is built into the planner widget automatically — no extra embed needed.
-              </p>
-
-              {/* Visual preview of the button */}
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Appears in Float Trip Planner</p>
-                <div className="rounded-xl border-2 border-neutral-200 bg-neutral-50 p-6 flex justify-center">
-                  <div
-                    className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg"
-                    style={{ maxWidth: 400, background: '#EEF6F8' }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
-                          <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
-                          <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
-                          <path d="M14 6l-4 5h9"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-neutral-800">Drive Route</p>
-                        <p className="text-xs text-neutral-500">View in Google Maps</p>
-                      </div>
-                    </div>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5BA3B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-neutral-500">
-                The button constructs a Google Maps directions URL from the put-in coordinates to the take-out coordinates.
-                If custom driving directions are configured for an access point, those are used instead.
-              </p>
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== MULTI-RIVER ===== */}
-            <section id="multi-river">
-              <h2 className="text-xl font-bold text-neutral-900 mb-1">Multi-River Embed</h2>
-              <p className="text-sm text-neutral-600 mb-4">
-                Embed conditions for multiple rivers on one page. Select the rivers you want
-                and copy the combined code. Each river gets its own widget, stacked vertically.
-              </p>
-
-              <div className="bg-white border border-neutral-200 rounded-xl p-5 mb-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                  {RIVER_OPTIONS.map(r => (
-                    <label
-                      key={r.slug}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer border transition-all ${
-                        selectedRivers.includes(r.slug)
-                          ? 'border-primary-400 bg-primary-50 text-primary-700 font-medium'
-                          : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedRivers.includes(r.slug)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRivers(prev => [...prev, r.slug]);
-                          } else {
-                            setSelectedRivers(prev => prev.filter(s => s !== r.slug));
-                          }
-                        }}
-                        className="accent-primary-600"
-                      />
-                      <span className="truncate">{r.name}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {selectedRivers.length > 0 && multiRiverCode ? (
-                  <>
-                    <CodeBlock code={multiRiverCode} label={`HTML \u00B7 ${selectedRivers.length} ${selectedRivers.length === 1 ? 'river' : 'rivers'}`} />
-                    <CopyButton text={multiRiverCode} large />
-                  </>
-                ) : (
-                  <p className="text-xs text-neutral-400 text-center py-2">
-                    Select rivers above to generate embed codes.
-                  </p>
-                )}
-              </div>
             </section>
 
             <hr className="border-neutral-200" />

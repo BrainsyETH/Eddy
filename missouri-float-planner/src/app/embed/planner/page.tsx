@@ -12,7 +12,7 @@ import { CONDITION_COLORS } from '@/constants';
 import type { RiverListItem, AccessPoint } from '@/types/api';
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
-const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
+const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 // Condition helper labels (#17)
 const CONDITION_LABELS: Record<string, string> = {
