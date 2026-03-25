@@ -25,14 +25,6 @@ interface RiverBasic {
   currentCondition?: { code: ConditionCode; label: string } | null;
 }
 
-const EDDY_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-  canoe: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png',
-};
-
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -90,23 +82,7 @@ function getQuoteColors(code: string, isDark: boolean): { bg: string; border: st
   }
 }
 
-function getEddyImage(code?: string | null): string {
-  if (!code) return EDDY_IMAGES.flag;
-  switch (code) {
-    case 'flowing':
-    case 'good':
-      return EDDY_IMAGES.canoe;
-    case 'high':
-    case 'dangerous':
-      return EDDY_IMAGES.red;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    case 'too_low':
-      return EDDY_IMAGES.flag;
-    default:
-      return EDDY_IMAGES.flag;
-  }
-}
+
 
 function getConditionLabel(code: string): string {
   const labels: Record<string, string> = {
@@ -205,7 +181,6 @@ export default function EddyQuoteEmbedPage() {
   // Determine what to display
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
-  const eddyImage = getEddyImage(conditionCode);
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const quoteColors = getQuoteColors(conditionCode, isDark);
   const recommendation = FLOAT_RECOMMENDATIONS[conditionCode] || FLOAT_RECOMMENDATIONS.unknown;
@@ -269,14 +244,14 @@ export default function EddyQuoteEmbedPage() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Header: River name + gauge reading (#14) + condition badge */}
+      {/* Header: Eddy favicon + River name + gauge reading (#14) + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Image
-          src={eddyImage}
+          src={EDDY_LOGO}
           alt="Eddy"
-          width={48}
-          height={48}
-          style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }}
+          width={32}
+          height={32}
+          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

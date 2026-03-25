@@ -195,9 +195,9 @@ export default function EmbedServicesPage() {
         <Image
           src={EDDY_LOGO}
           alt="Eddy"
-          width={36}
-          height={36}
-          style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
+          width={32}
+          height={32}
+          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
@@ -210,7 +210,7 @@ export default function EmbedServicesPage() {
       </div>
 
       {/* Services list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {services.length === 0 && (
           <div style={{ textAlign: 'center', padding: 20, color: textSecondary, fontSize: 13 }}>
             No services found for this river.

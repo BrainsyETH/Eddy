@@ -68,30 +68,7 @@ const CONDITION_HELPERS: Record<string, string> = {
   unknown: 'Check locally',
 };
 
-const EDDY_IMAGES: Record<string, string> = {
-  green: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png',
-  red: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_red.png',
-  yellow: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_yellow.png',
-  flag: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png',
-};
-
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
-
-function getEddyImage(code?: ConditionCode | null): string {
-  if (!code) return EDDY_IMAGES.flag;
-  switch (code) {
-    case 'flowing':
-    case 'good':
-      return EDDY_IMAGES.green;
-    case 'high':
-    case 'dangerous':
-      return EDDY_IMAGES.red;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    default:
-      return EDDY_IMAGES.flag;
-  }
-}
 
 function formatReadingAge(hours: number | null): string {
   if (hours === null) return '';
@@ -342,7 +319,6 @@ export default function EmbedWidgetPage() {
   const conditionCode = river.currentCondition?.code;
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionHelper = conditionCode ? CONDITION_HELPERS[conditionCode] : CONDITION_HELPERS.unknown;
-  const eddyImage = getEddyImage(conditionCode);
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
 
   return (
@@ -358,14 +334,14 @@ export default function EmbedWidgetPage() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Top: River name + Eddy mascot + overall condition */}
+      {/* Top: Eddy favicon + River name + overall condition */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Image
-          src={eddyImage}
+          src={EDDY_LOGO}
           alt="Eddy"
-          width={44}
-          height={44}
-          style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }}
+          width={32}
+          height={32}
+          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
