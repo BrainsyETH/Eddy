@@ -98,16 +98,28 @@ async function main() {
   }
   console.log(`🏞️  Niangua river found (id: ${river.id})`);
 
-  // 4. Find existing river_gauges link
-  const { data: existingLink } = await supabase
+  // 4. Find existing river_gauges link (primary)
+  const { data: existingPrimaryLink } = await supabase
     .from('river_gauges')
     .select('id, gauge_station_id, is_primary')
     .eq('river_id', river.id)
     .eq('is_primary', true)
     .maybeSingle();
 
-  if (existingLink) {
-    console.log(`🔗 Existing primary gauge link: river_gauges.id=${existingLink.id}`);
+  if (existingPrimaryLink) {
+    console.log(`🔗 Existing primary gauge link: river_gauges.id=${existingPrimaryLink.id} → station ${existingPrimaryLink.gauge_station_id}`);
+  }
+
+  // 5. Check if there's already a river_gauges row for the NEW station
+  const { data: existingNewLink } = await supabase
+    .from('river_gauges')
+    .select('id, is_primary')
+    .eq('river_id', river.id)
+    .eq('gauge_station_id', existingNew?.id || '__none__')
+    .maybeSingle();
+
+  if (existingNewLink) {
+    console.log(`🔗 Existing link to Windyville station: river_gauges.id=${existingNewLink.id} (primary: ${existingNewLink.is_primary})`);
   }
 
   console.log('');
@@ -115,9 +127,13 @@ async function main() {
   if (!existingNew) {
     console.log(`  1. Insert gauge_station for ${NEW_SITE_ID}`);
   }
-  if (existingLink) {
-    console.log(`  2. Update river_gauges link to point to new station`);
-    console.log(`  3. Update thresholds for Windyville gauge`);
+  if (existingNewLink) {
+    console.log(`  2. Update existing Windyville link: set as primary + update thresholds`);
+    if (existingPrimaryLink && existingPrimaryLink.id !== existingNewLink.id) {
+      console.log(`  3. Demote old primary link (river_gauges.id=${existingPrimaryLink.id})`);
+    }
+  } else if (existingPrimaryLink) {
+    console.log(`  2. Update primary link to point to new station + update thresholds`);
   } else {
     console.log(`  2. Create river_gauges link to new station`);
   }
@@ -151,15 +167,45 @@ async function main() {
     console.log(`✅ Inserted gauge_station ${NEW_SITE_ID} (id: ${newStationId})`);
   }
 
-  // Step 2: Update or create river_gauges link
-  if (existingLink) {
+  // Step 2: Ensure the Windyville station is linked as primary with correct thresholds
+  if (existingNewLink) {
+    // A river_gauges row for Windyville already exists — update it to primary + thresholds
+    const { error: updateErr } = await supabase
+      .from('river_gauges')
+      .update({
+        is_primary: true,
+        ...NEW_THRESHOLDS,
+      })
+      .eq('id', existingNewLink.id);
+
+    if (updateErr) {
+      console.error('❌ Failed to update Windyville link:', updateErr.message);
+      process.exit(1);
+    }
+    console.log(`✅ Updated Windyville link to primary with new thresholds`);
+
+    // Demote old primary if it's a different row
+    if (existingPrimaryLink && existingPrimaryLink.id !== existingNewLink.id) {
+      const { error: demoteErr } = await supabase
+        .from('river_gauges')
+        .update({ is_primary: false })
+        .eq('id', existingPrimaryLink.id);
+
+      if (demoteErr) {
+        console.error('⚠️  Failed to demote old primary:', demoteErr.message);
+      } else {
+        console.log(`✅ Demoted old primary link (river_gauges.id=${existingPrimaryLink.id})`);
+      }
+    }
+  } else if (existingPrimaryLink) {
+    // No existing Windyville link — repoint the old primary link
     const { error: updateErr } = await supabase
       .from('river_gauges')
       .update({
         gauge_station_id: newStationId,
         ...NEW_THRESHOLDS,
       })
-      .eq('id', existingLink.id);
+      .eq('id', existingPrimaryLink.id);
 
     if (updateErr) {
       console.error('❌ Failed to update river_gauges:', updateErr.message);
@@ -167,6 +213,7 @@ async function main() {
     }
     console.log(`✅ Updated river_gauges link to ${NEW_SITE_ID}`);
   } else {
+    // No links at all — create a new one
     const { error: linkErr } = await supabase
       .from('river_gauges')
       .insert({
