@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
 import { CONDITION_LABELS } from '@/constants';
+import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { ConditionCode } from '@/lib/og/types';
 
 export const revalidate = 300;
@@ -85,29 +86,79 @@ async function generateDigestImage(size: { width: number; height: number }) {
   const fonts = loadFredokaFont();
   const isPortrait = size.height > size.width;
 
-  // Fetch latest updates for all rivers
-  const { data: updates, error: queryError } = await supabase
-    .from('eddy_updates')
-    .select('river_slug, condition_code, gauge_height_ft, summary_text, generated_at')
-    .neq('river_slug', 'global')
-    .is('section_slug', null)
-    .gt('expires_at', new Date().toISOString())
-    .order('generated_at', { ascending: false });
+  // Fetch latest gauge readings + thresholds for live condition computation
+  // This avoids stale condition codes from eddy_updates that may lag behind gauge changes
+  const { data: riverGauges, error: rgError } = await supabase
+    .from('river_gauges')
+    .select(`
+      river_id,
+      level_too_low, level_low, level_optimal_min, level_optimal_max,
+      level_high, level_dangerous, threshold_unit,
+      rivers!inner(slug),
+      gauge_stations!inner(id)
+    `)
+    .eq('is_primary', true);
 
-  if (queryError) {
-    console.error('[OG/Social] Supabase query failed:', queryError.message);
+  if (rgError) {
+    console.error('[OG/Social] river_gauges query failed:', rgError.message);
   }
 
-  // Deduplicate by river
-  const riverMap = new Map<string, { condition_code: string; gauge_height_ft: number | null }>();
-  for (const u of updates || []) {
-    if (!riverMap.has(u.river_slug)) {
-      riverMap.set(u.river_slug, {
-        condition_code: u.condition_code,
-        gauge_height_ft: u.gauge_height_ft,
+  // Build a map of river slug → thresholds + gauge station ID
+  const thresholdMap = new Map<string, { thresholds: ConditionThresholds; gaugeStationId: string }>();
+  for (const rg of riverGauges || []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slug = (rg as any).rivers?.slug;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stationId = (rg as any).gauge_stations?.id;
+    if (slug && stationId) {
+      thresholdMap.set(slug, {
+        thresholds: {
+          levelTooLow: rg.level_too_low,
+          levelLow: rg.level_low,
+          levelOptimalMin: rg.level_optimal_min,
+          levelOptimalMax: rg.level_optimal_max,
+          levelHigh: rg.level_high,
+          levelDangerous: rg.level_dangerous,
+          thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
+        },
+        gaugeStationId: stationId,
       });
     }
   }
+
+  // Fetch latest gauge readings for all primary stations
+  const stationIds = Array.from(thresholdMap.values()).map(t => t.gaugeStationId);
+  const { data: latestReadings } = stationIds.length > 0
+    ? await supabase
+        .from('gauge_readings')
+        .select('gauge_station_id, gauge_height_ft, discharge_cfs')
+        .in('gauge_station_id', stationIds)
+        .order('reading_timestamp', { ascending: false })
+    : { data: [] };
+
+  // Deduplicate readings by station (latest first from the ORDER BY)
+  const readingMap = new Map<string, { gauge_height_ft: number | null; discharge_cfs: number | null }>();
+  for (const r of latestReadings || []) {
+    if (!readingMap.has(r.gauge_station_id)) {
+      readingMap.set(r.gauge_station_id, {
+        gauge_height_ft: r.gauge_height_ft,
+        discharge_cfs: r.discharge_cfs,
+      });
+    }
+  }
+
+  // Build river condition map from live gauge data
+  const riverMap = new Map<string, { condition_code: string; gauge_height_ft: number | null }>();
+  thresholdMap.forEach(({ thresholds, gaugeStationId }, slug) => {
+    const reading = readingMap.get(gaugeStationId);
+    const heightFt = reading?.gauge_height_ft ?? null;
+    const dischargeCfs = reading?.discharge_cfs ?? null;
+    const liveCondition = computeCondition(heightFt, thresholds, dischargeCfs);
+    riverMap.set(slug, {
+      condition_code: liveCondition.code,
+      gauge_height_ft: heightFt,
+    });
+  });
 
   const rivers = Array.from(riverMap.entries());
   const today = new Date().toLocaleDateString('en-US', {

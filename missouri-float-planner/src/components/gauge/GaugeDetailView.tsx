@@ -197,8 +197,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const altUnit = primaryUnit === 'ft' ? 'cfs' as const : 'ft' as const;
   const hasAltThresholds = altThresholds !== null;
 
-  // Eddy Says display
-  const eddyConditionCode = (eddyUpdate?.conditionCode as ConditionCode) || condition.code;
+  // Eddy Says display — use live condition for visual indicators
+  const eddyConditionCode = condition.code;
   const bgClass = BG_BY_CONDITION[eddyConditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
   const label = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;
