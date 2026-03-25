@@ -169,16 +169,26 @@ export default function EmbedGaugeReportPage() {
           if (data.available && data.update) setUpdate(data.update);
         }
 
-        // Find primary gauge for this river
+        // Find primary gauge for this river (fall back to any gauge linked to this river)
         if (gaugesRes.ok && riverId) {
           const gaugeData = await gaugesRes.json();
+          let fallbackGauge: GaugeEntry | null = null;
           for (const gauge of (gaugeData.gauges as GaugeEntry[])) {
             const primary = gauge.thresholds?.find((t) => t.riverId === riverId && t.isPrimary);
             if (primary) {
               setPrimarySiteId(gauge.siteId);
               if (gauge.gaugeHeightFt != null) setCurrentHeight(gauge.gaugeHeightFt);
+              fallbackGauge = null;
               break;
             }
+            // Track first gauge linked to this river as fallback
+            if (!fallbackGauge && gauge.thresholds?.some((t) => t.riverId === riverId)) {
+              fallbackGauge = gauge;
+            }
+          }
+          if (fallbackGauge) {
+            setPrimarySiteId(fallbackGauge.siteId);
+            if (fallbackGauge.gaugeHeightFt != null) setCurrentHeight(fallbackGauge.gaugeHeightFt);
           }
         }
       } catch {
