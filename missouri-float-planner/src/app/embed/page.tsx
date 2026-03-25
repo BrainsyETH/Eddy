@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Copy, Check, ExternalLink, ChevronDown, X, Search } from 'lucide-react';
+import { Copy, Check, ChevronDown, X, Search } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import FeedbackModal from '@/components/ui/FeedbackModal';
 
