@@ -25,17 +25,9 @@ interface RiverBasic {
   currentCondition?: { code: ConditionCode; label: string } | null;
 }
 
-const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 
-const CONDITION_COLORS: Record<string, string> = {
-  flowing: '#059669',
-  good: '#65a30d',
-  low: '#d97706',
-  too_low: '#9ca3af',
-  high: '#ea580c',
-  dangerous: '#dc2626',
-  unknown: '#9ca3af',
-};
+const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 // Bold yes/no float recommendation (#12)
 const FLOAT_RECOMMENDATIONS: Record<string, string> = {
@@ -85,16 +77,7 @@ function getQuoteColors(code: string, isDark: boolean): { bg: string; border: st
 
 
 function getConditionLabel(code: string): string {
-  const labels: Record<string, string> = {
-    flowing: 'Flowing',
-    good: 'Good',
-    low: 'Low',
-    too_low: 'Too Low',
-    high: 'High',
-    dangerous: 'Flood',
-    unknown: 'Unknown',
-  };
-  return labels[code] || 'Unknown';
+  return CONDITION_SHORT_LABELS[code] || 'Unknown';
 }
 
 function formatAge(generatedAt: string): string {

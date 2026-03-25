@@ -81,6 +81,17 @@ export const CONDITION_LABELS = {
   unknown: 'Unknown',
 } as const;
 
+// Short condition labels for compact displays (badges, embeds, etc.)
+export const CONDITION_SHORT_LABELS: Record<string, string> = {
+  too_low: 'Too Low',
+  low: 'Low',
+  good: 'Good',
+  flowing: 'Flowing',
+  high: 'High',
+  dangerous: 'Flood',
+  unknown: 'Unknown',
+};
+
 // POI types with labels
 export const POI_TYPES = {
   spring: 'Spring',

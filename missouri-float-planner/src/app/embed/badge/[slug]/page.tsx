@@ -7,28 +7,9 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
-
-const CONDITION_COLORS: Record<string, string> = {
-  flowing: '#059669',
-  good: '#84cc16',
-  low: '#eab308',
-  too_low: '#9ca3af',
-  high: '#f97316',
-  dangerous: '#ef4444',
-  unknown: '#9ca3af',
-};
-
-const CONDITION_LABELS: Record<string, string> = {
-  flowing: 'Flowing',
-  good: 'Good',
-  low: 'Low',
-  too_low: 'Too Low',
-  high: 'High',
-  dangerous: 'Flood',
-  unknown: 'Unknown',
-};
 
 interface RiverBasic {
   name: string;
@@ -72,7 +53,7 @@ export default function EmbedBadgePage() {
 
   const conditionCode = river.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode] || CONDITION_COLORS.unknown;
-  const conditionLabel = CONDITION_LABELS[conditionCode] || 'Unknown';
+  const conditionLabel = CONDITION_SHORT_LABELS[conditionCode] || 'Unknown';
 
   return (
     <div style={{ background: 'transparent', padding: 0 }}>

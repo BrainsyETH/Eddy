@@ -9,18 +9,8 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { useRivers } from '@/hooks/useRivers';
+import { getConditionTailwindColor } from '@/lib/conditions';
 import type { ConditionCode } from '@/types/api';
-
-// Matches GaugeOverview colors
-const conditionColors: Record<ConditionCode, string> = {
-  flowing: 'bg-emerald-500',
-  good: 'bg-lime-500',
-  low: 'bg-yellow-500',
-  high: 'bg-orange-500',
-  too_low: 'bg-neutral-400',
-  dangerous: 'bg-red-600',
-  unknown: 'bg-neutral-400',
-};
 
 export default function SiteHeader() {
   const pathname = usePathname();
@@ -108,7 +98,7 @@ export default function SiteHeader() {
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-neutral-900">{river.name}</span>
                               <span
-                                className={`w-2 h-2 rounded-full ${river.currentCondition ? conditionColors[river.currentCondition.code] : conditionColors.unknown}`}
+                                className={`w-2 h-2 rounded-full ${river.currentCondition ? getConditionTailwindColor(river.currentCondition.code) : getConditionTailwindColor('unknown')}`}
                                 title={river.currentCondition?.label || 'Unknown'}
                               />
                             </div>
@@ -188,7 +178,7 @@ export default function SiteHeader() {
                   }`}
                 >
                   <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${river.currentCondition ? conditionColors[river.currentCondition.code] : conditionColors.unknown}`}
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${river.currentCondition ? getConditionTailwindColor(river.currentCondition.code) : getConditionTailwindColor('unknown')}`}
                   />
                   <span className="font-medium text-sm truncate">{river.name}</span>
                 </Link>
