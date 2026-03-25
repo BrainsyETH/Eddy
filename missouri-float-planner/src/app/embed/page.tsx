@@ -315,7 +315,7 @@ export default function EmbedPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           {/* Left sidebar nav */}
-          <nav className="hidden lg:block w-56 flex-shrink-0 sticky top-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <nav className="hidden lg:block w-56 flex-shrink-0 sticky top-8 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="space-y-6">
               {NAV_SECTIONS.map(section => (
                 <div key={section.title}>
@@ -345,7 +345,7 @@ export default function EmbedPage() {
               <div className="border-t border-neutral-200 pt-4">
                 <p className="text-xs text-neutral-500 mb-2">Running an outfitter?</p>
                 <a
-                  href="/rivers/current?report=true"
+                  href="mailto:contact@eddyfloat.com?subject=Outfitter%20Partnership"
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg no-underline"
                   style={{ backgroundColor: '#F07052' }}
                 >
@@ -882,7 +882,7 @@ export default function EmbedPage() {
                 and help driving visitors to your business.
               </p>
               <a
-                href="/rivers/current?report=true"
+                href="mailto:contact@eddyfloat.com?subject=Outfitter%20Partnership"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold no-underline transition-colors"
                 style={{ backgroundColor: '#F07052' }}
               >
