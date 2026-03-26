@@ -42,21 +42,22 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
         })}
       </ol>
 
-      {/* schema.org BreadcrumbList */}
+      {/* schema.org BreadcrumbList — always includes Home as position 1 */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',
-            itemListElement: items
-              .filter((item) => item.href || items.indexOf(item) === items.length - 1)
-              .map((item, i) => ({
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://eddy.guide/' },
+              ...items.map((item, i) => ({
                 '@type': 'ListItem',
-                position: i + 1,
+                position: i + 2,
                 name: item.label,
                 ...(item.href ? { item: `https://eddy.guide${item.href}` } : {}),
               })),
+            ],
           }),
         }}
       />

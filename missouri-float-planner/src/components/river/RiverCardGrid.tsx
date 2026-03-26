@@ -28,7 +28,9 @@ interface RiverCardGridProps {
   rivers: RiverCardData[];
 }
 
-const BEGINNER_DIFFICULTIES = ['Class I', 'Easy', 'Beginner'];
+// Region-based river groupings
+const OZARK_NSR_SLUGS = ['current', 'jacks-fork', 'eleven-point'];
+const STL_AREA_SLUGS = ['meramec', 'huzzah', 'courtois'];
 
 export default function RiverCardGrid({ rivers }: RiverCardGridProps) {
   const [filter, setFilter] = useState<FilterType>('all');
@@ -37,8 +39,8 @@ export default function RiverCardGrid({ rivers }: RiverCardGridProps) {
     if (filter === 'all') return rivers;
     if (filter === 'flowing') return rivers.filter(r => r.conditionCode === 'flowing');
     if (filter === 'good') return rivers.filter(r => r.conditionCode === 'good' || r.conditionCode === 'flowing');
-    if (filter === 'beginner') return rivers.filter(r => BEGINNER_DIFFICULTIES.some(d => r.difficultyRating?.includes(d)));
-    if (filter === 'intermediate') return rivers.filter(r => !BEGINNER_DIFFICULTIES.some(d => r.difficultyRating?.includes(d)));
+    if (filter === 'ozark_nsr') return rivers.filter(r => OZARK_NSR_SLUGS.includes(r.slug));
+    if (filter === 'stl_area') return rivers.filter(r => STL_AREA_SLUGS.includes(r.slug));
     return rivers;
   }, [rivers, filter]);
 

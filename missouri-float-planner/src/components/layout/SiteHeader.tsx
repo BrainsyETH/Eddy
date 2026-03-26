@@ -171,6 +171,12 @@ export default function SiteHeader() {
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#72B5C4' }}>
               Plan Your Float
             </p>
+            <Link
+              href="/rivers"
+              className="flex items-center px-3 py-2.5 rounded-md no-underline transition-colors text-primary-100 hover:bg-white/5 hover:text-white mb-1"
+            >
+              <span className="font-semibold text-sm" style={{ color: '#F07052' }}>Browse All Rivers</span>
+            </Link>
             <div className="grid grid-cols-2 gap-1 mb-3">
               {rivers?.map((river) => (
                 <Link

@@ -245,7 +245,7 @@ export default function GaugesPage() {
             {/* Info box */}
             {/* Email signup CTA */}
             <div className="mt-8 bg-white border border-neutral-200 rounded-xl p-6">
-              <EmailSignup variant="light" />
+              <EmailSignup variant="light" source="gauges" />
             </div>
 
             <div className="mt-4 bg-primary-50 border border-primary-200 rounded-xl p-6">

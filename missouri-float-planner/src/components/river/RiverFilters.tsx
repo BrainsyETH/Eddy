@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-type FilterType = 'all' | 'flowing' | 'good' | 'beginner' | 'intermediate';
+type FilterType = 'all' | 'flowing' | 'good' | 'ozark_nsr' | 'stl_area';
 
 interface RiverFiltersProps {
   onFilterChange: (filter: FilterType) => void;
@@ -15,8 +15,8 @@ const FILTERS: { value: FilterType; label: string }[] = [
   { value: 'all', label: 'All Rivers' },
   { value: 'flowing', label: 'Flowing Now' },
   { value: 'good', label: 'Good Conditions' },
-  { value: 'beginner', label: 'Beginner Friendly' },
-  { value: 'intermediate', label: 'Intermediate+' },
+  { value: 'ozark_nsr', label: 'Ozark NSR' },
+  { value: 'stl_area', label: 'St. Louis Area' },
 ];
 
 export default function RiverFilters({ onFilterChange }: RiverFiltersProps) {
