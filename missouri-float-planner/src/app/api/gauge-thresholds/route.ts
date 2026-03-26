@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { withX402Route } from '@/lib/x402-config';
 
 export interface GaugeThreshold {
   riverId: string;
@@ -30,7 +31,7 @@ export interface GaugeThresholdsResponse {
 // Cache for 5 minutes
 export const revalidate = 300;
 
-export async function GET() {
+async function _GET() {
   try {
     const supabase = createAdminClient();
 
@@ -120,3 +121,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '$0.001', 'Gauge thresholds data');

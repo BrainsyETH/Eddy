@@ -4,11 +4,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { AccessPointsResponse, NPSCampgroundInfo } from '@/types/api';
+import { withX402Route } from '@/lib/x402-config';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -187,3 +188,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withX402Route<{ params: Promise<{ slug: string }> }>(_GET, '$0.005', 'River access points data');

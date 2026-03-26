@@ -4,11 +4,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { VesselTypesResponse } from '@/types/api';
+import { withX402Route } from '@/lib/x402-config';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function _GET() {
   try {
     const supabase = await createClient();
 
@@ -51,3 +52,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '$0.001', 'Vessel types data');

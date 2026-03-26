@@ -9,6 +9,7 @@ import { executeToolCall } from '@/lib/chat/tool-handlers';
 import { STATIC_SYSTEM_PROMPT, buildDynamicContext } from '@/lib/chat/system-prompt';
 import { TOOL_LABELS } from '@/lib/chat/types';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60s for multi-tool conversations
@@ -18,7 +19,7 @@ interface ChatRequestBody {
   riverSlug?: string;
 }
 
-export async function POST(request: Request) {
+async function _POST(request: Request) {
   // Rate limit: 30 messages per hour per IP
   const ip = getClientIp(request);
   const rateLimitResult = rateLimit(`chat:${ip}`, 30, 60 * 60 * 1000);
@@ -240,3 +241,5 @@ function hashIp(ip: string): string {
   }
   return Math.abs(hash).toString(36);
 }
+
+export const POST = withX402Route(_POST as unknown as (request: import('next/server').NextRequest) => Promise<import('next/server').NextResponse>, '$0.02', 'AI chat access');

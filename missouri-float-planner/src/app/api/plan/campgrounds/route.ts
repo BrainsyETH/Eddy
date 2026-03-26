@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { AccessPoint, AccessPointType } from '@/types/api';
+import { withX402Route } from '@/lib/x402-config';
 
 // Force dynamic rendering (uses cookies and searchParams)
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export interface CampgroundsResponse {
   recommendedStops: number;
 }
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const riverId = searchParams.get('riverId');
@@ -136,3 +137,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '$0.01', 'Campgrounds data');

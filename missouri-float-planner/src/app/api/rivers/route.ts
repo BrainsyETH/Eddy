@@ -4,12 +4,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRivers } from '@/lib/data/rivers';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { withX402Route } from '@/lib/x402-config';
 import type { RiversResponse } from '@/types/api';
 
 // Force dynamic rendering (API route)
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Rate limit: 60 requests per IP per minute
     const rateLimitResult = rateLimit(`rivers:${getClientIp(request)}`, 60, 60 * 1000);
@@ -27,3 +28,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '$0.005', 'River data access');

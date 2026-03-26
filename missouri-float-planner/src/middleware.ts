@@ -1,9 +1,16 @@
 // src/middleware.ts
-// Next.js middleware for Supabase auth session management
-// and centralized admin API route protection
+// Next.js middleware for Supabase auth session management,
+// centralized admin API route protection, and x402 AI agent payment enforcement (content pages)
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { paymentMiddleware } from 'x402-next';
+import { isAiAgent, getContentPageRoutes, X402_PAY_TO, X402_FACILITATOR_URL } from '@/lib/x402-config';
+
+// x402 middleware for content pages only (API routes use per-route withX402)
+const x402ContentMiddleware = X402_PAY_TO
+  ? paymentMiddleware(X402_PAY_TO as `0x${string}`, getContentPageRoutes(), { url: X402_FACILITATOR_URL as `${string}://${string}` })
+  : null;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -35,6 +42,17 @@ export async function middleware(request: NextRequest) {
         { error: 'Unauthorized' },
         { status: 401 }
       );
+    }
+  }
+
+  // x402 payment enforcement for AI agents on content pages
+  // API routes are handled per-route via withX402Route wrapper
+  if (x402ContentMiddleware &&
+      !pathname.startsWith('/api/') &&
+      !pathname.startsWith('/admin')) {
+    const userAgent = request.headers.get('user-agent');
+    if (isAiAgent(userAgent)) {
+      return x402ContentMiddleware(request);
     }
   }
 
