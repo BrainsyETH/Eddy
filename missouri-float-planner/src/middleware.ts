@@ -4,7 +4,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-import { isAiAgent, X402_PAY_TO, X402_NETWORK, X402_FACILITATOR_URL } from '@/lib/x402-config';
+import { isAiAgent, X402_PAY_TO, X402_NETWORK } from '@/lib/x402-config';
 
 // Content page paths that should be gated for AI agents
 const GATED_CONTENT_PREFIXES = ['/rivers', '/blog', '/gauges'];
