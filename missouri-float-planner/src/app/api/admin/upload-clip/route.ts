@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { put, del, list } from '@vercel/blob';
+import { put, list } from '@vercel/blob';
 import { requireAdminAuth } from '@/lib/admin-auth';
 
 // Max video size: 100MB
