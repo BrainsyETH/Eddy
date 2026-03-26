@@ -3,10 +3,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchHistoricalReadings } from '@/lib/usgs/gauges';
+import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
 ) {
@@ -55,3 +56,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withX402Route<{ params: Promise<{ siteId: string }> }>(_GET, '$0.005', 'Gauge history data');

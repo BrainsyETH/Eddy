@@ -3,8 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchWeather, getCityForRiver } from '@/lib/weather/openweather';
+import { withX402Route } from '@/lib/x402-config';
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ riverSlug: string }> }
 ) {
@@ -37,3 +38,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withX402Route<{ params: Promise<{ riverSlug: string }> }>(_GET, '$0.01', 'River weather data');

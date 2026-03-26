@@ -14,6 +14,7 @@ import {
   getThresholdBasedDescription,
 } from '@/lib/calculations/conditions';
 import type { ConditionCode, ConditionGauge, ConditionResponse, RiverCondition } from '@/types/api';
+import { withX402Route } from '@/lib/x402-config';
 
 /**
  * Fetches statistics and calculates percentile for a gauge reading.
@@ -72,7 +73,7 @@ function computeConditionFromReading(
   return { label: result.label, code: result.code };
 }
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ riverId: string }> }
 ) {
@@ -481,3 +482,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withX402Route<{ params: Promise<{ riverId: string }> }>(_GET, '$0.01', 'River conditions data');

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -152,7 +153,7 @@ export interface GaugesResponse {
   gauges: GaugeStation[];
 }
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Rate limit: 60 requests per IP per minute
     const rateLimitResult = rateLimit(`gauges:${getClientIp(request)}`, 60, 60 * 1000);
@@ -445,3 +446,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '$0.001', 'Gauge stations data');

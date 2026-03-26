@@ -3,10 +3,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -60,3 +61,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withX402Route<{ params: Promise<{ slug: string }> }>(_GET, '$0.005', 'Blog post data');

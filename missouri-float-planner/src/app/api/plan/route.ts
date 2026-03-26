@@ -14,6 +14,7 @@ import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
+import { withX402Route } from '@/lib/x402-config';
 
 // Helper to compute condition from gauge height and DB thresholds (snake_case)
 function computeConditionFromReading(
@@ -42,7 +43,7 @@ function computeConditionFromReading(
 // Force dynamic rendering (uses cookies and searchParams)
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Rate limit: 30 plan calculations per IP per minute
     // Each request can trigger multiple external API calls (USGS, Mapbox)
@@ -630,3 +631,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '$0.02', 'Float plan data');
