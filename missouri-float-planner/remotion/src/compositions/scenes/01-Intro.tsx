@@ -67,7 +67,7 @@ export const IntroScene: React.FC<IntroSceneProps> = ({
         />
         <TitleCard
           title="Eddy"
-          subtitle="Your Missouri Float Trip Guide"
+          subtitle="Your Midwest Float Trip Guide"
         />
       </AbsoluteFill>
 
