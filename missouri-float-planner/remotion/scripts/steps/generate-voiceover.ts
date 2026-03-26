@@ -2,43 +2,43 @@
  * Step 3: Generate voiceover audio via OpenAI TTS API.
  *
  * Uses the tts-1-hd model for high quality speech synthesis.
- * Generates one MP3 file per scene.
+ * Generates one MP3 file per scene for both website tutorial and reel.
  */
 
 import path from "path";
 import fs from "fs";
 import OpenAI from "openai";
 
-// Import scene scripts — these define the voiceover text for each scene
+// Website tutorial scene scripts
 const SCENE_SCRIPTS = [
   {
     audioFile: "01-intro.mp3",
-    script: "Meet Eddy — your guide to the best float trips in Missouri.",
+    script: "Meet Eddy — your personal guide to floating Midwest rivers.",
   },
   {
     audioFile: "02-home.mp3",
     script:
-      "Eddy gives you a daily river report with real-time conditions across Missouri's top floating rivers. See what's running good at a glance.",
+      "Eddy gives you a daily river report with real-time conditions across the Midwest's top floating rivers. See what's running at a glance — whether you're on desktop or on your phone.",
   },
   {
     audioFile: "03-rivers.mp3",
     script:
-      "Browse eight of Missouri's best float rivers. Each one shows live conditions so you know exactly what to expect before you go.",
+      "Browse eight of the Midwest's best float rivers. Each one shows live conditions — so you always know what to expect before you head out.",
   },
   {
     audioFile: "04-river-detail.mp3",
     script:
-      "Dive into any river to see an interactive map with every access point, gauge station, and hazard marked.",
+      "Tap into any river to explore an interactive map — every access point, gauge station, and hazard is marked. The map works beautifully on mobile too.",
   },
   {
     audioFile: "05-float-planner.mp3",
     script:
-      "Pick your put-in and take-out, and Eddy calculates your float time, distance, and shuttle drive — all in seconds.",
+      "Pick your put-in and take-out, and Eddy calculates float time, distance, and shuttle drive — all in seconds.",
   },
   {
     audioFile: "06-gauges.mp3",
     script:
-      "Track real-time water levels from USGS gauge stations. Sparkline charts show you the seven-day trend at a glance.",
+      "Track real-time water levels from USGS gauge stations. Sparkline charts show the seven-day trend at a glance.",
   },
   {
     audioFile: "07-access-point.mp3",
@@ -48,7 +48,7 @@ const SCENE_SCRIPTS = [
   {
     audioFile: "08-share-plan.mp3",
     script:
-      "Share your float plan with friends. One link, all the details — put-in, take-out, estimated time, and a map.",
+      "Share your float plan with one link. All the details — put-in, take-out, time estimate, and a map preview — ready to send to friends.",
   },
   {
     audioFile: "09-ask-eddy.mp3",
@@ -61,17 +61,51 @@ const SCENE_SCRIPTS = [
   },
 ];
 
+// Reel/TikTok scene scripts
+const REEL_SCRIPTS = [
+  {
+    audioFile: "reel-01-hook.mp3",
+    script: "Planning a float trip? You need this.",
+    speed: 1.05,
+  },
+  {
+    audioFile: "reel-02-conditions.mp3",
+    script: "Real-time river conditions — eight Midwest rivers, updated live.",
+    speed: 1.05,
+  },
+  {
+    audioFile: "reel-03-map-plan.mp3",
+    script: "Pick your put-in and take-out. Distance, float time, shuttle — done.",
+    speed: 1.05,
+  },
+  {
+    audioFile: "reel-04-gauges.mp3",
+    script: "USGS water levels and seven-day trends — all in one place.",
+    speed: 1.05,
+  },
+  {
+    audioFile: "reel-05-cta.mp3",
+    script: "Share your plan with one link. Start at eddy dot guide.",
+    speed: 1.05,
+  },
+];
+
 export async function generateVoiceover(
   publicDir: string,
   apiKey: string,
-  voice: string = "onyx"
+  voice: string = "nova"
 ): Promise<void> {
   const voiceoverDir = path.join(publicDir, "audio", "voiceover");
   fs.mkdirSync(voiceoverDir, { recursive: true });
 
   const openai = new OpenAI({ apiKey });
 
-  for (const scene of SCENE_SCRIPTS) {
+  const allScripts = [
+    ...SCENE_SCRIPTS.map((s) => ({ ...s, speed: 1.0 })),
+    ...REEL_SCRIPTS,
+  ];
+
+  for (const scene of allScripts) {
     const outputPath = path.join(voiceoverDir, scene.audioFile);
 
     // Skip if already generated
@@ -89,7 +123,7 @@ export async function generateVoiceover(
         voice: voice as "onyx" | "alloy" | "echo" | "fable" | "nova" | "shimmer",
         input: scene.script,
         response_format: "mp3",
-        speed: 1.0,
+        speed: scene.speed,
       });
 
       const buffer = Buffer.from(await response.arrayBuffer());

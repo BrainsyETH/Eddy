@@ -26,6 +26,10 @@ const RENDER_TARGETS: RenderTarget[] = [
     compositionId: "tutorial-full-vertical",
     outputFile: "eddy-tutorial-vertical.mp4",
   },
+  {
+    compositionId: "reel",
+    outputFile: "eddy-reel.mp4",
+  },
 ];
 
 export async function renderVideos(rootDir: string): Promise<void> {

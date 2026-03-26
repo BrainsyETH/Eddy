@@ -11,11 +11,13 @@ import { AccessPointScene } from "./compositions/scenes/07-AccessPoint";
 import { SharePlanScene } from "./compositions/scenes/08-SharePlan";
 import { AskEddyScene } from "./compositions/scenes/09-AskEddy";
 import { OutroScene } from "./compositions/scenes/10-Outro";
-import { scenes, getSceneFrames, getTotalFrames, FPS } from "./lib/voiceover";
+import { scenes, reelScenes, getSceneFrames, getTotalFrames, getReelTotalFrames, FPS } from "./lib/voiceover";
+import { ReelFull } from "./compositions/ReelFull";
 
 import "./style.css";
 
 const totalFrames = getTotalFrames();
+const reelTotalFrames = getReelTotalFrames();
 
 /**
  * Root composition registry.
@@ -49,6 +51,19 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={{ format: "portrait" as const }}
+      />
+
+      {/* ============================================
+          REEL — 9:16 punchy highlight (~35s)
+          ============================================ */}
+
+      <Composition
+        id="reel"
+        component={ReelFull}
+        durationInFrames={reelTotalFrames}
+        fps={FPS}
+        width={1080}
+        height={1920}
       />
 
       {/* ============================================

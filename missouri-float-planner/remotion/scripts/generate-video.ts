@@ -51,7 +51,7 @@ function getConfig(): PipelineConfig {
 
   return {
     siteUrl: process.env.SITE_URL || "https://eddy.guide",
-    ttsVoice: process.env.TTS_VOICE || "onyx",
+    ttsVoice: process.env.TTS_VOICE || "nova",
     openaiApiKey: process.env.OPENAI_API_KEY || "",
     publicDir: PUBLIC_DIR,
     rootDir: ROOT_DIR,
