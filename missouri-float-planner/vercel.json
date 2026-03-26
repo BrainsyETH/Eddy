@@ -1,5 +1,13 @@
 {
   "framework": "nextjs",
+  "functions": {
+    "src/app/api/admin/upload-clip/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/admin/upload-temp-video/route.ts": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/update-gauges",
