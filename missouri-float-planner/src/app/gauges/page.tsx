@@ -11,6 +11,7 @@ import { Search, X } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
 import { EDDY_IMAGES } from '@/constants';
 import SiteFooter from '@/components/ui/SiteFooter';
+import EmailSignup from '@/components/ui/EmailSignup';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import RiverCard from '@/components/gauge/RiverCard';
@@ -242,7 +243,12 @@ export default function GaugesPage() {
             )}
 
             {/* Info box */}
-            <div className="mt-8 bg-primary-50 border border-primary-200 rounded-xl p-6">
+            {/* Email signup CTA */}
+            <div className="mt-8 bg-white border border-neutral-200 rounded-xl p-6">
+              <EmailSignup variant="light" />
+            </div>
+
+            <div className="mt-4 bg-primary-50 border border-primary-200 rounded-xl p-6">
               <h3 className="text-base font-bold text-neutral-900 mb-2">About This Data</h3>
               <div className="text-sm text-neutral-700 space-y-2">
                 <p>

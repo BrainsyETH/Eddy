@@ -84,6 +84,12 @@ export default function SiteHeader() {
               {dropdownOpen && (
                 <div className="absolute left-0 mt-1 w-72 bg-white border-2 border-neutral-200 rounded-lg shadow-xl overflow-hidden animate-in">
                   <div className="py-1">
+                    <Link
+                      href="/rivers"
+                      className="block px-4 py-3 hover:bg-neutral-50 transition-colors no-underline border-b border-neutral-100"
+                    >
+                      <span className="font-semibold text-primary-600 text-sm">Browse All Rivers</span>
+                    </Link>
                     {rivers?.map((river) => (
                       <Link
                         key={river.id}

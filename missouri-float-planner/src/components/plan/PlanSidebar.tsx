@@ -14,6 +14,7 @@ import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 const EddyQuote = dynamic(() => import('@/components/river/EddyQuote'), { ssr: false });
 
@@ -64,12 +65,19 @@ export default function PlanSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sidebar header — river name + condition */}
-      <div className="px-4 pt-4 pb-3 border-b border-neutral-100 flex-shrink-0">
+      {/* Sidebar header — breadcrumbs + river name + condition */}
+      <div className="px-4 pt-3 pb-3 border-b border-neutral-100 flex-shrink-0">
+        <Breadcrumbs
+          items={[
+            { label: 'Rivers', href: '/rivers' },
+            { label: riverName },
+          ]}
+          className="mb-1.5"
+        />
         <div className="min-w-0">
-          <Link href={`/rivers/${riverSlug}`} className="text-lg font-bold text-neutral-900 truncate block no-underline" style={{ fontFamily: 'var(--font-display)' }}>
+          <h1 className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
             {riverName}
-          </Link>
+          </h1>
         </div>
         <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden bg-white">
           <button

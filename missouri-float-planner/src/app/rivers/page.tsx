@@ -2,10 +2,9 @@
 // Rivers index page - browse all supported rivers (server-rendered)
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Droplets, ArrowRight } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
+import RiverCardGrid from '@/components/river/RiverCardGrid';
 import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import { getRivers } from '@/lib/data/rivers';
@@ -107,85 +106,24 @@ export default async function RiversPage() {
         </div>
       </section>
 
-      {/* River Cards */}
+      {/* River Cards with Filters */}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {rivers.map((river) => {
-            const conditionCode = river.currentCondition?.code;
-            const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
-            const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] : 'Unknown';
-            const description = RIVER_DESCRIPTIONS[river.slug] || river.description;
-            const imageUrl = riverImages[river.id] || RIVER_HERO_IMAGES[river.slug];
-
-            return (
-              <Link
-                key={river.id}
-                href={`/rivers/${river.slug}`}
-                className="group bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300 no-underline"
-              >
-                <div className="relative h-36 overflow-hidden">
-                  {imageUrl ? (
-                    <Image
-                      src={imageUrl}
-                      alt={`${river.name}`}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                </div>
-                <div className="px-4 pt-4 pb-3 sm:px-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5 mb-1.5">
-                        <Droplets className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                        <h2 className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
-                          {river.name}
-                        </h2>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white"
-                          style={{ backgroundColor: conditionColor }}
-                        >
-                          {conditionLabel}
-                        </span>
-                        {river.region && (
-                          <span className="text-xs text-neutral-500">{river.region}</span>
-                        )}
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
-                  </div>
-                </div>
-
-                {description && (
-                  <div className="px-4 pb-3 sm:px-5">
-                    <p className="text-sm text-neutral-600 leading-relaxed line-clamp-2">
-                      {description}
-                    </p>
-                  </div>
-                )}
-
-                <div className="px-4 pb-4 sm:px-5">
-                  <div className="flex items-center gap-4 text-xs text-neutral-500 pt-2.5 border-t border-neutral-100">
-                    <span className="flex items-center gap-1">
-                      <Droplets className="w-3.5 h-3.5" />
-                      {river.lengthMiles} miles
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" />
-                      {river.accessPointCount} access points
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <RiverCardGrid
+          rivers={rivers.map((river) => ({
+            id: river.id,
+            slug: river.slug,
+            name: river.name,
+            conditionCode: river.currentCondition?.code,
+            conditionColor: river.currentCondition?.code ? CONDITION_COLORS[river.currentCondition.code] : '#9ca3af',
+            conditionLabel: river.currentCondition?.code ? CONDITION_LABELS[river.currentCondition.code] : 'Unknown',
+            description: RIVER_DESCRIPTIONS[river.slug] || river.description,
+            imageUrl: riverImages[river.id] || RIVER_HERO_IMAGES[river.slug],
+            lengthMiles: river.lengthMiles,
+            accessPointCount: river.accessPointCount,
+            region: river.region,
+            difficultyRating: river.difficultyRating,
+          }))}
+        />
 
         {/* Info box */}
         <div className="mt-8 bg-primary-50 border border-primary-200 rounded-xl p-6">

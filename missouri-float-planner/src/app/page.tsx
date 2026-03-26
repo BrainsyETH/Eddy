@@ -45,7 +45,7 @@ export default async function Home() {
                 <br className="hidden sm:block" />
                 <span style={{ color: '#F07052' }}>Float.</span>
               </h1>
-              <p className="text-base md:text-lg text-white/60 max-w-lg mb-8 leading-relaxed">
+              <p className="text-base md:text-lg text-white/80 max-w-lg mb-8 leading-relaxed">
                 Real-time USGS gauge data, river analysis, and trip insights for paddlers, anglers, and float enthusiasts.
               </p>
 
@@ -66,14 +66,14 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Otter mascot */}
-            <div className="hidden md:block flex-shrink-0">
+            {/* Otter mascot — visible on all screen sizes */}
+            <div className="flex-shrink-0">
               <Image
                 src={EDDY_CANOE}
                 alt="Eddy the Otter"
                 width={320}
                 height={320}
-                className="w-52 lg:w-64 h-auto drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
+                className="w-20 md:w-52 lg:w-64 h-auto drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
                 priority
               />
             </div>

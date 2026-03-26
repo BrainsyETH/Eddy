@@ -6,6 +6,7 @@
 // URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
@@ -633,6 +634,15 @@ export default function RiverPage() {
           isLoading={!allGaugeStations}
           putInCoordinates={selectedPutInPoint?.coordinates || null}
         />
+        {/* Cross-link to full gauge report */}
+        <div className="px-1 -mt-1 mb-2">
+          <Link
+            href={`/gauges/${slug}`}
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium no-underline"
+          >
+            View full gauge report &rarr;
+          </Link>
+        </div>
       </div>
 
       {/* Hidden shareable capture component */}
