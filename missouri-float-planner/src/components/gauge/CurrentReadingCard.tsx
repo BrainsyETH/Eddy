@@ -5,7 +5,7 @@
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 
 interface CurrentReadingCardProps {
@@ -57,9 +57,9 @@ export default function CurrentReadingCard({
   const formatFt = (val: number) => val.toFixed(2);
   const formatCfs = (val: number) => val.toLocaleString();
 
-  // Condition strip color — semi-transparent overlay on dark background
+  // Condition strip — solid color background with short label
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown : null;
-  const conditionLabel = conditionCode ? CONDITION_LABELS[conditionCode] ?? CONDITION_LABELS.unknown : null;
+  const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
 
   const trendLabel = trend
     ? trend.direction === 'up' ? 'Rising' : trend.direction === 'down' ? 'Falling' : 'Steady'
@@ -75,16 +75,9 @@ export default function CurrentReadingCard({
       {conditionColor && conditionLabel && (
         <div
           className="px-4 py-2.5 flex items-center justify-center gap-2"
-          style={{ backgroundColor: `${conditionColor}30` }}
+          style={{ backgroundColor: conditionColor }}
         >
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: conditionColor }}
-          />
-          <span
-            className="text-[11px] font-bold tracking-wide uppercase"
-            style={{ color: conditionColor }}
-          >
+          <span className="text-[11px] font-bold tracking-wide uppercase text-white">
             {conditionLabel}
           </span>
         </div>
