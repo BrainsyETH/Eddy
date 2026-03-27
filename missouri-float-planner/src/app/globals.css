@@ -897,6 +897,186 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--color-neutral-500);
 }
 
+/* ===== HERO RIVER ANIMATIONS ===== */
+
+/* Flowing wave layers */
+.hero-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 40%;
+  min-height: 120px;
+}
+
+.hero-wave-1 {
+  animation: waveFlow 12s linear infinite;
+  opacity: 0.8;
+}
+
+.hero-wave-2 {
+  animation: waveFlow 8s linear infinite;
+  animation-delay: -2s;
+  opacity: 0.9;
+  bottom: -5px;
+}
+
+.hero-wave-3 {
+  animation: waveFlow 6s linear infinite;
+  animation-delay: -4s;
+  bottom: -10px;
+}
+
+.hero-wave-4 {
+  animation: waveFlowReverse 10s linear infinite;
+  animation-delay: -1s;
+  bottom: -2px;
+  opacity: 0.7;
+}
+
+@keyframes waveFlow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes waveFlowReverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+/* Water sparkles — light reflections on water */
+.hero-sparkle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  animation: sparkle var(--duration, 3s) ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5) translateY(0);
+  }
+  30% {
+    opacity: 0.9;
+    transform: scale(1) translateY(-8px);
+  }
+  70% {
+    opacity: 0.5;
+    transform: scale(0.8) translateY(-4px);
+  }
+}
+
+/* Interactive water ripples */
+.hero-ripple {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  transform: translate(-50%, -50%);
+  animation: rippleExpand 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes rippleExpand {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    width: 180px;
+    height: 180px;
+    opacity: 0;
+  }
+}
+
+/* ===== SCROLL REVEAL ANIMATIONS ===== */
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger delays for child items */
+.scroll-reveal-stagger > *:nth-child(1) { transition-delay: 0ms; }
+.scroll-reveal-stagger > *:nth-child(2) { transition-delay: 80ms; }
+.scroll-reveal-stagger > *:nth-child(3) { transition-delay: 160ms; }
+.scroll-reveal-stagger > *:nth-child(4) { transition-delay: 240ms; }
+.scroll-reveal-stagger > *:nth-child(5) { transition-delay: 320ms; }
+.scroll-reveal-stagger > *:nth-child(6) { transition-delay: 400ms; }
+.scroll-reveal-stagger > *:nth-child(7) { transition-delay: 480ms; }
+.scroll-reveal-stagger > *:nth-child(8) { transition-delay: 560ms; }
+
+/* Variant: fade in from left */
+.scroll-reveal-left {
+  opacity: 0;
+  transform: translateX(-24px);
+  transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.scroll-reveal-left.revealed {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Variant: scale up */
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.scroll-reveal-scale.revealed {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Reduced motion — disable all hero and scroll animations */
+@media (prefers-reduced-motion: reduce) {
+  .hero-wave,
+  .hero-sparkle,
+  .hero-ripple {
+    animation: none !important;
+  }
+  .hero-wave {
+    display: none;
+  }
+  .scroll-reveal,
+  .scroll-reveal-left,
+  .scroll-reveal-scale {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Mobile: reduce wave complexity */
+@media (max-width: 640px) {
+  .hero-wave {
+    height: 30%;
+    min-height: 80px;
+  }
+  .hero-sparkle:nth-child(n+7) {
+    display: none;
+  }
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
