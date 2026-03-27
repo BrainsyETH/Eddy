@@ -241,6 +241,19 @@ export default function FlowTrendChart({
     return val.toLocaleString();
   };
 
+  // Determine which condition zone a value falls in
+  const getZoneLabel = (val: number): string | null => {
+    if (!thresholds) return null;
+    const { levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous } = thresholds;
+    if (levelDangerous !== null && val >= levelDangerous) return 'Flood';
+    if (levelHigh !== null && val >= levelHigh) return 'High';
+    if (levelOptimalMin !== null && levelOptimalMax !== null && val >= levelOptimalMin && val <= levelOptimalMax) return 'Flowing';
+    if (levelLow !== null && val >= levelLow) return 'Good';
+    if (levelTooLow !== null && val >= levelTooLow) return 'Low';
+    if (levelTooLow !== null && val < levelTooLow) return 'Too Low';
+    return null;
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
@@ -425,7 +438,13 @@ export default function FlowTrendChart({
                 transform: `translate(${tooltip.x > 70 ? '-100%' : '8px'}, -120%)`,
               }}
             >
-              <div className="font-bold tabular-nums">{formatTooltipVal(tooltip.value)} {unitLabel}</div>
+              <div className="font-bold tabular-nums">
+                {formatTooltipVal(tooltip.value)} {unitLabel}
+                {(() => {
+                  const zone = getZoneLabel(tooltip.value);
+                  return zone ? <span className="font-medium text-neutral-400"> — {zone}</span> : null;
+                })()}
+              </div>
               <div className="text-neutral-400 text-[10px]">{formatTooltipDate(tooltip.timestamp)}</div>
             </div>
           )}
