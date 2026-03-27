@@ -17,6 +17,7 @@ import ParkingSection from '@/components/access-point/sections/ParkingSection';
 import FacilitiesSection from '@/components/access-point/sections/FacilitiesSection';
 import OutfittersSection from '@/components/access-point/sections/OutfittersSection';
 import RiverNotesSection from '@/components/access-point/sections/RiverNotesSection';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { useCallback, useState } from 'react';
 
 // Detail section icon URLs from Vercel blob storage
@@ -97,14 +98,13 @@ export default function AccessPointDetailPage() {
       {/* Sticky Header Bar - z-40 to stay below main site header menu (z-50) */}
       <div className="sticky top-0 z-40 bg-white border-b border-neutral-200">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link
-            href={`/rivers/${riverSlug}`}
-            className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900 font-medium text-sm"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">{accessPoint.river.name}</span>
-            <span className="sm:hidden">Back</span>
-          </Link>
+          <Breadcrumbs
+            items={[
+              { label: 'Rivers', href: '/rivers' },
+              { label: accessPoint.river.name, href: `/rivers/${riverSlug}` },
+              { label: accessPoint.name },
+            ]}
+          />
 
           <button
             onClick={handleShare}

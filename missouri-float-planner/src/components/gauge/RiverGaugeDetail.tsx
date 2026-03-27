@@ -547,6 +547,23 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         )}
       </div>
 
+      {/* Cross-link: Plan a float */}
+      <div className="max-w-5xl mx-auto px-4 mt-8">
+        <div className="bg-primary-50 border border-primary-200 rounded-xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-bold text-neutral-900 text-sm">Ready to float?</p>
+            <p className="text-xs text-neutral-600 mt-0.5">Plan a trip on the {riverGroup.riverName} with live conditions and access points.</p>
+          </div>
+          <Link
+            href={`/rivers/${riverSlug}`}
+            className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-colors hover:brightness-110"
+            style={{ backgroundColor: '#F07052' }}
+          >
+            Plan Your Float
+          </Link>
+        </div>
+      </div>
+
       <SiteFooter maxWidth="max-w-5xl" className="mt-8" />
     </div>
   );

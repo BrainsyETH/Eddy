@@ -84,6 +84,12 @@ export default function SiteHeader() {
               {dropdownOpen && (
                 <div className="absolute left-0 mt-1 w-72 bg-white border-2 border-neutral-200 rounded-lg shadow-xl overflow-hidden animate-in">
                   <div className="py-1">
+                    <Link
+                      href="/rivers"
+                      className="block px-4 py-3 hover:bg-neutral-50 transition-colors no-underline border-b border-neutral-100"
+                    >
+                      <span className="font-semibold text-primary-600 text-sm">Browse All Rivers</span>
+                    </Link>
                     {rivers?.map((river) => (
                       <Link
                         key={river.id}
@@ -165,6 +171,12 @@ export default function SiteHeader() {
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#72B5C4' }}>
               Plan Your Float
             </p>
+            <Link
+              href="/rivers"
+              className="flex items-center px-3 py-2.5 rounded-md no-underline transition-colors text-primary-100 hover:bg-white/5 hover:text-white mb-1"
+            >
+              <span className="font-semibold text-sm" style={{ color: '#F07052' }}>Browse All Rivers</span>
+            </Link>
             <div className="grid grid-cols-2 gap-1 mb-3">
               {rivers?.map((river) => (
                 <Link

@@ -392,6 +392,51 @@ export default function AboutPage() {
 
       </div>
 
+      {/* FAQ Schema for condition codes */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            mainEntity: [
+              {
+                '@type': 'Question',
+                name: 'What do the river condition codes mean on Eddy?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: 'Eddy uses six condition codes based on real-time USGS gauge data: Too Low (not recommended), Low (scraping likely), Good (floatable), Flowing (ideal conditions), High (use caution), and Flood (do not float). Each code reflects current water levels compared to researched thresholds for each river.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'How does Eddy calculate float times?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: 'Float times factor in river miles between your put-in and take-out, your vessel type (kayak, canoe, raft, or tube), and current water levels. Higher water means faster floats. Estimates are approximate and vary by paddler skill and river conditions.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'Where does Eddy get its river data?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: 'Eddy pulls real-time gauge readings from the USGS Water Services API every hour, including gauge height and discharge. Additional data comes from the National Park Service, Missouri Department of Conservation, and the National Hydrography Dataset.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'What rivers does Eddy cover?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: 'Eddy currently covers 8 Missouri Ozark rivers: Meramec River, Current River, Eleven Point River, Jacks Fork, Niangua River, Big Piney River, Huzzah Creek, and Courtois Creek.',
+                },
+              },
+            ],
+          }),
+        }}
+      />
+
       <SiteFooter maxWidth="max-w-4xl" className="mt-16" />
     </div>
   );
