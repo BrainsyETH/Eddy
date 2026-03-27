@@ -127,7 +127,7 @@ export function getConditionTailwindColor(code: ConditionCode): string {
     case 'low':
       return 'bg-yellow-500';
     case 'too_low':
-      return 'bg-neutral-400';
+      return 'bg-stone-500';
     case 'unknown':
       return 'bg-neutral-400';
     default:

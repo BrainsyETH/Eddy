@@ -19,7 +19,7 @@ const VERDICT_MAP: Record<ConditionCode, { text: string; color: string }> = {
   flowing:   { text: 'Float!',  color: '#059669' },
   good:      { text: 'Float',   color: '#65a30d' },
   low:       { text: 'Low',     color: '#ca8a04' },
-  too_low:   { text: 'Wait',    color: '#9ca3af' },
+  too_low:   { text: 'Wait',    color: '#78716c' },
   high:      { text: 'Caution', color: '#ea580c' },
   dangerous: { text: 'Closed',  color: '#dc2626' },
   unknown:   { text: '—',       color: '#6b7280' },

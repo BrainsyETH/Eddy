@@ -57,8 +57,8 @@ function getQuoteColors(code: string, isDark: boolean): { bg: string; border: st
         : { bg: '#fffbeb', border: '#fde68a', text: '#92400e' };
     case 'too_low':
       return isDark
-        ? { bg: '#252525', border: '#3a3a3a', text: '#a0a0a0' }
-        : { bg: '#f5f5f5', border: '#d4d4d4', text: '#525252' };
+        ? { bg: '#292524', border: '#44403c', text: '#d6d3d1' }
+        : { bg: '#fafaf9', border: '#d6d3d1', text: '#57534e' };
     case 'high':
       return isDark
         ? { bg: '#2d1f1a', border: '#4a2e1e', text: '#fdba74' }
