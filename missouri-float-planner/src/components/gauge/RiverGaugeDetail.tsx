@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
-import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
@@ -242,7 +242,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   }, [primaryGauge, primaryThreshold]);
 
   const eddyConditionCode = primaryCondition.code;
-  const bgClass = BG_BY_CONDITION[eddyConditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
   const labelInfo = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;
 
