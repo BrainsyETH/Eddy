@@ -1,7 +1,7 @@
 'use client';
 
 // src/components/gauge/ThresholdTable.tsx
-// Visual gauge bar with colored zones, needle indicator, and expandable descriptions
+// Visual gauge bar with equal-width colored zones, needle indicator, and expandable descriptions
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -44,49 +44,43 @@ interface Zone {
 
 function buildZones(
   tv: ThresholdValues,
-  barMin: number,
-  barMax: number,
   descriptions?: ThresholdTableProps['thresholdDescriptions'] | null,
 ): Zone[] {
   const zones: Zone[] = [];
 
-  // Too Low: 0 → levelTooLow
   if (tv.levelTooLow !== null) {
     zones.push({
       key: 'too_low',
       label: 'Too Low',
       color: CONDITION_COLORS.too_low,
-      min: barMin,
+      min: 0,
       max: tv.levelTooLow,
       description: descriptions?.tooLow || DEFAULT_THRESHOLD_DESCRIPTIONS.tooLow,
     });
   }
 
-  // Low: levelTooLow → levelLow
   if (tv.levelLow !== null) {
     zones.push({
       key: 'low',
       label: 'Low',
       color: CONDITION_COLORS.low,
-      min: tv.levelTooLow ?? barMin,
+      min: tv.levelTooLow ?? 0,
       max: tv.levelLow,
       description: descriptions?.low || DEFAULT_THRESHOLD_DESCRIPTIONS.low,
     });
   }
 
-  // Good: levelLow → levelOptimalMin
   if (tv.levelOptimalMin !== null) {
     zones.push({
       key: 'good',
       label: 'Good',
       color: CONDITION_COLORS.good,
-      min: tv.levelLow ?? tv.levelTooLow ?? barMin,
+      min: tv.levelLow ?? tv.levelTooLow ?? 0,
       max: tv.levelOptimalMin,
       description: descriptions?.good || DEFAULT_THRESHOLD_DESCRIPTIONS.good,
     });
   }
 
-  // Flowing: levelOptimalMin → levelOptimalMax
   if (tv.levelOptimalMin !== null && tv.levelOptimalMax !== null) {
     zones.push({
       key: 'flowing',
@@ -98,10 +92,9 @@ function buildZones(
     });
   }
 
-  // High: levelOptimalMax → levelDangerous (or levelHigh as start)
   if (tv.levelHigh !== null || tv.levelDangerous !== null) {
-    const highStart = tv.levelOptimalMax ?? tv.levelHigh ?? barMin;
-    const highEnd = tv.levelDangerous ?? barMax;
+    const highStart = tv.levelOptimalMax ?? tv.levelHigh ?? 0;
+    const highEnd = tv.levelDangerous ?? (highStart * 2);
     zones.push({
       key: 'high',
       label: 'High',
@@ -112,14 +105,13 @@ function buildZones(
     });
   }
 
-  // Flood: above levelDangerous
   if (tv.levelDangerous !== null) {
     zones.push({
       key: 'dangerous',
       label: 'Flood',
       color: CONDITION_COLORS.dangerous,
       min: tv.levelDangerous,
-      max: barMax,
+      max: tv.levelDangerous * 1.5,
       description: descriptions?.flood || DEFAULT_THRESHOLD_DESCRIPTIONS.flood,
     });
   }
@@ -168,63 +160,72 @@ export default function ThresholdTable({
 
   const unitLabel = activeUnit === 'cfs' ? 'cfs' : 'ft';
 
-  // Determine bar range
-  const allValues = [
-    tv.levelTooLow, tv.levelLow, tv.levelOptimalMin,
-    tv.levelOptimalMax, tv.levelHigh, tv.levelDangerous,
-    currentValue,
-  ].filter((v): v is number => v !== null);
-
-  if (allValues.length === 0) return null;
-
-  const barMin = 0;
-  const dataMax = Math.max(...allValues);
-  // Cap bar at ~20% beyond the dangerous level (or the max threshold)
-  const barMax = tv.levelDangerous
-    ? tv.levelDangerous * 1.25
-    : dataMax * 1.3;
-
-  const zones = buildZones(tv, barMin, barMax, thresholdDescriptions);
+  const zones = buildZones(tv, thresholdDescriptions);
   if (zones.length === 0) return null;
 
-  const barRange = barMax - barMin;
+  const zoneCount = zones.length;
 
-  // Needle position
+  // Needle position: find which zone the value is in, then interpolate
+  // within that zone. Each zone is 1/N of the bar width.
+  const getNeedlePercent = (value: number): number => {
+    for (let i = 0; i < zones.length; i++) {
+      const zone = zones[i];
+      const zoneStart = (i / zoneCount) * 100;
+      const zoneWidth = (1 / zoneCount) * 100;
+
+      if (value < zone.min) {
+        // Before first zone — clamp to start
+        return 0;
+      }
+
+      if (value >= zone.min && value <= zone.max) {
+        // Within this zone — interpolate
+        const zoneRange = zone.max - zone.min;
+        const fraction = zoneRange > 0 ? (value - zone.min) / zoneRange : 0.5;
+        return zoneStart + fraction * zoneWidth;
+      }
+    }
+    // Beyond last zone — clamp to end
+    return 100;
+  };
+
   const needlePercent = currentValue !== null && currentValue !== undefined
-    ? Math.max(0, Math.min(100, ((currentValue - barMin) / barRange) * 100))
+    ? Math.max(0, Math.min(100, getNeedlePercent(currentValue)))
     : null;
 
   // Active zone for description display
   const activeZoneKey = selectedZone ?? currentCondition ?? null;
   const activeZone = zones.find(z => z.key === activeZoneKey) ?? null;
 
-  // Boundary tick marks — deduplicated, sorted
-  const boundarySet = new Map<number, boolean>();
-  boundarySet.set(barMin, true);
-  for (const z of zones) {
-    if (z.min > barMin) boundarySet.set(z.min, true);
-    if (z.max < barMax) boundarySet.set(z.max, true);
-  }
-  // Add a "max+" label
-  boundarySet.set(barMax, true);
-
-  const boundaries = Array.from(boundarySet.keys()).sort((a, b) => a - b);
-
-  // Format boundary labels — use "800+" style for the max
-  const fmtBoundary = (val: number, isMax: boolean): string => {
-    if (isMax && tv.levelDangerous !== null) {
-      return `${fmt(tv.levelDangerous)}+`;
+  // Boundary labels between zones
+  const boundaryLabels: { value: number; percent: number }[] = [];
+  // Left edge (0)
+  boundaryLabels.push({ value: zones[0].min, percent: 0 });
+  // Zone boundaries
+  for (let i = 0; i < zones.length; i++) {
+    const pct = ((i + 1) / zoneCount) * 100;
+    if (i < zones.length - 1) {
+      boundaryLabels.push({ value: zones[i].max, percent: pct });
+    } else {
+      // Last zone — show "X+"
+      boundaryLabels.push({ value: zones[i].min, percent: (i / zoneCount) * 100 });
     }
-    return fmt(val);
-  };
+  }
+  // Dedupe by percent
+  const seen = new Set<number>();
+  const dedupedLabels = boundaryLabels.filter(b => {
+    if (seen.has(b.percent)) return false;
+    seen.add(b.percent);
+    return true;
+  });
 
   return (
     <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
         <div>
-          <h3 className="text-base font-bold text-neutral-900">Condition Thresholds</h3>
-          <p className="text-xs text-neutral-500 mt-0.5">Current conditions for this gauge ({unitLabel})</p>
+          <h3 className="text-base font-bold text-neutral-900">Float Conditions</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">What the water level means for floating</p>
         </div>
         {hasAlt && (
           <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
@@ -255,28 +256,24 @@ export default function ThresholdTable({
       {/* Gauge bar */}
       <div className="px-5 pt-5 pb-2">
         <div className="relative">
-          {/* Segmented bar */}
+          {/* Segmented bar — equal widths */}
           <div className="flex h-8 rounded-md overflow-hidden">
             {zones.map((zone) => {
-              const widthPercent = ((zone.max - zone.min) / barRange) * 100;
               const isSelected = activeZoneKey === zone.key;
               return (
                 <button
                   key={zone.key}
-                  className="relative h-full flex items-center justify-center transition-opacity cursor-pointer border-0 p-0"
+                  className="relative flex-1 h-full flex items-center justify-center transition-opacity cursor-pointer border-0 p-0"
                   style={{
-                    width: `${widthPercent}%`,
                     backgroundColor: zone.color,
                     opacity: activeZoneKey && !isSelected ? 0.5 : 1,
                   }}
                   onClick={() => setSelectedZone(selectedZone === zone.key ? null : zone.key)}
                   title={`${zone.label}: ${fmt(zone.min)} – ${fmt(zone.max)} ${unitLabel}`}
                 >
-                  {widthPercent > 12 && (
-                    <span className="text-[10px] sm:text-xs font-bold text-white truncate px-1 select-none">
-                      {zone.label}
-                    </span>
-                  )}
+                  <span className="text-[10px] sm:text-xs font-bold text-white truncate px-1 select-none">
+                    {zone.label}
+                  </span>
                 </button>
               );
             })}
@@ -289,13 +286,9 @@ export default function ThresholdTable({
               style={{ left: `${needlePercent}%` }}
             >
               <div className="relative flex flex-col items-center" style={{ transform: 'translateX(-50%)' }}>
-                {/* Needle line */}
                 <div className="w-0.5 h-8 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.3)]" />
-                {/* Value label below */}
                 <div className="mt-1.5 flex flex-col items-center">
-                  <div
-                    className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[5px] border-l-transparent border-r-transparent border-b-neutral-800"
-                  />
+                  <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[5px] border-l-transparent border-r-transparent border-b-neutral-800" />
                   <div className="bg-neutral-800 text-white text-[11px] font-bold px-2 py-0.5 rounded tabular-nums whitespace-nowrap">
                     {fmt(currentValue!)} {unitLabel}
                   </div>
@@ -305,22 +298,24 @@ export default function ThresholdTable({
           )}
         </div>
 
-        {/* Boundary labels */}
+        {/* Boundary labels under each zone edge */}
         <div className="relative h-4 mt-8">
-          {boundaries.map((val, i) => {
-            const percent = ((val - barMin) / barRange) * 100;
-            const isLast = i === boundaries.length - 1;
+          {dedupedLabels.map((b, i) => {
+            const isLast = b.percent > 90;
             const isFirst = i === 0;
             return (
               <span
-                key={val}
+                key={`bl-${i}`}
                 className="absolute text-[10px] text-neutral-400 tabular-nums"
                 style={{
-                  left: `${percent}%`,
+                  left: `${b.percent}%`,
                   transform: isLast ? 'translateX(-100%)' : isFirst ? 'none' : 'translateX(-50%)',
                 }}
               >
-                {fmtBoundary(val, isLast)}
+                {i === dedupedLabels.length - 1 && zones[zones.length - 1]?.key === 'dangerous'
+                  ? `${fmt(b.value)}+`
+                  : fmt(b.value)
+                }
               </span>
             );
           })}
@@ -342,7 +337,10 @@ export default function ThresholdTable({
               <div className="flex items-baseline gap-2">
                 <span className="text-sm font-semibold text-neutral-900">{activeZone.label}</span>
                 <span className="text-xs text-neutral-500 tabular-nums">
-                  {fmt(activeZone.min)} – {activeZone.key === 'dangerous' ? `${fmt(activeZone.min)}+` : fmt(activeZone.max)} {unitLabel}
+                  {activeZone.key === 'dangerous'
+                    ? `${fmt(activeZone.min)}+ ${unitLabel}`
+                    : `${fmt(activeZone.min)} – ${fmt(activeZone.max)} ${unitLabel}`
+                  }
                 </span>
               </div>
               <p className="text-xs text-neutral-600 leading-relaxed mt-0.5">
