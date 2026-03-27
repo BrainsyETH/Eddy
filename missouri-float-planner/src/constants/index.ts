@@ -61,7 +61,7 @@ export const HAZARD_SEVERITY_COLORS = {
 
 // Condition code colors (ordered: Too Low → Low → Good → Flowing → High → Flood)
 export const CONDITION_COLORS = {
-  too_low: '#9ca3af',   // gray
+  too_low: '#78716c',   // stone-500 (warm gray-brown)
   low: '#eab308',  // yellow
   good: '#84cc16',       // lime-500 (good green)
   flowing: '#059669',   // emerald-600 (richer green)
@@ -159,7 +159,7 @@ export const BG_BY_CONDITION: Record<string, string> = {
   flowing: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
   good: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
   low: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200',
-  too_low: 'bg-gradient-to-r from-neutral-100 to-stone-50 border-neutral-300',
+  too_low: 'bg-gradient-to-r from-stone-100 to-stone-50 border-stone-300',
   high: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200',
   dangerous: 'bg-gradient-to-r from-red-100 to-red-50 border-red-300',
   unknown: 'bg-gradient-to-r from-neutral-50 to-slate-50 border-neutral-200',
@@ -167,7 +167,7 @@ export const BG_BY_CONDITION: Record<string, string> = {
 
 export const TEXT_BY_CONDITION: Record<string, string> = {
   flowing: 'text-emerald-900', good: 'text-emerald-900',
-  low: 'text-amber-900', too_low: 'text-neutral-700',
+  low: 'text-amber-900', too_low: 'text-stone-800',
   high: 'text-red-900', dangerous: 'text-red-900',
   unknown: 'text-neutral-700',
 };
@@ -176,7 +176,7 @@ export const LABEL_BY_CONDITION: Record<string, { text: string; className: strin
   flowing: { text: 'Flowing', className: 'bg-emerald-100 text-emerald-700' },
   good: { text: 'Good', className: 'bg-emerald-100 text-emerald-700' },
   low: { text: 'Low', className: 'bg-amber-100 text-amber-700' },
-  too_low: { text: 'Too Low', className: 'bg-neutral-200 text-neutral-700' },
+  too_low: { text: 'Too Low', className: 'bg-stone-200 text-stone-700' },
   high: { text: 'High', className: 'bg-red-100 text-red-700' },
   dangerous: { text: 'Flood', className: 'bg-red-200 text-red-800' },
   unknown: { text: 'Unknown', className: 'bg-neutral-100 text-neutral-600' },
