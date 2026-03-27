@@ -6,7 +6,6 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
