@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
@@ -213,24 +213,49 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     } catch { /* clipboard failed */ }
   };
 
-  // Eddy Says — always use the live condition for visual indicators so badge,
-  // background, and otter image stay in sync with the current gauge reading
-  // even when the stored Eddy update was generated at a different level.
-  const eddyConditionCode = condition.code;
+  // Eddy Says — pinned to primary gauge condition so it doesn't change
+  // when user switches between gauge tabs. The AI update is river-level,
+  // not per-gauge, so it should always reflect the primary gauge.
+  const primaryGauge = riverGroup?.primaryGauge;
+  const primaryThreshold = useMemo(() => {
+    if (!primaryGauge || !riverGroup) return null;
+    return primaryGauge.thresholds?.find(t => t.riverId === riverGroup.riverId) ||
+      primaryGauge.thresholds?.find(t => t.isPrimary) ||
+      primaryGauge.thresholds?.[0] || null;
+  }, [primaryGauge, riverGroup]);
+
+  const primaryCondition = useMemo(() => {
+    if (!primaryGauge || !primaryThreshold) {
+      return { code: 'unknown' as ConditionCode, label: 'Unknown' };
+    }
+    const thresholds: ConditionThresholds = {
+      levelTooLow: primaryThreshold.levelTooLow,
+      levelLow: primaryThreshold.levelLow,
+      levelOptimalMin: primaryThreshold.levelOptimalMin,
+      levelOptimalMax: primaryThreshold.levelOptimalMax,
+      levelHigh: primaryThreshold.levelHigh,
+      levelDangerous: primaryThreshold.levelDangerous,
+      thresholdUnit: primaryThreshold.thresholdUnit,
+    };
+    const result = computeCondition(primaryGauge.gaugeHeightFt, thresholds, primaryGauge.dischargeCfs);
+    return { code: result.code, label: getConditionShortLabel(result.code) };
+  }, [primaryGauge, primaryThreshold]);
+
+  const eddyConditionCode = primaryCondition.code;
   const bgClass = BG_BY_CONDITION[eddyConditionCode] ?? BG_BY_CONDITION.unknown;
   const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
   const labelInfo = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;
 
   const buildStaticText = () => {
-    const blurb = CONDITION_CARD_BLURBS[condition.code] || CONDITION_CARD_BLURBS.unknown;
+    const blurb = CONDITION_CARD_BLURBS[primaryCondition.code] || CONDITION_CARD_BLURBS.unknown;
     const parts: string[] = [];
-    if (activeGauge?.gaugeHeightFt !== null && activeGauge?.gaugeHeightFt !== undefined) {
-      parts.push(`Reading ${activeGauge.gaugeHeightFt.toFixed(1)} ft at ${activeGauge.name}.`);
+    if (primaryGauge?.gaugeHeightFt !== null && primaryGauge?.gaugeHeightFt !== undefined) {
+      parts.push(`Reading ${primaryGauge.gaugeHeightFt.toFixed(1)} ft at ${primaryGauge.name}.`);
     }
     parts.push(blurb);
-    const optMin = activeThreshold?.levelOptimalMin;
-    const optMax = activeThreshold?.levelOptimalMax;
-    const unit = activeThreshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+    const optMin = primaryThreshold?.levelOptimalMin;
+    const optMax = primaryThreshold?.levelOptimalMax;
+    const unit = primaryThreshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
     if (optMin != null && optMax != null) {
       parts.push(`Optimal range is ${optMin}\u2013${optMax} ${unit}.`);
     }
@@ -452,7 +477,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* Eddy Says Section */}
-        <div className={`border rounded-xl overflow-hidden mb-8 ${bgClass}`}>
+        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden mb-8">
           <div className="px-4 py-4 sm:px-6 sm:py-5">
             {/* Header row: avatar + label + badge + timestamp */}
             <div className="flex items-start gap-4">
@@ -467,13 +492,13 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-sm font-bold tracking-wide uppercase opacity-60">Eddy Says&hellip;</span>
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="text-sm font-bold tracking-wide uppercase text-neutral-500">Eddy Says&hellip;</span>
                   <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${labelInfo.className}`}>
                     {labelInfo.text}
                   </span>
                   {eddyUpdate?.generatedAt && (
-                    <span className="text-[10px] opacity-50">
+                    <span className="text-[10px] text-neutral-400">
                       &middot; {(() => {
                         const diffMs = Date.now() - new Date(eddyUpdate.generatedAt).getTime();
                         const mins = Math.floor(diffMs / 60000);
@@ -486,9 +511,14 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                       })()}
                     </span>
                   )}
+                  {primaryGauge && (
+                    <span className="text-[10px] text-neutral-400 ml-auto hidden sm:inline">
+                      via {primaryGauge.name}
+                    </span>
+                  )}
                 </div>
 
-                {/* TL;DR summary block */}
+                {/* Summary + full narrative (expanded by default) */}
                 {eddyLoading && !eddyUpdate ? (
                   <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
                 ) : eddyUpdate?.summaryText ? (
@@ -507,26 +537,26 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                       </p>
                     </div>
 
-                    {/* Full narrative (expandable) */}
-                    {eddyShowFull && (
-                      <p className={`text-sm leading-relaxed font-medium mt-3 ${textClass}`}>
+                    {/* Full narrative (shown by default, collapsible) */}
+                    {!eddyShowFull && (
+                      <p className="text-sm leading-relaxed font-medium mt-3 text-neutral-700">
                         &ldquo;{eddyUpdate.quoteText}&rdquo;
                       </p>
                     )}
 
                     <button
                       onClick={() => setEddyShowFull(!eddyShowFull)}
-                      className={`flex items-center gap-1 text-xs font-semibold transition-colors mt-2 ${textClass} opacity-60 hover:opacity-100`}
+                      className="flex items-center gap-1 text-xs font-semibold transition-colors mt-2 text-neutral-500 hover:text-neutral-700"
                     >
                       {eddyShowFull ? (
-                        <>Show less <ChevronUp className="w-3 h-3" /></>
+                        <>Show full report <ChevronDown className="w-3 h-3" /></>
                       ) : (
-                        <>Read more <ChevronDown className="w-3 h-3" /></>
+                        <>Show less <ChevronUp className="w-3 h-3" /></>
                       )}
                     </button>
                   </>
                 ) : (
-                  <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
+                  <p className="text-sm sm:text-base leading-relaxed font-medium text-neutral-700">
                     &ldquo;{eddyDisplayText}&rdquo;
                   </p>
                 )}
@@ -541,16 +571,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               >
                 Plan a Trip
               </Link>
-              <Link
-                href={`/chat?river=${riverSlug}`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/80 text-neutral-800 text-xs font-semibold rounded-md hover:bg-white transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Ask Eddy
-              </Link>
               <button
                 onClick={handleShare}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/80 text-neutral-800 text-xs font-semibold rounded-md hover:bg-white transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-neutral-800 text-xs font-semibold rounded-md hover:bg-neutral-50 transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
               >
                 {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
                 {shareStatus === 'copied' ? 'Copied!' : 'Share Report'}
