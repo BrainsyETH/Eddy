@@ -65,6 +65,46 @@ export function useWeatherByCoords(lat: number | null, lon: number | null, enabl
   });
 }
 
+// Forecast data for coordinates
+interface ForecastDay {
+  date: string;
+  dayOfWeek: string;
+  tempHigh: number;
+  tempLow: number;
+  condition: string;
+  conditionIcon: string;
+  precipitation: number;
+  windSpeed: number;
+  humidity: number;
+}
+
+interface ForecastResponse {
+  city: string;
+  days: ForecastDay[];
+}
+
+export function useForecastByCoords(lat: number | null, lon: number | null, enabled = true) {
+  return useQuery<ForecastResponse | null, Error>({
+    queryKey: ['forecast-coords', lat, lon],
+    queryFn: async (): Promise<ForecastResponse | null> => {
+      if (lat === null || lon === null) return null;
+
+      const response = await fetch(`/api/weather/forecast?lat=${lat}&lon=${lon}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch forecast');
+      }
+
+      return response.json();
+    },
+    enabled: enabled && lat !== null && lon !== null,
+    staleTime: 60 * 60 * 1000, // 1 hour
+    gcTime: 2 * 60 * 60 * 1000, // 2 hour cache
+    retry: 1,
+    throwOnError: false,
+  });
+}
+
 // Weather icon URL helper
 export function getWeatherIconUrl(iconCode: string): string {
   return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;

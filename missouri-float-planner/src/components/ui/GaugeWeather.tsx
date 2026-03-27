@@ -1,11 +1,11 @@
 'use client';
 
 // src/components/ui/GaugeWeather.tsx
-// Compact weather display for gauge station cards (lazy loaded)
+// Compact weather display for gauge station cards with 3-day forecast
 
 import Image from 'next/image';
-import { Cloud, Wind, Sun } from 'lucide-react';
-import { useWeatherByCoords, getWeatherIconUrl } from '@/hooks/useWeather';
+import { Cloud, Wind, Sun, Droplets } from 'lucide-react';
+import { useWeatherByCoords, useForecastByCoords, getWeatherIconUrl } from '@/hooks/useWeather';
 
 interface GaugeWeatherProps {
   lat: number;
@@ -16,6 +16,7 @@ interface GaugeWeatherProps {
 
 export default function GaugeWeather({ lat, lon, enabled = true, variant = 'default' }: GaugeWeatherProps) {
   const { data: weather, isLoading, error } = useWeatherByCoords(lat, lon, enabled);
+  const { data: forecast } = useForecastByCoords(lat, lon, enabled);
 
   if (!enabled) return null;
 
@@ -59,6 +60,9 @@ export default function GaugeWeather({ lat, lon, enabled = true, variant = 'defa
     );
   }
 
+  // Skip today from forecast (we already show current weather)
+  const forecastDays = forecast?.days?.slice(1, 4) ?? [];
+
   // Compact variant — matches Stitch reference design
   if (variant === 'compact') {
     return (
@@ -86,6 +90,34 @@ export default function GaugeWeather({ lat, lon, enabled = true, variant = 'defa
             <div className="text-sm font-semibold text-neutral-900">{weather.windDirection} {weather.windSpeed} mph</div>
           </div>
         </div>
+
+        {/* 3-day forecast row */}
+        {forecastDays.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-neutral-100">
+            {forecastDays.map((day) => (
+              <div key={day.date} className="text-center">
+                <div className="text-[10px] font-semibold text-neutral-500 uppercase">{day.dayOfWeek}</div>
+                <Image
+                  src={getWeatherIconUrl(day.conditionIcon)}
+                  alt={day.condition}
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 mx-auto"
+                  unoptimized
+                />
+                <div className="text-xs font-semibold text-neutral-900 tabular-nums">
+                  {day.tempHigh}° <span className="text-neutral-400 font-normal">{day.tempLow}°</span>
+                </div>
+                {day.precipitation > 20 && (
+                  <div className="flex items-center justify-center gap-0.5 text-[10px] text-blue-500">
+                    <Droplets className="w-2.5 h-2.5" />
+                    {day.precipitation}%
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -132,6 +164,34 @@ export default function GaugeWeather({ lat, lon, enabled = true, variant = 'defa
           />
         </div>
       </div>
+
+      {/* 3-day forecast */}
+      {forecastDays.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 mt-3">
+          {forecastDays.map((day) => (
+            <div key={day.date} className="bg-white border border-neutral-200 rounded-lg p-2.5 text-center">
+              <div className="text-[10px] font-semibold text-neutral-500 uppercase">{day.dayOfWeek}</div>
+              <Image
+                src={getWeatherIconUrl(day.conditionIcon)}
+                alt={day.condition}
+                width={32}
+                height={32}
+                className="w-8 h-8 mx-auto"
+                unoptimized
+              />
+              <div className="text-xs font-semibold text-neutral-900 tabular-nums">
+                {day.tempHigh}° <span className="text-neutral-400 font-normal">{day.tempLow}°</span>
+              </div>
+              {day.precipitation > 20 && (
+                <div className="flex items-center justify-center gap-0.5 text-[10px] text-blue-500 mt-0.5">
+                  <Droplets className="w-2.5 h-2.5" />
+                  {day.precipitation}%
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
@@ -439,8 +439,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               gaugeHeightFt={activeGauge.gaugeHeightFt}
               dischargeCfs={activeGauge.dischargeCfs}
               thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
-              conditionLabel={condition.label}
-              conditionTailwindColor={condition.tailwindColor}
+              conditionCode={condition.code}
             />
             <GaugeWeather
               key={`weather-${activeSiteId}`}
@@ -454,76 +453,109 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
         {/* Eddy Says Section */}
         <div className={`border rounded-xl overflow-hidden mb-8 ${bgClass}`}>
-          <div className="flex items-start gap-4 px-4 py-4 sm:px-6 sm:py-5">
-            <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 relative">
-              <Image
-                src={getEddyImageForCondition(eddyConditionCode)}
-                alt="Eddy the Otter"
-                fill
-                className="object-contain"
-                sizes="64px"
-              />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-sm font-bold tracking-wide uppercase opacity-60">Eddy Says&hellip;</span>
-                <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${labelInfo.className}`}>
-                  {labelInfo.text}
-                </span>
-                {eddyUpdate?.generatedAt && (
-                  <span className="text-[10px] opacity-50">
-                    &middot; {(() => {
-                      const diffMs = Date.now() - new Date(eddyUpdate.generatedAt).getTime();
-                      const mins = Math.floor(diffMs / 60000);
-                      if (mins < 1) return 'Updated just now';
-                      if (mins < 60) return `Updated ${mins}m ago`;
-                      const hours = Math.floor(mins / 60);
-                      if (hours < 2) return 'Updated 1 hr ago';
-                      if (hours < 24) return `Updated ${hours} hrs ago`;
-                      return `Updated ${Math.floor(hours / 24)}d ago`;
-                    })()}
-                  </span>
-                )}
+          <div className="px-4 py-4 sm:px-6 sm:py-5">
+            {/* Header row: avatar + label + badge + timestamp */}
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 relative">
+                <Image
+                  src={getEddyImageForCondition(eddyConditionCode)}
+                  alt="Eddy the Otter"
+                  fill
+                  className="object-contain"
+                  sizes="64px"
+                />
               </div>
 
-              {eddyLoading && !eddyUpdate ? (
-                <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
-              ) : (
-                <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
-                  &ldquo;{eddyDisplayText}&rdquo;
-                </p>
-              )}
-
-              {eddyUpdate?.summaryText && (
-                <button
-                  onClick={() => setEddyShowFull(!eddyShowFull)}
-                  className={`flex items-center gap-1 text-xs font-semibold transition-colors mt-1.5 ${textClass} opacity-60 hover:opacity-100`}
-                >
-                  {eddyShowFull ? (
-                    <>Show less <ChevronUp className="w-3 h-3" /></>
-                  ) : (
-                    <>Read more <ChevronDown className="w-3 h-3" /></>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-sm font-bold tracking-wide uppercase opacity-60">Eddy Says&hellip;</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${labelInfo.className}`}>
+                    {labelInfo.text}
+                  </span>
+                  {eddyUpdate?.generatedAt && (
+                    <span className="text-[10px] opacity-50">
+                      &middot; {(() => {
+                        const diffMs = Date.now() - new Date(eddyUpdate.generatedAt).getTime();
+                        const mins = Math.floor(diffMs / 60000);
+                        if (mins < 1) return 'Updated just now';
+                        if (mins < 60) return `Updated ${mins}m ago`;
+                        const hours = Math.floor(mins / 60);
+                        if (hours < 2) return 'Updated 1 hr ago';
+                        if (hours < 24) return `Updated ${hours} hrs ago`;
+                        return `Updated ${Math.floor(hours / 24)}d ago`;
+                      })()}
+                    </span>
                   )}
-                </button>
-              )}
+                </div>
 
-              {/* Plan Trip CTA - below text on mobile, inline on desktop */}
-              <Link
-                href={`/rivers/${riverSlug}`}
-                className="inline-flex sm:hidden mt-3 px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
-              >
-                Plan Trip
-              </Link>
+                {/* TL;DR summary block */}
+                {eddyLoading && !eddyUpdate ? (
+                  <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
+                ) : eddyUpdate?.summaryText ? (
+                  <>
+                    <div className={`rounded-lg px-3.5 py-2.5 mt-1 ${
+                      eddyConditionCode === 'flowing' ? 'bg-emerald-200/50' :
+                      eddyConditionCode === 'good' ? 'bg-lime-200/50' :
+                      eddyConditionCode === 'low' ? 'bg-amber-200/50' :
+                      eddyConditionCode === 'too_low' ? 'bg-stone-300/40' :
+                      eddyConditionCode === 'high' ? 'bg-orange-200/50' :
+                      eddyConditionCode === 'dangerous' ? 'bg-red-200/50' :
+                      'bg-neutral-200/50'
+                    }`}>
+                      <p className={`text-sm sm:text-base leading-relaxed font-semibold ${textClass}`}>
+                        &ldquo;{eddyUpdate.summaryText}&rdquo;
+                      </p>
+                    </div>
+
+                    {/* Full narrative (expandable) */}
+                    {eddyShowFull && (
+                      <p className={`text-sm leading-relaxed font-medium mt-3 ${textClass}`}>
+                        &ldquo;{eddyUpdate.quoteText}&rdquo;
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => setEddyShowFull(!eddyShowFull)}
+                      className={`flex items-center gap-1 text-xs font-semibold transition-colors mt-2 ${textClass} opacity-60 hover:opacity-100`}
+                    >
+                      {eddyShowFull ? (
+                        <>Show less <ChevronUp className="w-3 h-3" /></>
+                      ) : (
+                        <>Read more <ChevronDown className="w-3 h-3" /></>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
+                    &ldquo;{eddyDisplayText}&rdquo;
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Plan Trip CTA - aligned right on desktop */}
-            <Link
-              href={`/rivers/${riverSlug}`}
-              className="hidden sm:flex flex-shrink-0 self-center px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
-            >
-              Plan Trip
-            </Link>
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2 mt-4 ml-0 sm:ml-[72px] sm:mt-3">
+              <Link
+                href={`/rivers/${riverSlug}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#163F4A] text-white text-xs font-semibold rounded-md hover:bg-[#1A4A57] transition-colors shadow-[2px_2px_0_#0F2D35]"
+              >
+                Plan a Trip
+              </Link>
+              <Link
+                href={`/chat?river=${riverSlug}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/80 text-neutral-800 text-xs font-semibold rounded-md hover:bg-white transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Ask Eddy
+              </Link>
+              <button
+                onClick={handleShare}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/80 text-neutral-800 text-xs font-semibold rounded-md hover:bg-white transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
+              >
+                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {shareStatus === 'copied' ? 'Copied!' : 'Share Report'}
+              </button>
+            </div>
           </div>
         </div>
 
