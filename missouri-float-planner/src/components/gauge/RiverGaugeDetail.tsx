@@ -596,6 +596,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               altUnit={altUnit}
               thresholdDescriptions={activeGauge.thresholdDescriptions}
               currentCondition={condition.code}
+              gaugeHeightFt={activeGauge.gaugeHeightFt}
+              dischargeCfs={activeGauge.dischargeCfs}
             />
           </div>
         )}
