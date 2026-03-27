@@ -156,13 +156,13 @@ export function getEddyImageForCondition(code: string): string {
 
 // Condition-themed background classes for Eddy Says cards and detail views
 export const BG_BY_CONDITION: Record<string, string> = {
-  flowing: 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200',
-  good: 'bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200',
-  low: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200',
-  too_low: 'bg-gradient-to-r from-stone-100 to-stone-50 border-stone-300',
-  high: 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200',
-  dangerous: 'bg-gradient-to-r from-red-100 to-red-50 border-red-300',
-  unknown: 'bg-gradient-to-r from-neutral-50 to-slate-50 border-neutral-200',
+  flowing: 'bg-gradient-to-r from-emerald-100 to-teal-50 border-emerald-300',
+  good: 'bg-gradient-to-r from-lime-100 to-emerald-50 border-lime-300',
+  low: 'bg-gradient-to-r from-amber-100 to-yellow-50 border-amber-300',
+  too_low: 'bg-gradient-to-r from-stone-200 to-stone-100 border-stone-400',
+  high: 'bg-gradient-to-r from-orange-100 to-red-50 border-orange-300',
+  dangerous: 'bg-gradient-to-r from-red-200 to-red-100 border-red-400',
+  unknown: 'bg-gradient-to-r from-neutral-100 to-slate-50 border-neutral-300',
 };
 
 export const TEXT_BY_CONDITION: Record<string, string> = {
