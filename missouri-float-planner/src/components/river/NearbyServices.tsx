@@ -138,17 +138,31 @@ function CampgroundCard({ service }: { service: NearbyServiceDirectory }) {
   const hasAuth = service.npsAuthorized || service.usfsAuthorized;
   const totalSites = (service.tentSites ?? 0) + (service.rvSites ?? 0);
 
+  // Try to get image from NPS campground data stored in details
+  const npsImages = (service.details?.images as Array<{ url?: string }>) ?? [];
+  const heroImage = npsImages[0]?.url ?? null;
+
   return (
     <div className="bg-neutral-50 rounded-lg overflow-hidden">
       {/* Image area */}
       <div className="h-28 bg-neutral-100 flex items-center justify-center relative">
-        <Image
-          src={EDDY_IMAGES.canoe}
-          alt=""
-          width={48}
-          height={48}
-          className="w-12 h-12 object-contain opacity-40"
-        />
+        {heroImage ? (
+          <Image
+            src={heroImage}
+            alt={service.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 100vw, 50vw"
+          />
+        ) : (
+          <Image
+            src={EDDY_IMAGES.canoe}
+            alt=""
+            width={48}
+            height={48}
+            className="w-12 h-12 object-contain opacity-40"
+          />
+        )}
       </div>
 
       <div className="p-3">
@@ -185,23 +199,40 @@ function CampgroundCard({ service }: { service: NearbyServiceDirectory }) {
           <p className="text-[10px] text-neutral-500 italic mt-1.5 line-clamp-1">{service.seasonalNotes}</p>
         )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 mt-2.5">
-          {service.reservationUrl && (
-            <a
-              href={service.reservationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-green-700 hover:text-green-800 font-medium"
-            >
-              <ExternalLink className="w-3 h-3" />
-              Reserve
-            </a>
-          )}
+        {/* Reserve button (prominent) */}
+        {service.reservationUrl && (
+          <a
+            href={service.reservationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Reserve
+          </a>
+        )}
+
+        {/* Contact links */}
+        <div className="flex items-center gap-3 mt-2.5 flex-wrap">
           {service.phone && (
             <a href={`tel:${service.phone}`} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
               <Phone className="w-3 h-3" />
-              Call
+              {formatPhone(service.phone)}
+            </a>
+          )}
+          {service.website && (
+            <a href={service.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+              <Globe className="w-3 h-3" />
+              {(() => {
+                try { return new URL(service.website).hostname.replace(/^www\./, ''); }
+                catch { return 'Website'; }
+              })()}
+            </a>
+          )}
+          {service.email && (
+            <a href={`mailto:${service.email}`} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+              <Mail className="w-3 h-3" />
+              Email
             </a>
           )}
         </div>
