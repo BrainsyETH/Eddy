@@ -6,14 +6,11 @@
 // URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
-import GaugeOverview from '@/components/river/GaugeOverview';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import NearbyServices from '@/components/river/NearbyServices';
-import PointsOfInterest from '@/components/river/PointsOfInterest';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import { ShareableCapture } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
@@ -515,17 +512,19 @@ export default function RiverPage() {
 
           {/* Access Point Strip — overlaid at bottom of map */}
           {accessPoints && accessPoints.length > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2">
-              <AccessPointStrip
-                accessPoints={accessPoints}
-                selectedPutInId={selectedPutIn}
-                selectedTakeOutId={selectedTakeOut}
-                onSelect={handleMarkerClick}
-                onHover={handleAccessPointHover}
-                onReportIssue={handleReportAccessPointIssue}
-                hideExpandedDetails={true}
-                riverSlug={slug}
-              />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
+              <div className="pointer-events-auto">
+                <AccessPointStrip
+                  accessPoints={accessPoints}
+                  selectedPutInId={selectedPutIn}
+                  selectedTakeOutId={selectedTakeOut}
+                  onSelect={handleMarkerClick}
+                  onHover={handleAccessPointHover}
+                  onReportIssue={handleReportAccessPointIssue}
+                  hideExpandedDetails={true}
+                  riverSlug={slug}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -579,17 +578,19 @@ export default function RiverPage() {
 
           {/* Access Point Strip — overlaid at bottom */}
           {accessPoints && accessPoints.length > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1">
-              <AccessPointStrip
-                accessPoints={accessPoints}
-                selectedPutInId={selectedPutIn}
-                selectedTakeOutId={selectedTakeOut}
-                onSelect={handleMarkerClick}
-                onHover={handleAccessPointHover}
-                onReportIssue={handleReportAccessPointIssue}
-                hideExpandedDetails={true}
-                riverSlug={slug}
-              />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1 pointer-events-none">
+              <div className="pointer-events-auto">
+                <AccessPointStrip
+                  accessPoints={accessPoints}
+                  selectedPutInId={selectedPutIn}
+                  selectedTakeOutId={selectedTakeOut}
+                  onSelect={handleMarkerClick}
+                  onHover={handleAccessPointHover}
+                  onReportIssue={handleReportAccessPointIssue}
+                  hideExpandedDetails={true}
+                  riverSlug={slug}
+                />
+              </div>
             </div>
           )}
 
@@ -627,23 +628,6 @@ export default function RiverPage() {
       {/* ─── Info sections (below fold, full width) ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
         <NearbyServices riverSlug={slug} defaultOpen={false} />
-        <PointsOfInterest riverSlug={slug} defaultOpen={false} />
-        <GaugeOverview
-          gauges={gaugeStations}
-          riverId={river.id}
-          riverSlug={slug}
-          isLoading={!allGaugeStations}
-          putInCoordinates={selectedPutInPoint?.coordinates || null}
-        />
-        {/* Cross-link to full gauge report (fallback if GaugeOverview doesn't render slug link) */}
-        <div className="px-1 -mt-1 mb-2">
-          <Link
-            href={`/gauges/${slug}`}
-            className="text-xs text-primary-600 hover:text-primary-700 font-medium no-underline"
-          >
-            View full gauge report &rarr;
-          </Link>
-        </div>
       </div>
 
       {/* Hidden shareable capture component */}
