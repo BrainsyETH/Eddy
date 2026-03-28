@@ -631,10 +631,11 @@ export default function RiverPage() {
         <GaugeOverview
           gauges={gaugeStations}
           riverId={river.id}
+          riverSlug={slug}
           isLoading={!allGaugeStations}
           putInCoordinates={selectedPutInPoint?.coordinates || null}
         />
-        {/* Cross-link to full gauge report */}
+        {/* Cross-link to full gauge report (fallback if GaugeOverview doesn't render slug link) */}
         <div className="px-1 -mt-1 mb-2">
           <Link
             href={`/gauges/${slug}`}
