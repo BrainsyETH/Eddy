@@ -131,7 +131,7 @@ async function _GET(
     if (npsIds.length > 0) {
       const { data: campgrounds } = await supabase
         .from('nps_campgrounds')
-        .select('id, name, nps_url, reservation_url, latitude, longitude, total_sites, sites_reservable, sites_first_come, fees, amenities, classification')
+        .select('id, name, nps_url, reservation_url, latitude, longitude, total_sites, sites_reservable, sites_first_come, fees, amenities, classification, images')
         .in('id', npsIds);
 
       for (const cg of campgrounds || []) {
@@ -182,7 +182,9 @@ async function _GET(
           feeRange: null,
           seasonOpenMonth: null,
           seasonCloseMonth: null,
-          details: {},
+          details: {
+            images: Array.isArray(cg.images) ? cg.images : [],
+          },
           isPrimary: false,
           sectionDescription: null,
           isNpsCampground: true,
