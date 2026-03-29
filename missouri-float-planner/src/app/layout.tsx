@@ -38,9 +38,10 @@ const fredoka = Fredoka({
 });
 
 const EDDY_FAVICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
-const GA_TRACKING_ID =
-  process.env.NEXT_PUBLIC_GA_ID ||
-  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
+// Validate GA tracking ID format to prevent script injection via misconfigured env vars
+const rawGaId = process.env.NEXT_PUBLIC_GA_ID || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GA_TRACKING_ID = rawGaId && /^(G-[A-Z0-9]+|UA-\d+-\d+)$/.test(rawGaId) ? rawGaId : undefined;
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
