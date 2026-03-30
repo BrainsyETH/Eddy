@@ -10,6 +10,7 @@ import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp }
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { useConditionChrome } from '@/hooks/useConditionChrome';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
@@ -187,6 +188,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       tailwindColor: getConditionTailwindColor(result.code),
     };
   }, [activeGauge, activeThreshold]);
+
+  // Tint browser chrome and header border to match condition
+  useConditionChrome(condition.code);
 
   // Reading age
   const ageText = useMemo(() => {

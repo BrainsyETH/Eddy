@@ -46,7 +46,7 @@ export default function SiteHeader() {
   const activeRiver = rivers?.find(r => r.slug === activeRiverSlug);
 
   return (
-    <header className="sticky top-0 z-50 border-b-2 border-neutral-900" style={{ backgroundColor: '#163F4A' }}>
+    <header className="sticky top-0 z-50 border-b-[3px] chrome-border-transition" style={{ backgroundColor: '#163F4A', borderBottomColor: 'var(--chrome-accent, #1A1814)' }}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center h-14">
           {/* Logo */}

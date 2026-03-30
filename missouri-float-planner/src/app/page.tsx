@@ -5,10 +5,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRivers } from '@/lib/data/rivers';
-import { CONDITION_COLORS } from '@/constants';
 import FloatEstimator from './FloatEstimator';
 import FeaturedRivers from '@/components/home/FeaturedRivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
+import LiveConditionTicker from '@/components/home/LiveConditionTicker';
+import RiverDashboardGrid from '@/components/home/RiverDashboardGrid';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const revalidate = 300; // ISR every 5 minutes
@@ -35,7 +36,9 @@ export default async function Home() {
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
           <div className="flex items-center justify-between gap-8">
             <div className="flex-1 max-w-xl">
-              {/* Live badge removed */}
+              <div className="mb-4">
+                <LiveConditionTicker />
+              </div>
 
               <h1
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
@@ -133,13 +136,16 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ─── Browse All Rivers ─── */}
+      {/* ─── All Rivers Dashboard ─── */}
       <section className="border-t border-neutral-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-16">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-              All Rivers
-            </h2>
+            <div>
+              <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                All Rivers
+              </h2>
+              <p className="text-xs text-neutral-400 mt-0.5">Live conditions across Missouri</p>
+            </div>
             <Link
               href="/rivers"
               className="flex items-center gap-1 text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors no-underline"
@@ -148,25 +154,7 @@ export default async function Home() {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {rivers.map(river => {
-              const condCode = river.currentCondition?.code ?? 'unknown';
-              const dotColor = CONDITION_COLORS[condCode] || CONDITION_COLORS.unknown;
-              return (
-                <Link
-                  key={river.id}
-                  href={`/rivers/${river.slug}`}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:border-neutral-300 hover:shadow-sm transition-all no-underline"
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: dotColor }}
-                  />
-                  {river.name}
-                </Link>
-              );
-            })}
-          </div>
+          <RiverDashboardGrid />
         </div>
       </section>
 

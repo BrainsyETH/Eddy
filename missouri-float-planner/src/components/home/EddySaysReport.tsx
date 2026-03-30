@@ -4,12 +4,11 @@
 // Overall Eddy Says report for the landing page — fetches the global summary
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-import { getEddyImageForCondition } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
+import AnimatedEddy from '@/components/ui/AnimatedEddy';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
 function formatGeneratedAge(isoString: string | null): string | null {
@@ -81,15 +80,7 @@ export default function EddySaysReport() {
   return (
     <div className="bg-white rounded-2xl border border-neutral-200 p-5 md:p-6 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-10 h-10 relative">
-          <Image
-            src={getEddyImageForCondition('flowing')}
-            alt="Eddy"
-            fill
-            className="object-contain"
-            sizes="40px"
-          />
-        </div>
+        <AnimatedEddy conditionCode="flowing" size={40} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-bold tracking-wide uppercase text-neutral-400">Eddy says</span>

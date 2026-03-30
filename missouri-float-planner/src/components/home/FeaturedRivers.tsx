@@ -11,6 +11,7 @@ import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { CONDITION_COLORS } from '@/constants';
 import type { RiverGroup } from '@/lib/river-groups';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
+import ConditionPulse from '@/components/ui/ConditionPulse';
 
 // Hardcoded featured river slugs
 const FEATURED_SLUGS = ['current', 'meramec'];

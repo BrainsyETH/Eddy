@@ -956,6 +956,79 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ===== CONDITION PULSE ===== */
+
+@keyframes conditionPulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-color, rgba(5, 150, 105, 0.6));
+  }
+  70% {
+    box-shadow: 0 0 0 8px var(--pulse-color-transparent, rgba(5, 150, 105, 0));
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--pulse-color-transparent, rgba(5, 150, 105, 0));
+  }
+}
+
+.condition-pulse {
+  animation: conditionPulse 2s ease-out infinite;
+}
+
+/* ===== ANIMATED EDDY MOODS ===== */
+
+@keyframes eddyPaddle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-4px) rotate(1.5deg); }
+  75% { transform: translateY(-2px) rotate(-1.5deg); }
+}
+
+@keyframes eddyWorry {
+  0%, 100% { transform: translateX(0) scale(1); }
+  20% { transform: translateX(-2px) scale(1.02); }
+  40% { transform: translateX(2px) scale(0.98); }
+  60% { transform: translateX(-1px) scale(1.01); }
+  80% { transform: translateX(1px) scale(0.99); }
+}
+
+@keyframes eddyAlert {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(-8deg); }
+  20% { transform: rotate(8deg); }
+  30% { transform: rotate(-6deg); }
+  40% { transform: rotate(6deg); }
+  50% { transform: rotate(0deg); }
+}
+
+@keyframes eddyBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-8px) rotate(-3deg); }
+  60% { transform: translateY(3px) rotate(2deg); }
+}
+
+.eddy-paddle { animation: eddyPaddle 4s ease-in-out infinite; }
+.eddy-worry { animation: eddyWorry 3s var(--ease-bounce) infinite; }
+.eddy-alert { animation: eddyAlert 2s ease-in-out infinite; animation-delay: 0.3s; }
+.eddy-bob { animation: eddyBob 3.5s ease-in-out infinite; }
+
+/* ===== LIVE TICKER ===== */
+
+@keyframes tickerSlideUp {
+  0% { transform: translateY(100%); opacity: 0; }
+  15% { transform: translateY(0); opacity: 1; }
+  85% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-100%); opacity: 0; }
+}
+
+.ticker-item {
+  animation: tickerSlideUp 4s ease-in-out forwards;
+}
+
+/* ===== CONDITION CHROME ===== */
+
+.chrome-border-transition {
+  transition: border-color 300ms ease;
+}
+
 /* ===== MOTION PREFERENCES ===== */
 
 @media (prefers-reduced-motion: reduce) {
