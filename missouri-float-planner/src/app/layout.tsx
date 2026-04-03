@@ -88,6 +88,11 @@ export default function RootLayout({
               name: 'Eddy',
               url: BASE_URL,
               description: 'Plan your next float trip with live water conditions, access points, float times & weather.',
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: `${BASE_URL}/rivers/{slug}`,
+                'query-input': 'required name=slug',
+              },
             }),
           }}
         />
