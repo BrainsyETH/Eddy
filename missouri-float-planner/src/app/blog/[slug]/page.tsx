@@ -5,6 +5,8 @@ import { ArrowLeft, ArrowRight, Clock, Calendar } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
+
 export const dynamic = 'force-dynamic';
 
 interface BlogPost {
@@ -56,6 +58,12 @@ export async function generateMetadata(
     title: post.title,
     description: post.description || undefined,
     keywords: post.meta_keywords || undefined,
+    alternates: {
+      canonical: `${BASE_URL}/blog/${slug}`,
+      types: {
+        'application/json': `${BASE_URL}/api/blog/${slug}`,
+      },
+    },
     openGraph: {
       title: post.title,
       description: post.description || undefined,
@@ -91,8 +99,6 @@ export default async function BlogPostPage({
       year: 'numeric',
     });
   };
-
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
   const articleJsonLd = {
     '@context': 'https://schema.org',

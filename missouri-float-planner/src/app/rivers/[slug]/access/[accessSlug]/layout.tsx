@@ -40,6 +40,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {
       title,
       description,
+      alternates: {
+        canonical: pageUrl,
+        types: {
+          'application/json': `${BASE_URL}/api/rivers/${riverSlug}/access/${accessSlug}`,
+        },
+      },
       openGraph: {
         type: 'website',
         title: `${ap.name} | ${river.name} Access Point`,

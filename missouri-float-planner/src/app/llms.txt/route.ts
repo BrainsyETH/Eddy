@@ -5,6 +5,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 export async function GET() {
   const content = `# eddy.guide
 > Missouri Ozarks float trip planning platform with real-time river conditions, access points, float times, and weather.
+> For a version with live river data and conditions, see: \${BASE_URL}/llms-full.txt
 
 ## About
 Eddy is a free river guide for planning float trips on Missouri's Ozark rivers. It provides live water conditions from USGS gauge stations, detailed access point information, float time calculations based on vessel type and water level, hazard warnings, and weather forecasts. Data is sourced from USGS, NPS, and community reports.
