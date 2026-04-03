@@ -130,6 +130,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     return {
       title,
       description,
+      alternates: {
+        canonical: pageUrl,
+        types: {
+          'application/json': `${BASE_URL}/api/rivers/${slug}`,
+        },
+      },
       openGraph: {
         type: 'website',
         title: ogTitle,
