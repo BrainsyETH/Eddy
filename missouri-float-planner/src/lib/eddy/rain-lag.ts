@@ -53,4 +53,9 @@ export const RAIN_LAG: Record<string, RainLagInfo> = {
     note: 'Small watershed creek, similar to Huzzah. Fast response, 2-4 hours.',
     dropRateFtPerDay: '1-2 ft/day (similar to Huzzah)',
   },
+  'gasconade': {
+    hours: 8,
+    note: 'Large watershed, moderate spring input. Rain response in 6-10 hours. Can spike significantly after heavy storms.',
+    dropRateFtPerDay: '0.5-1.5 ft/day (large watershed, moderate recovery)',
+  },
 };

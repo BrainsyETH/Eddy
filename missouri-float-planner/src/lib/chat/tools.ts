@@ -119,6 +119,22 @@ WHEN TO CALL: When the user asks about outfitters, canoe rentals, shuttle servic
     },
   },
   {
+    name: 'get_eddy_report',
+    description: `Get the latest AI-generated Eddy condition report for a river. Returns Eddy's current analysis including summary, full report text, condition code, gauge reading, and when it was generated.
+
+WHEN TO CALL: When the user asks "what does Eddy say?", "what's the latest report?", or wants to see the current Eddy analysis for a river. This returns the same report displayed on the river detail page, ensuring consistency. Prefer this over re-analyzing raw data when the user just wants to see the current Eddy assessment.`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        river_slug: {
+          type: 'string',
+          description: 'River key: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade, niangua',
+        },
+      },
+      required: ['river_slug'],
+    },
+  },
+  {
     name: 'web_search',
     description: `Search the web for information not in your database. Returns relevant search results with titles, descriptions, and URLs.
 

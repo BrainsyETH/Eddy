@@ -142,4 +142,5 @@ export const TOOL_LABELS: Record<string, string> = {
   get_weather: 'Checking the weather...',
   get_nearby_services: 'Finding nearby services...',
   web_search: 'Searching the web...',
+  get_eddy_report: 'Reading latest Eddy report...',
 };

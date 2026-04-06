@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/generate-eddy-updates",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 0,12 * * *"
     },
     {
       "path": "/api/cron/post-social",

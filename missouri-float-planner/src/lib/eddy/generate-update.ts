@@ -1,5 +1,5 @@
 // src/lib/eddy/generate-update.ts
-// Orchestrates data gathering and calls Claude Haiku to generate Eddy updates.
+// Orchestrates data gathering and calls Claude Sonnet to generate Eddy updates.
 // Used by the cron job to produce per-river (or per-section) condition quotes.
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -9,11 +9,10 @@ import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
 import { fetchPrecipitationFromWeather, type PrecipitationSummary } from '@/lib/weather/openweather';
-import { fetchGaugeReadings } from '@/lib/usgs/gauges';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
 import { buildGaugeTrajectory, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
+import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
+import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 
 
 export interface GaugeContext {
@@ -48,7 +47,18 @@ export async function generateEddyUpdate(
   const sourcesUsed: string[] = [];
 
   // --- 1. Fetch gauge data ---
-  const gaugeContext = await fetchGaugeContext(target.riverSlug);
+  const gaugeResult = await getGaugeConditions(target.riverSlug);
+  const gaugeContext: GaugeContext | null = gaugeResult ? {
+    gaugeName: gaugeResult.gaugeName,
+    gaugeHeightFt: gaugeResult.gaugeHeightFt,
+    dischargeCfs: gaugeResult.dischargeCfs,
+    conditionCode: gaugeResult.conditionCode,
+    conditionLabel: gaugeResult.conditionLabel,
+    readingTimestamp: gaugeResult.readingTimestamp,
+    optimalRange: gaugeResult.optimalRange,
+    closureLevel: gaugeResult.closureLevel,
+    notes: RIVER_NOTES[target.riverSlug] ?? null,
+  } : null;
   if (gaugeContext) sourcesUsed.push('USGS gauge');
 
   // --- 2. Fetch weather (current + 3-day forecast) ---
@@ -92,10 +102,13 @@ export async function generateEddyUpdate(
     if (trajectory) sourcesUsed.push('gauge trajectory');
   }
 
-  // --- 6. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation);
+  // --- 6. Load rain-lag info ---
+  const rainLag = RAIN_LAG[target.riverSlug] ?? null;
 
-  // --- 7. Call Claude Haiku ---
+  // --- 7. Build the prompt ---
+  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag);
+
+  // --- 8. Call Claude Sonnet ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     console.error('[EddyGen] ANTHROPIC_API_KEY not configured');
@@ -106,8 +119,8 @@ export async function generateEddyUpdate(
 
   try {
     const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 700,
       messages: [{ role: 'user', content: prompt }],
       system: EDDY_SYSTEM_PROMPT,
     });
@@ -308,6 +321,7 @@ function buildPrompt(
   localKnowledge: string,
   trajectory: GaugeTrajectory | null = null,
   precipitation: PrecipitationSummary | null = null,
+  rainLag: RainLagInfo | null = null,
 ): string {
   const riverNotes = RIVER_NOTES[target.riverSlug];
   const lines: string[] = [];
@@ -418,6 +432,15 @@ function buildPrompt(
     }
   }
 
+  // Rain-to-river lag info
+  if (rainLag) {
+    lines.push('');
+    lines.push('[RAIN-TO-RIVER LAG]');
+    lines.push(`Typical response time: ${rainLag.hours} hours from local rain to gauge response`);
+    lines.push(`Note: ${rainLag.note}`);
+    lines.push(`Recovery rate: ${rainLag.dropRateFtPerDay}`);
+  }
+
   // Weather (current)
   if (weather) {
     lines.push('');
@@ -462,119 +485,3 @@ function buildPrompt(
   return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Gauge context fetcher
-// ---------------------------------------------------------------------------
-
-/**
- * Fetches the latest gauge reading and computes condition for a river.
- */
-async function fetchGaugeContext(riverSlug: string): Promise<GaugeContext | null> {
-  const supabase = createAdminClient();
-
-  // Get primary gauge for river
-  const { data: riverData, error: riverError } = await supabase
-    .from('rivers')
-    .select('id')
-    .eq('slug', riverSlug)
-    .single();
-
-  if (!riverData) {
-    console.warn(`[EddyGen] River not found for slug "${riverSlug}":`, riverError?.message);
-    return null;
-  }
-
-  const { data: gaugeLink, error: gaugeLinkError } = await supabase
-    .from('river_gauges')
-    .select(`
-      level_too_low, level_low, level_optimal_min, level_optimal_max,
-      level_high, level_dangerous, threshold_unit,
-      gauge_stations (id, name, usgs_site_id)
-    `)
-    .eq('river_id', riverData.id)
-    .eq('is_primary', true)
-    .single();
-
-  if (!gaugeLink) {
-    console.warn(`[EddyGen] No primary gauge for river "${riverSlug}" (river_id: ${riverData.id}):`, gaugeLinkError?.message);
-    return null;
-  }
-
-  const station = Array.isArray(gaugeLink.gauge_stations)
-    ? gaugeLink.gauge_stations[0]
-    : gaugeLink.gauge_stations;
-
-  if (!station?.usgs_site_id) {
-    console.warn(`[EddyGen] Gauge station missing usgs_site_id for river "${riverSlug}"`);
-    return null;
-  }
-
-  // Try DB reading first, fall back to live USGS
-  const { data: dbReading } = await supabase
-    .from('gauge_readings')
-    .select('gauge_height_ft, discharge_cfs, reading_timestamp')
-    .eq('gauge_station_id', station.id)
-    .order('reading_timestamp', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  let gaugeHeightFt = dbReading?.gauge_height_ft ?? null;
-  let dischargeCfs = dbReading?.discharge_cfs ?? null;
-  let readingTimestamp = dbReading?.reading_timestamp ?? null;
-
-  // If DB reading is stale (>2 hours), try live USGS
-  const ageMs = readingTimestamp ? Date.now() - new Date(readingTimestamp).getTime() : Infinity;
-  if (ageMs > 2 * 60 * 60 * 1000) {
-    try {
-      const liveReadings = await fetchGaugeReadings([station.usgs_site_id], { skipCache: true });
-      const live = liveReadings[0];
-      if (live) {
-        // Accept any available data from USGS (height, discharge, or both)
-        if (live.gaugeHeightFt !== null && live.gaugeHeightFt !== undefined) {
-          gaugeHeightFt = live.gaugeHeightFt;
-        }
-        if (live.dischargeCfs !== null && live.dischargeCfs !== undefined) {
-          dischargeCfs = live.dischargeCfs;
-        }
-        if (live.readingTimestamp) {
-          readingTimestamp = live.readingTimestamp;
-        }
-      }
-    } catch (e) {
-      console.warn(`[EddyGen] Live USGS fetch failed for ${station.usgs_site_id}:`, e);
-    }
-  }
-
-  // Compute condition code — pass both height and discharge for threshold_unit awareness
-  const thresholds: ConditionThresholds = {
-    levelTooLow: gaugeLink.level_too_low,
-    levelLow: gaugeLink.level_low,
-    levelOptimalMin: gaugeLink.level_optimal_min,
-    levelOptimalMax: gaugeLink.level_optimal_max,
-    levelHigh: gaugeLink.level_high,
-    levelDangerous: gaugeLink.level_dangerous,
-    thresholdUnit: (gaugeLink as Record<string, unknown>).threshold_unit as 'ft' | 'cfs' | undefined,
-  };
-
-  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
-
-  // Build optimal range from actual DB thresholds, not hardcoded values
-  const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
-  const optMin = gaugeLink.level_optimal_min;
-  const optMax = gaugeLink.level_optimal_max;
-  const optimalRange = (optMin != null && optMax != null)
-    ? `${optMin}–${optMax} ${unit}`
-    : 'unknown';
-
-  return {
-    gaugeName: station.name || 'Unknown gauge',
-    gaugeHeightFt,
-    dischargeCfs,
-    conditionCode: condition.code as ConditionCode,
-    conditionLabel: condition.label,
-    readingTimestamp,
-    optimalRange,
-    closureLevel: gaugeLink.level_dangerous ?? null,
-    notes: RIVER_NOTES[riverSlug] ?? null,
-  };
-}

@@ -86,6 +86,11 @@ export const RIVER_SECTIONS: RiverSectionConfig[] = [
     riverName: 'Courtois Creek',
     sections: [],
   },
+  {
+    riverSlug: 'gasconade',
+    riverName: 'Gasconade River',
+    sections: [],
+  },
 ];
 
 /**

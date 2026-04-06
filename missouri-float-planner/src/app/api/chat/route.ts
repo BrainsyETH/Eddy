@@ -20,6 +20,12 @@ interface ChatRequestBody {
 }
 
 async function _POST(request: Request) {
+  // Chat feature is currently disabled while we optimize the experience
+  return new Response(
+    JSON.stringify({ error: 'Chat is temporarily unavailable. Check back soon.' }),
+    { status: 503, headers: { 'Content-Type': 'application/json' } }
+  );
+
   // Rate limit: 30 messages per hour per IP
   const ip = getClientIp(request);
   const rateLimitResult = rateLimit(`chat:${ip}`, 30, 60 * 60 * 1000);
@@ -80,8 +86,11 @@ async function _POST(request: Request) {
         }));
 
         // Tool calling loop — keep going until Claude stops calling tools
+        const MAX_TOOL_ITERATIONS = 5;
+        let iterations = 0;
         let continueLoop = true;
-        while (continueLoop) {
+        while (continueLoop && iterations < MAX_TOOL_ITERATIONS) {
+          iterations++;
           const response = await client.messages.create({
             model: process.env.CHAT_MODEL || 'claude-sonnet-4-5-20250929',
             max_tokens: 2048,
@@ -163,6 +172,11 @@ async function _POST(request: Request) {
 
           // Continue loop only if Claude wants to use more tools
           continueLoop = !isFinalTurn && response.stop_reason === 'tool_use';
+        }
+
+        if (iterations >= MAX_TOOL_ITERATIONS && continueLoop) {
+          console.warn(`[Chat] Hit max tool iterations (${MAX_TOOL_ITERATIONS}), ending loop`);
+          send({ type: 'text', content: 'I checked several sources but need to wrap up. Let me know if you need more details on anything specific.' });
         }
 
         send({ type: 'done' });

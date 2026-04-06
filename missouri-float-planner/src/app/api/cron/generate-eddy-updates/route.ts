@@ -12,7 +12,7 @@ import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
 export const dynamic = 'force-dynamic';
 
 // How long an update remains valid (hours)
-const UPDATE_TTL_HOURS = 7; // Slightly longer than the 6-hour cron interval
+const UPDATE_TTL_HOURS = 13; // Slightly longer than the 12-hour cron interval
 
 // Maximum concurrent Haiku calls to avoid rate limiting
 const MAX_CONCURRENCY = 3;
