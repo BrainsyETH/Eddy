@@ -29,7 +29,7 @@ RULES:
 
 /**
  * Generates an overall Ozarks summary by reading recently generated per-river updates
- * and asking Haiku to synthesize them into a brief overview.
+ * and asking Sonnet to synthesize them into a brief overview.
  */
 export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -86,7 +86,7 @@ export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
 
   try {
     const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
       system: GLOBAL_SYSTEM_PROMPT,

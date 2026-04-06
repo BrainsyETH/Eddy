@@ -66,8 +66,8 @@ export default function RiverPage() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
 
-  // River visual submit form state
-  const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(false);
+  // River visual submit form state — auto-open if URL has ?submitPhoto=true
+  const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);

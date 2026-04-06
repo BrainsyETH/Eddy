@@ -3,13 +3,16 @@
 // src/components/home/FeaturedRivers.tsx
 // Landing page gauge data preview — 2 prominent featured river cards + smaller row
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Share2 } from 'lucide-react';
 
 import { useRiverGroups } from '@/hooks/useRiverGroups';
-import { CONDITION_COLORS } from '@/constants';
+import { CONDITION_COLORS, BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { RiverGroup } from '@/lib/river-groups';
+import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 
 // Hardcoded featured river slugs
@@ -88,6 +91,25 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
   const { riverName, riverSlug, condition, primaryGauge, primaryThreshold } = river;
   const href = riverSlug ? `/gauges/${riverSlug}` : '#';
 
+  // Fetch Eddy update for this river
+  const [eddyText, setEddyText] = useState<string | null>(null);
+  useEffect(() => {
+    if (!riverSlug) return;
+    let cancelled = false;
+    async function fetchEddy() {
+      try {
+        const res = await fetch(`/api/eddy-update/${riverSlug}`);
+        if (!res.ok) return;
+        const data: EddyUpdateResponse = await res.json();
+        if (!cancelled && data.available && data.update) {
+          setEddyText(data.update.summaryText || data.update.quoteText);
+        }
+      } catch { /* silent */ }
+    }
+    fetchEddy();
+    return () => { cancelled = true; };
+  }, [riverSlug]);
+
   const isCfsPrimary = primaryThreshold.thresholdUnit === 'cfs';
   const primaryValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;
   const unitLabel = isCfsPrimary ? 'cfs' : 'ft';
@@ -151,8 +173,36 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
         />
       </div>
 
+      {/* Eddy Says blurb */}
+      <div className="px-5 sm:px-6 pt-1">
+        <div className={`border rounded-lg overflow-hidden ${BG_BY_CONDITION[condition.code] ?? BG_BY_CONDITION.unknown}`}>
+          <div className="flex items-start gap-2 px-3 py-2">
+            <div className="flex-shrink-0 w-7 h-7 relative">
+              <Image
+                src={getEddyImageForCondition(condition.code)}
+                alt="Eddy"
+                fill
+                className="object-contain"
+                sizes="28px"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-[9px] font-bold tracking-wide uppercase opacity-60">Eddy says</span>
+                <span className={`text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded-full ${(LABEL_BY_CONDITION[condition.code] ?? LABEL_BY_CONDITION.unknown).className}`}>
+                  {(LABEL_BY_CONDITION[condition.code] ?? LABEL_BY_CONDITION.unknown).text}
+                </span>
+              </div>
+              <p className={`text-[11px] leading-relaxed font-medium line-clamp-2 ${TEXT_BY_CONDITION[condition.code] ?? TEXT_BY_CONDITION.unknown}`}>
+                &ldquo;{eddyText || CONDITION_CARD_BLURBS[condition.code] || CONDITION_CARD_BLURBS.unknown}&rdquo;
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Footer */}
-      <div className="px-5 pb-4 pt-1 sm:px-6">
+      <div className="px-5 pb-4 pt-2 sm:px-6">
         <div className="flex items-center justify-between text-xs text-neutral-400 pt-2 border-t border-neutral-100">
           <button
             type="button"

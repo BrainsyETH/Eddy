@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
@@ -367,17 +367,26 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                 </span>
               </>
             )}
-            <button
-              onClick={handleShare}
-              className={`flex items-center gap-1 transition-colors ml-auto ${
-                shareStatus === 'copied'
-                  ? 'text-emerald-600'
-                  : 'text-neutral-500 hover:text-primary-600'
-              }`}
-            >
-              {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              {shareStatus === 'copied' ? 'Copied!' : 'Share'}
-            </button>
+            <div className="flex items-center gap-3 ml-auto">
+              <Link
+                href={`/rivers/${riverSlug}?submitPhoto=true`}
+                className="flex items-center gap-1 text-neutral-400 hover:text-teal-600 transition-colors"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                Add Photo
+              </Link>
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-1 transition-colors ${
+                  shareStatus === 'copied'
+                    ? 'text-emerald-600'
+                    : 'text-neutral-500 hover:text-primary-600'
+                }`}
+              >
+                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+              </button>
+            </div>
           </div>
         </div>
 
