@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info, Camera } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
@@ -34,6 +34,7 @@ interface PlanSidebarProps {
   onDownloadImage: () => void;
   shareStatus: 'idle' | 'copied';
   onReportIssue?: (point: AccessPoint) => void;
+  onSubmitPhoto?: () => void;
   pointsAlongRoute?: RouteItem[];
   captureRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -54,6 +55,7 @@ export default function PlanSidebar({
   onDownloadImage,
   shareStatus,
   onReportIssue,
+  onSubmitPhoto,
   pointsAlongRoute = [],
 }: PlanSidebarProps) {
   const { data: vesselTypes } = useVesselTypes();
@@ -97,12 +99,23 @@ export default function PlanSidebar({
             }
           </button>
           {showEddySays && (
-            <EddyQuote
-              riverSlug={riverSlug}
-              conditionCode={conditionCode}
-              gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
-              embedded
-            />
+            <>
+              <EddyQuote
+                riverSlug={riverSlug}
+                conditionCode={conditionCode}
+                gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+                embedded
+              />
+              {onSubmitPhoto && (
+                <button
+                  onClick={onSubmitPhoto}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border-t border-neutral-100 text-xs font-medium text-teal-700 hover:bg-teal-50 transition-colors"
+                >
+                  <Camera size={13} />
+                  Show us what the river looks like
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
