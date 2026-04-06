@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Droplets, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Droplets, ArrowRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import type { RiverGroup } from '@/lib/river-groups';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
@@ -186,14 +186,23 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
           </div>
         </div>
 
-        {/* View details link */}
-        <Link
-          href={href}
-          className="flex items-center gap-1 text-xs font-medium text-primary-600 mt-3 pt-2.5 border-t border-neutral-100 hover:gap-2 transition-all"
-        >
-          View River Gauges
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        {/* Action links */}
+        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-neutral-100">
+          <Link
+            href={href}
+            className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:gap-2 transition-all"
+          >
+            Full River Report
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+          <Link
+            href={`/rivers/${riverSlug}?submitPhoto=true`}
+            className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-teal-600 transition-colors"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Add Photo
+          </Link>
+        </div>
       </div>
     </div>
   );

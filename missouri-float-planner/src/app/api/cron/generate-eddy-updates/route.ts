@@ -1,6 +1,6 @@
 // src/app/api/cron/generate-eddy-updates/route.ts
 // Cron job: generates AI-powered Eddy condition updates for all active rivers.
-// Runs every 6 hours via Vercel Cron. Stores results in eddy_updates table.
+// Runs once daily at 6 AM Central (11 AM UTC) via Vercel Cron.
 // Uses concurrent processing (max 3 parallel) for faster execution.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,9 +12,9 @@ import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
 export const dynamic = 'force-dynamic';
 
 // How long an update remains valid (hours)
-const UPDATE_TTL_HOURS = 13; // Slightly longer than the 12-hour cron interval
+const UPDATE_TTL_HOURS = 25; // Slightly longer than the 24-hour cron interval
 
-// Maximum concurrent Haiku calls to avoid rate limiting
+// Maximum concurrent API calls to avoid rate limiting
 const MAX_CONCURRENCY = 3;
 
 /**
