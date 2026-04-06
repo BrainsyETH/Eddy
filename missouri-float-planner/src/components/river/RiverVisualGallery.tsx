@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
 import { CONDITION_SHORT_LABELS } from '@/constants';
-import type { RiverVisual, RiverVisualsResponse, ConditionCode } from '@/types/api';
+import type { RiverVisual, RiverVisualsResponse } from '@/types/api';
 
 interface RiverVisualGalleryProps {
   riverSlug: string;

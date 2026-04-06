@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { type ConditionThresholds } from '@/lib/conditions';
 import { mapConditionCode } from '@/lib/conditions';
 import { getPhotoConditionCode } from '@/lib/river-visuals';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';

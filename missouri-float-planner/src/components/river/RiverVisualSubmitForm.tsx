@@ -6,15 +6,15 @@
 
 import { useState, useEffect } from 'react';
 import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2 } from 'lucide-react';
-import type { AccessPoint, ConditionCode } from '@/types/api';
+import type { AccessPoint } from '@/types/api';
 
 interface RiverVisualSubmitFormProps {
   riverId: string;
-  riverSlug: string;
+  riverSlug?: string;
   accessPoints: AccessPoint[] | undefined;
   currentGaugeHeightFt: number | null;
   currentDischargeCfs: number | null;
-  currentConditionCode: ConditionCode;
+  currentConditionCode?: string;
   gaugeStationId?: string | null;
   onSubmitted?: () => void;
   onClose: () => void;
@@ -22,11 +22,9 @@ interface RiverVisualSubmitFormProps {
 
 export default function RiverVisualSubmitForm({
   riverId,
-  riverSlug,
   accessPoints,
   currentGaugeHeightFt,
   currentDischargeCfs,
-  currentConditionCode,
   gaugeStationId,
   onSubmitted,
   onClose,
@@ -211,6 +209,7 @@ export default function RiverVisualSubmitForm({
           </label>
           {imagePreview ? (
             <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imagePreview}
                 alt="Preview"
