@@ -187,7 +187,7 @@ export default function RiverVisualSubmitForm({
       <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Camera className="w-4 h-4 text-neutral-500" />
-          <h3 className="text-sm font-semibold text-neutral-800">Submit a River Photo</h3>
+          <h3 className="text-sm font-semibold text-neutral-800">Show us what the river looks like</h3>
         </div>
         <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
           <X className="w-4 h-4" />
@@ -224,17 +224,35 @@ export default function RiverVisualSubmitForm({
               </button>
             </div>
           ) : (
-            <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-neutral-300 rounded-lg cursor-pointer hover:border-neutral-400 hover:bg-neutral-50 transition-colors">
-              <Upload className="w-8 h-8 text-neutral-400 mb-2" />
-              <span className="text-sm text-neutral-500">Click to upload a photo</span>
-              <span className="text-xs text-neutral-400 mt-1">JPEG, PNG, WebP, GIF (max 10MB)</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
+            <div className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-neutral-300 rounded-lg hover:border-neutral-400 hover:bg-neutral-50 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                {/* Camera button — opens camera on mobile */}
+                <label className="flex flex-col items-center cursor-pointer px-4 py-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                  <Camera className="w-7 h-7 text-teal-600 mb-1" />
+                  <span className="text-xs font-medium text-teal-700">Take Photo</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    capture="environment"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                <div className="w-px h-10 bg-neutral-200" />
+                {/* Gallery button — opens file picker */}
+                <label className="flex flex-col items-center cursor-pointer px-4 py-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                  <Upload className="w-7 h-7 text-neutral-400 mb-1" />
+                  <span className="text-xs font-medium text-neutral-500">Upload</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <span className="text-xs text-neutral-400">JPEG, PNG, WebP, GIF (max 10MB)</span>
+            </div>
           )}
         </div>
 

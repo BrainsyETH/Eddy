@@ -480,6 +480,7 @@ export default function RiverPage() {
             onDownloadImage={handleDownloadImage}
             shareStatus={shareStatus}
             onReportIssue={handleReportAccessPointIssue}
+            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
             pointsAlongRoute={pointsAlongRoute}
             captureRef={captureRef}
           />
@@ -543,12 +544,22 @@ export default function RiverPage() {
           <h1 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
             {river.name}
           </h1>
-          <span
-            className="px-2 py-0.5 rounded text-[10px] font-bold text-white"
-            style={{ backgroundColor: CONDITION_COLORS[condition?.code ?? 'unknown'] || CONDITION_COLORS.unknown }}
-          >
-            {condition?.code === 'flowing' ? 'Flowing' : condition?.code === 'good' ? 'Good' : condition?.code === 'low' ? 'Low' : condition?.code === 'too_low' ? 'Too Low' : condition?.code === 'high' ? 'High' : condition?.code === 'dangerous' ? 'Flood' : 'Unknown'}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowVisualSubmitForm(true)}
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+              aria-label="Submit a river photo"
+              title="Show us what the river looks like"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+            <span
+              className="px-2 py-0.5 rounded text-[10px] font-bold text-white"
+              style={{ backgroundColor: CONDITION_COLORS[condition?.code ?? 'unknown'] || CONDITION_COLORS.unknown }}
+            >
+              {condition?.code === 'flowing' ? 'Flowing' : condition?.code === 'good' ? 'Good' : condition?.code === 'low' ? 'Low' : condition?.code === 'too_low' ? 'Too Low' : condition?.code === 'high' ? 'High' : condition?.code === 'dangerous' ? 'Flood' : 'Unknown'}
+            </span>
+          </div>
         </div>
 
         {/* Map — fills remaining viewport */}
@@ -633,34 +644,11 @@ export default function RiverPage() {
 
       {/* ─── Info sections (below fold, full width) ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
-        {/* River Visuals Gallery + Submit */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <RiverVisualGallery
-            riverSlug={slug}
-            accessPointId={selectedPutIn}
-          />
-          {showVisualSubmitForm ? (
-            <RiverVisualSubmitForm
-              riverId={river.id}
-              riverSlug={slug}
-              accessPoints={accessPoints}
-              currentGaugeHeightFt={condition?.gaugeHeightFt ?? null}
-              currentDischargeCfs={condition?.dischargeCfs ?? null}
-              currentConditionCode={condition?.code ?? 'unknown'}
-              gaugeStationId={conditionData?.gauges?.find(g => g.isPrimary)?.id}
-              onSubmitted={() => setShowVisualSubmitForm(false)}
-              onClose={() => setShowVisualSubmitForm(false)}
-            />
-          ) : (
-            <button
-              onClick={() => setShowVisualSubmitForm(true)}
-              className="flex items-center justify-center gap-2 h-12 bg-white border border-neutral-200 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition-colors self-start"
-            >
-              <Camera className="w-4 h-4" />
-              Submit a River Photo
-            </button>
-          )}
-        </div>
+        {/* River Visuals Gallery */}
+        <RiverVisualGallery
+          riverSlug={slug}
+          accessPointId={selectedPutIn}
+        />
 
         <NearbyServices riverSlug={slug} defaultOpen={false} />
       </div>
@@ -682,6 +670,23 @@ export default function RiverPage() {
         onClose={() => setFeedbackModalOpen(false)}
         context={feedbackContext}
       />
+
+      {/* River Visual Submit Modal */}
+      {showVisualSubmitForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowVisualSubmitForm(false)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <RiverVisualSubmitForm
+              riverId={river.id}
+              accessPoints={accessPoints}
+              currentGaugeHeightFt={condition?.gaugeHeightFt ?? null}
+              currentDischargeCfs={condition?.dischargeCfs ?? null}
+              gaugeStationId={conditionData?.gauges?.find(g => g.isPrimary)?.id}
+              onSubmitted={() => setShowVisualSubmitForm(false)}
+              onClose={() => setShowVisualSubmitForm(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
