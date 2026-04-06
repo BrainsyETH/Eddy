@@ -377,7 +377,7 @@ export interface PlanParams {
 }
 
 // Community reporting types
-export type ReportType = 'hazard' | 'water_level' | 'debris';
+export type ReportType = 'hazard' | 'water_level' | 'debris' | 'river_visual';
 export type ReportStatus = 'pending' | 'verified' | 'rejected';
 
 export interface CommunityReport {
@@ -398,6 +398,13 @@ export interface CommunityReport {
   verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // River visual fields
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  accessPointId: string | null;
+  accessPointName: string | null;
+  gaugeStationId: string | null;
+  submitterName: string | null;
 }
 
 export interface CommunityReportsResponse {
@@ -412,6 +419,34 @@ export interface CreateReportRequest {
   longitude: number;
   imageUrl?: string;
   description: string;
+  // River visual fields
+  gaugeHeightFt?: number;
+  dischargeCfs?: number;
+  accessPointId?: string;
+  gaugeStationId?: string;
+  submitterName?: string;
+}
+
+// River visual display types
+export interface RiverVisual {
+  id: string;
+  imageUrl: string;
+  description: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  accessPointId: string | null;
+  accessPointName: string | null;
+  gaugeStationId: string | null;
+  submitterName: string | null;
+  conditionCode: ConditionCode;
+  createdAt: string;
+}
+
+export interface RiverVisualsResponse {
+  visuals: RiverVisual[];
+  currentCondition: ConditionCode;
+  currentGaugeHeightFt: number | null;
+  currentDischargeCfs: number | null;
 }
 
 // Nearby service directory types (replaces old ShuttleService)

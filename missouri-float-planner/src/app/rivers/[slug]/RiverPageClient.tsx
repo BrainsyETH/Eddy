@@ -11,6 +11,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import NearbyServices from '@/components/river/NearbyServices';
+import RiverVisualGallery from '@/components/river/RiverVisualGallery';
+import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
 import { ShareableCapture } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
@@ -27,6 +29,7 @@ import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import { usePOIs } from '@/hooks/usePOIs';
 import { useWeather } from '@/hooks/useWeather';
 import type { AccessPoint, FeedbackContext } from '@/types/api';
+import { Camera } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
 
 // Dynamic imports for map
@@ -62,6 +65,9 @@ export default function RiverPage() {
   // Feedback modal state
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
+
+  // River visual submit form state
+  const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(false);
 
   // Data fetching
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
@@ -627,6 +633,35 @@ export default function RiverPage() {
 
       {/* ─── Info sections (below fold, full width) ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+        {/* River Visuals Gallery + Submit */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <RiverVisualGallery
+            riverSlug={slug}
+            accessPointId={selectedPutIn}
+          />
+          {showVisualSubmitForm ? (
+            <RiverVisualSubmitForm
+              riverId={river.id}
+              riverSlug={slug}
+              accessPoints={accessPoints}
+              currentGaugeHeightFt={condition?.gaugeHeightFt ?? null}
+              currentDischargeCfs={condition?.dischargeCfs ?? null}
+              currentConditionCode={condition?.code ?? 'unknown'}
+              gaugeStationId={conditionData?.gauges?.find(g => g.isPrimary)?.id}
+              onSubmitted={() => setShowVisualSubmitForm(false)}
+              onClose={() => setShowVisualSubmitForm(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setShowVisualSubmitForm(true)}
+              className="flex items-center justify-center gap-2 h-12 bg-white border border-neutral-200 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition-colors self-start"
+            >
+              <Camera className="w-4 h-4" />
+              Submit a River Photo
+            </button>
+          )}
+        </div>
+
         <NearbyServices riverSlug={slug} defaultOpen={false} />
       </div>
 

@@ -39,8 +39,14 @@ export async function GET(request: NextRequest) {
         verified_at,
         created_at,
         updated_at,
+        gauge_height_ft,
+        discharge_cfs,
+        access_point_id,
+        gauge_station_id,
+        submitter_name,
         rivers(id, name, slug),
-        river_hazards(id, name)
+        river_hazards(id, name),
+        access_points(id, name)
       `, { count: 'exact' })
       .order('status', { ascending: true })
       .order('created_at', { ascending: false })
@@ -61,6 +67,9 @@ export async function GET(request: NextRequest) {
       const hazardData = report.river_hazards as any;
       const coords = getCoordinates(report.coordinates);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accessPointData = report.access_points as any;
+
       return {
         id: report.id,
         userId: report.user_id,
@@ -79,6 +88,12 @@ export async function GET(request: NextRequest) {
         verifiedAt: report.verified_at,
         createdAt: report.created_at,
         updatedAt: report.updated_at,
+        gaugeHeightFt: report.gauge_height_ft ? parseFloat(report.gauge_height_ft) : null,
+        dischargeCfs: report.discharge_cfs ? parseFloat(report.discharge_cfs) : null,
+        accessPointId: report.access_point_id,
+        accessPointName: accessPointData?.name || null,
+        gaugeStationId: report.gauge_station_id,
+        submitterName: report.submitter_name,
       };
     });
 
