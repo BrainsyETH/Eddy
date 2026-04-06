@@ -8,11 +8,97 @@ import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/li
 import { FacebookAdapter } from '@/lib/social/facebook-adapter';
 import { InstagramAdapter } from '@/lib/social/instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
-import type { PlatformAdapter, SocialPlatform } from '@/lib/social/types';
+import type { PlatformAdapter, SocialPlatform, ScheduledPost } from '@/lib/social/types';
+import { renderSocialVideo, getCompositionForPost } from '@/lib/social/video-renderer';
 
 export const dynamic = 'force-dynamic';
 
 const LOG_PREFIX = '[SocialCron]';
+
+/**
+ * Build the data object needed for video rendering from a scheduled post.
+ * Queries eddy_updates and river_gauges for the required fields.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function buildRenderData(post: ScheduledPost, supabase: any) {
+  if (post.postType === 'daily_digest') {
+    // Fetch all current eddy updates for digest
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false });
+
+    // Deduplicate by river
+    const seen = new Set<string>();
+    const rivers = (updates || [])
+      .filter((u: { river_slug: string }) => {
+        if (seen.has(u.river_slug)) return false;
+        seen.add(u.river_slug);
+        return true;
+      })
+      .map((u: { river_slug: string; condition_code: string; gauge_height_ft: number | null }) => ({
+        riverName: u.river_slug
+          .split('-')
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' '),
+        conditionCode: u.condition_code,
+        gaugeHeightFt: u.gauge_height_ft,
+      }));
+
+    return {
+      rivers,
+      dateLabel: new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    };
+  }
+
+  // River highlight — fetch the specific update
+  if (post.eddyUpdateId) {
+    const { data: update } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .eq('id', post.eddyUpdateId)
+      .single();
+
+    if (update) {
+      // Try to get optimal range from river_gauges
+      let optimalMin = 1.5;
+      let optimalMax = 4.0;
+      const { data: gauge } = await supabase
+        .from('river_gauges')
+        .select('level_optimal_min, level_optimal_max')
+        .eq('river_id', update.river_slug)
+        .eq('is_primary', true)
+        .maybeSingle();
+
+      if (gauge) {
+        optimalMin = gauge.level_optimal_min ?? optimalMin;
+        optimalMax = gauge.level_optimal_max ?? optimalMax;
+      }
+
+      return {
+        riverName: update.river_slug
+          .split('-')
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' '),
+        conditionCode: update.condition_code,
+        gaugeHeightFt: update.gauge_height_ft,
+        optimalMin,
+        optimalMax,
+        quoteText: update.quote_text,
+        summaryText: update.summary_text,
+      };
+    }
+  }
+
+  return {};
+}
 
 function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
   if (platform === 'facebook' && hasMetaCredentials()) {
@@ -108,6 +194,8 @@ async function runSocialPosting(request: NextRequest) {
           river_slug: post.riverSlug,
           caption: post.caption,
           image_url: post.imageUrl,
+          video_url: post.videoUrl || null,
+          media_type: post.mediaType || 'image',
           hashtags: post.hashtags,
           eddy_update_id: post.eddyUpdateId,
           status: 'publishing',
@@ -122,9 +210,39 @@ async function runSocialPosting(request: NextRequest) {
       }
 
       try {
+        // Render video if this is a video post
+        let videoUrl: string | undefined;
+        if (post.mediaType === 'video') {
+          try {
+            console.log(`${LOG_PREFIX} Rendering video for ${post.postType}/${post.platform}/${post.riverSlug || 'digest'}`);
+            const renderData = await buildRenderData(post, supabase);
+            const { compositionId, inputProps, outputFilename } = getCompositionForPost(
+              post.postType as 'daily_digest' | 'river_highlight' | 'branded_loop',
+              renderData,
+              post.platform
+            );
+            const renderResult = await renderSocialVideo({ compositionId, inputProps, outputFilename });
+            videoUrl = renderResult.videoUrl;
+
+            // Update the DB record with the video URL
+            await supabase
+              .from('social_posts')
+              .update({ video_url: videoUrl, updated_at: new Date().toISOString() })
+              .eq('id', record.id);
+
+            console.log(`${LOG_PREFIX} Video rendered: ${videoUrl} (${renderResult.durationSeconds.toFixed(1)}s)`);
+          } catch (renderErr) {
+            const renderMsg = renderErr instanceof Error ? renderErr.message : 'Video render failed';
+            console.error(`${LOG_PREFIX} Video render failed, falling back to image:`, renderMsg);
+            // Fall back to image posting
+          }
+        }
+
         const result = await adapter.publishPost({
           caption: post.caption,
           imageUrl: post.imageUrl,
+          videoUrl,
+          mediaType: videoUrl ? 'video' : 'image',
         });
 
         if (result.success) {
@@ -204,6 +322,8 @@ async function runSocialPosting(request: NextRequest) {
         const result = await adapter.publishPost({
           caption: fullPost.caption,
           imageUrl: fullPost.image_url,
+          videoUrl: fullPost.video_url || undefined,
+          mediaType: fullPost.media_type || 'image',
         });
 
         if (result.success) {

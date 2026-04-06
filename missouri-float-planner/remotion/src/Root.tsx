@@ -13,6 +13,10 @@ import { AskEddyScene } from "./compositions/scenes/09-AskEddy";
 import { OutroScene } from "./compositions/scenes/10-Outro";
 import { scenes, reelScenes, getSceneFrames, getTotalFrames, getReelTotalFrames, FPS } from "./lib/voiceover";
 import { ReelFull } from "./compositions/ReelFull";
+import { GaugeAnimation } from "./compositions/social/GaugeAnimation";
+import { DigestReel, getDigestDuration } from "./compositions/social/DigestReel";
+import { BrandedLoop } from "./compositions/social/BrandedLoop";
+import type { GaugeAnimationProps, DigestReelProps, BrandedLoopProps } from "./lib/social-props";
 
 import "./style.css";
 
@@ -272,6 +276,111 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={{ format: "portrait" as const }}
+      />
+
+      {/* ============================================
+          SOCIAL VIDEO COMPOSITIONS
+          ============================================ */}
+
+      {/* Gauge Animation — single river highlight (1080x1080 square) */}
+      <Composition
+        id="social-gauge"
+        component={GaugeAnimation}
+        durationInFrames={240}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          riverName: "Current River",
+          conditionCode: "flowing",
+          gaugeHeightFt: 3.2,
+          optimalMin: 2.0,
+          optimalMax: 4.5,
+          quoteText: "The Current is running clear and steady today — perfect for a lazy float from Akers to Pulltite.",
+          format: "square",
+        } satisfies GaugeAnimationProps}
+      />
+
+      {/* Gauge Animation — portrait for Instagram Stories */}
+      <Composition
+        id="social-gauge-portrait"
+        component={GaugeAnimation}
+        durationInFrames={240}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          riverName: "Current River",
+          conditionCode: "flowing",
+          gaugeHeightFt: 3.2,
+          optimalMin: 2.0,
+          optimalMax: 4.5,
+          quoteText: "The Current is running clear and steady today — perfect for a lazy float from Akers to Pulltite.",
+          format: "portrait",
+        } satisfies GaugeAnimationProps}
+      />
+
+      {/* Digest Reel — all rivers daily report (1080x1080 square) */}
+      <Composition
+        id="social-digest"
+        component={DigestReel}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        calculateMetadata={async ({ props }: { props: DigestReelProps }) => ({
+          durationInFrames: getDigestDuration(props.rivers.length),
+        })}
+        defaultProps={{
+          rivers: [
+            { riverName: "Current River", conditionCode: "flowing", gaugeHeightFt: 3.2 },
+            { riverName: "Jacks Fork", conditionCode: "good", gaugeHeightFt: 2.8 },
+            { riverName: "Meramec River", conditionCode: "low", gaugeHeightFt: 1.4 },
+            { riverName: "Huzzah Creek", conditionCode: "good", gaugeHeightFt: 2.1 },
+            { riverName: "Courtois Creek", conditionCode: "too_low", gaugeHeightFt: 0.8 },
+          ],
+          dateLabel: "April 6, 2026",
+          format: "square",
+        } satisfies DigestReelProps}
+      />
+
+      {/* Digest Reel — portrait for Instagram Stories */}
+      <Composition
+        id="social-digest-portrait"
+        component={DigestReel}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={async ({ props }: { props: DigestReelProps }) => ({
+          durationInFrames: getDigestDuration(props.rivers.length),
+        })}
+        defaultProps={{
+          rivers: [
+            { riverName: "Current River", conditionCode: "flowing", gaugeHeightFt: 3.2 },
+            { riverName: "Jacks Fork", conditionCode: "good", gaugeHeightFt: 2.8 },
+            { riverName: "Meramec River", conditionCode: "low", gaugeHeightFt: 1.4 },
+            { riverName: "Huzzah Creek", conditionCode: "good", gaugeHeightFt: 2.1 },
+            { riverName: "Courtois Creek", conditionCode: "too_low", gaugeHeightFt: 0.8 },
+          ],
+          dateLabel: "April 6, 2026",
+          format: "portrait",
+        } satisfies DigestReelProps}
+      />
+
+      {/* Branded Loop — simple eye-catcher (1080x1080, loops) */}
+      <Composition
+        id="social-branded-loop"
+        component={BrandedLoop}
+        durationInFrames={120}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          riverName: "Current River",
+          conditionCode: "flowing",
+          summaryText: "Clear skies and perfect levels. Get on the water today!",
+        } satisfies BrandedLoopProps}
       />
     </>
   );
