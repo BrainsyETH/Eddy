@@ -3,12 +3,11 @@
 // Each handler returns a JSON-serializable result that gets sent back to Claude.
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
-import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { fetchWeather, fetchForecast, getCityForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime } from '@/lib/calculations/floatTime';
+import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 // Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
 
 // Slug map: user-facing names → DB slugs
@@ -57,6 +56,8 @@ export async function executeToolCall(
       return handleGetWeather(toolInput);
     case 'get_nearby_services':
       return handleGetNearbyServices(toolInput);
+    case 'get_eddy_report':
+      return handleGetEddyReport(toolInput);
     case 'web_search':
       return handleWebSearch(toolInput);
     default:
@@ -68,89 +69,11 @@ export async function executeToolCall(
 
 async function handleGetRiverConditions(input: Record<string, unknown>) {
   const riverSlug = normalizeSlug(input.river_slug as string);
-  const supabase = createAdminClient();
 
-  // Get river
-  const { data: river } = await supabase
-    .from('rivers')
-    .select('id, name, slug')
-    .eq('slug', riverSlug)
-    .single();
-
-  if (!river) {
-    return { error: `River not found: ${riverSlug}. Available rivers: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade, niangua` };
+  const gauge = await getGaugeConditions(riverSlug);
+  if (!gauge) {
+    return { error: `River or gauge not found: ${riverSlug}. Available rivers: huzzah, courtois, current, jacks-fork, eleven-point, meramec, big-piney, gasconade, niangua` };
   }
-
-  // Get primary gauge with thresholds
-  const { data: gaugeLink } = await supabase
-    .from('river_gauges')
-    .select(`
-      level_too_low, level_low, level_optimal_min, level_optimal_max,
-      level_high, level_dangerous, threshold_unit,
-      gauge_stations (id, name, usgs_site_id)
-    `)
-    .eq('river_id', river.id)
-    .eq('is_primary', true)
-    .single();
-
-  if (!gaugeLink) {
-    return { error: `No gauge configured for ${river.name}` };
-  }
-
-  const station = Array.isArray(gaugeLink.gauge_stations)
-    ? gaugeLink.gauge_stations[0]
-    : gaugeLink.gauge_stations;
-
-  if (!station?.usgs_site_id) {
-    return { error: `Gauge station missing USGS ID for ${river.name}` };
-  }
-
-  // Try DB reading first, fall back to live USGS
-  const { data: dbReading } = await supabase
-    .from('gauge_readings')
-    .select('gauge_height_ft, discharge_cfs, reading_timestamp')
-    .eq('gauge_station_id', station.id)
-    .order('reading_timestamp', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  let gaugeHeightFt = dbReading?.gauge_height_ft ?? null;
-  let dischargeCfs = dbReading?.discharge_cfs ?? null;
-  let readingTimestamp = dbReading?.reading_timestamp ?? null;
-
-  // If stale (>2h), fetch live from USGS
-  const ageMs = readingTimestamp ? Date.now() - new Date(readingTimestamp).getTime() : Infinity;
-  if (ageMs > 2 * 60 * 60 * 1000) {
-    try {
-      const liveReadings = await fetchGaugeReadings([station.usgs_site_id], { skipCache: true });
-      const live = liveReadings[0];
-      if (live) {
-        if (live.gaugeHeightFt !== null && live.gaugeHeightFt !== undefined) gaugeHeightFt = live.gaugeHeightFt;
-        if (live.dischargeCfs !== null && live.dischargeCfs !== undefined) dischargeCfs = live.dischargeCfs;
-        if (live.readingTimestamp) readingTimestamp = live.readingTimestamp;
-      }
-    } catch (e) {
-      console.warn(`[ChatTool] Live USGS fetch failed for ${station.usgs_site_id}:`, e);
-    }
-  }
-
-  // Compute condition
-  const thresholds: ConditionThresholds = {
-    levelTooLow: gaugeLink.level_too_low,
-    levelLow: gaugeLink.level_low,
-    levelOptimalMin: gaugeLink.level_optimal_min,
-    levelOptimalMax: gaugeLink.level_optimal_max,
-    levelHigh: gaugeLink.level_high,
-    levelDangerous: gaugeLink.level_dangerous,
-    thresholdUnit: (gaugeLink as Record<string, unknown>).threshold_unit as 'ft' | 'cfs' | undefined,
-  };
-  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
-
-  // Build optimal range string
-  const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
-  const optimalRange = (gaugeLink.level_optimal_min != null && gaugeLink.level_optimal_max != null)
-    ? `${gaugeLink.level_optimal_min}-${gaugeLink.level_optimal_max} ${unit}`
-    : 'unknown';
 
   // Get trend via gauge trajectory
   let trend: string | null = null;
@@ -169,19 +92,19 @@ async function handleGetRiverConditions(input: Record<string, unknown>) {
   }
 
   return {
-    riverName: river.name,
-    riverSlug: river.slug,
-    gaugeName: station.name || 'Unknown gauge',
-    gaugeHeightFt,
-    dischargeCfs,
-    conditionCode: condition.code,
-    conditionLabel: condition.label,
-    optimalRange,
+    riverName: gauge.riverName,
+    riverSlug: gauge.riverSlug,
+    gaugeName: gauge.gaugeName,
+    gaugeHeightFt: gauge.gaugeHeightFt,
+    dischargeCfs: gauge.dischargeCfs,
+    conditionCode: gauge.conditionCode,
+    conditionLabel: gauge.conditionLabel,
+    optimalRange: gauge.optimalRange,
     trend,
     trendDetail,
-    readingTimestamp,
-    riverUrl: `/rivers/${river.slug}`,
-    usgsUrl: `https://waterdata.usgs.gov/monitoring-location/${station.usgs_site_id}/`,
+    readingTimestamp: gauge.readingTimestamp,
+    riverUrl: `/rivers/${gauge.riverSlug}`,
+    usgsUrl: `https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`,
   };
 }
 
@@ -311,12 +234,16 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   const segData = segment[0];
   const distanceMiles = segData.distance_miles != null ? parseFloat(segData.distance_miles) : 0;
 
-  // Calculate float time using default canoe speeds
+  // Fetch actual condition for this river to calculate accurate float time
+  const gauge = await getGaugeConditions(riverSlug);
+  const currentCondition = gauge?.conditionCode ?? 'flowing';
+
+  // Calculate float time using default canoe speeds and actual condition
   const floatTime = calculateFloatTime(distanceMiles, {
     speedLowWater: 2.0,
     speedNormal: 2.5,
     speedHighWater: 3.5,
-  }, 'flowing');
+  }, currentCondition);
 
   const estimatedHours = floatTime
     ? { low: Math.round((floatTime.minutes * 0.8) / 6) / 10, high: Math.round((floatTime.minutes * 1.3) / 6) / 10 }
@@ -581,7 +508,45 @@ async function handleGetNearbyServices(input: Record<string, unknown>) {
   };
 }
 
-// ─── Tool 7: web_search ──────────────────────────────────────────────────────
+// ─── Tool 7: get_eddy_report ────────────────────────────────────────────────
+
+async function handleGetEddyReport(input: Record<string, unknown>) {
+  const riverSlug = normalizeSlug(input.river_slug as string);
+  const supabase = createAdminClient();
+
+  // Fetch most recent non-expired update for this river (whole-river)
+  const { data: update } = await supabase
+    .from('eddy_updates')
+    .select('river_slug, condition_code, gauge_height_ft, discharge_cfs, quote_text, summary_text, sources_used, generated_at, expires_at')
+    .eq('river_slug', riverSlug)
+    .is('section_slug', null)
+    .gte('expires_at', new Date().toISOString())
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!update) {
+    return { error: `No current Eddy report available for ${riverSlug}. The report may have expired or not been generated yet.` };
+  }
+
+  const ageMs = Date.now() - new Date(update.generated_at).getTime();
+  const ageHours = Math.round(ageMs / (1000 * 60 * 60) * 10) / 10;
+
+  return {
+    riverSlug: update.river_slug,
+    conditionCode: update.condition_code,
+    gaugeHeightFt: update.gauge_height_ft,
+    dischargeCfs: update.discharge_cfs,
+    summary: update.summary_text,
+    fullReport: update.quote_text,
+    sourcesUsed: update.sources_used,
+    generatedAt: update.generated_at,
+    ageHours,
+    riverUrl: `/rivers/${riverSlug}`,
+  };
+}
+
+// ─── Tool 8: web_search ──────────────────────────────────────────────────────
 
 async function handleWebSearch(input: Record<string, unknown>) {
   const query = input.query as string;

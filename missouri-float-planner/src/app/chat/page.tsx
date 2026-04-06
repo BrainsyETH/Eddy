@@ -1,57 +1,35 @@
-'use client';
-
 // src/app/chat/page.tsx
-// Dedicated chat page for Eddy — full-screen chat experience.
-// Accepts ?river=<slug> URL param to pre-load river context.
+// Chat feature is currently disabled while we optimize the experience.
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import ChatPanel from '@/components/chat/ChatPanel';
+import Link from 'next/link';
 import { EDDY_IMAGES } from '@/constants';
-
-function ChatPageInner() {
-  const searchParams = useSearchParams();
-  const riverSlug = searchParams.get('river') || undefined;
-
-  return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
-      {/* Branded header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 bg-primary-800 border-b border-primary-700">
-        <Image
-          src={EDDY_IMAGES.favicon}
-          alt="Eddy"
-          width={32}
-          height={32}
-          className="w-8 h-8 rounded-full border border-primary-600"
-        />
-        <div>
-          <h1
-            className="text-base font-semibold text-accent-400 leading-tight"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            Eddy
-          </h1>
-          {riverSlug && (
-            <p className="text-[11px] text-primary-300 leading-tight">
-              {riverSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-            </p>
-          )}
-        </div>
-      </div>
-      <ChatPanel riverSlug={riverSlug} />
-    </div>
-  );
-}
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 56px)' }}>
-        <p className="text-neutral-400">Loading chat...</p>
-      </div>
-    }>
-      <ChatPageInner />
-    </Suspense>
+    <div className="flex flex-col items-center justify-center gap-4 px-4" style={{ height: 'calc(100vh - 56px)' }}>
+      <Image
+        src={EDDY_IMAGES.favicon}
+        alt="Eddy"
+        width={64}
+        height={64}
+        className="w-16 h-16 rounded-full"
+      />
+      <h1
+        className="text-2xl font-bold text-neutral-900"
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
+        Chat Coming Soon
+      </h1>
+      <p className="text-sm text-neutral-500 text-center max-w-sm">
+        Eddy&apos;s chat is getting an upgrade. In the meantime, check river conditions and Eddy&apos;s reports on each river page.
+      </p>
+      <Link
+        href="/rivers"
+        className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-lg transition-colors text-sm no-underline"
+      >
+        Explore Rivers
+      </Link>
+    </div>
   );
 }
