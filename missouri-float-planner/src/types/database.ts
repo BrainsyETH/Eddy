@@ -534,7 +534,7 @@ export interface Database {
           user_id: string | null;
           river_id: string | null;
           hazard_id: string | null;
-          type: 'hazard' | 'water_level' | 'debris';
+          type: 'hazard' | 'water_level' | 'debris' | 'river_visual';
           coordinates: unknown; // PostGIS geometry
           river_mile: number | null;
           image_url: string | null;
@@ -542,6 +542,11 @@ export interface Database {
           status: 'pending' | 'verified' | 'rejected';
           verified_by: string | null;
           verified_at: string | null;
+          gauge_height_ft: number | null;
+          discharge_cfs: number | null;
+          access_point_id: string | null;
+          gauge_station_id: string | null;
+          submitter_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -550,7 +555,7 @@ export interface Database {
           user_id?: string | null;
           river_id?: string | null;
           hazard_id?: string | null;
-          type: 'hazard' | 'water_level' | 'debris';
+          type: 'hazard' | 'water_level' | 'debris' | 'river_visual';
           coordinates: unknown;
           river_mile?: number | null;
           image_url?: string | null;
@@ -558,6 +563,11 @@ export interface Database {
           status?: 'pending' | 'verified' | 'rejected';
           verified_by?: string | null;
           verified_at?: string | null;
+          gauge_height_ft?: number | null;
+          discharge_cfs?: number | null;
+          access_point_id?: string | null;
+          gauge_station_id?: string | null;
+          submitter_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -566,7 +576,7 @@ export interface Database {
           user_id?: string | null;
           river_id?: string | null;
           hazard_id?: string | null;
-          type?: 'hazard' | 'water_level' | 'debris';
+          type?: 'hazard' | 'water_level' | 'debris' | 'river_visual';
           coordinates?: unknown;
           river_mile?: number | null;
           image_url?: string | null;
@@ -574,6 +584,11 @@ export interface Database {
           status?: 'pending' | 'verified' | 'rejected';
           verified_by?: string | null;
           verified_at?: string | null;
+          gauge_height_ft?: number | null;
+          discharge_cfs?: number | null;
+          access_point_id?: string | null;
+          gauge_station_id?: string | null;
+          submitter_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };

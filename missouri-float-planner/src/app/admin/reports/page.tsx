@@ -36,12 +36,18 @@ interface Report {
   status: string;
   verifiedAt: string | null;
   createdAt: string;
+  // River visual fields
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  accessPointName: string | null;
+  submitterName: string | null;
 }
 
 const REPORT_TYPES = [
   { value: 'hazard', label: 'Hazard' },
   { value: 'water_level', label: 'Water Level' },
   { value: 'debris', label: 'Debris' },
+  { value: 'river_visual', label: 'River Visual' },
 ];
 
 const REPORT_STATUSES = [
@@ -71,6 +77,8 @@ function getTypeBadgeClasses(type: string): string {
       return 'bg-blue-500/20 text-blue-400';
     case 'debris':
       return 'bg-amber-500/20 text-amber-400';
+    case 'river_visual':
+      return 'bg-teal-500/20 text-teal-400';
     default:
       return 'bg-neutral-600 text-neutral-400';
   }
@@ -334,6 +342,26 @@ export default function AdminReportsPage() {
                           <LinkIcon className="w-3.5 h-3.5 text-neutral-400" />
                           <span className="text-neutral-400 text-xs">Linked Hazard:</span>
                           <span className="text-white text-sm">{report.hazardName}</span>
+                        </div>
+                      )}
+                      {report.type === 'river_visual' && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm bg-teal-500/10 rounded-lg p-3">
+                          <div>
+                            <span className="text-neutral-400 text-xs">Gauge Height</span>
+                            <p className="text-white">{report.gaugeHeightFt != null ? `${report.gaugeHeightFt} ft` : 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-neutral-400 text-xs">Discharge</span>
+                            <p className="text-white">{report.dischargeCfs != null ? `${report.dischargeCfs} cfs` : 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-neutral-400 text-xs">Access Point</span>
+                            <p className="text-white">{report.accessPointName || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-neutral-400 text-xs">Submitted By</span>
+                            <p className="text-white">{report.submitterName || 'Anonymous'}</p>
+                          </div>
                         </div>
                       )}
                       {report.imageUrl && (
