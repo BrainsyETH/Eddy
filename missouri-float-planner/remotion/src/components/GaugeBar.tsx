@@ -18,6 +18,8 @@ interface GaugeBarProps {
   maxHeight?: number;
   /** Condition accent color */
   conditionColor: string;
+  /** Condition glow color for bloom effect */
+  conditionGlow?: string;
   /** Delay before fill animation starts (in frames) */
   delay?: number;
   /** Bar width */
@@ -26,8 +28,10 @@ interface GaugeBarProps {
   height?: number;
 }
 
+const TICK_MARKS = [0.2, 0.4, 0.6, 0.8];
+
 /**
- * Animated vertical gauge bar with optimal range highlight.
+ * Animated vertical gauge bar with glassmorphism, tick marks, and glow.
  * The fill rises from 0 to the current reading via spring animation.
  */
 export const GaugeBar: React.FC<GaugeBarProps> = ({
@@ -36,6 +40,7 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   optimalMax,
   maxHeight: maxHeightProp,
   conditionColor,
+  conditionGlow = "transparent",
   delay = 30,
   width = 80,
   height = 400,
@@ -43,11 +48,9 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Auto-scale: max is at least 1.3x the current reading or 1.2x optimalMax
   const maxHeight =
     maxHeightProp ?? Math.max(currentHeight * 1.3, optimalMax * 1.2, 5);
 
-  // Spring-animated fill progress (0 → 1)
   const fillProgress = spring({
     frame: frame - delay,
     fps,
@@ -58,7 +61,6 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   const optMinFraction = optimalMin / maxHeight;
   const optMaxFraction = optimalMax / maxHeight;
 
-  // Animated height reading counter
   const displayHeight = interpolate(fillProgress, [0, 1], [0, currentHeight]);
 
   return (
@@ -67,12 +69,29 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         width,
         height,
         position: "relative",
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: "hidden",
-        backgroundColor: "rgba(255,255,255,0.08)",
-        border: "2px solid rgba(255,255,255,0.15)",
+        backgroundColor: "rgba(255,255,255,0.05)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid rgba(255,255,255,0.1)",
       }}
     >
+      {/* Tick marks */}
+      {TICK_MARKS.map((tick) => (
+        <div
+          key={tick}
+          style={{
+            position: "absolute",
+            bottom: `${tick * 100}%`,
+            left: 0,
+            width: 10,
+            height: 1,
+            backgroundColor: "rgba(255,255,255,0.15)",
+          }}
+        />
+      ))}
+
       {/* Optimal range highlight band */}
       <div
         style={{
@@ -80,22 +99,22 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           bottom: `${optMinFraction * 100}%`,
           height: `${(optMaxFraction - optMinFraction) * 100}%`,
           width: "100%",
-          backgroundColor: "rgba(5,150,105,0.2)",
-          borderTop: "1px dashed rgba(5,150,105,0.5)",
-          borderBottom: "1px dashed rgba(5,150,105,0.5)",
+          backgroundColor: "rgba(16,185,129,0.12)",
+          borderTop: "1px dashed rgba(16,185,129,0.4)",
+          borderBottom: "1px dashed rgba(16,185,129,0.4)",
         }}
       />
 
-      {/* Animated fill */}
+      {/* Animated fill with glow */}
       <div
         style={{
           position: "absolute",
           bottom: 0,
           width: "100%",
           height: `${fillFraction * 100}%`,
-          background: `linear-gradient(to top, ${conditionColor}, ${conditionColor}cc)`,
-          borderRadius: "0 0 10px 10px",
-          transition: "none",
+          background: `linear-gradient(to top, ${conditionColor}, ${conditionColor}aa)`,
+          boxShadow: `0 0 20px ${conditionGlow}, inset 0 0 10px ${conditionGlow}`,
+          borderRadius: "0 0 12px 12px",
         }}
       />
 
@@ -108,13 +127,14 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           transform: "translate(-50%, 50%)",
           backgroundColor: conditionColor,
           color: "#fff",
-          padding: "4px 10px",
+          padding: "4px 12px",
           borderRadius: 8,
-          fontFamily: "'Fredoka', system-ui, sans-serif",
+          fontFamily: "'Geist Mono', 'SF Mono', monospace",
           fontSize: 18,
           fontWeight: 600,
           whiteSpace: "nowrap",
           opacity: fillProgress,
+          boxShadow: `0 0 12px ${conditionGlow}`,
         }}
       >
         {displayHeight.toFixed(1)} ft
@@ -127,11 +147,12 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           right: -4,
           bottom: `${((optMinFraction + optMaxFraction) / 2) * 100}%`,
           transform: "translateX(100%) translateY(50%)",
-          color: "rgba(255,255,255,0.6)",
+          color: "rgba(255,255,255,0.5)",
           fontSize: 11,
           fontFamily: "'Geist Sans', system-ui, sans-serif",
           whiteSpace: "nowrap",
           paddingLeft: 8,
+          letterSpacing: 0.5,
         }}
       >
         optimal

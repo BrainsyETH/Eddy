@@ -18,7 +18,7 @@ import {
 import { colors } from "../../design-tokens/colors";
 
 /**
- * Single-river gauge highlight animation.
+ * Single-river gauge highlight animation with glassmorphism and glow.
  * 8 seconds (240 frames @ 30fps). 1080x1080 or 1080x1920.
  *
  * Timeline:
@@ -45,20 +45,13 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
 
   // ─── Animations ──────────────────────────────────────────
 
-  // Background fade
   const bgOpacity = interpolate(frame, [0, 20], [0, 1], {
     extrapolateRight: "clamp",
   });
 
-  // River name entrance
-  const nameEntrance = spring({
-    frame,
-    fps,
-    config: ENTRANCE,
-  });
+  const nameEntrance = spring({ frame, fps, config: ENTRANCE });
   const nameY = interpolate(nameEntrance, [0, 1], [40, 0]);
 
-  // Condition badge
   const badgeEntrance = spring({
     frame: frame - 90,
     fps,
@@ -66,7 +59,6 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   });
   const badgeX = interpolate(badgeEntrance, [0, 1], [60, 0]);
 
-  // Quote typewriter
   const typewriterProgress = interpolate(frame, [130, 220], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -74,11 +66,13 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const visibleChars = Math.floor(typewriterProgress * quoteText.length);
   const displayQuote = quoteText.slice(0, visibleChars);
 
-  // Watermark fade
   const watermarkOpacity = interpolate(frame, [220, 240], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  // Ambient glow pulse
+  const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
 
   return (
     <AbsoluteFill
@@ -88,6 +82,21 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         fontFamily: "'Geist Sans', system-ui, sans-serif",
       }}
     >
+      {/* Ambient condition glow */}
+      <div
+        style={{
+          position: "absolute",
+          top: "30%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: isPortrait ? 600 : 500,
+          height: isPortrait ? 600 : 500,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${condition.glow} 0%, transparent 70%)`,
+          opacity: glowPulse * 0.5,
+        }}
+      />
+
       {/* Accent gradient bar at bottom */}
       <div
         style={{
@@ -97,6 +106,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           right: 0,
           height: 6,
           background: `linear-gradient(to right, ${condition.solid}, ${condition.solid}88)`,
+          boxShadow: `0 0 20px ${condition.glow}`,
         }}
       />
 
@@ -106,7 +116,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: isPortrait ? "center" : "center",
+          justifyContent: "center",
           height: "100%",
           padding: isPortrait ? "80px 48px" : "48px",
           gap: isPortrait ? 40 : 24,
@@ -122,6 +132,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             fontWeight: 600,
             color: "#fff",
             textAlign: "center",
+            textShadow: `0 0 30px ${condition.glow}`,
           }}
         >
           {riverName}
@@ -142,6 +153,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             optimalMin={optimalMin}
             optimalMax={optimalMax}
             conditionColor={condition.solid}
+            conditionGlow={condition.glow}
             delay={30}
             width={isPortrait ? 90 : 80}
             height={isPortrait ? 480 : 340}
@@ -166,9 +178,12 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             alignItems: "center",
             gap: 10,
             backgroundColor: condition.bg,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             padding: "10px 24px",
             borderRadius: 999,
-            border: `2px solid ${condition.solid}`,
+            border: `1.5px solid ${condition.solid}`,
+            boxShadow: `0 0 16px ${condition.glow}`,
           }}
         >
           <div
@@ -177,6 +192,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               height: 12,
               borderRadius: "50%",
               backgroundColor: condition.solid,
+              boxShadow: `0 0 8px ${condition.solid}`,
             }}
           />
           <span
