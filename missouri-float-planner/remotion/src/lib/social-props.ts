@@ -111,6 +111,7 @@ export interface DigestReelProps {
     gaugeHeightFt: number | null;
   }>;
   dateLabel: string;
+  globalQuote?: string;
   format: "square" | "portrait";
 }
 
