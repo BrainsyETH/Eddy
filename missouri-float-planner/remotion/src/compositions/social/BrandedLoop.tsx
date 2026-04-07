@@ -54,13 +54,6 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
   });
   const textY = interpolate(textEntrance, [0, 1], [30, 0]);
 
-  const musicVolume = interpolate(
-    frame,
-    [0, 15, durationInFrames - 15, durationInFrames],
-    [0, 0.10, 0.10, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
   // BrandedLoop is 1080x1080 square — use smaller safe margins
   const isSquare = true;
 
@@ -71,7 +64,15 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
         fontFamily: "'Geist Sans', system-ui, sans-serif",
       }}
     >
-      <Audio src={staticFile("audio/background-music.mp3")} volume={musicVolume} />
+      <Audio
+        src={staticFile("audio/background-music.mp3")}
+        volume={(f) =>
+          interpolate(f, [0, 15, durationInFrames - 15, durationInFrames], [0, 0.5, 0.5, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        }
+      />
 
       {/* Radial glow */}
       <div

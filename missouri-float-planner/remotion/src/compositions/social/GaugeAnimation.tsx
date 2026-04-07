@@ -19,27 +19,22 @@ import {
 } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
 
-// Reel-safe content zones (1080x1920 portrait)
-const SAFE = {
-  top: 100,
-  bottom: 270,
-  right: 80,
-  left: 20,
-};
+const FPS = 30;
 
 /**
- * Single-river gauge highlight animation with glassmorphism and glow.
+ * Single-river gauge highlight animation.
  * 12 seconds (360 frames @ 30fps). 1080x1920 portrait.
  *
  * Timeline:
- *   0-30:    Background fade + river name entrance
- *  30-120:   Gauge bar fills to current reading
- *  90-140:   Condition badge slides in
- * 100-160:   Eddy otter bounces in
- * 140-200:   Quote typewriter (2 seconds to type)
- * 200-320:   Quote fully visible (4 seconds to read)
- * 300-340:   "Full report below" CTA fades in
- * 340-360:   Hold CTA + watermark
+ *   0-20:    Background fade in
+ *   0-30:    River name entrance
+ *  30-120:   Gauge bar fills
+ *  90-130:   Condition badge slides in
+ * 100-150:   Eddy bounces in
+ * 140-200:   Quote typewriter (2s)
+ * 200-310:   Quote visible (3.7s reading time)
+ * 290-330:   "Full report below ▼" CTA fades in
+ * 330-360:   Hold everything
  */
 export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   riverName,
@@ -64,110 +59,93 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const nameEntrance = spring({ frame, fps, config: ENTRANCE });
   const nameY = interpolate(nameEntrance, [0, 1], [40, 0]);
 
-  const badgeEntrance = spring({
-    frame: frame - 90,
-    fps,
-    config: SNAPPY,
-  });
+  const badgeEntrance = spring({ frame: frame - 90, fps, config: SNAPPY });
   const badgeX = interpolate(badgeEntrance, [0, 1], [60, 0]);
 
-  // Quote: 2s to type (frames 140-200), 4s visible (200-320)
+  // Quote: 2s to type, visible until end
   const typewriterProgress = interpolate(frame, [140, 200], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const visibleChars = Math.floor(typewriterProgress * quoteText.length);
   const displayQuote = quoteText.slice(0, visibleChars);
-
-  // Quote stays fully visible until near the end
-  const quoteOpacity = interpolate(frame, [140, 155, 330, 350], [0, 1, 1, 0.6], {
+  const quoteOpacity = interpolate(frame, [140, 155, 350, 360], [0, 1, 1, 0.8], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // "Full report below ▼" CTA (fades in at frame 300)
+  // "Full report below ▼" CTA
   const ctaEntrance = spring({
-    frame: frame - 300,
+    frame: frame - 290,
     fps,
     config: { damping: 12, mass: 0.5, stiffness: 100 },
   });
-  // Bouncing arrow
-  const arrowBounce = frame > 300
-    ? Math.sin((frame - 300) / 8) * 4
-    : 0;
+  const arrowBounce = frame > 290 ? Math.sin((frame - 290) / 8) * 4 : 0;
 
-  // Watermark
-  const watermarkOpacity = interpolate(frame, [300, 320], [0, 1], {
+  const watermarkOpacity = interpolate(frame, [290, 310], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Ambient glow pulse
   const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
 
-  // Background music volume
-  const musicVolume = interpolate(
-    frame,
-    [0, 15, durationInFrames - 30, durationInFrames],
-    [0, 0.12, 0.12, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
   return (
-    <AbsoluteFill
-      style={{
-        opacity: bgOpacity,
-        backgroundColor: colors.primary[900],
-        fontFamily: "'Geist Sans', system-ui, sans-serif",
-      }}
-    >
-      {/* Background music */}
+    <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
+      {/* Background music — volume as callback for Remotion CLI compatibility */}
       <Audio
         src={staticFile("audio/background-music.mp3")}
-        volume={musicVolume}
+        volume={(f) =>
+          interpolate(f, [0, FPS, durationInFrames - FPS, durationInFrames], [0, 0.5, 0.5, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        }
       />
 
-      {/* Ambient condition glow */}
+      {/* Fade-in overlay */}
+      <AbsoluteFill style={{ opacity: bgOpacity }}>
+        {/* Ambient condition glow */}
+        <div
+          style={{
+            position: "absolute",
+            top: "25%",
+            left: "40%",
+            transform: "translate(-50%, -50%)",
+            width: 600,
+            height: 600,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${condition.glow} 0%, transparent 70%)`,
+            opacity: glowPulse * 0.5,
+          }}
+        />
+
+        {/* Accent bar at bottom */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(to right, ${condition.solid}, ${condition.solid}88)`,
+            boxShadow: `0 0 20px ${condition.glow}`,
+          }}
+        />
+      </AbsoluteFill>
+
+      {/* Content — centered in safe zone */}
       <div
         style={{
           position: "absolute",
-          top: "25%",
-          left: "40%",
-          transform: "translate(-50%, -50%)",
-          width: 600,
-          height: 600,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${condition.glow} 0%, transparent 70%)`,
-          opacity: glowPulse * 0.5,
-        }}
-      />
-
-      {/* Accent gradient bar at bottom (full bleed) */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 6,
-          background: `linear-gradient(to right, ${condition.solid}, ${condition.solid}88)`,
-          boxShadow: `0 0 20px ${condition.glow}`,
-        }}
-      />
-
-      {/* Safe zone content container */}
-      <div
-        style={{
-          position: "absolute",
-          top: isPortrait ? SAFE.top : 48,
-          bottom: isPortrait ? SAFE.bottom : 48,
-          left: isPortrait ? SAFE.left : 48,
-          right: isPortrait ? SAFE.right : 48,
+          top: isPortrait ? 200 : 48,
+          bottom: isPortrait ? 200 : 48,
+          left: isPortrait ? 20 : 48,
+          right: isPortrait ? 80 : 48,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: isPortrait ? 36 : 24,
+          gap: isPortrait ? 28 : 20,
         }}
       >
         {/* River Name */}
@@ -191,7 +169,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           style={{
             display: "flex",
             alignItems: "flex-end",
-            gap: isPortrait ? 40 : 36,
+            gap: isPortrait ? 36 : 32,
             justifyContent: "center",
           }}
         >
@@ -203,13 +181,12 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             conditionGlow={condition.glow}
             delay={30}
             width={isPortrait ? 100 : 85}
-            height={isPortrait ? 480 : 340}
+            height={isPortrait ? 420 : 300}
           />
-
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 12 }}>
             <EddyMascot
               variant={getOtterVariant(conditionCode)}
-              size={isPortrait ? 240 : 180}
+              size={isPortrait ? 220 : 170}
               delay={100}
             />
           </div>
@@ -253,18 +230,17 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </span>
         </div>
 
-        {/* Quote (teaser — full quote is in the caption) */}
+        {/* Quote teaser */}
         <div
           style={{
-            maxWidth: isPortrait ? 900 : 800,
+            maxWidth: isPortrait ? 920 : 800,
             textAlign: "center",
-            minHeight: isPortrait ? 100 : 70,
             opacity: quoteOpacity,
           }}
         >
           <span
             style={{
-              fontSize: isPortrait ? 30 : 24,
+              fontSize: isPortrait ? 32 : 24,
               color: "rgba(255,255,255,0.9)",
               lineHeight: 1.5,
               fontStyle: "italic",
@@ -281,25 +257,24 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 4,
+            gap: 6,
           }}
         >
           <span
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 22,
+              fontSize: 24,
               color: condition.solid,
               letterSpacing: 0.5,
-              opacity: 0.8,
             }}
           >
             Full report below
           </span>
           <span
             style={{
-              fontSize: 26,
+              fontSize: 28,
               color: condition.solid,
-              opacity: 0.6,
+              opacity: 0.7,
               transform: `translateY(${arrowBounce}px)`,
             }}
           >

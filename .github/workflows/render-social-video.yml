@@ -61,6 +61,14 @@ jobs:
           printf '%s' "$INPUT_PROPS_JSON" > /tmp/input-props.json
           echo "Props written ($(wc -c < /tmp/input-props.json) bytes)"
 
+      - name: Verify audio file exists
+        working-directory: missouri-float-planner/remotion
+        run: |
+          echo "=== Checking public/audio/ ==="
+          ls -la public/audio/
+          file public/audio/background-music.mp3
+          echo "=== Audio file confirmed ==="
+
       - name: Render video
         working-directory: missouri-float-planner/remotion
         run: |
@@ -71,6 +79,8 @@ jobs:
             --props=/tmp/input-props.json \
             --codec=h264 \
             --audio-codec=aac \
+            --enforce-audio-track \
+            --disable-parallel-encoding \
             --crf=18 \
             --log=verbose \
             --public-dir=./public \

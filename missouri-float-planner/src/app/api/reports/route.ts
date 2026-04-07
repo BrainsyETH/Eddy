@@ -69,46 +69,63 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Build the insert payload
-    const insertData: Record<string, unknown> = {
+    // Build the base insert payload (without coordinates — added below)
+    const baseData: Record<string, unknown> = {
       river_id: riverId,
       type,
-      coordinates: `SRID=4326;POINT(${longitude} ${latitude})`,
       image_url: imageUrl || null,
       description: description.trim(),
       status: 'pending',
     };
 
-    if (hazardId) insertData.hazard_id = hazardId;
-    if (submitterName) insertData.submitter_name = submitterName.trim();
+    if (hazardId) baseData.hazard_id = hazardId;
+    if (submitterName) baseData.submitter_name = submitterName.trim();
 
     // River visual specific fields
     if (type === 'river_visual') {
-      if (gaugeHeightFt != null) insertData.gauge_height_ft = gaugeHeightFt;
-      if (dischargeCfs != null) insertData.discharge_cfs = dischargeCfs;
-      if (accessPointId) insertData.access_point_id = accessPointId;
-      if (gaugeStationId) insertData.gauge_station_id = gaugeStationId;
+      if (gaugeHeightFt != null) baseData.gauge_height_ft = gaugeHeightFt;
+      if (dischargeCfs != null) baseData.discharge_cfs = dischargeCfs;
+      if (accessPointId) baseData.access_point_id = accessPointId;
+      if (gaugeStationId) baseData.gauge_station_id = gaugeStationId;
     }
 
-    const { data, error } = await supabase
-      .from('community_reports')
-      .insert(insertData)
-      .select('id')
-      .single();
+    // Try inserting with different geometry formats
+    // PostgREST geometry parsing varies by version — try EWKT first, then WKT
+    const geometryFormats = [
+      `SRID=4326;POINT(${longitude} ${latitude})`,
+      `POINT(${longitude} ${latitude})`,
+    ];
 
-    if (error) {
-      console.error('Error creating report:', error);
-      return NextResponse.json(
-        { error: 'Failed to submit report' },
-        { status: 500 }
-      );
+    let lastError: { message: string; details?: string; code?: string } | null = null;
+
+    for (const geomValue of geometryFormats) {
+      const { data, error } = await supabase
+        .from('community_reports')
+        .insert({ ...baseData, coordinates: geomValue })
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        return NextResponse.json({
+          success: true,
+          id: data.id,
+          message: 'Report submitted successfully. It will be reviewed by an admin before appearing publicly.',
+        });
+      }
+
+      lastError = error;
+
+      // Only retry if the error is geometry-related
+      if (!error?.message?.includes('pattern') && !error?.message?.includes('geometry') && !error?.message?.includes('parse')) {
+        break;
+      }
     }
 
-    return NextResponse.json({
-      success: true,
-      id: data.id,
-      message: 'Report submitted successfully. It will be reviewed by an admin before appearing publicly.',
-    });
+    console.error('Error creating report:', lastError?.message, lastError?.details, lastError?.code);
+    return NextResponse.json(
+      { error: `Failed to submit report: ${lastError?.message || 'Unknown error'}` },
+      { status: 500 }
+    );
   } catch (error) {
     console.error('Error in reports endpoint:', error);
     return NextResponse.json(

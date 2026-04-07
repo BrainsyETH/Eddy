@@ -329,7 +329,7 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1080}
         calculateMetadata={async ({ props }: { props: DigestReelProps }) => ({
-          durationInFrames: getDigestDuration(props.rivers.length),
+          durationInFrames: getDigestDuration(props.rivers.length, !!props.globalQuote),
         })}
         defaultProps={{
           rivers: [
@@ -340,6 +340,7 @@ export const RemotionRoot: React.FC = () => {
             { riverName: "Courtois Creek", conditionCode: "too_low", gaugeHeightFt: 0.8 },
           ],
           dateLabel: "April 6, 2026",
+          globalQuote: "Most rivers are running well today with spring rains keeping levels up across the Ozarks.",
           format: "square",
         } satisfies DigestReelProps}
       />
@@ -353,7 +354,7 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         calculateMetadata={async ({ props }: { props: DigestReelProps }) => ({
-          durationInFrames: getDigestDuration(props.rivers.length),
+          durationInFrames: getDigestDuration(props.rivers.length, !!props.globalQuote),
         })}
         defaultProps={{
           rivers: [
@@ -364,6 +365,7 @@ export const RemotionRoot: React.FC = () => {
             { riverName: "Courtois Creek", conditionCode: "too_low", gaugeHeightFt: 0.8 },
           ],
           dateLabel: "April 6, 2026",
+          globalQuote: "Most rivers are running well today with spring rains keeping levels up across the Ozarks.",
           format: "portrait",
         } satisfies DigestReelProps}
       />
