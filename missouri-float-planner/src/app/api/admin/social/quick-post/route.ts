@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// --- Video Dispatch ---
+// --- Video Dispatch (single render for all platforms) ---
 
 async function dispatchVideoRender(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,10 +110,8 @@ async function dispatchVideoRender(
   type: 'digest' | 'highlight',
   riverSlug?: string
 ) {
-  // Build caption (same as image posts) and render data
   let renderData: Record<string, unknown> = {};
   const postType = type === 'digest' ? 'daily_digest' : 'river_highlight';
-  let dispatched = 0;
 
   if (type === 'digest') {
     const { data: updates } = await supabase
@@ -165,10 +163,12 @@ async function dispatchVideoRender(
     };
   }
 
+  // Insert DB records for ALL platforms first, collect IDs
+  const postIds: string[] = [];
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
   for (const platform of platforms) {
-    // Clear today's records for this type/platform
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
     await supabase
       .from('social_posts')
       .delete()
@@ -176,7 +176,7 @@ async function dispatchVideoRender(
       .eq('platform', platform)
       .gte('created_at', todayStart.toISOString());
 
-    // Build caption
+    // Build per-platform caption
     let caption = '';
     let hashtags: string[] = [];
     if (type === 'digest') {
@@ -230,7 +230,6 @@ async function dispatchVideoRender(
       ? `${BASE_URL}/api/og/social?type=digest&platform=${platform}`
       : `${BASE_URL}/api/og/social?type=highlight&river=${riverSlug}&platform=${platform}`;
 
-    // Insert rendering record
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
       .insert({
@@ -247,39 +246,42 @@ async function dispatchVideoRender(
       .single();
 
     if (insertError) continue;
+    postIds.push(record.id);
+  }
 
-    // Dispatch to GitHub Actions
-    const { compositionId, inputProps, outputFilename } = getCompositionForPost(
-      postType as 'daily_digest' | 'river_highlight',
-      renderData as Parameters<typeof getCompositionForPost>[1],
-      platform as 'instagram' | 'facebook'
-    );
+  if (postIds.length === 0) {
+    return NextResponse.json({ error: 'No records created' }, { status: 500 });
+  }
 
-    const success = await triggerVideoRender({
-      postId: record.id,
-      compositionId,
-      inputProps,
-      outputFilename,
-    });
+  // Dispatch ONE GH Actions workflow for all platforms
+  const { compositionId, inputProps, outputFilename } = getCompositionForPost(
+    postType as 'daily_digest' | 'river_highlight',
+    renderData as Parameters<typeof getCompositionForPost>[1],
+  );
 
-    if (success) {
-      dispatched++;
-    } else {
-      // Fallback: update to image and let the cron retry pick it up
+  const success = await triggerVideoRender({
+    postIds: postIds.join(','),
+    compositionId,
+    inputProps,
+    outputFilename,
+  });
+
+  if (!success) {
+    for (const id of postIds) {
       await supabase
         .from('social_posts')
         .update({ media_type: 'image', status: 'failed', error_message: 'GH Actions dispatch failed' })
-        .eq('id', record.id);
+        .eq('id', id);
     }
   }
 
   logAdminAction({
     action: `quick_post_video_${type}`,
     entityType: 'social_post',
-    details: { type, riverSlug, platforms, dispatched },
+    details: { type, riverSlug, platforms, dispatched: success ? postIds.length : 0 },
   });
 
-  return NextResponse.json({ rendering: dispatched });
+  return NextResponse.json({ rendering: success ? postIds.length : 0 });
 }
 
 // --- Digest ---

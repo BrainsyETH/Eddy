@@ -1,28 +1,23 @@
 # .github/workflows/render-social-video.yml
-# Renders Remotion video compositions and publishes them to social media.
+# Renders a Remotion composition to MP4 and publishes to social platforms.
 #
-# Triggered by:
-#   - workflow_dispatch from the Vercel cron job (with render params as inputs)
-#   - Manual trigger from GitHub UI for testing
+# Single render per video — the callback publishes to all platforms
+# (Instagram + Facebook) from one rendered file.
 #
-# Flow:
-#   1. Checks out the repo
-#   2. Installs Remotion dependencies (cached)
-#   3. Renders the specified composition to MP4
-#   4. Uploads MP4 to Vercel Blob Storage
-#   5. Calls back the Vercel webhook to publish the post
+# Audio safety net: if Remotion fails to include audio, ffmpeg
+# manually muxes the background music into the output.
 
 name: Render Social Video
 
 on:
   workflow_dispatch:
     inputs:
-      post_id:
-        description: 'social_posts record ID to update after render'
+      post_ids:
+        description: 'Comma-separated social_posts record IDs to publish after render'
         required: true
         type: string
       composition_id:
-        description: 'Remotion composition ID (e.g. social-gauge, social-digest)'
+        description: 'Remotion composition ID (e.g. social-gauge-portrait)'
         required: true
         type: string
       input_props:
@@ -63,10 +58,8 @@ jobs:
         env:
           INPUT_PROPS_JSON: ${{ inputs.input_props }}
         run: |
-          # Use env var to avoid shell injection from JSON special chars
           printf '%s' "$INPUT_PROPS_JSON" > /tmp/input-props.json
           echo "Props written ($(wc -c < /tmp/input-props.json) bytes)"
-          cat /tmp/input-props.json | head -c 200
 
       - name: Verify audio file exists
         working-directory: missouri-float-planner/remotion
@@ -79,8 +72,7 @@ jobs:
       - name: Render video
         working-directory: missouri-float-planner/remotion
         run: |
-          echo "Rendering composition: ${{ inputs.composition_id }}"
-          echo "Output: /tmp/${{ inputs.output_filename }}.mp4"
+          OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
 
           npx remotion render \
             --entry-point=src/index.ts \
@@ -93,17 +85,37 @@ jobs:
             --log=verbose \
             --public-dir=./public \
             "${{ inputs.composition_id }}" \
-            "/tmp/${{ inputs.output_filename }}.mp4"
+            "$OUTFILE"
 
-          ls -la "/tmp/${{ inputs.output_filename }}.mp4"
-
-          # Verify audio with ffprobe
-          echo "=== Checking output for audio track ==="
-          ffprobe -v error -show_streams "/tmp/${{ inputs.output_filename }}.mp4" 2>&1 || echo "ffprobe not available, installing..."
-          which ffprobe || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null 2>&1)
-          ffprobe -v error -show_streams -select_streams a "/tmp/${{ inputs.output_filename }}.mp4" 2>&1 | head -20
+          echo "Render complete: $(ls -la "$OUTFILE" | awk '{print $5}') bytes"
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+      - name: Ensure audio in output
+        working-directory: missouri-float-planner/remotion
+        run: |
+          OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
+          AUDIO_SRC="public/audio/background-music.mp3"
+
+          # Check if output has an audio stream
+          HAS_AUDIO=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$OUTFILE" 2>/dev/null || true)
+
+          if [ -n "$HAS_AUDIO" ]; then
+            echo "Audio track present: $HAS_AUDIO"
+          else
+            echo "WARNING: No audio track in rendered video. Muxing with ffmpeg..."
+            ffmpeg -y -i "$OUTFILE" -i "$AUDIO_SRC" \
+              -c:v copy -c:a aac -b:a 128k \
+              -map 0:v:0 -map 1:a:0 \
+              -shortest \
+              "/tmp/muxed.mp4" 2>&1 | tail -5
+            mv "/tmp/muxed.mp4" "$OUTFILE"
+            echo "Audio muxed. Final size: $(ls -la "$OUTFILE" | awk '{print $5}') bytes"
+          fi
+
+          # Final verification
+          echo "=== Final audio check ==="
+          ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate,channels -of default=noprint_wrappers=1 "$OUTFILE"
 
       - name: Upload to Vercel Blob
         id: upload
@@ -112,8 +124,6 @@ jobs:
           DATE_PREFIX=$(date -u +%Y-%m-%d)
           BLOB_PATH="social-videos/${DATE_PREFIX}/${FILENAME}"
 
-          echo "Uploading /tmp/${FILENAME} to ${BLOB_PATH}"
-
           RESPONSE=$(curl -s -X PUT \
             "https://blob.vercel-storage.com/${BLOB_PATH}" \
             -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
@@ -121,7 +131,6 @@ jobs:
             -H "x-cache-control-max-age: 31536000" \
             --data-binary "@/tmp/${FILENAME}")
 
-          echo "Blob response: $RESPONSE"
           VIDEO_URL=$(echo "$RESPONSE" | jq -r '.url')
 
           if [ "$VIDEO_URL" = "null" ] || [ -z "$VIDEO_URL" ]; then
@@ -130,29 +139,21 @@ jobs:
           fi
 
           echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
-          echo "Uploaded to: ${VIDEO_URL}"
+          echo "Uploaded: ${VIDEO_URL}"
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
 
-      - name: Callback to publish post
+      - name: Callback to publish posts
         run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          curl -s -X POST \
             "${SITE_URL}/api/admin/social/video-callback" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -d "{
-              \"postId\": \"${{ inputs.post_id }}\",
+              \"postIds\": \"${{ inputs.post_ids }}\",
               \"videoUrl\": \"${{ steps.upload.outputs.video_url }}\",
               \"status\": \"rendered\"
-            }")
-
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          echo "Callback response ($HTTP_CODE): $BODY"
-
-          if [ "$HTTP_CODE" -ge 400 ]; then
-            echo "::warning::Callback returned $HTTP_CODE"
-          fi
+            }"
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -165,7 +166,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -d "{
-              \"postId\": \"${{ inputs.post_id }}\",
+              \"postIds\": \"${{ inputs.post_ids }}\",
               \"status\": \"failed\",
               \"error\": \"GitHub Actions render failed — check workflow run logs\"
             }"
