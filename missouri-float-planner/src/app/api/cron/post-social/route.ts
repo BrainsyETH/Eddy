@@ -19,14 +19,13 @@ export const dynamic = 'force-dynamic';
 
 const LOG_PREFIX = '[SocialCron]';
 
-/** Truncate text to ~120 chars for video teaser (full text goes in caption) */
+/** Truncate text to ~200 chars for video teaser (full text goes in caption) */
 function truncateForVideo(text: string | null): string {
   if (!text) return '';
-  if (text.length <= 120) return text;
-  // Break at the last space before 120 chars
-  const truncated = text.slice(0, 120);
+  if (text.length <= 200) return text;
+  const truncated = text.slice(0, 200);
   const lastSpace = truncated.lastIndexOf(' ');
-  return (lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated) + '...';
+  return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
 }
 
 /**
