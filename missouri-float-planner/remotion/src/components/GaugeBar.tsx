@@ -42,8 +42,8 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   conditionColor,
   conditionGlow = "transparent",
   delay = 30,
-  width = 80,
-  height = 400,
+  width = 85,
+  height = 420,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -69,12 +69,13 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         width,
         height,
         position: "relative",
-        borderRadius: 16,
+        borderRadius: 20,
         overflow: "hidden",
-        backgroundColor: "rgba(255,255,255,0.05)",
+        backgroundColor: "rgba(255,255,255,0.04)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.1)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
       }}
     >
       {/* Tick marks */}
@@ -99,9 +100,9 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           bottom: `${optMinFraction * 100}%`,
           height: `${(optMaxFraction - optMinFraction) * 100}%`,
           width: "100%",
-          backgroundColor: "rgba(16,185,129,0.12)",
-          borderTop: "1px dashed rgba(16,185,129,0.4)",
-          borderBottom: "1px dashed rgba(16,185,129,0.4)",
+          backgroundColor: "rgba(255,255,255,0.05)",
+          borderTop: "1px dashed rgba(255,255,255,0.2)",
+          borderBottom: "1px dashed rgba(255,255,255,0.2)",
         }}
       />
 
@@ -113,8 +114,8 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           width: "100%",
           height: `${fillFraction * 100}%`,
           background: `linear-gradient(to top, ${conditionColor}, ${conditionColor}aa)`,
-          boxShadow: `0 0 20px ${conditionGlow}, inset 0 0 10px ${conditionGlow}`,
-          borderRadius: "0 0 12px 12px",
+          boxShadow: `0 0 40px ${conditionGlow}`,
+          borderRadius: "0 0 18px 18px",
         }}
       />
 
@@ -127,14 +128,14 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           transform: "translate(-50%, 50%)",
           backgroundColor: conditionColor,
           color: "#fff",
-          padding: "4px 12px",
-          borderRadius: 8,
-          fontFamily: "'Geist Mono', 'SF Mono', monospace",
+          padding: "6px 12px",
+          borderRadius: 10,
+          fontFamily: "'Geist Mono', monospace",
           fontSize: 18,
-          fontWeight: 600,
+          fontWeight: 700,
           whiteSpace: "nowrap",
           opacity: fillProgress,
-          boxShadow: `0 0 12px ${conditionGlow}`,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
         }}
       >
         {displayHeight.toFixed(1)} ft
