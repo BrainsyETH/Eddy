@@ -337,15 +337,9 @@ export function formatRiverHighlightCaption(
     lines.push(snippets.join('\n'));
   }
 
-  // Build hashtags (Instagram only in caption; Facebook gets none)
-  const hashtags = buildInstagramHashtags(update.river_slug, condition);
+  const caption = lines.join('\n');
 
-  let caption = lines.join('\n');
-  if (platform === 'instagram') {
-    caption += '\n\n\n\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
+  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -405,17 +399,9 @@ export function formatDailyDigestCaption(
     lines.push(snippets.join('\n'));
   }
 
-  const hashtags = buildInstagramHashtags(null, 'flowing', [
-    '#ozarksriverreport',
-    '#riverconditions',
-  ]);
+  const caption = lines.join('\n');
 
-  let caption = lines.join('\n');
-  if (platform === 'instagram') {
-    caption += '\n\n\n\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
+  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -468,18 +454,9 @@ export function formatConditionChangeCaption(params: {
   });
   lines.push(cta);
 
-  const hashtags = buildInstagramHashtags(
-    params.riverSlug,
-    params.newCondition,
-    ['#conditionalert']
-  );
+  const caption = lines.join('\n');
 
-  let caption = lines.join('\n');
-  if (params.platform === 'instagram') {
-    caption += '\n\n\n\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
+  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------
