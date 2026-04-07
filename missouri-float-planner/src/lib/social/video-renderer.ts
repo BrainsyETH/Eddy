@@ -85,19 +85,20 @@ interface ClipPipelineParams {
 /**
  * Trigger the YouTube clip extraction pipeline via GitHub Actions.
  */
-export async function triggerClipPipeline(params: ClipPipelineParams): Promise<boolean> {
+export async function triggerClipPipeline(params: ClipPipelineParams): Promise<{ ok: boolean; error?: string }> {
   const token = process.env.GH_ACTIONS_TOKEN;
   if (!token) {
     console.error(`${LOG_PREFIX} GH_ACTIONS_TOKEN not set`);
-    return false;
+    return { ok: false, error: 'GH_ACTIONS_TOKEN not set' };
   }
 
   const owner = process.env.GH_REPO_OWNER || DEFAULT_OWNER;
   const repo = process.env.GH_REPO_NAME || DEFAULT_REPO;
+  const ref = process.env.GH_ACTIONS_REF || DEFAULT_REF;
 
   const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/youtube-clip-pipeline.yml/dispatches`;
 
-  console.log(`${LOG_PREFIX} Triggering clip pipeline: url=${params.youtubeUrl || 'channel-scan'}`);
+  console.log(`${LOG_PREFIX} Triggering clip pipeline: url=${params.youtubeUrl || 'channel-scan'} ref=${ref}`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -107,7 +108,7 @@ export async function triggerClipPipeline(params: ClipPipelineParams): Promise<b
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      ref: process.env.GH_ACTIONS_REF || DEFAULT_REF,
+      ref,
       inputs: {
         youtube_url: params.youtubeUrl || '',
         river_slug: params.riverSlug || '',
@@ -119,12 +120,12 @@ export async function triggerClipPipeline(params: ClipPipelineParams): Promise<b
 
   if (response.status === 204) {
     console.log(`${LOG_PREFIX} Clip pipeline dispatched`);
-    return true;
+    return { ok: true };
   }
 
   const errorBody = await response.text();
   console.error(`${LOG_PREFIX} Clip pipeline dispatch failed (${response.status}): ${errorBody}`);
-  return false;
+  return { ok: false, error: `GitHub API ${response.status}: ${errorBody}` };
 }
 
 interface CompileHighlightsParams {

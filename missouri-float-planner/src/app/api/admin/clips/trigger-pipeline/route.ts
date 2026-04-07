@@ -23,16 +23,16 @@ export async function POST(request: NextRequest) {
     maxClips?: number;
   };
 
-  const success = await triggerClipPipeline({
+  const result = await triggerClipPipeline({
     youtubeUrl,
     riverSlug,
     peakNumber: peakNumber || 1,
     maxClips: maxClips || 3,
   });
 
-  if (!success) {
+  if (!result.ok) {
     return NextResponse.json(
-      { error: 'Failed to dispatch clip pipeline workflow' },
+      { error: result.error || 'Failed to dispatch clip pipeline workflow' },
       { status: 500 },
     );
   }
