@@ -48,6 +48,7 @@ interface PreviewPost {
   riverSlug: string | null;
   caption: string;
   imageUrl: string;
+  mediaType: string;
   hashtags: string[];
 }
 
@@ -75,6 +76,9 @@ interface SocialPost {
   error_message: string | null;
   retry_count: number;
   platform_post_id: string | null;
+  image_url: string | null;
+  video_url: string | null;
+  media_type: string;
   created_at: string;
   published_at: string | null;
 }
@@ -553,6 +557,11 @@ export default function SocialAdminPage() {
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
                             {post.postType === 'daily_digest' ? 'Digest' : post.postType === 'river_highlight' ? 'Highlight' : post.postType}
                           </span>
+                          {post.mediaType === 'video' && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                              Video
+                            </span>
+                          )}
                           {post.riverSlug && (
                             <span className="text-xs text-neutral-400">{post.riverSlug}</span>
                           )}
@@ -1358,7 +1367,7 @@ export default function SocialAdminPage() {
                                   {post.post_type === 'daily_digest' ? 'Digest' : post.post_type === 'river_highlight' ? 'Highlight' : post.post_type === 'manual' ? 'Manual' : post.post_type === 'condition_change' ? 'Alert' : post.post_type}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
-                                  {(post as SocialPost & { media_type?: string }).media_type === 'video' ? (
+                                  {post.media_type === 'video' ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">Video</span>
                                   ) : (
                                     <span className="text-neutral-400">Image</span>
