@@ -252,6 +252,7 @@ async function waitForContainer(
 export async function publishVideoToInstagram(params: {
   caption: string;
   videoUrl: string;
+  coverUrl?: string;
 }): Promise<{ success: boolean; postId?: string; error?: string }> {
   const { accessToken, instagramAccountId } = getCredentials();
 
@@ -269,6 +270,11 @@ export async function publishVideoToInstagram(params: {
       caption: params.caption,
       access_token: accessToken,
     });
+
+    // Use the OG image as the Reel cover (prevents black first-frame)
+    if (params.coverUrl) {
+      containerBody.set('cover_url', params.coverUrl);
+    }
 
     const containerResponse = await fetch(
       `${META_GRAPH_URL}/${instagramAccountId}/media`,
