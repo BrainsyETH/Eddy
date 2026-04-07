@@ -4,8 +4,10 @@
 # Single render per video — the callback publishes to all platforms
 # (Instagram + Facebook) from one rendered file.
 #
-# Audio: ffmpeg always re-encodes audio from source MP3 into the final
-# MP4 at Meta-compatible specs (AAC 48kHz stereo, faststart).
+# Audio: Remotion's <Audio> component should embed audio during render.
+# If it fails (has been unreliable), a fallback step uses Remotion's
+# bundled ffmpeg to force-mux audio from the source MP3.
+# The workflow hard-fails if the final MP4 has no audio stream.
 
 name: Render Social Video
 
@@ -87,17 +89,64 @@ jobs:
             "${{ inputs.composition_id }}" \
             "$OUTFILE"
 
-          echo "Render complete: $(ls -la "$OUTFILE" | awk '{print $5}') bytes"
-
-          # Verify Remotion output has audio
-          echo "=== Audio verification ==="
-          REMOTION_FFPROBE=$(npx remotion ffprobe -v error -select_streams a \
-            -show_entries stream=codec_name,sample_rate,channels,bit_rate \
-            -of default=noprint_wrappers=1 "$OUTFILE" 2>&1 || true)
-          echo "$REMOTION_FFPROBE"
-          echo "File size: $(stat -c%s "$OUTFILE") bytes"
+          echo "Render complete: $(stat -c%s "$OUTFILE") bytes"
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+      - name: Ensure audio in output
+        working-directory: missouri-float-planner/remotion
+        run: |
+          OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
+          AUDIO_SRC="public/audio/background-music.mp3"
+
+          # Check if Remotion included an audio stream
+          AUDIO_STREAMS=$(npx remotion ffprobe -v error -select_streams a \
+            -show_entries stream=codec_name \
+            -of csv=p=0 "$OUTFILE" 2>&1 || true)
+          echo "Remotion audio streams: '${AUDIO_STREAMS}'"
+
+          if echo "$AUDIO_STREAMS" | grep -qi "aac\|mp3\|opus\|vorbis"; then
+            echo "Audio stream found in Remotion output — keeping as-is"
+          else
+            echo "WARNING: No audio in Remotion output — adding via ffmpeg fallback"
+
+            # Get video duration
+            DURATION=$(npx remotion ffprobe -v error \
+              -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
+            echo "Video duration: ${DURATION}s"
+
+            # Use Remotion's bundled ffmpeg (known to handle this MP3)
+            # to mux audio with 1s fade-in and 1s fade-out
+            npx remotion ffmpeg -y \
+              -i "$OUTFILE" \
+              -i "$AUDIO_SRC" \
+              -c:v copy \
+              -c:a aac -b:a 192k -ar 48000 -ac 2 \
+              -t "$DURATION" \
+              -af "afade=t=in:st=0:d=1,afade=t=out:st=$(echo "$DURATION - 1" | bc):d=1,volume=0.5" \
+              -map 0:v:0 -map 1:a:0 \
+              -movflags +faststart \
+              -shortest \
+              "/tmp/with-audio.mp4" 2>&1 | tail -20
+
+            mv "/tmp/with-audio.mp4" "$OUTFILE"
+            echo "Fallback mux complete: $(stat -c%s "$OUTFILE") bytes"
+          fi
+
+          # Final hard verification — fail the workflow if no audio
+          echo "=== Final audio verification ==="
+          FINAL_AUDIO=$(npx remotion ffprobe -v error -select_streams a \
+            -show_entries stream=codec_name,sample_rate,channels,bit_rate \
+            -of default=noprint_wrappers=1 "$OUTFILE" 2>&1)
+          echo "$FINAL_AUDIO"
+
+          if ! echo "$FINAL_AUDIO" | grep -qi "codec_name"; then
+            echo "::error::FATAL: Final MP4 has no audio stream — refusing to upload"
+            exit 1
+          fi
+
+          echo "Audio confirmed — proceeding to upload"
 
       - name: Upload to Vercel Blob
         id: upload
