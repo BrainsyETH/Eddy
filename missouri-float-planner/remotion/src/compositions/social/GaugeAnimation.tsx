@@ -114,18 +114,20 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   );
 
   return (
-    <AbsoluteFill
-      style={{
-        opacity: bgOpacity,
-        backgroundColor: colors.primary[900],
-        fontFamily: "'Geist Sans', system-ui, sans-serif",
-      }}
-    >
-      {/* Background music */}
+    <AbsoluteFill>
+      {/* Background music — MUST be outside opacity-animated container */}
       <Audio
         src={staticFile("audio/background-music.mp3")}
         volume={musicVolume}
       />
+
+      <AbsoluteFill
+        style={{
+          opacity: bgOpacity,
+          backgroundColor: colors.primary[900],
+          fontFamily: "'Geist Sans', system-ui, sans-serif",
+        }}
+      >
 
       {/* Ambient condition glow */}
       <div
@@ -166,7 +168,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "flex-start",
+          paddingTop: isPortrait ? 60 : 40,
           gap: isPortrait ? 36 : 24,
         }}
       >
@@ -312,6 +315,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
       <div style={{ opacity: watermarkOpacity }}>
         <Watermark format={isPortrait ? "portrait" : "landscape"} />
       </div>
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };
