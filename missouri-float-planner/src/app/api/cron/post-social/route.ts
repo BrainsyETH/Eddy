@@ -183,7 +183,7 @@ async function runSocialPosting(request: NextRequest) {
       videoGroups.set(key, group);
     }
 
-    for (const [groupKey, groupPosts] of videoGroups) {
+    for (const [groupKey, groupPosts] of Array.from(videoGroups.entries())) {
       const todayStart = new Date();
       todayStart.setUTCHours(0, 0, 0, 0);
       const postIds: string[] = [];
