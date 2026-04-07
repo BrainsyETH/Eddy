@@ -15,7 +15,7 @@ import {
 import { colors } from "../../design-tokens/colors";
 
 /**
- * Simple branded loop — Eddy otter + condition text with subtle motion.
+ * Simple branded loop with glassmorphism and condition glow.
  * 4 seconds (120 frames @ 30fps), 1080x1080.
  * Designed to loop seamlessly: frame 120 fades back to match frame 0.
  */
@@ -29,7 +29,6 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
 
   // ─── Looping envelope ───────────────────────────────────
-  // Fade in 0-25, hold 25-95, fade out 95-120 (matches start for seamless loop)
   const envelope = interpolate(
     frame,
     [0, 25, durationInFrames - 25, durationInFrames],
@@ -37,11 +36,10 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
-  // Gentle breathing pulse on the glow
+  // Breathing glow pulse (loops smoothly)
   const breathe =
-    0.6 + 0.4 * Math.sin((frame / durationInFrames) * Math.PI * 2);
+    0.5 + 0.5 * Math.sin((frame / durationInFrames) * Math.PI * 2);
 
-  // Text entrance (first cycle only via envelope)
   const textEntrance = spring({
     frame,
     fps,
@@ -56,13 +54,28 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
         fontFamily: "'Geist Sans', system-ui, sans-serif",
       }}
     >
-      {/* Radial glow in condition color */}
+      {/* Radial glow in condition color — pulses with breathe */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(circle at 50% 55%, ${condition.solid}33 0%, transparent 65%)`,
-          opacity: breathe,
+          background: `radial-gradient(circle at 50% 45%, ${condition.glow} 0%, transparent 60%)`,
+          opacity: breathe * 0.6,
+        }}
+      />
+
+      {/* Secondary ambient glow ring */}
+      <div
+        style={{
+          position: "absolute",
+          top: "40%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 400,
+          height: 400,
+          borderRadius: "50%",
+          border: `1px solid ${condition.bg}`,
+          opacity: breathe * 0.3,
         }}
       />
 
@@ -96,21 +109,25 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
             fontWeight: 600,
             color: "#fff",
             textAlign: "center",
+            textShadow: `0 0 30px ${condition.glow}`,
           }}
         >
           {riverName}
         </div>
 
-        {/* Condition badge */}
+        {/* Condition badge with glassmorphism */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
             backgroundColor: condition.bg,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             padding: "8px 20px",
             borderRadius: 999,
-            border: `2px solid ${condition.solid}`,
+            border: `1.5px solid ${condition.solid}`,
+            boxShadow: `0 0 16px ${condition.glow}`,
           }}
         >
           <div
@@ -119,6 +136,7 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
               height: 12,
               borderRadius: "50%",
               backgroundColor: condition.solid,
+              boxShadow: `0 0 6px ${condition.solid}`,
             }}
           />
           <span
@@ -163,7 +181,7 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
           style={{
             fontFamily: "'Fredoka', system-ui, sans-serif",
             fontSize: 18,
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.35)",
             letterSpacing: 1,
           }}
         >

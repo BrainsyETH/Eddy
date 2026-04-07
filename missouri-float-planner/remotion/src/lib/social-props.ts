@@ -14,20 +14,63 @@ export interface ConditionStyle {
   solid: string;
   bg: string;
   label: string;
+  glow: string;
 }
 
 export const CONDITION_COLORS: Record<ConditionCode, ConditionStyle> = {
-  flowing: { solid: "#059669", bg: "rgba(5,150,105,0.2)", label: "Flowing" },
-  good: { solid: "#84cc16", bg: "rgba(132,204,22,0.15)", label: "Good" },
-  low: { solid: "#eab308", bg: "rgba(234,179,8,0.15)", label: "Low" },
-  too_low: { solid: "#78716c", bg: "rgba(120,113,108,0.15)", label: "Too Low" },
-  high: { solid: "#f97316", bg: "rgba(249,115,22,0.2)", label: "High" },
+  flowing: {
+    solid: "#10b981",
+    bg: "rgba(16,185,129,0.15)",
+    label: "Flowing",
+    glow: "rgba(16,185,129,0.4)",
+  },
+  good: {
+    solid: "#84cc16",
+    bg: "rgba(132,204,22,0.15)",
+    label: "Good",
+    glow: "rgba(132,204,22,0.3)",
+  },
+  low: {
+    solid: "#facc15",
+    bg: "rgba(250,204,21,0.15)",
+    label: "Low",
+    glow: "rgba(250,204,21,0.2)",
+  },
+  too_low: {
+    solid: "#78716c",
+    bg: "rgba(120,113,108,0.15)",
+    label: "Too Low",
+    glow: "rgba(120,113,108,0.15)",
+  },
+  high: {
+    solid: "#f97316",
+    bg: "rgba(249,115,22,0.2)",
+    label: "High",
+    glow: "rgba(249,115,22,0.35)",
+  },
   dangerous: {
     solid: "#ef4444",
-    bg: "rgba(239,68,68,0.15)",
+    bg: "rgba(239,68,68,0.2)",
     label: "Dangerous",
+    glow: "rgba(239,68,68,0.5)",
   },
-  unknown: { solid: "#9ca3af", bg: "rgba(156,163,175,0.15)", label: "N/A" },
+  unknown: {
+    solid: "#9ca3af",
+    bg: "rgba(156,163,175,0.15)",
+    label: "N/A",
+    glow: "transparent",
+  },
+};
+
+/** Severity order for sorting rivers in digest (most notable first) */
+export const SEVERITY_ORDER: Record<ConditionCode, number> = {
+  dangerous: 0,
+  flowing: 1,
+  good: 2,
+  high: 3,
+  low: 4,
+  too_low: 5,
+  unknown: 6,
 };
 
 type OtterVariant = "standard" | "canoe" | "flag" | "green" | "favicon";

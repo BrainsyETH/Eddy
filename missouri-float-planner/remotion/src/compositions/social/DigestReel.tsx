@@ -11,10 +11,8 @@ import { EddyMascot } from "../../components/EddyMascot";
 import { Watermark } from "../../components/Watermark";
 import { RiverCard } from "./RiverCard";
 import { ENTRANCE } from "../../lib/spring-presets";
-import { type DigestReelProps } from "../../lib/social-props";
+import { SEVERITY_ORDER, type DigestReelProps, type ConditionCode } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
-
-const FPS = 30;
 
 /** Title slide — "River Report" + date + Eddy */
 const TitleSlide: React.FC<{ dateLabel: string; isPortrait: boolean }> = ({
@@ -26,12 +24,7 @@ const TitleSlide: React.FC<{ dateLabel: string; isPortrait: boolean }> = ({
 
   const titleEntrance = spring({ frame, fps, config: ENTRANCE });
   const titleY = interpolate(titleEntrance, [0, 1], [50, 0]);
-
-  const dateEntrance = spring({
-    frame: frame - 10,
-    fps,
-    config: ENTRANCE,
-  });
+  const dateEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
 
   return (
     <AbsoluteFill
@@ -74,13 +67,22 @@ const TitleSlide: React.FC<{ dateLabel: string; isPortrait: boolean }> = ({
   );
 };
 
-/** CTA slide — "Plan your float" */
+/** CTA slide — "Plan your float" with energetic Eddy */
 const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const entrance = spring({ frame, fps, config: ENTRANCE });
   const y = interpolate(entrance, [0, 1], [40, 0]);
+
+  // Energetic bounce for the otter on the final slide
+  const bounce = spring({
+    frame: frame - 15,
+    fps,
+    config: { damping: 8, mass: 0.5, stiffness: 150 },
+  });
+  const eddyScale = interpolate(bounce, [0, 1], [0.8, 1]);
+  const eddyRotate = interpolate(bounce, [0, 0.5, 1], [0, -8, 0]);
 
   return (
     <AbsoluteFill
@@ -93,7 +95,33 @@ const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
         gap: 24,
       }}
     >
-      <EddyMascot variant="green" size={isPortrait ? 180 : 140} delay={0} />
+      {/* Subtle glow behind Eddy */}
+      <div
+        style={{
+          position: "absolute",
+          top: "35%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 300,
+          height: 300,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
+          opacity: bounce,
+        }}
+      />
+
+      <div
+        style={{
+          transform: `scale(${eddyScale}) rotate(${eddyRotate}deg)`,
+        }}
+      >
+        <EddyMascot
+          variant="green"
+          size={isPortrait ? 200 : 160}
+          delay={0}
+          float={false}
+        />
+      </div>
 
       <div
         style={{
@@ -115,6 +143,7 @@ const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
           fontFamily: "'Fredoka', system-ui, sans-serif",
           fontSize: isPortrait ? 28 : 24,
           color: colors.accent[400],
+          textShadow: "0 0 20px rgba(244,142,118,0.3)",
         }}
       >
         eddy.guide
@@ -125,7 +154,7 @@ const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
 
 /**
  * River cards slide — shows a batch of river condition cards.
- * Each card staggers in with a small delay.
+ * Each card staggers in with cascade animation.
  */
 const RiverCardsSlide: React.FC<{
   rivers: DigestReelProps["rivers"];
@@ -159,13 +188,10 @@ const RiverCardsSlide: React.FC<{
 
 /**
  * Multi-river daily digest reel.
- * 12 seconds base (360 frames @ 30fps).
+ * Rivers are sorted by condition severity (dangerous/flowing first).
  *
  * Structure:
  *   Title slide (60 frames) → River cards in batches → CTA slide (60 frames)
- *
- * If there are more rivers than fit on one screen (~6), they split into
- * multiple slides of ~5 each.
  */
 export const DigestReel: React.FC<DigestReelProps> = ({
   rivers,
@@ -174,41 +200,44 @@ export const DigestReel: React.FC<DigestReelProps> = ({
 }) => {
   const isPortrait = format === "portrait";
 
-  // Split rivers into batches of 5 (fits well on 1080px)
+  // Sort rivers by severity (dangerous/flowing first, unknown last)
+  const sortedRivers = [...rivers].sort(
+    (a, b) =>
+      (SEVERITY_ORDER[a.conditionCode] ?? 6) -
+      (SEVERITY_ORDER[b.conditionCode] ?? 6)
+  );
+
+  // Split into batches
   const batchSize = isPortrait ? 6 : 5;
   const batches: DigestReelProps["rivers"][] = [];
-  for (let i = 0; i < rivers.length; i += batchSize) {
-    batches.push(rivers.slice(i, i + batchSize));
+  for (let i = 0; i < sortedRivers.length; i += batchSize) {
+    batches.push(sortedRivers.slice(i, i + batchSize));
   }
 
-  // Each batch gets equal share of the middle section
   const titleFrames = 60;
   const ctaFrames = 60;
-  const middleFrames = batches.length * 90; // 3 seconds per batch
-  const batchFrames = Math.floor(middleFrames / Math.max(batches.length, 1));
+  const batchFrames = Math.floor(
+    (batches.length * 90) / Math.max(batches.length, 1)
+  );
 
   return (
     <AbsoluteFill>
       <Series>
-        {/* Title */}
         <Series.Sequence durationInFrames={titleFrames}>
           <TitleSlide dateLabel={dateLabel} isPortrait={isPortrait} />
         </Series.Sequence>
 
-        {/* River card batches */}
         {batches.map((batch, i) => (
           <Series.Sequence key={i} durationInFrames={batchFrames}>
             <RiverCardsSlide rivers={batch} isPortrait={isPortrait} />
           </Series.Sequence>
         ))}
 
-        {/* CTA */}
         <Series.Sequence durationInFrames={ctaFrames}>
           <CTASlide isPortrait={isPortrait} />
         </Series.Sequence>
       </Series>
 
-      {/* Watermark throughout */}
       <Watermark format={isPortrait ? "portrait" : "landscape"} />
     </AbsoluteFill>
   );
