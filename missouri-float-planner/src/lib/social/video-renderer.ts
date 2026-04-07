@@ -1,7 +1,6 @@
 // src/lib/social/video-renderer.ts
 // Triggers video rendering via GitHub Actions workflow_dispatch.
-// The workflow renders the Remotion composition, uploads to Vercel Blob,
-// and calls back /api/admin/social/video-callback to publish the post.
+// ONE render per video — the callback publishes to all platforms.
 //
 // Required environment variables:
 //   GH_ACTIONS_TOKEN  — GitHub PAT with 'actions:write' scope
@@ -15,7 +14,8 @@ const DEFAULT_REPO = 'Eddy';
 const WORKFLOW_FILE = 'render-social-video.yml';
 
 interface TriggerRenderParams {
-  postId: string;
+  /** Comma-separated DB record IDs (one per platform) */
+  postIds: string;
   compositionId: string;
   inputProps: Record<string, unknown>;
   outputFilename: string;
@@ -23,7 +23,7 @@ interface TriggerRenderParams {
 
 /**
  * Trigger a video render via GitHub Actions.
- * This is fire-and-forget — the workflow will call back when done.
+ * Fire-and-forget — the workflow calls back when done.
  * Returns true if the workflow was dispatched successfully.
  */
 export async function triggerVideoRender(params: TriggerRenderParams): Promise<boolean> {
@@ -35,11 +35,11 @@ export async function triggerVideoRender(params: TriggerRenderParams): Promise<b
 
   const owner = process.env.GH_REPO_OWNER || DEFAULT_OWNER;
   const repo = process.env.GH_REPO_NAME || DEFAULT_REPO;
-  const ref = 'main'; // render from main branch
+  const ref = 'main';
 
   const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
 
-  console.log(`${LOG_PREFIX} Triggering render: ${params.compositionId} → ${params.outputFilename}`);
+  console.log(`${LOG_PREFIX} Triggering render: ${params.compositionId} → ${params.outputFilename} (posts: ${params.postIds})`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -51,7 +51,7 @@ export async function triggerVideoRender(params: TriggerRenderParams): Promise<b
     body: JSON.stringify({
       ref,
       inputs: {
-        post_id: params.postId,
+        post_ids: params.postIds,
         composition_id: params.compositionId,
         input_props: JSON.stringify(params.inputProps),
         output_filename: params.outputFilename,
@@ -88,16 +88,16 @@ export function getCompositionForPost(
       gaugeHeightFt: number | null;
     }>;
     dateLabel?: string;
+    globalQuote?: string;
   },
-  platform: 'instagram' | 'facebook'
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
-  // Both platforms get portrait (1080x1920) — vertical video performs better everywhere
+  // Always portrait — both platforms get 1080x1920
   const format = 'portrait' as const;
 
   switch (postType) {
     case 'river_highlight':
       return {
-        compositionId: format === 'portrait' ? 'social-gauge-portrait' : 'social-gauge',
+        compositionId: 'social-gauge-portrait',
         inputProps: {
           riverName: data.riverName || 'Unknown River',
           conditionCode: data.conditionCode || 'unknown',
@@ -107,12 +107,12 @@ export function getCompositionForPost(
           quoteText: data.quoteText || data.summaryText || '',
           format,
         },
-        outputFilename: `highlight-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}-${platform}`,
+        outputFilename: `highlight-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
       };
 
     case 'daily_digest':
       return {
-        compositionId: format === 'portrait' ? 'social-digest-portrait' : 'social-digest',
+        compositionId: 'social-digest-portrait',
         inputProps: {
           rivers: data.rivers || [],
           dateLabel: data.dateLabel || new Date().toLocaleDateString('en-US', {
@@ -120,9 +120,10 @@ export function getCompositionForPost(
             day: 'numeric',
             year: 'numeric',
           }),
+          globalQuote: data.globalQuote || undefined,
           format,
         },
-        outputFilename: `digest-${new Date().toISOString().slice(0, 10)}-${platform}`,
+        outputFilename: `digest-${new Date().toISOString().slice(0, 10)}`,
       };
 
     case 'branded_loop':
@@ -133,7 +134,7 @@ export function getCompositionForPost(
           conditionCode: data.conditionCode || 'unknown',
           summaryText: data.summaryText || data.quoteText || '',
         },
-        outputFilename: `loop-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}-${platform}`,
+        outputFilename: `loop-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
       };
   }
 }

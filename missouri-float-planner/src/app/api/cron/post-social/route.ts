@@ -2,9 +2,9 @@
 // Cron job: publishes scheduled social media posts to Instagram and Facebook.
 // Runs every 30 min via Vercel Cron.
 //
-// Image posts: published inline (same as before).
-// Video posts: triggers a GitHub Actions workflow for rendering, which calls
-//   /api/admin/social/video-callback to publish after render completes.
+// Image posts: published inline.
+// Video posts: ONE render per video (both platforms share the same file).
+//   Triggers GH Actions workflow → callback publishes to all platforms.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -23,16 +23,11 @@ const LOG_PREFIX = '[SocialCron]';
 function truncateForVideo(text: string | null): string {
   if (!text) return '';
   if (text.length <= 120) return text;
-  // Break at the last space before 120 chars
   const truncated = text.slice(0, 120);
   const lastSpace = truncated.lastIndexOf(' ');
   return (lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated) + '...';
 }
 
-/**
- * Build the data object needed for video rendering from a scheduled post.
- * Queries eddy_updates and river_gauges for the required fields.
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildRenderData(post: ScheduledPost, supabase: any) {
   if (post.postType === 'daily_digest') {
@@ -60,17 +55,23 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         gaugeHeightFt: u.gauge_height_ft,
       }));
 
+    const { data: globalUpdate } = await supabase
+      .from('eddy_updates')
+      .select('quote_text')
+      .eq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     return {
       rivers,
-      dateLabel: new Date().toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      }),
+      dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      globalQuote: globalUpdate?.quote_text || undefined,
     };
   }
 
-  // River highlight
   if (post.eddyUpdateId) {
     const { data: update } = await supabase
       .from('eddy_updates')
@@ -143,10 +144,7 @@ async function runSocialPosting(request: NextRequest) {
   const errors: string[] = [];
   let diagnostics: SchedulerResult['diagnostics'] | undefined;
 
-  // --- Clean up stale records BEFORE scheduling ---
-  // Records stuck in 'publishing', 'pending', or 'rendering' from earlier runs
-  // block hasPostedToday(). Clean up anything older than 15 min (rendering gets
-  // more time than publishing since GH Actions can take a few minutes).
+  // --- Clean up stale records ---
   try {
     const cleanupStart = new Date();
     cleanupStart.setUTCHours(0, 0, 0, 0);
@@ -171,27 +169,43 @@ async function runSocialPosting(request: NextRequest) {
     diagnostics = result.diagnostics;
     console.log(`${LOG_PREFIX} ${scheduledPosts.length} posts scheduled`);
 
-    for (const post of scheduledPosts) {
-      const adapter = getAdapter(post.platform);
-      if (!adapter) {
-        console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
-        skipped++;
-        continue;
-      }
+    // Separate video and image posts
+    const videoPosts = scheduledPosts.filter(p => p.mediaType === 'video');
+    const imagePosts = scheduledPosts.filter(p => p.mediaType !== 'video');
 
-      // Clear conflicting non-published records
+    // ─── Video posts: group by content, ONE render per group ──────
+    // Same video for both platforms (both use portrait now)
+    const videoGroups = new Map<string, ScheduledPost[]>();
+    for (const post of videoPosts) {
+      const key = `${post.postType}:${post.riverSlug || 'global'}`;
+      const group = videoGroups.get(key) || [];
+      group.push(post);
+      videoGroups.set(key, group);
+    }
+
+    for (const [groupKey, groupPosts] of videoGroups) {
       const todayStart = new Date();
       todayStart.setUTCHours(0, 0, 0, 0);
-      await supabase
-        .from('social_posts')
-        .delete()
-        .eq('post_type', post.postType)
-        .eq('platform', post.platform)
-        .in('status', ['failed', 'publishing', 'pending'])
-        .gte('created_at', todayStart.toISOString());
+      const postIds: string[] = [];
 
-      // ─── Video posts: fire-and-forget to GitHub Actions ──────
-      if (post.mediaType === 'video') {
+      // Insert DB records for all platforms in this group
+      for (const post of groupPosts) {
+        const adapter = getAdapter(post.platform);
+        if (!adapter) {
+          console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
+          skipped++;
+          continue;
+        }
+
+        // Clear conflicting records
+        await supabase
+          .from('social_posts')
+          .delete()
+          .eq('post_type', post.postType)
+          .eq('platform', post.platform)
+          .in('status', ['failed', 'publishing', 'pending'])
+          .gte('created_at', todayStart.toISOString());
+
         const { data: record, error: insertError } = await supabase
           .from('social_posts')
           .insert({
@@ -214,69 +228,92 @@ async function runSocialPosting(request: NextRequest) {
           continue;
         }
 
-        // Build render data and trigger GH Actions
-        try {
-          const renderData = await buildRenderData(post, supabase);
-          const { compositionId, inputProps, outputFilename } = getCompositionForPost(
-            post.postType as 'daily_digest' | 'river_highlight' | 'branded_loop',
-            renderData,
-            post.platform
-          );
+        postIds.push(record.id);
+      }
 
-          const dispatched = await triggerVideoRender({
-            postId: record.id,
-            compositionId,
-            inputProps,
-            outputFilename,
-          });
+      if (postIds.length === 0) continue;
 
-          if (dispatched) {
-            rendering++;
-            console.log(`${LOG_PREFIX} Video render triggered: ${post.postType}/${post.platform}/${post.riverSlug || 'digest'}`);
-          } else {
-            // GH Actions dispatch failed — fall back to image post
-            console.error(`${LOG_PREFIX} GH Actions dispatch failed, falling back to image`);
+      // Dispatch ONE GH Actions workflow for all platforms
+      const firstPost = groupPosts[0];
+      try {
+        const renderData = await buildRenderData(firstPost, supabase);
+        const { compositionId, inputProps, outputFilename } = getCompositionForPost(
+          firstPost.postType as 'daily_digest' | 'river_highlight' | 'branded_loop',
+          renderData,
+        );
+
+        const dispatched = await triggerVideoRender({
+          postIds: postIds.join(','),
+          compositionId,
+          inputProps,
+          outputFilename,
+        });
+
+        if (dispatched) {
+          rendering += postIds.length;
+          console.log(`${LOG_PREFIX} Video render triggered for ${groupKey}: ${postIds.length} platform(s), IDs: ${postIds.join(',')}`);
+        } else {
+          // Dispatch failed — fall back to image for all
+          console.error(`${LOG_PREFIX} GH Actions dispatch failed for ${groupKey}, falling back to image`);
+          for (let i = 0; i < groupPosts.length; i++) {
+            const post = groupPosts[i];
+            const id = postIds[i];
+            if (!id) continue;
+            const adapter = getAdapter(post.platform);
+            if (!adapter) continue;
+
             await supabase
               .from('social_posts')
               .update({ media_type: 'image', status: 'publishing', updated_at: new Date().toISOString() })
-              .eq('id', record.id);
+              .eq('id', id);
 
-            const result = await adapter.publishPost({
-              caption: post.caption,
-              imageUrl: post.imageUrl,
-              mediaType: 'image',
-            });
+            const pubResult = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl, mediaType: 'image' });
 
             await supabase
               .from('social_posts')
               .update({
-                status: result.success ? 'published' : 'failed',
-                platform_post_id: result.platformPostId || null,
-                published_at: result.success ? new Date().toISOString() : null,
-                error_message: result.success ? null : result.error,
+                status: pubResult.success ? 'published' : 'failed',
+                platform_post_id: pubResult.platformPostId || null,
+                published_at: pubResult.success ? new Date().toISOString() : null,
+                error_message: pubResult.success ? null : pubResult.error,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', record.id);
+              .eq('id', id);
 
-            if (result.success) published++;
-            else { failed++; errors.push(`${post.platform}/${post.postType}: fallback image — ${result.error}`); }
+            if (pubResult.success) published++;
+            else { failed++; errors.push(`${post.platform}/${post.postType}: fallback — ${pubResult.error}`); }
           }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Unknown error';
-          console.error(`${LOG_PREFIX} Video trigger error:`, msg);
-          // Mark as failed so retry can pick it up
-          await supabase
-            .from('social_posts')
-            .update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() })
-            .eq('id', record.id);
-          failed++;
-          errors.push(`${post.platform}/${post.postType}: ${msg}`);
         }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        console.error(`${LOG_PREFIX} Video trigger error for ${groupKey}:`, msg);
+        for (const id of postIds) {
+          await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', id);
+        }
+        failed += postIds.length;
+        errors.push(`${groupKey}: ${msg}`);
+      }
+    }
 
+    // ─── Image posts: publish inline ─────────────────────────
+    for (const post of imagePosts) {
+      const adapter = getAdapter(post.platform);
+      if (!adapter) {
+        console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
+        skipped++;
         continue;
       }
 
-      // ─── Image posts: publish inline (unchanged) ─────────────
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      await supabase
+        .from('social_posts')
+        .delete()
+        .eq('post_type', post.postType)
+        .eq('platform', post.platform)
+        .in('status', ['failed', 'publishing', 'pending'])
+        .gte('created_at', todayStart.toISOString());
+
       const { data: record, error: insertError } = await supabase
         .from('social_posts')
         .insert({
@@ -300,49 +337,29 @@ async function runSocialPosting(request: NextRequest) {
       }
 
       try {
-        const result = await adapter.publishPost({
-          caption: post.caption,
-          imageUrl: post.imageUrl,
-          mediaType: 'image',
-        });
+        const pubResult = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl, mediaType: 'image' });
 
-        if (result.success) {
-          await supabase
-            .from('social_posts')
-            .update({
-              status: 'published',
-              platform_post_id: result.platformPostId || null,
-              published_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', record.id);
-
-          published++;
-          console.log(`${LOG_PREFIX} Published to ${post.platform}: ${post.postType}/${post.riverSlug || 'digest'}`);
-        } else {
-          await supabase
-            .from('social_posts')
-            .update({
-              status: 'failed',
-              error_message: result.error || 'Unknown error',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', record.id);
-
-          failed++;
-          errors.push(`${post.platform}/${post.postType}: ${result.error}`);
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error';
         await supabase
           .from('social_posts')
           .update({
-            status: 'failed',
-            error_message: msg,
+            status: pubResult.success ? 'published' : 'failed',
+            platform_post_id: pubResult.platformPostId || null,
+            published_at: pubResult.success ? new Date().toISOString() : null,
+            error_message: pubResult.success ? null : (pubResult.error || 'Unknown error'),
             updated_at: new Date().toISOString(),
           })
           .eq('id', record.id);
 
+        if (pubResult.success) {
+          published++;
+          console.log(`${LOG_PREFIX} Published to ${post.platform}: ${post.postType}/${post.riverSlug || 'digest'}`);
+        } else {
+          failed++;
+          errors.push(`${post.platform}/${post.postType}: ${pubResult.error}`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', record.id);
         failed++;
         errors.push(`${post.platform}/${post.postType}: ${msg}`);
       }
@@ -352,7 +369,7 @@ async function runSocialPosting(request: NextRequest) {
     errors.push(`Scheduling error: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
-  // --- Retry failed posts (image only — video retries go through GH Actions) ---
+  // --- Retry failed posts ---
   try {
     const retryable = await getRetryablePosts();
     console.log(`${LOG_PREFIX} ${retryable.length} posts eligible for retry`);
@@ -361,25 +378,13 @@ async function runSocialPosting(request: NextRequest) {
       const adapter = getAdapter(post.platform as SocialPlatform);
       if (!adapter) continue;
 
-      const { data: fullPost } = await supabase
-        .from('social_posts')
-        .select('*')
-        .eq('id', post.id)
-        .single();
-
+      const { data: fullPost } = await supabase.from('social_posts').select('*').eq('id', post.id).single();
       if (!fullPost) continue;
 
-      await supabase
-        .from('social_posts')
-        .update({
-          status: 'publishing',
-          retry_count: fullPost.retry_count + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', post.id);
+      await supabase.from('social_posts').update({ status: 'publishing', retry_count: fullPost.retry_count + 1, updated_at: new Date().toISOString() }).eq('id', post.id);
 
       try {
-        const result = await adapter.publishPost({
+        const pubResult = await adapter.publishPost({
           caption: fullPost.caption,
           imageUrl: fullPost.image_url,
           videoUrl: fullPost.video_url || undefined,
@@ -387,43 +392,19 @@ async function runSocialPosting(request: NextRequest) {
           mediaType: fullPost.media_type || 'image',
         });
 
-        if (result.success) {
-          await supabase
-            .from('social_posts')
-            .update({
-              status: 'published',
-              platform_post_id: result.platformPostId || null,
-              published_at: new Date().toISOString(),
-              error_message: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', post.id);
+        await supabase.from('social_posts').update({
+          status: pubResult.success ? 'published' : 'failed',
+          platform_post_id: pubResult.platformPostId || null,
+          published_at: pubResult.success ? new Date().toISOString() : null,
+          error_message: pubResult.success ? null : (pubResult.error || 'Retry failed'),
+          updated_at: new Date().toISOString(),
+        }).eq('id', post.id);
 
-          published++;
-          console.log(`${LOG_PREFIX} Retry succeeded: ${post.id}`);
-        } else {
-          await supabase
-            .from('social_posts')
-            .update({
-              status: 'failed',
-              error_message: result.error || 'Retry failed',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', post.id);
-
-          failed++;
-        }
+        if (pubResult.success) { published++; console.log(`${LOG_PREFIX} Retry succeeded: ${post.id}`); }
+        else { failed++; }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'failed',
-            error_message: msg,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', post.id);
-
+        await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', post.id);
         failed++;
       }
     }
@@ -433,20 +414,12 @@ async function runSocialPosting(request: NextRequest) {
 
   return NextResponse.json({
     message: 'Social media posting complete',
-    published,
-    failed,
-    skipped,
-    rendering,
+    published, failed, skipped, rendering,
     errors: errors.length > 0 ? errors : undefined,
     diagnostics,
     executionTime: new Date().toISOString(),
   });
 }
 
-export async function GET(request: NextRequest) {
-  return runSocialPosting(request);
-}
-
-export async function POST(request: NextRequest) {
-  return runSocialPosting(request);
-}
+export async function GET(request: NextRequest) { return runSocialPosting(request); }
+export async function POST(request: NextRequest) { return runSocialPosting(request); }
