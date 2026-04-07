@@ -1,10 +1,12 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   useCurrentFrame,
   useVideoConfig,
   spring,
   interpolate,
+  staticFile,
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
 import {
@@ -14,10 +16,18 @@ import {
 } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
 
+// Reel-safe content zones (1080x1920 portrait)
+const SAFE = {
+  top: 150,
+  bottom: 400,
+  right: 100,
+  left: 20,
+};
+
 /**
- * Simple branded loop with glassmorphism and condition glow.
+ * Simple branded loop with glassmorphism, condition glow, safe zones, and music.
  * 4 seconds (120 frames @ 30fps), 1080x1080.
- * Designed to loop seamlessly: frame 120 fades back to match frame 0.
+ * Designed to loop seamlessly.
  */
 export const BrandedLoop: React.FC<BrandedLoopProps> = ({
   riverName,
@@ -28,7 +38,6 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
   const { fps, durationInFrames } = useVideoConfig();
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
 
-  // ─── Looping envelope ───────────────────────────────────
   const envelope = interpolate(
     frame,
     [0, 25, durationInFrames - 25, durationInFrames],
@@ -36,9 +45,7 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
-  // Breathing glow pulse (loops smoothly)
-  const breathe =
-    0.5 + 0.5 * Math.sin((frame / durationInFrames) * Math.PI * 2);
+  const breathe = 0.5 + 0.5 * Math.sin((frame / durationInFrames) * Math.PI * 2);
 
   const textEntrance = spring({
     frame,
@@ -47,6 +54,16 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
   });
   const textY = interpolate(textEntrance, [0, 1], [30, 0]);
 
+  const musicVolume = interpolate(
+    frame,
+    [0, 15, durationInFrames - 15, durationInFrames],
+    [0, 0.10, 0.10, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // BrandedLoop is 1080x1080 square — use smaller safe margins
+  const isSquare = true;
+
   return (
     <AbsoluteFill
       style={{
@@ -54,7 +71,9 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
         fontFamily: "'Geist Sans', system-ui, sans-serif",
       }}
     >
-      {/* Radial glow in condition color — pulses with breathe */}
+      <Audio src={staticFile("audio/background-music.mp3")} volume={musicVolume} />
+
+      {/* Radial glow */}
       <div
         style={{
           position: "absolute",
@@ -64,7 +83,7 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
         }}
       />
 
-      {/* Secondary ambient glow ring */}
+      {/* Ambient ring */}
       <div
         style={{
           position: "absolute",
@@ -79,28 +98,29 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
         }}
       />
 
-      {/* Content */}
+      {/* Safe zone content */}
       <div
         style={{
+          position: "absolute",
+          top: isSquare ? 40 : SAFE.top,
+          bottom: isSquare ? 40 : SAFE.bottom,
+          left: isSquare ? 40 : SAFE.left,
+          right: isSquare ? 40 : SAFE.right,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          height: "100%",
           gap: 28,
-          padding: "48px",
           opacity: envelope,
         }}
       >
-        {/* Eddy Mascot — floats continuously */}
         <EddyMascot
           variant={getOtterVariant(conditionCode)}
-          size={240}
+          size={220}
           delay={0}
           float
         />
 
-        {/* River name */}
         <div
           style={{
             transform: `translateY(${textY}px)`,
@@ -115,7 +135,6 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
           {riverName}
         </div>
 
-        {/* Condition badge with glassmorphism */}
         <div
           style={{
             display: "flex",
@@ -151,10 +170,9 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
           </span>
         </div>
 
-        {/* Summary text */}
         <div
           style={{
-            maxWidth: 750,
+            maxWidth: 700,
             textAlign: "center",
             opacity: interpolate(
               frame,
@@ -176,7 +194,6 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
           </span>
         </div>
 
-        {/* eddy.guide branding */}
         <span
           style={{
             fontFamily: "'Fredoka', system-ui, sans-serif",

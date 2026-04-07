@@ -91,7 +91,8 @@ export function getCompositionForPost(
   },
   platform: 'instagram' | 'facebook'
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
-  const format = platform === 'instagram' ? 'portrait' : 'square';
+  // Both platforms get portrait (1080x1920) — vertical video performs better everywhere
+  const format = 'portrait' as const;
 
   switch (postType) {
     case 'river_highlight':

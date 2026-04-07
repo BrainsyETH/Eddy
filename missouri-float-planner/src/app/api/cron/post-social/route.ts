@@ -19,6 +19,16 @@ export const dynamic = 'force-dynamic';
 
 const LOG_PREFIX = '[SocialCron]';
 
+/** Truncate text to ~120 chars for video teaser (full text goes in caption) */
+function truncateForVideo(text: string | null): string {
+  if (!text) return '';
+  if (text.length <= 120) return text;
+  // Break at the last space before 120 chars
+  const truncated = text.slice(0, 120);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated) + '...';
+}
+
 /**
  * Build the data object needed for video rendering from a scheduled post.
  * Queries eddy_updates and river_gauges for the required fields.
@@ -92,8 +102,8 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         gaugeHeightFt: update.gauge_height_ft,
         optimalMin,
         optimalMax,
-        quoteText: update.quote_text,
-        summaryText: update.summary_text,
+        quoteText: truncateForVideo(update.quote_text),
+        summaryText: truncateForVideo(update.summary_text),
       };
     }
   }

@@ -308,13 +308,11 @@ export function formatRiverHighlightCaption(
   }
   lines.push('');
 
-  // 3. Eddy quote — Instagram only (Facebook image already shows it)
-  if (platform === 'instagram') {
-    const quote = trimQuote(update, 280);
-    if (quote) {
-      lines.push(`Eddy says: \u201C${quote}\u201D`);
-      lines.push('');
-    }
+  // 3. Eddy quote — both platforms (video teaser points viewers to caption)
+  const quote = trimQuote(update, 280);
+  if (quote) {
+    lines.push(`Eddy says: \u201C${quote}\u201D`);
+    lines.push('');
   }
 
   // 4. Weekend engagement question (only for floatable conditions)
