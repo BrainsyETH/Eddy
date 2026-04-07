@@ -101,22 +101,29 @@ jobs:
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
           AUDIO_SRC="public/audio/background-music.mp3"
 
-          # Get exact video duration for -t flag
-          # NOTE: -shortest with -c:v copy is broken in ffmpeg — produces ~3kB of audio
+          # Get video duration
           DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
           echo "Video duration: ${DURATION}s"
 
-          # Strip any Remotion audio, mux fresh from source MP3
-          # Meta Reels require: AAC, 48kHz, stereo, faststart
+          # Step 1: encode audio from source MP3 to a standalone AAC file
+          # (encoding audio separately avoids the -c:v copy race condition
+          # where the video stream finishes instantly and ffmpeg exits
+          # before the audio encoder produces output)
+          ffmpeg -y \
+            -i "$AUDIO_SRC" \
+            -t "$DURATION" \
+            -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            "/tmp/audio.m4a" 2>&1 | tail -5
+          echo "Audio file: $(stat -c%s /tmp/audio.m4a) bytes"
+
+          # Step 2: mux video (copy) + pre-encoded audio (copy) together
           ffmpeg -y \
             -i "$OUTFILE" \
-            -i "$AUDIO_SRC" \
-            -c:v copy \
-            -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            -i "/tmp/audio.m4a" \
+            -c:v copy -c:a copy \
             -map 0:v:0 -map 1:a:0 \
-            -t "$DURATION" \
             -movflags +faststart \
-            "/tmp/normalized.mp4" 2>&1 | tail -10
+            "/tmp/normalized.mp4" 2>&1 | tail -5
 
           mv "/tmp/normalized.mp4" "$OUTFILE"
 
