@@ -74,11 +74,12 @@ jobs:
         run: |
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
 
-          # Render video only — audio is added by ffmpeg in the next step
           npx remotion render \
             --entry-point=src/index.ts \
             --props=/tmp/input-props.json \
             --codec=h264 \
+            --audio-codec=aac \
+            --enforce-audio-track \
             --crf=18 \
             --log=verbose \
             --public-dir=./public \
@@ -86,53 +87,16 @@ jobs:
             "$OUTFILE"
 
           echo "Render complete: $(ls -la "$OUTFILE" | awk '{print $5}') bytes"
+
+          # Verify Remotion output has audio
+          echo "=== Audio verification ==="
+          REMOTION_FFPROBE=$(npx remotion ffprobe -v error -select_streams a \
+            -show_entries stream=codec_name,sample_rate,channels,bit_rate \
+            -of default=noprint_wrappers=1 "$OUTFILE" 2>&1 || true)
+          echo "$REMOTION_FFPROBE"
+          echo "File size: $(stat -c%s "$OUTFILE") bytes"
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
-
-      - name: Install ffmpeg
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg > /dev/null 2>&1
-          ffmpeg -version | head -1
-
-      - name: Normalize audio for Meta Reels
-        working-directory: missouri-float-planner/remotion
-        run: |
-          OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
-          AUDIO_SRC="public/audio/background-music.mp3"
-
-          # Get video duration
-          DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
-          echo "Video duration: ${DURATION}s"
-
-          # Step 1: encode audio from source MP3 to a standalone AAC file
-          # (encoding audio separately avoids the -c:v copy race condition
-          # where the video stream finishes instantly and ffmpeg exits
-          # before the audio encoder produces output)
-          ffmpeg -y \
-            -i "$AUDIO_SRC" \
-            -t "$DURATION" \
-            -c:a aac -b:a 192k -ar 48000 -ac 2 \
-            "/tmp/audio.m4a" 2>&1 | tail -5
-          echo "Audio file: $(stat -c%s /tmp/audio.m4a) bytes"
-
-          # Step 2: mux video (copy) + pre-encoded audio (copy) together
-          ffmpeg -y \
-            -i "$OUTFILE" \
-            -i "/tmp/audio.m4a" \
-            -c:v copy -c:a copy \
-            -map 0:v:0 -map 1:a:0 \
-            -movflags +faststart \
-            "/tmp/normalized.mp4" 2>&1 | tail -5
-
-          mv "/tmp/normalized.mp4" "$OUTFILE"
-
-          # Verify final output
-          echo "=== Final audio verification ==="
-          ffprobe -v error -select_streams a \
-            -show_entries stream=codec_name,sample_rate,channels,bit_rate \
-            -of default=noprint_wrappers=1 "$OUTFILE"
-          echo "File size: $(stat -c%s "$OUTFILE") bytes"
 
       - name: Upload to Vercel Blob
         id: upload
