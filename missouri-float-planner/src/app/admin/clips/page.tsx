@@ -20,7 +20,6 @@ import {
   BarChart3,
   Lightbulb,
   ExternalLink,
-  Search,
   Layers,
   X,
 } from 'lucide-react';
