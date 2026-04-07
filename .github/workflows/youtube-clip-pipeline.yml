@@ -1,0 +1,318 @@
+# .github/workflows/youtube-clip-pipeline.yml
+# ClipEngine: Monitor YouTube channels, extract best moments, finalize to Reels.
+#
+# Runs daily on schedule or via manual dispatch / API trigger.
+# Extracts clips using heatmap data, applies Eddy branding, uploads to CDN.
+
+name: YouTube Clip Pipeline
+
+on:
+  schedule:
+    # Daily at 7 AM CST (13:00 UTC)
+    - cron: '0 13 * * *'
+
+  workflow_dispatch:
+    inputs:
+      youtube_url:
+        description: 'Single YouTube URL to process (overrides channel scan)'
+        required: false
+        type: string
+      river_slug:
+        description: 'River slug for the clip (e.g. current, meramec)'
+        required: false
+        type: string
+      peak_number:
+        description: 'Which heatmap peak to use (1-5, default 1)'
+        required: false
+        type: string
+        default: '1'
+      max_clips:
+        description: 'Maximum clips to extract per run'
+        required: false
+        type: string
+        default: '3'
+
+jobs:
+  extract-clips:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yt-dlp
+        run: |
+          pip install yt-dlp
+          echo "yt-dlp version: $(yt-dlp --version)"
+
+      - name: Verify ffmpeg
+        run: |
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Install fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-dejavu-core
+
+      - name: Process YouTube content
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          YOUTUBE_URL: ${{ inputs.youtube_url }}
+          RIVER_SLUG: ${{ inputs.river_slug }}
+          PEAK_NUMBER: ${{ inputs.peak_number || '1' }}
+          MAX_CLIPS: ${{ inputs.max_clips || '3' }}
+        run: |
+          set -e
+          WORK_DIR=$(mktemp -d)
+          CLIPS_OUTPUT="$WORK_DIR/clips"
+          mkdir -p "$CLIPS_OUTPUT"
+          RESULTS_JSON="$WORK_DIR/results.json"
+          echo "[]" > "$RESULTS_JSON"
+
+          process_video() {
+            local URL="$1"
+            local RIVER="$2"
+            local PEAK="$3"
+            local VIDEO_DIR=$(mktemp -d)
+
+            echo ""
+            echo "════════════════════════════════════════════"
+            echo "Processing: $URL"
+            echo "River: ${RIVER:-auto-detect}"
+            echo "════════════════════════════════════════════"
+
+            # Step 1: Scrape heatmap
+            echo "→ Scraping heatmap..."
+            bash scripts/clipengine/scrape-heatmap.sh "$URL" "$VIDEO_DIR"
+
+            if [ ! -f "$VIDEO_DIR/heatmap-data.json" ]; then
+              echo "⚠️ No heatmap data, skipping"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+
+            # Extract peak info
+            local VIDEO_ID=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d['video_id'])")
+            local CHANNEL=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('channel','Unknown'))")
+            local TITLE=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('title',''))")
+            local PEAK_IDX=$((PEAK - 1))
+            local PEAK_START=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX]['start_secs'] if len(peaks)>$PEAK_IDX else '')")
+            local PEAK_DURATION=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX].get('duration_secs',13) if len(peaks)>$PEAK_IDX else '')")
+            local PEAK_SCORE=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX].get('score',0) if len(peaks)>$PEAK_IDX else '')")
+
+            if [ -z "$PEAK_START" ]; then
+              echo "⚠️ No peak at position $PEAK, skipping"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+
+            # Check for duplicates in Supabase
+            if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+              local EXISTING=$(curl -s \
+                "${SUPABASE_URL}/rest/v1/clip_library?youtube_video_id=eq.${VIDEO_ID}&clip_start_secs=eq.${PEAK_START}&select=id" \
+                -H "apikey: ${SUPABASE_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null)
+              if echo "$EXISTING" | python3 -c "import json,sys; d=json.load(sys.stdin); exit(0 if d else 1)" 2>/dev/null; then
+                echo "⚠️ Clip already exists for $VIDEO_ID at ${PEAK_START}s, skipping"
+                rm -rf "$VIDEO_DIR"
+                return
+              fi
+            fi
+
+            # Step 2: Extract clip
+            echo "→ Extracting clip at ${PEAK_START}s for ${PEAK_DURATION}s..."
+            local RAW_CLIP="$VIDEO_DIR/raw-clip.mp4"
+            bash scripts/clipengine/extract-clip.sh "$URL" "$PEAK_START" "$PEAK_DURATION" "$RAW_CLIP" --transcript
+
+            if [ ! -f "$RAW_CLIP" ]; then
+              echo "⚠️ Clip extraction failed, skipping"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+
+            # Step 3: Finalize to reel format
+            echo "→ Finalizing to Reel format..."
+            local RIVER_NAME="${RIVER:-Unknown River}"
+            local FINAL_CLIP="$CLIPS_OUTPUT/${VIDEO_ID}-peak${PEAK}.mp4"
+            local TRANSCRIPT_FILE=$(find "$VIDEO_DIR" -name "*.vtt" -type f | head -1)
+
+            bash scripts/clipengine/finalize-reel.sh \
+              "$RAW_CLIP" \
+              "$RIVER_NAME" \
+              "$FINAL_CLIP" \
+              "${TRANSCRIPT_FILE:-}" \
+              "${PEAK_START}"
+
+            if [ ! -f "$FINAL_CLIP" ]; then
+              echo "⚠️ Finalization failed, skipping"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+
+            # Step 4: Upload to Vercel Blob
+            echo "→ Uploading to CDN..."
+            local DATE_PREFIX=$(date -u +%Y-%m-%d)
+            local BLOB_PATH="clips/${DATE_PREFIX}/${VIDEO_ID}-peak${PEAK}.mp4"
+
+            local UPLOAD_RESPONSE=$(curl -s -X PUT \
+              "https://blob.vercel-storage.com/${BLOB_PATH}" \
+              -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
+              -H "x-content-type: video/mp4" \
+              -H "x-cache-control-max-age: 31536000" \
+              --data-binary "@${FINAL_CLIP}")
+
+            local CLIP_URL=$(echo "$UPLOAD_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('url',''))" 2>/dev/null || echo "")
+
+            if [ -z "$CLIP_URL" ] || [ "$CLIP_URL" = "null" ]; then
+              echo "⚠️ Upload failed: $UPLOAD_RESPONSE"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+
+            echo "✅ Uploaded: $CLIP_URL"
+
+            # Detect orientation
+            local DIMS=$(ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height \
+              -of csv=s=x:p=0 "$FINAL_CLIP" 2>/dev/null)
+            local W=$(echo "$DIMS" | cut -dx -f1)
+            local H=$(echo "$DIMS" | cut -dx -f2)
+            local ORIENTATION="landscape"
+            [ "$H" -gt "$W" ] 2>/dev/null && ORIENTATION="portrait"
+
+            local CLIP_DURATION=$(ffprobe -v error -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 "$FINAL_CLIP" 2>/dev/null | cut -d. -f1)
+
+            # Append to results
+            python3 << INNEREOF
+import json
+results = json.load(open("$RESULTS_JSON"))
+results.append({
+    "youtube_video_id": "$VIDEO_ID",
+    "youtube_channel": "$CHANNEL",
+    "river_slug": "${RIVER:-}",
+    "clip_url": "$CLIP_URL",
+    "duration_secs": ${CLIP_DURATION:-0},
+    "clip_start_secs": $PEAK_START,
+    "clip_end_secs": $PEAK_START + ${PEAK_DURATION:-13},
+    "orientation": "$ORIENTATION",
+    "heatmap_score": $PEAK_SCORE,
+    "source_creator": "$CHANNEL",
+    "source_url": "$URL",
+    "title": "$TITLE",
+})
+with open("$RESULTS_JSON", "w") as f:
+    json.dump(results, f, indent=2)
+INNEREOF
+
+            rm -rf "$VIDEO_DIR"
+          }
+
+          # Process: either a single URL or scan channels
+          if [ -n "$YOUTUBE_URL" ]; then
+            process_video "$YOUTUBE_URL" "$RIVER_SLUG" "$PEAK_NUMBER"
+          else
+            echo "ℹ️ No URL provided — channel scanning requires YOUTUBE_CHANNELS_JSON secret"
+            echo "  Use workflow_dispatch with youtube_url input for manual processing"
+          fi
+
+          # Report results
+          TOTAL=$(python3 -c "import json; print(len(json.load(open('$RESULTS_JSON'))))")
+          echo ""
+          echo "════════════════════════════════════════════"
+          echo "📊 Pipeline Results: $TOTAL clips extracted"
+          echo "════════════════════════════════════════════"
+          python3 -c "import json; [print(f'  • {c[\"youtube_video_id\"]} → {c[\"clip_url\"]}') for c in json.load(open('$RESULTS_JSON'))]"
+
+          # Save results for callback step
+          cp "$RESULTS_JSON" "$GITHUB_WORKSPACE/clip-results.json"
+
+      - name: Callback to Eddy API
+        if: success()
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          RESULTS=$(cat "$GITHUB_WORKSPACE/clip-results.json")
+          TOTAL=$(echo "$RESULTS" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No clips to insert"
+            exit 0
+          fi
+
+          # Insert directly into Supabase
+          echo "Inserting $TOTAL clips into clip_library..."
+          python3 << 'PYEOF'
+import json, urllib.request, os
+
+supabase_url = os.environ["SUPABASE_URL"]
+supabase_key = os.environ["SUPABASE_KEY"]
+
+with open(os.path.join(os.environ["GITHUB_WORKSPACE"], "clip-results.json")) as f:
+    clips = json.load(f)
+
+for clip in clips:
+    row = {
+        "youtube_video_id": clip["youtube_video_id"],
+        "youtube_channel": clip.get("youtube_channel"),
+        "river_slug": clip.get("river_slug") or None,
+        "clip_url": clip["clip_url"],
+        "duration_secs": clip.get("duration_secs"),
+        "clip_start_secs": clip.get("clip_start_secs"),
+        "clip_end_secs": clip.get("clip_end_secs"),
+        "orientation": clip.get("orientation", "portrait"),
+        "heatmap_score": clip.get("heatmap_score"),
+        "source_creator": clip.get("source_creator"),
+        "source_url": clip.get("source_url"),
+        "brand_check_status": "pending",
+    }
+
+    body = json.dumps(row).encode()
+    req = urllib.request.Request(
+        f"{supabase_url}/rest/v1/clip_library",
+        data=body,
+        headers={
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            print(f"  ✅ Inserted: {clip['youtube_video_id']}")
+    except Exception as e:
+        print(f"  ⚠️ Failed to insert {clip['youtube_video_id']}: {e}")
+PYEOF
+
+          # Optional: notify the site
+          if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
+            curl -s -X POST \
+              "${SITE_URL}/api/admin/clips/callback" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -d "{\"clips\": $RESULTS, \"status\": \"completed\"}" || true
+          fi
+
+      - name: Report failure
+        if: failure()
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
+            curl -s -X POST \
+              "${SITE_URL}/api/admin/clips/callback" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -d '{"status": "failed", "error": "YouTube clip pipeline failed — check workflow logs"}' || true
+          fi

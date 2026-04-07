@@ -72,6 +72,163 @@ export async function triggerVideoRender(params: TriggerRenderParams): Promise<b
 /**
  * Map post type + river data to a Remotion composition ID and input props.
  */
+// ─── ClipEngine workflow dispatchers ───
+
+interface ClipPipelineParams {
+  youtubeUrl?: string;
+  riverSlug?: string;
+  peakNumber?: number;
+  maxClips?: number;
+}
+
+/**
+ * Trigger the YouTube clip extraction pipeline via GitHub Actions.
+ */
+export async function triggerClipPipeline(params: ClipPipelineParams): Promise<boolean> {
+  const token = process.env.GH_ACTIONS_TOKEN;
+  if (!token) {
+    console.error(`${LOG_PREFIX} GH_ACTIONS_TOKEN not set`);
+    return false;
+  }
+
+  const owner = process.env.GH_REPO_OWNER || DEFAULT_OWNER;
+  const repo = process.env.GH_REPO_NAME || DEFAULT_REPO;
+
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/youtube-clip-pipeline.yml/dispatches`;
+
+  console.log(`${LOG_PREFIX} Triggering clip pipeline: url=${params.youtubeUrl || 'channel-scan'}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ref: 'main',
+      inputs: {
+        youtube_url: params.youtubeUrl || '',
+        river_slug: params.riverSlug || '',
+        peak_number: String(params.peakNumber || 1),
+        max_clips: String(params.maxClips || 3),
+      },
+    }),
+  });
+
+  if (response.status === 204) {
+    console.log(`${LOG_PREFIX} Clip pipeline dispatched`);
+    return true;
+  }
+
+  const errorBody = await response.text();
+  console.error(`${LOG_PREFIX} Clip pipeline dispatch failed (${response.status}): ${errorBody}`);
+  return false;
+}
+
+interface CompileHighlightsParams {
+  clipIds: string;
+  title: string;
+  postIds: string;
+  outputFilename: string;
+}
+
+/**
+ * Trigger the highlights/montage compilation workflow.
+ */
+export async function triggerCompileHighlights(params: CompileHighlightsParams): Promise<boolean> {
+  const token = process.env.GH_ACTIONS_TOKEN;
+  if (!token) {
+    console.error(`${LOG_PREFIX} GH_ACTIONS_TOKEN not set`);
+    return false;
+  }
+
+  const owner = process.env.GH_REPO_OWNER || DEFAULT_OWNER;
+  const repo = process.env.GH_REPO_NAME || DEFAULT_REPO;
+
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/compile-highlights.yml/dispatches`;
+
+  console.log(`${LOG_PREFIX} Triggering highlights compile: ${params.clipIds}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ref: 'main',
+      inputs: {
+        clip_ids: params.clipIds,
+        title: params.title,
+        post_ids: params.postIds,
+        output_filename: params.outputFilename,
+      },
+    }),
+  });
+
+  if (response.status === 204) {
+    console.log(`${LOG_PREFIX} Highlights workflow dispatched`);
+    return true;
+  }
+
+  const errorBody = await response.text();
+  console.error(`${LOG_PREFIX} Highlights dispatch failed (${response.status}): ${errorBody}`);
+  return false;
+}
+
+interface BrandCheckParams {
+  clipId: string;
+  clipUrl: string;
+}
+
+/**
+ * Trigger brand safety check on a clip via GitHub Actions.
+ */
+export async function triggerBrandCheck(params: BrandCheckParams): Promise<boolean> {
+  const token = process.env.GH_ACTIONS_TOKEN;
+  if (!token) {
+    console.error(`${LOG_PREFIX} GH_ACTIONS_TOKEN not set`);
+    return false;
+  }
+
+  const owner = process.env.GH_REPO_OWNER || DEFAULT_OWNER;
+  const repo = process.env.GH_REPO_NAME || DEFAULT_REPO;
+
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/brand-check-clip.yml/dispatches`;
+
+  console.log(`${LOG_PREFIX} Triggering brand check: ${params.clipId}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ref: 'main',
+      inputs: {
+        clip_id: params.clipId,
+        clip_url: params.clipUrl,
+      },
+    }),
+  });
+
+  if (response.status === 204) {
+    console.log(`${LOG_PREFIX} Brand check dispatched`);
+    return true;
+  }
+
+  const errorBody = await response.text();
+  console.error(`${LOG_PREFIX} Brand check dispatch failed (${response.status}): ${errorBody}`);
+  return false;
+}
+
+/**
+ * Map post type + river data to a Remotion composition ID and input props.
+ */
 export function getCompositionForPost(
   postType: 'daily_digest' | 'river_highlight' | 'branded_loop',
   data: {
