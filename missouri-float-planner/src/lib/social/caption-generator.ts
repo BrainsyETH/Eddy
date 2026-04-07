@@ -142,7 +142,7 @@ HASHTAGS: [5-8 hashtags, comma-separated]`;
  * Template-based fallback when API is unavailable.
  */
 function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
-  const { contentType, hookStyle, riverName, conditionCode, clipMetadata } = params;
+  const { hookStyle, riverName, conditionCode, clipMetadata } = params;
 
   const hooks: Record<HookStyle, (river: string) => string> = {
     question: (r) => `Ever floated the ${r} at this level?`,

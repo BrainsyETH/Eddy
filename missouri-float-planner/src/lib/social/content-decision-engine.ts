@@ -13,7 +13,6 @@ import type {
   ContentMixStatus,
   AudienceSegment,
   HookStyle,
-  ClipLibraryItem,
 } from './types';
 
 const LOG_PREFIX = '[ContentDecision]';
@@ -33,9 +32,6 @@ const RIVER_COOLDOWN_DAYS = 3;
 const MONTAGE_COOLDOWN_DAYS = 4;
 const HIGHLIGHTS_COOLDOWN_DAYS = 3;
 
-// Max montages per week
-const MAX_MONTAGES_PER_WEEK = 2;
-const MAX_HIGHLIGHTS_PER_WEEK = 2;
 
 /**
  * Analyze current content mix vs targets.
@@ -155,7 +151,7 @@ export async function selectFormat(): Promise<{
   };
 
   // Days since last montage/highlights
-  let daysSinceMontage = 999;
+  const daysSinceMontage = 999;
   let daysSinceHighlights = 999;
 
   for (const post of posts) {
