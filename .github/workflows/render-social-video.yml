@@ -68,6 +68,14 @@ jobs:
           echo "Props written ($(wc -c < /tmp/input-props.json) bytes)"
           cat /tmp/input-props.json | head -c 200
 
+      - name: Verify audio file exists
+        working-directory: missouri-float-planner/remotion
+        run: |
+          echo "=== Checking public/audio/ ==="
+          ls -la public/audio/
+          file public/audio/background-music.mp3
+          echo "=== Audio file confirmed ==="
+
       - name: Render video
         working-directory: missouri-float-planner/remotion
         run: |
@@ -79,6 +87,8 @@ jobs:
             --props=/tmp/input-props.json \
             --codec=h264 \
             --audio-codec=aac \
+            --enforce-audio-track \
+            --disable-parallel-encoding \
             --crf=18 \
             --log=verbose \
             --public-dir=./public \
@@ -86,8 +96,12 @@ jobs:
             "/tmp/${{ inputs.output_filename }}.mp4"
 
           ls -la "/tmp/${{ inputs.output_filename }}.mp4"
-          # Verify audio track exists
-          npx remotion ffprobe "/tmp/${{ inputs.output_filename }}.mp4" 2>&1 | grep -i audio || echo "WARNING: No audio track detected"
+
+          # Verify audio with ffprobe
+          echo "=== Checking output for audio track ==="
+          ffprobe -v error -show_streams "/tmp/${{ inputs.output_filename }}.mp4" 2>&1 || echo "ffprobe not available, installing..."
+          which ffprobe || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null 2>&1)
+          ffprobe -v error -show_streams -select_streams a "/tmp/${{ inputs.output_filename }}.mp4" 2>&1 | head -20
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
 
