@@ -115,6 +115,7 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   failed: { label: 'Failed', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
   pending: { label: 'Pending', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
   publishing: { label: 'Publishing', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  rendering: { label: 'Rendering', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
   skipped: { label: 'Skipped', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
 };
 
@@ -155,6 +156,7 @@ export default function SocialAdminPage() {
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
+  const [quickPostAsVideo, setQuickPostAsVideo] = useState(false);
   const [quickPosting, setQuickPosting] = useState(false);
 
   // Preview modal state
@@ -450,16 +452,21 @@ export default function SocialAdminPage() {
           riverSlug: quickPostType === 'highlight' ? quickPostRiver : undefined,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
           platforms: quickPostPlatforms,
+          asVideo: quickPostAsVideo && quickPostType !== 'tip',
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
-        const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
-        if (failures.length > 0) {
-          showToast(`Published to ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+        if (data.rendering) {
+          showToast(`Video render dispatched for ${data.rendering} platform(s) — will publish in ~3-5 min`, 'success');
         } else {
-          showToast(`Published to ${successes} platform(s)`, 'success');
+          const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
+          const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
+          if (failures.length > 0) {
+            showToast(`Published to ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+          } else {
+            showToast(`Published to ${successes} platform(s)`, 'success');
+          }
         }
         setShowQuickPost(false);
         fetchPosts();
@@ -696,6 +703,26 @@ export default function SocialAdminPage() {
               </label>
             </div>
 
+            {/* Video toggle (digest & highlight only) */}
+            {quickPostType !== 'tip' && (
+              <div className="flex items-center gap-3 p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg">
+                <label className="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={quickPostAsVideo}
+                    onChange={(e) => setQuickPostAsVideo(e.target.checked)}
+                    className="rounded bg-neutral-900 border-neutral-600"
+                  />
+                  Post as animated video
+                </label>
+                <span className="text-xs text-neutral-500">
+                  {quickPostAsVideo
+                    ? 'Renders via GitHub Actions (~3-5 min), then publishes automatically'
+                    : 'Posts static branded image immediately'}
+                </span>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-3">
               <button
@@ -709,7 +736,9 @@ export default function SocialAdminPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                {quickPosting ? 'Publishing...' : 'Publish Now'}
+                {quickPosting
+                  ? (quickPostAsVideo ? 'Dispatching...' : 'Publishing...')
+                  : (quickPostAsVideo ? 'Render & Publish' : 'Publish Now')}
               </button>
               <button
                 onClick={() => setShowQuickPost(false)}
@@ -1278,6 +1307,7 @@ export default function SocialAdminPage() {
                     <option value="">All Statuses</option>
                     <option value="published">Published</option>
                     <option value="failed">Failed</option>
+                    <option value="rendering">Rendering</option>
                     <option value="pending">Pending</option>
                     <option value="skipped">Skipped</option>
                   </select>
@@ -1303,6 +1333,7 @@ export default function SocialAdminPage() {
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Date</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Platform</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Type</th>
+                            <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Media</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">River</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Status</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Caption</th>
@@ -1325,6 +1356,13 @@ export default function SocialAdminPage() {
                                 <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{post.platform}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
                                   {post.post_type === 'daily_digest' ? 'Digest' : post.post_type === 'river_highlight' ? 'Highlight' : post.post_type === 'manual' ? 'Manual' : post.post_type === 'condition_change' ? 'Alert' : post.post_type}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  {(post as SocialPost & { media_type?: string }).media_type === 'video' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">Video</span>
+                                  ) : (
+                                    <span className="text-neutral-400">Image</span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">{post.river_slug || '-'}</td>
                                 <td className="px-4 py-3">

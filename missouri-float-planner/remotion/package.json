@@ -11,7 +11,7 @@
     "render:scene": "remotion render Root",
     "generate": "tsx scripts/generate-video.ts",
     "generate:assets": "tsx scripts/generate-video.ts --assets-only",
-    "generate:render": "tsx scripts/generate-video.ts --render-only"
+    "generate:render": "tsx scripts/generate-video.ts --render-only",
   },
   "dependencies": {
     "@remotion/cli": "4.0.242",

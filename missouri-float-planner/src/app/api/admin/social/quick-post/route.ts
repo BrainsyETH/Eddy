@@ -12,6 +12,7 @@ import {
   formatRiverHighlightCaption,
 } from '@/lib/social/content-formatter';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
+import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,11 +33,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { type, riverSlug, contentId, platforms } = body as {
+  const { type, riverSlug, contentId, platforms, asVideo } = body as {
     type: 'digest' | 'highlight' | 'tip';
     riverSlug?: string;
     contentId?: string;
     platforms: string[];
+    asVideo?: boolean;
   };
 
   if (!type) {
@@ -60,6 +62,14 @@ export async function POST(request: NextRequest) {
   const customContent = (customContentRows || []) as SocialCustomContent[];
 
   try {
+    // Video rendering path — dispatch to GitHub Actions
+    if (asVideo && (type === 'digest' || type === 'highlight')) {
+      if (type === 'highlight' && !riverSlug) {
+        return NextResponse.json({ error: 'riverSlug is required for highlight posts' }, { status: 400 });
+      }
+      return await dispatchVideoRender(supabase, validPlatforms, customContent, type, riverSlug);
+    }
+
     if (type === 'digest') {
       return await postDigest(supabase, validPlatforms, customContent);
     } else if (type === 'highlight') {
@@ -79,6 +89,188 @@ export async function POST(request: NextRequest) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+// --- Video Dispatch ---
+
+async function dispatchVideoRender(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  platforms: SocialPlatform[],
+  customContent: SocialCustomContent[],
+  type: 'digest' | 'highlight',
+  riverSlug?: string
+) {
+  // Build caption (same as image posts) and render data
+  let renderData: Record<string, unknown> = {};
+  const postType = type === 'digest' ? 'daily_digest' : 'river_highlight';
+  let dispatched = 0;
+
+  if (type === 'digest') {
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false });
+
+    const seen = new Set<string>();
+    const rivers = (updates || [])
+      .filter((u: { river_slug: string }) => {
+        if (seen.has(u.river_slug)) return false;
+        seen.add(u.river_slug);
+        return true;
+      })
+      .map((u: { river_slug: string; condition_code: string; gauge_height_ft: number | null }) => ({
+        riverName: u.river_slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        conditionCode: u.condition_code,
+        gaugeHeightFt: u.gauge_height_ft,
+      }));
+
+    renderData = {
+      rivers,
+      dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+    };
+  } else if (type === 'highlight' && riverSlug) {
+    const { data: update } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .eq('river_slug', riverSlug)
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!update) {
+      return NextResponse.json({ error: `No current update found for ${riverSlug}` }, { status: 404 });
+    }
+
+    renderData = {
+      riverName: update.river_slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      conditionCode: update.condition_code,
+      gaugeHeightFt: update.gauge_height_ft,
+      quoteText: update.quote_text,
+      summaryText: update.summary_text,
+    };
+  }
+
+  for (const platform of platforms) {
+    // Clear today's records for this type/platform
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    await supabase
+      .from('social_posts')
+      .delete()
+      .eq('post_type', postType)
+      .eq('platform', platform)
+      .gte('created_at', todayStart.toISOString());
+
+    // Build caption
+    let caption = '';
+    let hashtags: string[] = [];
+    if (type === 'digest') {
+      const { data: globalUpdate } = await supabase
+        .from('eddy_updates')
+        .select('quote_text')
+        .eq('river_slug', 'global')
+        .is('section_slug', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: allUpdates } = await supabase
+        .from('eddy_updates')
+        .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+        .neq('river_slug', 'global')
+        .is('section_slug', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false });
+
+      const seen2 = new Set<string>();
+      const deduped = (allUpdates || []).filter((u: { river_slug: string }) => {
+        if (seen2.has(u.river_slug)) return false;
+        seen2.add(u.river_slug);
+        return true;
+      });
+
+      const formatted = formatDailyDigestCaption(deduped, globalUpdate?.quote_text || null, customContent, platform);
+      caption = formatted.caption;
+      hashtags = formatted.hashtags;
+    } else if (type === 'highlight' && riverSlug) {
+      const { data: update } = await supabase
+        .from('eddy_updates')
+        .select('*')
+        .eq('river_slug', riverSlug)
+        .is('section_slug', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (update) {
+        const formatted = formatRiverHighlightCaption(update, customContent, platform);
+        caption = formatted.caption;
+        hashtags = formatted.hashtags;
+      }
+    }
+
+    const imageUrl = type === 'digest'
+      ? `${BASE_URL}/api/og/social?type=digest&platform=${platform}`
+      : `${BASE_URL}/api/og/social?type=highlight&river=${riverSlug}&platform=${platform}`;
+
+    // Insert rendering record
+    const { data: record, error: insertError } = await supabase
+      .from('social_posts')
+      .insert({
+        post_type: postType,
+        platform,
+        river_slug: riverSlug || null,
+        caption,
+        image_url: imageUrl,
+        media_type: 'video',
+        hashtags,
+        status: 'rendering',
+      })
+      .select('id')
+      .single();
+
+    if (insertError) continue;
+
+    // Dispatch to GitHub Actions
+    const { compositionId, inputProps, outputFilename } = getCompositionForPost(
+      postType as 'daily_digest' | 'river_highlight',
+      renderData as Parameters<typeof getCompositionForPost>[1],
+      platform as 'instagram' | 'facebook'
+    );
+
+    const success = await triggerVideoRender({
+      postId: record.id,
+      compositionId,
+      inputProps,
+      outputFilename,
+    });
+
+    if (success) {
+      dispatched++;
+    } else {
+      // Fallback: update to image and let the cron retry pick it up
+      await supabase
+        .from('social_posts')
+        .update({ media_type: 'image', status: 'failed', error_message: 'GH Actions dispatch failed' })
+        .eq('id', record.id);
+    }
+  }
+
+  logAdminAction({
+    action: `quick_post_video_${type}`,
+    entityType: 'social_post',
+    details: { type, riverSlug, platforms, dispatched },
+  });
+
+  return NextResponse.json({ rendering: dispatched });
 }
 
 // --- Digest ---
@@ -260,6 +452,7 @@ async function publishToPlatforms(
         river_slug: post.riverSlug,
         caption: post.caption,
         image_url: post.imageUrl,
+        media_type: 'image',
         hashtags: post.hashtags,
         status: 'publishing',
       })

@@ -1,0 +1,78 @@
+// Shared prop types and condition utilities for social video compositions
+// NOTE: Remotion project is isolated — cannot import from src/, so we duplicate condition data here.
+
+export type ConditionCode =
+  | "flowing"
+  | "good"
+  | "low"
+  | "too_low"
+  | "high"
+  | "dangerous"
+  | "unknown";
+
+export interface ConditionStyle {
+  solid: string;
+  bg: string;
+  label: string;
+}
+
+export const CONDITION_COLORS: Record<ConditionCode, ConditionStyle> = {
+  flowing: { solid: "#059669", bg: "rgba(5,150,105,0.2)", label: "Flowing" },
+  good: { solid: "#84cc16", bg: "rgba(132,204,22,0.15)", label: "Good" },
+  low: { solid: "#eab308", bg: "rgba(234,179,8,0.15)", label: "Low" },
+  too_low: { solid: "#78716c", bg: "rgba(120,113,108,0.15)", label: "Too Low" },
+  high: { solid: "#f97316", bg: "rgba(249,115,22,0.2)", label: "High" },
+  dangerous: {
+    solid: "#ef4444",
+    bg: "rgba(239,68,68,0.15)",
+    label: "Dangerous",
+  },
+  unknown: { solid: "#9ca3af", bg: "rgba(156,163,175,0.15)", label: "N/A" },
+};
+
+type OtterVariant = "standard" | "canoe" | "flag" | "green" | "favicon";
+
+/** Map condition code to the Eddy otter variant */
+export function getOtterVariant(conditionCode: ConditionCode): OtterVariant {
+  switch (conditionCode) {
+    case "flowing":
+    case "good":
+      return "green";
+    case "low":
+    case "too_low":
+      return "flag";
+    case "high":
+    case "dangerous":
+      return "standard";
+    default:
+      return "green";
+  }
+}
+
+// ─── Composition Input Props ──────────────────────────────────────
+
+export interface GaugeAnimationProps {
+  riverName: string;
+  conditionCode: ConditionCode;
+  gaugeHeightFt: number;
+  optimalMin: number;
+  optimalMax: number;
+  quoteText: string;
+  format: "square" | "portrait";
+}
+
+export interface DigestReelProps {
+  rivers: Array<{
+    riverName: string;
+    conditionCode: ConditionCode;
+    gaugeHeightFt: number | null;
+  }>;
+  dateLabel: string;
+  format: "square" | "portrait";
+}
+
+export interface BrandedLoopProps {
+  riverName: string;
+  conditionCode: ConditionCode;
+  summaryText: string;
+}

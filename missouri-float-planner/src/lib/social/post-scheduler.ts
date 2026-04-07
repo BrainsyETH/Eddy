@@ -13,9 +13,23 @@ import type {
   SocialCustomContent,
   SocialPlatform,
   ScheduledPost,
+  MediaType,
 } from './types';
 
 const LOG_PREFIX = '[SocialScheduler]';
+
+/**
+ * Determine if a post should be video based on day of week.
+ * Videos on Mon/Wed/Fri, static images on other days.
+ * This gives a mix of content types for better engagement.
+ */
+function shouldUseVideo(postType: string, dayOfWeek: number): boolean {
+  // Enable video for highlights and digests on Mon(1), Wed(3), Fri(5)
+  if (postType === 'river_highlight' || postType === 'daily_digest') {
+    return dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5;
+  }
+  return false;
+}
 
 // Returns the current Central Time UTC offset: -5 during CDT, -6 during CST.
 // DST starts 2nd Sunday of March at 2AM CST, ends 1st Sunday of November at 2AM CDT.
@@ -146,6 +160,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const posts: ScheduledPost[] = [];
   const baseUrl = 'https://eddy.guide';
 
+  // Pre-compute Central Time day-of-week for video/schedule decisions
+  const now = new Date();
+  const centralOffset = getCentralOffset();
+  const cstDay = new Date(now.getTime() + centralOffset * 3600000).getUTCDay();
+
   // --- Daily Digest ---
   // Digest can work with just the global summary, so don't require per-river updates
   if (!config.digest_enabled) {
@@ -158,6 +177,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+      const digestMediaType: MediaType = shouldUseVideo('daily_digest', cstDay) ? 'video' : 'image';
       for (const platform of platforms) {
         const { caption, hashtags } = formatDailyDigestCaption(
           updates,
@@ -172,6 +192,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
           riverSlug: null,
           caption,
           imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
+          mediaType: digestMediaType,
           hashtags,
           eddyUpdateId: null,
         });
@@ -183,9 +204,6 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const schedules = config.river_schedules || {};
   const scheduledRivers = Object.keys(schedules);
   const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-  const now = new Date();
-  const centralOffset = getCentralOffset();
-  const cstDay = new Date(now.getTime() + centralOffset * 3600000).getUTCDay();
   const todayKey = DAY_KEYS[cstDay];
 
   if (scheduledRivers.length === 0) {
@@ -252,6 +270,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
     // Create posts for both platforms
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+    const highlightMediaType: MediaType = shouldUseVideo('river_highlight', cstDay) ? 'video' : 'image';
     for (const platform of platforms) {
       const { caption, hashtags } = formatRiverHighlightCaption(
         update,
@@ -265,6 +284,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         riverSlug: update.river_slug,
         caption,
         imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
+        mediaType: highlightMediaType,
         hashtags,
         eddyUpdateId: update.id,
       });
@@ -308,7 +328,7 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published']);
+    .in('status', ['pending', 'publishing', 'published', 'rendering']);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
