@@ -1,0 +1,134 @@
+# .github/workflows/render-social-video.yml
+# Renders Remotion video compositions and publishes them to social media.
+#
+# Triggered by:
+#   - workflow_dispatch from the Vercel cron job (with render params as inputs)
+#   - Manual trigger from GitHub UI for testing
+#
+# Flow:
+#   1. Checks out the repo
+#   2. Installs Remotion dependencies (cached)
+#   3. Renders the specified composition to MP4
+#   4. Uploads MP4 to Vercel Blob Storage
+#   5. Calls back the Vercel webhook to publish the post
+
+name: Render Social Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      post_id:
+        description: 'social_posts record ID to update after render'
+        required: true
+        type: string
+      composition_id:
+        description: 'Remotion composition ID (e.g. social-gauge, social-digest)'
+        required: true
+        type: string
+      input_props:
+        description: 'JSON-encoded input props for the composition'
+        required: true
+        type: string
+      output_filename:
+        description: 'Output filename (without extension)'
+        required: true
+        type: string
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Remotion dependencies
+        uses: actions/cache@v4
+        with:
+          path: missouri-float-planner/remotion/node_modules
+          key: remotion-deps-${{ hashFiles('missouri-float-planner/remotion/package.json') }}
+          restore-keys: remotion-deps-
+
+      - name: Install Remotion dependencies
+        working-directory: missouri-float-planner/remotion
+        run: npm install
+
+      - name: Write input props to file
+        run: echo '${{ inputs.input_props }}' > /tmp/input-props.json
+
+      - name: Render video
+        working-directory: missouri-float-planner/remotion
+        run: |
+          npx remotion render src/index.ts \
+            "${{ inputs.composition_id }}" \
+            "/tmp/${{ inputs.output_filename }}.mp4" \
+            --props=/tmp/input-props.json \
+            --codec=h264 \
+            --crf=18
+        env:
+          # Remotion needs Chrome — ubuntu-latest has it pre-installed
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+      - name: Upload to Vercel Blob
+        id: upload
+        run: |
+          # Upload via Vercel Blob REST API
+          FILENAME="${{ inputs.output_filename }}.mp4"
+          DATE_PREFIX=$(date -u +%Y-%m-%d)
+          BLOB_PATH="social-videos/${DATE_PREFIX}/${FILENAME}"
+
+          RESPONSE=$(curl -s -X PUT \
+            "https://blob.vercel-storage.com/${BLOB_PATH}" \
+            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
+            -H "x-content-type: video/mp4" \
+            -H "x-cache-control-max-age: 31536000" \
+            --data-binary "@/tmp/${FILENAME}")
+
+          VIDEO_URL=$(echo "$RESPONSE" | jq -r '.url')
+
+          if [ "$VIDEO_URL" = "null" ] || [ -z "$VIDEO_URL" ]; then
+            echo "Upload failed: $RESPONSE"
+            exit 1
+          fi
+
+          echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
+          echo "Uploaded to: ${VIDEO_URL}"
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+
+      - name: Callback to publish post
+        run: |
+          curl -s -X POST \
+            "${SITE_URL}/api/admin/social/video-callback" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -d "{
+              \"postId\": \"${{ inputs.post_id }}\",
+              \"videoUrl\": \"${{ steps.upload.outputs.video_url }}\",
+              \"status\": \"rendered\"
+            }"
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - name: Report failure
+        if: failure()
+        run: |
+          curl -s -X POST \
+            "${SITE_URL}/api/admin/social/video-callback" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -d "{
+              \"postId\": \"${{ inputs.post_id }}\",
+              \"status\": \"failed\",
+              \"error\": \"GitHub Actions render failed — check workflow run logs\"
+            }"
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

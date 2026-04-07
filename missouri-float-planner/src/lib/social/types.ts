@@ -3,7 +3,7 @@
 
 export type SocialPlatform = 'instagram' | 'facebook';
 export type PostType = 'daily_digest' | 'river_highlight' | 'manual' | 'condition_change';
-export type PostStatus = 'pending' | 'publishing' | 'published' | 'failed' | 'skipped';
+export type PostStatus = 'pending' | 'rendering' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
 export type MediaType = 'image' | 'video';

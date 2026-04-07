@@ -328,7 +328,7 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published']);
+    .in('status', ['pending', 'publishing', 'published', 'rendering']);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);

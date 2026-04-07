@@ -1,113 +1,72 @@
 // src/lib/social/video-renderer.ts
-// Server-side video rendering via Remotion Lambda.
-// Triggers renders on AWS Lambda (parallel frame rendering) and returns the S3 URL.
-// No local Chrome/Puppeteer needed — everything runs in the cloud.
+// Triggers video rendering via GitHub Actions workflow_dispatch.
+// The workflow renders the Remotion composition, uploads to Vercel Blob,
+// and calls back /api/admin/social/video-callback to publish the post.
+//
+// Required environment variables:
+//   GH_ACTIONS_TOKEN  — GitHub PAT with 'actions:write' scope
+//   GH_REPO_OWNER     — GitHub repo owner (default: 'BrainsyETH')
+//   GH_REPO_NAME      — GitHub repo name (default: 'Eddy')
 
 const LOG_PREFIX = '[VideoRenderer]';
 
-interface RenderParams {
+const DEFAULT_OWNER = 'BrainsyETH';
+const DEFAULT_REPO = 'Eddy';
+const WORKFLOW_FILE = 'render-social-video.yml';
+
+interface TriggerRenderParams {
+  postId: string;
   compositionId: string;
   inputProps: Record<string, unknown>;
   outputFilename: string;
 }
 
-interface RenderResult {
-  videoUrl: string;
-  durationSeconds: number;
-}
-
 /**
- * Render a Remotion composition to MP4 via AWS Lambda.
- *
- * Prerequisites (one-time setup):
- *   cd remotion && npm run lambda:deploy
- *
- * Required environment variables:
- *   REMOTION_AWS_REGION        — AWS region (e.g. us-east-1)
- *   REMOTION_AWS_ACCESS_KEY_ID — IAM access key with Remotion Lambda permissions
- *   REMOTION_AWS_SECRET_ACCESS_KEY — IAM secret key
- *   REMOTION_LAMBDA_FUNCTION_NAME — deployed Lambda function name
- *   REMOTION_SERVE_URL         — S3 serve URL from deploySite()
+ * Trigger a video render via GitHub Actions.
+ * This is fire-and-forget — the workflow will call back when done.
+ * Returns true if the workflow was dispatched successfully.
  */
-export async function renderSocialVideo(params: RenderParams): Promise<RenderResult> {
-  const {
-    renderMediaOnLambda,
-    getRenderProgress,
-    speculateFunctionName,
-  } = await import('@remotion/lambda/client');
-
-  const region = (process.env.REMOTION_AWS_REGION || 'us-east-1') as 'us-east-1';
-  const functionName = process.env.REMOTION_LAMBDA_FUNCTION_NAME
-    || speculateFunctionName({ diskSizeInMb: 2048, memorySizeInMb: 2048, timeoutInSeconds: 120 });
-  const serveUrl = process.env.REMOTION_SERVE_URL;
-
-  if (!serveUrl) {
-    throw new Error('REMOTION_SERVE_URL not set. Run: cd remotion && npm run lambda:deploy');
+export async function triggerVideoRender(params: TriggerRenderParams): Promise<boolean> {
+  const token = process.env.GH_ACTIONS_TOKEN;
+  if (!token) {
+    console.error(`${LOG_PREFIX} GH_ACTIONS_TOKEN not set — cannot trigger video render`);
+    return false;
   }
 
-  console.log(`${LOG_PREFIX} Rendering ${params.compositionId} via Lambda in ${region}`);
+  const owner = process.env.GH_REPO_OWNER || DEFAULT_OWNER;
+  const repo = process.env.GH_REPO_NAME || DEFAULT_REPO;
+  const ref = 'main'; // render from main branch
 
-  // Trigger the render on Lambda
-  const { renderId, bucketName } = await renderMediaOnLambda({
-    region,
-    functionName,
-    serveUrl,
-    composition: params.compositionId,
-    inputProps: params.inputProps,
-    codec: 'h264',
-    downloadBehavior: {
-      type: 'play-in-browser',
-      fileName: `${params.outputFilename}.mp4`,
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
+
+  console.log(`${LOG_PREFIX} Triggering render: ${params.compositionId} → ${params.outputFilename}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
     },
-    privacy: 'public',
-    // Parallelize across Lambda workers for speed
-    framesPerLambda: 40,
+    body: JSON.stringify({
+      ref,
+      inputs: {
+        post_id: params.postId,
+        composition_id: params.compositionId,
+        input_props: JSON.stringify(params.inputProps),
+        output_filename: params.outputFilename,
+      },
+    }),
   });
 
-  console.log(`${LOG_PREFIX} Render started: ${renderId} in bucket ${bucketName}`);
-
-  // Poll for completion
-  let videoUrl: string | undefined;
-  let durationSeconds = 0;
-
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const progress = await getRenderProgress({
-      renderId,
-      bucketName,
-      functionName,
-      region,
-    });
-
-    if (progress.done) {
-      videoUrl = progress.outputFile;
-      // Calculate duration from the composition metadata
-      if (progress.renderMetadata) {
-        const { durationInFrames, fps } = progress.renderMetadata.videoConfig;
-        durationSeconds = durationInFrames / fps;
-      }
-      console.log(`${LOG_PREFIX} Render complete: ${videoUrl} (${durationSeconds.toFixed(1)}s)`);
-      break;
-    }
-
-    if (progress.fatalErrorEncountered) {
-      const errorMsg = progress.errors?.[0]?.message || 'Unknown Lambda render error';
-      throw new Error(`Lambda render failed: ${errorMsg}`);
-    }
-
-    const pct = ((progress.overallProgress ?? 0) * 100).toFixed(0);
-    if (attempt % 5 === 0) {
-      console.log(`${LOG_PREFIX} Render progress: ${pct}%`);
-    }
-
-    // Wait 2 seconds between polls
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+  if (response.status === 204) {
+    console.log(`${LOG_PREFIX} Workflow dispatched successfully`);
+    return true;
   }
 
-  if (!videoUrl) {
-    throw new Error('Render timed out after 120 seconds');
-  }
-
-  return { videoUrl, durationSeconds };
+  const errorBody = await response.text();
+  console.error(`${LOG_PREFIX} Workflow dispatch failed (${response.status}): ${errorBody}`);
+  return false;
 }
 
 /**
