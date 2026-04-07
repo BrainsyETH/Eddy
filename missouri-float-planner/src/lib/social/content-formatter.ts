@@ -56,46 +56,6 @@ const CONDITION_EMOJI: Record<string, string> = {
 // Hashtag configuration
 // ---------------------------------------------------------------------------
 
-// Instagram-only core hashtags (Facebook gets none — algorithm penalizes them)
-const IG_BASE_HASHTAGS = [
-  '#eddysays',
-  '#ozarksfloat',
-  '#missourifloattrip',
-  '#floattrip',
-  '#ozarksrivers',
-];
-
-// River-specific hashtags (IG only)
-const RIVER_HASHTAGS: Record<string, string[]> = {
-  meramec: ['#meramecriver', '#meramecfloat'],
-  current: ['#currentriver', '#currentriverMO'],
-  'eleven-point': ['#elevenpointriver'],
-  'jacks-fork': ['#jacksfork', '#jacksforkriver'],
-  niangua: ['#nianguariver'],
-  'big-piney': ['#bigpineyriver'],
-  huzzah: ['#huzzahcreek'],
-  courtois: ['#courtoiscreek'],
-};
-
-// Condition-specific hashtags (IG only)
-const CONDITION_HASHTAGS: Record<string, string[]> = {
-  flowing: ['#perfectconditions', '#getonthewater'],
-  good: ['#floatable', '#riverday'],
-  low: ['#lowwater'],
-  too_low: ['#waitforrain'],
-  high: ['#highwater', '#swiftwater'],
-  dangerous: ['#floodwarning', '#stayoffthewater'],
-};
-
-// Seasonal hashtags based on month
-function getSeasonalHashtags(): string[] {
-  const month = new Date().getMonth(); // 0-indexed
-  if (month >= 2 && month <= 4) return ['#springfloat', '#springpaddling'];
-  if (month >= 5 && month <= 7) return ['#summerfloat', '#summerontheriver'];
-  if (month >= 8 && month <= 10) return ['#fallfloat', '#fallpaddling'];
-  return ['#winterpaddling'];
-}
-
 // ---------------------------------------------------------------------------
 // Hook templates — condition-specific, rotated for variety
 // ---------------------------------------------------------------------------
@@ -247,20 +207,6 @@ function isWeekendWindow(): boolean {
   return false;
 }
 
-function buildInstagramHashtags(
-  riverSlug: string | null,
-  conditionCode: string,
-  extras: string[] = []
-): string[] {
-  return [
-    ...IG_BASE_HASHTAGS,
-    ...(riverSlug ? (RIVER_HASHTAGS[riverSlug] || []) : []),
-    ...(CONDITION_HASHTAGS[conditionCode] || []),
-    ...getSeasonalHashtags(),
-    ...extras,
-  ];
-}
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -337,15 +283,9 @@ export function formatRiverHighlightCaption(
     lines.push(snippets.join('\n'));
   }
 
-  // Build hashtags (Instagram only in caption; Facebook gets none)
-  const hashtags = buildInstagramHashtags(update.river_slug, condition);
+  const caption = lines.join('\n');
 
-  let caption = lines.join('\n');
-  if (platform === 'instagram') {
-    caption += '\n\n\n\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
+  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -405,17 +345,9 @@ export function formatDailyDigestCaption(
     lines.push(snippets.join('\n'));
   }
 
-  const hashtags = buildInstagramHashtags(null, 'flowing', [
-    '#ozarksriverreport',
-    '#riverconditions',
-  ]);
+  const caption = lines.join('\n');
 
-  let caption = lines.join('\n');
-  if (platform === 'instagram') {
-    caption += '\n\n\n\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
+  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -468,18 +400,9 @@ export function formatConditionChangeCaption(params: {
   });
   lines.push(cta);
 
-  const hashtags = buildInstagramHashtags(
-    params.riverSlug,
-    params.newCondition,
-    ['#conditionalert']
-  );
+  const caption = lines.join('\n');
 
-  let caption = lines.join('\n');
-  if (params.platform === 'instagram') {
-    caption += '\n\n\n\n\n' + hashtags.join(' ');
-  }
-
-  return { caption, hashtags };
+  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------

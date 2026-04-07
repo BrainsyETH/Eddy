@@ -78,12 +78,16 @@ jobs:
             --entry-point=src/index.ts \
             --props=/tmp/input-props.json \
             --codec=h264 \
+            --audio-codec=aac \
             --crf=18 \
             --log=verbose \
+            --public-dir=./public \
             "${{ inputs.composition_id }}" \
             "/tmp/${{ inputs.output_filename }}.mp4"
 
           ls -la "/tmp/${{ inputs.output_filename }}.mp4"
+          # Verify audio track exists
+          npx remotion ffprobe "/tmp/${{ inputs.output_filename }}.mp4" 2>&1 | grep -i audio || echo "WARNING: No audio track detected"
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
 

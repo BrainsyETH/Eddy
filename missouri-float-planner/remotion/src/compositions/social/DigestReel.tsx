@@ -18,9 +18,9 @@ import { colors } from "../../design-tokens/colors";
 
 // Reel-safe content zones (1080x1920 portrait)
 const SAFE = {
-  top: 150,
-  bottom: 400,
-  right: 100,
+  top: 100,
+  bottom: 270,
+  right: 80,
   left: 20,
 };
 
@@ -52,13 +52,13 @@ const TitleSlide: React.FC<{ dateLabel: string; isPortrait: boolean }> = ({
           gap: isPortrait ? 32 : 24,
         }}
       >
-        <EddyMascot variant="canoe" size={isPortrait ? 180 : 160} delay={5} />
+        <EddyMascot variant="canoe" size={isPortrait ? 220 : 170} delay={5} />
         <div
           style={{
             opacity: titleEntrance,
             transform: `translateY(${titleY}px)`,
             fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 52 : 48,
+            fontSize: isPortrait ? 58 : 48,
             fontWeight: 600,
             color: "#fff",
             textAlign: "center",

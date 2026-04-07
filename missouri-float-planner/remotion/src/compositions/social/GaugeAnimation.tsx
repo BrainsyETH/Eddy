@@ -21,9 +21,9 @@ import { colors } from "../../design-tokens/colors";
 
 // Reel-safe content zones (1080x1920 portrait)
 const SAFE = {
-  top: 150,    // Instagram username + follow button
-  bottom: 400, // Caption + music bar + action buttons
-  right: 100,  // Like/comment/share/save icons
+  top: 100,
+  bottom: 270,
+  right: 80,
   left: 20,
 };
 
@@ -167,7 +167,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: isPortrait ? 28 : 24,
+          gap: isPortrait ? 36 : 24,
         }}
       >
         {/* River Name */}
@@ -176,7 +176,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             opacity: nameEntrance,
             transform: `translateY(${nameY}px)`,
             fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 52 : 48,
+            fontSize: isPortrait ? 60 : 48,
             fontWeight: 600,
             color: "#fff",
             textAlign: "center",
@@ -202,14 +202,14 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             conditionColor={condition.solid}
             conditionGlow={condition.glow}
             delay={30}
-            width={isPortrait ? 85 : 80}
-            height={isPortrait ? 380 : 300}
+            width={isPortrait ? 100 : 85}
+            height={isPortrait ? 480 : 340}
           />
 
           <div style={{ marginBottom: 16 }}>
             <EddyMascot
               variant={getOtterVariant(conditionCode)}
-              size={isPortrait ? 200 : 170}
+              size={isPortrait ? 240 : 180}
               delay={100}
             />
           </div>
@@ -244,7 +244,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           <span
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 24,
+              fontSize: 28,
               fontWeight: 600,
               color: condition.solid,
             }}
@@ -264,7 +264,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         >
           <span
             style={{
-              fontSize: isPortrait ? 28 : 24,
+              fontSize: isPortrait ? 30 : 24,
               color: "rgba(255,255,255,0.9)",
               lineHeight: 1.5,
               fontStyle: "italic",
@@ -287,17 +287,19 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           <span
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 16,
-              color: "rgba(255,255,255,0.5)",
+              fontSize: 22,
+              color: condition.solid,
               letterSpacing: 0.5,
+              opacity: 0.8,
             }}
           >
             Full report below
           </span>
           <span
             style={{
-              fontSize: 20,
-              color: "rgba(255,255,255,0.4)",
+              fontSize: 26,
+              color: condition.solid,
+              opacity: 0.6,
               transform: `translateY(${arrowBounce}px)`,
             }}
           >

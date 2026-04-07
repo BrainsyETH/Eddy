@@ -18,9 +18,9 @@ import { colors } from "../../design-tokens/colors";
 
 // Reel-safe content zones (1080x1920 portrait)
 const SAFE = {
-  top: 150,
-  bottom: 400,
-  right: 100,
+  top: 100,
+  bottom: 270,
+  right: 80,
   left: 20,
 };
 
