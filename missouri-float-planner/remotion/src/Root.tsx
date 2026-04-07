@@ -286,7 +286,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="social-gauge"
         component={GaugeAnimation}
-        durationInFrames={240}
+        durationInFrames={360}
         fps={FPS}
         width={1080}
         height={1080}
@@ -305,7 +305,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="social-gauge-portrait"
         component={GaugeAnimation}
-        durationInFrames={240}
+        durationInFrames={360}
         fps={FPS}
         width={1080}
         height={1920}

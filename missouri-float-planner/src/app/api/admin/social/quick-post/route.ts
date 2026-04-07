@@ -18,6 +18,15 @@ export const dynamic = 'force-dynamic';
 
 const BASE_URL = 'https://eddy.guide';
 
+/** Truncate text to ~120 chars for video teaser (full text goes in caption) */
+function truncateForVideo(text: string | null): string {
+  if (!text) return '';
+  if (text.length <= 120) return text;
+  const truncated = text.slice(0, 120);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated) + '...';
+}
+
 function getAdapter(platform: SocialPlatform) {
   if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
   if (platform === 'instagram' && hasInstagramCredentials()) return new InstagramAdapter();
@@ -151,8 +160,8 @@ async function dispatchVideoRender(
       riverName: update.river_slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
       conditionCode: update.condition_code,
       gaugeHeightFt: update.gauge_height_ft,
-      quoteText: update.quote_text,
-      summaryText: update.summary_text,
+      quoteText: truncateForVideo(update.quote_text),
+      summaryText: truncateForVideo(update.summary_text),
     };
   }
 
