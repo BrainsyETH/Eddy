@@ -91,6 +91,12 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
 
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg > /dev/null 2>&1
+          ffmpeg -version | head -1
+
       - name: Ensure audio in output
         working-directory: missouri-float-planner/remotion
         run: |
