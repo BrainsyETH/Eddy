@@ -1,0 +1,153 @@
+# .github/workflows/compile-highlights.yml
+# ClipEngine: Compile multiple clips into a montage or highlights reel.
+#
+# Triggered by workflow_dispatch from the admin API or decision engine.
+
+name: Compile Highlights
+
+on:
+  workflow_dispatch:
+    inputs:
+      clip_ids:
+        description: 'Comma-separated clip_library IDs to compile'
+        required: true
+        type: string
+      title:
+        description: 'Montage title for exit card'
+        required: false
+        type: string
+        default: ''
+      post_ids:
+        description: 'Comma-separated social_posts IDs to publish after compile'
+        required: false
+        type: string
+      output_filename:
+        description: 'Output filename (without extension)'
+        required: false
+        type: string
+        default: 'montage'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-dejavu-core
+
+      - name: Fetch clips and compile
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          CLIP_IDS: ${{ inputs.clip_ids }}
+          TITLE: ${{ inputs.title }}
+          OUTPUT_FILENAME: ${{ inputs.output_filename }}
+        run: |
+          set -e
+          WORK_DIR=$(mktemp -d)
+
+          # Fetch clip URLs from Supabase
+          echo "Fetching clip data from Supabase..."
+          IFS=',' read -ra IDS <<< "$CLIP_IDS"
+          CLIPS_JSON="$WORK_DIR/clips.json"
+          echo "[" > "$CLIPS_JSON"
+          FIRST=true
+
+          for ID in "${IDS[@]}"; do
+            ID=$(echo "$ID" | tr -d ' ')
+            CLIP_DATA=$(curl -s \
+              "${SUPABASE_URL}/rest/v1/clip_library?id=eq.${ID}&select=clip_url,river_slug,source_creator" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}")
+
+            URL=$(echo "$CLIP_DATA" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['clip_url'] if d else '')" 2>/dev/null)
+            RIVER=$(echo "$CLIP_DATA" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0].get('river_slug','') or '' if d else '')" 2>/dev/null)
+
+            if [ -n "$URL" ]; then
+              if [ "$FIRST" = true ]; then
+                FIRST=false
+              else
+                echo "," >> "$CLIPS_JSON"
+              fi
+              echo "  {\"url\": \"$URL\", \"river\": \"$RIVER\"}" >> "$CLIPS_JSON"
+              echo "  ✅ Found clip: $ID"
+            else
+              echo "  ⚠️ Clip not found: $ID"
+            fi
+          done
+          echo "]" >> "$CLIPS_JSON"
+
+          # Compile montage
+          OUTPUT="/tmp/${OUTPUT_FILENAME}.mp4"
+          TITLE_FLAG=""
+          [ -n "$TITLE" ] && TITLE_FLAG="--title \"$TITLE\""
+
+          bash scripts/clipengine/compile-montage.sh \
+            "$CLIPS_JSON" \
+            "$OUTPUT" \
+            ${TITLE_FLAG}
+
+          # Upload to Vercel Blob
+          echo ""
+          echo "Uploading to CDN..."
+          DATE_PREFIX=$(date -u +%Y-%m-%d)
+          BLOB_PATH="social-videos/${DATE_PREFIX}/${OUTPUT_FILENAME}.mp4"
+
+          RESPONSE=$(curl -s -X PUT \
+            "https://blob.vercel-storage.com/${BLOB_PATH}" \
+            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
+            -H "x-content-type: video/mp4" \
+            -H "x-cache-control-max-age: 31536000" \
+            --data-binary "@${OUTPUT}")
+
+          VIDEO_URL=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('url',''))" 2>/dev/null)
+
+          if [ -z "$VIDEO_URL" ] || [ "$VIDEO_URL" = "null" ]; then
+            echo "❌ Upload failed: $RESPONSE"
+            exit 1
+          fi
+
+          echo "✅ Uploaded: $VIDEO_URL"
+          echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Callback to publish
+        if: success() && inputs.post_ids != ''
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          VIDEO_URL="${{ steps.*.outputs.video_url }}"
+          curl -s -X POST \
+            "${SITE_URL}/api/admin/social/video-callback" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -d "{
+              \"postIds\": \"${{ inputs.post_ids }}\",
+              \"videoUrl\": \"${VIDEO_URL}\",
+              \"status\": \"rendered\"
+            }"
+
+      - name: Report failure
+        if: failure()
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -n "${{ inputs.post_ids }}" ]; then
+            curl -s -X POST \
+              "${SITE_URL}/api/admin/social/video-callback" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -d "{
+                \"postIds\": \"${{ inputs.post_ids }}\",
+                \"status\": \"failed\",
+                \"error\": \"Highlights compilation failed — check workflow logs\"
+              }"
+          fi

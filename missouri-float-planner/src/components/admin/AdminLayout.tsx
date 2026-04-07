@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   MessageSquare,
   History,
+  Film,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
@@ -46,6 +47,7 @@ const NAV_ITEMS = [
   { href: '/admin/data-sync', label: 'Data Sync', icon: RefreshCw },
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },
   { href: '/admin/social', label: 'Social Media', icon: Share2 },
+  { href: '/admin/clips', label: 'Clip Library', icon: Film },
   { href: '/admin/activity', label: 'Activity Log', icon: History },
 ];
 

@@ -1,0 +1,186 @@
+# .github/workflows/brand-check-clip.yml
+# ClipEngine: Brand safety review of clips using Claude vision.
+#
+# Extracts frames, sends to Claude Sonnet for brand safety evaluation.
+# Updates clip_library with the verdict (PUBLISH / REVIEW / REJECT).
+
+name: Brand Check Clip
+
+on:
+  workflow_dispatch:
+    inputs:
+      clip_id:
+        description: 'clip_library UUID to check'
+        required: true
+        type: string
+      clip_url:
+        description: 'Direct URL to the clip video'
+        required: true
+        type: string
+
+jobs:
+  brand-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract frames and evaluate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CLIP_ID: ${{ inputs.clip_id }}
+          CLIP_URL: ${{ inputs.clip_url }}
+        run: |
+          set -e
+          WORK_DIR=$(mktemp -d)
+
+          # Download clip
+          echo "Downloading clip..."
+          curl -sL -o "$WORK_DIR/clip.mp4" "$CLIP_URL"
+
+          # Get duration
+          DURATION=$(ffprobe -v error -show_entries format=duration \
+            -of default=noprint_wrappers=1:nokey=1 "$WORK_DIR/clip.mp4" 2>/dev/null | cut -d. -f1)
+          DURATION=${DURATION:-10}
+
+          # Extract 3 frames at 10%, 50%, 90%
+          echo "Extracting frames..."
+          for PCT in 10 50 90; do
+            TIMESTAMP=$(( DURATION * PCT / 100 ))
+            ffmpeg -y -ss "$TIMESTAMP" -i "$WORK_DIR/clip.mp4" \
+              -frames:v 1 -q:v 2 \
+              "$WORK_DIR/frame_${PCT}.jpg" 2>/dev/null
+          done
+
+          echo "Evaluating with Claude vision..."
+
+          # Send frames to Claude for brand safety review
+          python3 << 'PYEOF'
+          import json, base64, os, urllib.request, ssl
+
+          try:
+              import certifi
+              ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+          except ImportError:
+              ssl_ctx = ssl.create_default_context()
+
+          api_key = os.environ["ANTHROPIC_API_KEY"]
+          clip_id = os.environ["CLIP_ID"]
+          supabase_url = os.environ["SUPABASE_URL"]
+          supabase_key = os.environ["SUPABASE_KEY"]
+          work_dir = os.environ.get("WORK_DIR", "/tmp")
+
+          # Encode frames
+          frames = []
+          for pct in [10, 50, 90]:
+              path = os.path.join(work_dir, f"frame_{pct}.jpg")
+              if os.path.exists(path):
+                  with open(path, "rb") as f:
+                      frames.append({
+                          "type": "image",
+                          "source": {
+                              "type": "base64",
+                              "media_type": "image/jpeg",
+                              "data": base64.b64encode(f.read()).decode(),
+                          },
+                      })
+
+          if not frames:
+              print("❌ No frames extracted")
+              exit(1)
+
+          prompt_text = """You are reviewing video frames from a clip that will be posted on the Eddy.guide Instagram account (a Missouri float trip / river conditions guide).
+
+          Evaluate these 3 frames (from the beginning, middle, and end of the clip) for:
+
+          1. BRAND SAFETY: No offensive content, violence, dangerous behavior, alcohol/drug use, nudity
+          2. VISUAL QUALITY: Good resolution, not blurry, properly lit, visually engaging
+          3. BRAND ALIGNMENT: Content relates to rivers, floating, kayaking, canoeing, nature, fishing, or outdoor recreation in Missouri
+          4. OVERLAY ISSUES: No obstructive watermarks, logos, or text that would conflict with Eddy branding
+
+          Respond with a JSON object:
+          {
+            "verdict": "PUBLISH" | "REVIEW" | "REJECT",
+            "confidence": 0.0-1.0,
+            "brand_safe": true/false,
+            "visual_quality": "good" | "acceptable" | "poor",
+            "brand_aligned": true/false,
+            "overlay_issues": true/false,
+            "reasoning": "Brief explanation"
+          }
+
+          PUBLISH = safe to post automatically
+          REVIEW = human should review before posting
+          REJECT = do not post"""
+
+          content = frames + [{"type": "text", "text": prompt_text}]
+
+          body = json.dumps({
+              "model": "claude-sonnet-4-5-20250929",
+              "max_tokens": 300,
+              "messages": [{"role": "user", "content": content}],
+          }).encode()
+
+          req = urllib.request.Request(
+              "https://api.anthropic.com/v1/messages",
+              data=body,
+              headers={
+                  "x-api-key": api_key,
+                  "anthropic-version": "2023-06-01",
+                  "content-type": "application/json",
+              },
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=30, context=ssl_ctx) as resp:
+                  data = json.loads(resp.read())
+                  text = data["content"][0]["text"]
+
+                  # Parse JSON from response
+                  import re
+                  json_match = re.search(r'\{[^{}]+\}', text, re.DOTALL)
+                  if json_match:
+                      result = json.loads(json_match.group())
+                  else:
+                      result = {"verdict": "REVIEW", "reasoning": text}
+
+          except Exception as e:
+              print(f"⚠️ Claude API error: {e}")
+              result = {"verdict": "REVIEW", "reasoning": f"API error: {e}"}
+
+          verdict = result.get("verdict", "REVIEW").lower()
+          status_map = {"publish": "approved", "review": "review", "reject": "rejected"}
+          status = status_map.get(verdict, "review")
+
+          print(f"Verdict: {result.get('verdict', 'REVIEW')}")
+          print(f"Reasoning: {result.get('reasoning', 'N/A')}")
+
+          # Update clip_library in Supabase
+          update_body = json.dumps({
+              "brand_check_status": status,
+              "brand_check_result": result,
+              "updated_at": "now()",
+          }).encode()
+
+          update_req = urllib.request.Request(
+              f"{supabase_url}/rest/v1/clip_library?id=eq.{clip_id}",
+              data=update_body,
+              headers={
+                  "apikey": supabase_key,
+                  "Authorization": f"Bearer {supabase_key}",
+                  "Content-Type": "application/json",
+                  "Prefer": "return=minimal",
+              },
+              method="PATCH",
+          )
+
+          try:
+              with urllib.request.urlopen(update_req, timeout=10) as resp:
+                  print(f"✅ Updated clip {clip_id}: {status}")
+          except Exception as e:
+              print(f"⚠️ Failed to update clip: {e}")
+          PYEOF
