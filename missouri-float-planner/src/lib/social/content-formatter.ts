@@ -188,12 +188,6 @@ function interpolate(
 }
 
 // Trim quote to a reasonable caption length, prefer summary_text
-function trimQuote(update: EddyUpdate, maxLen: number): string | null {
-  const text = update.summary_text || update.quote_text;
-  if (!text) return null;
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 3) + '...';
-}
 
 function isWeekendWindow(): boolean {
   const now = new Date();
@@ -254,10 +248,10 @@ export function formatRiverHighlightCaption(
   }
   lines.push('');
 
-  // 3. Eddy quote — both platforms (video teaser points viewers to caption)
-  const quote = trimQuote(update, 280);
-  if (quote) {
-    lines.push(`Eddy says: \u201C${quote}\u201D`);
+  // 3. Eddy quote — full report for both platforms (video CTA directs viewers here)
+  const fullQuote = update.quote_text || update.summary_text;
+  if (fullQuote) {
+    lines.push(`Eddy says: \u201C${fullQuote}\u201D`);
     lines.push('');
   }
 
