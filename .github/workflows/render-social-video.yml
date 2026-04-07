@@ -60,28 +60,41 @@ jobs:
         run: npm install
 
       - name: Write input props to file
-        run: echo '${{ inputs.input_props }}' > /tmp/input-props.json
+        env:
+          INPUT_PROPS_JSON: ${{ inputs.input_props }}
+        run: |
+          # Use env var to avoid shell injection from JSON special chars
+          printf '%s' "$INPUT_PROPS_JSON" > /tmp/input-props.json
+          echo "Props written ($(wc -c < /tmp/input-props.json) bytes)"
+          cat /tmp/input-props.json | head -c 200
 
       - name: Render video
         working-directory: missouri-float-planner/remotion
         run: |
-          npx remotion render src/index.ts \
-            "${{ inputs.composition_id }}" \
-            "/tmp/${{ inputs.output_filename }}.mp4" \
+          echo "Rendering composition: ${{ inputs.composition_id }}"
+          echo "Output: /tmp/${{ inputs.output_filename }}.mp4"
+
+          npx remotion render \
+            --entry-point=src/index.ts \
             --props=/tmp/input-props.json \
             --codec=h264 \
-            --crf=18
+            --crf=18 \
+            --log=verbose \
+            "${{ inputs.composition_id }}" \
+            "/tmp/${{ inputs.output_filename }}.mp4"
+
+          ls -la "/tmp/${{ inputs.output_filename }}.mp4"
         env:
-          # Remotion needs Chrome — ubuntu-latest has it pre-installed
           PUPPETEER_SKIP_DOWNLOAD: 'true'
 
       - name: Upload to Vercel Blob
         id: upload
         run: |
-          # Upload via Vercel Blob REST API
           FILENAME="${{ inputs.output_filename }}.mp4"
           DATE_PREFIX=$(date -u +%Y-%m-%d)
           BLOB_PATH="social-videos/${DATE_PREFIX}/${FILENAME}"
+
+          echo "Uploading /tmp/${FILENAME} to ${BLOB_PATH}"
 
           RESPONSE=$(curl -s -X PUT \
             "https://blob.vercel-storage.com/${BLOB_PATH}" \
@@ -90,10 +103,11 @@ jobs:
             -H "x-cache-control-max-age: 31536000" \
             --data-binary "@/tmp/${FILENAME}")
 
+          echo "Blob response: $RESPONSE"
           VIDEO_URL=$(echo "$RESPONSE" | jq -r '.url')
 
           if [ "$VIDEO_URL" = "null" ] || [ -z "$VIDEO_URL" ]; then
-            echo "Upload failed: $RESPONSE"
+            echo "::error::Upload failed: $RESPONSE"
             exit 1
           fi
 
@@ -104,7 +118,7 @@ jobs:
 
       - name: Callback to publish post
         run: |
-          curl -s -X POST \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "${SITE_URL}/api/admin/social/video-callback" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
@@ -112,7 +126,15 @@ jobs:
               \"postId\": \"${{ inputs.post_id }}\",
               \"videoUrl\": \"${{ steps.upload.outputs.video_url }}\",
               \"status\": \"rendered\"
-            }"
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Callback response ($HTTP_CODE): $BODY"
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::warning::Callback returned $HTTP_CODE"
+          fi
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
