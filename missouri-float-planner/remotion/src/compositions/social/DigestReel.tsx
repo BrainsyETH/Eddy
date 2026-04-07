@@ -247,7 +247,6 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   globalQuote,
   format,
 }) => {
-  const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const isPortrait = format === "portrait";
 
@@ -262,18 +261,16 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   const riverFrames = 120; // 4 seconds for all rivers
   const ctaFrames = 60;
 
-  const musicVolume = interpolate(
-    frame,
-    [0, 15, durationInFrames - 30, durationInFrames],
-    [0, 0.12, 0.12, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
   return (
     <AbsoluteFill>
       <Audio
         src={staticFile("audio/background-music.mp3")}
-        volume={musicVolume}
+        volume={(f) =>
+          interpolate(f, [0, 30, durationInFrames - 30, durationInFrames], [0, 0.5, 0.5, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        }
       />
       <Series>
         <Series.Sequence durationInFrames={titleFrames}>
