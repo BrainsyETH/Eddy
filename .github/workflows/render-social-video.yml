@@ -101,12 +101,12 @@ jobs:
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
           AUDIO_SRC="public/audio/background-music.mp3"
 
-          # Get video duration (seconds) for explicit -t flag
-          # (-shortest with -c:v copy is broken — audio gets truncated to ~3kB)
+          # Get exact video duration for -t flag
+          # NOTE: -shortest with -c:v copy is broken in ffmpeg — produces ~3kB of audio
           DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
           echo "Video duration: ${DURATION}s"
 
-          # Strip Remotion audio, mux fresh from source MP3
+          # Strip any Remotion audio, mux fresh from source MP3
           # Meta Reels require: AAC, 48kHz, stereo, faststart
           ffmpeg -y \
             -i "$OUTFILE" \
