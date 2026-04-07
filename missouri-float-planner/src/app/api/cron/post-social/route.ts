@@ -373,6 +373,7 @@ async function runSocialPosting(request: NextRequest) {
           caption: fullPost.caption,
           imageUrl: fullPost.image_url,
           videoUrl: fullPost.video_url || undefined,
+          coverUrl: fullPost.image_url || undefined,
           mediaType: fullPost.media_type || 'image',
         });
 

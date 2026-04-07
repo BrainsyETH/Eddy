@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
   const result = await adapter.publishPost({
     caption: post.caption,
     videoUrl,
+    coverUrl: post.image_url || undefined,
     mediaType: 'video',
   });
 

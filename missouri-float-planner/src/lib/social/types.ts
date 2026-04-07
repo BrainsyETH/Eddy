@@ -67,6 +67,7 @@ export interface PublishParams {
   caption: string;
   imageUrl?: string;
   videoUrl?: string;
+  coverUrl?: string;
   mediaType?: MediaType;
 }
 

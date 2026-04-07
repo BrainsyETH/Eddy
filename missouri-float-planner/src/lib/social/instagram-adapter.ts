@@ -13,6 +13,7 @@ export class InstagramAdapter implements PlatformAdapter {
       const result = await publishVideoToInstagram({
         caption: params.caption,
         videoUrl: params.videoUrl,
+        coverUrl: params.coverUrl,
       });
       return {
         success: result.success,
