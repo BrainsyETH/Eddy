@@ -6,6 +6,9 @@
     },
     "src/app/api/admin/upload-temp-video/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/post-social/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [

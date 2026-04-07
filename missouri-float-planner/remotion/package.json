@@ -11,10 +11,14 @@
     "render:scene": "remotion render Root",
     "generate": "tsx scripts/generate-video.ts",
     "generate:assets": "tsx scripts/generate-video.ts --assets-only",
-    "generate:render": "tsx scripts/generate-video.ts --render-only"
+    "generate:render": "tsx scripts/generate-video.ts --render-only",
+    "lambda:deploy": "tsx scripts/deploy-lambda.ts",
+    "lambda:deploy:site": "tsx scripts/deploy-lambda.ts --site-only",
+    "lambda:deploy:function": "tsx scripts/deploy-lambda.ts --function-only"
   },
   "dependencies": {
     "@remotion/cli": "4.0.242",
+    "@remotion/lambda": "4.0.242",
     "@remotion/renderer": "4.0.242",
     "@remotion/tailwind": "4.0.242",
     "react": "^18",

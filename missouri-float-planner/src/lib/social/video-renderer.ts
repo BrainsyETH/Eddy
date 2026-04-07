@@ -1,15 +1,9 @@
 // src/lib/social/video-renderer.ts
-// Server-side Remotion video rendering for social media posts.
-// Bundles the Remotion project, renders to MP4, uploads to Vercel Blob.
-
-import path from 'path';
-import fs from 'fs';
-import { put } from '@vercel/blob';
+// Server-side video rendering via Remotion Lambda.
+// Triggers renders on AWS Lambda (parallel frame rendering) and returns the S3 URL.
+// No local Chrome/Puppeteer needed — everything runs in the cloud.
 
 const LOG_PREFIX = '[VideoRenderer]';
-
-// Cache the bundle path across warm invocations
-let cachedBundlePath: string | null = null;
 
 interface RenderParams {
   compositionId: string;
@@ -23,109 +17,97 @@ interface RenderResult {
 }
 
 /**
- * Render a Remotion composition to MP4 and upload to Vercel Blob Storage.
+ * Render a Remotion composition to MP4 via AWS Lambda.
  *
- * Requires @remotion/renderer and @remotion/bundler as dependencies.
- * Heavy operation — expect 2-4 minutes for a 240-frame composition.
+ * Prerequisites (one-time setup):
+ *   cd remotion && npm run lambda:deploy
+ *
+ * Required environment variables:
+ *   REMOTION_AWS_REGION        — AWS region (e.g. us-east-1)
+ *   REMOTION_AWS_ACCESS_KEY_ID — IAM access key with Remotion Lambda permissions
+ *   REMOTION_AWS_SECRET_ACCESS_KEY — IAM secret key
+ *   REMOTION_LAMBDA_FUNCTION_NAME — deployed Lambda function name
+ *   REMOTION_SERVE_URL         — S3 serve URL from deploySite()
  */
 export async function renderSocialVideo(params: RenderParams): Promise<RenderResult> {
-  // Dynamic imports so the main app doesn't bundle Remotion into every route
-  const { bundle } = await import('@remotion/bundler');
-  const { renderMedia, selectComposition } = await import('@remotion/renderer');
+  const {
+    renderMediaOnLambda,
+    getRenderProgress,
+    speculateFunctionName,
+  } = await import('@remotion/lambda/client');
 
-  const remotionRoot = path.resolve(process.cwd(), '..', 'remotion');
-  const entryPoint = path.join(remotionRoot, 'src', 'index.ts');
+  const region = (process.env.REMOTION_AWS_REGION || 'us-east-1') as 'us-east-1';
+  const functionName = process.env.REMOTION_LAMBDA_FUNCTION_NAME
+    || speculateFunctionName({ diskSizeInMb: 2048, memorySizeInMb: 2048, timeoutInSeconds: 120 });
+  const serveUrl = process.env.REMOTION_SERVE_URL;
 
-  console.log(`${LOG_PREFIX} Rendering ${params.compositionId} → ${params.outputFilename}`);
-
-  // Step 1: Bundle (cached for warm starts)
-  if (!cachedBundlePath || !fs.existsSync(cachedBundlePath)) {
-    console.log(`${LOG_PREFIX} Bundling Remotion project...`);
-    cachedBundlePath = await bundle({
-      entryPoint,
-      webpackOverride: (config) => {
-        // Enable Tailwind (same override as remotion.config.ts)
-        return {
-          ...config,
-          module: {
-            ...config.module,
-            rules: [
-              ...(config.module?.rules || []),
-              {
-                test: /\.css$/,
-                use: [
-                  'style-loader',
-                  'css-loader',
-                  {
-                    loader: 'postcss-loader',
-                    options: {
-                      postcssOptions: {
-                        plugins: ['tailwindcss', 'autoprefixer'],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        };
-      },
-    });
-    console.log(`${LOG_PREFIX} Bundle ready at ${cachedBundlePath}`);
-  } else {
-    console.log(`${LOG_PREFIX} Using cached bundle`);
+  if (!serveUrl) {
+    throw new Error('REMOTION_SERVE_URL not set. Run: cd remotion && npm run lambda:deploy');
   }
 
-  // Step 2: Select composition with input props
-  const composition = await selectComposition({
-    serveUrl: cachedBundlePath,
-    id: params.compositionId,
+  console.log(`${LOG_PREFIX} Rendering ${params.compositionId} via Lambda in ${region}`);
+
+  // Trigger the render on Lambda
+  const { renderId, bucketName } = await renderMediaOnLambda({
+    region,
+    functionName,
+    serveUrl,
+    composition: params.compositionId,
     inputProps: params.inputProps,
-  });
-
-  // Step 3: Render to /tmp
-  const outputPath = path.join('/tmp', `${params.outputFilename}.mp4`);
-
-  await renderMedia({
-    composition,
-    serveUrl: cachedBundlePath,
     codec: 'h264',
-    outputLocation: outputPath,
-    inputProps: params.inputProps,
-    chromiumOptions: {
-      gl: 'angle',
+    downloadBehavior: {
+      type: 'play-in-browser',
+      fileName: `${params.outputFilename}.mp4`,
     },
+    privacy: 'public',
+    // Parallelize across Lambda workers for speed
+    framesPerLambda: 40,
   });
 
-  const stats = fs.statSync(outputPath);
-  const durationSeconds = composition.durationInFrames / composition.fps;
-  console.log(
-    `${LOG_PREFIX} Rendered ${outputPath} (${(stats.size / 1024 / 1024).toFixed(1)}MB, ${durationSeconds.toFixed(1)}s)`
-  );
+  console.log(`${LOG_PREFIX} Render started: ${renderId} in bucket ${bucketName}`);
 
-  // Step 4: Upload to Vercel Blob
-  const datePrefix = new Date().toISOString().slice(0, 10);
-  const blobPath = `social-videos/${datePrefix}/${params.outputFilename}.mp4`;
+  // Poll for completion
+  let videoUrl: string | undefined;
+  let durationSeconds = 0;
 
-  const fileBuffer = fs.readFileSync(outputPath);
-  const blob = await put(blobPath, fileBuffer, {
-    access: 'public',
-    contentType: 'video/mp4',
-  });
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const progress = await getRenderProgress({
+      renderId,
+      bucketName,
+      functionName,
+      region,
+    });
 
-  console.log(`${LOG_PREFIX} Uploaded to ${blob.url}`);
+    if (progress.done) {
+      videoUrl = progress.outputFile;
+      // Calculate duration from the composition metadata
+      if (progress.renderMetadata) {
+        const { durationInFrames, fps } = progress.renderMetadata.videoConfig;
+        durationSeconds = durationInFrames / fps;
+      }
+      console.log(`${LOG_PREFIX} Render complete: ${videoUrl} (${durationSeconds.toFixed(1)}s)`);
+      break;
+    }
 
-  // Step 5: Cleanup
-  try {
-    fs.unlinkSync(outputPath);
-  } catch {
-    // ignore cleanup errors
+    if (progress.fatalErrorEncountered) {
+      const errorMsg = progress.errors?.[0]?.message || 'Unknown Lambda render error';
+      throw new Error(`Lambda render failed: ${errorMsg}`);
+    }
+
+    const pct = ((progress.overallProgress ?? 0) * 100).toFixed(0);
+    if (attempt % 5 === 0) {
+      console.log(`${LOG_PREFIX} Render progress: ${pct}%`);
+    }
+
+    // Wait 2 seconds between polls
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
-  return {
-    videoUrl: blob.url,
-    durationSeconds,
-  };
+  if (!videoUrl) {
+    throw new Error('Render timed out after 120 seconds');
+  }
+
+  return { videoUrl, durationSeconds };
 }
 
 /**

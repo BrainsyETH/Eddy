@@ -27,7 +27,9 @@
     "video:generate:render": "cd remotion && npx tsx scripts/generate-video.ts --render-only",
     "video:render": "cd remotion && npx remotion render Root tutorial-full out/eddy-tutorial-landscape.mp4",
     "video:render:vertical": "cd remotion && npx remotion render Root tutorial-full-vertical out/eddy-tutorial-vertical.mp4",
-    "video:render:all": "npm run video:render && npm run video:render:vertical"
+    "video:render:all": "npm run video:render && npm run video:render:vertical",
+    "video:lambda:deploy": "cd remotion && npx tsx scripts/deploy-lambda.ts",
+    "video:lambda:deploy:site": "cd remotion && npx tsx scripts/deploy-lambda.ts --site-only"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
@@ -49,6 +51,7 @@
     "@tiptap/react": "^3.18.0",
     "@tiptap/starter-kit": "^3.18.0",
     "@turf/turf": "^7.3.2",
+    "@remotion/lambda": "4.0.242",
     "@vercel/blob": "^2.0.1",
     "@x402/core": "^2.8.0",
     "github": "^14.0.0",
