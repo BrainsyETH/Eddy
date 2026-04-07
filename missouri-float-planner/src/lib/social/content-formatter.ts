@@ -56,46 +56,6 @@ const CONDITION_EMOJI: Record<string, string> = {
 // Hashtag configuration
 // ---------------------------------------------------------------------------
 
-// Instagram-only core hashtags (Facebook gets none — algorithm penalizes them)
-const IG_BASE_HASHTAGS = [
-  '#eddysays',
-  '#ozarksfloat',
-  '#missourifloattrip',
-  '#floattrip',
-  '#ozarksrivers',
-];
-
-// River-specific hashtags (IG only)
-const RIVER_HASHTAGS: Record<string, string[]> = {
-  meramec: ['#meramecriver', '#meramecfloat'],
-  current: ['#currentriver', '#currentriverMO'],
-  'eleven-point': ['#elevenpointriver'],
-  'jacks-fork': ['#jacksfork', '#jacksforkriver'],
-  niangua: ['#nianguariver'],
-  'big-piney': ['#bigpineyriver'],
-  huzzah: ['#huzzahcreek'],
-  courtois: ['#courtoiscreek'],
-};
-
-// Condition-specific hashtags (IG only)
-const CONDITION_HASHTAGS: Record<string, string[]> = {
-  flowing: ['#perfectconditions', '#getonthewater'],
-  good: ['#floatable', '#riverday'],
-  low: ['#lowwater'],
-  too_low: ['#waitforrain'],
-  high: ['#highwater', '#swiftwater'],
-  dangerous: ['#floodwarning', '#stayoffthewater'],
-};
-
-// Seasonal hashtags based on month
-function getSeasonalHashtags(): string[] {
-  const month = new Date().getMonth(); // 0-indexed
-  if (month >= 2 && month <= 4) return ['#springfloat', '#springpaddling'];
-  if (month >= 5 && month <= 7) return ['#summerfloat', '#summerontheriver'];
-  if (month >= 8 && month <= 10) return ['#fallfloat', '#fallpaddling'];
-  return ['#winterpaddling'];
-}
-
 // ---------------------------------------------------------------------------
 // Hook templates — condition-specific, rotated for variety
 // ---------------------------------------------------------------------------
@@ -245,20 +205,6 @@ function isWeekendWindow(): boolean {
   if (utcDay === 0) return true;
   if (utcDay === 1 && utcHour < 4) return true;
   return false;
-}
-
-function buildInstagramHashtags(
-  riverSlug: string | null,
-  conditionCode: string,
-  extras: string[] = []
-): string[] {
-  return [
-    ...IG_BASE_HASHTAGS,
-    ...(riverSlug ? (RIVER_HASHTAGS[riverSlug] || []) : []),
-    ...(CONDITION_HASHTAGS[conditionCode] || []),
-    ...getSeasonalHashtags(),
-    ...extras,
-  ];
 }
 
 // ---------------------------------------------------------------------------
