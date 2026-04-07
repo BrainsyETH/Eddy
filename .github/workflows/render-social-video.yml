@@ -88,6 +88,7 @@ jobs:
             --codec=h264 \
             --audio-codec=aac \
             --enforce-audio-track \
+            --disable-parallel-encoding \
             --crf=18 \
             --log=verbose \
             --public-dir=./public \
