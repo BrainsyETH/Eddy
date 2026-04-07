@@ -60,6 +60,17 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         gaugeHeightFt: u.gauge_height_ft,
       }));
 
+    // Fetch global Eddy Says summary
+    const { data: globalUpdate } = await supabase
+      .from('eddy_updates')
+      .select('quote_text')
+      .eq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     return {
       rivers,
       dateLabel: new Date().toLocaleDateString('en-US', {
@@ -67,6 +78,7 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         day: 'numeric',
         year: 'numeric',
       }),
+      globalQuote: globalUpdate?.quote_text || undefined,
     };
   }
 

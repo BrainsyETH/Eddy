@@ -88,6 +88,7 @@ export function getCompositionForPost(
       gaugeHeightFt: number | null;
     }>;
     dateLabel?: string;
+    globalQuote?: string;
   },
   platform: 'instagram' | 'facebook'
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
@@ -120,6 +121,7 @@ export function getCompositionForPost(
             day: 'numeric',
             year: 'numeric',
           }),
+          globalQuote: data.globalQuote || undefined,
           format,
         },
         outputFilename: `digest-${new Date().toISOString().slice(0, 10)}-${platform}`,
