@@ -24,6 +24,7 @@ import {
   MessageSquare,
   History,
   Compass,
+  Film,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -120,6 +121,13 @@ const ADMIN_SECTIONS = [
     href: '/admin/social',
     icon: Share2,
     color: 'bg-pink-500',
+  },
+  {
+    title: 'Clip Library',
+    description: 'YouTube clip extraction, brand checks, montage compilation, and content decisions',
+    href: '/admin/clips',
+    icon: Film,
+    color: 'bg-violet-500',
   },
   {
     title: 'Activity Log',
