@@ -4,8 +4,8 @@
 # Single render per video — the callback publishes to all platforms
 # (Instagram + Facebook) from one rendered file.
 #
-# Audio safety net: if Remotion fails to include audio, ffmpeg
-# manually muxes the background music into the output.
+# Audio: ffmpeg always re-encodes audio from source MP3 into the final
+# MP4 at Meta-compatible specs (AAC 48kHz stereo, faststart).
 
 name: Render Social Video
 
@@ -74,13 +74,11 @@ jobs:
         run: |
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
 
+          # Render video only — audio is added by ffmpeg in the next step
           npx remotion render \
             --entry-point=src/index.ts \
             --props=/tmp/input-props.json \
             --codec=h264 \
-            --audio-codec=aac \
-            --enforce-audio-track \
-            --disable-parallel-encoding \
             --crf=18 \
             --log=verbose \
             --public-dir=./public \
@@ -97,31 +95,32 @@ jobs:
           sudo apt-get install -y -qq ffmpeg > /dev/null 2>&1
           ffmpeg -version | head -1
 
-      - name: Ensure audio in output
+      - name: Normalize audio for Meta Reels
         working-directory: missouri-float-planner/remotion
         run: |
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
           AUDIO_SRC="public/audio/background-music.mp3"
 
-          # Check if output has an audio stream
-          HAS_AUDIO=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$OUTFILE" 2>/dev/null || true)
+          # Always re-encode: strip any Remotion audio, mux fresh from source MP3
+          # Meta Reels require: AAC, 48kHz, stereo, faststart
+          ffmpeg -y \
+            -i "$OUTFILE" \
+            -i "$AUDIO_SRC" \
+            -c:v copy \
+            -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            -map 0:v:0 -map 1:a:0 \
+            -shortest \
+            -movflags +faststart \
+            "/tmp/normalized.mp4" 2>&1 | tail -10
 
-          if [ -n "$HAS_AUDIO" ]; then
-            echo "Audio track present: $HAS_AUDIO"
-          else
-            echo "WARNING: No audio track in rendered video. Muxing with ffmpeg..."
-            ffmpeg -y -i "$OUTFILE" -i "$AUDIO_SRC" \
-              -c:v copy -c:a aac -b:a 128k \
-              -map 0:v:0 -map 1:a:0 \
-              -shortest \
-              "/tmp/muxed.mp4" 2>&1 | tail -5
-            mv "/tmp/muxed.mp4" "$OUTFILE"
-            echo "Audio muxed. Final size: $(ls -la "$OUTFILE" | awk '{print $5}') bytes"
-          fi
+          mv "/tmp/normalized.mp4" "$OUTFILE"
 
-          # Final verification
-          echo "=== Final audio check ==="
-          ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate,channels -of default=noprint_wrappers=1 "$OUTFILE"
+          # Verify final output
+          echo "=== Final audio verification ==="
+          ffprobe -v error -select_streams a \
+            -show_entries stream=codec_name,sample_rate,channels,bit_rate \
+            -of default=noprint_wrappers=1 "$OUTFILE"
+          echo "File size: $(stat -c%s "$OUTFILE") bytes"
 
       - name: Upload to Vercel Blob
         id: upload
