@@ -188,12 +188,6 @@ function interpolate(
 }
 
 // Trim quote to a reasonable caption length, prefer summary_text
-function trimQuote(update: EddyUpdate, maxLen: number): string | null {
-  const text = update.summary_text || update.quote_text;
-  if (!text) return null;
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 3) + '...';
-}
 
 function isWeekendWindow(): boolean {
   const now = new Date();
