@@ -59,8 +59,8 @@ jobs:
           echo "Evaluating with Claude vision..."
 
           # Send frames to Claude for brand safety review
-          python3 << 'PYEOF'
-          import json, base64, os, urllib.request, ssl
+          cat > /tmp/brand_check.py << 'PYEOF'
+          import json, base64, os, urllib.request, ssl, re
 
           try:
               import certifi
@@ -74,7 +74,6 @@ jobs:
           supabase_key = os.environ["SUPABASE_KEY"]
           work_dir = os.environ.get("WORK_DIR", "/tmp")
 
-          # Encode frames
           frames = []
           for pct in [10, 50, 90]:
               path = os.path.join(work_dir, f"frame_{pct}.jpg")
@@ -90,32 +89,25 @@ jobs:
                       })
 
           if not frames:
-              print("❌ No frames extracted")
+              print("No frames extracted")
               exit(1)
 
-          prompt_text = """You are reviewing video frames from a clip that will be posted on the Eddy.guide Instagram account (a Missouri float trip / river conditions guide).
-
-          Evaluate these 3 frames (from the beginning, middle, and end of the clip) for:
-
-          1. BRAND SAFETY: No offensive content, violence, dangerous behavior, alcohol/drug use, nudity
-          2. VISUAL QUALITY: Good resolution, not blurry, properly lit, visually engaging
-          3. BRAND ALIGNMENT: Content relates to rivers, floating, kayaking, canoeing, nature, fishing, or outdoor recreation in Missouri
-          4. OVERLAY ISSUES: No obstructive watermarks, logos, or text that would conflict with Eddy branding
-
-          Respond with a JSON object:
-          {
-            "verdict": "PUBLISH" | "REVIEW" | "REJECT",
-            "confidence": 0.0-1.0,
-            "brand_safe": true/false,
-            "visual_quality": "good" | "acceptable" | "poor",
-            "brand_aligned": true/false,
-            "overlay_issues": true/false,
-            "reasoning": "Brief explanation"
-          }
-
-          PUBLISH = safe to post automatically
-          REVIEW = human should review before posting
-          REJECT = do not post"""
+          prompt_text = (
+              "You are reviewing video frames from a clip that will be posted on the "
+              "Eddy.guide Instagram account (a Missouri float trip / river conditions guide).\n\n"
+              "Evaluate these 3 frames (from the beginning, middle, and end of the clip) for:\n"
+              "1. BRAND SAFETY: No offensive content, violence, dangerous behavior, alcohol/drug use, nudity\n"
+              "2. VISUAL QUALITY: Good resolution, not blurry, properly lit, visually engaging\n"
+              "3. BRAND ALIGNMENT: Content relates to rivers, floating, kayaking, canoeing, nature, fishing, or outdoor recreation in Missouri\n"
+              "4. OVERLAY ISSUES: No obstructive watermarks, logos, or text that would conflict with Eddy branding\n\n"
+              'Respond with a JSON object:\n'
+              '{"verdict": "PUBLISH" | "REVIEW" | "REJECT", "confidence": 0.0-1.0, '
+              '"brand_safe": true/false, "visual_quality": "good" | "acceptable" | "poor", '
+              '"brand_aligned": true/false, "overlay_issues": true/false, "reasoning": "Brief explanation"}\n\n'
+              "PUBLISH = safe to post automatically\n"
+              "REVIEW = human should review before posting\n"
+              "REJECT = do not post"
+          )
 
           content = frames + [{"type": "text", "text": prompt_text}]
 
@@ -139,17 +131,13 @@ jobs:
               with urllib.request.urlopen(req, timeout=30, context=ssl_ctx) as resp:
                   data = json.loads(resp.read())
                   text = data["content"][0]["text"]
-
-                  # Parse JSON from response
-                  import re
                   json_match = re.search(r'\{[^{}]+\}', text, re.DOTALL)
                   if json_match:
                       result = json.loads(json_match.group())
                   else:
                       result = {"verdict": "REVIEW", "reasoning": text}
-
           except Exception as e:
-              print(f"⚠️ Claude API error: {e}")
+              print(f"Claude API error: {e}")
               result = {"verdict": "REVIEW", "reasoning": f"API error: {e}"}
 
           verdict = result.get("verdict", "REVIEW").lower()
@@ -159,7 +147,6 @@ jobs:
           print(f"Verdict: {result.get('verdict', 'REVIEW')}")
           print(f"Reasoning: {result.get('reasoning', 'N/A')}")
 
-          # Update clip_library in Supabase
           update_body = json.dumps({
               "brand_check_status": status,
               "brand_check_result": result,
@@ -180,7 +167,8 @@ jobs:
 
           try:
               with urllib.request.urlopen(update_req, timeout=10) as resp:
-                  print(f"✅ Updated clip {clip_id}: {status}")
+                  print(f"Updated clip {clip_id}: {status}")
           except Exception as e:
-              print(f"⚠️ Failed to update clip: {e}")
+              print(f"Failed to update clip: {e}")
           PYEOF
+          python3 /tmp/brand_check.py
