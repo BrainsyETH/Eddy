@@ -188,26 +188,26 @@ jobs:
               -of default=noprint_wrappers=1:nokey=1 "$FINAL_CLIP" 2>/dev/null | cut -d. -f1)
 
             # Append to results
-            python3 << INNEREOF
-import json
-results = json.load(open("$RESULTS_JSON"))
-results.append({
-    "youtube_video_id": "$VIDEO_ID",
-    "youtube_channel": "$CHANNEL",
-    "river_slug": "${RIVER:-}",
-    "clip_url": "$CLIP_URL",
-    "duration_secs": ${CLIP_DURATION:-0},
-    "clip_start_secs": $PEAK_START,
-    "clip_end_secs": $PEAK_START + ${PEAK_DURATION:-13},
-    "orientation": "$ORIENTATION",
-    "heatmap_score": $PEAK_SCORE,
-    "source_creator": "$CHANNEL",
-    "source_url": "$URL",
-    "title": "$TITLE",
-})
-with open("$RESULTS_JSON", "w") as f:
-    json.dump(results, f, indent=2)
-INNEREOF
+            python3 -c "
+          import json, sys
+          results = json.load(open('$RESULTS_JSON'))
+          results.append({
+              'youtube_video_id': '$VIDEO_ID',
+              'youtube_channel': '''$CHANNEL''',
+              'river_slug': '${RIVER:-}',
+              'clip_url': '$CLIP_URL',
+              'duration_secs': ${CLIP_DURATION:-0},
+              'clip_start_secs': $PEAK_START,
+              'clip_end_secs': $PEAK_START + ${PEAK_DURATION:-13},
+              'orientation': '$ORIENTATION',
+              'heatmap_score': $PEAK_SCORE,
+              'source_creator': '''$CHANNEL''',
+              'source_url': '$URL',
+              'title': '''$TITLE''',
+          })
+          with open('$RESULTS_JSON', 'w') as f:
+              json.dump(results, f, indent=2)
+          "
 
             rm -rf "$VIDEO_DIR"
           }
@@ -249,50 +249,51 @@ INNEREOF
 
           # Insert directly into Supabase
           echo "Inserting $TOTAL clips into clip_library..."
-          python3 << 'PYEOF'
-import json, urllib.request, os
+          cat > /tmp/insert_clips.py << 'PYEOF'
+          import json, urllib.request, os
 
-supabase_url = os.environ["SUPABASE_URL"]
-supabase_key = os.environ["SUPABASE_KEY"]
+          supabase_url = os.environ["SUPABASE_URL"]
+          supabase_key = os.environ["SUPABASE_KEY"]
 
-with open(os.path.join(os.environ["GITHUB_WORKSPACE"], "clip-results.json")) as f:
-    clips = json.load(f)
+          with open(os.path.join(os.environ["GITHUB_WORKSPACE"], "clip-results.json")) as f:
+              clips = json.load(f)
 
-for clip in clips:
-    row = {
-        "youtube_video_id": clip["youtube_video_id"],
-        "youtube_channel": clip.get("youtube_channel"),
-        "river_slug": clip.get("river_slug") or None,
-        "clip_url": clip["clip_url"],
-        "duration_secs": clip.get("duration_secs"),
-        "clip_start_secs": clip.get("clip_start_secs"),
-        "clip_end_secs": clip.get("clip_end_secs"),
-        "orientation": clip.get("orientation", "portrait"),
-        "heatmap_score": clip.get("heatmap_score"),
-        "source_creator": clip.get("source_creator"),
-        "source_url": clip.get("source_url"),
-        "brand_check_status": "pending",
-    }
+          for clip in clips:
+              row = {
+                  "youtube_video_id": clip["youtube_video_id"],
+                  "youtube_channel": clip.get("youtube_channel"),
+                  "river_slug": clip.get("river_slug") or None,
+                  "clip_url": clip["clip_url"],
+                  "duration_secs": clip.get("duration_secs"),
+                  "clip_start_secs": clip.get("clip_start_secs"),
+                  "clip_end_secs": clip.get("clip_end_secs"),
+                  "orientation": clip.get("orientation", "portrait"),
+                  "heatmap_score": clip.get("heatmap_score"),
+                  "source_creator": clip.get("source_creator"),
+                  "source_url": clip.get("source_url"),
+                  "brand_check_status": "pending",
+              }
 
-    body = json.dumps(row).encode()
-    req = urllib.request.Request(
-        f"{supabase_url}/rest/v1/clip_library",
-        data=body,
-        headers={
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        },
-        method="POST",
-    )
+              body = json.dumps(row).encode()
+              req = urllib.request.Request(
+                  f"{supabase_url}/rest/v1/clip_library",
+                  data=body,
+                  headers={
+                      "apikey": supabase_key,
+                      "Authorization": f"Bearer {supabase_key}",
+                      "Content-Type": "application/json",
+                      "Prefer": "return=minimal",
+                  },
+                  method="POST",
+              )
 
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            print(f"  ✅ Inserted: {clip['youtube_video_id']}")
-    except Exception as e:
-        print(f"  ⚠️ Failed to insert {clip['youtube_video_id']}: {e}")
-PYEOF
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as resp:
+                      print(f"  Inserted: {clip['youtube_video_id']}")
+              except Exception as e:
+                  print(f"  Failed to insert {clip['youtube_video_id']}: {e}")
+          PYEOF
+          python3 /tmp/insert_clips.py
 
           # Optional: notify the site
           if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
