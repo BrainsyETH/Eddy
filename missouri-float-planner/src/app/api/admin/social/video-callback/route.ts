@@ -28,11 +28,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { postIds: postIdsRaw, videoUrl, status, error } = body as {
+  const { postIds: postIdsRaw, videoUrl, status, error, audioVerified } = body as {
     postIds: string;       // Comma-separated IDs
     videoUrl?: string;
     status: 'rendered' | 'failed';
     error?: string;
+    audioVerified?: boolean;
   };
 
   if (!postIdsRaw) {
@@ -59,49 +60,39 @@ export async function POST(request: NextRequest) {
 
     const platform = post.platform as SocialPlatform;
 
-    // Handle render failure — fall back to image
+    // Handle render failure — do NOT fall back to image; fail loudly
     if (status === 'failed') {
       console.error(`${LOG_PREFIX} Render failed for ${postId} (${platform}): ${error}`);
-
-      const adapter = getAdapter(platform);
-      if (adapter && post.image_url) {
-        console.log(`${LOG_PREFIX} Falling back to image for ${platform}: ${postId}`);
-        const result = await adapter.publishPost({
-          caption: post.caption,
-          imageUrl: post.image_url,
-          mediaType: 'image',
-        });
-
-        await supabase
-          .from('social_posts')
-          .update({
-            status: result.success ? 'published' : 'failed',
-            media_type: 'image',
-            platform_post_id: result.platformPostId || null,
-            published_at: result.success ? new Date().toISOString() : null,
-            error_message: result.success ? null : `Video failed, image fallback: ${result.error}`,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', postId);
-
-        results.push({ postId, platform, success: result.success, error: result.error });
-      } else {
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'failed',
-            error_message: error || 'Video render failed',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', postId);
-        results.push({ postId, platform, success: false, error: error || 'No adapter' });
-      }
+      await supabase
+        .from('social_posts')
+        .update({
+          status: 'failed',
+          error_message: error || 'Video render failed — no fallback',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', postId);
+      results.push({ postId, platform, success: false, error: error || 'Render failed' });
       continue;
     }
 
     // Handle successful render — publish the video
     if (!videoUrl) {
       results.push({ postId, platform, success: false, error: 'Missing videoUrl' });
+      continue;
+    }
+
+    // Require audio verification — refuse to publish silent videos
+    if (!audioVerified) {
+      console.error(`${LOG_PREFIX} Rejecting ${postId} (${platform}): audioVerified flag missing`);
+      await supabase
+        .from('social_posts')
+        .update({
+          status: 'failed',
+          error_message: 'Video not published — audio not verified by render pipeline',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', postId);
+      results.push({ postId, platform, success: false, error: 'Audio not verified' });
       continue;
     }
 

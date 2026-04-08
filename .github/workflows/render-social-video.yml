@@ -183,7 +183,8 @@ jobs:
             -d "{
               \"postIds\": \"${{ inputs.post_ids }}\",
               \"videoUrl\": \"${{ steps.upload.outputs.video_url }}\",
-              \"status\": \"rendered\"
+              \"status\": \"rendered\",
+              \"audioVerified\": true
             }"
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
