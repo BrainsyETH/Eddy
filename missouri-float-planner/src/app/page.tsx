@@ -1,7 +1,6 @@
 // src/app/page.tsx
 // Landing page for Eddy — redesigned with spacious, modern layout
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRivers } from '@/lib/data/rivers';
@@ -9,85 +8,27 @@ import { CONDITION_COLORS } from '@/constants';
 import FloatEstimator from './FloatEstimator';
 import FeaturedRivers from '@/components/home/FeaturedRivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
+import HeroRiver from '@/components/home/HeroRiver';
+import ScrollReveal from '@/components/ui/ScrollReveal';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const revalidate = 300; // ISR every 5 minutes
-
-const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 export default async function Home() {
   const rivers = await getRivers();
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
-      {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 40%, #1A4F5C 100%)' }}>
-        {/* Topographic wave pattern */}
-        <div className="absolute inset-0 opacity-[0.07] pointer-events-none">
-          <svg className="absolute bottom-0 w-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-            <path fill="white" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
-          </svg>
-          <svg className="absolute bottom-8 w-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-            <path fill="white" d="M0,256L60,240C120,224,240,192,360,186.7C480,181,600,203,720,208C840,213,960,203,1080,186.7C1200,171,1320,149,1380,138.7L1440,128L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z" />
-          </svg>
-        </div>
-
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
-          <div className="flex items-center justify-between gap-8">
-            <div className="flex-1 max-w-xl">
-              {/* Live badge removed */}
-
-              <h1
-                className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                Plan Your Next{' '}
-                <br className="hidden sm:block" />
-                <span style={{ color: '#F07052' }}>Float.</span>
-              </h1>
-              <p className="text-base md:text-lg text-white/80 max-w-lg mb-8 leading-relaxed">
-                Real-time USGS gauge data, river analysis, and trip insights for paddlers, anglers, and float enthusiasts.
-              </p>
-
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/rivers"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all no-underline hover:brightness-110"
-                  style={{ backgroundColor: '#F07052' }}
-                >
-                  Plan Your Float
-                </Link>
-                <Link
-                  href="/gauges"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
-                >
-                  River Reports
-                </Link>
-              </div>
-            </div>
-
-            {/* Otter mascot — visible on all screen sizes */}
-            <div className="flex-shrink-0">
-              <Image
-                src={EDDY_CANOE}
-                alt="Eddy the Otter"
-                width={320}
-                height={320}
-                className="w-20 md:w-52 lg:w-64 h-auto drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
-                priority
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ─── Hero with animated river ─── */}
+      <HeroRiver />
 
       {/* ─── Eddy Says ─── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8">
+      <ScrollReveal className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8 w-full">
         <EddySaysReport />
-      </section>
+      </ScrollReveal>
 
       {/* ─── Live Gauge Data ─── */}
-      <section className="px-4 sm:px-6 lg:px-16 xl:px-24 pb-8 md:pb-10">
+      <ScrollReveal className="px-4 sm:px-6 lg:px-16 xl:px-24 pb-8 md:pb-10 w-full" variant="scale">
         <div className="flex items-end justify-between mb-2">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
             Check River Levels
@@ -103,19 +44,19 @@ export default async function Home() {
 
         {/* Featured Rivers (client component with live data) */}
         <FeaturedRivers />
-      </section>
+      </ScrollReveal>
 
       {/* ─── Plan Your Float ─── */}
-      <section>
+      <ScrollReveal className="w-full">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-16">
           <div className="max-w-2xl mx-auto">
             <FloatEstimator rivers={rivers} />
           </div>
         </div>
-      </section>
+      </ScrollReveal>
 
       {/* ─── Embed Widgets CTA ─── */}
-      <section className="bg-neutral-50 border-t border-neutral-100">
+      <ScrollReveal className="bg-neutral-50 border-t border-neutral-100 w-full" variant="scale">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>
             Add live data to your site.
@@ -131,10 +72,10 @@ export default async function Home() {
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
-      </section>
+      </ScrollReveal>
 
       {/* ─── Browse All Rivers ─── */}
-      <section className="border-t border-neutral-100">
+      <ScrollReveal className="border-t border-neutral-100 w-full" stagger>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-16">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
@@ -168,7 +109,7 @@ export default async function Home() {
             })}
           </div>
         </div>
-      </section>
+      </ScrollReveal>
 
       {/* ─── Data Attribution ─── */}
       <section className="border-t border-neutral-100">
