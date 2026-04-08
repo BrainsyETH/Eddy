@@ -127,7 +127,6 @@ jobs:
               -af "afade=t=in:st=0:d=1,afade=t=out:st=$(echo "$DURATION - 1" | bc):d=1,volume=0.5" \
               -map 0:v:0 -map 1:a:0 \
               -movflags +faststart \
-              -shortest \
               "/tmp/with-audio.mp4" 2>&1 | tail -20
 
             mv "/tmp/with-audio.mp4" "$OUTFILE"
