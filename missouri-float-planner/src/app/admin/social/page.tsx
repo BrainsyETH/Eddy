@@ -23,6 +23,7 @@ import {
   Eye,
   X,
   Zap,
+  Play,
 } from 'lucide-react';
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
@@ -170,6 +171,7 @@ export default function SocialAdminPage() {
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [videoPreviewPost, setVideoPreviewPost] = useState<SocialPost | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -586,6 +588,42 @@ export default function SocialAdminPage() {
                   </div>
                 </>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Preview Modal */}
+      {videoPreviewPost && videoPreviewPost.video_url && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-white">Video Preview</h3>
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
+                  {videoPreviewPost.platform}
+                </span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
+                  {videoPreviewPost.post_type === 'daily_digest' ? 'Digest' : videoPreviewPost.post_type === 'river_highlight' ? 'Highlight' : videoPreviewPost.post_type}
+                </span>
+              </div>
+              <button onClick={() => setVideoPreviewPost(null)} className="text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="bg-black rounded-lg overflow-hidden">
+                <video
+                  src={videoPreviewPost.video_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full max-h-[500px]"
+                />
+              </div>
+              <p className="text-xs text-neutral-500 mt-2">
+                {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
+              </p>
             </div>
           </div>
         </div>
@@ -1391,15 +1429,26 @@ export default function SocialAdminPage() {
                                   {(post.caption || '').slice(0, 80)}...
                                 </td>
                                 <td className="px-4 py-3">
-                                  {post.status === 'failed' && (
-                                    <button
-                                      onClick={() => retryPost(post.id)}
-                                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"
-                                    >
-                                      <RotateCcw className="w-3 h-3" />
-                                      Retry
-                                    </button>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {post.video_url && (
+                                      <button
+                                        onClick={() => setVideoPreviewPost(post)}
+                                        className="flex items-center gap-1 px-2 py-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded transition-colors"
+                                      >
+                                        <Play className="w-3 h-3" />
+                                        Preview
+                                      </button>
+                                    )}
+                                    {post.status === 'failed' && (
+                                      <button
+                                        onClick={() => retryPost(post.id)}
+                                        className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"
+                                      >
+                                        <RotateCcw className="w-3 h-3" />
+                                        Retry
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             );
