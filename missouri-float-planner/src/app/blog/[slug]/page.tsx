@@ -115,6 +115,39 @@ export default async function BlogPostPage({
     },
   };
 
+  // Extract FAQ pairs from river-guide posts for FAQPage JSON-LD
+  // Convention: <div id="faq"> containing <h3> (question) + <p> (answer) pairs
+  let faqJsonLd: object | null = null;
+  if (post.category === 'River Guides' && post.content) {
+    const faqMatch = post.content.match(/<div id="faq">([\s\S]*?)<\/div>/);
+    if (faqMatch) {
+      const faqHtml = faqMatch[1];
+      const qaPairs: { question: string; answer: string }[] = [];
+      const qRegex = /<h3[^>]*>(.*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/g;
+      let match;
+      while ((match = qRegex.exec(faqHtml)) !== null) {
+        qaPairs.push({
+          question: match[1].replace(/<[^>]+>/g, ''),
+          answer: match[2].replace(/<[^>]+>/g, ''),
+        });
+      }
+      if (qaPairs.length > 0) {
+        faqJsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: qaPairs.map(qa => ({
+            '@type': 'Question',
+            name: qa.question,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: qa.answer,
+            },
+          })),
+        };
+      }
+    }
+  }
+
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -129,6 +162,9 @@ export default async function BlogPostPage({
     <article className="min-h-screen bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      {faqJsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      )}
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-16">
         {/* Header */}
         <header className="mb-8 md:mb-12">

@@ -10,7 +10,9 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
+import ForecastCard from '@/components/river/ForecastCard';
 import NearbyServices from '@/components/river/NearbyServices';
+import ShuttlePanel from '@/components/river/ShuttlePanel';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
 import FloatPlanCard from '@/components/plan/FloatPlanCard';
@@ -27,9 +29,11 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import { usePOIs } from '@/hooks/usePOIs';
-import { useWeather } from '@/hooks/useWeather';
+import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
+import { useNearbyServices } from '@/hooks/useNearbyServices';
 import type { AccessPoint, FeedbackContext } from '@/types/api';
-import { Camera } from 'lucide-react';
+import { Camera, BookOpen } from 'lucide-react';
+import Link from 'next/link';
 import { CONDITION_COLORS } from '@/constants';
 
 // Dynamic imports for map
@@ -81,6 +85,7 @@ export default function RiverPage() {
   const { data: pois } = usePOIs(slug);
   // Pre-fetch weather data for child components (WeatherBug)
   useWeather(slug);
+  const { data: nearbyServices } = useNearbyServices(slug);
 
   // Filter gauge stations to only show those linked to this river
   const gaugeStations = allGaugeStations?.filter(gauge =>
@@ -200,6 +205,11 @@ export default function RiverPage() {
           )
         : null
     : null;
+
+  // Forecast: use put-in coords if selected, otherwise nearest gauge coords
+  const forecastLat = selectedPutInPoint?.coordinates.lat ?? nearestGauge?.coordinates.lat ?? null;
+  const forecastLng = selectedPutInPoint?.coordinates.lng ?? nearestGauge?.coordinates.lng ?? null;
+  const { data: forecast } = useForecastByCoords(forecastLat, forecastLng);
 
   // Handle map / strip click — setBothPoints ensures correct put-in/take-out order
   const handleMarkerClick = useCallback((point: AccessPoint) => {
@@ -644,6 +654,22 @@ export default function RiverPage() {
 
       {/* ─── Info sections (below fold, full width) ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+        {/* 3-Day Weather Forecast */}
+        {forecast?.days && forecast.days.length > 0 && (
+          <ForecastCard days={forecast.days} city={forecast.city} />
+        )}
+
+        {/* Shuttle & Logistics */}
+        {putInPoint && takeOutPoint && nearbyServices && (
+          <ShuttlePanel
+            putInId={putInPoint.id}
+            takeOutId={takeOutPoint.id}
+            putInName={putInPoint.name}
+            takeOutName={takeOutPoint.name}
+            services={nearbyServices}
+          />
+        )}
+
         {/* River Visuals Gallery */}
         <RiverVisualGallery
           riverSlug={slug}
@@ -651,6 +677,24 @@ export default function RiverPage() {
         />
 
         <NearbyServices riverSlug={slug} defaultOpen={false} />
+
+        {/* Cross-link to river guide post */}
+        <Link
+          href={`/blog/${slug}-river-float-trip-guide`}
+          className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <BookOpen className="w-5 h-5 text-primary-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-neutral-900">
+                Read the full {river.name} Float Trip Guide
+              </p>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Best floats, access points, outfitters, and everything you need to know
+              </p>
+            </div>
+          </div>
+        </Link>
       </div>
 
       {/* Hidden shareable capture component */}
