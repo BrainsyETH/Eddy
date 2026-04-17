@@ -264,7 +264,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   return (
     <AbsoluteFill>
       <Audio
-        src={staticFile("audio/background-music.mp3")}
+        src={staticFile("audio/background-music.wav")}
         volume={(f) =>
           interpolate(f, [0, 30, durationInFrames - 30, durationInFrames], [0, 0.5, 0.5, 0], {
             extrapolateLeft: "clamp",

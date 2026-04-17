@@ -49,7 +49,7 @@ export const TutorialFull: React.FC<TutorialFullProps> = ({
     <AbsoluteFill className="bg-neutral-50">
       {/* Background music — runs full duration */}
       <Audio
-        src={staticFile("audio/background-music.mp3")}
+        src={staticFile("audio/background-music.wav")}
         volume={musicVolume}
       />
 

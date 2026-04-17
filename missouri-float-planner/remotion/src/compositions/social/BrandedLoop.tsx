@@ -65,7 +65,7 @@ export const BrandedLoop: React.FC<BrandedLoopProps> = ({
       }}
     >
       <Audio
-        src={staticFile("audio/background-music.mp3")}
+        src={staticFile("audio/background-music.wav")}
         volume={(f) =>
           interpolate(f, [0, 15, durationInFrames - 15, durationInFrames], [0, 0.5, 0.5, 0], {
             extrapolateLeft: "clamp",

@@ -93,7 +93,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
     <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
       {/* Background music — volume as callback for Remotion CLI compatibility */}
       <Audio
-        src={staticFile("audio/background-music.mp3")}
+        src={staticFile("audio/background-music.wav")}
         volume={(f) =>
           interpolate(f, [0, FPS, durationInFrames - FPS, durationInFrames], [0, 0.5, 0.5, 0], {
             extrapolateLeft: "clamp",
