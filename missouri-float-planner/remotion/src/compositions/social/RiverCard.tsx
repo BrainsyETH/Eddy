@@ -67,7 +67,7 @@ export const RiverCard: React.FC<RiverCardProps> = ({
       {/* Condition color bar */}
       <div
         style={{
-          width: 6,
+          width: 8,
           alignSelf: "stretch",
           backgroundColor: condition.solid,
           boxShadow: `0 0 8px ${condition.glow}`,
@@ -82,7 +82,7 @@ export const RiverCard: React.FC<RiverCardProps> = ({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "16px 24px",
+          padding: "22px 32px",
         }}
       >
         {/* Left: River name + gauge height (identity group) */}
@@ -90,13 +90,13 @@ export const RiverCard: React.FC<RiverCardProps> = ({
           style={{
             display: "flex",
             alignItems: "baseline",
-            gap: 12,
+            gap: 16,
           }}
         >
           <div
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 24,
+              fontSize: 40,
               fontWeight: 600,
               color: "#fff",
             }}
@@ -107,7 +107,7 @@ export const RiverCard: React.FC<RiverCardProps> = ({
             <span
               style={{
                 fontFamily: "'Geist Mono', 'SF Mono', monospace",
-                fontSize: 16,
+                fontSize: 24,
                 color: "rgba(255,255,255,0.5)",
                 fontWeight: 500,
               }}
@@ -122,9 +122,9 @@ export const RiverCard: React.FC<RiverCardProps> = ({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 10,
             backgroundColor: condition.bg,
-            padding: "6px 16px",
+            padding: "10px 22px",
             borderRadius: 999,
             border: `1.5px solid ${condition.solid}`,
             boxShadow: `0 0 10px ${condition.glow}`,
@@ -132,8 +132,8 @@ export const RiverCard: React.FC<RiverCardProps> = ({
         >
           <div
             style={{
-              width: 10,
-              height: 10,
+              width: 14,
+              height: 14,
               borderRadius: "50%",
               backgroundColor: condition.solid,
               boxShadow: `0 0 6px ${condition.solid}`,
@@ -142,7 +142,7 @@ export const RiverCard: React.FC<RiverCardProps> = ({
           <span
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 18,
+              fontSize: 28,
               fontWeight: 600,
               color: condition.solid,
             }}

@@ -16,12 +16,15 @@ import { ENTRANCE } from "../../lib/spring-presets";
 import { SEVERITY_ORDER, type DigestReelProps } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
 
-// Reel-safe content zones (1080x1920 portrait)
+// Reel-safe content zones (1080x1920 portrait).
+// Horizontal padding is symmetric so `alignItems: center` lands on the true
+// video centerline (x=540); vertical padding rebalanced so the content block
+// reads as vertically centered.
 const SAFE = {
-  top: 100,
-  bottom: 270,
-  right: 80,
-  left: 20,
+  top: 120,
+  bottom: 220,
+  right: 50,
+  left: 50,
 };
 
 /** Title slide — "River Report" + date + Eddy + global quote */
@@ -29,14 +32,24 @@ const TitleSlide: React.FC<{
   dateLabel: string;
   globalQuote?: string;
   isPortrait: boolean;
-}> = ({ dateLabel, globalQuote, isPortrait }) => {
+  titleFrames: number;
+}> = ({ dateLabel, globalQuote, isPortrait, titleFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const titleEntrance = spring({ frame, fps, config: ENTRANCE });
   const titleY = interpolate(titleEntrance, [0, 1], [50, 0]);
   const dateEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
-  const quoteEntrance = spring({ frame: frame - 20, fps, config: ENTRANCE });
+  const quoteEntrance = spring({ frame: frame - 12, fps, config: ENTRANCE });
+
+  // Hold the quote at full opacity, then gently fade the last ~0.3s so the
+  // cut to the river cards doesn't feel like the quote vanished mid-read.
+  const quoteHold = interpolate(
+    frame,
+    [titleFrames - 10, titleFrames],
+    [1, 0.6],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
@@ -51,7 +64,7 @@ const TitleSlide: React.FC<{
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: isPortrait ? 24 : 20,
+          gap: isPortrait ? 28 : 20,
         }}
       >
         <EddyMascot variant="canoe" size={isPortrait ? 200 : 160} delay={5} />
@@ -60,7 +73,7 @@ const TitleSlide: React.FC<{
             opacity: titleEntrance,
             transform: `translateY(${titleY}px)`,
             fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 56 : 48,
+            fontSize: isPortrait ? 88 : 48,
             fontWeight: 600,
             color: "#fff",
             textAlign: "center",
@@ -72,7 +85,7 @@ const TitleSlide: React.FC<{
           style={{
             opacity: dateEntrance,
             fontFamily: "'Geist Sans', system-ui, sans-serif",
-            fontSize: isPortrait ? 22 : 20,
+            fontSize: isPortrait ? 32 : 20,
             color: "rgba(255,255,255,0.6)",
           }}
         >
@@ -81,17 +94,17 @@ const TitleSlide: React.FC<{
         {globalQuote && (
           <div
             style={{
-              opacity: quoteEntrance,
-              maxWidth: isPortrait ? 850 : 750,
+              opacity: quoteEntrance * quoteHold,
+              maxWidth: isPortrait ? 900 : 750,
               textAlign: "center",
               marginTop: 8,
             }}
           >
             <span
               style={{
-                fontSize: isPortrait ? 22 : 18,
+                fontSize: isPortrait ? 34 : 18,
                 color: "rgba(255,255,255,0.7)",
-                lineHeight: 1.5,
+                lineHeight: 1.4,
                 fontStyle: "italic",
               }}
             >
@@ -257,9 +270,10 @@ export const DigestReel: React.FC<DigestReelProps> = ({
       (SEVERITY_ORDER[b.conditionCode] ?? 6)
   );
 
-  const titleFrames = globalQuote ? 90 : 60; // More time if there's a quote to read
-  const riverFrames = 120; // 4 seconds for all rivers
-  const ctaFrames = 60;
+  // Durations mirror getDigestDuration() below — keep in sync.
+  const titleFrames = globalQuote ? 165 : 105;
+  const riverFrames = 180 + Math.max(0, sortedRivers.length - 5) * 6;
+  const ctaFrames = 75;
 
   return (
     <AbsoluteFill>
@@ -278,6 +292,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
             dateLabel={dateLabel}
             globalQuote={globalQuote}
             isPortrait={isPortrait}
+            titleFrames={titleFrames}
           />
         </Series.Sequence>
 
@@ -297,10 +312,10 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   );
 };
 
-/** Calculate total frames — always 3 slides now (title + rivers + CTA) */
+/** Calculate total frames — always 3 slides now (title + rivers + CTA). */
 export function getDigestDuration(riverCount: number, hasGlobalQuote = false): number {
-  const titleFrames = hasGlobalQuote ? 90 : 60;
-  const riverFrames = 120;
-  const ctaFrames = 60;
+  const titleFrames = hasGlobalQuote ? 165 : 105;               // 5.5s / 3.5s
+  const riverFrames = 180 + Math.max(0, riverCount - 5) * 6;    // base 6s, +0.2s per extra river
+  const ctaFrames = 75;                                          // 2.5s
   return titleFrames + riverFrames + ctaFrames;
 }
