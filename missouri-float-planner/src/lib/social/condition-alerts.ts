@@ -28,10 +28,16 @@ function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
 }
 
 /**
- * Check if a condition change alert was posted recently for this river (4h cooldown).
+ * Check if a condition-change alert was posted recently for this river +
+ * new-condition pair (4h cooldown). Keying on the new condition lets a
+ * flip-flop (dangerous→good→dangerous within 4h) still post the second
+ * transition instead of being silenced by the first.
+ *
+ * Matches on `metadata->>'new_condition'` — set by publishConditionChangeAlert.
  */
 async function hasRecentAlert(
   riverSlug: string,
+  newCondition: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
 ): Promise<boolean> {
@@ -41,6 +47,7 @@ async function hasRecentAlert(
     .select('id')
     .eq('post_type', 'condition_change')
     .eq('river_slug', riverSlug)
+    .eq('metadata->>new_condition', newCondition)
     .gte('created_at', cutoff)
     .in('status', ['pending', 'publishing', 'published'])
     .limit(1);
@@ -65,10 +72,10 @@ export async function publishConditionChangeAlert(params: {
 
   const supabase = createAdminClient();
 
-  // Check cooldown
-  const recent = await hasRecentAlert(riverSlug, supabase);
+  // Check cooldown — keyed on (river, newCondition) so a flip-flop can still alert
+  const recent = await hasRecentAlert(riverSlug, newCondition, supabase);
   if (recent) {
-    console.log(`${LOG_PREFIX} Skipping ${riverSlug}: condition change alert in 4h cooldown`);
+    console.log(`${LOG_PREFIX} Skipping ${riverSlug}: ${newCondition} alert already posted in 4h window`);
     return { published: 0, skipped: true, reason: 'cooldown' };
   }
 
@@ -103,7 +110,8 @@ export async function publishConditionChangeAlert(params: {
 
     const imageUrl = `${baseUrl}/api/og/social?type=highlight&river=${riverSlug}&platform=${platform}`;
 
-    // Insert record
+    // Insert record — persist the transition in metadata so the 4h cooldown
+    // can key on (river, newCondition) instead of any-alert-on-river.
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
       .insert({
@@ -115,6 +123,11 @@ export async function publishConditionChangeAlert(params: {
         hashtags,
         eddy_update_id: null,
         status: 'publishing',
+        metadata: {
+          old_condition: oldCondition,
+          new_condition: newCondition,
+          gauge_height_ft: gaugeHeightFt,
+        },
       })
       .select('id')
       .single();

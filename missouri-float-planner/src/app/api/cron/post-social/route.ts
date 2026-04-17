@@ -14,6 +14,12 @@ import { InstagramAdapter } from '@/lib/social/instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
 import type { PlatformAdapter, SocialPlatform, ScheduledPost } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
+import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
+
+const CRON_LOCK_NAME = 'post_social';
+// Renders routinely take 5–9 min on GH Actions; give slack before another
+// cron run is allowed to reclaim the lock.
+const CRON_STALE_SECONDS = 30 * 60;
 
 export const dynamic = 'force-dynamic';
 
@@ -137,6 +143,14 @@ async function runSocialPosting(request: NextRequest) {
     console.log(`${LOG_PREFIX} skip_time_check=true — bypassing schedule time checks`);
   }
 
+  // Serialize concurrent cron runs — two overlapping runs would race on the
+  // pre-insert delete in the posting loop and could dispatch duplicate renders.
+  const gotLock = await tryCronLock(supabase, CRON_LOCK_NAME, CRON_STALE_SECONDS);
+  if (!gotLock) {
+    console.log(`${LOG_PREFIX} Another run is active — skipping`);
+    return NextResponse.json({ message: 'skipped: concurrent run' });
+  }
+
   let published = 0;
   let failed = 0;
   let skipped = 0;
@@ -144,22 +158,47 @@ async function runSocialPosting(request: NextRequest) {
   const errors: string[] = [];
   let diagnostics: SchedulerResult['diagnostics'] | undefined;
 
-  // --- Clean up stale records ---
   try {
-    const cleanupStart = new Date();
-    cleanupStart.setUTCHours(0, 0, 0, 0);
-    const { count: cleanedUp } = await supabase
-      .from('social_posts')
-      .delete({ count: 'exact' })
-      .in('status', ['publishing', 'pending', 'rendering'])
-      .gte('created_at', cleanupStart.toISOString())
-      .lt('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString());
+  // --- Reap stale non-terminal records ---
+  // Previously: deleted rows. That broke the video-callback whose .eq('id')
+  // lookup would come back empty for long-running renders. Now: mark failed
+  // and keep the row so the callback can still find and report it.
+  try {
+    const nonRenderCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const renderCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-    if (cleanedUp && cleanedUp > 0) {
-      console.log(`${LOG_PREFIX} Cleaned up ${cleanedUp} stale records`);
+    const { count: nonRenderStale } = await supabase
+      .from('social_posts')
+      .update(
+        {
+          status: 'failed',
+          error_message: 'Stale — reaped after 15 min in non-terminal state',
+          updated_at: new Date().toISOString(),
+        },
+        { count: 'exact' },
+      )
+      .in('status', ['publishing', 'pending'])
+      .lt('updated_at', nonRenderCutoff);
+
+    const { count: renderStale } = await supabase
+      .from('social_posts')
+      .update(
+        {
+          status: 'failed',
+          error_message: 'Stale — render did not complete within 30 min',
+          updated_at: new Date().toISOString(),
+        },
+        { count: 'exact' },
+      )
+      .eq('status', 'rendering')
+      .lt('updated_at', renderCutoff);
+
+    const total = (nonRenderStale || 0) + (renderStale || 0);
+    if (total > 0) {
+      console.log(`${LOG_PREFIX} Reaped ${total} stale records (${nonRenderStale || 0} non-render, ${renderStale || 0} render)`);
     }
   } catch (err) {
-    console.error(`${LOG_PREFIX} Error cleaning stale records:`, err);
+    console.error(`${LOG_PREFIX} Error reaping stale records:`, err);
   }
 
   // --- Process new scheduled posts ---
@@ -419,6 +458,9 @@ async function runSocialPosting(request: NextRequest) {
     diagnostics,
     executionTime: new Date().toISOString(),
   });
+  } finally {
+    await releaseCronLock(supabase, CRON_LOCK_NAME);
+  }
 }
 
 export async function GET(request: NextRequest) { return runSocialPosting(request); }

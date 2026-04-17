@@ -9,6 +9,7 @@ import {
   formatRiverHighlightCaption,
 } from './content-formatter';
 import { getOrCreateConfig } from './config-helpers';
+import { getCentralDay, getCentralMinutes } from './central-time';
 import type {
   SocialCustomContent,
   SocialPlatform,
@@ -29,27 +30,6 @@ function shouldUseVideo(postType: string, dayOfWeek: number): boolean {
     return dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5;
   }
   return false;
-}
-
-// Returns the current Central Time UTC offset: -5 during CDT, -6 during CST.
-// DST starts 2nd Sunday of March at 2AM CST, ends 1st Sunday of November at 2AM CDT.
-function getCentralOffset(): number {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-
-  // 2nd Sunday of March: find March 1 day-of-week, then compute 2nd Sunday
-  const marchFirst = new Date(Date.UTC(year, 2, 1));
-  const marchFirstDay = marchFirst.getUTCDay(); // 0=Sun
-  const secondSunday = marchFirstDay === 0 ? 8 : 15 - marchFirstDay;
-  const dstStart = new Date(Date.UTC(year, 2, secondSunday, 8, 0)); // 2AM CST = 8AM UTC
-
-  // 1st Sunday of November
-  const novFirst = new Date(Date.UTC(year, 10, 1));
-  const novFirstDay = novFirst.getUTCDay();
-  const firstSunday = novFirstDay === 0 ? 1 : 8 - novFirstDay;
-  const dstEnd = new Date(Date.UTC(year, 10, firstSunday, 7, 0)); // 2AM CDT = 7AM UTC
-
-  return (now >= dstStart && now < dstEnd) ? -5 : -6;
 }
 
 export interface SchedulerResult {
@@ -161,9 +141,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const baseUrl = 'https://eddy.guide';
 
   // Pre-compute Central Time day-of-week for video/schedule decisions
-  const now = new Date();
-  const centralOffset = getCentralOffset();
-  const cstDay = new Date(now.getTime() + centralOffset * 3600000).getUTCDay();
+  const cstDay = getCentralDay();
 
   // --- Daily Digest ---
   // Digest can work with just the global summary, so don't require per-river updates
@@ -299,9 +277,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
 // Check if a river's scheduled Central Time falls within the current 30-min window
 function isDueNow(scheduledTimeCst: string, windowMinutes: number = 30): boolean {
-  const now = new Date();
-  const centralOffset = getCentralOffset();
-  const nowCstMinutes = ((now.getUTCHours() + 24 + centralOffset) % 24) * 60 + now.getUTCMinutes();
+  const nowCstMinutes = getCentralMinutes();
 
   const [schedH, schedM] = scheduledTimeCst.split(':').map(Number);
   if (isNaN(schedH) || isNaN(schedM)) return false;
