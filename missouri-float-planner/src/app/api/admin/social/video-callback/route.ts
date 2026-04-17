@@ -28,13 +28,21 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { postIds: postIdsRaw, videoUrl, status, error, audioVerified } = body as {
+  const { postIds: postIdsRaw, videoUrl, status, error, audioVerified, meanVolumeDb } = body as {
     postIds: string;       // Comma-separated IDs
     videoUrl?: string;
     status: 'rendered' | 'failed';
     error?: string;
     audioVerified?: boolean;
+    meanVolumeDb?: string;
   };
+
+  // Parse the measured mean volume. The workflow only sends audioVerified=true
+  // after ffmpeg volumedetect confirms mean_volume > -50dB. Silent tracks
+  // report around -91dB, so this guards against Remotion's silent fallback
+  // track passing a codec-only check.
+  const meanVol = meanVolumeDb ? parseFloat(meanVolumeDb) : NaN;
+  const audioAudible = audioVerified === true && Number.isFinite(meanVol) && meanVol > -50;
 
   if (!postIdsRaw) {
     return NextResponse.json({ error: 'Missing postIds' }, { status: 400 });
@@ -81,18 +89,21 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    // Require audio verification — refuse to publish silent videos
-    if (!audioVerified) {
-      console.error(`${LOG_PREFIX} Rejecting ${postId} (${platform}): audioVerified flag missing`);
+    // Require measured audio — refuse to publish silent videos.
+    if (!audioAudible) {
+      const reason = !audioVerified
+        ? 'audioVerified flag missing from render'
+        : `audio too quiet (mean_volume=${meanVolumeDb ?? 'unknown'}dB)`;
+      console.error(`${LOG_PREFIX} Rejecting ${postId} (${platform}): ${reason}`);
       await supabase
         .from('social_posts')
         .update({
           status: 'failed',
-          error_message: 'Video not published — audio not verified by render pipeline',
+          error_message: `Video not published — ${reason}`,
           updated_at: new Date().toISOString(),
         })
         .eq('id', postId);
-      results.push({ postId, platform, success: false, error: 'Audio not verified' });
+      results.push({ postId, platform, success: false, error: reason });
       continue;
     }
 

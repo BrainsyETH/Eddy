@@ -94,48 +94,73 @@ jobs:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
 
       - name: Normalize audio for Meta Reels
+        id: normalize
         working-directory: missouri-float-planner/remotion
         run: |
+          set -euxo pipefail
+
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
           AUDIO_SRC="public/audio/background-music.mp3"
 
-          # Get exact video duration for -t flag
           DURATION=$(npx remotion ffprobe -v error \
             -show_entries format=duration \
             -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
           echo "Video duration: ${DURATION}s"
 
-          # Always re-encode audio to Meta-compatible specs.
-          # Remotion's audio pipeline is unreliable and produces 44.1kHz audio
-          # from the source MP3 — Meta Reels require 48kHz AAC stereo.
-          # Strip any Remotion audio and mux fresh from source MP3.
+          if [ -z "$DURATION" ]; then
+            echo "::error::Could not read video duration"; exit 1
+          fi
+
+          FADE_OUT_START=$(echo "$DURATION - 1" | bc)
+
+          # Re-encode audio to Meta-compatible specs (AAC 48kHz stereo, 192kb/s).
+          # Remotion's audio pipeline is unreliable, so we strip its audio and
+          # mux a fresh stream from the source MP3. -stream_loop -1 on the
+          # source guarantees coverage even if the video outruns the MP3.
           npx remotion ffmpeg -y \
+            -stream_loop -1 -i "$AUDIO_SRC" \
             -i "$OUTFILE" \
-            -i "$AUDIO_SRC" \
             -c:v copy \
             -c:a aac -b:a 192k -ar 48000 -ac 2 \
             -t "$DURATION" \
-            -af "afade=t=in:st=0:d=1,afade=t=out:st=$(echo "$DURATION - 1" | bc):d=1,volume=0.5" \
-            -map 0:v:0 -map 1:a:0 \
+            -af "afade=t=in:st=0:d=1,afade=t=out:st=${FADE_OUT_START}:d=1,volume=0.9" \
+            -map 1:v:0 -map 0:a:0 \
             -movflags +faststart \
-            "/tmp/normalized.mp4" 2>&1 | tail -20
+            "/tmp/normalized.mp4"
 
           mv "/tmp/normalized.mp4" "$OUTFILE"
           echo "Audio normalized: $(stat -c%s "$OUTFILE") bytes"
 
-          # Final hard verification — fail the workflow if no audio
-          echo "=== Final audio verification ==="
-          FINAL_AUDIO=$(npx remotion ffprobe -v error -select_streams a \
-            -show_entries stream=codec_name,sample_rate,channels,bit_rate \
-            -of default=noprint_wrappers=1 "$OUTFILE" 2>&1)
-          echo "$FINAL_AUDIO"
+          echo "=== Stream inventory ==="
+          npx remotion ffprobe -v error -show_streams \
+            -show_entries stream=index,codec_type,codec_name,sample_rate,channels,bit_rate,duration \
+            -of default=noprint_wrappers=1 "$OUTFILE"
 
-          if ! echo "$FINAL_AUDIO" | grep -qi "codec_name"; then
-            echo "::error::FATAL: Final MP4 has no audio stream — refusing to upload"
+          echo "=== Loudness probe ==="
+          VOL_OUTPUT=$(npx remotion ffmpeg -hide_banner -nostats \
+            -i "$OUTFILE" -af "volumedetect" -vn -f null /dev/null 2>&1)
+          echo "$VOL_OUTPUT"
+
+          MEAN_VOL=$(echo "$VOL_OUTPUT" | grep -oE 'mean_volume:\s*-?[0-9]+(\.[0-9]+)?' | head -1 | awk '{print $2}')
+          MAX_VOL=$(echo "$VOL_OUTPUT" | grep -oE 'max_volume:\s*-?[0-9]+(\.[0-9]+)?' | head -1 | awk '{print $2}')
+          echo "mean_volume=${MEAN_VOL}dB max_volume=${MAX_VOL}dB"
+
+          if [ -z "$MEAN_VOL" ]; then
+            echo "::error::volumedetect did not produce a mean_volume — no audio stream?"
             exit 1
           fi
 
-          echo "Audio confirmed — proceeding to upload"
+          # A silent track reports mean_volume=-91dB. Anything below -50dB
+          # means effectively nothing audible.
+          IS_AUDIBLE=$(echo "$MEAN_VOL < -50" | bc)
+          if [ "$IS_AUDIBLE" = "1" ]; then
+            echo "::error::Audio is silent or too quiet (mean_volume=${MEAN_VOL}dB)"
+            exit 1
+          fi
+
+          echo "audio_verified=true" >> "$GITHUB_OUTPUT"
+          echo "mean_volume_db=${MEAN_VOL}" >> "$GITHUB_OUTPUT"
+          echo "Audio confirmed (${MEAN_VOL}dB) — proceeding to upload"
 
       - name: Upload to Vercel Blob
         id: upload
@@ -173,7 +198,8 @@ jobs:
               \"postIds\": \"${{ inputs.post_ids }}\",
               \"videoUrl\": \"${{ steps.upload.outputs.video_url }}\",
               \"status\": \"rendered\",
-              \"audioVerified\": true
+              \"audioVerified\": ${{ steps.normalize.outputs.audio_verified == 'true' }},
+              \"meanVolumeDb\": \"${{ steps.normalize.outputs.mean_volume_db }}\"
             }"
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
