@@ -68,7 +68,7 @@ jobs:
         run: |
           echo "=== Checking public/audio/ ==="
           ls -la public/audio/
-          file public/audio/background-music.mp3
+          file public/audio/background-music.wav
           echo "=== Audio file confirmed ==="
 
       - name: Render video
@@ -100,7 +100,7 @@ jobs:
           set -euxo pipefail
 
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
-          AUDIO_SRC="public/audio/background-music.mp3"
+          AUDIO_SRC="public/audio/background-music.wav"
 
           DURATION=$(npx remotion ffprobe -v error \
             -show_entries format=duration \
@@ -142,7 +142,7 @@ jobs:
           echo "Encoded audio: ${AUDIO_KIB:-0}KiB (min expected: ${MIN_AUDIO_KIB}KiB for ${DURATION}s at 192kb/s)"
 
           if [ -z "$AUDIO_KIB" ] || [ "$AUDIO_KIB" -lt "$MIN_AUDIO_KIB" ]; then
-            echo "::error::Encoded audio is ${AUDIO_KIB:-0}KiB — source MP3 is likely silent or corrupt (public/audio/background-music.mp3)"
+            echo "::error::Encoded audio is ${AUDIO_KIB:-0}KiB — source track is likely silent or corrupt (public/audio/background-music.wav)"
             exit 1
           fi
 

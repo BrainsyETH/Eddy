@@ -2,22 +2,41 @@
 
 ## Background Music
 
-> **WARNING — the checked-in `background-music.mp3` is a silent 31 kb/s
-> placeholder.** The render pipeline's silence gate (see
-> `.github/workflows/render-social-video.yml`) will reject any render that
-> uses it. Replace the file with a real track before enabling video posts.
+`background-music.wav` is a 12-second synthesized acoustic-folk loop (D →
+G → Bm → A, finger-picked feel, 44.1 kHz stereo 16-bit PCM). It's
+generated deterministically from `generate-background-music.py` — regenerate
+with:
 
-Place a royalty-free acoustic/folk track as `background-music.mp3` in this
-directory. Target **≥128 kb/s, 44.1 kHz stereo** so the encoded audio in
-the final MP4 stays above the workflow's size floor (~5 KiB/sec at 192
-kb/s AAC).
+```bash
+cd missouri-float-planner/remotion/public/audio
+python3 generate-background-music.py
+```
 
-**Recommended sources:**
+### Replacing with a real track
+
+To use real music, drop a new file at `background-music.wav` (or commit an
+MP3 and update the `staticFile(...)` calls and workflow `AUDIO_SRC`). The
+render pipeline enforces two gates so any dud audio fails loudly instead
+of shipping a silent Reel:
+
+1. **Encoded-audio-size floor** — after AAC re-encode at 192 kb/s, the
+   audio stream must be ≥5 KiB per second of video. Silent tracks
+   compress to a fraction of that.
+2. **silencedetect** — fails if >80% of the final MP4 is below −40 dBFS.
+
+Target specs for replacement tracks:
+- ≥128 kb/s MP3 or 16-bit PCM WAV
+- 44.1 kHz, stereo
+- 12+ seconds (pipeline loops shorter sources via `-stream_loop -1`)
+- RMS around −18 to −14 dBFS, peak ≤−3 dBFS
+
+**Sources for royalty-free tracks:**
 - Pixabay Music (free, no attribution required)
 - Artlist.io (licensed)
 - Epidemic Sound (licensed)
 
-**Style:** Warm acoustic guitar or folk — matches the Missouri outdoor river vibe. Keep it mellow and upbeat, not distracting.
+**Style:** Warm acoustic guitar or folk — matches the Missouri outdoor
+river vibe. Keep it mellow and upbeat, not distracting.
 
 ## Voiceover Audio
 
