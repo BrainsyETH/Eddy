@@ -28,6 +28,10 @@ import {
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
 
+interface VideoFeatures {
+  condition_alerts_as_video: boolean;
+}
+
 interface SocialConfig {
   id: string;
   posting_enabled: boolean;
@@ -41,6 +45,7 @@ interface SocialConfig {
   highlight_conditions: string[];
   weekend_boost_enabled: boolean;
   river_schedules: Record<string, Record<string, string | null>>;
+  video_features: VideoFeatures;
 }
 
 interface PreviewPost {
@@ -1168,6 +1173,41 @@ export default function SocialAdminPage() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Video Features — opt-in reel variants */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Video Features</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Opt-in reel variants. Renders go through GitHub Actions, add ~5–10 min latency,
+                    and are gated by the audio verification step.
+                  </p>
+                  <label className="flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.video_features?.condition_alerts_as_video ?? false}
+                      onChange={(e) => {
+                        setConfig({
+                          ...config,
+                          video_features: {
+                            ...(config.video_features || { condition_alerts_as_video: false }),
+                            condition_alerts_as_video: e.target.checked,
+                          },
+                        });
+                      }}
+                      className="mt-1 rounded bg-neutral-900 border-neutral-600"
+                    />
+                    <div>
+                      <div className="text-neutral-200 font-medium">
+                        Condition-change alerts as Reels
+                      </div>
+                      <div className="text-sm text-neutral-400 mt-1">
+                        When a river flips to flowing, high, or dangerous, render a 12-second reel
+                        instead of posting a static image. Off = fast image alert; on = higher
+                        engagement, slower publish.
+                      </div>
+                    </div>
+                  </label>
                 </div>
 
                 <button

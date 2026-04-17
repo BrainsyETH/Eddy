@@ -2,9 +2,13 @@
 // Self-healing config loader for social_config singleton table.
 // Handles duplicate rows, missing rows, and the happy path.
 
-import type { SocialConfig } from './types';
+import type { SocialConfig, VideoFeatures } from './types';
 
 const LOG_PREFIX = '[SocialConfig]';
+
+export const DEFAULT_VIDEO_FEATURES: VideoFeatures = {
+  condition_alerts_as_video: false,
+};
 
 const DEFAULT_CONFIG = {
   posting_enabled: false,
@@ -17,6 +21,7 @@ const DEFAULT_CONFIG = {
   disabled_rivers: [] as string[],
   highlight_conditions: ['flowing', 'dangerous', 'high', 'too_low'],
   weekend_boost_enabled: false,
+  video_features: DEFAULT_VIDEO_FEATURES,
   river_schedules: {
     'meramec': { mon: '07:00', tue: '07:00', wed: '07:00', thu: '07:00', fri: '07:00', sat: '09:00', sun: '09:00' },
     'current': { mon: '07:30', tue: '07:30', wed: '07:30', thu: '07:30', fri: '07:30', sat: '09:30', sun: '09:30' },
@@ -67,6 +72,15 @@ export async function getOrCreateConfig(
 
   // Happy path: exactly 1 row
   const config = rows[0] as SocialConfig;
+
+  // Backfill video_features if the row predates the 00091 migration or was
+  // inserted before that column had a default — keeps downstream .?. chains
+  // clean.
+  if (!config.video_features) {
+    config.video_features = { ...DEFAULT_VIDEO_FEATURES };
+  } else {
+    config.video_features = { ...DEFAULT_VIDEO_FEATURES, ...config.video_features };
+  }
 
   // Multiple rows — self-heal
   if (rows.length > 1) {

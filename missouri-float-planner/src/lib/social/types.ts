@@ -28,6 +28,13 @@ export interface SocialPost {
   updated_at: string;
 }
 
+export interface VideoFeatures {
+  /** When true, condition-change alerts render as Reels instead of
+   *  publishing an image inline. Adds ~5-10 min latency but lifts
+   *  engagement substantially. */
+  condition_alerts_as_video: boolean;
+}
+
 export interface SocialConfig {
   id: string;
   posting_enabled: boolean;
@@ -41,6 +48,7 @@ export interface SocialConfig {
   highlight_conditions: string[];
   weekend_boost_enabled: boolean;
   river_schedules: Record<string, Record<string, string | null>>; // { river_slug: { mon: "HH:MM", tue: null, ... } }
+  video_features: VideoFeatures;
   updated_at: string;
 }
 
