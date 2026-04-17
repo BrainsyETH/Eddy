@@ -2,7 +2,15 @@
 
 ## Background Music
 
-Place a royalty-free acoustic/folk track as `background-music.mp3` in this directory.
+> **WARNING — the checked-in `background-music.mp3` is a silent 31 kb/s
+> placeholder.** The render pipeline's silence gate (see
+> `.github/workflows/render-social-video.yml`) will reject any render that
+> uses it. Replace the file with a real track before enabling video posts.
+
+Place a royalty-free acoustic/folk track as `background-music.mp3` in this
+directory. Target **≥128 kb/s, 44.1 kHz stereo** so the encoded audio in
+the final MP4 stays above the workflow's size floor (~5 KiB/sec at 192
+kb/s AAC).
 
 **Recommended sources:**
 - Pixabay Music (free, no attribution required)

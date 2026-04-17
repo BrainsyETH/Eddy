@@ -28,21 +28,21 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { postIds: postIdsRaw, videoUrl, status, error, audioVerified, meanVolumeDb } = body as {
+  const { postIds: postIdsRaw, videoUrl, status, error, audioVerified, audioKib, totalSilenceS } = body as {
     postIds: string;       // Comma-separated IDs
     videoUrl?: string;
     status: 'rendered' | 'failed';
     error?: string;
     audioVerified?: boolean;
-    meanVolumeDb?: string;
+    audioKib?: string;
+    totalSilenceS?: string;
   };
 
-  // Parse the measured mean volume. The workflow only sends audioVerified=true
-  // after ffmpeg volumedetect confirms mean_volume > -50dB. Silent tracks
-  // report around -91dB, so this guards against Remotion's silent fallback
-  // track passing a codec-only check.
-  const meanVol = meanVolumeDb ? parseFloat(meanVolumeDb) : NaN;
-  const audioAudible = audioVerified === true && Number.isFinite(meanVol) && meanVol > -50;
+  // The workflow's normalize step only emits audioVerified=true after both
+  // gates pass: encoded-audio-size floor (~5 KiB/sec) and silencedetect
+  // showing <80% silence. Trust the flag; audioKib / totalSilenceS are
+  // forwarded purely for logging.
+  const audioAudible = audioVerified === true;
 
   if (!postIdsRaw) {
     return NextResponse.json({ error: 'Missing postIds' }, { status: 400 });
@@ -91,9 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Require measured audio — refuse to publish silent videos.
     if (!audioAudible) {
-      const reason = !audioVerified
-        ? 'audioVerified flag missing from render'
-        : `audio too quiet (mean_volume=${meanVolumeDb ?? 'unknown'}dB)`;
+      const reason = `audio not verified (audioKib=${audioKib ?? 'n/a'}, silence=${totalSilenceS ?? 'n/a'}s)`;
       console.error(`${LOG_PREFIX} Rejecting ${postId} (${platform}): ${reason}`);
       await supabase
         .from('social_posts')

@@ -115,7 +115,9 @@ jobs:
           # Remotion ships a stripped ffmpeg without afade — we rely on plain
           # volume scaling. -stream_loop -1 on the source guarantees coverage
           # even if the video outruns the MP3.
-          npx remotion ffmpeg -y \
+          # Capture stderr so we can parse the mux stats (audio:NKiB) as a
+          # fast silence gate before running silencedetect.
+          NORMALIZE_LOG=$(npx remotion ffmpeg -y \
             -stream_loop -1 -i "$AUDIO_SRC" \
             -i "$OUTFILE" \
             -c:v copy \
@@ -124,41 +126,56 @@ jobs:
             -af "volume=0.9" \
             -map 1:v:0 -map 0:a:0 \
             -movflags +faststart \
-            "/tmp/normalized.mp4"
+            "/tmp/normalized.mp4" 2>&1)
+          echo "$NORMALIZE_LOG"
 
           mv "/tmp/normalized.mp4" "$OUTFILE"
           echo "Audio normalized: $(stat -c%s "$OUTFILE") bytes"
+
+          echo "=== Encoded audio size gate ==="
+          # Parse the mux summary: "video:NKiB audio:NKiB subtitle:... other:..."
+          # At 192 kb/s, audio should be ~24 KiB/sec. A silent AAC track
+          # compresses down to ~1 KiB/sec or less. Floor at 5 KiB/sec keeps
+          # plenty of margin for real content while catching placeholders.
+          AUDIO_KIB=$(echo "$NORMALIZE_LOG" | grep -oE 'audio:[0-9]+KiB' | head -1 | grep -oE '[0-9]+' || true)
+          MIN_AUDIO_KIB=$(printf '%.0f' "$(echo "$DURATION * 5" | bc)")
+          echo "Encoded audio: ${AUDIO_KIB:-0}KiB (min expected: ${MIN_AUDIO_KIB}KiB for ${DURATION}s at 192kb/s)"
+
+          if [ -z "$AUDIO_KIB" ] || [ "$AUDIO_KIB" -lt "$MIN_AUDIO_KIB" ]; then
+            echo "::error::Encoded audio is ${AUDIO_KIB:-0}KiB — source MP3 is likely silent or corrupt (public/audio/background-music.mp3)"
+            exit 1
+          fi
 
           echo "=== Stream inventory ==="
           npx remotion ffprobe -v error -show_streams \
             -show_entries stream=index,codec_type,codec_name,sample_rate,channels,bit_rate,duration \
             -of default=noprint_wrappers=1 "$OUTFILE"
 
-          echo "=== Loudness probe ==="
-          VOL_OUTPUT=$(npx remotion ffmpeg -hide_banner -nostats \
-            -i "$OUTFILE" -af "volumedetect" -vn -f null /dev/null 2>&1)
-          echo "$VOL_OUTPUT"
+          echo "=== Silence probe ==="
+          # Remotion's ffmpeg allowlist has silencedetect but not volumedetect.
+          # noise=-40dB catches anything below roughly whisper level.
+          SILENCE_OUTPUT=$(npx remotion ffmpeg -hide_banner -nostats \
+            -i "$OUTFILE" -af "silencedetect=noise=-40dB:d=0.1" -vn -f null - 2>&1 || true)
+          echo "$SILENCE_OUTPUT"
 
-          MEAN_VOL=$(echo "$VOL_OUTPUT" | grep -oE 'mean_volume:\s*-?[0-9]+(\.[0-9]+)?' | head -1 | awk '{print $2}')
-          MAX_VOL=$(echo "$VOL_OUTPUT" | grep -oE 'max_volume:\s*-?[0-9]+(\.[0-9]+)?' | head -1 | awk '{print $2}')
-          echo "mean_volume=${MEAN_VOL}dB max_volume=${MAX_VOL}dB"
+          TOTAL_SILENCE=$(echo "$SILENCE_OUTPUT" | awk '
+            /silence_duration:/ {
+              for (i=1; i<=NF; i++) if ($i == "silence_duration:") { sum += $(i+1); next }
+            }
+            END { printf "%.3f", (sum + 0) }')
+          echo "Total silence: ${TOTAL_SILENCE}s of ${DURATION}s"
 
-          if [ -z "$MEAN_VOL" ]; then
-            echo "::error::volumedetect did not produce a mean_volume — no audio stream?"
-            exit 1
-          fi
-
-          # A silent track reports mean_volume=-91dB. Anything below -50dB
-          # means effectively nothing audible.
-          IS_AUDIBLE=$(echo "$MEAN_VOL < -50" | bc)
-          if [ "$IS_AUDIBLE" = "1" ]; then
-            echo "::error::Audio is silent or too quiet (mean_volume=${MEAN_VOL}dB)"
+          MAX_SILENCE=$(echo "$DURATION * 0.8" | bc)
+          IS_SILENT=$(echo "$TOTAL_SILENCE > $MAX_SILENCE" | bc)
+          if [ "$IS_SILENT" = "1" ]; then
+            echo "::error::Audio is >80% silent (${TOTAL_SILENCE}s / ${DURATION}s)"
             exit 1
           fi
 
           echo "audio_verified=true" >> "$GITHUB_OUTPUT"
-          echo "mean_volume_db=${MEAN_VOL}" >> "$GITHUB_OUTPUT"
-          echo "Audio confirmed (${MEAN_VOL}dB) — proceeding to upload"
+          echo "audio_kib=${AUDIO_KIB}" >> "$GITHUB_OUTPUT"
+          echo "total_silence_s=${TOTAL_SILENCE}" >> "$GITHUB_OUTPUT"
+          echo "Audio confirmed (${AUDIO_KIB}KiB, ${TOTAL_SILENCE}s silence) — proceeding to upload"
 
       - name: Upload to Vercel Blob
         id: upload
@@ -197,7 +214,8 @@ jobs:
               \"videoUrl\": \"${{ steps.upload.outputs.video_url }}\",
               \"status\": \"rendered\",
               \"audioVerified\": ${{ steps.normalize.outputs.audio_verified == 'true' }},
-              \"meanVolumeDb\": \"${{ steps.normalize.outputs.mean_volume_db }}\"
+              \"audioKib\": \"${{ steps.normalize.outputs.audio_kib }}\",
+              \"totalSilenceS\": \"${{ steps.normalize.outputs.total_silence_s }}\"
             }"
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
