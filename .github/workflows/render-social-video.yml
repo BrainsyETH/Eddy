@@ -111,19 +111,17 @@ jobs:
             echo "::error::Could not read video duration"; exit 1
           fi
 
-          FADE_OUT_START=$(echo "$DURATION - 1" | bc)
-
           # Re-encode audio to Meta-compatible specs (AAC 48kHz stereo, 192kb/s).
-          # Remotion's audio pipeline is unreliable, so we strip its audio and
-          # mux a fresh stream from the source MP3. -stream_loop -1 on the
-          # source guarantees coverage even if the video outruns the MP3.
+          # Remotion ships a stripped ffmpeg without afade — we rely on plain
+          # volume scaling. -stream_loop -1 on the source guarantees coverage
+          # even if the video outruns the MP3.
           npx remotion ffmpeg -y \
             -stream_loop -1 -i "$AUDIO_SRC" \
             -i "$OUTFILE" \
             -c:v copy \
             -c:a aac -b:a 192k -ar 48000 -ac 2 \
             -t "$DURATION" \
-            -af "afade=t=in:st=0:d=1,afade=t=out:st=${FADE_OUT_START}:d=1,volume=0.9" \
+            -af "volume=0.9" \
             -map 1:v:0 -map 0:a:0 \
             -movflags +faststart \
             "/tmp/normalized.mp4"
