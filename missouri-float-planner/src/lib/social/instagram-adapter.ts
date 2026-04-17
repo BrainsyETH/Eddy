@@ -8,8 +8,17 @@ export class InstagramAdapter implements PlatformAdapter {
   platform = 'instagram' as const;
 
   async publishPost(params: PublishParams): Promise<PublishResult> {
-    // Video posts use the Reels container flow
-    if (params.mediaType === 'video' && params.videoUrl) {
+    // Video posts use the Reels container flow. If the caller asked for
+    // video but did not provide a videoUrl (e.g. retry of a post whose
+    // render failed), refuse — do NOT silently downgrade to an image feed
+    // post, since that changes what the user sees without consent.
+    if (params.mediaType === 'video') {
+      if (!params.videoUrl) {
+        return {
+          success: false,
+          error: 'Video post is missing videoUrl (render likely failed) — refusing to downgrade to image',
+        };
+      }
       const result = await publishVideoToInstagram({
         caption: params.caption,
         videoUrl: params.videoUrl,
