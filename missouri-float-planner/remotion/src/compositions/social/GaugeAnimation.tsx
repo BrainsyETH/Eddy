@@ -12,6 +12,7 @@ import { EddyMascot } from "../../components/EddyMascot";
 import { GaugeBar } from "../../components/GaugeBar";
 import { Watermark } from "../../components/Watermark";
 import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
+import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
   CONDITION_COLORS,
   getOtterVariant,
@@ -49,6 +50,10 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const { fps, durationInFrames } = useVideoConfig();
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
   const isPortrait = format === "portrait";
+
+  // Global fade for seamless Reels auto-loop (portrait only; square/
+  // landscape previews in Studio keep constant opacity).
+  const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
 
   // ─── Animations ──────────────────────────────────────────
 
@@ -90,7 +95,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
+    <AbsoluteFill style={{ backgroundColor: colors.primary[900], opacity: loopOpacity }}>
       {/* Background music — volume as callback for Remotion CLI compatibility */}
       <Audio
         src={staticFile("audio/background-music.wav")}
@@ -133,14 +138,14 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         />
       </AbsoluteFill>
 
-      {/* Content — centered in safe zone */}
+      {/* Content — centered in Reels-safe zone */}
       <div
         style={{
           position: "absolute",
-          top: isPortrait ? 200 : 48,
-          bottom: isPortrait ? 200 : 48,
-          left: isPortrait ? 20 : 48,
-          right: isPortrait ? 80 : 48,
+          top: isPortrait ? REEL_SAFE.top : 48,
+          bottom: isPortrait ? REEL_SAFE.bottom : 48,
+          left: isPortrait ? REEL_SAFE.left : 48,
+          right: isPortrait ? REEL_SAFE.right : 48,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
