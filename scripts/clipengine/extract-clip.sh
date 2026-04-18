@@ -4,7 +4,9 @@
 #
 # Usage: ./extract-clip.sh <youtube-url> <start-secs> <duration-secs> <output-path> [--transcript]
 #
-# Ported from ClawsifiedInfo/workspace/scripts/youtube-to-reel.sh
+# Auth: set YT_DLP_COOKIES_FILE to a Netscape-format cookie jar to bypass
+# YouTube bot checks on CI runners. Without it, yt-dlp from datacenter IPs
+# often hits "Sign in to confirm you're not a bot".
 
 set -e
 
@@ -22,6 +24,23 @@ fi
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
+# Shared yt-dlp flags for anti-bot resilience + optional cookie auth
+YTDLP_COMMON=(
+    --no-playlist
+    --no-warnings
+    --no-progress
+    --retries 5
+    --fragment-retries 5
+    --sleep-requests 2
+    --extractor-args "youtube:player_client=android,web"
+)
+if [ -n "${YT_DLP_COOKIES_FILE:-}" ] && [ -f "${YT_DLP_COOKIES_FILE}" ]; then
+    YTDLP_COMMON+=(--cookies "$YT_DLP_COOKIES_FILE")
+    echo "🔑 Using cookies from $YT_DLP_COOKIES_FILE"
+else
+    echo "⚠️  YT_DLP_COOKIES_FILE not set — may hit YouTube bot check on CI runners"
+fi
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎬 Extracting YouTube Clip"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -32,17 +51,15 @@ echo ""
 
 # Step 1: Download video
 echo "Step 1: Downloading video..."
-yt-dlp \
+yt-dlp "${YTDLP_COMMON[@]}" \
     --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
     --merge-output-format mp4 \
     --output "$TEMP_DIR/source.%(ext)s" \
-    --no-playlist \
-    --quiet \
     "$YOUTUBE_URL"
 
 SOURCE_VIDEO=$(find "$TEMP_DIR" -name "source.*" -type f | head -1)
 if [ -z "$SOURCE_VIDEO" ] || [ ! -f "$SOURCE_VIDEO" ]; then
-    echo "❌ Download failed"
+    echo "❌ Download failed (check yt-dlp output above; if 'bot check', refresh YT_DLP_COOKIES)"
     exit 1
 fi
 echo "  ✅ Downloaded: $(du -h "$SOURCE_VIDEO" | awk '{print $1}')"
@@ -51,13 +68,12 @@ echo "  ✅ Downloaded: $(du -h "$SOURCE_VIDEO" | awk '{print $1}')"
 if [ "$TRANSCRIPT_FLAG" = "--transcript" ]; then
     echo ""
     echo "Step 2: Fetching transcript..."
-    yt-dlp \
+    yt-dlp "${YTDLP_COMMON[@]}" \
         --write-auto-subs \
         --sub-lang en \
         --sub-format vtt \
         --skip-download \
         --output "$TEMP_DIR/transcript" \
-        --quiet \
         "$YOUTUBE_URL" 2>/dev/null || true
 
     TRANSCRIPT_FILE=$(find "$TEMP_DIR" -name "*.vtt" -type f | head -1)
