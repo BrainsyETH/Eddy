@@ -15,6 +15,8 @@ import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-c
 import type { PlatformAdapter, SocialPlatform, ScheduledPost } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
+import { pickSectionForRivers } from '@/lib/social/section-picker';
+import { pickNotableTrend } from '@/lib/social/trend-picker';
 
 const CRON_LOCK_NAME = 'post_social';
 // Renders routinely take 5–9 min on GH Actions; give slack before another
@@ -34,8 +36,100 @@ function truncateForVideo(text: string | null): string {
   return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
 }
 
+// Severity order for filtering the weekly forecast's top-3 floatable rivers.
+const FORECAST_SEVERITY: Record<string, number> = {
+  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
+};
+const FORECAST_FLOATABLE = new Set(['flowing', 'good', 'high']);
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildRenderData(post: ScheduledPost, supabase: any) {
+  if (post.postType === 'section_guide') {
+    // Re-pick the same section the scheduler picked. The week-based
+    // rotation in pickSectionForRivers is deterministic for a given date,
+    // so we get the same answer as long as we pass the same river list.
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString());
+    const slugs = Array.from(
+      new Set(((updates || []) as Array<{ river_slug: string }>).map((u) => u.river_slug)),
+    );
+    const section = pickSectionForRivers(slugs) || null;
+    if (!section) return {};
+
+    // Pull current condition for the picked river.
+    const { data: update } = await supabase
+      .from('eddy_updates')
+      .select('condition_code')
+      .eq('river_slug', section.riverSlug)
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return {
+      ...section,
+      conditionCode: update?.condition_code || 'unknown',
+      dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+    };
+  }
+
+  if (post.postType === 'weekly_trend') {
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString());
+    const slugs = Array.from(
+      new Set(((updates || []) as Array<{ river_slug: string; condition_code: string }>).map((u) => u.river_slug)),
+    );
+    const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
+    if (!trend) return {};
+    const latest = (updates || []).find((u: { river_slug: string; condition_code: string }) => u.river_slug === trend.riverSlug);
+    return {
+      ...trend,
+      conditionCode: latest?.condition_code || 'unknown',
+      dateLabel: 'This Week',
+    };
+  }
+
+  if (post.postType === 'weekly_forecast') {
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false });
+
+    const seen = new Set<string>();
+    const rivers = ((updates || []) as Array<{ river_slug: string; condition_code: string; gauge_height_ft: number | null }>)
+      .filter((u) => {
+        if (seen.has(u.river_slug)) return false;
+        seen.add(u.river_slug);
+        return true;
+      })
+      .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
+      .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
+      .slice(0, 3)
+      .map((u) => ({
+        riverName: u.river_slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        conditionCode: u.condition_code,
+        gaugeHeightFt: u.gauge_height_ft,
+      }));
+
+    return {
+      rivers,
+      dateLabel: 'This Weekend',
+      title: 'Weekend Forecast',
+    };
+  }
+
   if (post.postType === 'daily_digest') {
     const { data: updates } = await supabase
       .from('eddy_updates')

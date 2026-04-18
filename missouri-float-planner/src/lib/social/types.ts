@@ -2,7 +2,14 @@
 // Shared types for social media posting system
 
 export type SocialPlatform = 'instagram' | 'facebook';
-export type PostType = 'daily_digest' | 'river_highlight' | 'manual' | 'condition_change';
+export type PostType =
+  | 'daily_digest'
+  | 'river_highlight'
+  | 'manual'
+  | 'condition_change'
+  | 'weekly_forecast'
+  | 'section_guide'
+  | 'weekly_trend';
 export type PostStatus = 'pending' | 'rendering' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
@@ -47,6 +54,19 @@ export interface MediaSchedule {
   daily_digest: DayMediaMap;
 }
 
+/** Weekly reel: fires once per week on a specific weekday. */
+export interface WeeklyReelConfig {
+  enabled: boolean;
+  /** 0 = Sunday, 6 = Saturday. */
+  day_of_week: number;
+  /** "HH:MM" UTC, single point in time. Cron checks within a 30-min window. */
+  time_utc: string;
+  media: MediaType;
+}
+
+/** Back-compat alias — first-shipped weekly reel. */
+export type WeeklyForecastConfig = WeeklyReelConfig;
+
 export interface SocialConfig {
   id: string;
   posting_enabled: boolean;
@@ -62,6 +82,9 @@ export interface SocialConfig {
   river_schedules: Record<string, Record<string, string | null>>; // { river_slug: { mon: "HH:MM", tue: null, ... } }
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
+  weekly_forecast: WeeklyReelConfig;
+  section_guide: WeeklyReelConfig;
+  weekly_trend: WeeklyReelConfig;
   updated_at: string;
 }
 

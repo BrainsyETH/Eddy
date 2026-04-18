@@ -83,6 +83,9 @@ async function handleSave(request: NextRequest) {
     river_schedules: body.river_schedules,
     video_features: body.video_features ?? existing.video_features,
     media_schedule: body.media_schedule ?? existing.media_schedule,
+    weekly_forecast: body.weekly_forecast ?? existing.weekly_forecast,
+    section_guide: body.section_guide ?? existing.section_guide,
+    weekly_trend: body.weekly_trend ?? existing.weekly_trend,
     updated_at: new Date().toISOString(),
   };
 
