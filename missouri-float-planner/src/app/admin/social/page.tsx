@@ -973,25 +973,74 @@ export default function SocialAdminPage() {
                   </div>
                 </div>
 
-                {/* River Posting Schedule — Weekly Grid */}
+                {/* Posting Schedule — unified: per-day media format + per-river times */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">River Posting Schedule</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Set the posting time (CST) for each river per day of the week.
-                    Clear a time to skip that day. Toggle the switch to enable/disable a river entirely.
+                    One grid for everything: the top rows pick Video vs Image for each post type
+                    on each weekday, the rows below set the posting time (CST) per river. Clear a
+                    time to skip that day; toggle a river&apos;s switch to disable it entirely.
                   </p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr>
                           <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 w-8"></th>
-                          <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[100px]">River</th>
+                          <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[140px]">River</th>
                           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                             <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[80px]">{day}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Format rows — one per post type */}
+                        {(['river_highlight', 'daily_digest'] as const).map((postType) => (
+                          <tr key={`fmt-${postType}`} className="border-t border-neutral-700/50 bg-neutral-900/40">
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2 text-xs uppercase tracking-wide text-neutral-400 whitespace-nowrap">
+                              {postType === 'river_highlight' ? 'Highlight format' : 'Digest format'}
+                            </td>
+                            {MEDIA_DAYS.map((day) => {
+                              const current = config.media_schedule?.[postType]?.[day] || 'image';
+                              return (
+                                <td key={day} className="px-1 py-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next: MediaChoice = current === 'video' ? 'image' : 'video';
+                                      setConfig({
+                                        ...config,
+                                        media_schedule: {
+                                          ...(config.media_schedule || {
+                                            river_highlight: {},
+                                            daily_digest: {},
+                                          }),
+                                          [postType]: {
+                                            ...(config.media_schedule?.[postType] || {}),
+                                            [day]: next,
+                                          },
+                                        },
+                                      });
+                                    }}
+                                    className={`w-[74px] px-1 py-1 rounded text-xs font-medium transition-colors ${
+                                      current === 'video'
+                                        ? 'bg-primary-500 text-white hover:bg-primary-600'
+                                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                    }`}
+                                  >
+                                    {current === 'video' ? 'Video' : 'Image'}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                        {/* Visual separator between format rows and river rows */}
+                        <tr>
+                          <td colSpan={9} className="px-2 pt-3 pb-1 text-[10px] uppercase tracking-wider text-neutral-500">
+                            Per-river posting times (CST)
+                          </td>
+                        </tr>
                         {rivers.map((river) => {
                           const isDisabled = (config.disabled_rivers || []).includes(river.slug);
                           const riverSched = (config.river_schedules || {})[river.slug] || {};
@@ -1092,71 +1141,6 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Click &quot;skip&quot; to enable a day, or click the x to disable it.</p>
-                </div>
-
-                {/* Media Schedule — per-post-type per-day video vs image */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">Media Schedule</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Pick which days render as video Reels vs static images for each post type.
-                    Videos take ~5–10 min to render; images publish inline.
-                  </p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr>
-                          <th className="text-left text-neutral-400 font-medium pb-2 pr-4">Post type</th>
-                          {MEDIA_DAYS.map((d) => (
-                            <th key={d} className="text-center text-neutral-400 font-medium pb-2 px-1">
-                              {MEDIA_DAY_LABEL[d]}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(['river_highlight', 'daily_digest'] as const).map((postType) => (
-                          <tr key={postType} className="border-t border-neutral-700">
-                            <td className="text-neutral-200 py-2 pr-4 capitalize">
-                              {postType === 'river_highlight' ? 'River highlight' : 'Daily digest'}
-                            </td>
-                            {MEDIA_DAYS.map((day) => {
-                              const current = config.media_schedule?.[postType]?.[day] || 'image';
-                              return (
-                                <td key={day} className="text-center py-2 px-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const next: MediaChoice = current === 'video' ? 'image' : 'video';
-                                      setConfig({
-                                        ...config,
-                                        media_schedule: {
-                                          ...(config.media_schedule || {
-                                            river_highlight: {},
-                                            daily_digest: {},
-                                          }),
-                                          [postType]: {
-                                            ...(config.media_schedule?.[postType] || {}),
-                                            [day]: next,
-                                          },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-full px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                      current === 'video'
-                                        ? 'bg-primary-500 text-white hover:bg-primary-600'
-                                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-                                    }`}
-                                  >
-                                    {current === 'video' ? 'Video' : 'Image'}
-                                  </button>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
 
                 {/* Video Features — opt-in reel variants */}
