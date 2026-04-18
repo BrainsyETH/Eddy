@@ -118,7 +118,7 @@ export default async function BlogPostPage({
   // Extract FAQ pairs from river-guide posts for FAQPage JSON-LD
   // Convention: <div id="faq"> containing <h3> (question) + <p> (answer) pairs
   let faqJsonLd: object | null = null;
-  if (post.category === 'River Guides' && post.content) {
+  if (post.category === 'River Profiles' && post.content) {
     const faqMatch = post.content.match(/<div id="faq">([\s\S]*?)<\/div>/);
     if (faqMatch) {
       const faqHtml = faqMatch[1];

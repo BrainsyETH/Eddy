@@ -17,7 +17,7 @@ INSERT INTO blog_posts (
     'meramec-river-float-trip-guide',
     'Meramec River Float Trip Guide (2026)',
     'Plan your Meramec River float trip with mile-by-mile sections, MDC access points, live gauge data, outfitter directory, fishing regulations, and local tips. The most complete Meramec guide online.',
-    'River Guides',
+    'River Profiles',
     ARRAY['Meramec River float trip', 'Meramec River guide', 'floating Meramec River', 'Meramec kayak', 'Meramec canoe', 'Missouri float trip', 'Meramec State Park floating', 'Steelville Missouri', 'Meramec River access points', 'Meramec River conditions', 'Meramec River water level', 'Onondaga Cave float', 'upper Meramec float'],
     18,
     'published',
