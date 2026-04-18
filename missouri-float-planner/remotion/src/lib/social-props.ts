@@ -101,6 +101,10 @@ export interface GaugeAnimationProps {
   optimalMin: number;
   optimalMax: number;
   quoteText: string;
+  /** Optional date label rendered under the river name to match the
+   *  OG thumbnail's timestamp. Format free — callers typically use
+   *  toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }). */
+  dateLabel?: string;
   format: "square" | "portrait";
 }
 

@@ -29,13 +29,12 @@ const FPS = 30;
  * Timeline:
  *   0-20:    Background fade in
  *   0-30:    River name entrance
- *  30-120:   Gauge bar fills
- *  90-130:   Condition badge slides in
- * 100-150:   Eddy bounces in
- * 140-200:   Quote typewriter (2s)
- * 200-310:   Quote visible (3.7s reading time)
- * 290-330:   "Full report below ▼" CTA fades in
- * 330-360:   Hold everything
+ *  15-45:    Date fades in
+ *  30-60:    Gauge fills, Eddy bounces in, condition badge slides in (parallel)
+ *  60-80:    Quote fades in (no typewriter — readable at 2.67s)
+ *  80-290:   Quote held at full opacity (~7s of reading time)
+ * 290-310:   "Full report below ▼" CTA fades in
+ * 330-360:   Loop-out handled by reelLoopOpacity wrapper
  */
 export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   riverName,
@@ -44,6 +43,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   optimalMin,
   optimalMax,
   quoteText,
+  dateLabel,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -64,17 +64,18 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const nameEntrance = spring({ frame, fps, config: ENTRANCE });
   const nameY = interpolate(nameEntrance, [0, 1], [40, 0]);
 
-  const badgeEntrance = spring({ frame: frame - 90, fps, config: SNAPPY });
+  // Date arrives just after the name settles.
+  const dateEntrance = spring({ frame: frame - 15, fps, config: ENTRANCE });
+
+  // Data cluster (badge + gauge + Eddy) all enter in one ~30-frame window
+  // starting at frame 30, so the eye doesn't wait through three cascades.
+  const badgeEntrance = spring({ frame: frame - 45, fps, config: SNAPPY });
   const badgeX = interpolate(badgeEntrance, [0, 1], [60, 0]);
 
-  // Quote: 2s to type, visible until end
-  const typewriterProgress = interpolate(frame, [140, 200], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const visibleChars = Math.floor(typewriterProgress * quoteText.length);
-  const displayQuote = quoteText.slice(0, visibleChars);
-  const quoteOpacity = interpolate(frame, [140, 155, 350, 360], [0, 1, 1, 0.8], {
+  // Quote: fade in over frames 60-80 (2.0s-2.67s) and hold. Replaces the old
+  // typewriter which burned 2s of unreadable partial text before the viewer
+  // could read anything.
+  const quoteOpacity = interpolate(frame, [60, 80], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -169,6 +170,23 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           {riverName}
         </div>
 
+        {/* Date — matches the OG thumbnail's timestamp so the grid cover
+            and the reel content stay in sync */}
+        {dateLabel && (
+          <div
+            style={{
+              opacity: dateEntrance,
+              marginTop: -18,
+              fontFamily: "'Geist Sans', system-ui, sans-serif",
+              fontSize: isPortrait ? 30 : 22,
+              color: "rgba(255,255,255,0.6)",
+              textAlign: "center",
+            }}
+          >
+            {dateLabel}
+          </div>
+        )}
+
         {/* Gauge + Eddy side by side */}
         <div
           style={{
@@ -192,7 +210,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             <EddyMascot
               variant={getOtterVariant(conditionCode)}
               size={isPortrait ? 220 : 170}
-              delay={100}
+              delay={30}
             />
           </div>
         </div>
@@ -251,7 +269,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               fontStyle: "italic",
             }}
           >
-            &ldquo;{displayQuote}&rdquo;
+            &ldquo;{quoteText}&rdquo;
           </span>
         </div>
 

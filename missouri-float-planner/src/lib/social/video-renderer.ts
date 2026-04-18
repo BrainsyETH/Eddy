@@ -253,6 +253,15 @@ export function getCompositionForPost(
   // Always portrait — both platforms get 1080x1920
   const format = 'portrait' as const;
 
+  // Default date label used by compositions that render it — matches the
+  // OG thumbnail's timestamp format so the grid cover and the reel stay
+  // consistent.
+  const defaultDate = new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
   switch (postType) {
     case 'river_highlight':
       return {
@@ -264,6 +273,7 @@ export function getCompositionForPost(
           optimalMin: data.optimalMin ?? 1.5,
           optimalMax: data.optimalMax ?? 4.0,
           quoteText: data.quoteText || data.summaryText || '',
+          dateLabel: data.dateLabel || defaultDate,
           format,
         },
         outputFilename: `highlight-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
