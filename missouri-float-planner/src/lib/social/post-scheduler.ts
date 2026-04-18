@@ -166,130 +166,120 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
   // Pre-compute Central Time day-of-week for video/schedule decisions
   const cstDay = getCentralDay();
+  const todayKey = DAY_KEYS[cstDay];
 
-  // --- Weekly Forecast (Friday afternoon by default) ---
-  if (config.weekly_forecast?.enabled) {
-    const { day_of_week, time_utc, media } = config.weekly_forecast;
-    const nowUtcDay = new Date().getUTCDay();
-    const dayMatches = nowUtcDay === day_of_week;
-    const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
-    const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
+  // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
+  {
+    const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
+    if (config.weekly_forecast?.enabled && todayMedia) {
+      const { time_utc } = config.weekly_forecast;
+      const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+      const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
 
-    if (!dayMatches) {
-      console.log(`${LOG_PREFIX} Weekly forecast: today is UTC day ${nowUtcDay}, configured ${day_of_week} — skipping`);
-    } else if (!timeMatches) {
-      console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_utc} UTC — skipping`);
-    } else if (alreadyPosted) {
-      console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
-    } else if (updates.length === 0) {
-      console.log(`${LOG_PREFIX} Weekly forecast: no fresh eddy updates — skipping`);
-    } else {
-      // Top 3 floatable rivers for the upcoming weekend.
-      const topRivers = updates
-        .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
-        .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99))
-        .slice(0, 3);
-
-      if (topRivers.length === 0) {
-        console.log(`${LOG_PREFIX} Weekly forecast: no floatable rivers right now — skipping`);
+      if (!timeMatches) {
+        console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_utc} UTC — skipping`);
+      } else if (alreadyPosted) {
+        console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
+      } else if (updates.length === 0) {
+        console.log(`${LOG_PREFIX} Weekly forecast: no fresh eddy updates — skipping`);
       } else {
-        const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-        for (const platform of platforms) {
-          const { caption, hashtags } = formatWeeklyForecastCaption(
-            topRivers,
-            customContent,
-            platform,
-          );
-          posts.push({
-            postType: 'weekly_forecast',
-            platform,
-            riverSlug: null,
-            caption,
-            imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
-            mediaType: media,
-            hashtags,
-            eddyUpdateId: null,
-          });
+        const topRivers = updates
+          .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
+          .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99))
+          .slice(0, 3);
+
+        if (topRivers.length === 0) {
+          console.log(`${LOG_PREFIX} Weekly forecast: no floatable rivers right now — skipping`);
+        } else {
+          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          for (const platform of platforms) {
+            const { caption, hashtags } = formatWeeklyForecastCaption(topRivers, customContent, platform);
+            posts.push({
+              postType: 'weekly_forecast',
+              platform,
+              riverSlug: null,
+              caption,
+              imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
+              mediaType: todayMedia,
+              hashtags,
+              eddyUpdateId: null,
+            });
+          }
         }
       }
     }
   }
 
-  // --- Section Guide (Wednesdays by default) ---
-  if (config.section_guide?.enabled) {
-    const { day_of_week, time_utc, media } = config.section_guide;
-    const nowUtcDay = new Date().getUTCDay();
-    const dayMatches = nowUtcDay === day_of_week;
-    const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
-    const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
+  // --- Section Guide (media_schedule.section_guide drives day/media) ---
+  {
+    const todayMedia = config.media_schedule?.section_guide?.[todayKey] ?? null;
+    if (config.section_guide?.enabled && todayMedia) {
+      const { time_utc } = config.section_guide;
+      const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+      const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
 
-    if (!dayMatches) {
-      console.log(`${LOG_PREFIX} Section guide: today is UTC day ${nowUtcDay}, configured ${day_of_week} — skipping`);
-    } else if (!timeMatches) {
-      console.log(`${LOG_PREFIX} Section guide: not near ${time_utc} UTC — skipping`);
-    } else if (alreadyPosted) {
-      console.log(`${LOG_PREFIX} Section guide: already posted today — skipping`);
-    } else {
-      // Rotate across rivers that currently have fresh updates so the
-      // featured condition matches reality.
-      const availableSlugs = updates.map((u) => u.river_slug);
-      const section = pickSectionForRivers(availableSlugs);
-      if (!section) {
-        console.log(`${LOG_PREFIX} Section guide: no rotatable section for available rivers — skipping`);
+      if (!timeMatches) {
+        console.log(`${LOG_PREFIX} Section guide: not near ${time_utc} UTC — skipping`);
+      } else if (alreadyPosted) {
+        console.log(`${LOG_PREFIX} Section guide: already posted today — skipping`);
       } else {
-        const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-        for (const platform of platforms) {
-          const { caption, hashtags } = formatSectionGuideCaption(section, customContent, platform);
-          posts.push({
-            postType: 'section_guide',
-            platform,
-            riverSlug: section.riverSlug,
-            caption,
-            imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${section.riverSlug}&platform=${platform}`,
-            mediaType: media,
-            hashtags,
-            eddyUpdateId: null,
-          });
+        const availableSlugs = updates.map((u) => u.river_slug);
+        const section = pickSectionForRivers(availableSlugs);
+        if (!section) {
+          console.log(`${LOG_PREFIX} Section guide: no rotatable section for available rivers — skipping`);
+        } else {
+          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          for (const platform of platforms) {
+            const { caption, hashtags } = formatSectionGuideCaption(section, customContent, platform);
+            posts.push({
+              postType: 'section_guide',
+              platform,
+              riverSlug: section.riverSlug,
+              caption,
+              imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${section.riverSlug}&platform=${platform}`,
+              mediaType: todayMedia,
+              hashtags,
+              eddyUpdateId: null,
+            });
+          }
         }
       }
     }
   }
 
-  // --- Weekly Trend (Sundays by default) ---
-  if (config.weekly_trend?.enabled) {
-    const { day_of_week, time_utc, media } = config.weekly_trend;
-    const nowUtcDay = new Date().getUTCDay();
-    const dayMatches = nowUtcDay === day_of_week;
-    const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
-    const alreadyPosted = await hasPostedToday('weekly_trend', null, supabase);
+  // --- Weekly Trend (media_schedule.weekly_trend drives day/media) ---
+  {
+    const todayMedia = config.media_schedule?.weekly_trend?.[todayKey] ?? null;
+    if (config.weekly_trend?.enabled && todayMedia) {
+      const { time_utc } = config.weekly_trend;
+      const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+      const alreadyPosted = await hasPostedToday('weekly_trend', null, supabase);
 
-    if (!dayMatches) {
-      console.log(`${LOG_PREFIX} Weekly trend: today is UTC day ${nowUtcDay}, configured ${day_of_week} — skipping`);
-    } else if (!timeMatches) {
-      console.log(`${LOG_PREFIX} Weekly trend: not near ${time_utc} UTC — skipping`);
-    } else if (alreadyPosted) {
-      console.log(`${LOG_PREFIX} Weekly trend: already posted today — skipping`);
-    } else {
-      const availableSlugs = updates.map((u) => u.river_slug);
-      const trend = await pickNotableTrend(supabase, { restrictTo: availableSlugs });
-      if (!trend) {
-        console.log(`${LOG_PREFIX} Weekly trend: no notable movement this week — skipping`);
+      if (!timeMatches) {
+        console.log(`${LOG_PREFIX} Weekly trend: not near ${time_utc} UTC — skipping`);
+      } else if (alreadyPosted) {
+        console.log(`${LOG_PREFIX} Weekly trend: already posted today — skipping`);
       } else {
-        // Pull the latest eddy update so we can decorate with the condition code (used by the composition, not the caption).
-        const latest = updates.find((u) => u.river_slug === trend.riverSlug);
-        const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-        for (const platform of platforms) {
-          const { caption, hashtags } = formatWeeklyTrendCaption(trend, customContent, platform);
-          posts.push({
-            postType: 'weekly_trend',
-            platform,
-            riverSlug: trend.riverSlug,
-            caption,
-            imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${trend.riverSlug}&platform=${platform}`,
-            mediaType: media,
-            hashtags,
-            eddyUpdateId: latest?.id ?? null,
-          });
+        const availableSlugs = updates.map((u) => u.river_slug);
+        const trend = await pickNotableTrend(supabase, { restrictTo: availableSlugs });
+        if (!trend) {
+          console.log(`${LOG_PREFIX} Weekly trend: no notable movement this week — skipping`);
+        } else {
+          const latest = updates.find((u) => u.river_slug === trend.riverSlug);
+          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          for (const platform of platforms) {
+            const { caption, hashtags } = formatWeeklyTrendCaption(trend, customContent, platform);
+            posts.push({
+              postType: 'weekly_trend',
+              platform,
+              riverSlug: trend.riverSlug,
+              caption,
+              imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${trend.riverSlug}&platform=${platform}`,
+              mediaType: todayMedia,
+              hashtags,
+              eddyUpdateId: latest?.id ?? null,
+            });
+          }
         }
       }
     }
@@ -333,7 +323,6 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // --- River Highlights (per-river weekly schedule) ---
   const schedules = config.river_schedules || {};
   const scheduledRivers = Object.keys(schedules);
-  const todayKey = DAY_KEYS[cstDay];
 
   if (scheduledRivers.length === 0) {
     console.log(`${LOG_PREFIX} No river schedules configured`);

@@ -43,6 +43,18 @@ export const DEFAULT_MEDIA_SCHEDULE: MediaSchedule = {
     mon: 'video', tue: 'image', wed: 'video',
     thu: 'image', fri: 'video', sat: 'image', sun: 'image',
   },
+  weekly_forecast: {
+    mon: null, tue: null, wed: null, thu: null,
+    fri: 'video', sat: null, sun: null,
+  },
+  section_guide: {
+    mon: null, tue: null, wed: 'video', thu: null,
+    fri: null, sat: null, sun: null,
+  },
+  weekly_trend: {
+    mon: null, tue: null, wed: null, thu: null,
+    fri: null, sat: null, sun: 'video',
+  },
 };
 
 const DEFAULT_CONFIG = {
@@ -126,6 +138,9 @@ export async function getOrCreateConfig(
     config.media_schedule = {
       river_highlight: { ...DEFAULT_MEDIA_SCHEDULE.river_highlight, ...(config.media_schedule.river_highlight || {}) },
       daily_digest: { ...DEFAULT_MEDIA_SCHEDULE.daily_digest, ...(config.media_schedule.daily_digest || {}) },
+      weekly_forecast: { ...DEFAULT_MEDIA_SCHEDULE.weekly_forecast, ...(config.media_schedule.weekly_forecast || {}) },
+      section_guide: { ...DEFAULT_MEDIA_SCHEDULE.section_guide, ...(config.media_schedule.section_guide || {}) },
+      weekly_trend: { ...DEFAULT_MEDIA_SCHEDULE.weekly_trend, ...(config.media_schedule.weekly_trend || {}) },
     };
   }
   if (!config.weekly_forecast) {

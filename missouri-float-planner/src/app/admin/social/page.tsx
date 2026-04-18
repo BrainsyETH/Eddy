@@ -48,10 +48,15 @@ const DEFAULT_WEEKLY: WeeklyReelConfig = {
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 type MediaChoice = 'video' | 'image';
 type DayMediaMap = Partial<Record<DayKey, MediaChoice>>;
+// Weekly reels allow null ("don't fire") so the day cell is tri-state.
+type WeeklyDayMediaMap = Partial<Record<DayKey, MediaChoice | null>>;
 
 interface MediaSchedule {
   river_highlight: DayMediaMap;
   daily_digest: DayMediaMap;
+  weekly_forecast?: WeeklyDayMediaMap;
+  section_guide?: WeeklyDayMediaMap;
+  weekly_trend?: WeeklyDayMediaMap;
 }
 
 interface SocialConfig {
@@ -157,68 +162,62 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   skipped: { label: 'Skipped', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
 };
 
-/** Shared card for the three weekly reel configs (forecast, section, trend). */
+/** Shared card for the three weekly reel configs (forecast, section, trend).
+ *  Day-of-week and Video/Image are controlled from the unified Posting
+ *  Schedule matrix above; this card exposes only: enable, time (UTC), and
+ *  a Post Now button that triggers the same pipeline immediately. */
 function WeeklyReelCard({
   title,
   description,
   value,
+  postType,
   onChange,
+  onPostNow,
+  posting,
 }: {
   title: string;
   description: string;
   value: WeeklyReelConfig;
+  postType: 'weekly_forecast' | 'section_guide' | 'weekly_trend';
   onChange: (next: WeeklyReelConfig) => void;
+  onPostNow: (postType: 'weekly_forecast' | 'section_guide' | 'weekly_trend') => Promise<void>;
+  posting: boolean;
 }) {
   return (
     <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
       <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
       <p className="text-sm text-neutral-400 mb-4">{description}</p>
-      <label className="flex items-center gap-3 mb-4">
-        <input
-          type="checkbox"
-          checked={value.enabled}
-          onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
-          className="rounded bg-neutral-900 border-neutral-600"
-        />
-        <span className="text-neutral-200 font-medium">Enable</span>
-      </label>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs uppercase text-neutral-400 mb-1">Day of week</label>
-          <select
-            value={value.day_of_week}
-            onChange={(e) => onChange({ ...value, day_of_week: Number(e.target.value) })}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
-          >
-            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => (
-              <option key={d} value={i}>{d}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs uppercase text-neutral-400 mb-1">Time (UTC)</label>
+      <div className="flex flex-wrap items-center gap-6">
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={value.enabled}
+            onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
+            className="rounded bg-neutral-900 border-neutral-600"
+          />
+          <span className="text-neutral-200 font-medium">Enable</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <label className="text-xs uppercase text-neutral-400 whitespace-nowrap">Time (UTC)</label>
           <input
             type="time"
             value={value.time_utc}
             onChange={(e) => onChange({ ...value, time_utc: e.target.value })}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+            className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
           />
         </div>
-        <div>
-          <label className="block text-xs uppercase text-neutral-400 mb-1">Format</label>
-          <button
-            type="button"
-            onClick={() => onChange({ ...value, media: value.media === 'video' ? 'image' : 'video' })}
-            className={`w-full px-2 py-1.5 rounded text-sm font-medium transition-colors ${
-              value.media === 'video'
-                ? 'bg-primary-500 text-white hover:bg-primary-600'
-                : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-            }`}
-          >
-            {value.media === 'video' ? 'Video' : 'Image'}
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={posting}
+          onClick={() => onPostNow(postType)}
+          className="ml-auto px-4 py-1.5 bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white rounded text-sm font-medium transition-colors"
+        >
+          {posting ? 'Posting…' : 'Post Now'}
+        </button>
       </div>
+      <p className="text-xs text-neutral-500 mt-3">
+        Day of week and Video/Image come from the Posting Schedule matrix above.
+      </p>
     </div>
   );
 }
@@ -231,6 +230,7 @@ export default function SocialAdminPage() {
   const [rivers, setRivers] = useState<{ slug: string; name: string }[]>(FALLBACK_RIVERS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [postingWeekly, setPostingWeekly] = useState<'weekly_forecast' | 'section_guide' | 'weekly_trend' | null>(null);
   const [postFilter, setPostFilter] = useState<{ platform: string; status: string }>({
     platform: '',
     status: '',
@@ -419,6 +419,39 @@ export default function SocialAdminPage() {
       showToast('Network error — could not save', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Manual "Post Now" for weekly reels. Hits the quick-post route with the
+  // post_type override; the backend reuses the scheduler's data fetchers so
+  // the immediate post is shaped identically to a scheduled one.
+  const postWeeklyNow = async (
+    postType: 'weekly_forecast' | 'section_guide' | 'weekly_trend',
+  ) => {
+    if (postingWeekly) return;
+    setPostingWeekly(postType);
+    try {
+      const res = await adminFetch('/api/admin/social/quick-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: postType,
+          platforms: ['facebook', 'instagram'],
+        }),
+      });
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        const count = body?.rendering ?? body?.results?.filter?.((r: { success: boolean }) => r.success)?.length ?? 0;
+        showToast(count ? `Queued ${count} ${postType.replace('_', ' ')} post(s)` : 'Posted', 'success');
+        fetchPosts();
+      } else {
+        const body = await res.json().catch(() => null);
+        showToast(body?.error || 'Post failed', 'error');
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Post failed', 'error');
+    } finally {
+      setPostingWeekly(null);
     }
   };
 
@@ -1072,7 +1105,7 @@ export default function SocialAdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {/* Format rows — one per post type */}
+                        {/* Format rows — daily types (Video/Image binary) */}
                         {(['river_highlight', 'daily_digest'] as const).map((postType) => (
                           <tr key={`fmt-${postType}`} className="border-t border-neutral-700/50 bg-neutral-900/40">
                             <td className="px-2 py-2"></td>
@@ -1108,6 +1141,50 @@ export default function SocialAdminPage() {
                                     }`}
                                   >
                                     {current === 'video' ? 'Video' : 'Image'}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                        {/* Format rows — weekly reels (Off / Video / Image tri-state) */}
+                        {([
+                          { key: 'weekly_forecast', label: 'Weekly Forecast' },
+                          { key: 'section_guide', label: 'Section Guide' },
+                          { key: 'weekly_trend', label: '7-Day Trend' },
+                        ] as const).map(({ key, label }) => (
+                          <tr key={`fmt-${key}`} className="border-t border-neutral-700/50 bg-neutral-900/40">
+                            <td className="px-2 py-2"></td>
+                            <td className="px-2 py-2 text-xs uppercase tracking-wide text-neutral-400 whitespace-nowrap">
+                              {label}
+                            </td>
+                            {MEDIA_DAYS.map((day) => {
+                              const current = (config.media_schedule?.[key] as Record<string, string | null> | undefined)?.[day] ?? null;
+                              const next: 'video' | 'image' | null =
+                                current === null ? 'video' : current === 'video' ? 'image' : null;
+                              return (
+                                <td key={day} className="px-1 py-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfig({
+                                      ...config,
+                                      media_schedule: {
+                                        ...(config.media_schedule || { river_highlight: {}, daily_digest: {} }),
+                                        [key]: {
+                                          ...((config.media_schedule?.[key] as Record<string, string | null> | undefined) || {}),
+                                          [day]: next,
+                                        },
+                                      },
+                                    })}
+                                    className={`w-[74px] px-1 py-1 rounded text-xs font-medium transition-colors ${
+                                      current === 'video'
+                                        ? 'bg-primary-500 text-white hover:bg-primary-600'
+                                        : current === 'image'
+                                        ? 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                        : 'bg-neutral-900 border border-dashed border-neutral-600 text-neutral-500 hover:border-neutral-400'
+                                    }`}
+                                  >
+                                    {current === 'video' ? 'Video' : current === 'image' ? 'Image' : 'Off'}
                                   </button>
                                 </td>
                               );
@@ -1224,23 +1301,32 @@ export default function SocialAdminPage() {
 
                 <WeeklyReelCard
                   title="Weekly Forecast"
-                  description='Posts once per week — top 3 floatable rivers for the upcoming weekend. Uses the digest composition with a "Weekend Forecast" title.'
+                  description='Top 3 floatable rivers for the upcoming weekend. Uses the digest composition with a "Weekend Forecast" title.'
                   value={config.weekly_forecast || DEFAULT_WEEKLY}
+                  postType="weekly_forecast"
                   onChange={(next) => setConfig({ ...config, weekly_forecast: next })}
+                  onPostNow={postWeeklyNow}
+                  posting={postingWeekly === 'weekly_forecast'}
                 />
 
                 <WeeklyReelCard
                   title="Section Guide — Float of the Week"
-                  description="Posts once per week — rotates through put-in → take-out pairs across all Missouri rivers. Great for decision-support content people screenshot and share."
+                  description="Rotates through put-in → take-out pairs across all Missouri rivers. Great for decision-support content people screenshot and share."
                   value={config.section_guide || { ...DEFAULT_WEEKLY, day_of_week: 3, time_utc: '17:00' }}
+                  postType="section_guide"
                   onChange={(next) => setConfig({ ...config, section_guide: next })}
+                  onPostNow={postWeeklyNow}
+                  posting={postingWeekly === 'section_guide'}
                 />
 
                 <WeeklyReelCard
                   title="7-Day Trend"
-                  description="Posts once per week — sparkline for the river with the largest 7-day gauge movement. Skips automatically if no river moved meaningfully this week."
+                  description="Sparkline for the river with the largest 7-day gauge movement. Skips automatically if no river moved meaningfully this week."
                   value={config.weekly_trend || { ...DEFAULT_WEEKLY, day_of_week: 0, time_utc: '15:00' }}
+                  postType="weekly_trend"
                   onChange={(next) => setConfig({ ...config, weekly_trend: next })}
+                  onPostNow={postWeeklyNow}
+                  posting={postingWeekly === 'weekly_trend'}
                 />
 
                 {/* Video Features — opt-in reel variants */}
