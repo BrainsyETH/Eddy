@@ -32,12 +32,18 @@ interface VideoFeatures {
   condition_alerts_as_video: boolean;
 }
 
-interface WeeklyForecastConfig {
+interface WeeklyReelConfig {
   enabled: boolean;
   day_of_week: number; // 0=Sun..6=Sat
   time_utc: string;
   media: 'video' | 'image';
 }
+const DEFAULT_WEEKLY: WeeklyReelConfig = {
+  enabled: false,
+  day_of_week: 5,
+  time_utc: '22:00',
+  media: 'video',
+};
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 type MediaChoice = 'video' | 'image';
@@ -63,7 +69,9 @@ interface SocialConfig {
   river_schedules: Record<string, Record<string, string | null>>;
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
-  weekly_forecast: WeeklyForecastConfig;
+  weekly_forecast: WeeklyReelConfig;
+  section_guide: WeeklyReelConfig;
+  weekly_trend: WeeklyReelConfig;
 }
 
 const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -148,6 +156,72 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   rendering: { label: 'Rendering', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
   skipped: { label: 'Skipped', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
 };
+
+/** Shared card for the three weekly reel configs (forecast, section, trend). */
+function WeeklyReelCard({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: WeeklyReelConfig;
+  onChange: (next: WeeklyReelConfig) => void;
+}) {
+  return (
+    <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <p className="text-sm text-neutral-400 mb-4">{description}</p>
+      <label className="flex items-center gap-3 mb-4">
+        <input
+          type="checkbox"
+          checked={value.enabled}
+          onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
+          className="rounded bg-neutral-900 border-neutral-600"
+        />
+        <span className="text-neutral-200 font-medium">Enable</span>
+      </label>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs uppercase text-neutral-400 mb-1">Day of week</label>
+          <select
+            value={value.day_of_week}
+            onChange={(e) => onChange({ ...value, day_of_week: Number(e.target.value) })}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+          >
+            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => (
+              <option key={d} value={i}>{d}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs uppercase text-neutral-400 mb-1">Time (UTC)</label>
+          <input
+            type="time"
+            value={value.time_utc}
+            onChange={(e) => onChange({ ...value, time_utc: e.target.value })}
+            className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase text-neutral-400 mb-1">Format</label>
+          <button
+            type="button"
+            onClick={() => onChange({ ...value, media: value.media === 'video' ? 'image' : 'video' })}
+            className={`w-full px-2 py-1.5 rounded text-sm font-medium transition-colors ${
+              value.media === 'video'
+                ? 'bg-primary-500 text-white hover:bg-primary-600'
+                : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+            }`}
+          >
+            {value.media === 'video' ? 'Video' : 'Image'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SocialAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('settings');
@@ -1148,87 +1222,26 @@ export default function SocialAdminPage() {
                   <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Click &quot;skip&quot; to enable a day, or click the x to disable it.</p>
                 </div>
 
-                {/* Weekly Forecast — once-per-week weekend preview reel */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">Weekly Forecast</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Posts once per week — a reel or image of the top 3 floatable rivers for the
-                    upcoming weekend. Uses the digest composition with a &quot;Weekend Forecast&quot; title.
-                  </p>
-                  <label className="flex items-center gap-3 mb-4">
-                    <input
-                      type="checkbox"
-                      checked={config.weekly_forecast?.enabled ?? false}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        weekly_forecast: {
-                          ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
-                          enabled: e.target.checked,
-                        },
-                      })}
-                      className="rounded bg-neutral-900 border-neutral-600"
-                    />
-                    <span className="text-neutral-200 font-medium">Enable Weekly Forecast</span>
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs uppercase text-neutral-400 mb-1">Day of week</label>
-                      <select
-                        value={config.weekly_forecast?.day_of_week ?? 5}
-                        onChange={(e) => setConfig({
-                          ...config,
-                          weekly_forecast: {
-                            ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
-                            day_of_week: Number(e.target.value),
-                          },
-                        })}
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
-                      >
-                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => (
-                          <option key={d} value={i}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs uppercase text-neutral-400 mb-1">Time (UTC)</label>
-                      <input
-                        type="time"
-                        value={config.weekly_forecast?.time_utc ?? '22:00'}
-                        onChange={(e) => setConfig({
-                          ...config,
-                          weekly_forecast: {
-                            ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
-                            time_utc: e.target.value,
-                          },
-                        })}
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs uppercase text-neutral-400 mb-1">Format</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = config.weekly_forecast?.media || 'video';
-                          setConfig({
-                            ...config,
-                            weekly_forecast: {
-                              ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
-                              media: current === 'video' ? 'image' : 'video',
-                            },
-                          });
-                        }}
-                        className={`w-full px-2 py-1.5 rounded text-sm font-medium transition-colors ${
-                          (config.weekly_forecast?.media || 'video') === 'video'
-                            ? 'bg-primary-500 text-white hover:bg-primary-600'
-                            : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-                        }`}
-                      >
-                        {(config.weekly_forecast?.media || 'video') === 'video' ? 'Video' : 'Image'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <WeeklyReelCard
+                  title="Weekly Forecast"
+                  description='Posts once per week — top 3 floatable rivers for the upcoming weekend. Uses the digest composition with a "Weekend Forecast" title.'
+                  value={config.weekly_forecast || DEFAULT_WEEKLY}
+                  onChange={(next) => setConfig({ ...config, weekly_forecast: next })}
+                />
+
+                <WeeklyReelCard
+                  title="Section Guide — Float of the Week"
+                  description="Posts once per week — rotates through put-in → take-out pairs across all Missouri rivers. Great for decision-support content people screenshot and share."
+                  value={config.section_guide || { ...DEFAULT_WEEKLY, day_of_week: 3, time_utc: '17:00' }}
+                  onChange={(next) => setConfig({ ...config, section_guide: next })}
+                />
+
+                <WeeklyReelCard
+                  title="7-Day Trend"
+                  description="Posts once per week — sparkline for the river with the largest 7-day gauge movement. Skips automatically if no river moved meaningfully this week."
+                  value={config.weekly_trend || { ...DEFAULT_WEEKLY, day_of_week: 0, time_utc: '15:00' }}
+                  onChange={(next) => setConfig({ ...config, weekly_trend: next })}
+                />
 
                 {/* Video Features — opt-in reel variants */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">

@@ -16,7 +16,15 @@ import { ReelFull } from "./compositions/ReelFull";
 import { GaugeAnimation } from "./compositions/social/GaugeAnimation";
 import { DigestReel, getDigestDuration } from "./compositions/social/DigestReel";
 import { BrandedLoop } from "./compositions/social/BrandedLoop";
-import type { GaugeAnimationProps, DigestReelProps, BrandedLoopProps } from "./lib/social-props";
+import { SectionGuide } from "./compositions/social/SectionGuide";
+import { TrendReel } from "./compositions/social/TrendReel";
+import type {
+  GaugeAnimationProps,
+  DigestReelProps,
+  BrandedLoopProps,
+  SectionGuideProps,
+  TrendReelProps,
+} from "./lib/social-props";
 
 import "./style.css";
 
@@ -383,6 +391,54 @@ export const RemotionRoot: React.FC = () => {
           conditionCode: "flowing",
           summaryText: "Clear skies and perfect levels. Get on the water today!",
         } satisfies BrandedLoopProps}
+      />
+
+      {/* Section Guide — float-of-the-week reel */}
+      <Composition
+        id="social-section-portrait"
+        component={SectionGuide}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          riverName: "Current River",
+          conditionCode: "flowing",
+          putInName: "Akers",
+          putInMile: 20.0,
+          takeOutName: "Pulltite",
+          takeOutMile: 30.5,
+          distanceMi: 10.5,
+          hoursCanoe: 5.3,
+          dateLabel: "April 18, 2026",
+          format: "portrait",
+        } satisfies SectionGuideProps}
+      />
+
+      {/* 7-Day Trend reel with sparkline */}
+      <Composition
+        id="social-trend-portrait"
+        component={TrendReel}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          riverName: "Current River",
+          conditionCode: "flowing",
+          currentHeightFt: 3.4,
+          sevenDayFirstFt: 2.1,
+          sevenDayMinFt: 2.0,
+          sevenDayMaxFt: 3.6,
+          deltaFt: 1.3,
+          direction: "rising",
+          series: Array.from({ length: 20 }, (_, i) => ({
+            hoursAgo: -168 + (i * 168) / 19,
+            gaugeHeightFt: 2.1 + Math.sin(i / 3) * 0.5 + (i / 19) * 1.3,
+          })),
+          dateLabel: "This Week",
+          format: "portrait",
+        } satisfies TrendReelProps}
       />
     </>
   );

@@ -232,9 +232,16 @@ export async function triggerBrandCheck(params: BrandCheckParams): Promise<boole
  * Map post type + river data to a Remotion composition ID and input props.
  */
 export function getCompositionForPost(
-  postType: 'daily_digest' | 'river_highlight' | 'branded_loop' | 'weekly_forecast',
+  postType:
+    | 'daily_digest'
+    | 'river_highlight'
+    | 'branded_loop'
+    | 'weekly_forecast'
+    | 'section_guide'
+    | 'weekly_trend',
   data: {
     riverName?: string;
+    riverSlug?: string;
     conditionCode?: string;
     gaugeHeightFt?: number | null;
     optimalMin?: number;
@@ -249,6 +256,21 @@ export function getCompositionForPost(
     dateLabel?: string;
     globalQuote?: string;
     title?: string;
+    // Section guide extras
+    putInName?: string;
+    putInMile?: number;
+    takeOutName?: string;
+    takeOutMile?: number;
+    distanceMi?: number;
+    hoursCanoe?: number;
+    // Weekly trend extras
+    currentHeightFt?: number | null;
+    sevenDayFirstFt?: number | null;
+    sevenDayMinFt?: number | null;
+    sevenDayMaxFt?: number | null;
+    deltaFt?: number;
+    direction?: 'rising' | 'falling' | 'flat';
+    series?: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
   },
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
   // Always portrait — both platforms get 1080x1920
@@ -314,6 +336,43 @@ export function getCompositionForPost(
           summaryText: data.summaryText || data.quoteText || '',
         },
         outputFilename: `loop-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
+      };
+
+    case 'section_guide':
+      return {
+        compositionId: 'social-section-portrait',
+        inputProps: {
+          riverName: data.riverName || 'Unknown River',
+          conditionCode: data.conditionCode || 'unknown',
+          putInName: data.putInName || 'Put-in',
+          putInMile: data.putInMile ?? 0,
+          takeOutName: data.takeOutName || 'Take-out',
+          takeOutMile: data.takeOutMile ?? 0,
+          distanceMi: data.distanceMi ?? 0,
+          hoursCanoe: data.hoursCanoe ?? 0,
+          dateLabel: data.dateLabel || defaultDate,
+          format,
+        },
+        outputFilename: `section-${new Date().toISOString().slice(0, 10)}`,
+      };
+
+    case 'weekly_trend':
+      return {
+        compositionId: 'social-trend-portrait',
+        inputProps: {
+          riverName: data.riverName || 'Unknown River',
+          conditionCode: data.conditionCode || 'unknown',
+          currentHeightFt: data.currentHeightFt ?? null,
+          sevenDayFirstFt: data.sevenDayFirstFt ?? null,
+          sevenDayMinFt: data.sevenDayMinFt ?? null,
+          sevenDayMaxFt: data.sevenDayMaxFt ?? null,
+          deltaFt: data.deltaFt ?? 0,
+          direction: data.direction || 'flat',
+          series: data.series || [],
+          dateLabel: data.dateLabel || 'This Week',
+          format,
+        },
+        outputFilename: `trend-${new Date().toISOString().slice(0, 10)}`,
       };
   }
 }

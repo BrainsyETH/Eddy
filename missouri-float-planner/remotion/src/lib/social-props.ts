@@ -127,3 +127,30 @@ export interface BrandedLoopProps {
   conditionCode: ConditionCode;
   summaryText: string;
 }
+
+export interface SectionGuideProps {
+  riverName: string;
+  conditionCode: ConditionCode;
+  putInName: string;
+  putInMile: number;
+  takeOutName: string;
+  takeOutMile: number;
+  distanceMi: number;
+  hoursCanoe: number;
+  dateLabel?: string;
+  format: "square" | "portrait";
+}
+
+export interface TrendReelProps {
+  riverName: string;
+  conditionCode: ConditionCode;
+  currentHeightFt: number | null;
+  sevenDayFirstFt: number | null;
+  sevenDayMinFt: number | null;
+  sevenDayMaxFt: number | null;
+  deltaFt: number;
+  direction: "rising" | "falling" | "flat";
+  series: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
+  dateLabel?: string;
+  format: "square" | "portrait";
+}

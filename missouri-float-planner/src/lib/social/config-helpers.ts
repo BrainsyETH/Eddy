@@ -2,7 +2,7 @@
 // Self-healing config loader for social_config singleton table.
 // Handles duplicate rows, missing rows, and the happy path.
 
-import type { SocialConfig, VideoFeatures, MediaSchedule, WeeklyForecastConfig } from './types';
+import type { SocialConfig, VideoFeatures, MediaSchedule, WeeklyReelConfig } from './types';
 
 const LOG_PREFIX = '[SocialConfig]';
 
@@ -10,10 +10,24 @@ export const DEFAULT_VIDEO_FEATURES: VideoFeatures = {
   condition_alerts_as_video: false,
 };
 
-export const DEFAULT_WEEKLY_FORECAST: WeeklyForecastConfig = {
+export const DEFAULT_WEEKLY_FORECAST: WeeklyReelConfig = {
   enabled: false,
   day_of_week: 5, // Friday
   time_utc: '22:00',
+  media: 'video',
+};
+
+export const DEFAULT_SECTION_GUIDE: WeeklyReelConfig = {
+  enabled: false,
+  day_of_week: 3, // Wednesday
+  time_utc: '17:00',
+  media: 'video',
+};
+
+export const DEFAULT_WEEKLY_TREND: WeeklyReelConfig = {
+  enabled: false,
+  day_of_week: 0, // Sunday
+  time_utc: '15:00',
   media: 'video',
 };
 
@@ -45,6 +59,8 @@ const DEFAULT_CONFIG = {
   video_features: DEFAULT_VIDEO_FEATURES,
   media_schedule: DEFAULT_MEDIA_SCHEDULE,
   weekly_forecast: DEFAULT_WEEKLY_FORECAST,
+  section_guide: DEFAULT_SECTION_GUIDE,
+  weekly_trend: DEFAULT_WEEKLY_TREND,
   river_schedules: {
     'meramec': { mon: '07:00', tue: '07:00', wed: '07:00', thu: '07:00', fri: '07:00', sat: '09:00', sun: '09:00' },
     'current': { mon: '07:30', tue: '07:30', wed: '07:30', thu: '07:30', fri: '07:30', sat: '09:30', sun: '09:30' },
@@ -116,6 +132,16 @@ export async function getOrCreateConfig(
     config.weekly_forecast = { ...DEFAULT_WEEKLY_FORECAST };
   } else {
     config.weekly_forecast = { ...DEFAULT_WEEKLY_FORECAST, ...config.weekly_forecast };
+  }
+  if (!config.section_guide) {
+    config.section_guide = { ...DEFAULT_SECTION_GUIDE };
+  } else {
+    config.section_guide = { ...DEFAULT_SECTION_GUIDE, ...config.section_guide };
+  }
+  if (!config.weekly_trend) {
+    config.weekly_trend = { ...DEFAULT_WEEKLY_TREND };
+  } else {
+    config.weekly_trend = { ...DEFAULT_WEEKLY_TREND, ...config.weekly_trend };
   }
 
   // Multiple rows — self-heal
