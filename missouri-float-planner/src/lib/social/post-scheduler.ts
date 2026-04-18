@@ -43,17 +43,18 @@ type DayKey = (typeof DAY_KEYS)[number];
 
 /**
  * Read the media choice for a given post type + day from social_config.
- * Falls back to 'image' (safe default — image posts publish inline and
- * skip the GH Actions render path).
+ * Returns null when the cell is unset / 'off' — the scheduler skips the
+ * post entirely in that case (tri-state: off / video / image).
  */
 function resolveMedia(
   mediaSchedule: import('./types').MediaSchedule | undefined,
   postType: 'river_highlight' | 'daily_digest',
   dayOfWeek: number,
-): MediaType {
+): MediaType | null {
   const dayKey: DayKey = DAY_KEYS[dayOfWeek] ?? 'sun';
   const choice = mediaSchedule?.[postType]?.[dayKey];
-  return choice === 'video' ? 'video' : 'image';
+  if (choice === 'video' || choice === 'image') return choice;
+  return null;
 }
 
 export interface SchedulerResult {
@@ -286,9 +287,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   // --- Daily Digest ---
-  // Digest can work with just the global summary, so don't require per-river updates
-  if (!config.digest_enabled) {
-    console.log(`${LOG_PREFIX} Digest disabled in config`);
+  // Matrix cell is the single source of truth: null cell => skip this day.
+  // digest_enabled column is ignored (legacy; kept in schema for back-compat).
+  const digestMediaType = resolveMedia(config.media_schedule, 'daily_digest', cstDay);
+  if (!digestMediaType) {
+    console.log(`${LOG_PREFIX} Daily digest: today's matrix cell is off — skipping`);
   } else {
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
     if (digestAlreadyPosted && !skipTimeCheck) {
@@ -297,7 +300,6 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-      const digestMediaType: MediaType = resolveMedia(config.media_schedule, 'daily_digest', cstDay);
       for (const platform of platforms) {
         const { caption, hashtags } = formatDailyDigestCaption(
           updates,
@@ -321,10 +323,17 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   // --- River Highlights (per-river weekly schedule) ---
+  // Matrix cell gates the whole day: null => no highlight posts regardless
+  // of any river's individual time. A single click turns off ALL river
+  // highlights for that day.
+  const highlightMediaType = resolveMedia(config.media_schedule, 'river_highlight', cstDay);
   const schedules = config.river_schedules || {};
-  const scheduledRivers = Object.keys(schedules);
+  const scheduledRivers = highlightMediaType ? Object.keys(schedules) : [];
 
-  if (scheduledRivers.length === 0) {
+  if (!highlightMediaType) {
+    console.log(`${LOG_PREFIX} River highlights: today's matrix cell is off — skipping all rivers`);
+    diag.skipped_reasons.push('highlight_matrix_off');
+  } else if (scheduledRivers.length === 0) {
     console.log(`${LOG_PREFIX} No river schedules configured`);
     diag.skipped_reasons.push('no_river_schedules');
   }
@@ -388,7 +397,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
     // Create posts for both platforms
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-    const highlightMediaType: MediaType = resolveMedia(config.media_schedule, 'river_highlight', cstDay);
+    // highlightMediaType computed above; non-null here (else loop is empty).
     for (const platform of platforms) {
       const { caption, hashtags } = formatRiverHighlightCaption(
         update,
@@ -402,7 +411,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         riverSlug: update.river_slug,
         caption,
         imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
-        mediaType: highlightMediaType,
+        mediaType: highlightMediaType as MediaType,
         hashtags,
         eddyUpdateId: update.id,
       });
