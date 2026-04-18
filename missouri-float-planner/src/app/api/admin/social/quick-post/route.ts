@@ -10,9 +10,20 @@ import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-c
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
+  formatWeeklyForecastCaption,
+  formatSectionGuideCaption,
+  formatWeeklyTrendCaption,
 } from '@/lib/social/content-formatter';
-import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
+import type { SocialPlatform, SocialCustomContent, MediaType } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
+import { pickSectionForRivers } from '@/lib/social/section-picker';
+import { pickNotableTrend } from '@/lib/social/trend-picker';
+import { getOrCreateConfig } from '@/lib/social/config-helpers';
+
+const WEEKLY_SEVERITY: Record<string, number> = {
+  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
+};
+const WEEKLY_FLOATABLE = new Set(['flowing', 'good', 'high']);
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { type, riverSlug, contentId, platforms, asVideo } = body as {
-    type: 'digest' | 'highlight' | 'tip';
+    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
     riverSlug?: string;
     contentId?: string;
     platforms: string[];
@@ -77,6 +88,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'riverSlug is required for highlight posts' }, { status: 400 });
       }
       return await dispatchVideoRender(supabase, validPlatforms, customContent, type, riverSlug);
+    }
+
+    if (type === 'weekly_forecast' || type === 'section_guide' || type === 'weekly_trend') {
+      return await postWeekly(supabase, validPlatforms, customContent, type);
     }
 
     if (type === 'digest') {
@@ -416,13 +431,222 @@ async function postTip(
   return NextResponse.json({ results });
 }
 
+// --- Weekly reels (forecast / section guide / trend) ---
+
+async function postWeekly(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  platforms: SocialPlatform[],
+  customContent: SocialCustomContent[],
+  postType: 'weekly_forecast' | 'section_guide' | 'weekly_trend',
+) {
+  // Pull fresh updates + config (for the per-reel time_utc, though we
+  // skip the time check since this is a manual trigger).
+  const { data: updates } = await supabase
+    .from('eddy_updates')
+    .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+    .neq('river_slug', 'global')
+    .is('section_slug', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('generated_at', { ascending: false });
+
+  const seen = new Set<string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deduped = (updates || []).filter((u: any) => {
+    if (seen.has(u.river_slug)) return false;
+    seen.add(u.river_slug);
+    return true;
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const availableSlugs = deduped.map((u: any) => u.river_slug as string);
+
+  // Determine the media format to ship this post as. Respect today's cell
+  // from the matrix if set; otherwise default to the reel's last-saved
+  // media field; fall back to 'video'.
+  const { data: config } = await getOrCreateConfig(supabase);
+  const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+  const todayKey = DAY_KEYS[new Date().getUTCDay()];
+  const matrixMedia = config?.media_schedule?.[postType]?.[todayKey] as MediaType | null | undefined;
+  const mediaType: MediaType = matrixMedia ?? 'video';
+
+  // Build per-type payload: caption, image URL, video render data.
+  let renderData: Record<string, unknown> = {};
+  const buildCaption: (platform: SocialPlatform) => { caption: string; hashtags: string[] } = (() => {
+    if (postType === 'weekly_forecast') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const topRivers = (deduped as any[])
+        .filter((u) => WEEKLY_FLOATABLE.has(u.condition_code))
+        .sort((a, b) => (WEEKLY_SEVERITY[a.condition_code] ?? 99) - (WEEKLY_SEVERITY[b.condition_code] ?? 99))
+        .slice(0, 3);
+
+      renderData = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        rivers: topRivers.map((u: any) => ({
+          riverName: (u.river_slug as string).split('-').map((w: string) => w[0].toUpperCase() + w.slice(1)).join(' '),
+          conditionCode: u.condition_code,
+          gaugeHeightFt: u.gauge_height_ft,
+        })),
+        dateLabel: 'This Weekend',
+        title: 'Weekend Forecast',
+      };
+
+      return (platform) => formatWeeklyForecastCaption(topRivers, customContent, platform);
+    }
+
+    if (postType === 'section_guide') {
+      const section = pickSectionForRivers(availableSlugs);
+      if (!section) return () => ({ caption: '', hashtags: [] });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const latest = (deduped as any[]).find((u) => u.river_slug === section.riverSlug);
+      renderData = {
+        ...section,
+        conditionCode: latest?.condition_code || 'unknown',
+        dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      };
+      return (platform) => formatSectionGuideCaption(section, customContent, platform);
+    }
+
+    // weekly_trend
+    return () => ({ caption: '', hashtags: [] });
+  })();
+
+  // For weekly_trend, the trend picker is async — handle out-of-band.
+  let trendPayload: ReturnType<typeof formatWeeklyTrendCaption> | null = null;
+  if (postType === 'weekly_trend') {
+    const trend = await pickNotableTrend(supabase, { restrictTo: availableSlugs });
+    if (!trend) {
+      return NextResponse.json({ error: 'No notable river movement this week — nothing to post' }, { status: 404 });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const latest = (deduped as any[]).find((u) => u.river_slug === trend.riverSlug);
+    renderData = {
+      ...trend,
+      conditionCode: latest?.condition_code || 'unknown',
+      dateLabel: 'This Week',
+    };
+    trendPayload = formatWeeklyTrendCaption(trend, customContent, platforms[0]);
+    // Guard: refuse if nothing meaningful
+    if (!trendPayload.caption) {
+      return NextResponse.json({ error: 'Trend caption empty' }, { status: 500 });
+    }
+  }
+
+  const riverSlug = (renderData as { riverSlug?: string }).riverSlug || null;
+  const baseUrl = BASE_URL;
+  const imageKind = postType === 'weekly_forecast' ? 'digest' : 'highlight';
+  const imageRiverParam = postType === 'weekly_forecast' ? '' : `&river=${riverSlug || ''}`;
+
+  // Video path — dispatch GH Actions for all platforms
+  if (mediaType === 'video') {
+    const postIds: string[] = [];
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    for (const platform of platforms) {
+      // Clear any prior manual-post rows so dedup index doesn't block.
+      await supabase
+        .from('social_posts')
+        .delete()
+        .eq('post_type', postType)
+        .eq('platform', platform)
+        .gte('created_at', todayStart.toISOString());
+
+      const { caption, hashtags } =
+        postType === 'weekly_trend' && trendPayload
+          ? trendPayload
+          : buildCaption(platform);
+
+      const imageUrl = `${baseUrl}/api/og/social?type=${imageKind}&platform=${platform}${imageRiverParam}`;
+
+      const { data: record, error: insertError } = await supabase
+        .from('social_posts')
+        .insert({
+          post_type: postType,
+          platform,
+          river_slug: riverSlug,
+          caption,
+          image_url: imageUrl,
+          media_type: 'video',
+          hashtags,
+          status: 'rendering',
+        })
+        .select('id')
+        .single();
+
+      if (insertError) continue;
+      postIds.push(record.id);
+    }
+
+    if (postIds.length === 0) {
+      return NextResponse.json({ error: 'No records created' }, { status: 500 });
+    }
+
+    const { compositionId, inputProps, outputFilename } = getCompositionForPost(
+      postType,
+      renderData as Parameters<typeof getCompositionForPost>[1],
+    );
+
+    const success = await triggerVideoRender({
+      postIds: postIds.join(','),
+      compositionId,
+      inputProps,
+      outputFilename,
+    });
+
+    if (!success) {
+      for (const id of postIds) {
+        await supabase
+          .from('social_posts')
+          .update({ media_type: 'image', status: 'failed', error_message: 'GH Actions dispatch failed' })
+          .eq('id', id);
+      }
+    }
+
+    logAdminAction({
+      action: `quick_post_${postType}`,
+      entityType: 'social_post',
+      details: { platforms, dispatched: success ? postIds.length : 0 },
+    });
+
+    return NextResponse.json({ rendering: success ? postIds.length : 0 });
+  }
+
+  // Image path — publish inline through the adapter
+  const results = await publishToPlatforms(supabase, platforms, (platform) => {
+    const { caption, hashtags } =
+      postType === 'weekly_trend' && trendPayload ? trendPayload : buildCaption(platform);
+    const imageUrl = `${baseUrl}/api/og/social?type=${imageKind}&platform=${platform}${imageRiverParam}`;
+    return {
+      caption,
+      imageUrl,
+      hashtags,
+      postType: postType as 'weekly_forecast' | 'section_guide' | 'weekly_trend',
+      riverSlug,
+    };
+  });
+
+  logAdminAction({
+    action: `quick_post_${postType}`,
+    entityType: 'social_post',
+    details: { platforms, results: results.map((r) => ({ platform: r.platform, success: r.success })) },
+  });
+
+  return NextResponse.json({ results });
+}
+
 // --- Shared publish helper ---
 
 type PostBuilder = (platform: SocialPlatform) => {
   caption: string;
   imageUrl: string;
   hashtags: string[];
-  postType: 'daily_digest' | 'river_highlight' | 'manual';
+  postType:
+    | 'daily_digest'
+    | 'river_highlight'
+    | 'manual'
+    | 'weekly_forecast'
+    | 'section_guide'
+    | 'weekly_trend';
   riverSlug: string | null;
 };
 

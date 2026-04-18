@@ -42,16 +42,21 @@ export interface VideoFeatures {
   condition_alerts_as_video: boolean;
 }
 
-/** Per-day media choice. Missing keys default to 'image'. */
+/** Per-day media choice. Missing keys default to 'image' for daily post
+ *  types and to "skip this day" for weekly post types. */
 export type DayMediaMap = Partial<Record<
   'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun',
-  MediaType
+  MediaType | null
 >>;
 
 /** Admin-editable matrix: which post types render as video on which days. */
 export interface MediaSchedule {
   river_highlight: DayMediaMap;
   daily_digest: DayMediaMap;
+  /** Weekly reels: cell = 'video' | 'image' | null (null = don't fire). */
+  weekly_forecast?: DayMediaMap;
+  section_guide?: DayMediaMap;
+  weekly_trend?: DayMediaMap;
 }
 
 /** Weekly reel: fires once per week on a specific weekday. */
