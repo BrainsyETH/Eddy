@@ -116,6 +116,9 @@ export interface DigestReelProps {
   }>;
   dateLabel: string;
   globalQuote?: string;
+  /** Optional title override. Defaults to "River Report"; the weekly
+   *  forecast variant passes "Weekend Forecast" or similar. */
+  title?: string;
   format: "square" | "portrait";
 }
 

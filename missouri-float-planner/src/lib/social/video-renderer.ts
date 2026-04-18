@@ -232,7 +232,7 @@ export async function triggerBrandCheck(params: BrandCheckParams): Promise<boole
  * Map post type + river data to a Remotion composition ID and input props.
  */
 export function getCompositionForPost(
-  postType: 'daily_digest' | 'river_highlight' | 'branded_loop',
+  postType: 'daily_digest' | 'river_highlight' | 'branded_loop' | 'weekly_forecast',
   data: {
     riverName?: string;
     conditionCode?: string;
@@ -248,6 +248,7 @@ export function getCompositionForPost(
     }>;
     dateLabel?: string;
     globalQuote?: string;
+    title?: string;
   },
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
   // Always portrait — both platforms get 1080x1920
@@ -284,15 +285,24 @@ export function getCompositionForPost(
         compositionId: 'social-digest-portrait',
         inputProps: {
           rivers: data.rivers || [],
-          dateLabel: data.dateLabel || new Date().toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          }),
+          dateLabel: data.dateLabel || defaultDate,
           globalQuote: data.globalQuote || undefined,
           format,
         },
         outputFilename: `digest-${new Date().toISOString().slice(0, 10)}`,
+      };
+
+    case 'weekly_forecast':
+      return {
+        compositionId: 'social-digest-portrait',
+        inputProps: {
+          rivers: data.rivers || [],
+          dateLabel: data.dateLabel || 'This Weekend',
+          title: data.title || 'Weekend Forecast',
+          // No global quote on forecast — the top-3 list IS the message.
+          format,
+        },
+        outputFilename: `forecast-${new Date().toISOString().slice(0, 10)}`,
       };
 
     case 'branded_loop':

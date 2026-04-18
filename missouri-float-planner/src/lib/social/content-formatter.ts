@@ -285,6 +285,52 @@ export function formatRiverHighlightCaption(
 }
 
 // ---------------------------------------------------------------------------
+// Weekly Forecast Caption
+// ---------------------------------------------------------------------------
+
+export function formatWeeklyForecastCaption(
+  topRivers: EddyUpdate[],
+  customContent: SocialCustomContent[],
+  platform: SocialPlatform,
+): { caption: string; hashtags: string[] } {
+  const lines: string[] = [];
+
+  // Deterministic headline for the feed-preview fold.
+  const names = topRivers
+    .slice(0, 3)
+    .map((r) => RIVER_SHORT_NAMES[r.river_slug] || r.river_slug)
+    .join(', ');
+  lines.push(`This Weekend — ${names} 🛶`);
+  lines.push('');
+
+  // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft"
+  for (const river of topRivers.slice(0, 3)) {
+    const name = RIVER_SHORT_NAMES[river.river_slug] || river.river_slug;
+    const emoji = CONDITION_EMOJI[river.condition_code] || '';
+    const label = SHORT_CONDITION_LABELS[river.condition_code] || 'Unknown';
+    const gauge = formatGauge(river.gauge_height_ft);
+    if (river.gauge_height_ft !== null) {
+      lines.push(`${emoji} ${name} — ${label} at ${gauge} ft`);
+    } else {
+      lines.push(`${emoji} ${name} — ${label}`);
+    }
+  }
+  lines.push('');
+
+  // CTA
+  lines.push('Pick your float at eddy.guide — live conditions, maps, and outfitters.');
+
+  // Custom content snippets
+  const snippets = getActiveSnippets(customContent, platform);
+  if (snippets.length > 0) {
+    lines.push('');
+    lines.push(snippets.join('\n'));
+  }
+
+  return { caption: lines.join('\n'), hashtags: [] };
+}
+
+// ---------------------------------------------------------------------------
 // Daily Digest Caption
 // ---------------------------------------------------------------------------
 

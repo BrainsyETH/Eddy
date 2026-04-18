@@ -34,8 +34,46 @@ function truncateForVideo(text: string | null): string {
   return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
 }
 
+// Severity order for filtering the weekly forecast's top-3 floatable rivers.
+const FORECAST_SEVERITY: Record<string, number> = {
+  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
+};
+const FORECAST_FLOATABLE = new Set(['flowing', 'good', 'high']);
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildRenderData(post: ScheduledPost, supabase: any) {
+  if (post.postType === 'weekly_forecast') {
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('generated_at', { ascending: false });
+
+    const seen = new Set<string>();
+    const rivers = ((updates || []) as Array<{ river_slug: string; condition_code: string; gauge_height_ft: number | null }>)
+      .filter((u) => {
+        if (seen.has(u.river_slug)) return false;
+        seen.add(u.river_slug);
+        return true;
+      })
+      .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
+      .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
+      .slice(0, 3)
+      .map((u) => ({
+        riverName: u.river_slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        conditionCode: u.condition_code,
+        gaugeHeightFt: u.gauge_height_ft,
+      }));
+
+    return {
+      rivers,
+      dateLabel: 'This Weekend',
+      title: 'Weekend Forecast',
+    };
+  }
+
   if (post.postType === 'daily_digest') {
     const { data: updates } = await supabase
       .from('eddy_updates')

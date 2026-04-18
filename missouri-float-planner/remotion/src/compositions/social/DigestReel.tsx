@@ -21,13 +21,14 @@ import { colors } from "../../design-tokens/colors";
 // Portrait uses REEL_SAFE; other formats keep the compact 48px margin.
 const SAFE = REEL_SAFE;
 
-/** Title slide — "River Report" + date + Eddy + global quote */
+/** Title slide — configurable headline + date + Eddy + optional global quote */
 const TitleSlide: React.FC<{
+  title: string;
   dateLabel: string;
   globalQuote?: string;
   isPortrait: boolean;
   titleFrames: number;
-}> = ({ dateLabel, globalQuote, isPortrait, titleFrames }) => {
+}> = ({ title, dateLabel, globalQuote, isPortrait, titleFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -73,7 +74,7 @@ const TitleSlide: React.FC<{
             textAlign: "center",
           }}
         >
-          River Report
+          {title}
         </div>
         <div
           style={{
@@ -252,6 +253,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   rivers,
   dateLabel,
   globalQuote,
+  title = 'River Report',
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -287,6 +289,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
       <Series>
         <Series.Sequence durationInFrames={titleFrames}>
           <TitleSlide
+            title={title}
             dateLabel={dateLabel}
             globalQuote={globalQuote}
             isPortrait={isPortrait}

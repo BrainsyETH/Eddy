@@ -7,7 +7,22 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
+  formatWeeklyForecastCaption,
 } from './content-formatter';
+
+// Lower = more notable. Mirrors SEVERITY_ORDER in remotion/src/lib/social-props.ts
+// (kept separate because the remotion subproject can't import from src/).
+const WEEKEND_SEVERITY: Record<string, number> = {
+  flowing: 0,
+  good: 1,
+  high: 2,
+  low: 3,
+  dangerous: 4,
+  too_low: 5,
+  unknown: 6,
+};
+// Rivers worth highlighting on a weekend — "floatable" conditions only.
+const WEEKEND_FLOATABLE = new Set(['flowing', 'good', 'high']);
 import { getOrCreateConfig } from './config-helpers';
 import { getCentralDay, getCentralMinutes } from './central-time';
 import type {
@@ -147,6 +162,54 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
   // Pre-compute Central Time day-of-week for video/schedule decisions
   const cstDay = getCentralDay();
+
+  // --- Weekly Forecast (Friday afternoon by default) ---
+  if (config.weekly_forecast?.enabled) {
+    const { day_of_week, time_utc, media } = config.weekly_forecast;
+    const nowUtcDay = new Date().getUTCDay();
+    const dayMatches = nowUtcDay === day_of_week;
+    const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+    const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
+
+    if (!dayMatches) {
+      console.log(`${LOG_PREFIX} Weekly forecast: today is UTC day ${nowUtcDay}, configured ${day_of_week} — skipping`);
+    } else if (!timeMatches) {
+      console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_utc} UTC — skipping`);
+    } else if (alreadyPosted) {
+      console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
+    } else if (updates.length === 0) {
+      console.log(`${LOG_PREFIX} Weekly forecast: no fresh eddy updates — skipping`);
+    } else {
+      // Top 3 floatable rivers for the upcoming weekend.
+      const topRivers = updates
+        .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
+        .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99))
+        .slice(0, 3);
+
+      if (topRivers.length === 0) {
+        console.log(`${LOG_PREFIX} Weekly forecast: no floatable rivers right now — skipping`);
+      } else {
+        const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+        for (const platform of platforms) {
+          const { caption, hashtags } = formatWeeklyForecastCaption(
+            topRivers,
+            customContent,
+            platform,
+          );
+          posts.push({
+            postType: 'weekly_forecast',
+            platform,
+            riverSlug: null,
+            caption,
+            imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
+            mediaType: media,
+            hashtags,
+            eddyUpdateId: null,
+          });
+        }
+      }
+    }
+  }
 
   // --- Daily Digest ---
   // Digest can work with just the global summary, so don't require per-river updates
@@ -324,17 +387,21 @@ async function hasPostedToday(
   return false;
 }
 
-// Check if current time is within 45 minutes of the configured digest time
-function isNearDigestTime(digestTimeUtc: string): boolean {
-  const [hours, minutes] = digestTimeUtc.split(':').map(Number);
+// Check if current time is within `windowMinutes` of a configured UTC time.
+function isNearUtcTime(timeUtc: string, windowMinutes: number): boolean {
+  const [hours, minutes] = timeUtc.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return false;
   const now = new Date();
-  const digestTime = new Date();
-  digestTime.setUTCHours(hours, minutes, 0, 0);
+  const target = new Date();
+  target.setUTCHours(hours, minutes, 0, 0);
 
-  const diffMs = Math.abs(now.getTime() - digestTime.getTime());
-  const diffMinutes = diffMs / (1000 * 60);
+  const diffMs = Math.abs(now.getTime() - target.getTime());
+  return diffMs / (1000 * 60) <= windowMinutes;
+}
 
-  return diffMinutes <= 45;
+// Back-compat for existing digest call site.
+function isNearDigestTime(digestTimeUtc: string): boolean {
+  return isNearUtcTime(digestTimeUtc, 45);
 }
 
 // Get failed posts eligible for retry

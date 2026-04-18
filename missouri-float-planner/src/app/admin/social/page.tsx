@@ -32,6 +32,13 @@ interface VideoFeatures {
   condition_alerts_as_video: boolean;
 }
 
+interface WeeklyForecastConfig {
+  enabled: boolean;
+  day_of_week: number; // 0=Sun..6=Sat
+  time_utc: string;
+  media: 'video' | 'image';
+}
+
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 type MediaChoice = 'video' | 'image';
 type DayMediaMap = Partial<Record<DayKey, MediaChoice>>;
@@ -56,6 +63,7 @@ interface SocialConfig {
   river_schedules: Record<string, Record<string, string | null>>;
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
+  weekly_forecast: WeeklyForecastConfig;
 }
 
 const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -1138,6 +1146,88 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Click &quot;skip&quot; to enable a day, or click the x to disable it.</p>
+                </div>
+
+                {/* Weekly Forecast — once-per-week weekend preview reel */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Weekly Forecast</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Posts once per week — a reel or image of the top 3 floatable rivers for the
+                    upcoming weekend. Uses the digest composition with a &quot;Weekend Forecast&quot; title.
+                  </p>
+                  <label className="flex items-center gap-3 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={config.weekly_forecast?.enabled ?? false}
+                      onChange={(e) => setConfig({
+                        ...config,
+                        weekly_forecast: {
+                          ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
+                          enabled: e.target.checked,
+                        },
+                      })}
+                      className="rounded bg-neutral-900 border-neutral-600"
+                    />
+                    <span className="text-neutral-200 font-medium">Enable Weekly Forecast</span>
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase text-neutral-400 mb-1">Day of week</label>
+                      <select
+                        value={config.weekly_forecast?.day_of_week ?? 5}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          weekly_forecast: {
+                            ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
+                            day_of_week: Number(e.target.value),
+                          },
+                        })}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                      >
+                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => (
+                          <option key={d} value={i}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase text-neutral-400 mb-1">Time (UTC)</label>
+                      <input
+                        type="time"
+                        value={config.weekly_forecast?.time_utc ?? '22:00'}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          weekly_forecast: {
+                            ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
+                            time_utc: e.target.value,
+                          },
+                        })}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase text-neutral-400 mb-1">Format</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = config.weekly_forecast?.media || 'video';
+                          setConfig({
+                            ...config,
+                            weekly_forecast: {
+                              ...(config.weekly_forecast || { enabled: false, day_of_week: 5, time_utc: '22:00', media: 'video' }),
+                              media: current === 'video' ? 'image' : 'video',
+                            },
+                          });
+                        }}
+                        className={`w-full px-2 py-1.5 rounded text-sm font-medium transition-colors ${
+                          (config.weekly_forecast?.media || 'video') === 'video'
+                            ? 'bg-primary-500 text-white hover:bg-primary-600'
+                            : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                        }`}
+                      >
+                        {(config.weekly_forecast?.media || 'video') === 'video' ? 'Video' : 'Image'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Video Features — opt-in reel variants */}
