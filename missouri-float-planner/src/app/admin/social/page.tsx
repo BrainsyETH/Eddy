@@ -59,9 +59,6 @@ interface SocialConfig {
 }
 
 const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const MEDIA_DAY_LABEL: Record<DayKey, string> = {
-  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
-};
 
 interface PreviewPost {
   postType: string;
