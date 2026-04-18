@@ -291,6 +291,11 @@ async function publishAsVideo(params: {
   const oldLabel = CONDITION_LABEL[oldCondition] ?? oldCondition;
   const newLabel = CONDITION_LABEL[newCondition] ?? newCondition;
   const quoteText = `Now ${newLabel} — up from ${oldLabel}. Check the full report.`;
+  const dateLabel = new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   const dispatched = await triggerVideoRender({
     postIds: postIds.join(','),
@@ -302,6 +307,7 @@ async function publishAsVideo(params: {
       optimalMin,
       optimalMax,
       quoteText,
+      dateLabel,
       format: 'portrait',
     },
     outputFilename: `condition-change-${riverSlug}-${newCondition}-${Date.now()}`,
