@@ -2,12 +2,26 @@
 // Self-healing config loader for social_config singleton table.
 // Handles duplicate rows, missing rows, and the happy path.
 
-import type { SocialConfig, VideoFeatures } from './types';
+import type { SocialConfig, VideoFeatures, MediaSchedule } from './types';
 
 const LOG_PREFIX = '[SocialConfig]';
 
 export const DEFAULT_VIDEO_FEATURES: VideoFeatures = {
   condition_alerts_as_video: false,
+};
+
+// Matches the 00092 migration default — Mon/Wed/Fri = video, rest = image.
+// Users can edit this matrix from the admin UI; the scheduler reads from
+// config, not this constant.
+export const DEFAULT_MEDIA_SCHEDULE: MediaSchedule = {
+  river_highlight: {
+    mon: 'video', tue: 'image', wed: 'video',
+    thu: 'image', fri: 'video', sat: 'image', sun: 'image',
+  },
+  daily_digest: {
+    mon: 'video', tue: 'image', wed: 'video',
+    thu: 'image', fri: 'video', sat: 'image', sun: 'image',
+  },
 };
 
 const DEFAULT_CONFIG = {
@@ -22,6 +36,7 @@ const DEFAULT_CONFIG = {
   highlight_conditions: ['flowing', 'dangerous', 'high', 'too_low'],
   weekend_boost_enabled: false,
   video_features: DEFAULT_VIDEO_FEATURES,
+  media_schedule: DEFAULT_MEDIA_SCHEDULE,
   river_schedules: {
     'meramec': { mon: '07:00', tue: '07:00', wed: '07:00', thu: '07:00', fri: '07:00', sat: '09:00', sun: '09:00' },
     'current': { mon: '07:30', tue: '07:30', wed: '07:30', thu: '07:30', fri: '07:30', sat: '09:30', sun: '09:30' },
@@ -73,13 +88,21 @@ export async function getOrCreateConfig(
   // Happy path: exactly 1 row
   const config = rows[0] as SocialConfig;
 
-  // Backfill video_features if the row predates the 00091 migration or was
-  // inserted before that column had a default — keeps downstream .?. chains
-  // clean.
+  // Backfill video_features + media_schedule for rows that predate their
+  // respective migrations (or were written before the columns had defaults).
+  // Keeps downstream .?. chains clean.
   if (!config.video_features) {
     config.video_features = { ...DEFAULT_VIDEO_FEATURES };
   } else {
     config.video_features = { ...DEFAULT_VIDEO_FEATURES, ...config.video_features };
+  }
+  if (!config.media_schedule) {
+    config.media_schedule = { ...DEFAULT_MEDIA_SCHEDULE };
+  } else {
+    config.media_schedule = {
+      river_highlight: { ...DEFAULT_MEDIA_SCHEDULE.river_highlight, ...(config.media_schedule.river_highlight || {}) },
+      daily_digest: { ...DEFAULT_MEDIA_SCHEDULE.daily_digest, ...(config.media_schedule.daily_digest || {}) },
+    };
   }
 
   // Multiple rows — self-heal

@@ -82,6 +82,7 @@ async function handleSave(request: NextRequest) {
     highlight_conditions: body.highlight_conditions,
     river_schedules: body.river_schedules,
     video_features: body.video_features ?? existing.video_features,
+    media_schedule: body.media_schedule ?? existing.media_schedule,
     updated_at: new Date().toISOString(),
   };
 

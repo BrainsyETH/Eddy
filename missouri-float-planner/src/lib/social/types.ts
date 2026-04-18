@@ -35,6 +35,18 @@ export interface VideoFeatures {
   condition_alerts_as_video: boolean;
 }
 
+/** Per-day media choice. Missing keys default to 'image'. */
+export type DayMediaMap = Partial<Record<
+  'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun',
+  MediaType
+>>;
+
+/** Admin-editable matrix: which post types render as video on which days. */
+export interface MediaSchedule {
+  river_highlight: DayMediaMap;
+  daily_digest: DayMediaMap;
+}
+
 export interface SocialConfig {
   id: string;
   posting_enabled: boolean;
@@ -49,6 +61,7 @@ export interface SocialConfig {
   weekend_boost_enabled: boolean;
   river_schedules: Record<string, Record<string, string | null>>; // { river_slug: { mon: "HH:MM", tue: null, ... } }
   video_features: VideoFeatures;
+  media_schedule: MediaSchedule;
   updated_at: string;
 }
 
