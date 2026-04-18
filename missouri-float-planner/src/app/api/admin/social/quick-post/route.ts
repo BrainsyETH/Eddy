@@ -471,6 +471,25 @@ async function postWeekly(
 
   // Build per-type payload: caption, image URL, video render data.
   let renderData: Record<string, unknown> = {};
+  // Early guards per post type so we return a clear 4xx instead of inserting
+  // meaningless empty records.
+  if (postType === 'weekly_forecast') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const floatable = (deduped as any[]).filter((u) => WEEKLY_FLOATABLE.has(u.condition_code));
+    if (floatable.length === 0) {
+      return NextResponse.json(
+        { error: 'No floatable rivers to feature right now. Run /api/cron/generate-eddy-updates or wait for the daily update.' },
+        { status: 404 },
+      );
+    }
+  }
+  if (postType === 'section_guide' && availableSlugs.length === 0) {
+    return NextResponse.json(
+      { error: 'No rivers with fresh updates — section guide skipped.' },
+      { status: 404 },
+    );
+  }
+
   const buildCaption: (platform: SocialPlatform) => { caption: string; hashtags: string[] } = (() => {
     if (postType === 'weekly_forecast') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -539,17 +558,21 @@ async function postWeekly(
   // Video path — dispatch GH Actions for all platforms
   if (mediaType === 'video') {
     const postIds: string[] = [];
+    const insertErrors: string[] = [];
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
 
     for (const platform of platforms) {
       // Clear any prior manual-post rows so dedup index doesn't block.
-      await supabase
+      const { error: deleteError } = await supabase
         .from('social_posts')
         .delete()
         .eq('post_type', postType)
         .eq('platform', platform)
         .gte('created_at', todayStart.toISOString());
+      if (deleteError) {
+        console.error(`[QuickPost/${postType}] dedup delete failed for ${platform}:`, deleteError.message);
+      }
 
       const { caption, hashtags } =
         postType === 'weekly_trend' && trendPayload
@@ -573,12 +596,23 @@ async function postWeekly(
         .select('id')
         .single();
 
-      if (insertError) continue;
+      if (insertError) {
+        console.error(`[QuickPost/${postType}] insert failed for ${platform}:`, insertError.message);
+        insertErrors.push(`${platform}: ${insertError.message}`);
+        continue;
+      }
       postIds.push(record.id);
     }
 
     if (postIds.length === 0) {
-      return NextResponse.json({ error: 'No records created' }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: insertErrors.length > 0
+            ? `No records created — ${insertErrors.join('; ')}`
+            : 'No records created — no platforms have credentials configured (META_PAGE_ACCESS_TOKEN, META_PAGE_ID, META_INSTAGRAM_ACCOUNT_ID)',
+        },
+        { status: 500 },
+      );
     }
 
     const { compositionId, inputProps, outputFilename } = getCompositionForPost(
@@ -597,18 +631,27 @@ async function postWeekly(
       for (const id of postIds) {
         await supabase
           .from('social_posts')
-          .update({ media_type: 'image', status: 'failed', error_message: 'GH Actions dispatch failed' })
+          .update({ status: 'failed', error_message: 'GH Actions dispatch failed' })
           .eq('id', id);
       }
+      logAdminAction({
+        action: `quick_post_${postType}`,
+        entityType: 'social_post',
+        details: { platforms, dispatched: 0, reason: 'gh_actions_dispatch_failed' },
+      });
+      return NextResponse.json(
+        { error: 'GH Actions workflow dispatch failed — check GH_ACTIONS_TOKEN and workflow file' },
+        { status: 502 },
+      );
     }
 
     logAdminAction({
       action: `quick_post_${postType}`,
       entityType: 'social_post',
-      details: { platforms, dispatched: success ? postIds.length : 0 },
+      details: { platforms, dispatched: postIds.length },
     });
 
-    return NextResponse.json({ rendering: success ? postIds.length : 0 });
+    return NextResponse.json({ rendering: postIds.length });
   }
 
   // Image path — publish inline through the adapter
