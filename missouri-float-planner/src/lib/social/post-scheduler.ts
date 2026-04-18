@@ -19,17 +19,22 @@ import type {
 
 const LOG_PREFIX = '[SocialScheduler]';
 
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+type DayKey = (typeof DAY_KEYS)[number];
+
 /**
- * Determine if a post should be video based on day of week.
- * Videos on Mon/Wed/Fri, static images on other days.
- * This gives a mix of content types for better engagement.
+ * Read the media choice for a given post type + day from social_config.
+ * Falls back to 'image' (safe default — image posts publish inline and
+ * skip the GH Actions render path).
  */
-function shouldUseVideo(postType: string, dayOfWeek: number): boolean {
-  // Enable video for highlights and digests on Mon(1), Wed(3), Fri(5)
-  if (postType === 'river_highlight' || postType === 'daily_digest') {
-    return dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5;
-  }
-  return false;
+function resolveMedia(
+  mediaSchedule: import('./types').MediaSchedule | undefined,
+  postType: 'river_highlight' | 'daily_digest',
+  dayOfWeek: number,
+): MediaType {
+  const dayKey: DayKey = DAY_KEYS[dayOfWeek] ?? 'sun';
+  const choice = mediaSchedule?.[postType]?.[dayKey];
+  return choice === 'video' ? 'video' : 'image';
 }
 
 export interface SchedulerResult {
@@ -155,7 +160,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-      const digestMediaType: MediaType = shouldUseVideo('daily_digest', cstDay) ? 'video' : 'image';
+      const digestMediaType: MediaType = resolveMedia(config.media_schedule, 'daily_digest', cstDay);
       for (const platform of platforms) {
         const { caption, hashtags } = formatDailyDigestCaption(
           updates,
@@ -181,7 +186,6 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // --- River Highlights (per-river weekly schedule) ---
   const schedules = config.river_schedules || {};
   const scheduledRivers = Object.keys(schedules);
-  const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
   const todayKey = DAY_KEYS[cstDay];
 
   if (scheduledRivers.length === 0) {
@@ -248,7 +252,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
     // Create posts for both platforms
     const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-    const highlightMediaType: MediaType = shouldUseVideo('river_highlight', cstDay) ? 'video' : 'image';
+    const highlightMediaType: MediaType = resolveMedia(config.media_schedule, 'river_highlight', cstDay);
     for (const platform of platforms) {
       const { caption, hashtags } = formatRiverHighlightCaption(
         update,

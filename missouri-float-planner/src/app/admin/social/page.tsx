@@ -28,6 +28,19 @@ import {
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
 
+interface VideoFeatures {
+  condition_alerts_as_video: boolean;
+}
+
+type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+type MediaChoice = 'video' | 'image';
+type DayMediaMap = Partial<Record<DayKey, MediaChoice>>;
+
+interface MediaSchedule {
+  river_highlight: DayMediaMap;
+  daily_digest: DayMediaMap;
+}
+
 interface SocialConfig {
   id: string;
   posting_enabled: boolean;
@@ -41,7 +54,14 @@ interface SocialConfig {
   highlight_conditions: string[];
   weekend_boost_enabled: boolean;
   river_schedules: Record<string, Record<string, string | null>>;
+  video_features: VideoFeatures;
+  media_schedule: MediaSchedule;
 }
+
+const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const MEDIA_DAY_LABEL: Record<DayKey, string> = {
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+};
 
 interface PreviewPost {
   postType: string;
@@ -1168,6 +1188,106 @@ export default function SocialAdminPage() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Media Schedule — per-post-type per-day video vs image */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Media Schedule</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Pick which days render as video Reels vs static images for each post type.
+                    Videos take ~5–10 min to render; images publish inline.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-neutral-400 font-medium pb-2 pr-4">Post type</th>
+                          {MEDIA_DAYS.map((d) => (
+                            <th key={d} className="text-center text-neutral-400 font-medium pb-2 px-1">
+                              {MEDIA_DAY_LABEL[d]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(['river_highlight', 'daily_digest'] as const).map((postType) => (
+                          <tr key={postType} className="border-t border-neutral-700">
+                            <td className="text-neutral-200 py-2 pr-4 capitalize">
+                              {postType === 'river_highlight' ? 'River highlight' : 'Daily digest'}
+                            </td>
+                            {MEDIA_DAYS.map((day) => {
+                              const current = config.media_schedule?.[postType]?.[day] || 'image';
+                              return (
+                                <td key={day} className="text-center py-2 px-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next: MediaChoice = current === 'video' ? 'image' : 'video';
+                                      setConfig({
+                                        ...config,
+                                        media_schedule: {
+                                          ...(config.media_schedule || {
+                                            river_highlight: {},
+                                            daily_digest: {},
+                                          }),
+                                          [postType]: {
+                                            ...(config.media_schedule?.[postType] || {}),
+                                            [day]: next,
+                                          },
+                                        },
+                                      });
+                                    }}
+                                    className={`w-full px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                      current === 'video'
+                                        ? 'bg-primary-500 text-white hover:bg-primary-600'
+                                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                    }`}
+                                  >
+                                    {current === 'video' ? 'Video' : 'Image'}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Video Features — opt-in reel variants */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Video Features</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Opt-in reel variants. Renders go through GitHub Actions, add ~5–10 min latency,
+                    and are gated by the audio verification step.
+                  </p>
+                  <label className="flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.video_features?.condition_alerts_as_video ?? false}
+                      onChange={(e) => {
+                        setConfig({
+                          ...config,
+                          video_features: {
+                            ...(config.video_features || { condition_alerts_as_video: false }),
+                            condition_alerts_as_video: e.target.checked,
+                          },
+                        });
+                      }}
+                      className="mt-1 rounded bg-neutral-900 border-neutral-600"
+                    />
+                    <div>
+                      <div className="text-neutral-200 font-medium">
+                        Condition-change alerts as Reels
+                      </div>
+                      <div className="text-sm text-neutral-400 mt-1">
+                        When a river flips to flowing, high, or dangerous, render a 12-second reel
+                        instead of posting a static image. Off = fast image alert; on = higher
+                        engagement, slower publish.
+                      </div>
+                    </div>
+                  </label>
                 </div>
 
                 <button

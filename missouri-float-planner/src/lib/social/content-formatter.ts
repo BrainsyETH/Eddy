@@ -227,23 +227,26 @@ export function formatRiverHighlightCaption(
   const seed = `${update.river_slug}-${new Date().toISOString().split('T')[0]}`;
 
   const lines: string[] = [];
+  const shortLabel = SHORT_CONDITION_LABELS[condition] || 'Unknown';
 
-  // 1. Hook line (first thing visible before "See more")
+  // 0. Headline (the first ~125 chars Instagram shows before the "more" fold).
+  // Keep this deterministic — river name, condition, gauge — so every post's
+  // feed preview reads the same shape and the factual summary never gets hidden
+  // behind variable hook copy.
+  if (update.gauge_height_ft !== null) {
+    lines.push(`${riverName} — ${shortLabel} at ${gauge} ft ${emoji}`.trim());
+  } else {
+    lines.push(`${riverName} — ${shortLabel} ${emoji}`.trim());
+  }
+  lines.push('');
+
+  // 1. Hook line
   const hookTemplates = HIGHLIGHT_HOOKS[condition] || HIGHLIGHT_HOOKS.good;
   const hook = interpolate(pickTemplate(hookTemplates, seed), {
     river: riverName,
     gauge,
   });
   lines.push(hook);
-  lines.push('');
-
-  // 2. Condition + gauge as a clean one-liner
-  const shortLabel = SHORT_CONDITION_LABELS[condition] || 'Unknown';
-  if (update.gauge_height_ft !== null) {
-    lines.push(`${emoji} ${shortLabel} at ${gauge} ft`);
-  } else {
-    lines.push(`${emoji} ${shortLabel}`);
-  }
   lines.push('');
 
   // 3. Eddy Says full report — both platforms
@@ -362,6 +365,16 @@ export function formatConditionChangeCaption(params: {
 
   const lines: string[] = [];
 
+  // 0. Deterministic headline (first ~125 chars before IG "more" fold).
+  // Every condition-change alert's feed preview reads as the same shape.
+  const gaugeText = params.gaugeHeightFt !== null
+    ? ` — ${params.gaugeHeightFt.toFixed(1)} ft`
+    : '';
+  lines.push(
+    `${riverName}: ${oldShort} → ${newEmoji} ${newShort}${gaugeText}`.trim(),
+  );
+  lines.push('');
+
   // 1. Hook line
   let hookPool: string[];
   if (params.newCondition === 'flowing') {
@@ -376,15 +389,6 @@ export function formatConditionChangeCaption(params: {
     hookPool = CONDITION_CHANGE_HOOKS.default;
   }
   lines.push(interpolate(pickTemplate(hookPool, seed), { river: riverName }));
-  lines.push('');
-
-  // 2. Transition line
-  lines.push(`${oldShort} \u2192 ${newEmoji} ${newShort}`);
-
-  if (params.gaugeHeightFt !== null) {
-    lines.push(`Currently at ${params.gaugeHeightFt.toFixed(1)} ft`);
-  }
-
   lines.push('');
 
   // 3. CTA with deep link

@@ -13,19 +13,13 @@ import { EddyMascot } from "../../components/EddyMascot";
 import { Watermark } from "../../components/Watermark";
 import { RiverCard } from "./RiverCard";
 import { ENTRANCE } from "../../lib/spring-presets";
+import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import { SEVERITY_ORDER, type DigestReelProps } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
 
-// Reel-safe content zones (1080x1920 portrait).
-// Horizontal padding is symmetric so `alignItems: center` lands on the true
-// video centerline (x=540); vertical padding rebalanced so the content block
-// reads as vertically centered.
-const SAFE = {
-  top: 120,
-  bottom: 220,
-  right: 50,
-  left: 50,
-};
+// Alias for non-portrait layouts (square/landscape preview in Studio).
+// Portrait uses REEL_SAFE; other formats keep the compact 48px margin.
+const SAFE = REEL_SAFE;
 
 /** Title slide — "River Report" + date + Eddy + global quote */
 const TitleSlide: React.FC<{
@@ -260,6 +254,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   globalQuote,
   format,
 }) => {
+  const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const isPortrait = format === "portrait";
 
@@ -275,8 +270,11 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   const riverFrames = 180 + Math.max(0, sortedRivers.length - 5) * 6;
   const ctaFrames = 75;
 
+  // Fade in/out on the whole composition so the Reel auto-loop is seamless.
+  const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
+
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ opacity: loopOpacity }}>
       <Audio
         src={staticFile("audio/background-music.wav")}
         volume={(f) =>
