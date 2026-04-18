@@ -1094,102 +1094,6 @@ export default function SocialAdminPage() {
                   <p className="text-xs text-neutral-500 mt-3">All times are CST (UTC-6). Click &quot;skip&quot; to enable a day, or click the x to disable it.</p>
                 </div>
 
-                {/* Save button */}
-                <button
-                  onClick={saveConfig}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Settings'}
-                </button>
-              </div>
-            )}
-
-            {/* River Filters Tab */}
-            {activeTab === 'filters' && config && (
-              <div className="space-y-6">
-                {/* River toggles */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">River Selection</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Select which rivers can appear in highlight posts. Unchecked rivers will be excluded.
-                  </p>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {rivers.map((river) => {
-                      const isDisabled = (config.disabled_rivers || []).includes(river.slug);
-                      return (
-                        <label
-                          key={river.slug}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!isDisabled}
-                            onChange={(e) => {
-                              const disabled = config.disabled_rivers || [];
-                              if (e.target.checked) {
-                                setConfig({
-                                  ...config,
-                                  disabled_rivers: disabled.filter((s) => s !== river.slug),
-                                });
-                              } else {
-                                setConfig({
-                                  ...config,
-                                  disabled_rivers: [...disabled, river.slug],
-                                });
-                              }
-                            }}
-                            className="rounded bg-neutral-900 border-neutral-600"
-                          />
-                          <span className="text-neutral-200">{river.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Condition filters */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">Condition Triggers</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Only post river highlights when the condition matches one of these:
-                  </p>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {ALL_CONDITIONS.map((condition) => {
-                      const isEnabled = (config.highlight_conditions || []).includes(condition.code);
-                      return (
-                        <label
-                          key={condition.code}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isEnabled}
-                            onChange={(e) => {
-                              const conditions = config.highlight_conditions || [];
-                              if (e.target.checked) {
-                                setConfig({
-                                  ...config,
-                                  highlight_conditions: [...conditions, condition.code],
-                                });
-                              } else {
-                                setConfig({
-                                  ...config,
-                                  highlight_conditions: conditions.filter((c) => c !== condition.code),
-                                });
-                              }
-                            }}
-                            className="rounded bg-neutral-900 border-neutral-600"
-                          />
-                          <span className={`w-3 h-3 rounded-full ${condition.color}`} />
-                          <span className="text-neutral-200">{condition.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
                 {/* Media Schedule — per-post-type per-day video vs image */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">Media Schedule</h3>
@@ -1289,6 +1193,104 @@ export default function SocialAdminPage() {
                     </div>
                   </label>
                 </div>
+
+                {/* Save button */}
+                <button
+                  onClick={saveConfig}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            )}
+
+            {/* River Filters Tab */}
+            {activeTab === 'filters' && config && (
+              <div className="space-y-6">
+                {/* River toggles */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">River Selection</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Select which rivers can appear in highlight posts. Unchecked rivers will be excluded.
+                  </p>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {rivers.map((river) => {
+                      const isDisabled = (config.disabled_rivers || []).includes(river.slug);
+                      return (
+                        <label
+                          key={river.slug}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!isDisabled}
+                            onChange={(e) => {
+                              const disabled = config.disabled_rivers || [];
+                              if (e.target.checked) {
+                                setConfig({
+                                  ...config,
+                                  disabled_rivers: disabled.filter((s) => s !== river.slug),
+                                });
+                              } else {
+                                setConfig({
+                                  ...config,
+                                  disabled_rivers: [...disabled, river.slug],
+                                });
+                              }
+                            }}
+                            className="rounded bg-neutral-900 border-neutral-600"
+                          />
+                          <span className="text-neutral-200">{river.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Condition filters */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Condition Triggers</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Only post river highlights when the condition matches one of these:
+                  </p>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {ALL_CONDITIONS.map((condition) => {
+                      const isEnabled = (config.highlight_conditions || []).includes(condition.code);
+                      return (
+                        <label
+                          key={condition.code}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => {
+                              const conditions = config.highlight_conditions || [];
+                              if (e.target.checked) {
+                                setConfig({
+                                  ...config,
+                                  highlight_conditions: [...conditions, condition.code],
+                                });
+                              } else {
+                                setConfig({
+                                  ...config,
+                                  highlight_conditions: conditions.filter((c) => c !== condition.code),
+                                });
+                              }
+                            }}
+                            className="rounded bg-neutral-900 border-neutral-600"
+                          />
+                          <span className={`w-3 h-3 rounded-full ${condition.color}`} />
+                          <span className="text-neutral-200">{condition.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Media Schedule + Video Features moved to the Settings tab */}
 
                 <button
                   onClick={saveConfig}
