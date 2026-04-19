@@ -19,6 +19,7 @@ import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-re
 import { pickSectionForRivers } from '@/lib/social/section-picker';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
+import { buildLiveConditionsMap } from '@/lib/social/live-conditions';
 
 const WEEKLY_SEVERITY: Record<string, number> = {
   flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
@@ -452,10 +453,21 @@ async function postWeekly(
 
   const seen = new Set<string>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deduped = (updates || []).filter((u: any) => {
+  const dedupedRaw = (updates || []).filter((u: any) => {
     if (seen.has(u.river_slug)) return false;
     seen.add(u.river_slug);
     return true;
+  });
+  // Overlay live gauge-derived conditions so the manual post reflects
+  // reality, not yesterday's AI snapshot. buildLiveConditionsMap falls
+  // back gracefully if no primary gauge is mapped.
+  const liveMap = await buildLiveConditionsMap(supabase);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deduped = dedupedRaw.map((u: any) => {
+    const live = liveMap.get(u.river_slug);
+    return live
+      ? { ...u, condition_code: live.condition_code, gauge_height_ft: live.gauge_height_ft ?? u.gauge_height_ft }
+      : u;
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const availableSlugs = deduped.map((u: any) => u.river_slug as string);

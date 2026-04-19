@@ -17,6 +17,7 @@ import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-re
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { pickSectionForRivers } from '@/lib/social/section-picker';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
+import { buildLiveConditionsMap } from '@/lib/social/live-conditions';
 
 const CRON_LOCK_NAME = 'post_social';
 // Renders routinely take 5–9 min on GH Actions; give slack before another
@@ -44,6 +45,12 @@ const FORECAST_FLOATABLE = new Set(['flowing', 'good', 'high']);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildRenderData(post: ScheduledPost, supabase: any) {
+  // All branches below read condition_code and gauge_height_ft from
+  // eddy_updates, which is frozen at the daily AI-regen cron. Pull the
+  // live gauge-derived conditions once so props match reality (not
+  // yesterday's snapshot).
+  const liveMap = await buildLiveConditionsMap(supabase);
+
   if (post.postType === 'section_guide') {
     // Re-pick the same section the scheduler picked. The week-based
     // rotation in pickSectionForRivers is deterministic for a given date,
@@ -73,7 +80,7 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
 
     return {
       ...section,
-      conditionCode: update?.condition_code || 'unknown',
+      conditionCode: liveMap.get(section.riverSlug)?.condition_code || update?.condition_code || 'unknown',
       dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     };
   }
@@ -93,7 +100,7 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
     const latest = (updates || []).find((u: { river_slug: string; condition_code: string }) => u.river_slug === trend.riverSlug);
     return {
       ...trend,
-      conditionCode: latest?.condition_code || 'unknown',
+      conditionCode: liveMap.get(trend.riverSlug)?.condition_code || latest?.condition_code || 'unknown',
       dateLabel: 'This Week',
     };
   }
@@ -113,6 +120,14 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         if (seen.has(u.river_slug)) return false;
         seen.add(u.river_slug);
         return true;
+      })
+      .map((u) => {
+        const live = liveMap.get(u.river_slug);
+        return {
+          river_slug: u.river_slug,
+          condition_code: live?.condition_code ?? u.condition_code,
+          gauge_height_ft: live?.gauge_height_ft ?? u.gauge_height_ft,
+        };
       })
       .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
       .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
@@ -146,14 +161,17 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         seen.add(u.river_slug);
         return true;
       })
-      .map((u: { river_slug: string; condition_code: string; gauge_height_ft: number | null }) => ({
-        riverName: u.river_slug
-          .split('-')
-          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' '),
-        conditionCode: u.condition_code,
-        gaugeHeightFt: u.gauge_height_ft,
-      }));
+      .map((u: { river_slug: string; condition_code: string; gauge_height_ft: number | null }) => {
+        const live = liveMap.get(u.river_slug);
+        return {
+          riverName: u.river_slug
+            .split('-')
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' '),
+          conditionCode: live?.condition_code ?? u.condition_code,
+          gaugeHeightFt: live?.gauge_height_ft ?? u.gauge_height_ft,
+        };
+      });
 
     const { data: globalUpdate } = await supabase
       .from('eddy_updates')
@@ -194,13 +212,14 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
         optimalMax = gauge.level_optimal_max ?? optimalMax;
       }
 
+      const live = liveMap.get(update.river_slug);
       return {
         riverName: update.river_slug
           .split('-')
           .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
           .join(' '),
-        conditionCode: update.condition_code,
-        gaugeHeightFt: update.gauge_height_ft,
+        conditionCode: live?.condition_code ?? update.condition_code,
+        gaugeHeightFt: live?.gauge_height_ft ?? update.gauge_height_ft,
         optimalMin,
         optimalMax,
         quoteText: truncateForVideo(update.quote_text),
