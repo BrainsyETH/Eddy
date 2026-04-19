@@ -12,28 +12,14 @@ import type { SocialPlatform, PlatformAdapter } from './types';
 
 const LOG_PREFIX = '[ConditionAlert]';
 
-// Human-readable labels for the rendered Reel. Mirrors SHORT_CONDITION_LABELS
-// in content-formatter.ts but we re-declare here to keep the import surface
-// small.
-const CONDITION_LABEL: Record<string, string> = {
-  flowing: 'flowing',
-  good: 'good',
-  low: 'low',
-  too_low: 'too low',
-  high: 'high',
-  dangerous: 'dangerous',
-  unknown: 'unknown',
-};
-
-// Notable transitions worth posting about
-const NOTABLE_NEW_CONDITIONS = ['flowing', 'dangerous', 'high'];
-
+// Condition-change alerts are SAFETY WARNINGS. They fire only when a river
+// crosses from a floatable state (flowing) into elevated / dangerous water
+// (high or dangerous). Anything else — a river becoming floatable, a flood
+// warning lifting, good→low, etc. — is routine news, not a warning, and is
+// left to the scheduled reel rotation.
 function isNotableTransition(oldCondition: string, newCondition: string): boolean {
-  // Any → flowing, dangerous, or high
-  if (NOTABLE_NEW_CONDITIONS.includes(newCondition)) return true;
-  // dangerous → anything else (flood warning lifted)
-  if (oldCondition === 'dangerous' && newCondition !== 'dangerous') return true;
-  return false;
+  if (oldCondition !== 'flowing') return false;
+  return newCondition === 'high' || newCondition === 'dangerous';
 }
 
 function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
@@ -139,7 +125,7 @@ export async function publishConditionChangeAlert(params: {
       platform,
     });
 
-    const imageUrl = `${baseUrl}/api/og/social?type=highlight&river=${riverSlug}&platform=${platform}`;
+    const imageUrl = `${baseUrl}/api/og/social?type=warning&river=${riverSlug}&from=${oldCondition}&platform=${platform}`;
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -244,7 +230,7 @@ async function publishAsVideo(params: {
       platform,
     });
 
-    const imageUrl = `${baseUrl}/api/og/social?type=highlight&river=${riverSlug}&platform=${platform}`;
+    const imageUrl = `${baseUrl}/api/og/social?type=warning&river=${riverSlug}&from=${oldCondition}&platform=${platform}`;
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -288,9 +274,12 @@ async function publishAsVideo(params: {
     optimalMax = gauge.level_optimal_max ?? optimalMax;
   }
 
-  const oldLabel = CONDITION_LABEL[oldCondition] ?? oldCondition;
-  const newLabel = CONDITION_LABEL[newCondition] ?? newCondition;
-  const quoteText = `Now ${newLabel} — up from ${oldLabel}. Check the full report.`;
+  // Warning-specific quote — terse, action-oriented, under the 120-char
+  // video teaser truncation threshold.
+  const quoteText =
+    newCondition === 'dangerous'
+      ? `${riverName} is now dangerous. Do not float — wait for levels to drop.`
+      : `${riverName} has risen into high water. Experienced paddlers only.`;
   const dateLabel = new Date().toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
@@ -303,6 +292,8 @@ async function publishAsVideo(params: {
     inputProps: {
       riverName,
       conditionCode: newCondition,
+      previousCondition: oldCondition,
+      warningMode: true,
       gaugeHeightFt: gaugeHeightFt ?? 0,
       optimalMin,
       optimalMax,

@@ -101,29 +101,6 @@ const DIGEST_HOOKS: string[] = [
   'Your {day} river report is in. Here\u2019s the rundown.',
 ];
 
-const CONDITION_CHANGE_HOOKS: Record<string, string[]> = {
-  flowing: [
-    '{river} just hit ideal conditions \u2014 it\u2019s go time.',
-    'The wait is over. {river} is running perfect.',
-  ],
-  dangerous: [
-    'Flood warning: {river}. Stay off the water.',
-    '{river} just hit flood stage. Do not launch.',
-  ],
-  high: [
-    '{river} is running high now \u2014 use caution.',
-    'Heads up: {river} just moved to high water.',
-  ],
-  from_dangerous: [
-    'Flood warning lifted on {river}. Conditions are improving.',
-    'Good news \u2014 {river} is dropping out of flood stage.',
-  ],
-  default: [
-    'Conditions just changed on {river}.',
-    '{river} conditions are shifting \u2014 here\u2019s the update.',
-  ],
-};
-
 // Weekend engagement questions (appended to flowing/good posts Thu-Sun)
 const ENGAGEMENT_QUESTIONS: string[] = [
   'Where are you putting in this weekend?',
@@ -146,11 +123,6 @@ const DIGEST_CTAS: string[] = [
   'Check all rivers \u2192 https://eddy.guide',
   'See live conditions for every river \u2192 https://eddy.guide',
   'Plan your next float \u2192 https://eddy.guide',
-];
-
-const CHANGE_CTAS: string[] = [
-  'See what changed \u2192 https://eddy.guide/rivers/{slug}',
-  'Check the latest \u2192 https://eddy.guide/rivers/{slug}',
 ];
 
 // ---------------------------------------------------------------------------
@@ -496,48 +468,43 @@ export function formatConditionChangeCaption(params: {
   platform: SocialPlatform;
 }): { caption: string; hashtags: string[] } {
   const riverName = RIVER_SHORT_NAMES[params.riverSlug] || params.riverSlug;
-  const oldShort = SHORT_CONDITION_LABELS[params.oldCondition] || params.oldCondition;
   const newShort = SHORT_CONDITION_LABELS[params.newCondition] || params.newCondition;
-  const newEmoji = CONDITION_EMOJI[params.newCondition] || '';
-  const seed = `change-${params.riverSlug}-${new Date().toISOString().split('T')[0]}`;
+  const severity =
+    params.newCondition === 'dangerous' ? 'DANGEROUS' :
+    params.newCondition === 'high' ? 'HIGH WATER' :
+    newShort.toUpperCase();
+  const gaugeText = params.gaugeHeightFt !== null
+    ? ` · ${params.gaugeHeightFt.toFixed(1)} ft`
+    : '';
 
   const lines: string[] = [];
 
-  // 0. Deterministic headline (first ~125 chars before IG "more" fold).
-  // Every condition-change alert's feed preview reads as the same shape.
-  const gaugeText = params.gaugeHeightFt !== null
-    ? ` — ${params.gaugeHeightFt.toFixed(1)} ft`
-    : '';
-  lines.push(
-    `${riverName}: ${oldShort} → ${newEmoji} ${newShort}${gaugeText}`.trim(),
-  );
+  // 0. Warning headline — the first ~125 chars IG shows before "more".
+  // Warning-first so the feed preview reads as a safety alert, not news.
+  lines.push(`⚠️ ${severity} — ${riverName}${gaugeText}`);
   lines.push('');
 
-  // 1. Hook line
-  let hookPool: string[];
-  if (params.newCondition === 'flowing') {
-    hookPool = CONDITION_CHANGE_HOOKS.flowing;
-  } else if (params.newCondition === 'dangerous') {
-    hookPool = CONDITION_CHANGE_HOOKS.dangerous;
+  // 1. What changed + what to do
+  if (params.newCondition === 'dangerous') {
+    lines.push(
+      `${riverName} has crossed into dangerous water. Rising levels bring strainers, submerged hazards, and fast current that can overwhelm even experienced paddlers.`,
+    );
+    lines.push('');
+    lines.push('DO NOT FLOAT until levels drop. Check back in 24–48 hours or wait for the all-clear.');
   } else if (params.newCondition === 'high') {
-    hookPool = CONDITION_CHANGE_HOOKS.high;
-  } else if (params.oldCondition === 'dangerous') {
-    hookPool = CONDITION_CHANGE_HOOKS.from_dangerous;
-  } else {
-    hookPool = CONDITION_CHANGE_HOOKS.default;
+    lines.push(
+      `${riverName} has risen into high water. Stronger current, faster travel, and more hazards than normal — floatable only for experienced paddlers in appropriate boats.`,
+    );
+    lines.push('');
+    lines.push('Beginners and families should wait it out. If you go: PFDs on everyone, scout access points, plan a shorter float.');
   }
-  lines.push(interpolate(pickTemplate(hookPool, seed), { river: riverName }));
   lines.push('');
 
-  // 3. CTA with deep link
-  const cta = interpolate(pickTemplate(CHANGE_CTAS, seed + '-cta'), {
-    slug: params.riverSlug,
-  });
-  lines.push(cta);
+  // 2. Live-conditions CTA — the core value
+  lines.push(`Live gauge + conditions: eddy.guide/${params.riverSlug}`);
+  lines.push(`Share this alert with anyone planning to float ${riverName} this week.`);
 
-  const caption = lines.join('\n');
-
-  return { caption, hashtags: [] };
+  return { caption: lines.join('\n'), hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------

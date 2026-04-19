@@ -13,6 +13,7 @@ import {
 } from './content-formatter';
 import { pickSectionForRivers } from './section-picker';
 import { pickNotableTrend } from './trend-picker';
+import { overlayLiveConditions } from './live-conditions';
 
 // Lower = more notable. Mirrors SEVERITY_ORDER in remotion/src/lib/social-props.ts
 // (kept separate because the remotion subproject can't import from src/).
@@ -139,8 +140,20 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       }
     }
   }
-  const updates = Array.from(latestByRiver.values());
-  diag.rivers = updates.map(u => `${u.river_slug}(${u.condition_code})`);
+  // Overlay live gauge-derived conditions. eddy_updates.condition_code is
+  // captured once per day when the AI generate cron runs; gauge readings
+  // refresh hourly. Without this overlay, a river that flipped into 'high'
+  // at 2pm would still post as 'flowing' all the way until the next day's
+  // 6am regen. This closes that ~25-hour window without touching the
+  // eddy_update text (quote/summary still daily — regenerating those needs
+  // a fresh Anthropic call and isn't worth the cost).
+  const liveUpdates = await overlayLiveConditions(supabase, Array.from(latestByRiver.values()));
+  // Rebuild the map so downstream `latestByRiver.get(slug)` lookups see the
+  // live-condition-enriched row.
+  latestByRiver.clear();
+  for (const u of liveUpdates) latestByRiver.set(u.river_slug, u);
+  const updates = liveUpdates;
+  diag.rivers = updates.map((u) => `${u.river_slug}(${u.condition_code})`);
 
   if (updates.length === 0) {
     console.log(`${LOG_PREFIX} No fresh per-river eddy updates available`);
