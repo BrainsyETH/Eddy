@@ -105,6 +105,14 @@ export interface GaugeAnimationProps {
    *  OG thumbnail's timestamp. Format free — callers typically use
    *  toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }). */
   dateLabel?: string;
+  /** When true, render the reel in safety-warning mode: eyebrow banner,
+   *  transition arrow (previousCondition → conditionCode), red/orange accent,
+   *  and a "DO NOT FLOAT" / "USE EXTREME CAUTION" CTA instead of the default
+   *  "Full report below" copy. Used by condition-change alerts. */
+  warningMode?: boolean;
+  /** The condition the river was previously in. Only used when
+   *  warningMode=true to render the transition arrow. */
+  previousCondition?: ConditionCode;
   format: "square" | "portrait";
 }
 

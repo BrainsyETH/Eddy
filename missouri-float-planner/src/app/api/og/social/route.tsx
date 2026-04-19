@@ -1,12 +1,13 @@
 // src/app/api/og/social/route.tsx
 // Generates square (1080x1080) or portrait (1080x1920) OG images for social posts.
 // Supports:
-//   ?type=digest                 — all rivers, daily digest thumbnail
-//   ?type=highlight&river=slug   — single river highlight thumbnail
-//   ?type=tip&id=uuid            — custom content snippet thumbnail
-//   ?type=forecast               — weekly forecast: top 3 floatable rivers
-//   ?type=section                — section guide: float of the week
-//   ?type=trend                  — 7-day trend: river with biggest gauge move
+//   ?type=digest                       — all rivers, daily digest thumbnail
+//   ?type=highlight&river=slug         — single river highlight thumbnail
+//   ?type=tip&id=uuid                  — custom content snippet thumbnail
+//   ?type=forecast                     — weekly forecast: top 3 floatable rivers
+//   ?type=section                      — section guide: float of the week
+//   ?type=trend                        — 7-day trend: river with biggest gauge move
+//   ?type=warning&river=slug&from=...  — condition-change warning (flowing → high/dangerous)
 
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
@@ -66,6 +67,11 @@ export async function GET(request: NextRequest) {
 
     if (type === 'trend') {
       return await generateTrendImage(size);
+    }
+
+    if (type === 'warning' && riverSlug) {
+      const fromCondition = searchParams.get('from') || undefined;
+      return await generateWarningImage(riverSlug, fromCondition, size);
     }
 
     return await generateDigestImage(size);
@@ -1405,6 +1411,247 @@ async function generateTrendImage(size: { width: number; height: number }) {
             right: 0,
             height: 6,
             background: `linear-gradient(90deg, ${meta.color}, ${BRAND_COLORS.accentCoral})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Condition-change Warning thumbnail — fired when a river crosses from
+// flowing into high / dangerous water. Designed to stop the scroll: bold red
+// or orange accent, WARNING eyebrow, river name, transition arrow, gauge.
+// ---------------------------------------------------------------------------
+const CONDITION_DISPLAY: Record<string, string> = {
+  flowing: 'Flowing',
+  good: 'Good',
+  low: 'Low',
+  too_low: 'Too low',
+  high: 'High',
+  dangerous: 'Dangerous',
+  unknown: 'Unknown',
+};
+
+async function generateWarningImage(
+  riverSlug: string,
+  fromCondition: string | undefined,
+  size: { width: number; height: number },
+) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  const { data: update } = await supabase
+    .from('eddy_updates')
+    .select('river_slug, condition_code, gauge_height_ft')
+    .eq('river_slug', riverSlug)
+    .is('section_slug', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!update) {
+    return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
+  }
+
+  const RIVER_DISPLAY: Record<string, string> = {
+    meramec: 'Meramec River',
+    current: 'Current River',
+    'eleven-point': 'Eleven Point River',
+    'jacks-fork': 'Jacks Fork River',
+    niangua: 'Niangua River',
+    'big-piney': 'Big Piney River',
+    huzzah: 'Huzzah Creek',
+    courtois: 'Courtois Creek',
+  };
+  const riverName = RIVER_DISPLAY[riverSlug] || riverSlug;
+  const newCondition = (update.condition_code || 'high') as ConditionCode;
+  const styles = getStatusStyles(newCondition);
+  const severityLabel =
+    newCondition === 'dangerous' ? 'DANGEROUS' :
+    newCondition === 'high' ? 'HIGH WATER' :
+    'CAUTION';
+  const actionCta =
+    newCondition === 'dangerous'
+      ? 'Do not float until levels drop'
+      : 'Experienced paddlers only';
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {/* Warning eyebrow banner */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            backgroundColor: styles.bg,
+            border: `3px solid ${styles.solid}`,
+            borderRadius: 999,
+            padding: isPortrait ? '18px 42px' : '14px 32px',
+            boxShadow: `0 0 40px ${styles.solid}`,
+            alignSelf: 'flex-start',
+            marginBottom: isPortrait ? 40 : 28,
+          }}
+        >
+          <span style={{ fontSize: isPortrait ? 56 : 40 }}>⚠️</span>
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: isPortrait ? 56 : 42,
+              fontWeight: 700,
+              letterSpacing: 5,
+              color: styles.solid,
+            }}
+          >
+            {severityLabel}
+          </span>
+        </div>
+
+        {/* River name */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? (riverName.length > 18 ? 104 : 120) : (riverName.length > 18 ? 80 : 96),
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 0.95,
+            letterSpacing: -3,
+            marginBottom: isPortrait ? 32 : 20,
+          }}
+        >
+          {riverName}
+        </span>
+
+        {/* Transition line: from → now */}
+        {fromCondition && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 20,
+              marginBottom: isPortrait ? 48 : 32,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 44 : 34,
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.6)',
+              }}
+            >
+              {CONDITION_DISPLAY[fromCondition] || fromCondition}
+            </span>
+            <span
+              style={{
+                fontSize: isPortrait ? 52 : 40,
+                color: 'rgba(255,255,255,0.4)',
+              }}
+            >
+              →
+            </span>
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 48 : 36,
+                fontWeight: 700,
+                color: styles.solid,
+              }}
+            >
+              {CONDITION_DISPLAY[newCondition] || newCondition}
+            </span>
+          </div>
+        )}
+
+        {/* Current gauge reading */}
+        {update.gauge_height_ft !== null && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 16,
+              marginBottom: isPortrait ? 56 : 40,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 140 : 96,
+                fontWeight: 700,
+                color: styles.solid,
+                lineHeight: 1,
+                textShadow: `0 0 30px ${styles.solid}`,
+              }}
+            >
+              {update.gauge_height_ft.toFixed(1)}
+            </span>
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 48 : 36,
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.6)',
+              }}
+            >
+              ft right now
+            </span>
+          </div>
+        )}
+
+        {/* Action CTA */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 44 : 32,
+            fontWeight: 600,
+            color: '#fff',
+            backgroundColor: `${styles.solid}33`,
+            border: `2px solid ${styles.solid}`,
+            padding: isPortrait ? '18px 32px' : '14px 24px',
+            borderRadius: 16,
+            alignSelf: 'flex-start',
+          }}
+        >
+          {actionCta}
+        </span>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide/{riverSlug}
+        </span>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 8,
+            background: `linear-gradient(90deg, ${styles.solid}, ${BRAND_COLORS.accentCoral}, ${styles.solid})`,
           }}
         />
       </div>

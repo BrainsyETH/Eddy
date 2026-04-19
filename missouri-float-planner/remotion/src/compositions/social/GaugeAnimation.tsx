@@ -44,12 +44,30 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   optimalMax,
   quoteText,
   dateLabel,
+  warningMode,
+  previousCondition,
   format,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
+  const previous = previousCondition
+    ? CONDITION_COLORS[previousCondition] ?? CONDITION_COLORS.unknown
+    : null;
   const isPortrait = format === "portrait";
+
+  // Warning headline copy — swapped by severity
+  const warningLabel =
+    conditionCode === 'dangerous' ? 'DANGEROUS' :
+    conditionCode === 'high' ? 'HIGH WATER' :
+    'CAUTION';
+  const warningCta =
+    conditionCode === 'dangerous'
+      ? 'DO NOT FLOAT — Wait for levels to drop'
+      : 'Use extreme caution — Experienced paddlers only';
+
+  // Pulsing warning chrome (warning mode only)
+  const warningPulse = 0.75 + 0.25 * Math.sin(frame / 10);
 
   // Global fade for seamless Reels auto-loop (portrait only; square/
   // landscape previews in Studio keep constant opacity).
@@ -154,6 +172,37 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           gap: isPortrait ? 28 : 20,
         }}
       >
+        {/* Warning eyebrow (warningMode only) — pulsing WARNING banner */}
+        {warningMode && (
+          <div
+            style={{
+              opacity: nameEntrance * warningPulse,
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              backgroundColor: condition.bg,
+              border: `2px solid ${condition.solid}`,
+              borderRadius: 999,
+              padding: isPortrait ? "12px 36px" : "10px 28px",
+              boxShadow: `0 0 30px ${condition.glow}`,
+              marginBottom: 8,
+            }}
+          >
+            <span style={{ fontSize: isPortrait ? 40 : 30 }}>⚠️</span>
+            <span
+              style={{
+                fontFamily: "'Fredoka', system-ui, sans-serif",
+                fontSize: isPortrait ? 44 : 32,
+                fontWeight: 700,
+                letterSpacing: 4,
+                color: condition.solid,
+              }}
+            >
+              {warningLabel}
+            </span>
+          </div>
+        )}
+
         {/* River Name */}
         <div
           style={{
@@ -169,6 +218,26 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         >
           {riverName}
         </div>
+
+        {/* Transition arrow (warningMode only) — old → new */}
+        {warningMode && previous && (
+          <div
+            style={{
+              opacity: dateEntrance,
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              fontFamily: "'Fredoka', system-ui, sans-serif",
+              fontSize: isPortrait ? 28 : 22,
+              fontWeight: 500,
+              marginTop: -14,
+            }}
+          >
+            <span style={{ color: previous.solid }}>{previous.label}</span>
+            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: isPortrait ? 34 : 26 }}>→</span>
+            <span style={{ color: condition.solid, fontWeight: 700 }}>{condition.label}</span>
+          </div>
+        )}
 
         {/* Date — matches the OG thumbnail's timestamp so the grid cover
             and the reel content stay in sync */}
@@ -273,7 +342,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </span>
         </div>
 
-        {/* "Full report below ▼" CTA */}
+        {/* CTA — warning text in warningMode, "Full report below ▼" otherwise */}
         <div
           style={{
             opacity: ctaEntrance,
@@ -286,23 +355,29 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           <span
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 24,
+              fontSize: warningMode ? (isPortrait ? 28 : 22) : 24,
+              fontWeight: warningMode ? 700 : 400,
               color: condition.solid,
-              letterSpacing: 0.5,
+              letterSpacing: warningMode ? 1 : 0.5,
+              textAlign: "center",
+              maxWidth: isPortrait ? 900 : 700,
+              textShadow: warningMode ? `0 0 24px ${condition.glow}` : undefined,
             }}
           >
-            Full report below
+            {warningMode ? warningCta : 'Full report below'}
           </span>
-          <span
-            style={{
-              fontSize: 28,
-              color: condition.solid,
-              opacity: 0.7,
-              transform: `translateY(${arrowBounce}px)`,
-            }}
-          >
-            ▼
-          </span>
+          {!warningMode && (
+            <span
+              style={{
+                fontSize: 28,
+                color: condition.solid,
+                opacity: 0.7,
+                transform: `translateY(${arrowBounce}px)`,
+              }}
+            >
+              ▼
+            </span>
+          )}
         </div>
       </div>
 
