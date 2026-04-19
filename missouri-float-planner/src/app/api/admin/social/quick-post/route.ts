@@ -552,8 +552,16 @@ async function postWeekly(
 
   const riverSlug = (renderData as { riverSlug?: string }).riverSlug || null;
   const baseUrl = BASE_URL;
-  const imageKind = postType === 'weekly_forecast' ? 'digest' : 'highlight';
-  const imageRiverParam = postType === 'weekly_forecast' ? '' : `&river=${riverSlug || ''}`;
+  // Map each weekly post type to its dedicated OG thumbnail generator so the
+  // Reel grid cover / share preview matches the reel's content.
+  const imageKind =
+    postType === 'weekly_forecast' ? 'forecast'
+    : postType === 'section_guide' ? 'section'
+    : postType === 'weekly_trend' ? 'trend'
+    : 'highlight';
+  // None of the new thumbnails need the river param (they re-pick internally),
+  // but keep it for back-compat if we ever pass one.
+  const imageRiverParam = imageKind === 'highlight' ? `&river=${riverSlug || ''}` : '';
 
   // Video path — dispatch GH Actions for all platforms
   if (mediaType === 'video') {

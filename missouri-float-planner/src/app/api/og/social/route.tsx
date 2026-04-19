@@ -1,6 +1,12 @@
 // src/app/api/og/social/route.tsx
-// Generates 1080x1080 square images for Instagram/Facebook posts
-// Supports: ?type=digest (all rivers) and ?type=highlight&river=slug (single river)
+// Generates square (1080x1080) or portrait (1080x1920) OG images for social posts.
+// Supports:
+//   ?type=digest                 — all rivers, daily digest thumbnail
+//   ?type=highlight&river=slug   — single river highlight thumbnail
+//   ?type=tip&id=uuid            — custom content snippet thumbnail
+//   ?type=forecast               — weekly forecast: top 3 floatable rivers
+//   ?type=section                — section guide: float of the week
+//   ?type=trend                  — 7-day trend: river with biggest gauge move
 
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,6 +16,8 @@ import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/color
 import { CONDITION_LABELS } from '@/constants';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { ConditionCode } from '@/lib/og/types';
+import { pickSectionForRivers } from '@/lib/social/section-picker';
+import { pickNotableTrend } from '@/lib/social/trend-picker';
 
 export const revalidate = 300;
 
@@ -46,6 +54,18 @@ export async function GET(request: NextRequest) {
 
     if (type === 'tip' && contentId) {
       return await generateTipImage(contentId, size);
+    }
+
+    if (type === 'forecast') {
+      return await generateForecastImage(size);
+    }
+
+    if (type === 'section') {
+      return await generateSectionImage(size);
+    }
+
+    if (type === 'trend') {
+      return await generateTrendImage(size);
     }
 
     return await generateDigestImage(size);
@@ -722,5 +742,673 @@ async function generateTipImage(contentId: string, size: { width: number; height
       fonts,
       headers: CACHE_HEADERS,
     }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Weekly Forecast thumbnail
+// ---------------------------------------------------------------------------
+const FORECAST_FLOATABLE = new Set(['flowing', 'good', 'high']);
+const FORECAST_SEVERITY: Record<string, number> = {
+  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
+};
+
+async function generateForecastImage(size: { width: number; height: number }) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  const { data: updates } = await supabase
+    .from('eddy_updates')
+    .select('river_slug, condition_code, gauge_height_ft')
+    .neq('river_slug', 'global')
+    .is('section_slug', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('generated_at', { ascending: false });
+
+  const seen = new Set<string>();
+  type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
+  const deduped = ((updates || []) as Row[]).filter((u) => {
+    if (seen.has(u.river_slug)) return false;
+    seen.add(u.river_slug);
+    return true;
+  });
+  const top = deduped
+    .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
+    .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
+    .slice(0, 3);
+
+  const RIVER_DISPLAY: Record<string, string> = {
+    meramec: 'Meramec',
+    current: 'Current',
+    'eleven-point': 'Eleven Point',
+    'jacks-fork': 'Jacks Fork',
+    niangua: 'Niangua',
+    'big-piney': 'Big Piney',
+    huzzah: 'Huzzah',
+    courtois: 'Courtois',
+  };
+
+  const dateLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 55%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {/* Eyebrow */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 38 : 30,
+            fontWeight: 600,
+            color: BRAND_COLORS.accentCoral,
+            textTransform: 'uppercase',
+            letterSpacing: 6,
+            marginBottom: 8,
+          }}
+        >
+          This Weekend
+        </span>
+        <span
+          style={{
+            fontSize: isPortrait ? 28 : 22,
+            color: 'rgba(255,255,255,0.5)',
+            marginBottom: 48,
+          }}
+        >
+          Weekend Forecast · {dateLabel}
+        </span>
+
+        {/* Title */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 120 : 96,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 0.95,
+            letterSpacing: -3,
+            marginBottom: isPortrait ? 56 : 40,
+          }}
+        >
+          Best Bets
+        </span>
+
+        {/* River list — each row: condition dot + name + gauge */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isPortrait ? 24 : 16 }}>
+          {top.length === 0 ? (
+            <span style={{ fontSize: isPortrait ? 36 : 28, color: 'rgba(255,255,255,0.5)' }}>
+              No floatable rivers right now.
+            </span>
+          ) : (
+            top.map((u) => {
+              const styles = getStatusStyles(u.condition_code as ConditionCode);
+              const name = RIVER_DISPLAY[u.river_slug] || u.river_slug;
+              return (
+                <div
+                  key={u.river_slug}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: isPortrait ? 28 : 20,
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    border: `1px solid rgba(255,255,255,0.08)`,
+                    borderRadius: 24,
+                    padding: isPortrait ? '24px 36px' : '20px 28px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      width: isPortrait ? 28 : 22,
+                      height: isPortrait ? 28 : 22,
+                      borderRadius: '50%',
+                      backgroundColor: styles.solid,
+                      boxShadow: `0 0 20px ${styles.solid}`,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: 'Fredoka',
+                      fontSize: isPortrait ? 56 : 42,
+                      fontWeight: 600,
+                      color: '#fff',
+                      flex: 1,
+                    }}
+                  >
+                    {name}
+                  </span>
+                  {u.gauge_height_ft !== null && (
+                    <span
+                      style={{
+                        fontSize: isPortrait ? 40 : 30,
+                        fontWeight: 700,
+                        color: styles.solid,
+                      }}
+                    >
+                      {u.gauge_height_ft.toFixed(1)} ft
+                    </span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+
+        {/* Bottom gradient bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.bluewater}, ${BRAND_COLORS.accentCoral}, ${BRAND_COLORS.greenTreeline})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section Guide thumbnail
+// ---------------------------------------------------------------------------
+async function generateSectionImage(size: { width: number; height: number }) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  const { data: updates } = await supabase
+    .from('eddy_updates')
+    .select('river_slug, condition_code')
+    .neq('river_slug', 'global')
+    .is('section_slug', null)
+    .gt('expires_at', new Date().toISOString());
+
+  type Row = { river_slug: string; condition_code: string };
+  const slugs = Array.from(new Set(((updates || []) as Row[]).map((u) => u.river_slug)));
+  const section = pickSectionForRivers(slugs);
+  if (!section) {
+    return NextResponse.json({ error: 'No section available' }, { status: 404 });
+  }
+  const condition = ((updates || []) as Row[]).find((u) => u.river_slug === section.riverSlug)?.condition_code || 'unknown';
+  const styles = getStatusStyles(condition as ConditionCode);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 38 : 30,
+            fontWeight: 600,
+            color: BRAND_COLORS.accentCoral,
+            textTransform: 'uppercase',
+            letterSpacing: 6,
+            marginBottom: 12,
+          }}
+        >
+          Float of the Week
+        </span>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 104 : 80,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 0.95,
+            letterSpacing: -3,
+            marginBottom: isPortrait ? 56 : 40,
+          }}
+        >
+          {section.riverName}
+        </span>
+
+        {/* Route card: put-in → take-out */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 28,
+            padding: isPortrait ? '36px 40px' : '28px 32px',
+            marginBottom: isPortrait ? 48 : 32,
+          }}
+        >
+          <RouteLabel
+            label="Put-in"
+            name={section.putInName}
+            mile={section.putInMile}
+            color={BRAND_COLORS.accentCoral}
+            isPortrait={isPortrait}
+          />
+          <div
+            style={{
+              height: 1,
+              margin: isPortrait ? '24px 0' : '18px 0',
+              background: 'rgba(255,255,255,0.12)',
+            }}
+          />
+          <RouteLabel
+            label="Take-out"
+            name={section.takeOutName}
+            mile={section.takeOutMile}
+            color={styles.solid}
+            isPortrait={isPortrait}
+          />
+        </div>
+
+        {/* Stats strip */}
+        <div
+          style={{
+            display: 'flex',
+            gap: isPortrait ? 56 : 40,
+          }}
+        >
+          <StatCell value={`${section.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
+          <StatCell value={`${section.hoursCanoe.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
+          <StatCell value={CONDITION_LABELS[condition as keyof typeof CONDITION_LABELS] || '—'} label="Conditions" color={styles.solid} isPortrait={isPortrait} />
+        </div>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, ${styles.solid})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
+  );
+}
+
+function RouteLabel({
+  label,
+  name,
+  mile,
+  color,
+  isPortrait,
+}: {
+  label: string;
+  name: string;
+  mile: number;
+  color: string;
+  isPortrait: boolean;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+      <div
+        style={{
+          display: 'flex',
+          width: isPortrait ? 20 : 16,
+          height: isPortrait ? 20 : 16,
+          borderRadius: '50%',
+          backgroundColor: color,
+          boxShadow: `0 0 16px ${color}`,
+          flexShrink: 0,
+        }}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 22 : 18,
+            color: 'rgba(255,255,255,0.45)',
+            textTransform: 'uppercase',
+            letterSpacing: 2,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 48 : 36,
+            fontWeight: 600,
+            color: '#fff',
+            lineHeight: 1.1,
+          }}
+        >
+          {name}
+        </span>
+      </div>
+      <span
+        style={{
+          fontSize: isPortrait ? 28 : 22,
+          color: 'rgba(255,255,255,0.5)',
+          flexShrink: 0,
+        }}
+      >
+        MM {mile.toFixed(1)}
+      </span>
+    </div>
+  );
+}
+
+function StatCell({
+  value,
+  label,
+  color,
+  isPortrait,
+}: {
+  value: string;
+  label: string;
+  color?: string;
+  isPortrait: boolean;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <span
+        style={{
+          fontFamily: 'Fredoka',
+          fontSize: isPortrait ? 54 : 40,
+          fontWeight: 700,
+          color: color || '#fff',
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </span>
+      <span
+        style={{
+          fontFamily: 'Fredoka',
+          fontSize: isPortrait ? 22 : 18,
+          color: 'rgba(255,255,255,0.45)',
+          textTransform: 'uppercase',
+          letterSpacing: 2,
+          marginTop: 6,
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 7-Day Trend thumbnail
+// ---------------------------------------------------------------------------
+async function generateTrendImage(size: { width: number; height: number }) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  const { data: updates } = await supabase
+    .from('eddy_updates')
+    .select('river_slug, condition_code')
+    .neq('river_slug', 'global')
+    .is('section_slug', null)
+    .gt('expires_at', new Date().toISOString());
+
+  type Row = { river_slug: string; condition_code: string };
+  const slugs = Array.from(new Set(((updates || []) as Row[]).map((u) => u.river_slug)));
+  const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
+  if (!trend) {
+    return NextResponse.json({ error: 'No notable trend' }, { status: 404 });
+  }
+
+  const meta =
+    trend.direction === 'rising'
+      ? { arrow: '▲', label: 'Rising', color: '#10b981' }
+      : trend.direction === 'falling'
+      ? { arrow: '▼', label: 'Falling', color: '#f97316' }
+      : { arrow: '—', label: 'Steady', color: '#84cc16' };
+  const deltaSign = trend.deltaFt > 0 ? '+' : trend.deltaFt < 0 ? '−' : '';
+  const deltaAbs = Math.abs(trend.deltaFt).toFixed(1);
+
+  // Normalize sparkline coords to an SVG viewBox.
+  const CHART_W = isPortrait ? 900 : 820;
+  const CHART_H = isPortrait ? 380 : 260;
+  const PAD = 30;
+  const valid = trend.series.filter((p) => p.gaugeHeightFt !== null) as Array<{
+    hoursAgo: number;
+    gaugeHeightFt: number;
+  }>;
+  const minFt = trend.sevenDayMinFt ?? 0;
+  const maxFt = trend.sevenDayMaxFt ?? minFt + 1;
+  const ftRange = maxFt - minFt || 1;
+  const firstH = valid[0]?.hoursAgo ?? -168;
+  const hoursRange = valid.length > 0 ? 0 - firstH || 168 : 168;
+  const points = valid.map((p) => ({
+    x: ((p.hoursAgo - firstH) / hoursRange) * (CHART_W - PAD * 2) + PAD,
+    y:
+      CHART_H -
+      PAD -
+      ((p.gaugeHeightFt - minFt) / ftRange) * (CHART_H - PAD * 2),
+  }));
+  const pathD =
+    points.length > 0
+      ? points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
+      : '';
+  const areaD =
+    points.length > 0
+      ? `${pathD} L ${points[points.length - 1].x} ${CHART_H - PAD} L ${points[0].x} ${CHART_H - PAD} Z`
+      : '';
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 38 : 30,
+            fontWeight: 600,
+            color: meta.color,
+            textTransform: 'uppercase',
+            letterSpacing: 6,
+            marginBottom: 12,
+          }}
+        >
+          7-Day Trend
+        </span>
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 104 : 80,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 0.95,
+            letterSpacing: -3,
+            marginBottom: isPortrait ? 40 : 28,
+          }}
+        >
+          {trend.riverName}
+        </span>
+
+        {/* Sparkline */}
+        <div
+          style={{
+            display: 'flex',
+            backgroundColor: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 24,
+            padding: '16px 12px',
+            marginBottom: isPortrait ? 40 : 24,
+          }}
+        >
+          <svg width={CHART_W} height={CHART_H} style={{ display: 'block' }}>
+            <line
+              x1={PAD}
+              y1={CHART_H - PAD}
+              x2={CHART_W - PAD}
+              y2={CHART_H - PAD}
+              stroke="rgba(255,255,255,0.1)"
+              strokeWidth={1}
+            />
+            {areaD && <path d={areaD} fill={meta.color} fillOpacity={0.18} />}
+            {pathD && (
+              <path
+                d={pathD}
+                fill="none"
+                stroke={meta.color}
+                strokeWidth={6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {points.length > 0 && (
+              <circle
+                cx={points[points.length - 1].x}
+                cy={points[points.length - 1].y}
+                r={12}
+                fill={meta.color}
+              />
+            )}
+          </svg>
+        </div>
+
+        {/* Delta + range */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: isPortrait ? 40 : 32,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              backgroundColor: `${meta.color}22`,
+              border: `2px solid ${meta.color}`,
+              borderRadius: 999,
+              padding: isPortrait ? '18px 36px' : '14px 28px',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 52 : 40,
+                fontWeight: 700,
+                color: meta.color,
+              }}
+            >
+              {meta.arrow} {meta.label}
+            </span>
+            <span
+              style={{
+                fontSize: isPortrait ? 44 : 34,
+                fontWeight: 700,
+                color: '#fff',
+              }}
+            >
+              {deltaSign}{deltaAbs} ft
+            </span>
+          </div>
+          {trend.sevenDayMinFt !== null && trend.sevenDayMaxFt !== null && (
+            <span
+              style={{
+                fontSize: isPortrait ? 28 : 22,
+                color: 'rgba(255,255,255,0.5)',
+              }}
+            >
+              Week range {trend.sevenDayMinFt.toFixed(1)}–{trend.sevenDayMaxFt.toFixed(1)} ft
+            </span>
+          )}
+        </div>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${meta.color}, ${BRAND_COLORS.accentCoral})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
   );
 }
