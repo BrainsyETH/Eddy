@@ -32,20 +32,25 @@ export async function regenerateEddyForRiver(
   const supabase = createAdminClient();
 
   // --- Throttle check: cooldown ---
-  const cooldownCutoff = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
-  const { data: recentEventUpdates } = await supabase
-    .from('eddy_updates')
-    .select('id')
-    .eq('river_slug', riverSlug)
-    .eq('is_event_driven', true)
-    .gte('generated_at', cooldownCutoff)
-    .limit(1);
+  // Skip cooldown for `condition_change`: a real threshold flip (e.g. dangerous→high→flowing
+  // as a flood recedes) is rare and meaningful, and we want fresh narrative for each step.
+  // Keep cooldown for `rapid_change` since that can fire repeatedly on noisy gauge samples.
+  if (triggerReason === 'rapid_change') {
+    const cooldownCutoff = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: recentEventUpdates } = await supabase
+      .from('eddy_updates')
+      .select('id')
+      .eq('river_slug', riverSlug)
+      .eq('is_event_driven', true)
+      .gte('generated_at', cooldownCutoff)
+      .limit(1);
 
-  if (recentEventUpdates && recentEventUpdates.length > 0) {
-    console.log(
-      `[EddyRegen] Skipping ${riverSlug} (${triggerReason}): event-driven update generated within last ${COOLDOWN_HOURS}h`
-    );
-    return 0;
+    if (recentEventUpdates && recentEventUpdates.length > 0) {
+      console.log(
+        `[EddyRegen] Skipping ${riverSlug} (${triggerReason}): event-driven update generated within last ${COOLDOWN_HOURS}h`
+      );
+      return 0;
+    }
   }
 
   // --- Throttle check: daily cap ---
