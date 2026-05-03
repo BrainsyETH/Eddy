@@ -32,12 +32,19 @@ echo ""
 
 # Step 1: Download video
 echo "Step 1: Downloading video..."
+COOKIES_FLAG=""
+if [ -n "$YT_COOKIES_FILE" ] && [ -f "$YT_COOKIES_FILE" ]; then
+    COOKIES_FLAG="--cookies $YT_COOKIES_FILE"
+    echo "  Using cookies for authentication"
+fi
+
 yt-dlp \
     --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
     --merge-output-format mp4 \
     --output "$TEMP_DIR/source.%(ext)s" \
     --no-playlist \
     --quiet \
+    $COOKIES_FLAG \
     "$YOUTUBE_URL"
 
 SOURCE_VIDEO=$(find "$TEMP_DIR" -name "source.*" -type f | head -1)
@@ -57,6 +64,7 @@ if [ "$TRANSCRIPT_FLAG" = "--transcript" ]; then
         --sub-format vtt \
         --skip-download \
         --output "$TEMP_DIR/transcript" \
+        $COOKIES_FLAG \
         --quiet \
         "$YOUTUBE_URL" 2>/dev/null || true
 
