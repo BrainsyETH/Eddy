@@ -246,7 +246,8 @@ export default function FlowTrendChart({
     if (!thresholds) return null;
     const { levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous } = thresholds;
     if (levelDangerous !== null && val >= levelDangerous) return 'Flood';
-    if (levelHigh !== null && val >= levelHigh) return 'High';
+    const highStart = levelOptimalMax ?? levelHigh;
+    if (highStart !== null && val > highStart) return 'High';
     if (levelOptimalMin !== null && levelOptimalMax !== null && val >= levelOptimalMin && val <= levelOptimalMax) return 'Flowing';
     if (levelLow !== null && val >= levelLow) return 'Good';
     if (levelTooLow !== null && val >= levelTooLow) return 'Low';
@@ -308,13 +309,15 @@ export default function FlowTrendChart({
             </linearGradient>
           </defs>
 
-          {/* High/Warning zone fill */}
+          {/* High/Warning zone fill — anything above optimal_max is "high" */}
           {chartData.thresholdLineData.length > 0 && (() => {
+            const optimalMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
             const high = chartData.thresholdLineData.find(t => t.key === 'levelHigh');
             const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
-            if (high) {
-              const topY = dangerous ? Math.min(dangerous.y, high.y) : 0;
-              const bottomY = high.y;
+            const start = optimalMax ?? high;
+            if (start) {
+              const topY = dangerous ? Math.min(dangerous.y, start.y) : 0;
+              const bottomY = start.y;
               if (bottomY > topY) {
                 return (
                   <rect

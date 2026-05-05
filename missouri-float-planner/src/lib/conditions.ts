@@ -65,7 +65,11 @@ export function computeCondition(
     };
   }
 
-  if (thresholds.levelHigh !== null && compareValue >= thresholds.levelHigh) {
+  // Anything above optimal_max (or above level_high if optimal_max is null) is "high".
+  // The Float Conditions bar paints the High band starting at optimal_max, so the code
+  // must agree — otherwise the badge ("Good") and the needle position ("High") disagree.
+  const highStart = thresholds.levelOptimalMax ?? thresholds.levelHigh;
+  if (highStart !== null && compareValue > highStart) {
     return {
       code: 'high',
       label: CONDITION_LABELS.high,
