@@ -11,6 +11,7 @@ import EddySaysCallout from './EddySaysCallout';
 import GuideTOC, { type TocItem } from './GuideTOC';
 import GuideProgressBar from './GuideProgressBar';
 import FaqAccordion from './FaqAccordion';
+import DirectoryCards from './DirectoryCards';
 
 const EDDY_CANOE =
   'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
@@ -403,26 +404,15 @@ export default function RiverGuideLayout({ post }: Props) {
 
           {/* Outfitters */}
           <SectionTitle id="outfitters" eyebrow="Directory">
-            Outfitters, campgrounds &amp; lodging
+            Outfitters &amp; lodging
           </SectionTitle>
-          <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.65 }}>
-            Every active service that operates on the {riverName.replace(/ River$/, '')}, with phone, website, reservation links, and Google Maps directions. Filter by type below.
-          </p>
-          <iframe
-            data-eddy-embed
-            src={`/embed/services/${slug}?theme=light`}
-            width="100%"
-            loading="lazy"
-            title={`${riverName} outfitters and campgrounds`}
-            style={{
-              border: 0,
-              borderRadius: 12,
-              display: 'block',
-              width: '100%',
-              maxWidth: '100%',
-              height: 520,
-            }}
-          />
+          <DirectoryCards riverSlug={slug} />
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--color-neutral-600)' }}>
+            Need phone numbers, reservation links, or maps?{' '}
+            <Link href={`/rivers/${slug}#services`} style={{ color: 'var(--color-primary-600)', fontWeight: 600 }}>
+              Open the full {riverName} directory →
+            </Link>
+          </div>
 
           {/* Gauge */}
           <SectionTitle id="gauge" eyebrow="USGS data">
@@ -704,6 +694,9 @@ function ResponsiveStyles() {
       }
       .eddy-guide-root [data-guide-title] {
         font-size: 36px !important;
+      }
+      .eddy-guide-root [data-guide-directory] {
+        grid-template-columns: 1fr !important;
       }
     }
   `;
