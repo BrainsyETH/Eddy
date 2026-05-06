@@ -5,6 +5,8 @@ import { ArrowLeft, ArrowRight, Clock, Calendar } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
 import EmbedHostResize from '@/components/embed/EmbedHostResize';
+import RiverGuideLayout from '@/components/blog/RiverGuideLayout';
+import type { GuideData, RiverGuidePost } from '@/types/blog';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -22,6 +24,8 @@ interface BlogPost {
   meta_keywords: string[] | null;
   read_time_minutes: number | null;
   published_at: string | null;
+  river_slug: string | null;
+  guide_data: GuideData | null;
 }
 
 async function getBlogPost(slug: string): Promise<BlogPost | null> {
@@ -116,10 +120,21 @@ export default async function BlogPostPage({
     },
   };
 
-  // Extract FAQ pairs from river-guide posts for FAQPage JSON-LD
-  // Convention: <div id="faq"> containing <h3> (question) + <p> (answer) pairs
+  // FAQ JSON-LD. Prefer structured guide_data; fall back to regex over the
+  // legacy HTML body for older River Guide posts.
   let faqJsonLd: object | null = null;
-  if (post.category === 'River Guides' && post.content) {
+  const isRiverGuide = post.category === 'River Guides';
+  if (isRiverGuide && post.guide_data?.faq?.length) {
+    faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: post.guide_data.faq.map((qa) => ({
+        '@type': 'Question',
+        name: qa.q,
+        acceptedAnswer: { '@type': 'Answer', text: qa.a },
+      })),
+    };
+  } else if (isRiverGuide && post.content) {
     const faqMatch = post.content.match(/<div id="faq">([\s\S]*?)<\/div>/);
     if (faqMatch) {
       const faqHtml = faqMatch[1];
@@ -139,10 +154,7 @@ export default async function BlogPostPage({
           mainEntity: qaPairs.map(qa => ({
             '@type': 'Question',
             name: qa.question,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: qa.answer,
-            },
+            acceptedAnswer: { '@type': 'Answer', text: qa.answer },
           })),
         };
       }
@@ -158,6 +170,36 @@ export default async function BlogPostPage({
       { '@type': 'ListItem', position: 3, name: post.title, item: `${BASE_URL}/blog/${post.slug}` },
     ],
   };
+
+  // Field Notebook layout for River Guide posts that have structured data.
+  if (isRiverGuide && post.guide_data) {
+    const guidePost: RiverGuidePost = {
+      id: post.id,
+      slug: post.slug,
+      title: post.title,
+      description: post.description,
+      category: post.category,
+      featured_image_url: post.featured_image_url,
+      og_image_url: post.og_image_url,
+      meta_keywords: post.meta_keywords,
+      read_time_minutes: post.read_time_minutes,
+      published_at: post.published_at,
+      river_slug: post.river_slug,
+      guide_data: post.guide_data,
+    };
+    return (
+      <>
+        <EmbedHostResize />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+        {faqJsonLd && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+        )}
+        <RiverGuideLayout post={guidePost} />
+        <SiteFooter />
+      </>
+    );
+  }
 
   return (
     <article className="min-h-screen bg-white">
