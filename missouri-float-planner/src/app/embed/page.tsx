@@ -103,17 +103,38 @@ function CodeBlock({ code, label = 'HTML' }: { code: string; label?: string }) {
   );
 }
 
-function WidgetPreview({ src, height, theme }: { src: string; height: number; theme: string }) {
+function WidgetPreview({ src, height, theme }: { src: string; height?: number; theme: string }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number | undefined>(height);
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const data = e.data as { type?: string; height?: number } | null;
+      if (!data || data.type !== 'eddy-embed:resize' || typeof data.height !== 'number') return;
+      if (ref.current && ref.current.contentWindow === e.source) {
+        setMeasuredHeight(data.height);
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  // Reset to fallback when src changes so we don't keep stale heights
+  useEffect(() => {
+    setMeasuredHeight(height);
+  }, [src, height]);
+
   return (
     <div className="mb-4">
       <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
       <div className={`rounded-xl border-2 p-4 flex justify-center ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
         <div className="w-full" style={{ maxWidth: 540 }}>
           <iframe
+            ref={ref}
             src={src}
             width="100%"
-            height={height}
-            style={{ border: 'none', borderRadius: '12px' }}
+            height={measuredHeight}
+            style={{ border: 'none', borderRadius: '12px', display: 'block' }}
             title="Widget preview"
           />
         </div>
@@ -208,30 +229,40 @@ export default function EmbedPage() {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const selectedRiverName = RIVER_OPTIONS.find(r => r.slug === selectedRiver)?.name || '';
 
-  // Embed codes
+  // Tiny self-resize listener appended to every snippet. Installs once on the
+  // host page; matches iframes by event.source so multiple Eddy widgets coexist.
+  const resizeScript = `<script>(function(){if(window.__eddyEmbedResizer)return;window.__eddyEmbedResizer=1;window.addEventListener("message",function(e){var d=e&&e.data;if(!d||d.type!=="eddy-embed:resize"||typeof d.height!=="number")return;var f=document.querySelectorAll("iframe[data-eddy-embed]");for(var i=0;i<f.length;i++){if(f[i].contentWindow===e.source){f[i].style.height=d.height+"px";break;}}});})();</script>`;
+
+  // Embed codes — heights auto-adjust via postMessage, so no hardcoded height attr.
   const widgetCode = `<iframe
   src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
-  width="100%" height="480"
-  style="border:none; border-radius:12px; max-width:600px;"
+  data-eddy-embed
+  width="100%"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
   title="${selectedRiverName} - River Conditions from Eddy"
   loading="lazy"
-></iframe>`;
+></iframe>
+${resizeScript}`;
 
   const eddyQuoteCode = `<iframe
   src="${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}"
-  width="100%" height="300"
-  style="border:none; border-radius:12px; max-width:600px;"
+  data-eddy-embed
+  width="100%"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
   title="${selectedRiverName} - Eddy's Take"
   loading="lazy"
-></iframe>`;
+></iframe>
+${resizeScript}`;
 
   const plannerCode = `<iframe
   src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
-  width="100%" height="420"
-  style="border:none; border-radius:12px; max-width:600px;"
+  data-eddy-embed
+  width="100%"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
   title="Plan Your Float - Eddy"
   loading="lazy"
-></iframe>`;
+></iframe>
+${resizeScript}`;
 
   const servicesParams = new URLSearchParams({ theme });
   if (serviceFilter !== 'all') servicesParams.set('type', serviceFilter);
@@ -240,27 +271,33 @@ export default function EmbedPage() {
 
   const servicesCode = `<iframe
   src="${baseUrl}/embed/services/${selectedRiver}?${servicesQueryString}"
-  width="100%" height="400"
-  style="border:none; border-radius:12px; max-width:600px;"
+  data-eddy-embed
+  width="100%"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
   title="${selectedRiverName} - Outfitters & Services from Eddy"
   loading="lazy"
-></iframe>`;
+></iframe>
+${resizeScript}`;
 
   const gaugeReportCode = `<iframe
   src="${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}"
-  width="100%" height="480"
-  style="border:none; border-radius:12px; max-width:600px;"
+  data-eddy-embed
+  width="100%"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
   title="${selectedRiverName} - Gauge Report from Eddy"
   loading="lazy"
-></iframe>`;
+></iframe>
+${resizeScript}`;
 
   const badgeCode = `<iframe
   src="${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}"
-  width="280" height="44"
-  style="border:none; overflow:hidden;"
+  data-eddy-embed
+  width="280"
+  style="border:none; overflow:hidden; display:inline-block; vertical-align:middle;"
   title="${selectedRiverName} - Condition Badge from Eddy"
   loading="lazy"
-></iframe>`;
+></iframe>
+${resizeScript}`;
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -441,7 +478,9 @@ export default function EmbedPage() {
               <CopyButton text={widgetCode} large />
 
               <p className="text-xs text-neutral-500 mt-3">
-                Includes a 14-day trend chart for the primary gauge. Rivers with 3+ gauges may need <code className="bg-neutral-100 px-1 py-0.5 rounded">height=&quot;540&quot;</code>.
+                Includes a 14-day trend chart for the primary gauge. The widget auto-resizes
+                to its content via the embed snippet&apos;s small resize listener &mdash;
+                no need to set <code className="bg-neutral-100 px-1 py-0.5 rounded">height</code>.
                 Add <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;partner=YourBusiness</code> for branding.
               </p>
             </section>

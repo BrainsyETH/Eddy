@@ -49,7 +49,11 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
 
-export default function RiverPage() {
+interface RiverPageProps {
+  guidePost?: { slug: string; title: string } | null;
+}
+
+export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
   const params = useParams();
   const slug = params.slug as string;
   const searchParams = useSearchParams();
@@ -678,23 +682,25 @@ export default function RiverPage() {
 
         <NearbyServices riverSlug={slug} defaultOpen={false} />
 
-        {/* Cross-link to river guide post */}
-        <Link
-          href={`/blog/${slug}-river-float-trip-guide`}
-          className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-5 h-5 text-primary-600 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-neutral-900">
-                Read the full {river.name} Float Trip Guide
-              </p>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                Best floats, access points, outfitters, and everything you need to know
-              </p>
+        {/* Cross-link to river guide post (only when a published guide exists) */}
+        {guidePost && (
+          <Link
+            href={`/blog/${guidePost.slug}`}
+            className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-5 h-5 text-primary-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">
+                  Read the full {river.name} Float Trip Guide
+                </p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Best floats, access points, outfitters, and everything you need to know
+                </p>
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+        )}
       </div>
 
       {/* Hidden shareable capture component */}
