@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { ArrowLeft, ArrowRight, Clock, Calendar } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
+import EmbedHostResize from '@/components/embed/EmbedHostResize';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -160,6 +161,7 @@ export default async function BlogPostPage({
 
   return (
     <article className="min-h-screen bg-white">
+      <EmbedHostResize />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       {faqJsonLd && (
