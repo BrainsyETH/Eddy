@@ -93,6 +93,8 @@ export interface GuideSegment {
 export interface Regulation {
   topic: string;
   rule: string;
+  /** Optional canonical authority URL (e.g. nps.gov/ozar page). */
+  url?: string;
 }
 
 export interface DriveTime {
@@ -130,6 +132,10 @@ export interface GuideData {
   drive_times?: DriveTime[];
   nearby_attractions?: NearbyAttraction[];
   related_rivers?: RelatedRiver[];
+  /** "Things to know before you launch" — surfaced under TL;DR. Use for
+   *  facts a reader will regret missing (permits, cell service, shuttle
+   *  logistics). 3 bullets is plenty. */
+  pre_launch_notes?: GuideBullet[];
 }
 
 export interface RiverGuidePost {

@@ -3,6 +3,7 @@
 // above text under 768px via the [data-stack] attribute + CSS variables.
 
 import Link from 'next/link';
+import Image from 'next/image';
 import type { FloatSection } from '@/types/blog';
 
 interface Props {
@@ -43,20 +44,27 @@ export default function FloatSectionCard({ section: s, index, plannerUrl }: Prop
         data-guide-section-grid
         style={{
           display: 'grid',
-          gridTemplateColumns: s.photo ? '260px 1fr' : '1fr',
+          gridTemplateColumns: s.photo ? '260px 1fr' : '120px 1fr',
         }}
       >
-        {s.photo && (
+        {s.photo ? (
           <div
             style={{
-              backgroundImage: `url(${s.photo})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              position: 'relative',
               minHeight: 240,
               borderRight: '2px solid var(--color-primary-700)',
-              position: 'relative',
+              background: 'var(--color-secondary-100)',
+              overflow: 'hidden',
             }}
           >
+            <Image
+              src={s.photo}
+              alt={`${s.from} → ${s.to}`}
+              fill
+              loading="lazy"
+              sizes="(max-width: 767px) 100vw, 260px"
+              style={{ objectFit: 'cover' }}
+            />
             <div
               style={{
                 position: 'absolute',
@@ -75,6 +83,31 @@ export default function FloatSectionCard({ section: s, index, plannerUrl }: Prop
                 fontWeight: 700,
                 fontFamily: 'var(--font-display)',
                 boxShadow: '2px 2px 0 var(--color-neutral-900)',
+                zIndex: 1,
+              }}
+            >
+              {index + 1}
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              background: 'var(--color-secondary-50)',
+              borderRight: '2px solid var(--color-primary-700)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px 0',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 56,
+                fontWeight: 600,
+                color: 'var(--color-accent-500)',
+                lineHeight: 1,
+                letterSpacing: '-.02em',
               }}
             >
               {index + 1}

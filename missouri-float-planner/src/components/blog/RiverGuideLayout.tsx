@@ -4,6 +4,7 @@
 // the bundled handoff.
 
 import Link from 'next/link';
+import Image from 'next/image';
 import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
 import SectionTitle from './SectionTitle';
@@ -15,8 +16,9 @@ import FaqAccordion from './FaqAccordion';
 import DirectoryCards from './DirectoryCards';
 import GuideTldr from './GuideTldr';
 import SegmentHeader from './SegmentHeader';
-import GaugeThresholdTable from './GaugeThresholdTable';
 import RegulationsCard from './RegulationsCard';
+import PreLaunchCard from './PreLaunchCard';
+import BestForMatrix from './BestForMatrix';
 import DriveTimesStrip from './DriveTimesStrip';
 import NearbyAttractionsList from './NearbyAttractionsList';
 import RelatedRiversStrip from './RelatedRiversStrip';
@@ -28,11 +30,16 @@ function buildToc(post: RiverGuidePost): TocItem[] {
   const g = post.guide_data;
   const items: TocItem[] = [];
   if (g.tldr) items.push({ id: 'tldr', label: 'TL;DR' });
+  if (g.pre_launch_notes?.length) items.push({ id: 'pre-launch', label: 'Before you launch' });
   items.push(
     { id: 'today',      label: 'Today on the river' },
     { id: 'different',  label: 'Why this river is different' },
     { id: 'pick',       label: 'Pick your float' },
-    { id: 'plan',       label: 'Plan your trip' },
+  );
+  if (g.sections.some((s) => (s.best_for_tags?.length ?? 0) > 0)) {
+    items.push({ id: 'best-for', label: 'Find your float' });
+  }
+  items.push(
     { id: 'springs',    label: 'Springs & sights' },
     { id: 'outfitters', label: 'Outfitters & lodging' },
     { id: 'gauge',      label: 'Water levels & gauge' },
@@ -40,10 +47,7 @@ function buildToc(post: RiverGuidePost): TocItem[] {
   if (g.regulations?.length)        items.push({ id: 'regulations', label: 'Regulations' });
   items.push({ id: 'when', label: 'When to go' });
   if (g.drive_times?.length)        items.push({ id: 'drive', label: 'Drive times' });
-  items.push(
-    { id: 'bring', label: 'What to bring' },
-    { id: 'tips',  label: 'Pro tips' },
-  );
+  items.push({ id: 'pack-and-plan', label: 'Pack & plan' });
   if (g.nearby_attractions?.length) items.push({ id: 'nearby', label: 'Nearby attractions' });
   items.push({ id: 'faq', label: 'FAQ' });
   return items;
@@ -255,16 +259,24 @@ export default async function RiverGuideLayout({ post }: Props) {
           </div>
           <div
             style={{
+              position: 'relative',
               aspectRatio: '4/3',
               borderRadius: 8,
               overflow: 'hidden',
               border: '2px solid var(--color-primary-700)',
               boxShadow: '3px 3px 0 var(--color-neutral-400)',
-              backgroundImage: `url(${g.hero.photo_url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              background: 'var(--color-secondary-100)',
             }}
-          />
+          >
+            <Image
+              src={g.hero.photo_url}
+              alt={`${riverName} hero`}
+              fill
+              priority
+              sizes="(max-width: 1023px) 100vw, 580px"
+              style={{ objectFit: 'cover' }}
+            />
+          </div>
         </div>
 
         {/* Mile-marker stat strip */}
@@ -333,6 +345,21 @@ export default async function RiverGuideLayout({ post }: Props) {
           }}
         >
           <GuideTldr tldr={g.tldr} />
+        </section>
+      )}
+
+      {/* Pre-launch notes — surfaced under TL;DR so they're impossible to miss */}
+      {g.pre_launch_notes && g.pre_launch_notes.length > 0 && (
+        <section
+          id="pre-launch"
+          style={{
+            maxWidth: 1280,
+            margin: '0 auto',
+            padding: '0 32px',
+            scrollMarginTop: 80,
+          }}
+        >
+          <PreLaunchCard notes={g.pre_launch_notes} />
         </section>
       )}
 
@@ -429,28 +456,16 @@ export default async function RiverGuideLayout({ post }: Props) {
             ));
           })()}
 
-          {/* Plan */}
-          <SectionTitle id="plan" eyebrow="Built-in planner">
-            Plan your exact trip
-          </SectionTitle>
-          <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.65 }}>
-            Pick a put-in and take-out and we&rsquo;ll calculate distance, an estimated float time for your boat, current conditions, and the outfitters that serve those access points.
-          </p>
-          <iframe
-            data-eddy-embed
-            src={`/embed/planner?river=${slug}&theme=light`}
-            width="100%"
-            loading="lazy"
-            title={`Plan a ${riverName} float trip`}
-            style={{
-              border: 0,
-              borderRadius: 12,
-              display: 'block',
-              width: '100%',
-              maxWidth: '100%',
-              height: 420,
-            }}
-          />
+          {/* Find your float — inverts each section's best_for_tags into a
+              by-audience matrix so readers can self-select faster. */}
+          {g.sections.some((s) => (s.best_for_tags?.length ?? 0) > 0) && (
+            <>
+              <SectionTitle id="best-for" eyebrow="Self-select">
+                Find your float
+              </SectionTitle>
+              <BestForMatrix sections={g.sections} riverSlug={slug} apIds={apIds} />
+            </>
+          )}
 
           {/* Springs */}
           <SectionTitle id="springs" eyebrow="Off-river stops">
@@ -537,7 +552,6 @@ export default async function RiverGuideLayout({ post }: Props) {
               height: 520,
             }}
           />
-          <GaugeThresholdTable riverSlug={slug} />
 
           {/* Regulations */}
           {g.regulations && g.regulations.length > 0 && (
@@ -603,70 +617,98 @@ export default async function RiverGuideLayout({ post }: Props) {
             </>
           )}
 
-          {/* Bring */}
-          <SectionTitle id="bring" eyebrow="Packing list">
-            What to bring
+          {/* Pack & plan — merged "what to bring" + "pro tips" so readers
+              don't slog through two stacked bullet lists in a row. */}
+          <SectionTitle id="pack-and-plan" eyebrow="Pack & plan">
+            Before you launch & on the water
           </SectionTitle>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {g.what_to_bring.map((line) => (
-              <li
-                key={line}
+          <div data-guide-pack-plan style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+            <div>
+              <div
+                className="eyebrow"
                 style={{
-                  fontSize: 17,
-                  lineHeight: 1.6,
-                  color: 'var(--color-neutral-800)',
-                  paddingLeft: 28,
-                  position: 'relative',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-primary-700)',
+                  marginBottom: 10,
                 }}
               >
-                <span
-                  aria-hidden
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 11,
-                    width: 14,
-                    height: 2,
-                    background: 'var(--color-accent-500)',
-                  }}
-                />
-                {line}
-              </li>
-            ))}
-          </ul>
-
-          {/* Pro tips */}
-          <SectionTitle id="tips" eyebrow="Eddy's playbook">
-            Pro tips
-          </SectionTitle>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {g.pro_tips.map((b) => (
-              <li
-                key={b.strong}
+                Pack
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {g.what_to_bring.map((line) => (
+                  <li
+                    key={line}
+                    style={{
+                      fontSize: 15,
+                      lineHeight: 1.55,
+                      color: 'var(--color-neutral-800)',
+                      paddingLeft: 22,
+                      position: 'relative',
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 10,
+                        width: 12,
+                        height: 2,
+                        background: 'var(--color-accent-500)',
+                      }}
+                    />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <div
+                className="eyebrow"
                 style={{
-                  fontSize: 17,
-                  lineHeight: 1.6,
-                  color: 'var(--color-neutral-800)',
-                  paddingLeft: 28,
-                  position: 'relative',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-primary-700)',
+                  marginBottom: 10,
                 }}
               >
-                <span
-                  aria-hidden
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 11,
-                    width: 14,
-                    height: 2,
-                    background: 'var(--color-accent-500)',
-                  }}
-                />
-                <strong style={{ color: 'var(--color-neutral-900)', fontWeight: 700 }}>{b.strong}</strong>{' '}
-                {b.body}
-              </li>
-            ))}
-          </ul>
+                Plan
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {g.pro_tips.map((b) => (
+                  <li
+                    key={b.strong}
+                    style={{
+                      fontSize: 15,
+                      lineHeight: 1.55,
+                      color: 'var(--color-neutral-800)',
+                      paddingLeft: 22,
+                      position: 'relative',
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 10,
+                        width: 12,
+                        height: 2,
+                        background: 'var(--color-accent-500)',
+                      }}
+                    />
+                    <strong style={{ color: 'var(--color-neutral-900)', fontWeight: 700 }}>{b.strong}</strong>{' '}
+                    {b.body}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
 
           {/* Nearby attractions */}
           {g.nearby_attractions && g.nearby_attractions.length > 0 && (
@@ -866,6 +908,10 @@ function ResponsiveStyles() {
       }
       .eddy-guide-root [data-guide-tldr] {
         grid-template-columns: 1fr !important;
+      }
+      .eddy-guide-root [data-guide-pack-plan] {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
       }
     }
   `;

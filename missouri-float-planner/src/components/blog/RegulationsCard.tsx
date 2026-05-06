@@ -45,6 +45,23 @@ export default function RegulationsCard({ regulations }: Props) {
           <div style={{ fontSize: 15, lineHeight: 1.55, color: 'var(--color-neutral-800)' }}>
             {r.rule}
           </div>
+          {r.url && (
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                marginTop: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--color-primary-600)',
+                textDecoration: 'none',
+              }}
+            >
+              Read the official rule →
+            </a>
+          )}
         </div>
       ))}
     </div>
