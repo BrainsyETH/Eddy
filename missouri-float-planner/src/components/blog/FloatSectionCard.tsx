@@ -2,11 +2,16 @@
 // Photo-left card used in the "Pick your float" section list. Stacks photo
 // above text under 768px via the [data-stack] attribute + CSS variables.
 
+import Link from 'next/link';
 import type { FloatSection } from '@/types/blog';
 
 interface Props {
   section: FloatSection;
   index: number;
+  /** When provided, the section title becomes a link to the planner pre-loaded
+   *  with this section's put-in and take-out. Built by RiverGuideLayout from
+   *  the section's from_slug / to_slug after resolving access point IDs. */
+  plannerUrl?: string;
 }
 
 const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
@@ -15,8 +20,13 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
   II:   { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
 };
 
-export default function FloatSectionCard({ section: s, index }: Props) {
+export default function FloatSectionCard({ section: s, index, plannerUrl }: Props) {
   const dc = DIFF_COLORS[s.diff] ?? DIFF_COLORS.I;
+  const titleContent = (
+    <>
+      {s.from} <span style={{ color: 'var(--color-neutral-400)' }}>→</span> {s.to}
+    </>
+  );
   return (
     <article
       data-guide-section-card
@@ -98,8 +108,36 @@ export default function FloatSectionCard({ section: s, index }: Props) {
               marginBottom: 4,
             }}
           >
-            {s.from} <span style={{ color: 'var(--color-neutral-400)' }}>→</span> {s.to}
+            {plannerUrl ? (
+              <Link
+                href={plannerUrl}
+                style={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  borderBottom: '2px solid var(--color-accent-500)',
+                  paddingBottom: 1,
+                }}
+              >
+                {titleContent}
+              </Link>
+            ) : (
+              titleContent
+            )}
           </h3>
+          {plannerUrl && (
+            <Link
+              href={plannerUrl}
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--color-accent-600)',
+                textDecoration: 'none',
+                letterSpacing: '.02em',
+              }}
+            >
+              Open this float in the planner →
+            </Link>
+          )}
           <p
             style={{
               fontSize: 13,
@@ -113,14 +151,15 @@ export default function FloatSectionCard({ section: s, index }: Props) {
           </p>
 
           <div
+            data-guide-section-stats
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
               gap: 0,
               margin: '14px 0 16px',
               padding: '10px 0',
               borderTop: '1px solid var(--color-neutral-200)',
               borderBottom: '1px solid var(--color-neutral-200)',
-              flexWrap: 'wrap',
             }}
           >
             {[
@@ -132,10 +171,9 @@ export default function FloatSectionCard({ section: s, index }: Props) {
               <div
                 key={k}
                 style={{
-                  flex: '1 1 120px',
-                  paddingRight: 12,
+                  padding: '0 14px',
                   borderRight: i < 3 ? '1px dashed var(--color-neutral-300)' : 'none',
-                  paddingLeft: i ? 14 : 0,
+                  minWidth: 0,
                 }}
               >
                 <div
@@ -157,6 +195,9 @@ export default function FloatSectionCard({ section: s, index }: Props) {
                     fontSize: 14,
                     fontWeight: 600,
                     color: i === 2 ? dc.fg : 'var(--color-neutral-900)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {v}

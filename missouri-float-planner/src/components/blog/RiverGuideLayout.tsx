@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
+import { createAdminClient } from '@/lib/supabase/admin';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -84,12 +85,53 @@ function formatDate(d: string | null): string {
   });
 }
 
-export default function RiverGuideLayout({ post }: Props) {
+async function resolveAccessPointIds(
+  riverSlug: string,
+  sections: FloatSection[],
+): Promise<Map<string, string>> {
+  const slugs = new Set<string>();
+  for (const s of sections) {
+    if (s.from_slug) slugs.add(s.from_slug);
+    if (s.to_slug) slugs.add(s.to_slug);
+  }
+  if (slugs.size === 0) return new Map();
+
+  const supabase = createAdminClient();
+  const { data: river } = await supabase
+    .from('rivers')
+    .select('id')
+    .eq('slug', riverSlug)
+    .single();
+  if (!river) return new Map();
+
+  const { data: aps } = await supabase
+    .from('access_points')
+    .select('slug, id')
+    .eq('river_id', river.id)
+    .in('slug', Array.from(slugs));
+
+  return new Map(((aps ?? []) as { slug: string; id: string }[]).map((a) => [a.slug, a.id]));
+}
+
+function buildPlannerUrl(
+  riverSlug: string,
+  section: FloatSection,
+  apIds: Map<string, string>,
+): string | undefined {
+  if (!section.from_slug || !section.to_slug) return undefined;
+  const putIn = apIds.get(section.from_slug);
+  const takeOut = apIds.get(section.to_slug);
+  if (!putIn || !takeOut) return undefined;
+  return `/rivers/${riverSlug}?putIn=${putIn}&takeOut=${takeOut}`;
+}
+
+export default async function RiverGuideLayout({ post }: Props) {
   const g = post.guide_data;
   const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
+  const apIds = await resolveAccessPointIds(slug, g.sections);
 
   return (
     <article className="eddy-guide-root" style={{ background: 'var(--color-neutral-50)' }}>
@@ -389,7 +431,14 @@ export default function RiverGuideLayout({ post }: Props) {
                 {segment && <SegmentHeader segment={segment} />}
                 {segSections.map((s) => {
                   const idx = globalIdx++;
-                  return <FloatSectionCard key={s.id} section={s} index={idx} />;
+                  return (
+                    <FloatSectionCard
+                      key={s.id}
+                      section={s}
+                      index={idx}
+                      plannerUrl={buildPlannerUrl(slug, s, apIds)}
+                    />
+                  );
                 })}
               </div>
             ));
@@ -792,6 +841,19 @@ function ResponsiveStyles() {
       .eddy-guide-root [data-guide-drive-times] {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 12px !important;
+      }
+    }
+    @media (max-width: 880px) {
+      .eddy-guide-root [data-guide-section-stats] {
+        grid-template-columns: repeat(2, 1fr) !important;
+        row-gap: 12px !important;
+      }
+      .eddy-guide-root [data-guide-section-stats] > div:nth-child(2) {
+        border-right: none !important;
+      }
+      .eddy-guide-root [data-guide-section-stats] > div:nth-child(3),
+      .eddy-guide-root [data-guide-section-stats] > div:nth-child(4) {
+        padding-top: 8px;
       }
     }
     @media (max-width: 767px) {
