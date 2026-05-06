@@ -1,8 +1,9 @@
 // src/components/blog/EddySaysCallout.tsx
 // Tone-colored callout with the Eddy otter mascot. Two modes:
-//   - static: { tone, quote } — hardcoded text
+//   - static: { tone, quote } — hardcoded text with chrome label
 //   - live:   { live_quote: true, slug } — embeds /embed/eddy-quote/{slug}
-//             so the callout reflects current river conditions.
+//             with a neutral chrome (no chrome label) so the iframe's own
+//             live status header isn't contradicted by a stale tone.
 
 import type { CalloutContent } from '@/types/blog';
 
@@ -30,14 +31,20 @@ const TONE_MAP = {
   },
 } as const;
 
+const NEUTRAL_CHROME = {
+  bg: 'var(--color-neutral-50)',
+  border: 'var(--color-neutral-300)',
+};
+
 interface Props {
   callout: CalloutContent;
   riverSlug: string;
 }
 
 export default function EddySaysCallout({ callout, riverSlug }: Props) {
-  const tone: keyof typeof TONE_MAP = callout.tone;
-  const c = TONE_MAP[tone];
+  const isLive = callout.live_quote === true;
+  const c = isLive ? null : TONE_MAP[(callout as { tone: keyof typeof TONE_MAP }).tone];
+  const chrome = c ?? NEUTRAL_CHROME;
 
   return (
     <aside
@@ -47,9 +54,9 @@ export default function EddySaysCallout({ callout, riverSlug }: Props) {
         gap: 18,
         alignItems: 'center',
         padding: '20px 24px',
-        background: c.bg,
-        border: `2px solid ${c.border}`,
-        borderLeft: `4px solid ${c.border}`,
+        background: chrome.bg,
+        border: `2px solid ${chrome.border}`,
+        borderLeft: `4px solid ${chrome.border}`,
         borderRadius: 8,
         boxShadow: '2px 2px 0 var(--color-neutral-300)',
         margin: '28px 0',
@@ -67,19 +74,21 @@ export default function EddySaysCallout({ callout, riverSlug }: Props) {
         }}
       />
       <div>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '.1em',
-            color: c.chipFg,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-          }}
-        >
-          {c.label}
-        </div>
-        {callout.live_quote ? (
+        {c && (
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '.1em',
+              color: c.chipFg,
+              textTransform: 'uppercase',
+              marginBottom: 6,
+            }}
+          >
+            {c.label}
+          </div>
+        )}
+        {isLive ? (
           <iframe
             data-eddy-embed
             src={`/embed/eddy-quote/${riverSlug}?theme=light`}
@@ -91,7 +100,7 @@ export default function EddySaysCallout({ callout, riverSlug }: Props) {
               display: 'block',
               width: '100%',
               maxWidth: '100%',
-              height: 120,
+              height: 220,
               background: 'transparent',
             }}
           />
@@ -111,3 +120,4 @@ export default function EddySaysCallout({ callout, riverSlug }: Props) {
     </aside>
   );
 }
+
