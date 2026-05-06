@@ -10,7 +10,10 @@ import type { GuideData, RiverGuidePost } from '@/types/blog';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
-export const dynamic = 'force-dynamic';
+// 5-minute ISR: blog content + the river-keyed Supabase queries don't change
+// minute-to-minute, and the live data on the page (Eddy-quote and gauge-report
+// iframes) fetches itself independently. Cuts Supabase load ~99% at peak.
+export const revalidate = 300;
 
 interface BlogPost {
   id: string;
