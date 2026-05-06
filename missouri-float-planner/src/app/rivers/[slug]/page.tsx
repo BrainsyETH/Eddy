@@ -182,9 +182,22 @@ export default async function RiverPage({ params }: Props) {
   let riverDifficulty: string | null = null;
   let riverRegion: string | null = null;
   let riverBounds: number[] | null = null;
+  let guidePost: { slug: string; title: string } | null = null;
 
   if (slug) {
     const supabase = await createClient();
+
+    const { data: guide } = await supabase
+      .from('blog_posts')
+      .select('slug, title')
+      .eq('river_slug', slug)
+      .eq('status', 'published')
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (guide) guidePost = guide;
+
     const { data } = await supabase
       .from('rivers')
       .select('name, description, length_miles, difficulty_rating, region, geom')
@@ -261,7 +274,7 @@ export default async function RiverPage({ params }: Props) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(touristAttractionJsonLd) }} />
-      <RiverPageClient />
+      <RiverPageClient guidePost={guidePost} />
     </>
   );
 }
