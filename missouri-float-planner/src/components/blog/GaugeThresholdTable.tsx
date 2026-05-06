@@ -42,8 +42,7 @@ export default async function GaugeThresholdTable({ riverSlug }: Props) {
     .select(`
       threshold_unit,
       level_too_low, level_low, level_optimal_min, level_optimal_max,
-      level_high, level_dangerous,
-      gauge_stations!inner ( name, usgs_site_id )
+      level_high, level_dangerous
     `)
     .eq('river_id', river.id)
     .eq('is_primary', true)
@@ -51,9 +50,7 @@ export default async function GaugeThresholdTable({ riverSlug }: Props) {
 
   if (!gauge) return null;
 
-  const g = gauge as unknown as ThresholdRow & {
-    gauge_stations: { name: string; usgs_site_id: string };
-  };
+  const g = gauge as unknown as ThresholdRow;
   const unit = g.threshold_unit === 'cfs' ? 'cfs' : 'ft';
 
   const rows: { code: string; label: string; range: string; tone: string }[] = [
@@ -106,30 +103,6 @@ export default async function GaugeThresholdTable({ riverSlug }: Props) {
         overflow: 'hidden',
       }}
     >
-      <div
-        style={{
-          padding: '12px 18px',
-          background: 'var(--color-secondary-50)',
-          borderBottom: '1px solid var(--color-neutral-200)',
-        }}
-      >
-        <div
-          className="eyebrow"
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '.12em',
-            textTransform: 'uppercase',
-            color: 'var(--color-neutral-500)',
-            marginBottom: 4,
-          }}
-        >
-          Primary gauge · USGS {g.gauge_stations.usgs_site_id}
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-neutral-900)' }}>
-          {g.gauge_stations.name}
-        </div>
-      </div>
       <div>
         {rows.map((r, i) => (
           <div

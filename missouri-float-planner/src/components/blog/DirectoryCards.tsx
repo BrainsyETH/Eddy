@@ -1,32 +1,143 @@
 // src/components/blog/DirectoryCards.tsx
-// Tight 3-card summary of outfitters / campgrounds / cabins for a river,
-// replacing the bulky /embed/services iframe in the blog. Server component;
-// fetches with the admin client so it works for unauthenticated visitors.
-// Full interactive directory still lives at /rivers/{slug}.
+// Inline directory of every active outfitter / campground / cabin that
+// operates on a river. Renders contact info (phone, website, reservations)
+// directly on the blog page — no off-page redirects required to act on it.
+// Server component; fetched at render time so listings stay current.
 
-import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-interface Service {
+interface ServiceRow {
   name: string;
   slug: string;
   type: 'outfitter' | 'campground' | 'cabin_lodge' | string;
   status: string;
+  phone: string | null;
+  phone_toll_free: string | null;
+  website: string | null;
+  reservation_url: string | null;
+  city: string | null;
+  state: string | null;
+  seasonal_notes: string | null;
+  display_order: number | null;
 }
 
 const CATEGORIES: {
   type: 'outfitter' | 'campground' | 'cabin_lodge';
   label: string;
-  filterParam: string;
   accent: string;
 }[] = [
-  { type: 'outfitter',  label: 'Outfitters',          filterParam: 'outfitter',  accent: 'var(--color-primary-700)' },
-  { type: 'campground', label: 'Campgrounds',         filterParam: 'campground', accent: 'var(--color-support-700)' },
-  { type: 'cabin_lodge', label: 'Cabins & lodges',    filterParam: 'cabin_lodge', accent: 'var(--color-accent-600)' },
+  { type: 'outfitter',   label: 'Outfitters',         accent: 'var(--color-primary-700)' },
+  { type: 'campground',  label: 'Campgrounds',        accent: 'var(--color-support-700)' },
+  { type: 'cabin_lodge', label: 'Cabins & lodges',    accent: 'var(--color-accent-600)' },
 ];
 
 interface Props {
   riverSlug: string;
+}
+
+function digitsOnly(s: string | null): string {
+  return (s ?? '').replace(/\D/g, '');
+}
+
+function ServiceCard({ s, accent }: { s: ServiceRow; accent: string }) {
+  const phoneHref = digitsOnly(s.phone || s.phone_toll_free);
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${s.name}${s.city ? ', ' + s.city : ''}${s.state ? ', ' + s.state : ''}`,
+  )}`;
+  return (
+    <article
+      style={{
+        background: '#fff',
+        border: '2px solid var(--color-primary-700)',
+        borderRadius: 8,
+        boxShadow: '2px 2px 0 var(--color-neutral-300)',
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: 'var(--color-neutral-900)',
+            lineHeight: 1.25,
+          }}
+        >
+          {s.name}
+        </div>
+        {(s.city || s.state) && (
+          <div style={{ fontSize: 12, color: 'var(--color-neutral-500)', marginTop: 2 }}>
+            {[s.city, s.state].filter(Boolean).join(', ')}
+            {s.status === 'seasonal' && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '.08em',
+                  textTransform: 'uppercase',
+                  padding: '1px 6px',
+                  background: 'var(--color-secondary-100)',
+                  color: 'var(--color-secondary-800)',
+                  borderRadius: 4,
+                }}
+              >
+                Seasonal
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {s.seasonal_notes && (
+        <div style={{ fontSize: 12, color: 'var(--color-neutral-600)', lineHeight: 1.45 }}>
+          {s.seasonal_notes}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 'auto' }}>
+        {phoneHref && (
+          <a
+            href={`tel:${phoneHref}`}
+            style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}
+          >
+            {s.phone || s.phone_toll_free}
+          </a>
+        )}
+        {s.website && (
+          <a
+            href={s.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}
+          >
+            Website
+          </a>
+        )}
+        {s.reservation_url && (
+          <a
+            href={s.reservation_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}
+          >
+            Reserve
+          </a>
+        )}
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}
+        >
+          Map
+        </a>
+      </div>
+    </article>
+  );
 }
 
 export default async function DirectoryCards({ riverSlug }: Props) {
@@ -38,23 +149,28 @@ export default async function DirectoryCards({ riverSlug }: Props) {
     .eq('slug', riverSlug)
     .single();
 
-  let services: Service[] = [];
+  let services: ServiceRow[] = [];
   if (river) {
     const { data: links } = await supabase
       .from('service_rivers')
-      .select('is_primary, nearby_services!inner ( name, slug, type, status, display_order )')
+      .select(`
+        is_primary,
+        nearby_services!inner (
+          name, slug, type, status,
+          phone, phone_toll_free, website, reservation_url,
+          city, state, seasonal_notes, display_order
+        )
+      `)
       .eq('river_id', river.id);
 
-    services = ((links ?? []) as unknown as Array<{
-      nearby_services: (Service & { display_order: number | null }) | null;
-    }>)
+    services = ((links ?? []) as unknown as Array<{ nearby_services: ServiceRow | null }>)
       .map((l) => l.nearby_services)
-      .filter((s): s is Service & { display_order: number | null } => !!s)
+      .filter((s): s is ServiceRow => !!s)
       .filter((s) => s.status === 'active' || s.status === 'seasonal')
       .sort((a, b) => (a.display_order ?? 999) - (b.display_order ?? 999));
   }
 
-  const grouped = new Map<string, Service[]>();
+  const grouped = new Map<string, ServiceRow[]>();
   for (const s of services) {
     const arr = grouped.get(s.type) ?? [];
     arr.push(s);
@@ -62,34 +178,22 @@ export default async function DirectoryCards({ riverSlug }: Props) {
   }
 
   return (
-    <div
-      data-guide-directory
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 14,
-      }}
-    >
+    <div data-guide-directory style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       {CATEGORIES.map((cat) => {
         const list = grouped.get(cat.type) ?? [];
-        const top = list.slice(0, 3);
-        const remaining = list.length - top.length;
+        if (list.length === 0) return null;
         return (
-          <div
-            key={cat.type}
-            style={{
-              background: '#fff',
-              border: '2px solid var(--color-primary-700)',
-              borderRadius: 8,
-              boxShadow: '2px 2px 0 var(--color-neutral-300)',
-              padding: '16px 18px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <section key={cat.type}>
+            <header
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}
+            >
               <div
+                className="eyebrow"
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
@@ -103,61 +207,27 @@ export default async function DirectoryCards({ riverSlug }: Props) {
               <div
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: 'var(--color-neutral-900)',
-                  lineHeight: 1,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--color-neutral-500)',
                 }}
               >
                 {list.length}
               </div>
+            </header>
+            <div
+              data-guide-directory-grid
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 12,
+              }}
+            >
+              {list.map((s) => (
+                <ServiceCard key={s.slug} s={s} accent={cat.accent} />
+              ))}
             </div>
-
-            {top.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--color-neutral-500)', fontStyle: 'italic' }}>
-                None listed.
-              </div>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {top.map((s) => (
-                  <li
-                    key={s.slug}
-                    style={{
-                      fontSize: 14,
-                      color: 'var(--color-neutral-800)',
-                      lineHeight: 1.35,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {s.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {remaining > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--color-neutral-500)' }}>
-                + {remaining} more
-              </div>
-            )}
-
-            {list.length > 0 && (
-              <Link
-                href={`/rivers/${riverSlug}#services`}
-                style={{
-                  marginTop: 'auto',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: cat.accent,
-                  textDecoration: 'none',
-                }}
-              >
-                Browse all →
-              </Link>
-            )}
-          </div>
+          </section>
         );
       })}
     </div>

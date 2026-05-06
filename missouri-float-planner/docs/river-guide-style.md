@@ -20,7 +20,7 @@ Use these strings verbatim. They've been picked over and verified — drift brea
 | Big Spring scope | **"One of the largest single-outlet springs in the United States, with an average daily flow of about 286 million gallons (~470 cfs avg; 1,170 cfs max)."** Never "largest in the world / on Earth / in the U.S." |
 | ONSR founding | **"The first national park area created to protect a river system, established by Congress on August 27, 1964 (Public Law 88-492)."** Never "first national park" or "first Wild & Scenic River." |
 | Wild & Scenic | The Current is **not** on the National Wild & Scenic Rivers list. Its sister, the **Eleven Point**, is. Don't conflate. |
-| Akers Ferry | **"The last operating two-car river ferry in Missouri."** Don't claim "hand-cranked" without a primary source. |
+| Akers Ferry | **The historic two-car river ferry at Akers has been out of service in recent seasons** — plan to drive shuttles around it. Don't claim it's "the last operating" anything without re-verifying current status with NPS. |
 | Blue Spring (Current) | **"Missouri's deepest spring at 310 ft (MO #6 by flow, ~90 MGD), near Powder Mill."** Never "deepest in the U.S." Always disambiguate from the Jacks Fork's Blue Spring near Buck Hollow — they're different springs and routinely conflated. |
 | Welch Spring flow | **"~78–120 MGD (sources vary)."** Don't pick a single number; the disagreement is real. |
 | HP / motor limits | **Do not memorialize specific HP numbers.** Link to nps.gov/ozar/learn/management/laws-and-policies.htm and let NPS be the source of truth. |
