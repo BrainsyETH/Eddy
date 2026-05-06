@@ -39,6 +39,10 @@ export interface FloatSection {
   body: string;
   segment?: SegmentId;
   best_for_tags?: string[];
+  /** Access point slug for the put-in. Used to build the planner deep link. */
+  from_slug?: string;
+  /** Access point slug for the take-out. Used to build the planner deep link. */
+  to_slug?: string;
 }
 
 export interface SpringStop {
@@ -100,6 +104,8 @@ export interface NearbyAttraction {
   name: string;
   kind: string;
   note: string;
+  /** Optional canonical URL (e.g. mostateparks.com page, NPS page). */
+  url?: string;
 }
 
 export interface RelatedRiver {
