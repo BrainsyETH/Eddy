@@ -15,7 +15,6 @@ import FaqAccordion from './FaqAccordion';
 import DirectoryCards from './DirectoryCards';
 import GuideTldr from './GuideTldr';
 import SegmentHeader from './SegmentHeader';
-import GaugeThresholdTable from './GaugeThresholdTable';
 import RegulationsCard from './RegulationsCard';
 import DriveTimesStrip from './DriveTimesStrip';
 import NearbyAttractionsList from './NearbyAttractionsList';
@@ -537,7 +536,6 @@ export default async function RiverGuideLayout({ post }: Props) {
               height: 520,
             }}
           />
-          <GaugeThresholdTable riverSlug={slug} />
 
           {/* Regulations */}
           {g.regulations && g.regulations.length > 0 && (
