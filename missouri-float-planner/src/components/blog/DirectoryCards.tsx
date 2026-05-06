@@ -45,8 +45,8 @@ export default async function DirectoryCards({ riverSlug }: Props) {
       .select('is_primary, nearby_services!inner ( name, slug, type, status, display_order )')
       .eq('river_id', river.id);
 
-    services = ((links ?? []) as Array<{
-      nearby_services: Service & { display_order: number | null } | null;
+    services = ((links ?? []) as unknown as Array<{
+      nearby_services: (Service & { display_order: number | null }) | null;
     }>)
       .map((l) => l.nearby_services)
       .filter((s): s is Service & { display_order: number | null } => !!s)
