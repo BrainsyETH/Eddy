@@ -4,7 +4,7 @@
 // the bundled handoff.
 
 import Link from 'next/link';
-import type { RiverGuidePost } from '@/types/blog';
+import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -12,23 +12,64 @@ import GuideTOC, { type TocItem } from './GuideTOC';
 import GuideProgressBar from './GuideProgressBar';
 import FaqAccordion from './FaqAccordion';
 import DirectoryCards from './DirectoryCards';
+import GuideTldr from './GuideTldr';
+import SegmentHeader from './SegmentHeader';
+import GaugeThresholdTable from './GaugeThresholdTable';
+import RegulationsCard from './RegulationsCard';
+import DriveTimesStrip from './DriveTimesStrip';
+import NearbyAttractionsList from './NearbyAttractionsList';
+import RelatedRiversStrip from './RelatedRiversStrip';
 
 const EDDY_CANOE =
   'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
-const TOC: TocItem[] = [
-  { id: 'today', label: 'Today on the river' },
-  { id: 'different', label: 'Why this river is different' },
-  { id: 'pick', label: 'Pick your float' },
-  { id: 'plan', label: 'Plan your trip' },
-  { id: 'springs', label: 'Springs & sights' },
-  { id: 'outfitters', label: 'Outfitters & lodging' },
-  { id: 'gauge', label: 'Water levels & gauge' },
-  { id: 'when', label: 'When to go' },
-  { id: 'bring', label: 'What to bring' },
-  { id: 'tips', label: 'Pro tips' },
-  { id: 'faq', label: 'FAQ' },
-];
+function buildToc(post: RiverGuidePost): TocItem[] {
+  const g = post.guide_data;
+  const items: TocItem[] = [];
+  if (g.tldr) items.push({ id: 'tldr', label: 'TL;DR' });
+  items.push(
+    { id: 'today',      label: 'Today on the river' },
+    { id: 'different',  label: 'Why this river is different' },
+    { id: 'pick',       label: 'Pick your float' },
+    { id: 'plan',       label: 'Plan your trip' },
+    { id: 'springs',    label: 'Springs & sights' },
+    { id: 'outfitters', label: 'Outfitters & lodging' },
+    { id: 'gauge',      label: 'Water levels & gauge' },
+  );
+  if (g.regulations?.length)        items.push({ id: 'regulations', label: 'Regulations' });
+  items.push({ id: 'when', label: 'When to go' });
+  if (g.drive_times?.length)        items.push({ id: 'drive', label: 'Drive times' });
+  items.push(
+    { id: 'bring', label: 'What to bring' },
+    { id: 'tips',  label: 'Pro tips' },
+  );
+  if (g.nearby_attractions?.length) items.push({ id: 'nearby', label: 'Nearby attractions' });
+  items.push({ id: 'faq', label: 'FAQ' });
+  return items;
+}
+
+// Group sections by segment (per guide_data.segments[].section_ids), preserving
+// the segment order and section order within each segment. Sections not
+// referenced by any segment (or guides without `segments`) fall through ungrouped.
+function groupSectionsBySegment(
+  sections: FloatSection[],
+  segments: GuideSegment[] | undefined,
+): { segment: GuideSegment | null; sections: FloatSection[] }[] {
+  if (!segments?.length) return [{ segment: null, sections }];
+  const byId = new Map(sections.map((s) => [s.id, s]));
+  const grouped: { segment: GuideSegment | null; sections: FloatSection[] }[] = [];
+  const claimed = new Set<number>();
+  for (const seg of segments) {
+    const segSections = seg.section_ids
+      .map((id) => byId.get(id))
+      .filter((s): s is FloatSection => !!s);
+    segSections.forEach((s) => claimed.add(s.id));
+    if (segSections.length > 0) grouped.push({ segment: seg, sections: segSections });
+  }
+  const orphans = sections.filter((s) => !claimed.has(s.id));
+  if (orphans.length > 0) grouped.push({ segment: null, sections: orphans });
+  return grouped;
+}
 
 interface Props {
   post: RiverGuidePost;
@@ -47,6 +88,8 @@ export default function RiverGuideLayout({ post }: Props) {
   const g = post.guide_data;
   const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
+  const toc = buildToc(post);
+  const grouped = groupSectionsBySegment(g.sections, g.segments);
 
   return (
     <article className="eddy-guide-root" style={{ background: 'var(--color-neutral-50)' }}>
@@ -236,6 +279,21 @@ export default function RiverGuideLayout({ post }: Props) {
         </div>
       </section>
 
+      {/* TL;DR — surfaced just under the hero so readers see scope at a glance */}
+      {g.tldr && (
+        <section
+          id="tldr"
+          style={{
+            maxWidth: 1280,
+            margin: '0 auto',
+            padding: '0 32px',
+            scrollMarginTop: 80,
+          }}
+        >
+          <GuideTldr tldr={g.tldr} />
+        </section>
+      )}
+
       {/* Body grid */}
       <div
         data-guide-body
@@ -249,7 +307,7 @@ export default function RiverGuideLayout({ post }: Props) {
           alignItems: 'start',
         }}
       >
-        <GuideTOC items={TOC} riverSlug={post.river_slug} riverName={riverName} />
+        <GuideTOC items={toc} riverSlug={post.river_slug} riverName={riverName} />
 
         <main style={{ maxWidth: 760, minWidth: 0 }}>
           {/* Today */}
@@ -321,9 +379,21 @@ export default function RiverGuideLayout({ post }: Props) {
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
             The {riverName.replace(/ River$/, '')} divides cleanly into character zones. Pick by how much time you have, who you&rsquo;re paddling with, and what you want to see.
           </p>
-          {g.sections.map((s, i) => (
-            <FloatSectionCard key={s.id} section={s} index={i} />
-          ))}
+          {(() => {
+            // Render section cards with optional segment headers between groups.
+            // The index prop on FloatSectionCard stays globally sequential so the
+            // numbered badge counts 1..N across the whole guide.
+            let globalIdx = 0;
+            return grouped.map(({ segment, sections: segSections }, gi) => (
+              <div key={segment?.id ?? `flat-${gi}`}>
+                {segment && <SegmentHeader segment={segment} />}
+                {segSections.map((s) => {
+                  const idx = globalIdx++;
+                  return <FloatSectionCard key={s.id} section={s} index={idx} />;
+                })}
+              </div>
+            ));
+          })()}
 
           {/* Plan */}
           <SectionTitle id="plan" eyebrow="Built-in planner">
@@ -436,6 +506,17 @@ export default function RiverGuideLayout({ post }: Props) {
               height: 520,
             }}
           />
+          <GaugeThresholdTable riverSlug={slug} />
+
+          {/* Regulations */}
+          {g.regulations && g.regulations.length > 0 && (
+            <>
+              <SectionTitle id="regulations" eyebrow="Park rules">
+                Regulations
+              </SectionTitle>
+              <RegulationsCard regulations={g.regulations} />
+            </>
+          )}
 
           {/* When */}
           <SectionTitle id="when" eyebrow="By the season">
@@ -480,6 +561,16 @@ export default function RiverGuideLayout({ post }: Props) {
               </div>
             ))}
           </div>
+
+          {/* Drive times */}
+          {g.drive_times && g.drive_times.length > 0 && (
+            <>
+              <SectionTitle id="drive" eyebrow="Getting there">
+                Drive times
+              </SectionTitle>
+              <DriveTimesStrip driveTimes={g.drive_times} />
+            </>
+          )}
 
           {/* Bring */}
           <SectionTitle id="bring" eyebrow="Packing list">
@@ -546,6 +637,16 @@ export default function RiverGuideLayout({ post }: Props) {
             ))}
           </ul>
 
+          {/* Nearby attractions */}
+          {g.nearby_attractions && g.nearby_attractions.length > 0 && (
+            <>
+              <SectionTitle id="nearby" eyebrow="In the area">
+                Nearby attractions
+              </SectionTitle>
+              <NearbyAttractionsList attractions={g.nearby_attractions} />
+            </>
+          )}
+
           <EddySaysCallout callout={g.callouts.footer} riverSlug={slug} />
 
           {/* FAQ */}
@@ -555,6 +656,11 @@ export default function RiverGuideLayout({ post }: Props) {
           <div id="faq-list">
             <FaqAccordion items={g.faq} />
           </div>
+
+          {/* Related rivers */}
+          {g.related_rivers && g.related_rivers.length > 0 && (
+            <RelatedRiversStrip rivers={g.related_rivers} />
+          )}
 
           {/* CTA */}
           <div
@@ -675,6 +781,19 @@ function ResponsiveStyles() {
         grid-template-columns: repeat(3, 1fr) !important;
       }
     }
+    @media (max-width: 1023px) {
+      .eddy-guide-root [data-guide-tldr] {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+      .eddy-guide-root [data-guide-tldr] > div {
+        border-right: none !important;
+        border-bottom: 1px dashed var(--color-neutral-300) !important;
+      }
+      .eddy-guide-root [data-guide-drive-times] {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+      }
+    }
     @media (max-width: 767px) {
       .eddy-guide-root [data-guide-section-grid] {
         grid-template-columns: 1fr !important;
@@ -696,6 +815,9 @@ function ResponsiveStyles() {
         font-size: 36px !important;
       }
       .eddy-guide-root [data-guide-directory] {
+        grid-template-columns: 1fr !important;
+      }
+      .eddy-guide-root [data-guide-tldr] {
         grid-template-columns: 1fr !important;
       }
     }

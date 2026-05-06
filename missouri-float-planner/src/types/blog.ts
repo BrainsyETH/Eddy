@@ -23,6 +23,8 @@ export interface GuideBullet {
 
 export type FloatDifficulty = 'I' | 'I–II' | 'II';
 
+export type SegmentId = 'upper' | 'middle' | 'lower';
+
 export interface FloatSection {
   id: number;
   name: string;
@@ -35,12 +37,16 @@ export interface FloatSection {
   best: string;
   photo: string | null;
   body: string;
+  segment?: SegmentId;
+  best_for_tags?: string[];
 }
 
 export interface SpringStop {
   name: string;
   mile: string;
   note: string;
+  rank?: string;
+  flow?: string;
 }
 
 export interface SeasonRow {
@@ -65,6 +71,42 @@ export interface FaqItem {
   a: string;
 }
 
+export interface GuideTldr {
+  typical_distance: string;
+  best_for_beginners: string;
+  primary_gauge: string;
+  recommended_outfitter?: string;
+}
+
+export interface GuideSegment {
+  id: SegmentId;
+  label: string;
+  character: string;
+  best_for: string[];
+  section_ids: number[];
+}
+
+export interface Regulation {
+  topic: string;
+  rule: string;
+}
+
+export interface DriveTime {
+  city: string;
+  hours: string;
+}
+
+export interface NearbyAttraction {
+  name: string;
+  kind: string;
+  note: string;
+}
+
+export interface RelatedRiver {
+  slug: string;
+  label: string;
+}
+
 export interface GuideData {
   hero: GuideHero;
   intro_html: string;
@@ -76,6 +118,12 @@ export interface GuideData {
   pro_tips: GuideBullet[];
   callouts: GuideCallouts;
   faq: FaqItem[];
+  tldr?: GuideTldr;
+  segments?: GuideSegment[];
+  regulations?: Regulation[];
+  drive_times?: DriveTime[];
+  nearby_attractions?: NearbyAttraction[];
+  related_rivers?: RelatedRiver[];
 }
 
 export interface RiverGuidePost {
@@ -92,3 +140,4 @@ export interface RiverGuidePost {
   river_slug: string | null;
   guide_data: GuideData;
 }
+
