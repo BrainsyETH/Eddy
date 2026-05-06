@@ -352,27 +352,12 @@ export default async function RiverGuideLayout({ post }: Props) {
         <GuideTOC items={toc} riverSlug={post.river_slug} riverName={riverName} />
 
         <main style={{ maxWidth: 760, minWidth: 0 }}>
-          {/* Today */}
+          {/* Today — Eddy's live take, condition-aware */}
           <div id="today" style={{ scrollMarginTop: 80 }}>
             <SectionTitle eyebrow="Live conditions">Today on the {riverName.replace(/ River$/, '')}</SectionTitle>
-            <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.65 }}>
-              Conditions update automatically. If the widget says <em>good</em> or <em>flowing</em>, you&rsquo;re cleared to launch — the rest of this guide picks the float section.
+            <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
+              Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. If it says <em>float!</em> you&rsquo;re cleared — the rest of this guide picks the section.
             </p>
-            <iframe
-              data-eddy-embed
-              src={`/embed/widget/${slug}?theme=light`}
-              width="100%"
-              loading="lazy"
-              title={`${riverName} live conditions`}
-              style={{
-                border: 0,
-                borderRadius: 12,
-                display: 'block',
-                width: '100%',
-                maxWidth: '100%',
-                height: 480,
-              }}
-            />
           </div>
 
           <EddySaysCallout callout={g.callouts.hero} riverSlug={slug} />
@@ -521,17 +506,14 @@ export default async function RiverGuideLayout({ post }: Props) {
             ))}
           </div>
 
-          {/* Outfitters */}
+          {/* Outfitters — full inline directory, no off-page redirects */}
           <SectionTitle id="outfitters" eyebrow="Directory">
-            Outfitters &amp; lodging
+            Outfitters, campgrounds &amp; lodging
           </SectionTitle>
+          <p style={{ fontSize: 15, color: 'var(--color-neutral-600)', marginBottom: 18, lineHeight: 1.55 }}>
+            Every active service that operates on the {riverName.replace(/ River$/, '')}. Tap a phone number to call; tap Reserve to book.
+          </p>
           <DirectoryCards riverSlug={slug} />
-          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--color-neutral-600)' }}>
-            Need phone numbers, reservation links, or maps?{' '}
-            <Link href={`/rivers/${slug}#services`} style={{ color: 'var(--color-primary-600)', fontWeight: 600 }}>
-              Open the full {riverName} directory →
-            </Link>
-          </div>
 
           {/* Gauge */}
           <SectionTitle id="gauge" eyebrow="USGS data">
@@ -855,6 +837,9 @@ function ResponsiveStyles() {
       .eddy-guide-root [data-guide-section-stats] > div:nth-child(4) {
         padding-top: 8px;
       }
+      .eddy-guide-root [data-guide-directory-grid] {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
     }
     @media (max-width: 767px) {
       .eddy-guide-root [data-guide-section-grid] {
@@ -876,7 +861,7 @@ function ResponsiveStyles() {
       .eddy-guide-root [data-guide-title] {
         font-size: 36px !important;
       }
-      .eddy-guide-root [data-guide-directory] {
+      .eddy-guide-root [data-guide-directory-grid] {
         grid-template-columns: 1fr !important;
       }
       .eddy-guide-root [data-guide-tldr] {
