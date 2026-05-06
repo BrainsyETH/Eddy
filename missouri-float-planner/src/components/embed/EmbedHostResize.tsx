@@ -14,7 +14,8 @@ export default function EmbedHostResize() {
       const data = e.data as { type?: string; height?: number } | null;
       if (!data || data.type !== 'eddy-embed:resize' || typeof data.height !== 'number') return;
       const frames = document.querySelectorAll<HTMLIFrameElement>('iframe[data-eddy-embed]');
-      for (const frame of frames) {
+      for (let i = 0; i < frames.length; i++) {
+        const frame = frames[i];
         if (frame.contentWindow === e.source) {
           frame.style.height = `${data.height}px`;
           break;
