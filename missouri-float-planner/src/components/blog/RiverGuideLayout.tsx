@@ -122,7 +122,7 @@ function buildPlannerUrl(
   const putIn = apIds.get(section.from_slug);
   const takeOut = apIds.get(section.to_slug);
   if (!putIn || !takeOut) return undefined;
-  return `/plan?river=${riverSlug}&putIn=${putIn}&takeOut=${takeOut}`;
+  return `/rivers/${riverSlug}?putIn=${putIn}&takeOut=${takeOut}`;
 }
 
 export default async function RiverGuideLayout({ post }: Props) {
@@ -763,7 +763,7 @@ export default async function RiverGuideLayout({ post }: Props) {
                 Plan your {riverName} trip on Eddy
               </h3>
               <Link
-                href={`/plan?river=${slug}`}
+                href={`/rivers/${slug}`}
                 style={{
                   display: 'inline-block',
                   marginTop: 14,

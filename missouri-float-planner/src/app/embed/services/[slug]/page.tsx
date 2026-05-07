@@ -415,7 +415,7 @@ export default function EmbedServicesPage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <a
-            href={`${origin}/plan?river=${river.slug}`}
+            href={`${origin}/rivers/${river.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
