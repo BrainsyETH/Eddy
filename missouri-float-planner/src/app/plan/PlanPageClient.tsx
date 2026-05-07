@@ -1,28 +1,29 @@
 'use client';
 
-// src/app/rivers/[slug]/RiverPageClient.tsx
-// Client component for river detail page with full planning experience
-// State is managed here to enable map/planner integration
-// URL persistence: putIn, takeOut, and vessel params are stored in URL for sharing/refresh
+// src/app/plan/PlanPageClient.tsx
+// Unified float planner. River is selected via ?river=<slug> query param so a
+// single page handles every river. URL params (river, putIn, takeOut, vessel)
+// keep the planner state shareable and refresh-stable.
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { Camera, BookOpen, ChevronDown } from 'lucide-react';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import ForecastCard from '@/components/river/ForecastCard';
 import NearbyServices from '@/components/river/NearbyServices';
 import ShuttlePanel from '@/components/river/ShuttlePanel';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
-import FloatPlanCard from '@/components/plan/FloatPlanCard';
-import { ShareableCapture } from '@/components/plan/FloatPlanCard';
+import FloatPlanCard, { ShareableCapture } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import PlanSidebar from '@/components/plan/PlanSidebar';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
-import { useRiver } from '@/hooks/useRivers';
+import { useRiver, useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
@@ -31,12 +32,10 @@ import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import { usePOIs } from '@/hooks/usePOIs';
 import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
-import type { AccessPoint, FeedbackContext } from '@/types/api';
-import { Camera, BookOpen } from 'lucide-react';
-import Link from 'next/link';
-import { CONDITION_COLORS } from '@/constants';
+import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from '@/types/api';
+import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { getConditionTailwindColor } from '@/lib/conditions';
 
-// Dynamic imports for map
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
@@ -49,123 +48,120 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
 
-interface RiverPageProps {
+interface PlanPageClientProps {
+  initialRiverSlug: string | null;
   guidePost?: { slug: string; title: string } | null;
 }
 
-export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
-  const params = useParams();
-  const slug = params.slug as string;
+export default function PlanPageClient({ initialRiverSlug, guidePost = null }: PlanPageClientProps) {
   const searchParams = useSearchParams();
 
-  // Read initial state from URL params
+  const urlRiver = searchParams.get('river') ?? initialRiverSlug;
   const urlPutIn = searchParams.get('putIn');
   const urlTakeOut = searchParams.get('takeOut');
   const urlVessel = searchParams.get('vessel');
 
-  // Lifted state for planner/map integration
+  const [riverSlug, setRiverSlug] = useState<string | null>(urlRiver);
   const [selectedPutIn, setSelectedPutIn] = useState<string | null>(urlPutIn);
   const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
-
-  // Gauge visibility state - default to OFF for cleaner map view
+  const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
+  const [urlInitialized, setUrlInitialized] = useState(false);
   const [showGauges, setShowGauges] = useState(false);
-
-  // Feedback modal state
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
-
-  // River visual submit form state — auto-open if URL has ?submitPhoto=true
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
-  // Data fetching
-  const { data: river, isLoading: riverLoading, error: riverError } = useRiver(slug);
-  const { data: accessPoints } = useAccessPoints(slug);
+  const floatPlanCardRef = useRef<HTMLDivElement>(null);
+  const captureRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  // Data fetching — all hooks gracefully handle null/empty slug
+  const { data: rivers } = useRivers();
+  const { data: river, isLoading: riverLoading, error: riverError } = useRiver(riverSlug ?? '');
+  const { data: accessPoints } = useAccessPoints(riverSlug);
   const { data: conditionData } = useConditions(river?.id || null, {
     putInAccessPointId: selectedPutIn,
   });
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
   const { data: allGaugeStations } = useGaugeStations();
-  const { data: pois } = usePOIs(slug);
-  // Pre-fetch weather data for child components (WeatherBug)
-  useWeather(slug);
-  const { data: nearbyServices } = useNearbyServices(slug);
+  const { data: pois } = usePOIs(riverSlug);
+  useWeather(riverSlug);
+  const { data: nearbyServices } = useNearbyServices(riverSlug);
 
-  // Filter gauge stations to only show those linked to this river
-  const gaugeStations = allGaugeStations?.filter(gauge =>
-    gauge.thresholds?.some(t => t.riverId === river?.id)
+  const gaugeStations = useMemo(
+    () => allGaugeStations?.filter(g => g.thresholds?.some(t => t.riverId === river?.id)),
+    [allGaugeStations, river?.id]
   );
-  const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
-  const [urlInitialized, setUrlInitialized] = useState(false);
 
-  // Share feedback state
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
-
-  // Ref for auto-scrolling to float plan card
-  const floatPlanCardRef = useRef<HTMLDivElement>(null);
-
-  // Ref for image capture
-  const captureRef = useRef<HTMLDivElement>(null);
-
-  // React Query client for prefetching
-  const queryClient = useQueryClient();
-
-  // Update URL when state changes (without causing navigation)
-  const updateUrl = useCallback((putIn: string | null, takeOut: string | null, vessel: string | null) => {
+  // Update URL whenever any planner state changes
+  const updateUrl = useCallback((next: {
+    river: string | null;
+    putIn: string | null;
+    takeOut: string | null;
+    vessel: string | null;
+  }) => {
     const params = new URLSearchParams();
-    if (putIn) params.set('putIn', putIn);
-    if (takeOut) params.set('takeOut', takeOut);
-    if (vessel) params.set('vessel', vessel);
+    if (next.river) params.set('river', next.river);
+    if (next.putIn) params.set('putIn', next.putIn);
+    if (next.takeOut) params.set('takeOut', next.takeOut);
+    if (next.vessel) params.set('vessel', next.vessel);
 
-    const queryString = params.toString();
-    const newUrl = queryString ? `?${queryString}` : window.location.pathname;
-
-    // Use replaceState to avoid adding to browser history on every selection
+    const qs = params.toString();
+    const newUrl = qs ? `?${qs}` : window.location.pathname;
     window.history.replaceState(null, '', newUrl);
   }, []);
 
-  // Sync URL when selections change
   useEffect(() => {
     if (urlInitialized) {
-      updateUrl(selectedPutIn, selectedTakeOut, selectedVesselTypeId);
+      updateUrl({
+        river: riverSlug,
+        putIn: selectedPutIn,
+        takeOut: selectedTakeOut,
+        vessel: selectedVesselTypeId,
+      });
     }
-  }, [selectedPutIn, selectedTakeOut, selectedVesselTypeId, urlInitialized, updateUrl]);
+  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, urlInitialized, updateUrl]);
 
-  // Set default vessel type (from URL or default to canoe)
+  // Initialize vessel selection from URL or default to canoe
   useEffect(() => {
     if (vesselTypes && vesselTypes.length > 0 && !selectedVesselTypeId) {
-      // Check if URL has a vessel param that matches
       if (urlVessel) {
-        const urlVesselType = vesselTypes.find(v => v.id === urlVessel || v.slug === urlVessel);
-        if (urlVesselType) {
-          setSelectedVesselTypeId(urlVesselType.id);
+        const found = vesselTypes.find(v => v.id === urlVessel || v.slug === urlVessel);
+        if (found) {
+          setSelectedVesselTypeId(found.id);
           setUrlInitialized(true);
           return;
         }
       }
-      // Default to canoe
-      const defaultVessel = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
-      setSelectedVesselTypeId(defaultVessel.id);
+      const fallback = vesselTypes.find(v => v.slug === 'canoe') || vesselTypes[0];
+      setSelectedVesselTypeId(fallback.id);
       setUrlInitialized(true);
     }
   }, [vesselTypes, selectedVesselTypeId, urlVessel]);
 
-  // Validate URL params against actual access points
+  // Validate URL access points belong to the loaded river
   useEffect(() => {
     if (accessPoints && accessPoints.length > 0 && urlInitialized) {
-      // Validate putIn exists
       if (selectedPutIn && !accessPoints.find(ap => ap.id === selectedPutIn)) {
         setSelectedPutIn(null);
       }
-      // Validate takeOut exists
       if (selectedTakeOut && !accessPoints.find(ap => ap.id === selectedTakeOut)) {
         setSelectedTakeOut(null);
       }
     }
   }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
 
-  // Helper: assign two points so put-in is always upstream (lower mile).
-  // river_mile_downstream counts from headwaters so lower = upstream.
+  // River change: clear access point selections (a put-in from one river
+  // never makes sense on another)
+  const handleRiverChange = useCallback((slug: string | null) => {
+    setRiverSlug(slug);
+    setSelectedPutIn(null);
+    setSelectedTakeOut(null);
+  }, []);
+
+  // Put-in is always upstream of take-out (lower river_mile_downstream).
   const setBothPoints = useCallback((idA: string, idB: string) => {
     if (!accessPoints) {
       setSelectedPutIn(idA);
@@ -175,7 +171,6 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
     const a = accessPoints.find(ap => ap.id === idA);
     const b = accessPoints.find(ap => ap.id === idB);
     if (a && b && a.riverMile > b.riverMile) {
-      // A is downstream of B — swap so B (lower mile) is put-in
       setSelectedPutIn(idB);
       setSelectedTakeOut(idA);
     } else {
@@ -184,7 +179,6 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
     }
   }, [accessPoints]);
 
-  // Calculate plan
   const planParams = (river && selectedPutIn && selectedTakeOut)
     ? {
         riverId: river.id,
@@ -193,10 +187,8 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         vesselTypeId: selectedVesselTypeId || undefined,
       }
     : null;
-
   const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
 
-  // Find nearest gauge to the selected put-in, or to river center if no put-in
   const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
   const nearestGauge = gaugeStations && gaugeStations.length > 0
     ? selectedPutInPoint
@@ -204,47 +196,36 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
       : river?.bounds
         ? findNearestGauge(
             gaugeStations,
-            (river.bounds[1] + river.bounds[3]) / 2, // center lat
-            (river.bounds[0] + river.bounds[2]) / 2  // center lng
+            (river.bounds[1] + river.bounds[3]) / 2,
+            (river.bounds[0] + river.bounds[2]) / 2,
           )
         : null
     : null;
 
-  // Forecast: use put-in coords if selected, otherwise nearest gauge coords
   const forecastLat = selectedPutInPoint?.coordinates.lat ?? nearestGauge?.coordinates.lat ?? null;
   const forecastLng = selectedPutInPoint?.coordinates.lng ?? nearestGauge?.coordinates.lng ?? null;
   const { data: forecast } = useForecastByCoords(forecastLat, forecastLng);
 
-  // Handle map / strip click — setBothPoints ensures correct put-in/take-out order
   const handleMarkerClick = useCallback((point: AccessPoint) => {
-    // Clicking the current put-in → deselect it (keep take-out)
     if (point.id === selectedPutIn) {
       setSelectedPutIn(null);
       return;
     }
-
-    // Clicking the current take-out → deselect it
     if (point.id === selectedTakeOut) {
       setSelectedTakeOut(null);
       return;
     }
-
     if (!selectedPutIn && !selectedTakeOut) {
-      // Nothing selected — first pick becomes put-in
       setSelectedPutIn(point.id);
     } else if (selectedPutIn && !selectedTakeOut) {
-      // Put-in set, no take-out — assign both with auto-swap
       setBothPoints(selectedPutIn, point.id);
     } else if (!selectedPutIn && selectedTakeOut) {
-      // Take-out set, no put-in — assign both with auto-swap
       setBothPoints(point.id, selectedTakeOut);
     } else if (selectedPutIn && selectedTakeOut) {
-      // Both set — replace take-out, auto-swap if needed
       setBothPoints(selectedPutIn, point.id);
     }
   }, [selectedPutIn, selectedTakeOut, setBothPoints]);
 
-  // Handle report issue for access point
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
       type: 'access_point',
@@ -262,16 +243,16 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
     setFeedbackModalOpen(true);
   }, [river?.name]);
 
-  // Share link handler
   const handleShare = useCallback(async () => {
-    if (!selectedPutIn || !selectedTakeOut) return;
+    if (!riverSlug || !selectedPutIn || !selectedTakeOut) return;
 
     const params = new URLSearchParams();
+    params.set('river', riverSlug);
     params.set('putIn', selectedPutIn);
     params.set('takeOut', selectedTakeOut);
     if (selectedVesselTypeId) params.set('vessel', selectedVesselTypeId);
 
-    const shareUrl = `${window.location.origin}/rivers/${slug}?${params.toString()}`;
+    const shareUrl = `${window.location.origin}/plan?${params.toString()}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
     if (isMobile && navigator.share) {
@@ -282,7 +263,7 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         });
         return;
       } catch {
-        // User cancelled or share failed, fall through to clipboard
+        // fall through to clipboard
       }
     }
 
@@ -293,25 +274,18 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
     } catch {
       window.prompt('Copy this link:', shareUrl);
     }
-  }, [selectedPutIn, selectedTakeOut, selectedVesselTypeId, slug, river?.name]);
+  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river?.name]);
 
-  // Download shareable image handler using html2canvas
   const handleDownloadImage = useCallback(async () => {
     if (!selectedPutIn || !selectedTakeOut || !river || !plan || !captureRef.current) return;
-
     try {
-      // Dynamically import html2canvas
       const html2canvas = (await import('html2canvas')).default;
-
-      // Capture the hidden shareable element
       const canvas = await html2canvas(captureRef.current, {
         backgroundColor: '#ffffff',
-        scale: 2, // Higher resolution
+        scale: 2,
         logging: false,
         useCORS: true,
       });
-
-      // Convert to blob and download
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
@@ -323,31 +297,27 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }, 'image/png');
-    } catch (error) {
-      console.error('Error generating image:', error);
+    } catch (err) {
+      console.error('Error generating image:', err);
     }
   }, [selectedPutIn, selectedTakeOut, river, plan]);
 
-  // Prefetch float plans on hover for instant loading
   const handleAccessPointHover = useCallback((point: AccessPoint) => {
     if (!river || !accessPoints || !selectedVesselTypeId) return;
-
-    // Find adjacent access points (by river mile order)
     const sortedPoints = [...accessPoints].sort((a, b) => a.riverMile - b.riverMile);
     const pointIndex = sortedPoints.findIndex(ap => ap.id === point.id);
 
     if (selectedPutIn && !selectedTakeOut) {
-      // Put-in selected - prefetch plan with hovered point as take-out
       queryClient.prefetchQuery({
         queryKey: ['float-plan', river.id, selectedPutIn, point.id, selectedVesselTypeId, undefined],
         queryFn: async () => {
-          const searchParams = new URLSearchParams({
+          const sp = new URLSearchParams({
             riverId: river.id,
             startId: selectedPutIn,
             endId: point.id,
             vesselTypeId: selectedVesselTypeId,
           });
-          const response = await fetch(`/api/plan?${searchParams.toString()}`);
+          const response = await fetch(`/api/plan?${sp.toString()}`);
           if (!response.ok) throw new Error('Failed to calculate float plan');
           const data = await response.json();
           return data.plan;
@@ -355,23 +325,21 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         staleTime: 5 * 60 * 1000,
       });
     } else if (!selectedPutIn) {
-      // No put-in - prefetch plans with hovered point as put-in and nearby take-outs
-      const nearbyPoints = sortedPoints.slice(
+      const nearby = sortedPoints.slice(
         Math.max(0, pointIndex + 1),
-        Math.min(sortedPoints.length, pointIndex + 4)
+        Math.min(sortedPoints.length, pointIndex + 4),
       );
-
-      nearbyPoints.forEach(takeOut => {
+      nearby.forEach(takeOut => {
         queryClient.prefetchQuery({
           queryKey: ['float-plan', river.id, point.id, takeOut.id, selectedVesselTypeId, undefined],
           queryFn: async () => {
-            const searchParams = new URLSearchParams({
+            const sp = new URLSearchParams({
               riverId: river.id,
               startId: point.id,
               endId: takeOut.id,
               vesselTypeId: selectedVesselTypeId,
             });
-            const response = await fetch(`/api/plan?${searchParams.toString()}`);
+            const response = await fetch(`/api/plan?${sp.toString()}`);
             if (!response.ok) throw new Error('Failed to calculate float plan');
             const data = await response.json();
             return data.plan;
@@ -382,23 +350,20 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
     }
   }, [river, accessPoints, selectedPutIn, selectedTakeOut, selectedVesselTypeId, queryClient]);
 
-  // Get access point objects for FloatPlanCard
   const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn) || null;
   const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut) || null;
 
-  // Compute points along route (intermediate access points + POIs between put-in and take-out)
-  const pointsAlongRoute: RouteItem[] = (() => {
+  const pointsAlongRoute: RouteItem[] = useMemo(() => {
     if (!putInPoint || !takeOutPoint) return [];
     const minMile = Math.min(putInPoint.riverMile, takeOutPoint.riverMile);
     const maxMile = Math.max(putInPoint.riverMile, takeOutPoint.riverMile);
 
-    // Intermediate access points (exclude put-in and take-out themselves)
     const intermediateAPs: RouteItem[] = (accessPoints || [])
       .filter(ap =>
         ap.id !== putInPoint.id &&
         ap.id !== takeOutPoint.id &&
         ap.riverMile > minMile &&
-        ap.riverMile < maxMile
+        ap.riverMile < maxMile,
       )
       .map(ap => ({
         id: ap.id,
@@ -410,12 +375,11 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         imageUrl: ap.imageUrls?.[0] || null,
       }));
 
-    // POIs with valid river miles between the route
     const routePOIs: RouteItem[] = (pois || [])
       .filter(poi =>
         poi.riverMile !== null &&
         poi.riverMile > minMile &&
-        poi.riverMile < maxMile
+        poi.riverMile < maxMile,
       )
       .map(poi => ({
         id: poi.id,
@@ -428,26 +392,78 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         npsUrl: poi.npsUrl,
       }));
 
-    // Combine and sort by river mile
     return [...intermediateAPs, ...routePOIs].sort((a, b) => a.riverMile - b.riverMile);
-  })();
+  }, [putInPoint, takeOutPoint, accessPoints, pois]);
 
-  // Mile range for map highlighting
   const activeMileRange = putInPoint && takeOutPoint
     ? { min: Math.min(putInPoint.riverMile, takeOutPoint.riverMile), max: Math.max(putInPoint.riverMile, takeOutPoint.riverMile) }
     : null;
 
-  // Auto-scroll to float plan card when both points are selected
   useEffect(() => {
     if (selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
-      // Small delay to allow card to render
-      const timeout = setTimeout(() => {
+      const t = setTimeout(() => {
         floatPlanCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(t);
     }
   }, [selectedPutIn, selectedTakeOut]);
 
+  // ─── No river selected: render picker ───
+  if (!riverSlug) {
+    return (
+      <div className="min-h-[calc(100vh-3.5rem)] bg-gradient-to-b from-neutral-100 to-neutral-50">
+        <section
+          className="relative py-10 text-white overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
+        >
+          <div className="max-w-3xl mx-auto px-4">
+            <h1 className="text-2xl md:text-4xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
+              Plan a Float Trip
+            </h1>
+            <p className="text-sm md:text-base text-white/80 max-w-xl">
+              Pick a river to start. Eddy will show you the map, access points, and float times based on live conditions.
+            </p>
+          </div>
+        </section>
+
+        <div className="max-w-3xl mx-auto px-4 py-6">
+          <div className="bg-white border border-neutral-200 rounded-xl p-5 md:p-6">
+            <label className="block text-sm font-semibold text-neutral-700 mb-2">River</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(rivers || []).map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handleRiverChange(r.slug)}
+                  className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-neutral-200 bg-neutral-50 hover:bg-primary-50 hover:border-primary-300 transition-colors text-left"
+                >
+                  <div>
+                    <div className="font-semibold text-neutral-900">{r.name}</div>
+                    <div className="text-xs text-neutral-500">
+                      {r.lengthMiles.toFixed(1)} mi · {r.region}
+                    </div>
+                  </div>
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
+                    title={r.currentCondition?.label || 'Unknown'}
+                  />
+                </button>
+              ))}
+              {!rivers && (
+                <div className="col-span-full flex items-center justify-center py-6">
+                  <LoadingSpinner size="md" />
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-neutral-500 mt-4">
+              Want to compare rivers first? <Link href="/rivers" className="text-primary-600 hover:underline">Browse all rivers</Link>.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── River loading/error states ───
   if (riverLoading) {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
@@ -464,9 +480,15 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
             <span className="text-3xl">:/</span>
           </div>
           <h2 className="text-xl font-bold text-neutral-900 mb-2">River Not Found</h2>
-          <p className="text-neutral-600">
-            The river you&apos;re looking for doesn&apos;t exist or has been removed.
+          <p className="text-neutral-600 mb-4">
+            We couldn&apos;t find that river. Try picking another.
           </p>
+          <button
+            onClick={() => handleRiverChange(null)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+          >
+            Choose a river
+          </button>
         </div>
       </div>
     );
@@ -476,11 +498,15 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
     <div className="min-h-screen bg-neutral-50">
       {/* ─── DESKTOP: Split-panel layout ─── */}
       <div className="hidden lg:flex" style={{ height: 'calc(100vh - 3.5rem)' }}>
-        {/* Left sidebar — plan info */}
         <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col">
+          <RiverSwitcher
+            currentSlug={riverSlug}
+            rivers={rivers || []}
+            onChange={handleRiverChange}
+          />
           <PlanSidebar
             riverName={river.name}
-            riverSlug={slug}
+            riverSlug={riverSlug}
             conditionCode={condition?.code ?? 'unknown'}
             plan={plan || null}
             isLoading={planLoading}
@@ -500,7 +526,6 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
           />
         </div>
 
-        {/* Right side — Map hero */}
         <div className="flex-1 relative">
           <MapContainer
             initialBounds={river.bounds}
@@ -528,10 +553,8 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
             )}
           </MapContainer>
 
-          {/* Weather Bug overlay */}
-          <WeatherBug riverSlug={slug} riverId={river.id} />
+          <WeatherBug riverSlug={riverSlug} riverId={river.id} />
 
-          {/* Access Point Strip — overlaid at bottom of map */}
           {accessPoints && accessPoints.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
               <div className="pointer-events-auto">
@@ -543,7 +566,7 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
                   onHover={handleAccessPointHover}
                   onReportIssue={handleReportAccessPointIssue}
                   hideExpandedDetails={true}
-                  riverSlug={slug}
+                  riverSlug={riverSlug}
                 />
               </div>
             </div>
@@ -553,12 +576,14 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
 
       {/* ─── MOBILE: Full-screen map + bottom sheet ─── */}
       <div className="lg:hidden">
-        {/* Compact mobile header */}
-        <div className="px-4 py-2 bg-white border-b border-neutral-200 flex items-center justify-between">
-          <h1 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
-            {river.name}
-          </h1>
-          <div className="flex items-center gap-2">
+        <div className="px-4 py-2 bg-white border-b border-neutral-200 flex items-center justify-between gap-2">
+          <MobileRiverSwitcher
+            currentSlug={riverSlug}
+            currentName={river.name}
+            rivers={rivers || []}
+            onChange={handleRiverChange}
+          />
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setShowVisualSubmitForm(true)}
               className="p-1.5 rounded-lg text-neutral-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
@@ -571,12 +596,11 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
               className="px-2 py-0.5 rounded text-[10px] font-bold text-white"
               style={{ backgroundColor: CONDITION_COLORS[condition?.code ?? 'unknown'] || CONDITION_COLORS.unknown }}
             >
-              {condition?.code === 'flowing' ? 'Flowing' : condition?.code === 'good' ? 'Good' : condition?.code === 'low' ? 'Low' : condition?.code === 'too_low' ? 'Too Low' : condition?.code === 'high' ? 'High' : condition?.code === 'dangerous' ? 'Flood' : 'Unknown'}
+              {CONDITION_LABELS[(condition?.code ?? 'unknown') as ConditionCode] || 'Unknown'}
             </span>
           </div>
         </div>
 
-        {/* Map — fills remaining viewport */}
         <div className="relative" style={{ height: `calc(100vh - 3.5rem - 2.5rem - ${putInPoint && takeOutPoint ? '80px' : '0px'})` }}>
           <MapContainer
             initialBounds={river.bounds}
@@ -604,10 +628,8 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
             )}
           </MapContainer>
 
-          {/* Weather Bug */}
-          <WeatherBug riverSlug={slug} riverId={river.id} />
+          <WeatherBug riverSlug={riverSlug} riverId={river.id} />
 
-          {/* Access Point Strip — overlaid at bottom */}
           {accessPoints && accessPoints.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1 pointer-events-none">
               <div className="pointer-events-auto">
@@ -619,13 +641,12 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
                   onHover={handleAccessPointHover}
                   onReportIssue={handleReportAccessPointIssue}
                   hideExpandedDetails={true}
-                  riverSlug={slug}
+                  riverSlug={riverSlug}
                 />
               </div>
             </div>
           )}
 
-          {/* Selection hint */}
           {!putInPoint && !takeOutPoint && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-neutral-200">
               <p className="text-xs font-medium text-neutral-600">Tap a marker to set your put-in</p>
@@ -633,7 +654,6 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
           )}
         </div>
 
-        {/* Mobile Bottom Sheet */}
         {putInPoint && takeOutPoint && plan && (
           <FloatPlanCard
             plan={plan}
@@ -645,7 +665,7 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
             onShare={handleShare}
             onDownloadImage={handleDownloadImage}
             shareStatus={shareStatus}
-            riverSlug={slug}
+            riverSlug={riverSlug}
             riverName={river.name}
             vesselTypeId={selectedVesselTypeId}
             onVesselChange={setSelectedVesselTypeId}
@@ -656,14 +676,12 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         )}
       </div>
 
-      {/* ─── Info sections (below fold, full width) ─── */}
+      {/* ─── Below-fold info ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
-        {/* 3-Day Weather Forecast */}
         {forecast?.days && forecast.days.length > 0 && (
           <ForecastCard days={forecast.days} city={forecast.city} />
         )}
 
-        {/* Shuttle & Logistics */}
         {putInPoint && takeOutPoint && nearbyServices && (
           <ShuttlePanel
             putInId={putInPoint.id}
@@ -674,15 +692,13 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
           />
         )}
 
-        {/* River Visuals Gallery */}
         <RiverVisualGallery
-          riverSlug={slug}
+          riverSlug={riverSlug}
           accessPointId={selectedPutIn}
         />
 
-        <NearbyServices riverSlug={slug} defaultOpen={false} />
+        <NearbyServices riverSlug={riverSlug} defaultOpen={false} />
 
-        {/* Cross-link to river guide post (only when a published guide exists) */}
         {guidePost && (
           <Link
             href={`/blog/${guidePost.slug}`}
@@ -701,9 +717,16 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
             </div>
           </Link>
         )}
+
+        {/* Cross-link back to river guide page */}
+        <Link
+          href={`/rivers/${riverSlug}`}
+          className="block text-center text-sm text-neutral-500 hover:text-primary-600 transition-colors py-2"
+        >
+          ← Back to {river.name} guide
+        </Link>
       </div>
 
-      {/* Hidden shareable capture component */}
       {putInPoint && takeOutPoint && plan && captureRef && (
         <ShareableCapture
           plan={plan}
@@ -714,14 +737,12 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
         />
       )}
 
-      {/* Feedback Modal */}
       <FeedbackModal
         isOpen={feedbackModalOpen}
         onClose={() => setFeedbackModalOpen(false)}
         context={feedbackContext}
       />
 
-      {/* River Visual Submit Modal */}
       {showVisualSubmitForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowVisualSubmitForm(false)}>
           <div className="w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -737,6 +758,170 @@ export default function RiverPage({ guidePost = null }: RiverPageProps = {}) {
           </div>
         </div>
       )}
+
     </div>
+  );
+}
+
+function RiverSwitcher({
+  currentSlug,
+  rivers,
+  onChange,
+}: {
+  currentSlug: string;
+  rivers: RiverListItem[];
+  onChange: (slug: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = rivers.find(r => r.slug === currentSlug);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative border-b border-neutral-200 bg-white">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-neutral-50 transition-colors"
+      >
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500 font-semibold">River</div>
+          <div className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+            {current?.name || currentSlug}
+          </div>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-0.5 mx-2 bg-white border border-neutral-200 rounded-lg shadow-xl max-h-[60vh] overflow-y-auto">
+          {rivers.map(r => (
+            <button
+              key={r.id}
+              onClick={() => { onChange(r.slug); setOpen(false); }}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-neutral-50 transition-colors ${
+                r.slug === currentSlug ? 'bg-primary-50' : ''
+              }`}
+            >
+              <div>
+                <div className="font-semibold text-neutral-900 text-sm">{r.name}</div>
+                <div className="text-[11px] text-neutral-500">{r.lengthMiles.toFixed(1)} mi · {r.region}</div>
+              </div>
+              <span
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
+              />
+            </button>
+          ))}
+          <Link
+            href="/rivers"
+            className="block px-4 py-2.5 text-center text-sm text-primary-600 hover:bg-neutral-50 border-t border-neutral-100"
+          >
+            Browse all rivers
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MobileRiverSwitcher({
+  currentSlug,
+  currentName,
+  rivers,
+  onChange,
+}: {
+  currentSlug: string;
+  currentName: string;
+  rivers: RiverListItem[];
+  onChange: (slug: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Lock body scroll while sheet is open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        aria-label={`Currently planning ${currentName} — change river`}
+        className="flex items-center gap-1 min-w-0 flex-1 text-left"
+      >
+        <span
+          className="text-base font-bold text-neutral-900 truncate"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {currentName}
+        </span>
+        <ChevronDown className="w-4 h-4 text-neutral-500 flex-shrink-0" aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 animate-in fade-in"
+          onClick={() => setOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a river"
+        >
+          <div
+            className="w-full max-h-[75vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-neutral-100">
+              <div className="w-10 h-1 bg-neutral-300 rounded-full mx-auto mb-3" aria-hidden="true" />
+              <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                Choose a river
+              </h2>
+            </div>
+            <div className="overflow-y-auto py-1">
+              {rivers.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => { onChange(r.slug); setOpen(false); }}
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                    r.slug === currentSlug ? 'bg-primary-50' : 'hover:bg-neutral-50'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold text-neutral-900 text-sm truncate">{r.name}</div>
+                    <div className="text-[11px] text-neutral-500">
+                      {r.lengthMiles.toFixed(1)} mi · {r.region}
+                    </div>
+                  </div>
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
+                    title={r.currentCondition?.label || 'Unknown'}
+                  />
+                </button>
+              ))}
+              <Link
+                href="/rivers"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-3 text-center text-sm text-primary-600 border-t border-neutral-100"
+              >
+                Browse all rivers
+              </Link>
+            </div>
+            <button
+              onClick={() => setOpen(false)}
+              className="flex-shrink-0 px-4 py-3 border-t border-neutral-200 text-sm font-semibold text-neutral-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

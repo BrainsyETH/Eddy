@@ -1,10 +1,17 @@
 // src/app/rivers/[slug]/page.tsx
-// Server component wrapper — exports generateMetadata (with searchParams for float plan OG)
-// and renders the client-side river page
+// Server-rendered river guide page. Acts as the SEO landing surface for each
+// river. Heavy planning UI (map, sidebar, share/save) lives at /plan?river=<slug>
+// — when this page is hit with putIn/takeOut params we redirect there so old
+// shared links keep working.
 
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import Image from 'next/image';
+import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import RiverPageClient from './RiverPageClient';
+import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import type { ConditionCode } from '@/types/api';
+import RiverGuideIslands from './RiverGuideIslands';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -26,8 +33,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     }
 
     const supabase = await createClient();
-
-    // Fetch river basic info
     const { data: river, error: riverError } = await supabase
       .from('rivers')
       .select('id, name, slug, length_miles, description, difficulty_rating, region')
@@ -38,23 +43,39 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       return { title: 'River Not Found' };
     }
 
-    // Check if this is a float plan share URL
+    // If this is a deep-link with float plan params we'll redirect, but provide
+    // sensible metadata anyway in case the redirect fails.
     const putInId = resolvedSearch?.putIn;
     const takeOutId = resolvedSearch?.takeOut;
-    const isFloatPlanShare = putInId && takeOutId;
+    if (putInId && takeOutId) {
+      const ogImageUrl = `${BASE_URL}/api/og/float?putIn=${putInId}&takeOut=${takeOutId}`;
+      const planUrl = `${BASE_URL}/plan?river=${slug}&putIn=${putInId}&takeOut=${takeOutId}`;
+      return {
+        title: `Float Plan | ${river.name}`,
+        description: `Floating ${river.name} on Eddy.`,
+        alternates: { canonical: planUrl },
+        openGraph: {
+          type: 'website',
+          title: `Float Plan | ${river.name}`,
+          description: `Floating ${river.name} on Eddy.`,
+          url: planUrl,
+          siteName: 'Eddy',
+          images: [{ url: ogImageUrl, width: 1200, height: 630 }],
+        },
+      };
+    }
 
-    // Fetch current conditions for the river
     let conditionCode = 'unknown';
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: conditionData } = await (supabase.rpc as any)('get_river_condition', {
+      const { data: condRows } = await (supabase.rpc as any)('get_river_condition', {
         p_river_id: river.id,
       });
-      if (conditionData && conditionData.length > 0) {
-        conditionCode = conditionData[0].condition_code || 'unknown';
+      if (condRows && condRows.length > 0) {
+        conditionCode = condRows[0].condition_code || 'unknown';
       }
-    } catch (condError) {
-      console.warn('Failed to fetch conditions for river metadata:', condError);
+    } catch (err) {
+      console.warn('Failed to fetch conditions for river metadata:', err);
     }
 
     const conditionLabels: Record<string, string> = {
@@ -68,53 +89,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     };
     const conditionText = conditionLabels[conditionCode] || '';
 
-    // If this is a float plan share, fetch access point names for the title/description
-    if (isFloatPlanShare) {
-      let putInName = '';
-      let takeOutName = '';
-      try {
-        const [putInResult, takeOutResult] = await Promise.all([
-          supabase.from('access_points').select('name').eq('id', putInId).single(),
-          supabase.from('access_points').select('name').eq('id', takeOutId).single(),
-        ]);
-        putInName = putInResult.data?.name || 'Start';
-        takeOutName = takeOutResult.data?.name || 'End';
-      } catch {
-        // Access point fetch failed
-      }
-
-      const title = `${putInName} → ${takeOutName} | ${river.name}`;
-      const description = conditionText
-        ? `Float ${river.name} from ${putInName} to ${takeOutName}. Currently ${conditionText.toLowerCase()}.`
-        : `Float ${river.name} from ${putInName} to ${takeOutName}. Plan your trip on Eddy.`;
-
-      const ogImageUrl = `${BASE_URL}/api/og/float?putIn=${putInId}&takeOut=${takeOutId}`;
-      const pageUrl = `${BASE_URL}/rivers/${slug}?putIn=${putInId}&takeOut=${takeOutId}`;
-
-      return {
-        title,
-        description,
-        openGraph: {
-          type: 'website',
-          title,
-          description,
-          url: pageUrl,
-          siteName: 'Eddy',
-          images: [{ url: ogImageUrl, width: 1200, height: 630 }],
-        },
-        twitter: {
-          card: 'summary_large_image',
-          title,
-          description,
-          images: [ogImageUrl],
-        },
-      };
-    }
-
-    // Standard river page metadata (no float plan params)
     const lengthMiles = river.length_miles ? parseFloat(river.length_miles).toFixed(1) : '';
     const title = conditionText ? `${river.name} — ${conditionText}` : river.name;
-    const ogTitle = `${river.name} | Live Conditions & Float Guide`;
+    const ogTitle = `${river.name} | Float Trip Guide`;
 
     const descParts: string[] = [];
     if (conditionText) descParts.push(`Currently ${conditionText.toLowerCase()}.`);
@@ -124,7 +101,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     const descMeta = descParts.length > 1
       ? descParts.slice(0, 1).join('') + ' ' + descParts.slice(1).join(', ') + '.'
       : descParts.join(', ') + '.';
-    const description = `${descMeta} Access points, float times, gauge data & weather for ${river.name}.`;
+    const description = `${descMeta} Access points, river guide, and live conditions for ${river.name}. Plan your float on Eddy.`;
     const pageUrl = `${BASE_URL}/rivers/${slug}`;
 
     return {
@@ -132,9 +109,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       description,
       alternates: {
         canonical: pageUrl,
-        types: {
-          'application/json': `${BASE_URL}/api/rivers/${slug}`,
-        },
+        types: { 'application/json': `${BASE_URL}/api/rivers/${slug}` },
       },
       openGraph: {
         type: 'website',
@@ -142,13 +117,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         description,
         url: pageUrl,
         siteName: 'Eddy',
-        // OG image auto-discovered from opengraph-image.tsx
       },
       twitter: {
         card: 'summary_large_image',
         title: ogTitle,
         description,
-        // Twitter image auto-discovered from twitter-image.tsx
       },
     };
   } catch (error) {
@@ -156,38 +129,26 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     return {
       title: 'River',
       description: 'Plan your next float trip with live conditions and access points.',
-      openGraph: {
-        type: 'website',
-        title: 'River | Eddy',
-        description: 'Plan your next float trip with live conditions and access points.',
-        siteName: 'Eddy',
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: 'River | Eddy',
-        description: 'Plan your next float trip with live conditions and access points.',
-      },
     };
   }
 }
 
-export default async function RiverPage({ params }: Props) {
+export default async function RiverGuidePage({ params }: Props) {
   const resolvedParams = await params;
   const slug = resolvedParams?.slug;
 
-  // Fetch river data for structured data JSON-LD
-  let riverName = 'River';
-  let riverDescription: string | null = null;
-  let riverLength: number | null = null;
-  let riverDifficulty: string | null = null;
-  let riverRegion: string | null = null;
-  let riverBounds: number[] | null = null;
-  let guidePost: { slug: string; title: string } | null = null;
+  // Note: /rivers/<slug>?putIn=…&takeOut=… is 308'd to /plan via
+  // next.config.mjs redirects() before we reach this handler.
 
-  if (slug) {
-    const supabase = await createClient();
+  const supabase = await createClient();
 
-    const { data: guide } = await supabase
+  const [riverResult, guideResult] = await Promise.all([
+    supabase
+      .from('rivers')
+      .select('id, name, slug, description, length_miles, difficulty_rating, region, geom')
+      .eq('slug', slug)
+      .single(),
+    supabase
       .from('blog_posts')
       .select('slug, title')
       .eq('river_slug', slug)
@@ -195,38 +156,63 @@ export default async function RiverPage({ params }: Props) {
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false })
       .limit(1)
-      .maybeSingle();
-    if (guide) guidePost = guide;
+      .maybeSingle(),
+  ]);
 
-    const { data } = await supabase
-      .from('rivers')
-      .select('name, description, length_miles, difficulty_rating, region, geom')
-      .eq('slug', slug)
-      .single();
-    if (data) {
-      riverName = data.name;
-      riverDescription = data.description;
-      riverLength = data.length_miles ? parseFloat(data.length_miles) : null;
-      riverDifficulty = data.difficulty_rating;
-      riverRegion = data.region;
-      // Extract centroid from geometry bounding box if available
-      if (data.geom && typeof data.geom === 'object') {
-        try {
-          const geom = data.geom as GeoJSON.LineString;
-          if (geom.coordinates && geom.coordinates.length > 0) {
-            const lngs = geom.coordinates.map((c: number[]) => c[0]);
-            const lats = geom.coordinates.map((c: number[]) => c[1]);
-            riverBounds = [
-              (Math.min(...lngs) + Math.max(...lngs)) / 2,
-              (Math.min(...lats) + Math.max(...lats)) / 2,
-            ];
-          }
-        } catch {
-          // Geometry parsing failed, skip bounds
-        }
+  if (riverResult.error || !riverResult.data) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <span className="text-3xl">:/</span>
+          </div>
+          <h1 className="text-2xl font-bold text-neutral-900 mb-2">River Not Found</h1>
+          <p className="text-neutral-600 mb-4">We don&apos;t have a guide for that river yet.</p>
+          <Link href="/rivers" className="text-primary-600 hover:underline">Browse all rivers</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const river = riverResult.data;
+
+  // Fetch access points + current condition in parallel (need river.id first)
+  const [{ data: accessPoints }, condRowsResult] = await Promise.all([
+    supabase
+      .from('access_points')
+      .select('id, slug, name, river_mile_downstream, image_urls, type, types')
+      .eq('approved', true)
+      .eq('river_id', river.id)
+      .order('river_mile_downstream', { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)('get_river_condition', { p_river_id: river.id }).then(
+      (res: { data: Array<{ condition_code: string }> | null }) => res,
+      () => ({ data: null }),
+    ),
+  ]);
+
+  const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
+  const guidePost = guideResult.data || null;
+
+  // Centroid for JSON-LD
+  let centroid: [number, number] | null = null;
+  if (river.geom && typeof river.geom === 'object') {
+    try {
+      const geom = river.geom as GeoJSON.LineString;
+      if (geom.coordinates && geom.coordinates.length > 0) {
+        const lngs = geom.coordinates.map((c: number[]) => c[0]);
+        const lats = geom.coordinates.map((c: number[]) => c[1]);
+        centroid = [
+          (Math.min(...lngs) + Math.max(...lngs)) / 2,
+          (Math.min(...lats) + Math.max(...lats)) / 2,
+        ];
       }
+    } catch {
+      // ignore
     }
   }
+
+  const lengthMiles = river.length_miles ? parseFloat(river.length_miles) : null;
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -234,34 +220,34 @@ export default async function RiverPage({ params }: Props) {
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
       { '@type': 'ListItem', position: 2, name: 'Rivers', item: `${BASE_URL}/rivers` },
-      { '@type': 'ListItem', position: 3, name: riverName, item: `${BASE_URL}/rivers/${slug}` },
+      { '@type': 'ListItem', position: 3, name: river.name, item: `${BASE_URL}/rivers/${slug}` },
     ],
   };
 
   const descParts: string[] = [];
-  if (riverDescription) descParts.push(riverDescription);
-  if (riverLength) descParts.push(`${riverLength.toFixed(1)} miles.`);
-  if (riverDifficulty) descParts.push(`Difficulty: ${riverDifficulty}.`);
-  if (riverRegion) descParts.push(`Located in ${riverRegion}, Missouri.`);
-  const fullDescription = descParts.join(' ') || `Float trip guide for ${riverName} in Missouri.`;
+  if (river.description) descParts.push(river.description);
+  if (lengthMiles) descParts.push(`${lengthMiles.toFixed(1)} miles.`);
+  if (river.difficulty_rating) descParts.push(`Difficulty: ${river.difficulty_rating}.`);
+  if (river.region) descParts.push(`Located in ${river.region}, Missouri.`);
+  const fullDescription = descParts.join(' ') || `Float trip guide for ${river.name} in Missouri.`;
 
   const touristAttractionJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'TouristAttraction',
-    name: riverName,
+    name: river.name,
     description: fullDescription,
     touristType: ['Float trip', 'Canoeing', 'Kayaking', 'Tubing'],
     isAccessibleForFree: true,
     publicAccess: true,
     url: `${BASE_URL}/rivers/${slug}`,
-    ...(riverBounds && {
+    ...(centroid && {
       geo: {
         '@type': 'GeoCoordinates',
-        latitude: riverBounds[1],
-        longitude: riverBounds[0],
+        latitude: centroid[1],
+        longitude: centroid[0],
       },
     }),
-    ...(riverRegion && {
+    ...(river.region && {
       address: {
         '@type': 'PostalAddress',
         addressRegion: 'MO',
@@ -270,11 +256,154 @@ export default async function RiverPage({ params }: Props) {
     }),
   };
 
+  // Pick a hero image from any access point that has one
+  const heroImage = (accessPoints || []).find(ap => ap.image_urls && ap.image_urls.length > 0)?.image_urls?.[0] || null;
+
+  const planUrl = `/plan?river=${slug}`;
+  const condKey = conditionCode as ConditionCode;
+  const conditionLabel = CONDITION_LABELS[condKey] || 'Unknown';
+  const conditionColor = CONDITION_COLORS[condKey] || CONDITION_COLORS.unknown;
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(touristAttractionJsonLd) }} />
-      <RiverPageClient guidePost={guidePost} />
+
+      <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
+        {/* Hero */}
+        <section
+          className="relative text-white overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
+        >
+          {heroImage && (
+            <Image
+              src={heroImage}
+              alt={`${river.name} river`}
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover opacity-30"
+            />
+          )}
+          <div className="relative max-w-5xl mx-auto px-4 py-10 md:py-14">
+            <nav className="text-xs text-white/60 mb-3">
+              <Link href="/rivers" className="hover:text-white">Rivers</Link>
+              <span className="mx-2">/</span>
+              <span className="text-white/80">{river.name}</span>
+            </nav>
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <h1
+                className="text-3xl md:text-5xl font-bold"
+                style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
+              >
+                {river.name}
+              </h1>
+              <span
+                className="px-2.5 py-1 rounded text-xs font-bold text-white"
+                style={{ backgroundColor: conditionColor }}
+                title={`Condition: ${conditionLabel}`}
+              >
+                {conditionLabel}
+              </span>
+            </div>
+            {river.description && (
+              <p className="text-base md:text-lg text-white/85 max-w-2xl mb-5">
+                {river.description}
+              </p>
+            )}
+            <div className="flex items-center gap-4 mb-6 flex-wrap text-sm text-white/80">
+              {lengthMiles && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Ruler className="w-4 h-4" /> {lengthMiles.toFixed(1)} miles
+                </span>
+              )}
+              {river.difficulty_rating && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Mountain className="w-4 h-4" /> {river.difficulty_rating}
+                </span>
+              )}
+              {river.region && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4" /> {river.region}
+                </span>
+              )}
+            </div>
+            <Link
+              href={planUrl}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
+            >
+              Plan a Float on the {river.name}
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+        </section>
+
+        <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+          {/* Access points list */}
+          {accessPoints && accessPoints.length > 0 && (
+            <section className="bg-white border border-neutral-200 rounded-xl p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                  Access Points
+                </h2>
+                <span className="text-xs text-neutral-500">{accessPoints.length} on river</span>
+              </div>
+              <p className="text-sm text-neutral-600 mb-4">
+                Tap any access point to start a float plan from there.
+              </p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {accessPoints.map((ap) => (
+                  <li key={ap.id}>
+                    <Link
+                      href={`/plan?river=${slug}&putIn=${ap.id}`}
+                      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 bg-neutral-50 hover:bg-primary-50 hover:border-primary-300 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-neutral-900 text-sm truncate">{ap.name}</div>
+                        {ap.river_mile_downstream != null && (
+                          <div className="text-[11px] text-neutral-500">
+                            Mile {parseFloat(ap.river_mile_downstream).toFixed(1)}
+                          </div>
+                        )}
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Live data islands (visuals + nearby services) */}
+          <RiverGuideIslands riverSlug={slug} />
+
+          {/* Blog cross-link */}
+          {guidePost && (
+            <Link
+              href={`/blog/${guidePost.slug}`}
+              className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
+            >
+              <p className="text-sm font-semibold text-neutral-900">
+                Read the full {river.name} Float Trip Guide →
+              </p>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Best floats, access points, outfitters, and everything you need to know.
+              </p>
+            </Link>
+          )}
+
+          {/* Secondary CTA */}
+          <div className="text-center pt-2">
+            <Link
+              href={planUrl}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              Open the planner
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
