@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Info, Camera } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
@@ -65,7 +65,7 @@ export default function PlanSidebar({
   const hasBothPoints = putInPoint && takeOutPoint;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Sidebar header — breadcrumbs + river name + condition */}
       <div className="px-4 pt-3 pb-3 border-b border-neutral-100 flex-shrink-0">
         <Breadcrumbs
@@ -140,36 +140,14 @@ export default function PlanSidebar({
           </div>
         )}
 
-        {/* Route summary — only when both points selected and plan loaded */}
+        {/* Route summary — only when both points selected and plan loaded.
+            Distance + float time live on the map's RouteStatsBadge now; the
+            sidebar keeps just the vessel toggle and any warnings. */}
         {hasBothPoints && plan && (
           <div className="bg-neutral-50 rounded-xl p-3">
-            {/* Distance + Time as clear columns */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">Distance</p>
-                <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">
-                  Float Time
-                  <span className="relative group/tip inline-flex ml-1">
-                    <Info className="w-3 h-3 text-neutral-400 cursor-help inline" />
-                    <span className="absolute top-full right-0 mt-1.5 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-left opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto transition-opacity z-50 normal-case tracking-normal font-normal">
-                      Estimate for continuous paddling — does not include stops, swimming, or slowdowns.
-                    </span>
-                  </span>
-                </p>
-                {isLoading ? (
-                  <span className="inline-block w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mt-1"></span>
-                ) : (
-                  <p className="text-xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
-                )}
-              </div>
-            </div>
-
             {/* Vessel toggle */}
             {canoeVessel && raftVessel && (
-              <div className="flex items-center justify-center mt-2 pt-2 border-t border-neutral-200">
+              <div className="flex items-center justify-center">
                 <div className="inline-flex items-center rounded-md p-0.5 bg-white border border-neutral-200">
                   <button
                     onClick={() => onVesselChange(canoeVessel.id)}
