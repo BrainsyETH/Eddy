@@ -84,23 +84,6 @@ export default function AllRiversLayer({ rivers }: AllRiversLayerProps) {
         }
       }
 
-      // Zoom-dependent widths so rivers stay legible at the Ozarks-overview
-      // zoom (~7) and don't overpower the basemap when the user zooms in.
-      const GLOW_WIDTH: maplibregl.ExpressionSpecification = [
-        'interpolate', ['linear'], ['zoom'],
-        6, 8,
-        9, 14,
-        12, 20,
-        16, 28,
-      ];
-      const MAIN_WIDTH: maplibregl.ExpressionSpecification = [
-        'interpolate', ['linear'], ['zoom'],
-        6, 2.5,
-        9, 4.5,
-        12, 6,
-        16, 8,
-      ];
-
       if (!hasLayer(GLOW_LAYER_ID)) {
         try {
           map.addLayer({
@@ -109,8 +92,8 @@ export default function AllRiversLayer({ rivers }: AllRiversLayerProps) {
             source: SOURCE_ID,
             paint: {
               'line-color': COLOR_MATCH_EXPRESSION,
-              'line-width': GLOW_WIDTH,
-              'line-opacity': 0.35,
+              'line-width': 8,
+              'line-opacity': 0.25,
               'line-blur': 4,
             },
             layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -128,8 +111,8 @@ export default function AllRiversLayer({ rivers }: AllRiversLayerProps) {
             source: SOURCE_ID,
             paint: {
               'line-color': COLOR_MATCH_EXPRESSION,
-              'line-width': MAIN_WIDTH,
-              'line-opacity': 0.95,
+              'line-width': 3,
+              'line-opacity': 0.9,
             },
             layout: { 'line-cap': 'round', 'line-join': 'round' },
           });
