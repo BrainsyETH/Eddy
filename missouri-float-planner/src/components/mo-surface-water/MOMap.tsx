@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl, {
-  type StyleSpecification,
   type ExpressionSpecification,
   type GeoJSONSource,
 } from 'maplibre-gl';
@@ -43,18 +42,8 @@ interface MOMapProps {
   onClickPoi: (id: string | null) => void;
 }
 
-const BASE_STYLE: StyleSpecification = {
-  version: 8,
-  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-  sources: {},
-  layers: [
-    {
-      id: 'background',
-      type: 'background',
-      paint: { 'background-color': THEME.basinFill },
-    },
-  ],
-};
+// OpenFreeMap "Liberty" — same basemap the rest of Eddy uses. No API key.
+const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
   'case',
@@ -91,15 +80,13 @@ export default function MOMap(props: MOMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const [layersReady, setLayersReady] = useState(false);
 
   // Particles for animated flow.
   const particlesRef = useRef<
     Array<{ riverId: string; t: number; speed: number; trail: Array<{ x: number; y: number }> }>
   >([]);
   const rafRef = useRef<number>(0);
-  const projectorRef = useRef<((lonlat: [number, number]) => { x: number; y: number }) | null>(
-    null,
-  );
 
   // ──────────────────────────────────────────────────────────────────────
   // Initialize the map once
@@ -109,7 +96,7 @@ export default function MOMap(props: MOMapProps) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: BASE_STYLE,
+      style: BASE_STYLE_URL,
       center: [-91.4, 37.6],
       zoom: 7.1,
       minZoom: 6,
@@ -121,10 +108,6 @@ export default function MOMap(props: MOMapProps) {
       touchPitch: false,
     });
     mapRef.current = map;
-    projectorRef.current = (lonlat) => {
-      const p = map.project(lonlat);
-      return { x: p.x, y: p.y };
-    };
 
     map.addControl(
       new maplibregl.AttributionControl({
@@ -262,7 +245,7 @@ export default function MOMap(props: MOMapProps) {
         source: 'mo-river-labels',
         layout: {
           'text-field': ['get', 'name'],
-          'text-font': ['Open Sans Semibold'],
+          'text-font': ['Noto Sans Bold'],
           'text-size': 13,
           'text-letter-spacing': 0.05,
           'symbol-placement': 'line',
@@ -270,8 +253,8 @@ export default function MOMap(props: MOMapProps) {
           'text-anchor': 'center',
         },
         paint: {
-          'text-color': '#F2EAD8',
-          'text-halo-color': '#0F2D35',
+          'text-color': '#0F2D35',
+          'text-halo-color': '#FAF8F4',
           'text-halo-width': 2.5,
         },
       });
@@ -307,7 +290,7 @@ export default function MOMap(props: MOMapProps) {
           'text-allow-overlap': true,
         },
         paint: {
-          'text-color': '#F2EAD8',
+          'text-color': '#FAF8F4',
           'text-halo-color': '#3D3425',
           'text-halo-width': 0.6,
         },
@@ -353,12 +336,12 @@ export default function MOMap(props: MOMapProps) {
             14,
           ],
           'text-allow-overlap': true,
-          'text-font': ['Open Sans Semibold'],
+          'text-font': ['Noto Sans Bold'],
         },
         paint: {
           'text-color': ['get', 'tone'],
-          'text-halo-color': '#F2EAD8',
-          'text-halo-width': 1.5,
+          'text-halo-color': '#FAF8F4',
+          'text-halo-width': 1.8,
         },
       });
 
@@ -491,6 +474,8 @@ export default function MOMap(props: MOMapProps) {
           props.onClickPoi(null);
         }
       });
+
+      setLayersReady(true);
     });
 
     return () => {
@@ -506,7 +491,7 @@ export default function MOMap(props: MOMapProps) {
   // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
+    if (!map || !layersReady) return;
 
     const features: GeoJSON.Feature[] = props.rivers.map((r) => ({
       type: 'Feature',
@@ -542,14 +527,14 @@ export default function MOMap(props: MOMapProps) {
         { percentile: props.percentileByRiver[r.slug] ?? null },
       );
     }
-  }, [props.rivers, props.verdictByRiver, props.percentileByRiver]);
+  }, [props.rivers, props.verdictByRiver, props.percentileByRiver, layersReady]);
 
   // ──────────────────────────────────────────────────────────────────────
   // Push gauges, campgrounds, access points, POIs into their sources
   // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
+    if (!map || !layersReady) return;
 
     const gaugeFeatures: GeoJSON.Feature[] = props.rivers.flatMap((r) =>
       (r.gauges ?? []).map((g) => ({
@@ -616,8 +601,8 @@ export default function MOMap(props: MOMapProps) {
       scenic_viewpoint: '▲', waterfall: '≋', geological: '◆', other: '◉',
     };
     const poiToneMap: Record<string, string> = {
-      spring: '#A3D1DB', cave: '#DBD5CA', historical_site: '#F4EFE7',
-      scenic_viewpoint: '#B8E9C5', waterfall: '#D4EAEF', geological: '#E8DFD0', other: '#F4EFE7',
+      spring: '#1D525F', cave: '#3D3425', historical_site: '#7A684B',
+      scenic_viewpoint: '#347A47', waterfall: '#256574', geological: '#5C4E38', other: '#524D43',
     };
     const poiFeatures: GeoJSON.Feature[] = props.rivers.flatMap((r) =>
       (r.pois ?? []).map((p) => ({
@@ -652,7 +637,7 @@ export default function MOMap(props: MOMapProps) {
   }, [
     props.rivers, props.campgrounds, props.gauges,
     props.showCampgrounds, props.showAccessPoints, props.showPOIs,
-    props.percentileByGauge,
+    props.percentileByGauge, layersReady,
   ]);
 
   // ──────────────────────────────────────────────────────────────────────
@@ -666,7 +651,7 @@ export default function MOMap(props: MOMapProps) {
   });
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
+    if (!map || !layersReady) return;
     const set = (
       source: 'mo-rivers' | 'mo-gauges',
       id: string | null,
@@ -704,6 +689,7 @@ export default function MOMap(props: MOMapProps) {
     props.focusedRiverId,
     props.hoveredGaugeId,
     props.focusedGaugeId,
+    layersReady,
   ]);
 
   // ──────────────────────────────────────────────────────────────────────
