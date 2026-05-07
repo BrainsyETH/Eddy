@@ -51,7 +51,7 @@ export default async function Home() {
 
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href="/rivers"
+                  href="/plan"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all no-underline hover:brightness-110"
                   style={{ backgroundColor: '#F07052' }}
                 >
