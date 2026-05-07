@@ -141,10 +141,10 @@ export default async function Home() {
               All Rivers
             </h2>
             <Link
-              href="/rivers"
+              href="/plan"
               className="flex items-center gap-1 text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors no-underline"
             >
-              Explore
+              Plan a float
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -155,7 +155,7 @@ export default async function Home() {
               return (
                 <Link
                   key={river.id}
-                  href={`/rivers/${river.slug}`}
+                  href={`/plan?river=${river.slug}`}
                   className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:border-neutral-300 hover:shadow-sm transition-all no-underline"
                 >
                   <span
