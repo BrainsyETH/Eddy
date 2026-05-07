@@ -35,46 +35,62 @@ async function _GET(request: NextRequest) {
 
     const { data: rivers, error } = await supabase
       .from('rivers')
-      .select('id, name, slug, geom, smoothed_geometries')
+      .select('id, name, slug, smoothed_geometries')
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching river geometries:', error);
+      console.error('Error fetching rivers list:', error);
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 
-    // Fetch current condition per river in parallel via the existing RPC
-    const conditions = await Promise.all(
+    // PostGIS geometry columns don't auto-serialize to GeoJSON — use the same
+    // RPC the per-river endpoint uses. Fan out across rivers in parallel.
+    const enriched = await Promise.all(
       (rivers || []).map(async (r) => {
+        let geometry: GeoJSON.LineString = EMPTY_LINE;
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data } = await (supabase.rpc as any)('get_river_condition', {
+          const { data: geomData } = await (supabase.rpc as any)('get_river_geometry_json', {
+            p_slug: r.slug,
+          });
+          if (geomData) {
+            const parsed = typeof geomData === 'string' ? JSON.parse(geomData) : geomData;
+            if (parsed?.type === 'LineString' && Array.isArray(parsed.coordinates)) {
+              geometry = parsed as GeoJSON.LineString;
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch geometry for ${r.slug}:`, err);
+        }
+
+        let conditionCode: ConditionCode = 'unknown';
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: condData } = await (supabase.rpc as any)('get_river_condition', {
             p_river_id: r.id,
           });
-          const raw = data?.[0]?.condition_code as string | undefined;
-          return raw ? mapConditionCode(raw) : ('unknown' as ConditionCode);
+          const raw = condData?.[0]?.condition_code as string | undefined;
+          if (raw) conditionCode = mapConditionCode(raw);
         } catch {
-          return 'unknown' as ConditionCode;
+          // leave as 'unknown'
         }
+
+        const smoothed = (r.smoothed_geometries && typeof r.smoothed_geometries === 'object' && 'type' in (r.smoothed_geometries as object))
+          ? (r.smoothed_geometries as unknown as GeoJSON.LineString)
+          : null;
+
+        return {
+          id: r.id,
+          slug: r.slug,
+          name: r.name,
+          geometry,
+          smoothedGeometry: smoothed,
+          conditionCode,
+        };
       }),
     );
 
-    const items: RiverGeometryItem[] = (rivers || []).map((r, i) => {
-      const geom = (r.geom && typeof r.geom === 'object' && 'type' in r.geom)
-        ? (r.geom as GeoJSON.LineString)
-        : EMPTY_LINE;
-      const smoothed = (r.smoothed_geometries && typeof r.smoothed_geometries === 'object' && 'type' in (r.smoothed_geometries as object))
-        ? (r.smoothed_geometries as unknown as GeoJSON.LineString)
-        : null;
-      return {
-        id: r.id,
-        slug: r.slug,
-        name: r.name,
-        geometry: geom,
-        smoothedGeometry: smoothed,
-        conditionCode: conditions[i],
-      };
-    });
+    const items: RiverGeometryItem[] = enriched;
 
     const response: RiverGeometriesResponse = { rivers: items };
     return NextResponse.json(response, {
