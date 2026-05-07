@@ -106,6 +106,12 @@ export default function MOMap(props: MOMapProps) {
     });
     mapRef.current = map;
 
+    // Surface MapLibre internal errors so we don't silently lose layers.
+    map.on('error', (e) => {
+      // eslint-disable-next-line no-console
+      console.error('[MOMap] MapLibre error:', e?.error ?? e);
+    });
+
     map.addControl(
       new maplibregl.AttributionControl({
         compact: true,
@@ -207,18 +213,9 @@ export default function MOMap(props: MOMapProps) {
           'line-width': widthLine,
           'line-opacity': [
             'case',
-            ['all',
-              ['!=', ['feature-state', 'focused'], null],
-              ['!', ['boolean', ['feature-state', 'focused'], false]],
-            ],
-            0.28,
-            ['all',
-              ['!=', ['feature-state', 'hovered'], null],
-              ['!', ['boolean', ['feature-state', 'hovered'], false]],
-              ['!', ['boolean', ['feature-state', 'focused'], false]],
-            ],
-            0.42,
-            1.0,
+            ['boolean', ['feature-state', 'focused'], false], 1.0,
+            ['boolean', ['feature-state', 'hovered'], false], 1.0,
+            0.92,
           ],
         },
       });
@@ -532,12 +529,16 @@ export default function MOMap(props: MOMapProps) {
       })),
     });
 
-    // Push percentile feature-state per river
+    // Push percentile feature-state per river. We omit the key entirely
+    // when percentile is null so the expression's to-number fallback kicks
+    // in cleanly instead of seeing an explicit null.
     for (const r of props.rivers) {
-      map.setFeatureState(
-        { source: 'mo-rivers', id: r.id },
-        { percentile: props.percentileByRiver[r.slug] ?? null },
-      );
+      const p = props.percentileByRiver[r.slug];
+      if (p == null) {
+        map.removeFeatureState({ source: 'mo-rivers', id: r.id }, 'percentile');
+      } else {
+        map.setFeatureState({ source: 'mo-rivers', id: r.id }, { percentile: p });
+      }
     }
   }, [props.rivers, props.verdictByRiver, props.percentileByRiver, layersReady]);
 
@@ -638,13 +639,15 @@ export default function MOMap(props: MOMapProps) {
     // Push gauge feature state (percentile + isPeak)
     for (const g of props.gauges) {
       const p = props.percentileByGauge[g.site_no] ?? g.percentile;
-      map.setFeatureState(
-        { source: 'mo-gauges', id: g.site_no },
-        {
-          percentile: p,
-          isPeak: p != null && p >= 75,
-        },
-      );
+      if (p == null) {
+        map.removeFeatureState({ source: 'mo-gauges', id: g.site_no }, 'percentile');
+        map.setFeatureState({ source: 'mo-gauges', id: g.site_no }, { isPeak: false });
+      } else {
+        map.setFeatureState(
+          { source: 'mo-gauges', id: g.site_no },
+          { percentile: p, isPeak: p >= 75 },
+        );
+      }
     }
   }, [
     props.rivers, props.campgrounds, props.gauges,
