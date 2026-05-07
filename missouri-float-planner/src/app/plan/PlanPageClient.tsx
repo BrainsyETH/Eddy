@@ -492,8 +492,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* ─── DESKTOP: Split-panel layout ─── */}
-      <div className="hidden lg:flex" style={{ height: 'calc(100vh - 3.5rem)' }}>
-        <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col">
+      <div className="hidden lg:flex overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
+        <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col min-h-0">
           <RiverSwitcher
             currentSlug={riverSlug}
             rivers={rivers || []}

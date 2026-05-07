@@ -17,7 +17,9 @@ interface MapHintBannerProps {
   takeOutPoint: AccessPoint | null;
 }
 
-// State-aware hint that teaches the map-first interaction.
+// State-aware hint that teaches the map-first interaction. Auto-hides once
+// both endpoints are picked — at that point the RouteStatsBadge takes the
+// top-center slot and the user has already learned the gesture.
 export function MapHintBanner({ putInPoint, takeOutPoint }: MapHintBannerProps) {
   const [dismissed, setDismissed] = useState(false);
 
@@ -28,6 +30,7 @@ export function MapHintBanner({ putInPoint, takeOutPoint }: MapHintBannerProps) 
   }, [stateKey]);
 
   if (dismissed) return null;
+  if (putInPoint && takeOutPoint) return null;
 
   let primary: string;
   let secondary: string | null = null;
@@ -38,12 +41,8 @@ export function MapHintBanner({ putInPoint, takeOutPoint }: MapHintBannerProps) 
   } else if (putInPoint && !takeOutPoint) {
     primary = 'Now tap a take-out downstream';
     secondary = 'Or tap your put-in again to clear it';
-  } else if (!putInPoint && takeOutPoint) {
-    primary = 'Now tap a put-in upstream';
-    secondary = null;
   } else {
-    primary = 'Tap a different marker to swap';
-    secondary = 'Tap the put-in or take-out again to clear';
+    primary = 'Now tap a put-in upstream';
   }
 
   return (
@@ -76,14 +75,16 @@ interface RouteStatsBadgeProps {
   className?: string;
 }
 
-// Floating "12.4 mi · 5–7 hrs" badge that keeps key route stats visible
-// while the user is zooming or panning the map.
+// Floating "Distance · Float time" badge that keeps key route stats visible
+// while the user is zooming or panning the map. Anchored top-center so it
+// doesn't collide with MapLibre's NavigationControl (top-right) or the
+// WeatherBug (top-left).
 export function RouteStatsBadge({ plan, isLoading = false, className = '' }: RouteStatsBadgeProps) {
   if (!plan && !isLoading) return null;
 
   return (
     <div
-      className={`absolute top-3 right-3 z-20 pointer-events-auto ${className}`}
+      className={`absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto ${className}`}
       role="status"
       aria-live="polite"
     >
@@ -95,12 +96,12 @@ export function RouteStatsBadge({ plan, isLoading = false, className = '' }: Rou
           </div>
         ) : (
           <>
-            <div className="flex flex-col items-end leading-tight">
+            <div className="flex flex-col items-center leading-tight">
               <span className="text-[9px] font-semibold uppercase tracking-wider text-neutral-400">Distance</span>
               <span className="text-sm font-bold text-neutral-900">{plan.distance.formatted}</span>
             </div>
             <div className="w-px h-6 bg-neutral-200" aria-hidden="true" />
-            <div className="flex flex-col items-end leading-tight">
+            <div className="flex flex-col items-center leading-tight">
               <span className="text-[9px] font-semibold uppercase tracking-wider text-neutral-400">Float time</span>
               <span className="text-sm font-bold text-neutral-900">
                 {plan.floatTime?.formatted || '—'}
