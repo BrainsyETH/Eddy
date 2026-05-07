@@ -48,6 +48,10 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
 
+// Roughly the bounding box covering all Missouri Ozark float rivers we plan
+// — used as the default map view when no river is selected yet.
+const OZARKS_BOUNDS: [number, number, number, number] = [-93.5, 36.4, -90.4, 38.6];
+
 interface PlanPageClientProps {
   initialRiverSlug: string | null;
   guidePost?: { slug: string; title: string } | null;
@@ -71,6 +75,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const floatPlanCardRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
@@ -408,57 +413,46 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     }
   }, [selectedPutIn, selectedTakeOut]);
 
-  // ─── No river selected: render picker ───
+  // ─── No river selected: map view + centered picker overlay ───
   if (!riverSlug) {
     return (
-      <div className="min-h-[calc(100vh-3.5rem)] bg-gradient-to-b from-neutral-100 to-neutral-50">
-        <section
-          className="relative py-10 text-white overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
-        >
-          <div className="max-w-3xl mx-auto px-4">
-            <h1 className="text-2xl md:text-4xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
-              Plan a Float Trip
-            </h1>
-            <p className="text-sm md:text-base text-white/80 max-w-xl">
-              Pick a river to start. Eddy will show you the map, access points, and float times based on live conditions.
-            </p>
-          </div>
-        </section>
+      <div className="relative bg-neutral-100" style={{ height: 'calc(100vh - 3.5rem)' }}>
+        <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false} />
 
-        <div className="max-w-3xl mx-auto px-4 py-6">
-          <div className="bg-white border border-neutral-200 rounded-xl p-5 md:p-6">
-            <label className="block text-sm font-semibold text-neutral-700 mb-2">River</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(rivers || []).map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => handleRiverChange(r.slug)}
-                  className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-neutral-200 bg-neutral-50 hover:bg-primary-50 hover:border-primary-300 transition-colors text-left"
-                >
-                  <div>
-                    <div className="font-semibold text-neutral-900">{r.name}</div>
-                    <div className="text-xs text-neutral-500">
-                      {r.lengthMiles.toFixed(1)} mi · {r.region}
-                    </div>
-                  </div>
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
-                    title={r.currentCondition?.label || 'Unknown'}
-                  />
-                </button>
-              ))}
-              {!rivers && (
-                <div className="col-span-full flex items-center justify-center py-6">
-                  <LoadingSpinner size="md" />
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-neutral-500 mt-4">
-              Want to compare rivers first? <Link href="/rivers" className="text-primary-600 hover:underline">Browse all rivers</Link>.
+        {/* Centered prompt */}
+        <div className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none">
+          <div className="bg-white rounded-2xl shadow-2xl border border-neutral-200 p-5 md:p-6 max-w-md w-full pointer-events-auto">
+            <h1
+              className="text-xl md:text-2xl font-bold text-neutral-900 mb-1"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Plan a Float
+            </h1>
+            <p className="text-sm text-neutral-600 mb-4">
+              Pick a river to start. Eddy will show you the map, access points, and float times.
+            </p>
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="flex items-center justify-between gap-2 w-full px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              <span>Choose a river</span>
+              <ChevronDown className="w-5 h-5" aria-hidden="true" />
+            </button>
+            <p className="text-xs text-neutral-500 mt-3 text-center">
+              Or{' '}
+              <Link href="/rivers" className="text-primary-600 hover:underline">
+                browse all rivers
+              </Link>
             </p>
           </div>
         </div>
+
+        <RiverPickerModal
+          open={pickerOpen}
+          rivers={rivers || []}
+          onChange={(slug) => { handleRiverChange(slug); setPickerOpen(false); }}
+          onClose={() => setPickerOpen(false)}
+        />
       </div>
     );
   }
@@ -923,5 +917,97 @@ function MobileRiverSwitcher({
         </div>
       )}
     </>
+  );
+}
+
+function RiverPickerModal({
+  open,
+  rivers,
+  onChange,
+  onClose,
+}: {
+  open: boolean;
+  rivers: RiverListItem[];
+  onChange: (slug: string) => void;
+  onClose: () => void;
+}) {
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 animate-in fade-in"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose a river"
+    >
+      <div
+        className="w-full sm:max-w-md max-h-[75vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-neutral-100">
+          <div className="w-10 h-1 bg-neutral-300 rounded-full mx-auto mb-3 sm:hidden" aria-hidden="true" />
+          <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+            Choose a river
+          </h2>
+        </div>
+        <div className="overflow-y-auto py-1">
+          {rivers.length === 0 && (
+            <div className="flex items-center justify-center py-6">
+              <LoadingSpinner size="md" />
+            </div>
+          )}
+          {rivers.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => onChange(r.slug)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-neutral-50 transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="font-semibold text-neutral-900 text-sm truncate">{r.name}</div>
+                <div className="text-[11px] text-neutral-500">
+                  {r.lengthMiles.toFixed(1)} mi · {r.region}
+                </div>
+              </div>
+              <span
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
+                title={r.currentCondition?.label || 'Unknown'}
+              />
+            </button>
+          ))}
+          <Link
+            href="/rivers"
+            onClick={onClose}
+            className="block px-4 py-3 text-center text-sm text-primary-600 border-t border-neutral-100"
+          >
+            Browse all rivers
+          </Link>
+        </div>
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 px-4 py-3 border-t border-neutral-200 text-sm font-semibold text-neutral-600"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
