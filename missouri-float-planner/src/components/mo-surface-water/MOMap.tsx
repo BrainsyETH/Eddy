@@ -529,16 +529,17 @@ export default function MOMap(props: MOMapProps) {
       })),
     });
 
-    // Push percentile feature-state per river. We omit the key entirely
-    // when percentile is null so the expression's to-number fallback kicks
-    // in cleanly instead of seeing an explicit null.
+    // Push percentile feature-state per river. We use -1 as a sentinel for
+    // "no data" so the interpolate's matching stop returns a neutral grey;
+    // calling removeFeatureState on a feature that hasn't had state set
+    // crashes MapLibre's coalesceChanges with "Cannot convert undefined or
+    // null to object".
     for (const r of props.rivers) {
       const p = props.percentileByRiver[r.slug];
-      if (p == null) {
-        map.removeFeatureState({ source: 'mo-rivers', id: r.id }, 'percentile');
-      } else {
-        map.setFeatureState({ source: 'mo-rivers', id: r.id }, { percentile: p });
-      }
+      map.setFeatureState(
+        { source: 'mo-rivers', id: r.id },
+        { percentile: p == null ? -1 : p },
+      );
     }
   }, [props.rivers, props.verdictByRiver, props.percentileByRiver, layersReady]);
 
@@ -636,18 +637,14 @@ export default function MOMap(props: MOMapProps) {
       features: props.showPOIs ? poiFeatures : [],
     });
 
-    // Push gauge feature state (percentile + isPeak)
+    // Push gauge feature state (percentile + isPeak). Same -1 sentinel
+    // pattern as rivers above.
     for (const g of props.gauges) {
       const p = props.percentileByGauge[g.site_no] ?? g.percentile;
-      if (p == null) {
-        map.removeFeatureState({ source: 'mo-gauges', id: g.site_no }, 'percentile');
-        map.setFeatureState({ source: 'mo-gauges', id: g.site_no }, { isPeak: false });
-      } else {
-        map.setFeatureState(
-          { source: 'mo-gauges', id: g.site_no },
-          { percentile: p, isPeak: p >= 75 },
-        );
-      }
+      map.setFeatureState(
+        { source: 'mo-gauges', id: g.site_no },
+        { percentile: p == null ? -1 : p, isPeak: p != null && p >= 75 },
+      );
     }
   }, [
     props.rivers, props.campgrounds, props.gauges,
