@@ -128,14 +128,39 @@ export default function MOMap(props: MOMapProps) {
         promoteId: 'riverId',
       });
 
-      const orderWidth: ExpressionSpecification = [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        6, 1.5,
-        8, 3,
-        10, 5,
-        12, 8,
+      // Width interpolations — each is a top-level zoom expression so it
+      // satisfies MapLibre's "zoom must be top-level inside step/interpolate"
+      // rule. Hover/focus chooses between three full interpolations.
+      const widthBase: ExpressionSpecification = [
+        'interpolate', ['linear'], ['zoom'],
+        6, 1.5, 8, 3, 10, 5, 12, 8,
+      ];
+      const widthHover: ExpressionSpecification = [
+        'interpolate', ['linear'], ['zoom'],
+        6, 3, 8, 4.5, 10, 6.5, 12, 9.5,
+      ];
+      const widthFocused: ExpressionSpecification = [
+        'interpolate', ['linear'], ['zoom'],
+        6, 3.5, 8, 5, 10, 7, 12, 10,
+      ];
+      const widthCasing: ExpressionSpecification = [
+        'interpolate', ['linear'], ['zoom'],
+        6, 5.5, 8, 7, 10, 9, 12, 12,
+      ];
+      const widthGlow: ExpressionSpecification = [
+        'interpolate', ['linear'], ['zoom'],
+        6, 9.5, 8, 11, 10, 13, 12, 16,
+      ];
+      const widthVerdict: ExpressionSpecification = [
+        'interpolate', ['linear'], ['zoom'],
+        6, 0.6, 8, 1.2, 10, 2, 12, 3.2,
+      ];
+
+      const widthByState: ExpressionSpecification = [
+        'case',
+        ['boolean', ['feature-state', 'focused'], false], widthFocused,
+        ['boolean', ['feature-state', 'hovered'], false], widthHover,
+        widthBase,
       ];
 
       // Hit target — invisible thick stroke for easier hover/click
@@ -146,7 +171,7 @@ export default function MOMap(props: MOMapProps) {
         paint: { 'line-color': 'transparent', 'line-width': 18 },
       });
 
-      // Casing — slight halo so rivers pop off the dark bg
+      // Casing — slight halo so rivers pop off the basemap
       map.addLayer({
         id: 'mo-river-casing',
         type: 'line',
@@ -154,7 +179,7 @@ export default function MOMap(props: MOMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': '#0F2D35',
-          'line-width': ['+', orderWidth, 4],
+          'line-width': widthCasing,
           'line-opacity': 0.55,
         },
       });
@@ -168,7 +193,7 @@ export default function MOMap(props: MOMapProps) {
         paint: {
           'line-color': PERCENTILE_COLOR_EXPR,
           'line-blur': 5,
-          'line-width': ['+', orderWidth, 8],
+          'line-width': widthGlow,
           'line-opacity': [
             'case',
             ['boolean', ['feature-state', 'hovered'], false], 0.55,
@@ -186,12 +211,7 @@ export default function MOMap(props: MOMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': PERCENTILE_COLOR_EXPR,
-          'line-width': ['+', orderWidth, [
-            'case',
-            ['boolean', ['feature-state', 'hovered'], false], 1.5,
-            ['boolean', ['feature-state', 'focused'], false], 2,
-            0,
-          ]],
+          'line-width': widthByState,
           'line-opacity': [
             'case',
             ['all',
@@ -218,7 +238,7 @@ export default function MOMap(props: MOMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': VERDICT_COLOR_EXPR,
-          'line-width': ['*', orderWidth, 0.4],
+          'line-width': widthVerdict,
           'line-opacity': [
             'case',
             ['==', ['get', 'verdict'], 'unknown'], 0,
@@ -329,18 +349,18 @@ export default function MOMap(props: MOMapProps) {
         source: 'mo-pois',
         layout: {
           'text-field': ['get', 'glyph'],
-          'text-size': [
-            'case',
-            ['boolean', ['feature-state', 'hovered'], false], 18,
-            14,
-          ],
+          'text-size': 15,
           'text-allow-overlap': true,
           'text-font': ['Noto Sans Bold'],
         },
         paint: {
           'text-color': ['get', 'tone'],
           'text-halo-color': '#FAF8F4',
-          'text-halo-width': 1.8,
+          'text-halo-width': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false], 3,
+            1.8,
+          ],
         },
       });
 
