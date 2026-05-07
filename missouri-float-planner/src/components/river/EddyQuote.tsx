@@ -88,7 +88,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
 
   // Share handler — only use native share on mobile (touch devices)
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/plan?river=${riverSlug}`;
+    const url = `${window.location.origin}/rivers/${riverSlug}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
     if (isMobile && navigator.share) {

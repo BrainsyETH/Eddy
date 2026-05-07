@@ -451,7 +451,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
             {/* Plan Trip CTA */}
             {riverSlug && (
               <Link
-                href={`/plan?river=${riverSlug}`}
+                href={`/rivers/${riverSlug}`}
                 className="flex-shrink-0 self-center px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
               >
                 Plan Trip

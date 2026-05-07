@@ -353,7 +353,7 @@ export default function EmbedWidgetPage() {
         </div>
         {/* Overall condition pill - clickable for more info (#9) */}
         <a
-          href={`${origin}/plan?river=${river.slug}`}
+          href={`${origin}/rivers/${river.slug}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ textDecoration: 'none', flexShrink: 0 }}
@@ -678,12 +678,12 @@ export default function EmbedWidgetPage() {
       >
         <div style={{ display: 'flex', gap: 12 }}>
           <a
-            href={`${origin}/plan?river=${river.slug}`}
+            href={`${origin}/rivers/${river.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
           >
-            Open in Eddy &rarr;
+            See full report &rarr;
           </a>
           <a
             href={`${origin}/gauges?river=${river.slug}`}
@@ -694,7 +694,7 @@ export default function EmbedWidgetPage() {
             Water levels &rarr;
           </a>
           <a
-            href={`${origin}/plan?river=${river.slug}#services`}
+            href={`${origin}/rivers/${river.slug}#services`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}

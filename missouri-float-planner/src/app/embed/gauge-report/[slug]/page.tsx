@@ -393,8 +393,8 @@ export default function EmbedGaugeReportPage() {
       {/* Footer */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: partner ? 'space-between' : 'space-between', borderTop: `1px solid ${borderColor}`, paddingTop: 8, marginTop: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a href={`${origin}/plan?river=${river.slug}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
-            Open in Eddy &rarr;
+          <a href={`${origin}/rivers/${river.slug}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
+            Full river guide &rarr;
           </a>
           {partner && (
             <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>via {partner}</span>

@@ -128,7 +128,7 @@ export default function GuideTOC({ items, riverSlug, riverName }: Props) {
             Open the {riverName} planner with live conditions.
           </div>
           <Link
-            href={`/plan?river=${riverSlug}`}
+            href={`/rivers/${riverSlug}`}
             style={{
               display: 'block',
               width: '100%',
