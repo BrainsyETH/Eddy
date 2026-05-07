@@ -41,8 +41,10 @@ interface MOMapProps {
   onClickPoi: (id: string | null) => void;
 }
 
-// OpenFreeMap "Liberty" — same basemap the rest of Eddy uses. No API key.
-const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+// Carto Positron — light, neutral basemap with reliable CDN. The OpenFreeMap
+// "Liberty" style we tried first had intermittent glyph PBF 404s that
+// stopped the basemap from rendering at all on some clients.
+const BASE_STYLE_URL = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
 const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
   'interpolate',
@@ -243,33 +245,9 @@ export default function MOMap(props: MOMapProps) {
         },
       });
 
-      // ─── River labels ──────────────────────────────────────────
-      map.addSource('mo-river-labels', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-      map.addLayer({
-        id: 'mo-river-label',
-        type: 'symbol',
-        source: 'mo-river-labels',
-        layout: {
-          'text-field': ['get', 'name'],
-          // OpenFreeMap pre-bakes the same fontstack the Liberty basemap
-          // uses; any other combination 404s for the basic ASCII range and
-          // can take down the whole worker tile pipeline with it.
-          'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-          'text-size': 13,
-          'text-letter-spacing': 0.05,
-          'symbol-placement': 'line',
-          'text-allow-overlap': false,
-          'text-anchor': 'center',
-        },
-        paint: {
-          'text-color': '#0F2D35',
-          'text-halo-color': '#FAF8F4',
-          'text-halo-width': 2.5,
-        },
-      });
+      // (River name labels are rendered as DOM overlays in the parent —
+      // we kept symbol layers out of this map entirely so we never have to
+      // negotiate which fontstacks the basemap CDN happens to pre-bake.)
 
       // ─── Campgrounds ──────────────────────────────────────────
       map.addSource('mo-campgrounds', {
@@ -508,15 +486,6 @@ export default function MOMap(props: MOMapProps) {
     (map.getSource('mo-rivers') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
       features,
-    });
-
-    (map.getSource('mo-river-labels') as GeoJSONSource | undefined)?.setData({
-      type: 'FeatureCollection',
-      features: features.map((f) => ({
-        ...f,
-        id: undefined,
-        properties: { name: (f.properties as { name: string }).name },
-      })),
     });
 
     // Push percentile feature-state per river. We use -1 as a sentinel for
