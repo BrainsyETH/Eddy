@@ -41,10 +41,11 @@ interface MOMapProps {
   onClickPoi: (id: string | null) => void;
 }
 
-// Carto Positron — light, neutral basemap with reliable CDN. The OpenFreeMap
-// "Liberty" style we tried first had intermittent glyph PBF 404s that
-// stopped the basemap from rendering at all on some clients.
-const BASE_STYLE_URL = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+// OpenFreeMap "Liberty" — already on the app's CSP allowlist. The previous
+// "no map" symptom on this style was actually our own symbol layers
+// requesting fontstacks the CDN didn't have; the basemap layers themselves
+// (background, water, roads as fills/lines) render fine without those fonts.
+const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
   'interpolate',
