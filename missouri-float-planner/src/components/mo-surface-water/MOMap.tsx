@@ -45,24 +45,22 @@ interface MOMapProps {
 const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
-  'case',
-  ['==', ['feature-state', 'percentile'], null],
-  '#857D70',
-  [
-    'interpolate',
-    ['linear'],
-    ['to-number', ['feature-state', 'percentile']],
-    0,  PERCENTILE_CLASSES[0].color,
-    10, PERCENTILE_CLASSES[0].color,
-    11, PERCENTILE_CLASSES[1].color,
-    25, PERCENTILE_CLASSES[1].color,
-    26, PERCENTILE_CLASSES[2].color,
-    75, PERCENTILE_CLASSES[2].color,
-    76, PERCENTILE_CLASSES[3].color,
-    90, PERCENTILE_CLASSES[3].color,
-    91, PERCENTILE_CLASSES[4].color,
-    100, PERCENTILE_CLASSES[4].color,
-  ],
+  'interpolate',
+  ['linear'],
+  // Second arg to to-number is the fallback when feature-state is null,
+  // which keeps the interpolate from throwing on un-loaded features.
+  ['to-number', ['feature-state', 'percentile'], -1],
+  -1, '#857D70',
+  0,  PERCENTILE_CLASSES[0].color,
+  10, PERCENTILE_CLASSES[0].color,
+  11, PERCENTILE_CLASSES[1].color,
+  25, PERCENTILE_CLASSES[1].color,
+  26, PERCENTILE_CLASSES[2].color,
+  75, PERCENTILE_CLASSES[2].color,
+  76, PERCENTILE_CLASSES[3].color,
+  90, PERCENTILE_CLASSES[3].color,
+  91, PERCENTILE_CLASSES[4].color,
+  100, PERCENTILE_CLASSES[4].color,
 ];
 
 const VERDICT_COLOR_EXPR: ExpressionSpecification = [
@@ -128,20 +126,22 @@ export default function MOMap(props: MOMapProps) {
         promoteId: 'riverId',
       });
 
-      // Width interpolations — each is a top-level zoom expression so it
-      // satisfies MapLibre's "zoom must be top-level inside step/interpolate"
-      // rule. Hover/focus chooses between three full interpolations.
-      const widthBase: ExpressionSpecification = [
-        'interpolate', ['linear'], ['zoom'],
-        6, 1.5, 8, 3, 10, 5, 12, 8,
+      // MapLibre allows at most one zoom expression per value, so the
+      // hover/focus boost has to live INSIDE the interpolate's stops, not
+      // around it.
+      const stopByState = (base: number, hover: number, focused: number): ExpressionSpecification => [
+        'case',
+        ['boolean', ['feature-state', 'focused'], false], focused,
+        ['boolean', ['feature-state', 'hovered'], false], hover,
+        base,
       ];
-      const widthHover: ExpressionSpecification = [
+
+      const widthLine: ExpressionSpecification = [
         'interpolate', ['linear'], ['zoom'],
-        6, 3, 8, 4.5, 10, 6.5, 12, 9.5,
-      ];
-      const widthFocused: ExpressionSpecification = [
-        'interpolate', ['linear'], ['zoom'],
-        6, 3.5, 8, 5, 10, 7, 12, 10,
+        6,  stopByState(1.5, 3,   3.5),
+        8,  stopByState(3,   4.5, 5),
+        10, stopByState(5,   6.5, 7),
+        12, stopByState(8,   9.5, 10),
       ];
       const widthCasing: ExpressionSpecification = [
         'interpolate', ['linear'], ['zoom'],
@@ -154,13 +154,6 @@ export default function MOMap(props: MOMapProps) {
       const widthVerdict: ExpressionSpecification = [
         'interpolate', ['linear'], ['zoom'],
         6, 0.6, 8, 1.2, 10, 2, 12, 3.2,
-      ];
-
-      const widthByState: ExpressionSpecification = [
-        'case',
-        ['boolean', ['feature-state', 'focused'], false], widthFocused,
-        ['boolean', ['feature-state', 'hovered'], false], widthHover,
-        widthBase,
       ];
 
       // Hit target — invisible thick stroke for easier hover/click
@@ -211,7 +204,7 @@ export default function MOMap(props: MOMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': PERCENTILE_COLOR_EXPR,
-          'line-width': widthByState,
+          'line-width': widthLine,
           'line-opacity': [
             'case',
             ['all',
