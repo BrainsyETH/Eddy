@@ -254,7 +254,7 @@ export default function MOMap(props: MOMapProps) {
         source: 'mo-river-labels',
         layout: {
           'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Bold'],
+          'text-font': ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
           'text-size': 13,
           'text-letter-spacing': 0.05,
           'symbol-placement': 'line',
@@ -280,7 +280,8 @@ export default function MOMap(props: MOMapProps) {
         source: 'mo-campgrounds',
         paint: {
           'circle-radius': [
-            'interpolate', ['linear'], ['get', 'total_sites'],
+            'interpolate', ['linear'],
+            ['to-number', ['get', 'total_sites'], 0],
             0, 4, 50, 7, 150, 10,
           ],
           'circle-color': '#7A684B',
@@ -341,7 +342,7 @@ export default function MOMap(props: MOMapProps) {
           'text-field': ['get', 'glyph'],
           'text-size': 15,
           'text-allow-overlap': true,
-          'text-font': ['Noto Sans Bold'],
+          'text-font': ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
         },
         paint: {
           'text-color': ['get', 'tone'],
@@ -871,7 +872,8 @@ export default function MOMap(props: MOMapProps) {
   }, [props.rivers, props.percentileByRiver, props.verdictByRiver, props.focusedRiverId, props.hoveredRiverId]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div className="absolute inset-0">
+      <div ref={containerRef} className="absolute inset-0" />
       <canvas
         ref={canvasRef}
         className="pointer-events-none absolute inset-0"
