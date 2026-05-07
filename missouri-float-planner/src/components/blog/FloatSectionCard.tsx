@@ -116,19 +116,6 @@ export default function FloatSectionCard({ section: s, index, plannerUrl }: Prop
         )}
 
         <div style={{ padding: '22px 26px' }}>
-          <div
-            className="eyebrow"
-            style={{
-              color: 'var(--color-accent-600)',
-              marginBottom: 6,
-              fontSize: 11,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '.12em',
-            }}
-          >
-            Section {index + 1}
-          </div>
           <h3
             style={{
               fontFamily: 'var(--font-display)',
