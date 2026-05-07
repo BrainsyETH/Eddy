@@ -509,8 +509,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             takeOutPoint={takeOutPoint}
             onClearPutIn={() => setSelectedPutIn(null)}
             onClearTakeOut={() => setSelectedTakeOut(null)}
-            vesselTypeId={selectedVesselTypeId}
-            onVesselChange={setSelectedVesselTypeId}
             onShare={handleShare}
             onDownloadImage={handleDownloadImage}
             shareStatus={shareStatus}
