@@ -44,32 +44,10 @@ export default function SegmentHeader({ segment }: Props) {
           lineHeight: 1.6,
           color: 'var(--color-neutral-700)',
           margin: 0,
-          marginBottom: 10,
         }}
       >
         {segment.character}
       </p>
-      {segment.best_for.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {segment.best_for.map((tag) => (
-            <span
-              key={tag}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '.04em',
-                padding: '3px 9px',
-                background: 'var(--color-secondary-100)',
-                color: 'var(--color-secondary-800)',
-                border: '1px solid var(--color-secondary-300)',
-                borderRadius: 999,
-              }}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

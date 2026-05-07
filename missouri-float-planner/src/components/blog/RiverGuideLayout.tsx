@@ -18,7 +18,6 @@ import GuideTldr from './GuideTldr';
 import SegmentHeader from './SegmentHeader';
 import RegulationsCard from './RegulationsCard';
 import PreLaunchCard from './PreLaunchCard';
-import BestForMatrix from './BestForMatrix';
 import DriveTimesStrip from './DriveTimesStrip';
 import NearbyAttractionsList from './NearbyAttractionsList';
 import RelatedRiversStrip from './RelatedRiversStrip';
@@ -36,9 +35,6 @@ function buildToc(post: RiverGuidePost): TocItem[] {
     { id: 'different',  label: 'Why this river is different' },
     { id: 'pick',       label: 'Pick your float' },
   );
-  if (g.sections.some((s) => (s.best_for_tags?.length ?? 0) > 0)) {
-    items.push({ id: 'best-for', label: 'Find your float' });
-  }
   items.push(
     { id: 'springs',    label: 'Springs & sights' },
     { id: 'outfitters', label: 'Outfitters & lodging' },
@@ -383,7 +379,7 @@ export default async function RiverGuideLayout({ post }: Props) {
           <div id="today" style={{ scrollMarginTop: 80 }}>
             <SectionTitle eyebrow="Live conditions">Today on the {riverName.replace(/ River$/, '')}</SectionTitle>
             <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
-              Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. If it says <em>float!</em> you&rsquo;re cleared — the rest of this guide picks the section.
+              Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. Use it as one input alongside your own judgment, the outfitter you&rsquo;re renting from, and the most recent NPS advisories.
             </p>
           </div>
 
@@ -455,17 +451,6 @@ export default async function RiverGuideLayout({ post }: Props) {
               </div>
             ));
           })()}
-
-          {/* Find your float — inverts each section's best_for_tags into a
-              by-audience matrix so readers can self-select faster. */}
-          {g.sections.some((s) => (s.best_for_tags?.length ?? 0) > 0) && (
-            <>
-              <SectionTitle id="best-for" eyebrow="Self-select">
-                Find your float
-              </SectionTitle>
-              <BestForMatrix sections={g.sections} riverSlug={slug} apIds={apIds} />
-            </>
-          )}
 
           {/* Springs */}
           <SectionTitle id="springs" eyebrow="Off-river stops">

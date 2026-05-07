@@ -50,10 +50,10 @@ export default function EddySaysCallout({ callout, riverSlug }: Props) {
     <aside
       style={{
         display: 'grid',
-        gridTemplateColumns: '72px 1fr',
-        gap: 18,
+        gridTemplateColumns: isLive ? '1fr' : '72px 1fr',
+        gap: isLive ? 0 : 18,
         alignItems: 'center',
-        padding: '20px 24px',
+        padding: isLive ? '12px 14px' : '20px 24px',
         background: chrome.bg,
         border: `2px solid ${chrome.border}`,
         borderLeft: `4px solid ${chrome.border}`,
@@ -62,17 +62,19 @@ export default function EddySaysCallout({ callout, riverSlug }: Props) {
         margin: '28px 0',
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={OTTER_URL}
-        alt=""
-        style={{
-          width: 72,
-          height: 72,
-          objectFit: 'contain',
-          filter: 'drop-shadow(0 4px 12px rgba(240,112,82,.25))',
-        }}
-      />
+      {!isLive && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={OTTER_URL}
+          alt=""
+          style={{
+            width: 72,
+            height: 72,
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 4px 12px rgba(240,112,82,.25))',
+          }}
+        />
+      )}
       <div>
         {c && (
           <div
