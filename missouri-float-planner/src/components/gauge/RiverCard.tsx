@@ -102,12 +102,15 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
         <div className="px-4 pt-4 pb-2 sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2.5 mb-1.5">
+              <div className="flex items-center gap-2.5 mb-1">
                 <Droplets className="w-4 h-4 text-primary-500 flex-shrink-0" />
                 <h2 className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
                   {riverName}
                 </h2>
               </div>
+              <p className="text-xs text-neutral-500 truncate mb-1.5">
+                {primaryGauge.name}
+              </p>
               <div className="flex items-center gap-2">
                 <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold text-white ${condition.tailwindColor}`}>
                   {condition.label}
