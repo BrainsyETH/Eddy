@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eddy — River Chart</title>
+  <link rel="icon" href="assets/Eddy_favicon.png" />
+  <link rel="stylesheet" href="assets/eddy-tokens.css" />
+  <style>
+    /* Fix font paths — tokens.css refs ./fonts/, but we put fonts at assets/fonts/ */
+    @font-face { font-family: 'Fredoka'; src: url('assets/fonts/Fredoka-Variable.ttf') format('truetype-variations'); font-weight: 300 700; font-display: swap; }
+    @font-face { font-family: 'Geist'; src: url('assets/fonts/GeistVF.woff') format('woff'); font-weight: 100 900; font-display: swap; }
+    @font-face { font-family: 'Geist Mono'; src: url('assets/fonts/GeistMonoVF.woff') format('woff'); font-weight: 100 900; font-display: swap; }
+
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0F2D35; }
+    body { font-family: 'Geist', system-ui, sans-serif; color: var(--color-primary-900); }
+    #app { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+    @keyframes bloom-in {
+      0%   { opacity: 0; transform: translateY(8px) scale(.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes drift {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+
+    /* "Press space" hint */
+    .hint {
+      position: absolute; left: 50%; top: 100px; transform: translateX(-50%);
+      background: rgba(15,45,53,.7); color: rgba(255,255,255,.85);
+      padding: 6px 12px; border-radius: 99;
+      font-family: 'Geist Mono'; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+      backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.15);
+      z-index: 8; pointer-events: none;
+      animation: drift 4s ease-in-out infinite;
+    }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- River geometry & metadata -->
+  <script src="river-data.js"></script>
+
+  <!-- React components -->
+  <script type="text/babel" src="river-map.jsx"></script>
+  <script type="text/babel" src="map-ui.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "particleDensity": 1.0,
+      "particleSpeed": 1.0,
+      "palette": "parchment",
+      "topo": true,
+      "rendering": "handdrawn",
+      "showEddy": true,
+      "showGaugeTape": true
+    }/*EDITMODE-END*/;
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [mode, setMode] = useState("live");
+      const [hoveredRiver, setHoveredRiver] = useState(null);
+      const [hoveredAccess, setHoveredAccess] = useState(null);
+      const [selectedSegment, setSelectedSegment] = useState(null);
+      const [timeOffset, setTimeOffset] = useState(0);
+      const [hintVisible, setHintVisible] = useState(true);
+
+      // Compute river level overrides from the gauge-tape time scrubber
+      const levelOverrides = useMemo(() => computeLevelOverrides(timeOffset), [timeOffset]);
+
+      // Cycle modes with the keyboard for kicks
+      useEffect(() => {
+        const onKey = (e) => {
+          if (e.key === "1") setMode("live");
+          else if (e.key === "2") setMode("plan");
+          else if (e.key === "3") setMode("discover");
+          else if (e.key === "Escape") { setSelectedSegment(null); setHoveredRiver(null); }
+          setHintVisible(false);
+        };
+        window.addEventListener("keydown", onKey);
+        const dismiss = setTimeout(() => setHintVisible(false), 5000);
+        return () => { window.removeEventListener("keydown", onKey); clearTimeout(dismiss); };
+      }, []);
+
+      // Surfaced river for the EddySays card: selected segment river > hovered access's river > hovered river
+      const surfacedRiver =
+        (selectedSegment && window.RIVERS.find(r => r.id === selectedSegment.riverId)) ||
+        (hoveredAccess && hoveredAccess.river) ||
+        hoveredRiver;
+
+      const showLeftPanel = mode === "live" || mode === "plan";
+      const showAccessBloom = (mode === "live" || mode === "plan") && hoveredAccess && !selectedSegment;
+      const showEddySays = (mode === "live" || mode === "plan") && surfacedRiver && !selectedSegment;
+      const showGaugeTape = t.showGaugeTape && (mode === "live" || mode === "plan");
+
+      return (
+        <>
+          <GeometryPaths />
+          <div data-screen-label="River Chart" style={{ position: "absolute", inset: 0 }}>
+            <RiverMap
+              mode={mode}
+              hoveredAccess={hoveredAccess}
+              setHoveredAccess={setHoveredAccess}
+              selectedSegment={selectedSegment}
+              setSelectedSegment={setSelectedSegment}
+              hoveredRiver={hoveredRiver}
+              setHoveredRiver={setHoveredRiver}
+              tweaks={t}
+              levelOverrides={levelOverrides}
+            />
+          </div>
+
+          {mode !== "discover" && <BrandBar mode={mode} setMode={setMode} />}
+
+          {mode === "discover" && (
+            // Discover: minimal pill in bottom right to escape
+            <div style={{
+              position: "absolute", top: 16, right: 16, zIndex: 5,
+              display: "flex", gap: 8, pointerEvents: "auto",
+            }}>
+              <button onClick={() => setMode("live")} style={{
+                appearance: "none", border: "1px solid rgba(255,255,255,.3)",
+                background: "rgba(15,45,53,.5)", color: "rgba(255,255,255,.85)",
+                padding: "6px 12px", borderRadius: 99, cursor: "pointer",
+                fontFamily: "Geist Mono", fontSize: 10, letterSpacing: ".15em", textTransform: "uppercase",
+                backdropFilter: "blur(8px)",
+              }}>← Live</button>
+            </div>
+          )}
+
+          {showLeftPanel && (
+            <RiverRoster
+              rivers={window.RIVERS}
+              levelOverrides={levelOverrides}
+              hoveredRiver={hoveredRiver}
+              setHoveredRiver={setHoveredRiver}
+              selectedSegment={selectedSegment}
+              setSelectedSegment={setSelectedSegment}
+            />
+          )}
+
+          {showAccessBloom && <AccessBloom hoveredAccess={hoveredAccess} />}
+          {showEddySays && <EddySays river={surfacedRiver} levelOverrides={levelOverrides} />}
+
+          <SegmentSummary
+            selectedSegment={selectedSegment}
+            levelOverrides={levelOverrides}
+            onClear={() => setSelectedSegment(null)} />
+
+          {showGaugeTape && (
+            <GaugeTape
+              timeOffset={timeOffset}
+              setTimeOffset={setTimeOffset}
+              levelOverrides={levelOverrides} />
+          )}
+
+          {hintVisible && mode !== "discover" && (
+            <div className="hint">
+              hover a river · click access points to plot a float · scrub the tape · press 3 for discover
+            </div>
+          )}
+
+          {/* Tweaks */}
+          <TweaksPanel>
+            <TweakSection label="Map" />
+            <TweakRadio label="Palette" value={t.palette}
+              options={["parchment", "moss", "dusk"]}
+              onChange={v => setTweak("palette", v)} />
+            <TweakRadio label="Rivers" value={t.rendering}
+              options={["precise", "handdrawn"]}
+              onChange={v => setTweak("rendering", v)} />
+            <TweakToggle label="Topographic lines" value={t.topo}
+              onChange={v => setTweak("topo", v)} />
+            <TweakToggle label="Gauge tape" value={t.showGaugeTape}
+              onChange={v => setTweak("showGaugeTape", v)} />
+
+            <TweakSection label="Flow" />
+            <TweakSlider label="Particle density" value={t.particleDensity}
+              min={0.2} max={2} step={0.1}
+              onChange={v => setTweak("particleDensity", v)} />
+            <TweakSlider label="Particle speed" value={t.particleSpeed}
+              min={0.2} max={3} step={0.1}
+              onChange={v => setTweak("particleSpeed", v)} />
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+  </script>
+</body>
+</html>
