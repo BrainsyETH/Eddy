@@ -31,7 +31,7 @@ export default function RelatedRiversStrip({ rivers }: Props) {
         {rivers.map((r) => (
           <Link
             key={r.slug}
-            href={`/rivers/${r.slug}`}
+            href={`/plan?river=${r.slug}`}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

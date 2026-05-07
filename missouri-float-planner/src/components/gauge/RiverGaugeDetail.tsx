@@ -369,7 +369,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             )}
             <div className="flex items-center gap-3 ml-auto">
               <Link
-                href={`/rivers/${riverSlug}?submitPhoto=true`}
+                href={`/plan?river=${riverSlug}&submitPhoto=true`}
                 className="flex items-center gap-1 text-neutral-400 hover:text-teal-600 transition-colors"
               >
                 <Camera className="w-3.5 h-3.5" />
@@ -574,7 +574,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2 mt-4 ml-0 sm:ml-[72px] sm:mt-3">
               <Link
-                href={`/rivers/${riverSlug}`}
+                href={`/plan?river=${riverSlug}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#163F4A] text-white text-xs font-semibold rounded-md hover:bg-[#1A4A57] transition-colors shadow-[2px_2px_0_#0F2D35]"
               >
                 Plan a Trip
@@ -620,7 +620,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             <p className="text-xs text-neutral-600 mt-0.5">Plan a trip on the {riverGroup.riverName} with live conditions and access points.</p>
           </div>
           <Link
-            href={`/rivers/${riverSlug}`}
+            href={`/plan?river=${riverSlug}`}
             className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-colors hover:brightness-110"
             style={{ backgroundColor: '#F07052' }}
           >

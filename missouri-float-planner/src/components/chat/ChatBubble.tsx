@@ -6,7 +6,7 @@
 // Desktop: supports compact (400x600) and fullscreen modes.
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { X, Maximize2, Minimize2 } from 'lucide-react';
 import Image from 'next/image';
 import ChatPanel from './ChatPanel';
@@ -21,11 +21,13 @@ export default function ChatBubble() {
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
   const [bottomSheetExpanded, setBottomSheetExpanded] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  // Extract river slug from pathname for context
-  const riverSlug = pathname?.startsWith('/rivers/')
-    ? pathname.split('/')[2] || undefined
-    : undefined;
+  // Extract river slug for chat context. Canonical home is /plan?river=<slug>;
+  // /rivers/<slug>/access/<accessSlug> sub-routes still expose the slug in the path.
+  const riverSlug =
+    searchParams?.get('river') ||
+    (pathname?.startsWith('/rivers/') ? pathname.split('/')[2] || undefined : undefined);
 
   // Detect the float plan bottom sheet by observing fixed elements at bottom
   useEffect(() => {
@@ -57,8 +59,8 @@ export default function ChatBubble() {
   if (pathname === '/chat') return null;
   if (pathname?.startsWith('/embed/')) return null;
 
-  // On river pages with the split-panel layout, hide the FAB on desktop to avoid covering map controls
-  const isRiverPage = pathname?.startsWith('/rivers/') && pathname?.split('/').length === 3;
+  // On the planner with a river loaded (split-panel layout) hide the FAB on desktop to avoid covering map controls.
+  const isRiverPage = pathname === '/plan' && !!searchParams?.get('river');
 
   const hideFab = bottomSheetExpanded && !isOpen;
   const fabBottom = bottomSheetVisible && !bottomSheetExpanded

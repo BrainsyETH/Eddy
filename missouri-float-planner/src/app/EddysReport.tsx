@@ -130,7 +130,7 @@ export default function EddysReport({ rivers, fallbackSummary }: EddysReportProp
           return (
             <Link
               key={river.id}
-              href={`/rivers/${river.slug}`}
+              href={`/plan?river=${river.slug}`}
               className="flex items-center gap-3 px-5 lg:px-6 py-4 hover:bg-neutral-50 transition-colors no-underline group"
             >
               {/* Condition dot */}

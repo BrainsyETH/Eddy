@@ -58,7 +58,7 @@ export default function EmbedBadgePage() {
   return (
     <div style={{ background: 'transparent', padding: 0 }}>
       <a
-        href={`${origin}/rivers/${river.slug}`}
+        href={`${origin}/plan?river=${river.slug}`}
         target="_blank"
         rel="noopener noreferrer"
         style={{

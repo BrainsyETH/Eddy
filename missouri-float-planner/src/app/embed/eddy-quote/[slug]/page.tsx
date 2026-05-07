@@ -314,7 +314,7 @@ export default function EddyQuoteEmbedPage() {
         }}
       >
         <a
-          href={`${origin}/rivers/${river.slug}`}
+          href={`${origin}/plan?river=${river.slug}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
