@@ -20,12 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: '/plan',
     label: 'Plan a Float',
-    matches: (p) => p === '/plan' || p.startsWith('/plan/'),
-  },
-  {
-    href: '/rivers',
-    label: 'Rivers',
-    matches: (p) => p === '/rivers' || p.startsWith('/rivers/'),
+    matches: (p) => p === '/plan' || p.startsWith('/plan/') || p === '/rivers' || p.startsWith('/rivers/'),
   },
   {
     href: '/gauges',
