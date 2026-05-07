@@ -5,17 +5,37 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 
+export type ThresholdSource = 'usgs' | 'nws_ahps' | 'outfitter' | 'editorial';
+
 export interface MOGauge {
   site_id: string;
   name: string;
+  /** NWS AHPS location ID (e.g., 'VBNM7'). Required for forecast lookup. */
+  nws_lid: string | null;
+  /**
+   * Display coordinates: snapped onto the river's NHD geometry when the
+   * USGS site is within 500m of the reach, otherwise the raw site location.
+   */
   lon: number;
   lat: number;
+  /** Raw USGS site location, always the unmoved gauge station. */
+  lon_raw: number | null;
+  lat_raw: number | null;
+  /** Distance in meters between raw site location and nearest reach vertex. */
+  snap_distance_m: number | null;
   is_primary: boolean;
   threshold_unit: 'ft' | 'cfs';
   level_optimal_min: number | null;
   level_optimal_max: number | null;
   level_high: number | null;
   level_dangerous: number | null;
+  /** USGS-published flood stage (ft). Source of truth for hazard override. */
+  flood_stage_ft: number | null;
+  /** USGS-published action stage (ft) — first response level. */
+  action_stage_ft: number | null;
+  threshold_source: ThresholdSource | null;
+  threshold_source_url: string | null;
+  threshold_updated_at: string | null;
 }
 
 export interface MOAccessPoint {
@@ -153,6 +173,11 @@ export const STAGE_VERDICTS: Record<
  * river_gauges), classify floatability. We map the existing threshold model
  * (level_optimal_min / max / high / dangerous) directly onto the verdict
  * bands so we never disagree with the rest of the app.
+ *
+ * USGS-published flood_stage_ft is treated as an authoritative hazard
+ * override: if the live or forecast value crosses flood stage, the verdict
+ * is 'hazard' regardless of the editorial bands. This matches NWS guidance
+ * — flood-stage water is hazardous to recreate on, full stop.
  */
 export function classifyStageFromThresholds(
   value: number | null,
@@ -162,9 +187,19 @@ export function classifyStageFromThresholds(
     level_optimal_max: number | null;
     level_high: number | null;
     level_dangerous: number | null;
+    flood_stage_ft?: number | null;
   },
 ): StageVerdict {
   if (value == null) return 'unknown';
+  // Flood-stage override: only meaningful for ft thresholds (flood stage is
+  // a stage height, not a discharge).
+  if (
+    unit === 'ft' &&
+    th.flood_stage_ft != null &&
+    value >= th.flood_stage_ft
+  ) {
+    return 'hazard';
+  }
   const lo = th.level_optimal_min;
   const hi = th.level_optimal_max;
   const high = th.level_high;
@@ -175,7 +210,6 @@ export function classifyStageFromThresholds(
   if (high != null && value >= high) return 'pushy';
   if (hi != null && value > hi) return 'pushy';
   return 'unknown';
-  void unit;
 }
 
 // ─── Access-point and POI display tokens ────────────────────────────────
