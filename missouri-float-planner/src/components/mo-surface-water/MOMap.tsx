@@ -9,7 +9,6 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   PERCENTILE_CLASSES,
   STAGE_VERDICTS,
-  THEME,
   type MORiver,
   type MOCampground,
   type StageVerdict,
