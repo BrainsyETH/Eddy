@@ -20,6 +20,7 @@ import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
 import FloatPlanCard, { ShareableCapture } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import PlanSidebar from '@/components/plan/PlanSidebar';
+import { MapHintBanner, RouteStatsBadge, MapLegend } from '@/components/plan/MapOverlayHelpers';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
@@ -549,6 +550,12 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
           <WeatherBug riverSlug={riverSlug} riverId={river.id} />
 
+          <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
+          {(putInPoint && takeOutPoint) && (
+            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} />
+          )}
+          <MapLegend />
+
           {accessPoints && accessPoints.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
               <div className="pointer-events-auto">
@@ -624,6 +631,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
           <WeatherBug riverSlug={riverSlug} riverId={river.id} />
 
+          <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
+          {(putInPoint && takeOutPoint) && (
+            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} />
+          )}
+
           {accessPoints && accessPoints.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1 pointer-events-none">
               <div className="pointer-events-auto">
@@ -638,12 +650,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                   riverSlug={riverSlug}
                 />
               </div>
-            </div>
-          )}
-
-          {!putInPoint && !takeOutPoint && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-neutral-200">
-              <p className="text-xs font-medium text-neutral-600">Tap a marker to set your put-in</p>
             </div>
           )}
         </div>
