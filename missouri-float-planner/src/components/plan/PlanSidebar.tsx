@@ -10,7 +10,6 @@ import dynamic from 'next/dynamic';
 import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
-import { useVesselTypes } from '@/hooks/useVesselTypes';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -28,8 +27,6 @@ interface PlanSidebarProps {
   takeOutPoint: AccessPoint | null;
   onClearPutIn: () => void;
   onClearTakeOut: () => void;
-  vesselTypeId: string | null;
-  onVesselChange: (id: string) => void;
   onShare: () => void;
   onDownloadImage: () => void;
   shareStatus: 'idle' | 'copied';
@@ -49,8 +46,6 @@ export default function PlanSidebar({
   takeOutPoint,
   onClearPutIn,
   onClearTakeOut,
-  vesselTypeId,
-  onVesselChange,
   onShare,
   onDownloadImage,
   shareStatus,
@@ -58,9 +53,6 @@ export default function PlanSidebar({
   onSubmitPhoto,
   pointsAlongRoute = [],
 }: PlanSidebarProps) {
-  const { data: vesselTypes } = useVesselTypes();
-  const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
-  const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
   const [showEddySays, setShowEddySays] = useState(false);
   const hasBothPoints = putInPoint && takeOutPoint;
 
@@ -140,45 +132,11 @@ export default function PlanSidebar({
           </div>
         )}
 
-        {/* Route summary — only when both points selected and plan loaded.
-            Distance + float time live on the map's RouteStatsBadge now; the
-            sidebar keeps just the vessel toggle and any warnings. */}
-        {hasBothPoints && plan && (
-          <div className="bg-neutral-50 rounded-xl p-3">
-            {/* Vessel toggle */}
-            {canoeVessel && raftVessel && (
-              <div className="flex items-center justify-center">
-                <div className="inline-flex items-center rounded-md p-0.5 bg-white border border-neutral-200">
-                  <button
-                    onClick={() => onVesselChange(canoeVessel.id)}
-                    className={`px-3 py-1 text-[11px] font-bold rounded transition-all ${
-                      vesselTypeId === canoeVessel.id
-                        ? 'bg-primary-600 text-white'
-                        : 'text-neutral-500 hover:bg-neutral-50'
-                    }`}
-                  >
-                    🛶 Canoe
-                  </button>
-                  <button
-                    onClick={() => onVesselChange(raftVessel.id)}
-                    className={`px-3 py-1 text-[11px] font-bold rounded transition-all ${
-                      vesselTypeId === raftVessel.id
-                        ? 'bg-primary-600 text-white'
-                        : 'text-neutral-500 hover:bg-neutral-50'
-                    }`}
-                  >
-                    🚣 Raft
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Upstream warning */}
-            {plan.putIn.riverMile > plan.takeOut.riverMile && (
-              <div className="flex items-center gap-1.5 mt-2 px-2 py-1.5 bg-red-50 border border-red-200 rounded-md text-[11px] text-red-700 font-medium">
-                <span>⚠</span> Upstream — paddling against current
-              </div>
-            )}
+        {/* Upstream warning — distance, float time, and vessel choice all
+            live elsewhere now (map badge / mobile FloatPlanCard). */}
+        {hasBothPoints && plan && plan.putIn.riverMile > plan.takeOut.riverMile && (
+          <div className="flex items-center gap-1.5 px-2.5 py-2 bg-red-50 border border-red-200 rounded-md text-[11px] text-red-700 font-medium">
+            <span>⚠</span> Upstream — paddling against current
           </div>
         )}
 
