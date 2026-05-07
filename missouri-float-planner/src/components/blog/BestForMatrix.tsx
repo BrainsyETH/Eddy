@@ -55,7 +55,7 @@ export default function BestForMatrix({ sections, riverSlug, apIds }: Props) {
       const putIn = section.from_slug ? apIds.get(section.from_slug) : undefined;
       const takeOut = section.to_slug ? apIds.get(section.to_slug) : undefined;
       const href = putIn && takeOut
-        ? `/rivers/${riverSlug}?putIn=${putIn}&takeOut=${takeOut}`
+        ? `/plan?river=${riverSlug}&putIn=${putIn}&takeOut=${takeOut}`
         : undefined;
       row.matches.push({
         sectionId: section.id,

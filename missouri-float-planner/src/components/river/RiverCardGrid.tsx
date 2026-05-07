@@ -57,7 +57,7 @@ export default function RiverCardGrid({ rivers }: RiverCardGridProps) {
           {filteredRivers.map((river) => (
             <Link
               key={river.id}
-              href={`/rivers/${river.slug}`}
+              href={`/plan?river=${river.slug}`}
               className="group bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300 no-underline"
             >
               <div className="relative h-36 overflow-hidden">

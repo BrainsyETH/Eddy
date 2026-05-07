@@ -22,20 +22,13 @@ const nextConfig = {
     ],
   },
   async redirects() {
-    // Old per-river share URLs (/rivers/<slug>?putIn=…&takeOut=…) point at the
-    // unified planner now. permanent: true emits 308 (treated as permanent by
-    // search engines, equivalent to 301 for ranking transfer). Query params
-    // not in destination are forwarded automatically.
+    // /rivers/<slug>(?putIn=…&takeOut=…) → /plan?river=<slug>(&putIn=…&takeOut=…)
+    // The per-river guide page is gone; the unified planner is canonical.
+    // permanent: true emits 308 (Google treats it as permanent for ranking
+    // transfer). Query params not named in the destination are forwarded.
     return [
       {
         source: '/rivers/:slug',
-        has: [{ type: 'query', key: 'putIn' }],
-        destination: '/plan?river=:slug',
-        permanent: true,
-      },
-      {
-        source: '/rivers/:slug',
-        has: [{ type: 'query', key: 'takeOut' }],
         destination: '/plan?river=:slug',
         permanent: true,
       },

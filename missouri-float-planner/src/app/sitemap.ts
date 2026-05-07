@@ -46,9 +46,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/api/openapi.json`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
   ];
 
-  // Dynamic river pages
+  // Per-river planner deep-links (the guide pages were folded into /plan).
+  // Use ?river=<slug> as the canonical entry per river.
   const riverPages: MetadataRoute.Sitemap = (riversResult.data || []).map((river) => ({
-    url: `${BASE_URL}/rivers/${river.slug}`,
+    url: `${BASE_URL}/plan?river=${river.slug}`,
     lastModified: river.updated_at ? new Date(river.updated_at) : new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.8,

@@ -24,6 +24,7 @@ import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
 import { useRiver, useRivers } from '@/hooks/useRivers';
+import { useAllRiverGeometries } from '@/hooks/useAllRiverGeometries';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
@@ -47,6 +48,7 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
+const AllRiversLayer = dynamic(() => import('@/components/map/AllRiversLayer'), { ssr: false });
 
 // Roughly the bounding box covering all Missouri Ozark float rivers we plan
 // — used as the default map view when no river is selected yet.
@@ -417,7 +419,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   if (!riverSlug) {
     return (
       <div className="relative bg-neutral-100" style={{ height: 'calc(100vh - 3.5rem)' }}>
-        <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false} />
+        <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false}>
+          <OverviewRiverLines />
+        </MapContainer>
 
         {/* Centered prompt */}
         <div className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none">
@@ -711,14 +715,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             </div>
           </Link>
         )}
-
-        {/* Cross-link back to river guide page */}
-        <Link
-          href={`/rivers/${riverSlug}`}
-          className="block text-center text-sm text-neutral-500 hover:text-primary-600 transition-colors py-2"
-        >
-          ← Back to {river.name} guide
-        </Link>
       </div>
 
       {putInPoint && takeOutPoint && plan && captureRef && (
@@ -918,6 +914,15 @@ function MobileRiverSwitcher({
       )}
     </>
   );
+}
+
+// Renders all river polylines on the overview map. Splitting this into a
+// child component keeps the data hook off the main planner body when a river
+// is already selected.
+function OverviewRiverLines() {
+  const { data: rivers } = useAllRiverGeometries();
+  if (!rivers || rivers.length === 0) return null;
+  return <AllRiversLayer rivers={rivers} />;
 }
 
 function RiverPickerModal({

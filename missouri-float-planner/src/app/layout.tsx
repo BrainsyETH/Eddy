@@ -90,7 +90,7 @@ export default function RootLayout({
               description: 'Plan your next float trip with live water conditions, access points, float times & weather.',
               potentialAction: {
                 '@type': 'SearchAction',
-                target: `${BASE_URL}/rivers/{slug}`,
+                target: `${BASE_URL}/plan?river={slug}`,
                 'query-input': 'required name=slug',
               },
             }),
