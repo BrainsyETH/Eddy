@@ -149,7 +149,7 @@ export default function FloatEstimator({ rivers }: FloatEstimatorProps) {
       <div className="mt-5 pt-4 border-t border-neutral-100">
         {canSubmit ? (
           <Link
-            href={`/rivers/${selectedRiverSlug}?putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
+            href={`/plan?river=${selectedRiverSlug}&putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
             className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-sm"
           >
             View Trip Details
