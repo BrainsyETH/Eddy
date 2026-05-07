@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl, {
   type ExpressionSpecification,
   type GeoJSONSource,
+  type StyleSpecification,
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
@@ -41,11 +42,29 @@ interface MOMapProps {
   onClickPoi: (id: string | null) => void;
 }
 
-// OpenFreeMap "Liberty" — already on the app's CSP allowlist. The previous
-// "no map" symptom on this style was actually our own symbol layers
-// requesting fontstacks the CDN didn't have; the basemap layers themselves
-// (background, water, roads as fills/lines) render fine without those fonts.
-const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+// Inline raster basemap. OSM tiles are CSP-allowed (img-src/connect-src
+// both include https://*.tile.openstreetmap.org) and need no glyphs,
+// sprites, or external style JSON — i.e., the smallest possible surface
+// area for the map to render against.
+const BASE_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+      maxzoom: 19,
+    },
+  },
+  layers: [
+    { id: 'osm', type: 'raster', source: 'osm' },
+  ],
+};
 
 const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
   'interpolate',
@@ -96,7 +115,7 @@ export default function MOMap(props: MOMapProps) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: BASE_STYLE_URL,
+      style: BASE_STYLE,
       center: [-91.4, 37.6],
       zoom: 7.1,
       minZoom: 6,
