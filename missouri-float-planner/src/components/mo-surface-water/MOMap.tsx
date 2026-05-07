@@ -23,33 +23,45 @@ import {
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 
 // ─── Projection ─────────────────────────────────────────────────────────
+//
+// The viewBox is fixed at 1600×1000 but the projection window is computed
+// at runtime from the bounding box of the actual data (rivers + gauges +
+// campgrounds), so the canvas auto-frames to wherever the data actually
+// lives. The state silhouette renders in the same projection and is
+// allowed to overflow the viewBox; it gets clipped naturally by SVG.
 
 const W = 1600;
 const H = 1000;
-const PADDING = 40;
+const PADDING = 60;
 
-// Equirectangular-with-cosine-correction projection. For a 7°×5° window like
-// Missouri this is visually indistinguishable from Albers and is one matrix
-// multiply per point. Center of the state, scale chosen to leave ~40px margin.
-const CENTER_LON = -92.5;
-const CENTER_LAT = 38.4;
-const LON_SPAN = 7.4;
-const LAT_SPAN = 4.9;
-const COS_LAT = Math.cos((CENTER_LAT * Math.PI) / 180);
+type Projector = (lon: number, lat: number) => [number, number];
 
-// Choose scale that fits the larger of the two dimensions inside the viewBox
-// minus padding while preserving aspect.
-const SCALE_X_BY_LON = (W - 2 * PADDING) / LON_SPAN;
-const SCALE_X_BY_LAT = (H - 2 * PADDING) / (LAT_SPAN / COS_LAT);
-const SCALE = Math.min(SCALE_X_BY_LON, SCALE_X_BY_LAT);
+function buildProjector(bbox: {
+  minLon: number;
+  maxLon: number;
+  minLat: number;
+  maxLat: number;
+}): Projector {
+  const lonSpan = bbox.maxLon - bbox.minLon || 0.001;
+  const latSpan = bbox.maxLat - bbox.minLat || 0.001;
+  const centerLon = (bbox.minLon + bbox.maxLon) / 2;
+  const centerLat = (bbox.minLat + bbox.maxLat) / 2;
+  const cosLat = Math.cos((centerLat * Math.PI) / 180);
 
-function project(lon: number, lat: number): [number, number] {
-  const x = (lon - CENTER_LON) * SCALE + W / 2;
-  const y = -(lat - CENTER_LAT) * (SCALE / COS_LAT) + H / 2;
-  return [x, y];
+  const innerW = W - 2 * PADDING;
+  const innerH = H - 2 * PADDING;
+  const scaleByLon = innerW / lonSpan;
+  const scaleByLat = innerH / (latSpan / cosLat);
+  const scale = Math.min(scaleByLon, scaleByLat);
+
+  return (lon, lat) => {
+    const x = (lon - centerLon) * scale + W / 2;
+    const y = -(lat - centerLat) * (scale / cosLat) + H / 2;
+    return [x, y];
+  };
 }
 
-function lineToPath(coords: Array<[number, number]>): string {
+function lineToPath(coords: Array<[number, number]>, project: Projector): string {
   if (!coords.length) return '';
   return coords
     .map(([lon, lat], i) => {
@@ -59,8 +71,8 @@ function lineToPath(coords: Array<[number, number]>): string {
     .join(' ');
 }
 
-function polygonToPath(coords: Array<[number, number]>): string {
-  return lineToPath(coords) + ' Z';
+function polygonToPath(coords: Array<[number, number]>, project: Projector): string {
+  return lineToPath(coords, project) + ' Z';
 }
 
 // ─── Static geometry ────────────────────────────────────────────────────
@@ -139,23 +151,84 @@ function colorForPercentile(p: number | null | undefined): string {
   return classifyPercentile(p).color;
 }
 
-function strokeWidthForOrder(order: number, hovered: boolean, focused: boolean): number {
-  // Approximate stream-order weight; bumps when hovered/focused.
-  const base = 2 + (order - 4) * 1.4;
-  if (focused) return base + 3;
+function strokeWidthForRiver(
+  lengthMiles: number | null | undefined,
+  hovered: boolean,
+  focused: boolean,
+): number {
+  // Wider base than before — at this zoom level, 2px lines disappear.
+  // Length-weighted: longer rivers paint as the trunk, smaller as tributaries.
+  const m = lengthMiles ?? 60;
+  const base = Math.max(4, Math.min(8, 3.5 + m / 35));
+  if (focused) return base + 3.5;
   if (hovered) return base + 2;
   return base;
 }
 
 export default function MOMap(props: MOMapProps) {
-  const stateOutlinePath = useMemo(() => polygonToPath(MO_OUTLINE), []);
+  // ── Compute projection window from data bbox ───────────────────────────
+  const bbox = useMemo(() => {
+    let minLon = Infinity, maxLon = -Infinity;
+    let minLat = Infinity, maxLat = -Infinity;
+    const include = (lon: number, lat: number) => {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    };
+
+    for (const r of props.rivers) {
+      for (const [lon, lat] of r.geometry.coordinates as Array<[number, number]>) {
+        include(lon, lat);
+      }
+      for (const g of r.gauges ?? []) include(g.lon, g.lat);
+      for (const a of r.access_points ?? []) include(a.lon, a.lat);
+    }
+    for (const c of props.campgrounds) include(c.lon, c.lat);
+
+    // Fall back to the full state if we somehow have no data points.
+    if (!isFinite(minLon)) {
+      minLon = -95.77; maxLon = -89.13; minLat = 36.0; maxLat = 40.61;
+    }
+
+    // 8% padding on each side so geometry doesn't kiss the edge.
+    const lonPad = (maxLon - minLon) * 0.08 + 0.05;
+    const latPad = (maxLat - minLat) * 0.08 + 0.05;
+    return {
+      minLon: minLon - lonPad,
+      maxLon: maxLon + lonPad,
+      minLat: minLat - latPad,
+      maxLat: maxLat + latPad,
+    };
+  }, [props.rivers, props.campgrounds]);
+
+  const project = useMemo(() => buildProjector(bbox), [bbox]);
+
+  const stateOutlinePath = useMemo(
+    () => polygonToPath(MO_OUTLINE, project),
+    [project],
+  );
   const riverPaths = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of props.rivers) {
-      out[r.id] = lineToPath(r.geometry.coordinates as Array<[number, number]>);
+      out[r.id] = lineToPath(r.geometry.coordinates as Array<[number, number]>, project);
     }
     return out;
-  }, [props.rivers]);
+  }, [props.rivers, project]);
+
+  // Cities visible in the framed area (plus a small buffer outside, so the
+  // nearest metro still anchors the user's orientation).
+  const visibleCities = useMemo(() => {
+    const lonBuf = (bbox.maxLon - bbox.minLon) * 0.18;
+    const latBuf = (bbox.maxLat - bbox.minLat) * 0.18;
+    return CITIES.filter(
+      (c) =>
+        c.lon >= bbox.minLon - lonBuf &&
+        c.lon <= bbox.maxLon + lonBuf &&
+        c.lat >= bbox.minLat - latBuf &&
+        c.lat <= bbox.maxLat + latBuf,
+    );
+  }, [bbox]);
 
   // ─── Particles ─────────────────────────────────────────────────────────
   // For each river that's "active" (mean percentile ≥ 60 or hovered/focused
@@ -283,10 +356,10 @@ export default function MOMap(props: MOMapProps) {
       }}
     >
       <defs>
-        <radialGradient id="mo-bg" cx="50%" cy="50%" r="75%">
-          <stop offset="0%" stopColor="#F2EAD8" />
-          <stop offset="65%" stopColor="#E6DCBE" />
-          <stop offset="100%" stopColor="#C9B98E" />
+        <radialGradient id="mo-bg" cx="50%" cy="50%" r="85%">
+          <stop offset="0%" stopColor="#F4ECDB" />
+          <stop offset="60%" stopColor="#EADFC2" />
+          <stop offset="100%" stopColor="#D4C394" />
         </radialGradient>
         <pattern id="mo-grain" width="180" height="180" patternUnits="userSpaceOnUse">
           {Array.from({ length: 70 }).map((_, i) => {
@@ -297,14 +370,30 @@ export default function MOMap(props: MOMapProps) {
             return <circle key={i} cx={x} cy={y} r={r} fill="rgba(105,80,40,0.07)" />;
           })}
         </pattern>
+        {/* Clip path so the parchment fill respects MO's borders even when
+            the silhouette overflows the viewBox. */}
+        <clipPath id="mo-clip">
+          <path d={stateOutlinePath} />
+        </clipPath>
       </defs>
 
       {/* Backdrop (matches Eddy primary-900) */}
       <rect width={W} height={H} fill="#0F2D35" />
 
-      {/* State silhouette */}
-      <path d={stateOutlinePath} fill="url(#mo-bg)" stroke="rgba(80,60,30,0.55)" strokeWidth={2.5} strokeLinejoin="round" />
-      <path d={stateOutlinePath} fill="url(#mo-grain)" />
+      {/* State silhouette — parchment fill, clipped to state, plus a stroked
+          border for definition. The state path may extend off-canvas; SVG
+          clips it naturally. */}
+      <g clipPath="url(#mo-clip)">
+        <rect width={W} height={H} fill="url(#mo-bg)" />
+        <rect width={W} height={H} fill="url(#mo-grain)" />
+      </g>
+      <path
+        d={stateOutlinePath}
+        fill="none"
+        stroke="rgba(80,60,30,0.55)"
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
 
       {/* Title */}
       <text
@@ -322,7 +411,7 @@ export default function MOMap(props: MOMapProps) {
 
       {/* Cities */}
       <g>
-        {CITIES.map((c) => {
+        {visibleCities.map((c) => {
           const [cx, cy] = project(c.lon, c.lat);
           return (
             <g key={c.name} transform={`translate(${cx} ${cy})`}>
@@ -361,7 +450,7 @@ export default function MOMap(props: MOMapProps) {
         const color = colorForPercentile(percentile);
         const isHovered = props.hoveredRiverId === r.id;
         const isFocused = props.focusedRiverId === r.id;
-        const sw = strokeWidthForOrder(5, isHovered, isFocused); // synthesize order
+        const sw = strokeWidthForRiver(r.length_miles, isHovered, isFocused);
         const verdictTone =
           verdict === 'prime'  ? STAGE_VERDICTS.prime.inner :
           verdict === 'pushy'  ? STAGE_VERDICTS.pushy.inner :
