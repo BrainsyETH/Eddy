@@ -1,34 +1,48 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
-import maplibregl, { type StyleSpecification, type ExpressionSpecification } from 'maplibre-gl';
+import { useEffect, useRef } from 'react';
+import maplibregl, {
+  type StyleSpecification,
+  type ExpressionSpecification,
+  type GeoJSONSource,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
-  MO_RIVERS,
-  MO_CITIES,
-  MO_STATE_OUTLINE,
-  MO_FLOATER,
-  STAGE_VERDICTS,
-  stageToVerdict,
   PERCENTILE_CLASSES,
+  STAGE_VERDICTS,
+  THEME,
+  type MORiver,
+  type MOCampground,
+  type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 
 interface MOMapProps {
+  rivers: MORiver[];
+  campgrounds: MOCampground[];
   gauges: MoStatewideGauge[];
+  /** verdict per river slug, computed by parent against scrubbed day */
+  verdictByRiver: Record<string, StageVerdict>;
+  /** percentile per river slug, scrubbed-day aware */
+  percentileByRiver: Record<string, number | null>;
+  /** percentile per gauge site_no, scrubbed-day aware */
+  percentileByGauge: Record<string, number | null>;
   hoveredRiverId: string | null;
   focusedRiverId: string | null;
   hoveredGaugeId: string | null;
   focusedGaugeId: string | null;
+  showCampgrounds: boolean;
+  showAccessPoints: boolean;
+  showPOIs: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   onHoverGauge: (id: string | null) => void;
   onFocusGauge: (id: string | null) => void;
+  onClickCampground: (id: string | null) => void;
+  onClickAccessPoint: (id: string | null) => void;
+  onClickPoi: (id: string | null) => void;
 }
 
-// Empty MapLibre style — we render every visual layer ourselves so there's no
-// external tile dependency. The "background" layer paints the off-map area
-// the dark earthy color the prototype uses.
 const BASE_STYLE: StyleSpecification = {
   version: 8,
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
@@ -37,17 +51,15 @@ const BASE_STYLE: StyleSpecification = {
     {
       id: 'background',
       type: 'background',
-      paint: { 'background-color': '#1F1A14' },
+      paint: { 'background-color': THEME.basinFill },
     },
   ],
 };
 
-// Stops for percentile → color, fed straight into MapLibre's interpolate
-// expression so the GPU does the gradient. Matches PERCENTILE_CLASSES bands.
 const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
   'case',
   ['==', ['feature-state', 'percentile'], null],
-  '#6B6459',
+  '#857D70',
   [
     'interpolate',
     ['linear'],
@@ -65,7 +77,7 @@ const PERCENTILE_COLOR_EXPR: ExpressionSpecification = [
   ],
 ];
 
-const FLOATER_INNER_EXPR: ExpressionSpecification = [
+const VERDICT_COLOR_EXPR: ExpressionSpecification = [
   'match',
   ['get', 'verdict'],
   'bony',   STAGE_VERDICTS.bony.inner,
@@ -77,36 +89,20 @@ const FLOATER_INNER_EXPR: ExpressionSpecification = [
 
 export default function MOMap(props: MOMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const dashFrameRef = useRef<number>(0);
 
-  // Per-river snapshot derived from gauges (mean percentile + verdict).
-  const riverSnapshot = useMemo(() => {
-    const byRiver = new Map<string, MoStatewideGauge[]>();
-    for (const g of props.gauges) {
-      const arr = byRiver.get(g.river_id);
-      if (arr) arr.push(g); else byRiver.set(g.river_id, [g]);
-    }
-    const out: Record<string, { percentile: number | null; verdict: string }> = {};
-    for (const r of MO_RIVERS) {
-      const list = byRiver.get(r.id) ?? [];
-      const pcts = list.map((g) => g.percentile).filter((p): p is number => p != null);
-      const meanP = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null;
-
-      const fp = MO_FLOATER[r.id];
-      let verdict = 'unknown';
-      if (fp) {
-        // Use the first gauge with a valid stage as the canonical reading.
-        const stage = list.find((g) => g.gaugeHeightFt != null)?.gaugeHeightFt ?? null;
-        verdict = stageToVerdict(stage, fp.stageBands);
-      }
-      out[r.id] = { percentile: meanP, verdict };
-    }
-    return out;
-  }, [props.gauges]);
+  // Particles for animated flow.
+  const particlesRef = useRef<
+    Array<{ riverId: string; t: number; speed: number; trail: Array<{ x: number; y: number }> }>
+  >([]);
+  const rafRef = useRef<number>(0);
+  const projectorRef = useRef<((lonlat: [number, number]) => { x: number; y: number }) | null>(
+    null,
+  );
 
   // ──────────────────────────────────────────────────────────────────────
-  // Initialize the map exactly once
+  // Initialize the map once
   // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -114,114 +110,74 @@ export default function MOMap(props: MOMapProps) {
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASE_STYLE,
-      center: [-92.5, 38.4],
-      zoom: 6.1,
-      minZoom: 5.5,
-      maxZoom: 10,
+      center: [-91.4, 37.6],
+      zoom: 7.1,
+      minZoom: 6,
+      maxZoom: 12,
       attributionControl: false,
-      // Restrict to roughly Missouri + a buffer so the user can't pan into the void.
       maxBounds: [[-97.5, 35.0], [-87.5, 41.5]],
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
     });
     mapRef.current = map;
+    projectorRef.current = (lonlat) => {
+      const p = map.project(lonlat);
+      return { x: p.x, y: p.y };
+    };
 
     map.addControl(
       new maplibregl.AttributionControl({
         compact: true,
-        customAttribution: 'USGS NWIS · Geometry hand-traced from USGS NHD',
+        customAttribution: 'USGS NWIS · NPS · Eddy data',
       }),
       'bottom-right',
     );
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     map.on('load', () => {
-      // ─── State silhouette ──────────────────────────────────────
-      map.addSource('mo-state', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: MO_STATE_OUTLINE },
-      });
-      map.addLayer({
-        id: 'mo-state-fill',
-        type: 'fill',
-        source: 'mo-state',
-        paint: {
-          'fill-color': '#E6DCBE',
-          'fill-opacity': 0.94,
-        },
-      });
-      map.addLayer({
-        id: 'mo-state-grain',
-        type: 'fill',
-        source: 'mo-state',
-        paint: {
-          // Subtle inner shading via radial-gradient-style overlay.
-          'fill-color': '#C9B98E',
-          'fill-opacity': 0.18,
-        },
-      });
-      map.addLayer({
-        id: 'mo-state-outline',
-        type: 'line',
-        source: 'mo-state',
-        paint: {
-          'line-color': 'rgba(80,60,30,0.6)',
-          'line-width': 2,
-        },
-      });
+      // ─── State silhouette (stylized, just for compositional contrast) ─
+      // We rely on rivers themselves; no state polygon needed at zoom 7+.
 
       // ─── Rivers ────────────────────────────────────────────────
-      const riverFeatures: GeoJSON.Feature[] = MO_RIVERS.map((r) => ({
-        type: 'Feature',
-        id: idToNumeric(r.id),
-        properties: {
-          riverId: r.id,
-          name: r.name,
-          basin: r.basin,
-          order: r.order,
-          floatable: r.id in MO_FLOATER,
-          verdict: 'unknown',
-        },
-        geometry: { type: 'LineString', coordinates: r.coordinates },
-      }));
       map.addSource('mo-rivers', {
         type: 'geojson',
-        data: { type: 'FeatureCollection', features: riverFeatures },
+        data: { type: 'FeatureCollection', features: [] },
         promoteId: 'riverId',
       });
 
       const orderWidth: ExpressionSpecification = [
         'interpolate',
         ['linear'],
-        ['get', 'order'],
-        4, 1.5,
-        5, 2.2,
-        6, 3.0,
-        7, 4.0,
-        8, 5.0,
+        ['zoom'],
+        6, 1.5,
+        8, 3,
+        10, 5,
+        12, 8,
       ];
 
-      const hoverWidthBoost: ExpressionSpecification = [
-        'case',
-        ['boolean', ['feature-state', 'hovered'], false],
-        2.5,
-        ['boolean', ['feature-state', 'focused'], false],
-        2.5,
-        0,
-      ];
-
-      // Invisible thick hit-target layer for easier hover/click on thin reaches.
+      // Hit target — invisible thick stroke for easier hover/click
       map.addLayer({
         id: 'mo-river-hit',
         type: 'line',
         source: 'mo-rivers',
+        paint: { 'line-color': 'transparent', 'line-width': 18 },
+      });
+
+      // Casing — slight halo so rivers pop off the dark bg
+      map.addLayer({
+        id: 'mo-river-casing',
+        type: 'line',
+        source: 'mo-rivers',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': 'transparent',
-          'line-width': 16,
+          'line-color': '#0F2D35',
+          'line-width': ['+', orderWidth, 4],
+          'line-opacity': 0.55,
         },
       });
 
-      // Glow under hovered/focused rivers.
+      // Glow on hover/focus
       map.addLayer({
         id: 'mo-river-glow',
         type: 'line',
@@ -229,17 +185,18 @@ export default function MOMap(props: MOMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': PERCENTILE_COLOR_EXPR,
-          'line-blur': 4,
-          'line-width': ['+', orderWidth, 5],
+          'line-blur': 5,
+          'line-width': ['+', orderWidth, 8],
           'line-opacity': [
             'case',
-            ['boolean', ['feature-state', 'hovered'], false], 0.45,
-            ['boolean', ['feature-state', 'focused'], false], 0.55,
+            ['boolean', ['feature-state', 'hovered'], false], 0.55,
+            ['boolean', ['feature-state', 'focused'], false], 0.7,
             0,
           ],
         },
       });
 
+      // Main river stroke colored by percentile
       map.addLayer({
         id: 'mo-river-line',
         type: 'line',
@@ -247,117 +204,185 @@ export default function MOMap(props: MOMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': PERCENTILE_COLOR_EXPR,
-          'line-width': ['+', orderWidth, hoverWidthBoost],
+          'line-width': ['+', orderWidth, [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false], 1.5,
+            ['boolean', ['feature-state', 'focused'], false], 2,
+            0,
+          ]],
           'line-opacity': [
             'case',
-            // dim non-focused rivers when something is focused
-            [
-              'all',
+            ['all',
               ['!=', ['feature-state', 'focused'], null],
               ['!', ['boolean', ['feature-state', 'focused'], false]],
             ],
-            0.22,
-            // dim non-hovered when hovering
-            [
-              'all',
+            0.28,
+            ['all',
               ['!=', ['feature-state', 'hovered'], null],
               ['!', ['boolean', ['feature-state', 'hovered'], false]],
               ['!', ['boolean', ['feature-state', 'focused'], false]],
             ],
-            0.32,
+            0.42,
             1.0,
           ],
         },
       });
 
-      // Floater inner stroke (parallel inset, dashed when hazard).
+      // Floater inner stroke (verdict-colored parallel line)
       map.addLayer({
-        id: 'mo-river-floater',
+        id: 'mo-river-verdict',
         type: 'line',
         source: 'mo-rivers',
-        filter: ['==', ['get', 'floatable'], true],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': FLOATER_INNER_EXPR,
-          'line-width': ['*', orderWidth, 0.45],
+          'line-color': VERDICT_COLOR_EXPR,
+          'line-width': ['*', orderWidth, 0.4],
+          'line-opacity': [
+            'case',
+            ['==', ['get', 'verdict'], 'unknown'], 0,
+            0.95,
+          ],
           'line-dasharray': [
             'match',
             ['get', 'verdict'],
             'hazard', ['literal', [2, 2]],
             ['literal', [1, 0]],
           ],
-          'line-opacity': [
-            'case',
-            ['==', ['get', 'verdict'], 'unknown'], 0,
-            0.95,
-          ],
         },
       });
 
-      // Animated dasharray on a clone of the river-line for "particle"
-      // movement on percentile ≥ 60 reaches. We update the offset via a RAF
-      // loop below.
+      // ─── River labels ──────────────────────────────────────────
+      map.addSource('mo-river-labels', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
       map.addLayer({
-        id: 'mo-river-flow',
-        type: 'line',
-        source: 'mo-rivers',
-        layout: { 'line-cap': 'butt', 'line-join': 'round' },
+        id: 'mo-river-label',
+        type: 'symbol',
+        source: 'mo-river-labels',
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Semibold'],
+          'text-size': 13,
+          'text-letter-spacing': 0.05,
+          'symbol-placement': 'line',
+          'text-allow-overlap': false,
+          'text-anchor': 'center',
+        },
         paint: {
-          'line-color': '#FFFFFF',
-          'line-width': ['*', orderWidth, 0.35],
-          'line-opacity': [
-            'case',
-            ['<', ['to-number', ['feature-state', 'percentile']], 60], 0,
-            0.55,
+          'text-color': '#F2EAD8',
+          'text-halo-color': '#0F2D35',
+          'text-halo-width': 2.5,
+        },
+      });
+
+      // ─── Campgrounds ──────────────────────────────────────────
+      map.addSource('mo-campgrounds', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        promoteId: 'id',
+      });
+      map.addLayer({
+        id: 'mo-campground-dot',
+        type: 'circle',
+        source: 'mo-campgrounds',
+        paint: {
+          'circle-radius': [
+            'interpolate', ['linear'], ['get', 'total_sites'],
+            0, 4, 50, 7, 150, 10,
           ],
-          'line-dasharray': [0.3, 4],
+          'circle-color': '#7A684B',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#F2EAD8',
+          'circle-opacity': 0.95,
+        },
+      });
+      map.addLayer({
+        id: 'mo-campground-icon',
+        type: 'symbol',
+        source: 'mo-campgrounds',
+        layout: {
+          'text-field': '⛺',
+          'text-size': 11,
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#F2EAD8',
+          'text-halo-color': '#3D3425',
+          'text-halo-width': 0.6,
+        },
+      });
+
+      // ─── Access points ────────────────────────────────────────
+      map.addSource('mo-access', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        promoteId: 'id',
+      });
+      map.addLayer({
+        id: 'mo-access-dot',
+        type: 'circle',
+        source: 'mo-access',
+        paint: {
+          'circle-radius': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false], 6,
+            4,
+          ],
+          'circle-color': ['get', 'fill'],
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': '#F2EAD8',
+        },
+      });
+
+      // ─── POIs (springs, caves, waterfalls) ───────────────────
+      map.addSource('mo-pois', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        promoteId: 'id',
+      });
+      map.addLayer({
+        id: 'mo-poi-glyph',
+        type: 'symbol',
+        source: 'mo-pois',
+        layout: {
+          'text-field': ['get', 'glyph'],
+          'text-size': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false], 18,
+            14,
+          ],
+          'text-allow-overlap': true,
+          'text-font': ['Open Sans Semibold'],
+        },
+        paint: {
+          'text-color': ['get', 'tone'],
+          'text-halo-color': '#F2EAD8',
+          'text-halo-width': 1.5,
         },
       });
 
       // ─── Gauges ────────────────────────────────────────────────
-      const gaugeFeatures: GeoJSON.Feature[] = MO_RIVERS.flatMap((r) =>
-        r.gauges.map((g) => ({
-          type: 'Feature' as const,
-          id: hash(g.site_no),
-          properties: {
-            site_no: g.site_no,
-            site_name: g.name,
-            riverId: r.id,
-            riverName: r.name,
-            basin: r.basin,
-            order: r.order,
-            percentile: null,
-            isPeak: false,
-          },
-          geometry: { type: 'Point' as const, coordinates: [g.lon, g.lat] },
-        })),
-      );
       map.addSource('mo-gauges', {
         type: 'geojson',
-        data: { type: 'FeatureCollection', features: gaugeFeatures },
+        data: { type: 'FeatureCollection', features: [] },
         promoteId: 'site_no',
       });
 
-      // Outer pulse for above-P75 gauges (rising/peak).
+      // Pulse for above-P75 gauges
       map.addLayer({
         id: 'mo-gauge-pulse',
         type: 'circle',
         source: 'mo-gauges',
         paint: {
-          'circle-radius': 12,
+          'circle-radius': 16,
           'circle-color': PERCENTILE_COLOR_EXPR,
           'circle-opacity': [
             'case',
             ['boolean', ['feature-state', 'isPeak'], false], 0.18,
             0,
           ],
-          'circle-stroke-width': 1,
-          'circle-stroke-color': PERCENTILE_COLOR_EXPR,
-          'circle-stroke-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'isPeak'], false], 0.35,
-            0,
-          ],
+          'circle-blur': 0.4,
         },
       });
 
@@ -368,181 +393,108 @@ export default function MOMap(props: MOMapProps) {
         paint: {
           'circle-radius': [
             'case',
-            ['boolean', ['feature-state', 'hovered'], false], 6,
-            ['boolean', ['feature-state', 'focused'], false], 7,
-            3.5,
+            ['boolean', ['feature-state', 'focused'], false], 8,
+            ['boolean', ['feature-state', 'hovered'], false], 7,
+            ['boolean', ['get', 'is_primary'], false], 6,
+            4,
           ],
-          'circle-color': '#FFFFFF',
-          'circle-stroke-width': 2,
+          'circle-color': '#F2EAD8',
+          'circle-stroke-width': [
+            'case',
+            ['boolean', ['get', 'is_primary'], false], 2.5,
+            1.8,
+          ],
           'circle-stroke-color': PERCENTILE_COLOR_EXPR,
         },
       });
 
-      // ─── Cities ────────────────────────────────────────────────
-      const cityFeatures: GeoJSON.Feature[] = MO_CITIES.map((c) => ({
-        type: 'Feature',
-        properties: { name: c.name, type: c.type },
-        geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
-      }));
-      map.addSource('mo-cities', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: cityFeatures },
-      });
-      map.addLayer({
-        id: 'mo-city-dot',
-        type: 'circle',
-        source: 'mo-cities',
-        paint: {
-          'circle-radius': ['case', ['==', ['get', 'type'], 'metro'], 4, 2.5],
-          'circle-color': 'rgba(45,42,36,0.7)',
-          'circle-stroke-width': 1.5,
-          'circle-stroke-color': 'rgba(247,246,243,0.85)',
-        },
-      });
-      map.addLayer({
-        id: 'mo-city-label',
-        type: 'symbol',
-        source: 'mo-cities',
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-font': ['Open Sans Regular'],
-          'text-size': ['case', ['==', ['get', 'type'], 'metro'], 12, 10.5],
-          'text-offset': [0.9, 0],
-          'text-anchor': 'left',
-          'text-allow-overlap': false,
-        },
-        paint: {
-          'text-color': 'rgba(45,42,36,0.85)',
-          'text-halo-color': 'rgba(242,234,216,0.95)',
-          'text-halo-width': 2,
-        },
-      });
-
-      // ─── River labels ──────────────────────────────────────────
-      const riverLabelFeatures: GeoJSON.Feature[] = MO_RIVERS
-        .filter((r) => r.order >= 5)
-        .map((r) => {
-          const mid = r.coordinates[Math.floor(r.coordinates.length / 2)];
-          return {
-            type: 'Feature',
-            properties: {
-              name: r.name.replace(' River', '').replace(' Creek', ' Cr.'),
-              order: r.order,
-            },
-            geometry: { type: 'Point', coordinates: mid },
-          };
-        });
-      map.addSource('mo-river-labels', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: riverLabelFeatures },
-      });
-      map.addLayer({
-        id: 'mo-river-label',
-        type: 'symbol',
-        source: 'mo-river-labels',
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-font': ['Open Sans Regular'],
-          'text-size': ['+', 7, ['get', 'order']],
-          'text-letter-spacing': 0.04,
-          'text-allow-overlap': false,
-        },
-        paint: {
-          'text-color': 'rgba(20,24,30,0.85)',
-          'text-halo-color': 'rgba(242,234,216,0.92)',
-          'text-halo-width': 3,
-        },
-      });
-
-      // ─── Interaction wiring ────────────────────────────────────
-      const moveCursor = (cursor: string) => () => {
+      // ─── Interaction ──────────────────────────────────────────
+      const cursorTo = (cursor: string) => () => {
         map.getCanvas().style.cursor = cursor;
       };
+      ['mo-river-hit', 'mo-gauge-dot', 'mo-campground-dot', 'mo-access-dot', 'mo-poi-glyph'].forEach(
+        (id) => {
+          map.on('mouseenter', id, cursorTo('pointer'));
+          map.on('mouseleave', id, cursorTo(''));
+        },
+      );
 
-      map.on('mouseenter', 'mo-river-hit', moveCursor('pointer'));
-      map.on('mouseleave', 'mo-river-hit', moveCursor(''));
-      let lastRiverId: string | null = null;
+      // River hover/click
+      let lastRiver: string | null = null;
       map.on('mousemove', 'mo-river-hit', (e) => {
-        const feat = e.features?.[0];
-        const id = feat?.properties?.riverId as string | undefined;
-        if (id && id !== lastRiverId) {
-          lastRiverId = id;
+        const id = e.features?.[0]?.properties?.riverId as string | undefined;
+        if (id && id !== lastRiver) {
+          lastRiver = id;
           props.onHoverRiver(id);
         }
       });
       map.on('mouseleave', 'mo-river-hit', () => {
-        lastRiverId = null;
+        lastRiver = null;
         props.onHoverRiver(null);
       });
       map.on('click', 'mo-river-hit', (e) => {
-        const feat = e.features?.[0];
-        const id = feat?.properties?.riverId as string | undefined;
-        if (id) props.onFocusRiver(id);
-      });
-
-      map.on('mouseenter', 'mo-gauge-dot', moveCursor('pointer'));
-      map.on('mouseleave', 'mo-gauge-dot', moveCursor(''));
-      let lastGaugeId: string | null = null;
-      map.on('mousemove', 'mo-gauge-dot', (e) => {
-        const feat = e.features?.[0];
-        const id = feat?.properties?.site_no as string | undefined;
-        if (id && id !== lastGaugeId) {
-          lastGaugeId = id;
-          props.onHoverGauge(id);
+        const id = e.features?.[0]?.properties?.riverId as string | undefined;
+        if (id) {
+          e.preventDefault();
+          props.onFocusRiver(id);
         }
       });
-      map.on('mouseleave', 'mo-gauge-dot', () => {
-        lastGaugeId = null;
-        props.onHoverGauge(null);
+
+      // Gauge hover/click
+      map.on('mousemove', 'mo-gauge-dot', (e) => {
+        const id = e.features?.[0]?.properties?.site_no as string | undefined;
+        if (id) props.onHoverGauge(id);
       });
+      map.on('mouseleave', 'mo-gauge-dot', () => props.onHoverGauge(null));
       map.on('click', 'mo-gauge-dot', (e) => {
-        e.preventDefault();
-        const feat = e.features?.[0];
-        const id = feat?.properties?.site_no as string | undefined;
-        if (id) props.onFocusGauge(id);
+        const id = e.features?.[0]?.properties?.site_no as string | undefined;
+        if (id) {
+          e.preventDefault();
+          props.onFocusGauge(id);
+        }
       });
 
-      // Click on empty map = clear focus.
+      // Campground / access / poi click
+      map.on('click', 'mo-campground-dot', (e) => {
+        const id = e.features?.[0]?.properties?.id as string | undefined;
+        if (id) {
+          e.preventDefault();
+          props.onClickCampground(id);
+        }
+      });
+      map.on('click', 'mo-access-dot', (e) => {
+        const id = e.features?.[0]?.properties?.id as string | undefined;
+        if (id) {
+          e.preventDefault();
+          props.onClickAccessPoint(id);
+        }
+      });
+      map.on('click', 'mo-poi-glyph', (e) => {
+        const id = e.features?.[0]?.properties?.id as string | undefined;
+        if (id) {
+          e.preventDefault();
+          props.onClickPoi(id);
+        }
+      });
+
+      // Empty-map click clears focus
       map.on('click', (e) => {
         if (e.defaultPrevented) return;
         const hits = map.queryRenderedFeatures(e.point, {
-          layers: ['mo-river-hit', 'mo-gauge-dot'],
+          layers: ['mo-river-hit', 'mo-gauge-dot', 'mo-campground-dot', 'mo-access-dot', 'mo-poi-glyph'],
         });
-        if (hits.length === 0) {
+        if (!hits.length) {
           props.onFocusRiver(null);
           props.onFocusGauge(null);
+          props.onClickCampground(null);
+          props.onClickAccessPoint(null);
+          props.onClickPoi(null);
         }
       });
-
-      // ─── Animated flow particles via dasharray offset ──────────
-      let frame = 0;
-      const tick = () => {
-        frame = (frame + 1) % 4000;
-        const offset = (frame % 24) / 24;
-        try {
-          map.setPaintProperty('mo-river-flow', 'line-dasharray', [
-            0.3,
-            4,
-            // The third value forms an offset — MapLibre accepts arbitrary
-            // dasharray length. We push the gap forward each frame by a small
-            // delta to simulate motion; spec requires the array re-set.
-          ]);
-          // Use line-translate as the actual motion driver — dasharray alone
-          // can't animate without redraw, but translating along the line gives
-          // the eye a moving texture under the line stroke. Subtle on purpose.
-          const dx = Math.cos(offset * Math.PI * 2) * 0.5;
-          const dy = Math.sin(offset * Math.PI * 2) * 0.5;
-          map.setPaintProperty('mo-river-flow', 'line-translate', [dx, dy]);
-        } catch {
-          // Style may have torn down during HMR — abort silently.
-        }
-        dashFrameRef.current = requestAnimationFrame(tick);
-      };
-      dashFrameRef.current = requestAnimationFrame(tick);
     });
 
     return () => {
-      cancelAnimationFrame(dashFrameRef.current);
+      cancelAnimationFrame(rafRef.current);
       map.remove();
       mapRef.current = null;
     };
@@ -550,61 +502,161 @@ export default function MOMap(props: MOMapProps) {
   }, []);
 
   // ──────────────────────────────────────────────────────────────────────
-  // Push gauge readings + river snapshot into feature-state
+  // Push river geometry into the map when it changes
   // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    const apply = () => {
-      // River feature-state by mean percentile + verdict.
-      for (const r of MO_RIVERS) {
-        const snap = riverSnapshot[r.id];
-        map.setFeatureState(
-          { source: 'mo-rivers', id: r.id },
-          { percentile: snap?.percentile ?? null },
-        );
-      }
-      // The verdict is a *property*, not feature-state — we re-set the source
-      // data with updated verdict per feature so the floater layer paints.
-      const src = map.getSource('mo-rivers') as maplibregl.GeoJSONSource | undefined;
-      if (src) {
-        src.setData({
-          type: 'FeatureCollection',
-          features: MO_RIVERS.map((r) => ({
-            type: 'Feature',
-            id: r.id,
-            properties: {
-              riverId: r.id,
-              name: r.name,
-              basin: r.basin,
-              order: r.order,
-              floatable: r.id in MO_FLOATER,
-              verdict: riverSnapshot[r.id]?.verdict ?? 'unknown',
-            },
-            geometry: { type: 'LineString', coordinates: r.coordinates },
-          })),
-        });
-      }
-      // Gauge feature-state.
-      for (const g of props.gauges) {
-        map.setFeatureState(
-          { source: 'mo-gauges', id: g.site_no },
-          {
-            percentile: g.percentile,
-            isPeak: g.percentile != null && g.percentile >= 75,
-          },
-        );
-      }
-    };
-    if (map.isStyleLoaded() && map.getSource('mo-rivers')) {
-      apply();
-    } else {
-      map.once('load', apply);
+    if (!map?.isStyleLoaded()) return;
+
+    const features: GeoJSON.Feature[] = props.rivers.map((r) => ({
+      type: 'Feature',
+      id: r.id,
+      properties: {
+        riverId: r.id,
+        slug: r.slug,
+        name: r.name,
+        verdict: props.verdictByRiver[r.slug] ?? 'unknown',
+        length: r.length_miles ?? 0,
+      },
+      geometry: r.geometry,
+    }));
+
+    (map.getSource('mo-rivers') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features,
+    });
+
+    (map.getSource('mo-river-labels') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: features.map((f) => ({
+        ...f,
+        id: undefined,
+        properties: { name: (f.properties as { name: string }).name },
+      })),
+    });
+
+    // Push percentile feature-state per river
+    for (const r of props.rivers) {
+      map.setFeatureState(
+        { source: 'mo-rivers', id: r.id },
+        { percentile: props.percentileByRiver[r.slug] ?? null },
+      );
     }
-  }, [props.gauges, riverSnapshot]);
+  }, [props.rivers, props.verdictByRiver, props.percentileByRiver]);
 
   // ──────────────────────────────────────────────────────────────────────
-  // Hover / focus state from React → feature-state
+  // Push gauges, campgrounds, access points, POIs into their sources
+  // ──────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+
+    const gaugeFeatures: GeoJSON.Feature[] = props.rivers.flatMap((r) =>
+      (r.gauges ?? []).map((g) => ({
+        type: 'Feature' as const,
+        id: g.site_id,
+        properties: {
+          site_no: g.site_id,
+          name: g.name,
+          riverId: r.id,
+          slug: r.slug,
+          is_primary: g.is_primary,
+        },
+        geometry: { type: 'Point', coordinates: [g.lon, g.lat] },
+      })),
+    );
+    (map.getSource('mo-gauges') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: gaugeFeatures,
+    });
+
+    const campFeatures: GeoJSON.Feature[] = props.campgrounds.map((c) => ({
+      type: 'Feature',
+      id: c.id,
+      properties: {
+        id: c.id,
+        name: c.name,
+        total_sites: c.total_sites ?? 0,
+      },
+      geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+    }));
+    (map.getSource('mo-campgrounds') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: props.showCampgrounds ? campFeatures : [],
+    });
+
+    // Access points (color by type)
+    const accessFeatures: GeoJSON.Feature[] = props.rivers.flatMap((r) =>
+      (r.access_points ?? []).map((a) => {
+        const fill = '#4EB86B';
+        return {
+          type: 'Feature' as const,
+          id: a.id,
+          properties: {
+            id: a.id,
+            name: a.name,
+            riverId: r.id,
+            slug: r.slug,
+            type: a.type,
+            ownership: a.ownership,
+            fill,
+          },
+          geometry: { type: 'Point', coordinates: [a.lon, a.lat] },
+        };
+      }),
+    );
+    (map.getSource('mo-access') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: props.showAccessPoints ? accessFeatures : [],
+    });
+
+    // POIs
+    const poiGlyphMap: Record<string, string> = {
+      spring: '◉', cave: '⌬', historical_site: '◈',
+      scenic_viewpoint: '▲', waterfall: '≋', geological: '◆', other: '◉',
+    };
+    const poiToneMap: Record<string, string> = {
+      spring: '#A3D1DB', cave: '#DBD5CA', historical_site: '#F4EFE7',
+      scenic_viewpoint: '#B8E9C5', waterfall: '#D4EAEF', geological: '#E8DFD0', other: '#F4EFE7',
+    };
+    const poiFeatures: GeoJSON.Feature[] = props.rivers.flatMap((r) =>
+      (r.pois ?? []).map((p) => ({
+        type: 'Feature' as const,
+        id: p.id,
+        properties: {
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          glyph: poiGlyphMap[p.type] ?? '◉',
+          tone: poiToneMap[p.type] ?? '#F4EFE7',
+        },
+        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+      })),
+    );
+    (map.getSource('mo-pois') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: props.showPOIs ? poiFeatures : [],
+    });
+
+    // Push gauge feature state (percentile + isPeak)
+    for (const g of props.gauges) {
+      const p = props.percentileByGauge[g.site_no] ?? g.percentile;
+      map.setFeatureState(
+        { source: 'mo-gauges', id: g.site_no },
+        {
+          percentile: p,
+          isPeak: p != null && p >= 75,
+        },
+      );
+    }
+  }, [
+    props.rivers, props.campgrounds, props.gauges,
+    props.showCampgrounds, props.showAccessPoints, props.showPOIs,
+    props.percentileByGauge,
+  ]);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Hover/focus → feature-state
   // ──────────────────────────────────────────────────────────────────────
   const prevState = useRef({
     hoveredRiver: null as string | null,
@@ -614,36 +666,37 @@ export default function MOMap(props: MOMapProps) {
   });
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded() || !map.getSource('mo-rivers')) return;
-
-    const setRiver = (id: string | null, key: 'hovered' | 'focused', val: boolean) => {
+    if (!map?.isStyleLoaded()) return;
+    const set = (
+      source: 'mo-rivers' | 'mo-gauges',
+      id: string | null,
+      key: 'hovered' | 'focused',
+      val: boolean,
+    ) => {
       if (!id) return;
-      map.setFeatureState({ source: 'mo-rivers', id }, { [key]: val });
+      try {
+        map.setFeatureState({ source, id }, { [key]: val });
+      } catch {}
     };
-    const setGauge = (id: string | null, key: 'hovered' | 'focused', val: boolean) => {
-      if (!id) return;
-      map.setFeatureState({ source: 'mo-gauges', id }, { [key]: val });
-    };
-
     const p = prevState.current;
     if (p.hoveredRiver !== props.hoveredRiverId) {
-      setRiver(p.hoveredRiver, 'hovered', false);
-      setRiver(props.hoveredRiverId, 'hovered', true);
+      set('mo-rivers', p.hoveredRiver, 'hovered', false);
+      set('mo-rivers', props.hoveredRiverId, 'hovered', true);
       p.hoveredRiver = props.hoveredRiverId;
     }
     if (p.focusedRiver !== props.focusedRiverId) {
-      setRiver(p.focusedRiver, 'focused', false);
-      setRiver(props.focusedRiverId, 'focused', true);
+      set('mo-rivers', p.focusedRiver, 'focused', false);
+      set('mo-rivers', props.focusedRiverId, 'focused', true);
       p.focusedRiver = props.focusedRiverId;
     }
     if (p.hoveredGauge !== props.hoveredGaugeId) {
-      setGauge(p.hoveredGauge, 'hovered', false);
-      setGauge(props.hoveredGaugeId, 'hovered', true);
+      set('mo-gauges', p.hoveredGauge, 'hovered', false);
+      set('mo-gauges', props.hoveredGaugeId, 'hovered', true);
       p.hoveredGauge = props.hoveredGaugeId;
     }
     if (p.focusedGauge !== props.focusedGaugeId) {
-      setGauge(p.focusedGauge, 'focused', false);
-      setGauge(props.focusedGaugeId, 'focused', true);
+      set('mo-gauges', p.focusedGauge, 'focused', false);
+      set('mo-gauges', props.focusedGaugeId, 'focused', true);
       p.focusedGauge = props.focusedGaugeId;
     }
   }, [
@@ -653,20 +706,179 @@ export default function MOMap(props: MOMapProps) {
     props.focusedGaugeId,
   ]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
-}
+  // ──────────────────────────────────────────────────────────────────────
+  // Canvas particle overlay — real flow animation along river polylines
+  // ──────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const canvas = canvasRef.current;
+    if (!map || !canvas) return;
 
-// MapLibre's promoteId path won't accept arbitrary string IDs as feature IDs
-// for setFeatureState; it needs them stable across data updates. We set
-// `id: r.id` directly on the feature so promoteId is unnecessary; this hash
-// is only used for gauges where we want a numeric fallback if needed.
-function hash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-function idToNumeric(id: string): string {
-  // Returning the slug as-is is fine; MapLibre accepts string IDs in
-  // feature-state when the id is set directly on the GeoJSON Feature.
-  return id;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Pre-compute cumulative-length tables per river so we can sample at any
+    // parametric t along the polyline. This lets particles travel at a
+    // consistent on-screen pace independent of vertex density.
+    type RiverGeom = {
+      slug: string;
+      coords: Array<[number, number]>;
+      cumulative: number[];
+      total: number;
+    };
+    const riverGeoms: RiverGeom[] = props.rivers.map((r) => {
+      const coords = r.geometry.coordinates as Array<[number, number]>;
+      const cumulative = [0];
+      let total = 0;
+      for (let i = 1; i < coords.length; i++) {
+        const dx = coords[i][0] - coords[i - 1][0];
+        const dy = coords[i][1] - coords[i - 1][1];
+        total += Math.sqrt(dx * dx + dy * dy);
+        cumulative.push(total);
+      }
+      return { slug: r.slug, coords, cumulative, total };
+    });
+
+    function sampleLonLat(g: RiverGeom, t: number): [number, number] {
+      const target = t * g.total;
+      // Binary search would be cleaner; linear is fine for ~40 vertices.
+      let i = 1;
+      while (i < g.cumulative.length && g.cumulative[i] < target) i++;
+      const i0 = Math.max(0, i - 1);
+      const i1 = Math.min(g.coords.length - 1, i);
+      const seg = g.cumulative[i1] - g.cumulative[i0] || 1e-9;
+      const f = (target - g.cumulative[i0]) / seg;
+      return [
+        g.coords[i0][0] + (g.coords[i1][0] - g.coords[i0][0]) * f,
+        g.coords[i0][1] + (g.coords[i1][1] - g.coords[i0][1]) * f,
+      ];
+    }
+
+    // Seed particles per river — count scales with percentile (more flow =
+    // more particles), so high-flow rivers visually pop.
+    function seedParticles() {
+      const out: typeof particlesRef.current = [];
+      for (const g of riverGeoms) {
+        const p = props.percentileByRiver[g.slug] ?? 50;
+        const verdict = props.verdictByRiver[g.slug];
+        // Bony rivers go quiet, prime/pushy rivers get more particles.
+        const base = p < 25 ? 2 : p < 75 ? 5 : 9;
+        const n = verdict === 'hazard' ? base + 4 : base;
+        for (let i = 0; i < n; i++) {
+          out.push({
+            riverId: g.slug,
+            t: i / n + Math.random() * 0.04,
+            // Speed scales mildly with percentile so high flow looks faster.
+            speed: 0.018 + (p / 100) * 0.045 + Math.random() * 0.01,
+            trail: [],
+          });
+        }
+      }
+      return out;
+    }
+    particlesRef.current = seedParticles();
+
+    function resize() {
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    let last = performance.now();
+    const draw = () => {
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      const focused = props.focusedRiverId;
+      const hovered = props.hoveredRiverId;
+
+      for (const p of particlesRef.current) {
+        p.t += p.speed * dt;
+        if (p.t > 1) {
+          p.t -= 1;
+          p.trail.length = 0;
+        }
+        const g = riverGeoms.find((rg) => rg.slug === p.riverId);
+        if (!g) continue;
+
+        const lonlat = sampleLonLat(g, p.t);
+        const proj = map.project(lonlat as [number, number]);
+        p.trail.push({ x: proj.x, y: proj.y });
+        if (p.trail.length > 8) p.trail.shift();
+
+        const river = props.rivers.find((r) => r.slug === p.riverId);
+        if (!river) continue;
+        const idStr = river.id;
+
+        // Dim non-hovered/focused rivers when something is hovered/focused.
+        const dim = (focused && focused !== idStr) || (hovered && hovered !== idStr && !focused);
+
+        const baseColor = (() => {
+          const verdict = props.verdictByRiver[p.riverId];
+          if (verdict === 'prime') return STAGE_VERDICTS.prime.inner;
+          if (verdict === 'pushy') return STAGE_VERDICTS.pushy.inner;
+          if (verdict === 'hazard') return STAGE_VERDICTS.hazard.inner;
+          if (verdict === 'bony') return STAGE_VERDICTS.bony.inner;
+          return '#F2EAD8';
+        })();
+
+        // Trail.
+        for (let i = 0; i < p.trail.length - 1; i++) {
+          const a = p.trail[i];
+          const b = p.trail[i + 1];
+          const alpha = ((i + 1) / p.trail.length) * (dim ? 0.18 : 0.55);
+          ctx.strokeStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.lineWidth = 1.2 + (i / p.trail.length) * 1.8;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+        // Head.
+        const head = p.trail[p.trail.length - 1];
+        if (head) {
+          ctx.globalAlpha = dim ? 0.4 : 1;
+          ctx.fillStyle = '#F2EAD8';
+          ctx.beginPath();
+          ctx.arc(head.x, head.y, 1.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    map.on('move', () => {
+      // Force redraw immediately so particles track the map
+      for (const p of particlesRef.current) p.trail.length = 0;
+    });
+
+    rafRef.current = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+    };
+  }, [props.rivers, props.percentileByRiver, props.verdictByRiver, props.focusedRiverId, props.hoveredRiverId]);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0">
+      <canvas
+        ref={canvasRef}
+        className="pointer-events-none absolute inset-0"
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
+  );
 }
