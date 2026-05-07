@@ -1,20 +1,19 @@
 import type { Metadata } from 'next';
+import MOSurfaceWaterApp from '@/components/mo-surface-water/MOSurfaceWaterApp';
 
 export const metadata: Metadata = {
   title: 'USGS Missouri Surface Water — Eddy',
   description:
-    'Statewide USGS surface-water instrument for Missouri: percentile-painted reaches, animated flow, gauge detail, and a 30-day time scrubber.',
+    'Live statewide surface-water instrument for Missouri: every active USGS NWIS gauge, percentile-painted reaches, animated flow on rising rivers, gauge detail, and a 30-day time scrubber.',
 };
+
+// Bypass static generation; the live USGS feed is the point.
+export const dynamic = 'force-dynamic';
 
 export default function MissouriSurfaceWaterPage() {
   return (
-    <div className="fixed inset-0 top-14 bg-[#1F1A14]">
-      <iframe
-        src="/missouri-surface-water/index.html"
-        title="USGS Missouri Surface Water"
-        className="h-full w-full border-0"
-        allow="fullscreen"
-      />
+    <div className="fixed inset-0 top-14">
+      <MOSurfaceWaterApp />
     </div>
   );
 }
