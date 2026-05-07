@@ -840,17 +840,88 @@ function MobileRiverSwitcher({
   rivers: RiverListItem[];
   onChange: (slug: string | null) => void;
 }) {
+  const [open, setOpen] = useState(false);
+
+  // Lock body scroll while sheet is open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   return (
-    <select
-      value={currentSlug}
-      onChange={(e) => onChange(e.target.value)}
-      className="text-base font-bold text-neutral-900 bg-transparent border-0 focus:ring-0 cursor-pointer truncate min-w-0 flex-1 pr-2"
-      style={{ fontFamily: 'var(--font-display)' }}
-      aria-label={`Currently planning ${currentName} — change river`}
-    >
-      {rivers.map(r => (
-        <option key={r.id} value={r.slug}>{r.name}</option>
-      ))}
-    </select>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        aria-label={`Currently planning ${currentName} — change river`}
+        className="flex items-center gap-1 min-w-0 flex-1 text-left"
+      >
+        <span
+          className="text-base font-bold text-neutral-900 truncate"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {currentName}
+        </span>
+        <ChevronDown className="w-4 h-4 text-neutral-500 flex-shrink-0" aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 animate-in fade-in"
+          onClick={() => setOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a river"
+        >
+          <div
+            className="w-full max-h-[75vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-neutral-100">
+              <div className="w-10 h-1 bg-neutral-300 rounded-full mx-auto mb-3" aria-hidden="true" />
+              <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                Choose a river
+              </h2>
+            </div>
+            <div className="overflow-y-auto py-1">
+              {rivers.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => { onChange(r.slug); setOpen(false); }}
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                    r.slug === currentSlug ? 'bg-primary-50' : 'hover:bg-neutral-50'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold text-neutral-900 text-sm truncate">{r.name}</div>
+                    <div className="text-[11px] text-neutral-500">
+                      {r.lengthMiles.toFixed(1)} mi · {r.region}
+                    </div>
+                  </div>
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
+                    title={r.currentCondition?.label || 'Unknown'}
+                  />
+                </button>
+              ))}
+              <Link
+                href="/rivers"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-3 text-center text-sm text-primary-600 border-t border-neutral-100"
+              >
+                Browse all rivers
+              </Link>
+            </div>
+            <button
+              onClick={() => setOpen(false)}
+              className="flex-shrink-0 px-4 py-3 border-t border-neutral-200 text-sm font-semibold text-neutral-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

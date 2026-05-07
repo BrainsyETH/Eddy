@@ -5,7 +5,6 @@
 // shared links keep working.
 
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
@@ -134,20 +133,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   }
 }
 
-export default async function RiverGuidePage({ params, searchParams }: Props) {
-  const [resolvedParams, resolvedSearch] = await Promise.all([params, searchParams]);
+export default async function RiverGuidePage({ params }: Props) {
+  const resolvedParams = await params;
   const slug = resolvedParams?.slug;
 
-  // Old shareable plan deep-links land on this page via /rivers/[slug]?putIn=…
-  // Funnel them into the unified planner.
-  if (resolvedSearch?.putIn || resolvedSearch?.takeOut) {
-    const sp = new URLSearchParams();
-    sp.set('river', slug);
-    if (resolvedSearch.putIn) sp.set('putIn', resolvedSearch.putIn);
-    if (resolvedSearch.takeOut) sp.set('takeOut', resolvedSearch.takeOut);
-    if (resolvedSearch.vessel) sp.set('vessel', resolvedSearch.vessel);
-    redirect(`/plan?${sp.toString()}`);
-  }
+  // Note: /rivers/<slug>?putIn=…&takeOut=… is 308'd to /plan via
+  // next.config.mjs redirects() before we reach this handler.
 
   const supabase = await createClient();
 

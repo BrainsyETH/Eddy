@@ -8,6 +8,9 @@ import PlanPageClient from './PlanPageClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
+// /plan reads ?river=…&putIn=…&takeOut=… so it must render per-request.
+export const dynamic = 'force-dynamic';
+
 interface Props {
   searchParams: Promise<{
     river?: string;
