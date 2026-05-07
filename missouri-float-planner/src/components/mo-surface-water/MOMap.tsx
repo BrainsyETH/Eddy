@@ -254,7 +254,10 @@ export default function MOMap(props: MOMapProps) {
         source: 'mo-river-labels',
         layout: {
           'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
+          // OpenFreeMap pre-bakes the same fontstack the Liberty basemap
+          // uses; any other combination 404s for the basic ASCII range and
+          // can take down the whole worker tile pipeline with it.
+          'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
           'text-size': 13,
           'text-letter-spacing': 0.05,
           'symbol-placement': 'line',
@@ -290,21 +293,9 @@ export default function MOMap(props: MOMapProps) {
           'circle-opacity': 0.95,
         },
       });
-      map.addLayer({
-        id: 'mo-campground-icon',
-        type: 'symbol',
-        source: 'mo-campgrounds',
-        layout: {
-          'text-field': '⛺',
-          'text-size': 11,
-          'text-allow-overlap': true,
-        },
-        paint: {
-          'text-color': '#FAF8F4',
-          'text-halo-color': '#3D3425',
-          'text-halo-width': 0.6,
-        },
-      });
+      // (No glyph layer for campgrounds — emoji codepoints aren't in
+      // OpenFreeMap's text glyph PBFs and would 404 endlessly. The
+      // campground dot itself reads cleanly enough.)
 
       // ─── Access points ────────────────────────────────────────
       map.addSource('mo-access', {
@@ -334,24 +325,22 @@ export default function MOMap(props: MOMapProps) {
         data: { type: 'FeatureCollection', features: [] },
         promoteId: 'id',
       });
+      // POI markers as circles — Unicode glyphs (◉ ⌬ ◈ ▲ ≋ ◆) live in
+      // glyph ranges OpenFreeMap doesn't ship, so a symbol layer would
+      // either render blanks or trigger worker errors on every pan.
       map.addLayer({
         id: 'mo-poi-glyph',
-        type: 'symbol',
+        type: 'circle',
         source: 'mo-pois',
-        layout: {
-          'text-field': ['get', 'glyph'],
-          'text-size': 15,
-          'text-allow-overlap': true,
-          'text-font': ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
-        },
         paint: {
-          'text-color': ['get', 'tone'],
-          'text-halo-color': '#FAF8F4',
-          'text-halo-width': [
+          'circle-radius': [
             'case',
-            ['boolean', ['feature-state', 'hovered'], false], 3,
-            1.8,
+            ['boolean', ['feature-state', 'hovered'], false], 8,
+            5.5,
           ],
+          'circle-color': ['get', 'tone'],
+          'circle-stroke-color': '#FAF8F4',
+          'circle-stroke-width': 2,
         },
       });
 
