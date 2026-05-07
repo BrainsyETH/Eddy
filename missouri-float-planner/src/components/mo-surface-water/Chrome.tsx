@@ -15,6 +15,7 @@ import {
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
+import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const SANS = 'var(--font-body), system-ui, sans-serif';
@@ -377,6 +378,124 @@ function useHistory(siteId: string | null, days = 30): MoHistoryResponse | null 
   return data;
 }
 
+// ─── Threshold provenance + 72h forecast peak block ────────────────────
+
+function ThresholdProvenance({
+  thresholds,
+  forecast,
+  currentValueFt,
+}: {
+  thresholds: {
+    flood_stage_ft: number | null;
+    action_stage_ft: number | null;
+    threshold_source: string | null;
+    threshold_source_url: string | null;
+  };
+  forecast: MoForecastEntry | null;
+  currentValueFt: number | null;
+}) {
+  const hasStages = thresholds.flood_stage_ft != null || thresholds.action_stage_ft != null;
+  const hasForecast = forecast?.peakFt != null && forecast.peakAt != null;
+  if (!hasStages && !hasForecast) return null;
+
+  const sourceLabel = (() => {
+    switch (thresholds.threshold_source) {
+      case 'usgs': return 'USGS';
+      case 'nws_ahps': return 'NWS AHPS';
+      case 'outfitter': return 'Outfitter';
+      case 'editorial': return 'Editorial';
+      default: return null;
+    }
+  })();
+
+  const peakFlooding =
+    forecast?.peakFt != null &&
+    thresholds.flood_stage_ft != null &&
+    forecast.peakFt >= thresholds.flood_stage_ft;
+  const peakAction =
+    forecast?.peakFt != null &&
+    thresholds.action_stage_ft != null &&
+    forecast.peakFt >= thresholds.action_stage_ft &&
+    !peakFlooding;
+  const liveFlooding =
+    currentValueFt != null &&
+    thresholds.flood_stage_ft != null &&
+    currentValueFt >= thresholds.flood_stage_ft;
+
+  const hazardTone = STAGE_VERDICTS.hazard.color;
+  const cautionTone = STAGE_VERDICTS.pushy.color;
+
+  return (
+    <div
+      className="mt-2 rounded-md border-2 px-3 py-2"
+      style={{
+        background: '#F4EFE7',
+        borderColor: '#A49C8E',
+        fontFamily: MONO,
+      }}
+    >
+      {hasStages && (
+        <div
+          className="flex flex-wrap items-baseline gap-x-3 gap-y-1"
+          style={{ fontSize: 10.5, color: THEME.ink }}
+        >
+          {thresholds.flood_stage_ft != null && (
+            <span style={{ color: liveFlooding ? hazardTone : THEME.ink, fontWeight: liveFlooding ? 700 : 500 }}>
+              Flood {thresholds.flood_stage_ft.toFixed(1)} ft
+            </span>
+          )}
+          {thresholds.action_stage_ft != null && (
+            <span>Action {thresholds.action_stage_ft.toFixed(1)} ft</span>
+          )}
+          {sourceLabel && (
+            <span style={{ color: THEME.inkDim, marginLeft: 'auto' }}>
+              Source:{' '}
+              {thresholds.threshold_source_url ? (
+                <a
+                  href={thresholds.threshold_source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: THEME.primary, textDecoration: 'underline' }}
+                >
+                  {sourceLabel}
+                </a>
+              ) : (
+                sourceLabel
+              )}
+            </span>
+          )}
+        </div>
+      )}
+      {hasForecast && (
+        <div
+          className="mt-1 flex items-baseline gap-2"
+          style={{
+            fontSize: 10,
+            color: peakFlooding ? hazardTone : peakAction ? cautionTone : THEME.inkDim,
+            fontWeight: peakFlooding || peakAction ? 700 : 500,
+          }}
+        >
+          <span className="uppercase" style={{ letterSpacing: '0.1em' }}>
+            72h peak
+          </span>
+          <span>
+            {forecast!.peakFt!.toFixed(2)} ft ·{' '}
+            {new Date(forecast!.peakAt!).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+            })}
+          </span>
+          {peakFlooding && <span style={{ marginLeft: 'auto' }}>Above flood stage</span>}
+          {peakAction && !peakFlooding && (
+            <span style={{ marginLeft: 'auto' }}>Above action stage</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KV({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div
@@ -412,6 +531,7 @@ export function RightRail({
   campground,
   accessPoint,
   poi,
+  forecastBySite,
   onClose,
 }: {
   river: MORiver | null;
@@ -422,10 +542,17 @@ export function RightRail({
   campground: MOCampground | null;
   accessPoint: { ap: MOAccessPoint; river: MORiver } | null;
   poi: { poi: MOPoi; river: MORiver | null } | null;
+  forecastBySite: Record<string, MoForecastEntry>;
   onClose: () => void;
 }) {
   if (focusedGauge) {
-    return <GaugeDetail gauge={focusedGauge} onClose={onClose} />;
+    return (
+      <GaugeDetail
+        gauge={focusedGauge}
+        forecast={forecastBySite[focusedGauge.site_no] ?? null}
+        onClose={onClose}
+      />
+    );
   }
   if (hoveredGauge && !river) {
     return <GaugeHover gauge={hoveredGauge} />;
@@ -440,11 +567,14 @@ export function RightRail({
     return <PoiCard poi={poi.poi} river={poi.river} onClose={onClose} />;
   }
   if (river) {
+    const primary = (river.gauges ?? []).find((g) => g.is_primary);
+    const forecast = primary ? forecastBySite[primary.site_id] ?? null : null;
     return (
       <RiverCard
         river={river}
         primaryGauge={primaryGauge}
         primaryHistory={primaryHistory}
+        forecast={forecast}
       />
     );
   }
@@ -462,16 +592,23 @@ function RiverCard({
   river,
   primaryGauge,
   primaryHistory,
+  forecast,
 }: {
   river: MORiver;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
+  forecast: MoForecastEntry | null;
 }) {
+  const primaryThresholds = (river.gauges ?? []).find((x) => x.is_primary) ?? null;
   const verdict: StageVerdict = (() => {
-    if (!primaryGauge?.gaugeHeightFt) return 'unknown';
-    const g = (river.gauges ?? []).find((x) => x.is_primary);
-    if (!g) return 'unknown';
+    if (!primaryGauge?.gaugeHeightFt || !primaryThresholds) return 'unknown';
+    const g = primaryThresholds;
     const v = primaryGauge.gaugeHeightFt;
+    // Flood-stage hazard override (live or 72h forecast peak)
+    if (g.flood_stage_ft != null) {
+      const peak = Math.max(v, forecast?.peakFt ?? Number.NEGATIVE_INFINITY);
+      if (peak >= g.flood_stage_ft) return 'hazard';
+    }
     if (g.level_optimal_min != null && v < g.level_optimal_min) return 'bony';
     if (g.level_optimal_max != null && v <= g.level_optimal_max) return 'prime';
     if (g.level_dangerous != null && v >= g.level_dangerous) return 'hazard';
@@ -513,6 +650,14 @@ function RiverCard({
         </span>
         <span className="ml-auto" style={{ fontSize: 11, opacity: 0.9 }}>{tone.desc}</span>
       </div>
+
+      {primaryThresholds && (
+        <ThresholdProvenance
+          thresholds={primaryThresholds}
+          forecast={forecast}
+          currentValueFt={primaryGauge?.gaugeHeightFt ?? null}
+        />
+      )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <KV label="Discharge"
@@ -707,7 +852,15 @@ function CloseBtn({ onClose }: { onClose: () => void }) {
   );
 }
 
-function GaugeDetail({ gauge, onClose }: { gauge: MoStatewideGauge; onClose: () => void }) {
+function GaugeDetail({
+  gauge,
+  forecast,
+  onClose,
+}: {
+  gauge: MoStatewideGauge;
+  forecast: MoForecastEntry | null;
+  onClose: () => void;
+}) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
   return (
@@ -742,6 +895,17 @@ function GaugeDetail({ gauge, onClose }: { gauge: MoStatewideGauge; onClose: () 
         </div>
         <div style={{ fontSize: 13, opacity: 0.9 }}>{cls?.label ?? 'No history available'}</div>
       </div>
+
+      <ThresholdProvenance
+        thresholds={{
+          flood_stage_ft: gauge.flood_stage_ft,
+          action_stage_ft: gauge.action_stage_ft,
+          threshold_source: gauge.threshold_source,
+          threshold_source_url: gauge.threshold_source_url,
+        }}
+        forecast={forecast}
+        currentValueFt={gauge.gaugeHeightFt}
+      />
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <KV label="Discharge"

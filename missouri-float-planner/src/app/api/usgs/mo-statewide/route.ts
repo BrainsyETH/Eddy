@@ -12,6 +12,7 @@ export const revalidate = 900;
 
 export interface MoStatewideGauge {
   site_no: string;
+  nws_lid: string | null;
   river_id: string;
   river_slug: string;
   river_name: string;
@@ -21,6 +22,11 @@ export interface MoStatewideGauge {
   readingTimestamp: string | null;
   percentile: number | null;
   stats: DailyStatistics | null;
+  /** Carried through from get_mo_surface_water_dataset(). */
+  flood_stage_ft: number | null;
+  action_stage_ft: number | null;
+  threshold_source: string | null;
+  threshold_source_url: string | null;
 }
 
 export interface MoStatewideResponse {
@@ -33,11 +39,19 @@ export async function GET() {
   try {
     const dataset = await fetchMODataset();
 
-    // Build a per-site → river map.
-    const siteToRiver = new Map<
-      string,
-      { river_id: string; river_slug: string; river_name: string; is_primary: boolean }
-    >();
+    // Build a per-site → river+threshold map.
+    interface SiteMeta {
+      river_id: string;
+      river_slug: string;
+      river_name: string;
+      is_primary: boolean;
+      nws_lid: string | null;
+      flood_stage_ft: number | null;
+      action_stage_ft: number | null;
+      threshold_source: string | null;
+      threshold_source_url: string | null;
+    }
+    const siteToRiver = new Map<string, SiteMeta>();
     for (const r of dataset.rivers) {
       for (const g of r.gauges ?? []) {
         if (!siteToRiver.has(g.site_id)) {
@@ -46,6 +60,11 @@ export async function GET() {
             river_slug: r.slug,
             river_name: r.name,
             is_primary: g.is_primary,
+            nws_lid: g.nws_lid ?? null,
+            flood_stage_ft: g.flood_stage_ft ?? null,
+            action_stage_ft: g.action_stage_ft ?? null,
+            threshold_source: g.threshold_source ?? null,
+            threshold_source_url: g.threshold_source_url ?? null,
           });
         }
       }
@@ -78,6 +97,7 @@ export async function GET() {
 
       return {
         site_no: siteId,
+        nws_lid: meta.nws_lid,
         river_id: meta.river_id,
         river_slug: meta.river_slug,
         river_name: meta.river_name,
@@ -87,6 +107,10 @@ export async function GET() {
         readingTimestamp: reading?.readingTimestamp ?? null,
         percentile,
         stats,
+        flood_stage_ft: meta.flood_stage_ft,
+        action_stage_ft: meta.action_stage_ft,
+        threshold_source: meta.threshold_source,
+        threshold_source_url: meta.threshold_source_url,
       };
     });
 

@@ -16,6 +16,10 @@ import type {
   MoHistoryBundleEntry,
   MoHistoryBundleResponse,
 } from '@/app/api/usgs/mo-history-bundle/route';
+import type {
+  MoForecastEntry,
+  MoForecastResponse,
+} from '@/app/api/usgs/mo-forecast/route';
 import {
   HeaderBar,
   PercentileLegend,
@@ -31,6 +35,7 @@ export default function MOSurfaceWaterApp() {
   const [dataset, setDataset] = useState<MODataset | null>(null);
   const [statewide, setStatewide] = useState<MoStatewideResponse | null>(null);
   const [historyBundle, setHistoryBundle] = useState<MoHistoryBundleResponse | null>(null);
+  const [forecast, setForecast] = useState<MoForecastResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
@@ -51,19 +56,22 @@ export default function MOSurfaceWaterApp() {
     let aborted = false;
     const load = async () => {
       try {
-        const [dRes, sRes, hRes] = await Promise.all([
+        const [dRes, sRes, hRes, fRes] = await Promise.all([
           fetch('/api/usgs/mo-dataset'),
           fetch('/api/usgs/mo-statewide'),
           fetch('/api/usgs/mo-history-bundle'),
+          fetch('/api/usgs/mo-forecast'),
         ]);
         if (!dRes.ok) throw new Error(`dataset ${dRes.status}`);
         const d = await dRes.json();
         const s = sRes.ok ? await sRes.json() : { gauges: [], generatedAt: null };
         const h = hRes.ok ? await hRes.json() : { entries: [], days: 30, generatedAt: null };
+        const f = fRes.ok ? await fRes.json() : { entries: [], generatedAt: null };
         if (!aborted) {
           setDataset(d);
           setStatewide(s);
           setHistoryBundle(h);
+          setForecast(f);
           setError(null);
         }
       } catch (e) {
@@ -87,6 +95,11 @@ export default function MOSurfaceWaterApp() {
     () => historyBundle?.entries ?? [],
     [historyBundle],
   );
+  const forecastBySite: Record<string, MoForecastEntry> = useMemo(() => {
+    const out: Record<string, MoForecastEntry> = {};
+    for (const e of forecast?.entries ?? []) out[e.site_no] = e;
+    return out;
+  }, [forecast]);
 
   const dayCount = historyEntries[0]?.daily.length ?? 0;
 
@@ -145,6 +158,9 @@ export default function MOSurfaceWaterApp() {
   // Verdict per river based on the gauge_height_ft from the primary gauge.
   // For historical scrubbing, we approximate by mapping percentile back through
   // the per-day stage when available; otherwise we use today's stage.
+  // When today's view is active, the next-72h AHPS forecast peak also feeds
+  // the flood-stage hazard override — i.e. "river is currently Prime but
+  // forecast crosses flood stage tomorrow" reads as Hazard.
   const verdictByRiver: Record<string, StageVerdict> = useMemo(() => {
     const out: Record<string, StageVerdict> = {};
     const liveByRiver = new Map<string, MoStatewideGauge>();
@@ -168,10 +184,27 @@ export default function MOSurfaceWaterApp() {
           ? day?.gaugeHeightFt ?? null
           : day?.dischargeCfs ?? null;
       }
+      // Flood-stage hazard override — for ft thresholds only, when today's
+      // live or 72h-forecast peak exceeds USGS/AHPS flood stage.
+      if (
+        isToday &&
+        primary.threshold_unit === 'ft' &&
+        primary.flood_stage_ft != null
+      ) {
+        const fc = forecastBySite[primary.site_id];
+        const peakCandidate = Math.max(
+          value ?? Number.NEGATIVE_INFINITY,
+          fc?.peakFt ?? Number.NEGATIVE_INFINITY,
+        );
+        if (peakCandidate >= primary.flood_stage_ft) {
+          out[r.slug] = 'hazard';
+          continue;
+        }
+      }
       out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary);
     }
     return out;
-  }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
+  }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount, forecastBySite]);
 
   // ─── Right-rail selectors ─────────────────────────────────────────────
   const focusedRiver = rivers.find((r) => r.id === focusedRiverId) ?? null;
@@ -308,6 +341,7 @@ export default function MOSurfaceWaterApp() {
         campground={focusedCampground}
         accessPoint={focusedAccessPoint}
         poi={focusedPoi}
+        forecastBySite={forecastBySite}
         onClose={closeRail}
       />
 
