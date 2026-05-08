@@ -197,7 +197,7 @@ export default function MOSurfaceWaterApp() {
           fc?.peakFt ?? Number.NEGATIVE_INFINITY,
         );
         if (peakCandidate >= primary.flood_stage_ft) {
-          out[r.slug] = 'hazard';
+          out[r.slug] = 'dangerous';
           continue;
         }
       }

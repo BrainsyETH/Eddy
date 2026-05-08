@@ -164,13 +164,15 @@ function strokeWidthForRiver(
 }
 
 function strokeWidthForBasemapRiver(lengthMi: number): number {
-  // Thin, length-weighted strokes for the NHD basemap network. Mainstems
-  // (Mississippi, Missouri, Osage) render heaviest; small named tributaries
-  // taper to a hairline.
-  if (lengthMi >= 200) return 1.6;
-  if (lengthMi >= 100) return 1.2;
-  if (lengthMi >= 50) return 0.95;
-  return 0.7;
+  // Length-weighted strokes for the NHD basemap network. The previous
+  // ramp made small named tributaries (e.g. Jacks Fork at 46 mi) render
+  // at 0.7 viewBox-units, which is sub-pixel at full state framing and
+  // visually disappears. Bumped across the board so the basemap reads
+  // as a real river map at all zoom levels.
+  if (lengthMi >= 200) return 2.4;
+  if (lengthMi >= 100) return 1.8;
+  if (lengthMi >= 50) return 1.4;
+  return 1.0;
 }
 
 export default function MOMap(props: MOMapProps) {
@@ -279,8 +281,9 @@ export default function MOMap(props: MOMapProps) {
         p >= 60 ||
         props.hoveredRiverId === r.id ||
         props.focusedRiverId === r.id ||
-        verdict === 'prime' ||
-        verdict === 'pushy';
+        verdict === 'flowing' ||
+        verdict === 'good' ||
+        verdict === 'high';
       if (!isActive) continue;
       const n = p < 25 ? 2 : p < 75 ? 4 : 7;
       for (let i = 0; i < n; i++) {
@@ -323,12 +326,7 @@ export default function MOMap(props: MOMapProps) {
         const verdict = props.verdictByRiver[
           props.rivers.find((r) => r.id === p.riverId)?.slug ?? ''
         ];
-        const tone =
-          verdict === 'prime'  ? STAGE_VERDICTS.prime.inner :
-          verdict === 'pushy'  ? STAGE_VERDICTS.pushy.inner :
-          verdict === 'hazard' ? STAGE_VERDICTS.hazard.inner :
-          verdict === 'bony'   ? STAGE_VERDICTS.bony.inner :
-          '#F2EAD8';
+        const tone = verdict ? STAGE_VERDICTS[verdict].inner : '#F2EAD8';
 
         const c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         c1.setAttribute('cx', `${pt.x}`);
@@ -458,6 +456,13 @@ export default function MOMap(props: MOMapProps) {
   }, []);
 
   const resetView = useCallback(() => setView(HOME_VIEW), [HOME_VIEW]);
+
+  // Scale factor for "non-scaling" SVG content. Multiply any radius or
+  // stroke-width that should stay screen-pixel-stable as the user zooms
+  // in by `kStable`. Without this, a 4px gauge dot at 1× zoom becomes a
+  // 24px blob at 6× zoom because viewBox-units shrink relative to screen
+  // pixels.
+  const kStable = view.w / W;
 
   const zoomBy = useCallback((factor: number) => {
     setView((v) => clampView({
@@ -605,24 +610,27 @@ export default function MOMap(props: MOMapProps) {
       <g>
         {visibleCities.map((c) => {
           const [cx, cy] = project(c.lon, c.lat);
+          const cityR = (c.type === 'metro' ? 4 : 2.8) * kStable;
+          const labelOff = (c.type === 'metro' ? 8 : 6) * kStable;
+          const labelSize = (c.type === 'metro' ? 13 : 11) * kStable;
           return (
             <g key={c.name} transform={`translate(${cx} ${cy})`}>
               <circle
-                r={c.type === 'metro' ? 5 : 3.5}
+                r={cityR}
                 fill="rgba(45,42,36,0.78)"
                 stroke="rgba(247,246,243,0.9)"
-                strokeWidth={1.5}
+                strokeWidth={1.2 * kStable}
               />
               <text
-                x={c.type === 'metro' ? 10 : 8}
-                y={5}
+                x={labelOff}
+                y={4 * kStable}
                 fontFamily="var(--font-mono), ui-monospace, monospace"
-                fontSize={c.type === 'metro' ? 13 : 11}
+                fontSize={labelSize}
                 fontWeight={c.type === 'metro' ? 700 : 500}
                 fill="rgba(45,42,36,0.85)"
                 paintOrder="stroke"
                 stroke="rgba(242,234,216,0.92)"
-                strokeWidth={3}
+                strokeWidth={2.5 * kStable}
                 strokeLinejoin="round"
               >
                 {c.name}
@@ -632,23 +640,19 @@ export default function MOMap(props: MOMapProps) {
         })}
       </g>
 
-      {/* Rivers — outer "casing" + main stroke + verdict inner stroke */}
+      {/* Rivers — outer "casing" + condition-painted main stroke. Color
+          comes from STAGE_VERDICTS (which is just CONDITION_COLORS under
+          the hood), so the line color matches the badge on /rivers/[slug]
+          and the same gauge reading. */}
       {orderedRivers.map((r) => {
         const d = riverPaths[r.id];
         if (!d) return null;
         const slug = r.slug;
-        const percentile = props.percentileByRiver[slug];
-        const verdict = props.verdictByRiver[slug];
-        const color = colorForPercentile(percentile);
+        const verdict = props.verdictByRiver[slug] ?? 'unknown';
+        const color = STAGE_VERDICTS[verdict].color;
         const isHovered = props.hoveredRiverId === r.id;
         const isFocused = props.focusedRiverId === r.id;
         const sw = strokeWidthForRiver(r.length_miles, isHovered, isFocused);
-        const verdictTone =
-          verdict === 'prime'  ? STAGE_VERDICTS.prime.inner :
-          verdict === 'pushy'  ? STAGE_VERDICTS.pushy.inner :
-          verdict === 'hazard' ? STAGE_VERDICTS.hazard.inner :
-          verdict === 'bony'   ? STAGE_VERDICTS.bony.inner :
-          'transparent';
         const dim =
           (props.focusedRiverId && !isFocused) ||
           (props.hoveredRiverId && !isHovered && !isFocused);
@@ -685,16 +689,18 @@ export default function MOMap(props: MOMapProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {/* Verdict inner stroke */}
-            {verdict !== 'unknown' && verdictTone !== 'transparent' && (
+            {/* Inner highlight stroke for the dangerous-flood case so the
+                hazard reads at a glance (dashed pattern + lighter inner
+                tone) — other conditions paint as a single uniform line. */}
+            {verdict === 'dangerous' && (
               <path
                 d={d}
-                stroke={verdictTone}
+                stroke={STAGE_VERDICTS.dangerous.inner}
                 strokeWidth={Math.max(1.2, sw * 0.42)}
                 fill="none"
                 strokeLinecap="round"
-                strokeDasharray={verdict === 'hazard' ? '4 3' : undefined}
-                opacity={isHovered || isFocused ? 1 : 0.92}
+                strokeDasharray="4 3"
+                opacity={1}
               />
             )}
           </g>
@@ -704,7 +710,9 @@ export default function MOMap(props: MOMapProps) {
       {/* Particles (continuously redrawn by the RAF effect above) */}
       <g ref={particlesContainerRef} pointerEvents="none" />
 
-      {/* Gauges */}
+      {/* Gauges. Radii multiplied by kStable so the dot stays the same
+          *screen* size at any zoom — at the state-wide view it doesn't
+          dwarf the rivers, and zoomed in it doesn't balloon. */}
       <g>
         {props.gauges.map((g) => {
           const r = props.rivers.find((x) => x.id === g.river_id);
@@ -716,6 +724,7 @@ export default function MOMap(props: MOMapProps) {
           const isPeak = p != null && p >= 75;
           const isHovered = props.hoveredGaugeId === g.site_no;
           const isFocused = props.focusedGaugeId === g.site_no;
+          const baseR = isFocused ? 6 : isHovered ? 5 : g.is_primary ? 4.2 : 2.8;
           return (
             <g
               key={g.site_no}
@@ -726,18 +735,18 @@ export default function MOMap(props: MOMapProps) {
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
               {isPeak && (
-                <circle r={5} fill="none" stroke={color} strokeWidth={1.2} opacity={0.7}>
-                  <animate attributeName="r" from="5" to="14" dur="2.2s" repeatCount="indefinite" />
+                <circle r={4 * kStable} fill="none" stroke={color} strokeWidth={1.0 * kStable} opacity={0.7}>
+                  <animate attributeName="r" from={4 * kStable} to={11 * kStable} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
               )}
               <circle
-                r={isFocused ? 8 : isHovered ? 7 : g.is_primary ? 6 : 4}
+                r={baseR * kStable}
                 fill="#FAF8F4"
                 stroke={color}
-                strokeWidth={g.is_primary ? 2.5 : 1.8}
+                strokeWidth={(g.is_primary ? 1.8 : 1.2) * kStable}
               />
-              {(isHovered || isFocused) && <circle r={1.8} fill={color} />}
+              {(isHovered || isFocused) && <circle r={1.4 * kStable} fill={color} />}
             </g>
           );
         })}
@@ -756,7 +765,7 @@ export default function MOMap(props: MOMapProps) {
                   style={{ cursor: 'pointer' }}
                   onClick={guardClick(() => props.onClickAccessPoint(a.id))}
                 >
-                  <circle r={4} fill="#4EB86B" stroke="#F2EAD8" strokeWidth={1.5} />
+                  <circle r={2.6 * kStable} fill="#4EB86B" stroke="#1A3D23" strokeWidth={0.9 * kStable} />
                 </g>
               );
             }),
@@ -769,7 +778,9 @@ export default function MOMap(props: MOMapProps) {
         <g>
           {props.campgrounds.map((c) => {
             const [x, y] = project(c.lon, c.lat);
-            const r = c.total_sites != null ? Math.min(10, 4 + c.total_sites / 25) : 4;
+            const screenR = c.total_sites != null
+              ? Math.min(5.5, 2.6 + c.total_sites / 50)
+              : 2.6;
             return (
               <g
                 key={c.id}
@@ -777,7 +788,7 @@ export default function MOMap(props: MOMapProps) {
                 style={{ cursor: 'pointer' }}
                 onClick={guardClick(() => props.onClickCampground(c.id))}
               >
-                <circle r={r} fill="#7A684B" stroke="#F2EAD8" strokeWidth={2} opacity={0.95} />
+                <circle r={screenR * kStable} fill="#7A684B" stroke="#F2EAD8" strokeWidth={1.2 * kStable} opacity={0.95} />
               </g>
             );
           })}
@@ -798,7 +809,7 @@ export default function MOMap(props: MOMapProps) {
                   style={{ cursor: 'pointer' }}
                   onClick={guardClick(() => props.onClickPoi(p.id))}
                 >
-                  <circle r={5.5} fill={tone} stroke="#FAF8F4" strokeWidth={2} />
+                  <circle r={3.2 * kStable} fill={tone} stroke="#FAF8F4" strokeWidth={1.2 * kStable} />
                 </g>
               );
             }),

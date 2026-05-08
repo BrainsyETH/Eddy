@@ -6,6 +6,7 @@ import {
   STAGE_VERDICTS,
   THEME,
   classifyPercentile,
+  classifyStageFromThresholds,
   type MORiver,
   type MOCampground,
   type MOAccessPoint,
@@ -226,7 +227,9 @@ export function StatewideSummary({
   verdictByRiver: Record<string, StageVerdict>;
 }) {
   const verdictCounts = useMemo(() => {
-    const c = { bony: 0, prime: 0, pushy: 0, hazard: 0, unknown: 0 };
+    const c: Record<StageVerdict, number> = {
+      too_low: 0, low: 0, good: 0, flowing: 0, high: 0, dangerous: 0, unknown: 0,
+    };
     for (const r of rivers) c[verdictByRiver[r.slug] ?? 'unknown']++;
     return c;
   }, [rivers, verdictByRiver]);
@@ -245,11 +248,15 @@ export function StatewideSummary({
     return c;
   }, [rivers, percentileByRiver]);
 
+  // Order matches the ConditionCode display order used elsewhere in the
+  // app (CONDITION_COLORS / CONDITION_LABELS in src/constants).
   const items = [
-    { label: 'Bony', n: verdictCounts.bony, color: STAGE_VERDICTS.bony.color },
-    { label: 'Prime', n: verdictCounts.prime, color: STAGE_VERDICTS.prime.color },
-    { label: 'Pushy', n: verdictCounts.pushy, color: STAGE_VERDICTS.pushy.color },
-    { label: 'Hazard', n: verdictCounts.hazard, color: STAGE_VERDICTS.hazard.color },
+    { label: 'Too low',  n: verdictCounts.too_low,   color: STAGE_VERDICTS.too_low.color },
+    { label: 'Low',      n: verdictCounts.low,       color: STAGE_VERDICTS.low.color },
+    { label: 'Good',     n: verdictCounts.good,      color: STAGE_VERDICTS.good.color },
+    { label: 'Flowing',  n: verdictCounts.flowing,   color: STAGE_VERDICTS.flowing.color },
+    { label: 'High',     n: verdictCounts.high,      color: STAGE_VERDICTS.high.color },
+    { label: 'Flood',    n: verdictCounts.dangerous, color: STAGE_VERDICTS.dangerous.color },
   ];
 
   return (
@@ -422,8 +429,8 @@ function ThresholdProvenance({
     thresholds.flood_stage_ft != null &&
     currentValueFt >= thresholds.flood_stage_ft;
 
-  const hazardTone = STAGE_VERDICTS.hazard.color;
-  const cautionTone = STAGE_VERDICTS.pushy.color;
+  const hazardTone = STAGE_VERDICTS.dangerous.color;
+  const cautionTone = STAGE_VERDICTS.high.color;
 
   return (
     <div
@@ -600,20 +607,23 @@ function RiverCard({
   forecast: MoForecastEntry | null;
 }) {
   const primaryThresholds = (river.gauges ?? []).find((x) => x.is_primary) ?? null;
+  // Use the canonical classifier so this badge matches /rivers/[slug] for
+  // the same gauge reading. Falls back to forecast peak when the live
+  // value is below flood stage but the next 72h forecast crosses it.
   const verdict: StageVerdict = (() => {
-    if (!primaryGauge?.gaugeHeightFt || !primaryThresholds) return 'unknown';
-    const g = primaryThresholds;
-    const v = primaryGauge.gaugeHeightFt;
-    // Flood-stage hazard override (live or 72h forecast peak)
-    if (g.flood_stage_ft != null) {
-      const peak = Math.max(v, forecast?.peakFt ?? Number.NEGATIVE_INFINITY);
-      if (peak >= g.flood_stage_ft) return 'hazard';
+    if (!primaryGauge || !primaryThresholds) return 'unknown';
+    const value = primaryThresholds.threshold_unit === 'cfs'
+      ? primaryGauge.dischargeCfs
+      : primaryGauge.gaugeHeightFt;
+    if (value == null) return 'unknown';
+    if (
+      primaryThresholds.threshold_unit === 'ft' &&
+      primaryThresholds.flood_stage_ft != null &&
+      Math.max(value, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
+    ) {
+      return 'dangerous';
     }
-    if (g.level_optimal_min != null && v < g.level_optimal_min) return 'bony';
-    if (g.level_optimal_max != null && v <= g.level_optimal_max) return 'prime';
-    if (g.level_dangerous != null && v >= g.level_dangerous) return 'hazard';
-    if (g.level_high != null && v >= g.level_high) return 'pushy';
-    return 'unknown';
+    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds);
   })();
   const tone = STAGE_VERDICTS[verdict];
 
