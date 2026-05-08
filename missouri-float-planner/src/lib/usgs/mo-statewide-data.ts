@@ -2,8 +2,15 @@
 // Geometry, gauges, access points, campgrounds, and POIs come from Supabase
 // at request time via the get_mo_surface_water_dataset() RPC. Live readings
 // come from USGS NWIS via fetchGaugeReadings.
+//
+// Condition vocabulary mirrors src/lib/conditions.ts (the same one used by
+// /api/conditions, /api/plan, /rivers, and the embeds), so floater verdicts,
+// colors, and thresholds stay aligned across pages.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { computeCondition } from '@/lib/conditions';
+import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import type { ConditionCode } from '@/types/api';
 
 export type ThresholdSource = 'usgs' | 'nws_ahps' | 'outfitter' | 'editorial';
 
@@ -25,6 +32,8 @@ export interface MOGauge {
   snap_distance_m: number | null;
   is_primary: boolean;
   threshold_unit: 'ft' | 'cfs';
+  level_too_low: number | null;
+  level_low: number | null;
   level_optimal_min: number | null;
   level_optimal_max: number | null;
   level_high: number | null;
@@ -153,63 +162,83 @@ export function colorForPercentile(p: number | null | undefined): string {
   return classifyPercentile(p).color;
 }
 
-// ─── Stage verdict (floater language) ──────────────────────────────────
+// ─── Float condition (canonical app vocabulary) ────────────────────────
+//
+// We use the same ConditionCode + CONDITION_COLORS the rest of Eddy uses
+// (/plan, /rivers, /api/conditions, embeds). The map verdict, the right-
+// rail badge, and the river-line color all agree with what the
+// /rivers/[slug] detail page shows for the same gauge reading.
+//
+// The legacy 4-band scheme (bony/prime/pushy/hazard) used to live here
+// and was the cause of the cross-page mismatch.
 
-export type StageVerdict = 'bony' | 'prime' | 'pushy' | 'hazard' | 'unknown';
+export type StageVerdict = ConditionCode;
 
 export const STAGE_VERDICTS: Record<
-  StageVerdict,
+  ConditionCode,
   { label: string; color: string; inner: string; desc: string }
 > = {
-  bony:    { label: 'Bony',      color: '#B89D72', inner: '#D9C9B0', desc: 'Will scrape — pack light or wait.' },
-  prime:   { label: 'Prime',     color: '#347A47', inner: '#4EB86B', desc: 'Sweet spot. Go.' },
-  pushy:   { label: 'Pushy',     color: '#1D525F', inner: '#4A9AAD', desc: 'Fast — strong paddlers only.' },
-  hazard:  { label: 'Hazardous', color: '#7A2419', inner: '#F07052', desc: 'Stay off the water.' },
-  unknown: { label: '—',         color: '#6B6459', inner: '#A49C8E', desc: '' },
+  too_low:   { label: 'Too Low',  color: CONDITION_COLORS.too_low,   inner: '#A49C8E', desc: 'Too low to float — frequent dragging and portaging likely.' },
+  low:       { label: 'Low',      color: CONDITION_COLORS.low,       inner: '#F2C94C', desc: 'Low — expect some dragging in shallow areas.' },
+  good:      { label: 'Good',     color: CONDITION_COLORS.good,      inner: '#A8DD3F', desc: 'Good — floatable with minimal dragging.' },
+  flowing:   { label: 'Flowing',  color: CONDITION_COLORS.flowing,   inner: '#34D399', desc: 'Ideal conditions. Go.' },
+  high:      { label: 'High',     color: CONDITION_COLORS.high,      inner: '#FB923C', desc: 'Fast current — strong paddlers only.' },
+  dangerous: { label: 'Flood',    color: CONDITION_COLORS.dangerous, inner: '#F87171', desc: 'Flood-stage water. Do not float.' },
+  unknown:   { label: '—',        color: CONDITION_COLORS.unknown,   inner: '#A49C8E', desc: '' },
 };
 
 /**
- * Given a current reading + the river's primary-gauge thresholds (from
- * river_gauges), classify floatability. We map the existing threshold model
- * (level_optimal_min / max / high / dangerous) directly onto the verdict
- * bands so we never disagree with the rest of the app.
- *
- * USGS-published flood_stage_ft is treated as an authoritative hazard
- * override: if the live or forecast value crosses flood stage, the verdict
- * is 'hazard' regardless of the editorial bands. This matches NWS guidance
- * — flood-stage water is hazardous to recreate on, full stop.
+ * Given a current reading + the river's primary-gauge thresholds, classify
+ * floatability via computeCondition(), the same function /api/conditions
+ * and /api/plan use. Falls back to USGS-published flood_stage_ft when the
+ * editorial dangerous band isn't set — a flood-stage reading is hazardous
+ * regardless of editorial calibration.
  */
 export function classifyStageFromThresholds(
   value: number | null,
   unit: 'ft' | 'cfs',
   th: {
+    level_too_low?: number | null;
+    level_low?: number | null;
     level_optimal_min: number | null;
     level_optimal_max: number | null;
     level_high: number | null;
     level_dangerous: number | null;
     flood_stage_ft?: number | null;
   },
-): StageVerdict {
+): ConditionCode {
   if (value == null) return 'unknown';
-  // Flood-stage override: only meaningful for ft thresholds (flood stage is
-  // a stage height, not a discharge).
-  if (
-    unit === 'ft' &&
-    th.flood_stage_ft != null &&
-    value >= th.flood_stage_ft
-  ) {
-    return 'hazard';
+
+  // Flood-stage override: NWS flood stage is the authoritative hazard
+  // line for ft-threshold gauges, even if level_dangerous wasn't set.
+  if (unit === 'ft' && th.flood_stage_ft != null && value >= th.flood_stage_ft) {
+    return 'dangerous';
   }
-  const lo = th.level_optimal_min;
-  const hi = th.level_optimal_max;
-  const high = th.level_high;
-  const danger = th.level_dangerous;
-  if (lo != null && value < lo) return 'bony';
-  if (hi != null && value <= hi) return 'prime';
-  if (danger != null && value >= danger) return 'hazard';
-  if (high != null && value >= high) return 'pushy';
-  if (hi != null && value > hi) return 'pushy';
-  return 'unknown';
+
+  const result = computeCondition(
+    unit === 'ft' ? value : null,
+    {
+      levelTooLow: th.level_too_low ?? null,
+      levelLow: th.level_low ?? null,
+      levelOptimalMin: th.level_optimal_min,
+      levelOptimalMax: th.level_optimal_max,
+      levelHigh: th.level_high,
+      levelDangerous: th.level_dangerous,
+      thresholdUnit: unit,
+    },
+    unit === 'cfs' ? value : null,
+  );
+  return result.code;
+}
+
+export function colorForCondition(c: ConditionCode | null | undefined): string {
+  if (!c) return CONDITION_COLORS.unknown;
+  return CONDITION_COLORS[c];
+}
+
+export function labelForCondition(c: ConditionCode | null | undefined): string {
+  if (!c) return CONDITION_LABELS.unknown;
+  return CONDITION_LABELS[c];
 }
 
 // ─── Access-point and POI display tokens ────────────────────────────────
