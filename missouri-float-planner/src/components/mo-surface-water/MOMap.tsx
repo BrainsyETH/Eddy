@@ -11,7 +11,7 @@
 // Particles ride along the rendered <path> elements using
 // getTotalLength() + getPointAtLength(), the same trick the design uses.
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import {
   PERCENTILE_CLASSES,
   STAGE_VERDICTS,
@@ -358,6 +358,129 @@ export default function MOMap(props: MOMapProps) {
     props.focusedRiverId,
   ]);
 
+  // ─── Zoom + pan ────────────────────────────────────────────────────────
+  // The SVG viewBox is state. Wheel zooms around the cursor; primary-button
+  // drag pans; double-click resets to the full-state framing. Children
+  // never re-project (paths are memoized on `project`); only the viewBox
+  // attribute changes per frame, so the browser handles zoom natively.
+  const HOME_VIEW = useMemo(() => ({ x: 0, y: 0, w: W, h: H }), []);
+  const [view, setView] = useState(HOME_VIEW);
+  const dragRef = useRef<
+    | {
+        startClientX: number;
+        startClientY: number;
+        startViewX: number;
+        startViewY: number;
+        moved: boolean;
+      }
+    | null
+  >(null);
+
+  const clampView = useCallback(
+    (v: { x: number; y: number; w: number; h: number }) => {
+      // Cap zoom: 12x in (so individual rivers are readable) and 1.4x out
+      // (so the user can't drift into open ocean).
+      const minW = W / 12;
+      const maxW = W * 1.4;
+      const nw = Math.max(minW, Math.min(maxW, v.w));
+      const nh = nw * (H / W);
+      // Pan limits: keep the center inside [-W/4, 5W/4] x [-H/4, 5H/4]
+      const cx = v.x + v.w / 2;
+      const cy = v.y + v.h / 2;
+      const ccx = Math.max(-W / 4, Math.min((5 * W) / 4, cx));
+      const ccy = Math.max(-H / 4, Math.min((5 * H) / 4, cy));
+      return { x: ccx - nw / 2, y: ccy - nh / 2, w: nw, h: nh };
+    },
+    [],
+  );
+
+  const onWheel = useCallback(
+    (e: React.WheelEvent<SVGSVGElement>) => {
+      e.preventDefault();
+      const svg = e.currentTarget;
+      const rect = svg.getBoundingClientRect();
+      // Cursor in viewBox coords (the world point under the pointer).
+      const px = view.x + ((e.clientX - rect.left) / rect.width) * view.w;
+      const py = view.y + ((e.clientY - rect.top) / rect.height) * view.h;
+      // Trackpads emit small deltas; mouse wheels emit ~100. Normalize so
+      // both feel similar.
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const factor = Math.exp(dy / 600);
+      const nw = view.w * factor;
+      const nh = nw * (H / W);
+      // Re-anchor so the world point under the cursor stays put.
+      const nx = px - ((e.clientX - rect.left) / rect.width) * nw;
+      const ny = py - ((e.clientY - rect.top) / rect.height) * nh;
+      setView(clampView({ x: nx, y: ny, w: nw, h: nh }));
+    },
+    [view, clampView],
+  );
+
+  const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    dragRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startViewX: view.x,
+      startViewY: view.y,
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [view.x, view.y]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const sx = view.w / rect.width;
+    const sy = view.h / rect.height;
+    const dx = (e.clientX - drag.startClientX) * sx;
+    const dy = (e.clientY - drag.startClientY) * sy;
+    if (Math.abs(e.clientX - drag.startClientX) > 3 ||
+        Math.abs(e.clientY - drag.startClientY) > 3) {
+      drag.moved = true;
+    }
+    setView((v) => clampView({
+      ...v,
+      x: drag.startViewX - dx,
+      y: drag.startViewY - dy,
+    }));
+  }, [view.w, view.h, clampView]);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (dragRef.current) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    }
+    // Don't null `dragRef` synchronously — onClick reads `moved` to know
+    // whether this was a real click or the tail of a drag. Cleared next
+    // tick.
+    setTimeout(() => { dragRef.current = null; }, 0);
+  }, []);
+
+  const resetView = useCallback(() => setView(HOME_VIEW), [HOME_VIEW]);
+
+  const zoomBy = useCallback((factor: number) => {
+    setView((v) => clampView({
+      x: v.x + (v.w * (1 - factor)) / 2,
+      y: v.y + (v.h * (1 - factor)) / 2,
+      w: v.w * factor,
+      h: v.h * factor,
+    }));
+  }, [clampView]);
+  const zoomedIn = view.w < W * 0.99;
+
+  // Click handlers on individual features need to ignore the tail of a
+  // drag-pan; otherwise dragging across a river or gauge focuses it on
+  // mouseup. Wrap each feature click with this guard.
+  const guardClick = useCallback(
+    <E extends { stopPropagation: () => void }>(fn: (e: E) => void) => (e: E) => {
+      if (dragRef.current?.moved) return;
+      e.stopPropagation();
+      fn(e);
+    },
+    [],
+  );
+
   // Sort rivers so lower-order paint underneath higher-order, and the
   // hovered/focused one always renders last (on top).
   const orderedRivers = useMemo(() => {
@@ -371,12 +494,21 @@ export default function MOMap(props: MOMapProps) {
   }, [props.rivers, props.hoveredRiverId, props.focusedRiverId]);
 
   return (
+    <>
     <svg
-      viewBox={`0 0 ${W} ${H}`}
+      viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       className="absolute inset-0 h-full w-full"
+      style={{ cursor: dragRef.current?.moved ? 'grabbing' : 'grab', touchAction: 'none' }}
+      onWheel={onWheel}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onDoubleClick={resetView}
       onClick={(e) => {
-        // Empty-area click clears focus.
+        // Empty-area click clears focus — but only if we didn't just pan.
+        if (dragRef.current?.moved) return;
         if (e.target === e.currentTarget) {
           props.onFocusRiver(null);
           props.onFocusGauge(null);
@@ -527,10 +659,7 @@ export default function MOMap(props: MOMapProps) {
             style={{ opacity: dim ? 0.32 : 1, transition: 'opacity 200ms', cursor: 'pointer' }}
             onMouseEnter={() => props.onHoverRiver(r.id)}
             onMouseLeave={() => props.onHoverRiver(null)}
-            onClick={(e) => {
-              e.stopPropagation();
-              props.onFocusRiver(r.id);
-            }}
+            onClick={guardClick(() => props.onFocusRiver(r.id))}
           >
             {/* Hit target */}
             <path d={d} stroke="transparent" strokeWidth={Math.max(18, sw * 3)} fill="none" strokeLinecap="round" />
@@ -594,10 +723,7 @@ export default function MOMap(props: MOMapProps) {
               style={{ cursor: 'pointer' }}
               onMouseEnter={() => props.onHoverGauge(g.site_no)}
               onMouseLeave={() => props.onHoverGauge(null)}
-              onClick={(e) => {
-                e.stopPropagation();
-                props.onFocusGauge(g.site_no);
-              }}
+              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
               {isPeak && (
                 <circle r={5} fill="none" stroke={color} strokeWidth={1.2} opacity={0.7}>
@@ -628,10 +754,7 @@ export default function MOMap(props: MOMapProps) {
                   key={a.id}
                   transform={`translate(${x} ${y})`}
                   style={{ cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onClickAccessPoint(a.id);
-                  }}
+                  onClick={guardClick(() => props.onClickAccessPoint(a.id))}
                 >
                   <circle r={4} fill="#4EB86B" stroke="#F2EAD8" strokeWidth={1.5} />
                 </g>
@@ -652,10 +775,7 @@ export default function MOMap(props: MOMapProps) {
                 key={c.id}
                 transform={`translate(${x} ${y})`}
                 style={{ cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onClickCampground(c.id);
-                }}
+                onClick={guardClick(() => props.onClickCampground(c.id))}
               >
                 <circle r={r} fill="#7A684B" stroke="#F2EAD8" strokeWidth={2} opacity={0.95} />
               </g>
@@ -676,10 +796,7 @@ export default function MOMap(props: MOMapProps) {
                   key={p.id}
                   transform={`translate(${x} ${y})`}
                   style={{ cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onClickPoi(p.id);
-                  }}
+                  onClick={guardClick(() => props.onClickPoi(p.id))}
                 >
                   <circle r={5.5} fill={tone} stroke="#FAF8F4" strokeWidth={2} />
                 </g>
@@ -713,5 +830,52 @@ export default function MOMap(props: MOMapProps) {
         Stream colour: percentile vs. period of record · {PERCENTILE_CLASSES.length} bands
       </text>
     </svg>
+
+    {/* Zoom controls — overlay, not inside the SVG, so they stay fixed
+        in screen coordinates regardless of the current view. */}
+    <div
+      className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10"
+      style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
+    >
+      <button
+        type="button"
+        aria-label="Zoom in"
+        onClick={() => zoomBy(0.65)}
+        className="w-9 h-9 grid place-items-center rounded-md border-2 select-none"
+        style={{
+          background: '#FAF8F4', color: '#2D2A24', borderColor: '#3F3B33',
+          fontSize: 18, fontWeight: 700, lineHeight: 1,
+          boxShadow: '2px 2px 0 #1A1814',
+        }}
+      >+</button>
+      <button
+        type="button"
+        aria-label="Zoom out"
+        onClick={() => zoomBy(1 / 0.65)}
+        className="w-9 h-9 grid place-items-center rounded-md border-2 select-none"
+        style={{
+          background: '#FAF8F4', color: '#2D2A24', borderColor: '#3F3B33',
+          fontSize: 22, fontWeight: 700, lineHeight: 1,
+          boxShadow: '2px 2px 0 #1A1814',
+        }}
+      >−</button>
+      <button
+        type="button"
+        aria-label="Reset view"
+        onClick={resetView}
+        disabled={!zoomedIn}
+        className="w-9 h-9 grid place-items-center rounded-md border-2 select-none"
+        style={{
+          background: zoomedIn ? '#FAF8F4' : '#E8E2D5',
+          color: zoomedIn ? '#2D2A24' : '#857D70',
+          borderColor: '#3F3B33',
+          fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', lineHeight: 1,
+          boxShadow: zoomedIn ? '2px 2px 0 #1A1814' : 'none',
+          cursor: zoomedIn ? 'pointer' : 'default',
+        }}
+        title="Reset view (or double-click the map)"
+      >RESET</button>
+    </div>
+  </>
   );
 }
