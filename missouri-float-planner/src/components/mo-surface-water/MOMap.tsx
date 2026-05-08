@@ -382,8 +382,8 @@ export default function MOMap(props: MOMapProps) {
       // (so the user can't drift into open ocean).
       const minW = W / 12;
       const maxW = W * 1.4;
-      let nw = Math.max(minW, Math.min(maxW, v.w));
-      let nh = nw * (H / W);
+      const nw = Math.max(minW, Math.min(maxW, v.w));
+      const nh = nw * (H / W);
       // Pan limits: keep the center inside [-W/4, 5W/4] x [-H/4, 5H/4]
       const cx = v.x + v.w / 2;
       const cy = v.y + v.h / 2;
