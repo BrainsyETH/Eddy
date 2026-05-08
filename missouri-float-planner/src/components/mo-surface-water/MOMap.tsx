@@ -22,6 +22,20 @@ import {
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import moOutline from '@/data/mo-outline.json';
+import moBasemap from '@/data/mo-rivers-basemap.json';
+
+type BasemapRiver = {
+  type: 'Feature';
+  properties: { name: string; length_mi: number };
+  geometry: { type: 'LineString'; coordinates: number[][] };
+};
+type BasemapLake = {
+  type: 'Feature';
+  properties: { name: string; area_sqkm: number };
+  geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: number[][][] | number[][][][] };
+};
+const BASEMAP_RIVERS = (moBasemap.rivers?.features ?? []) as BasemapRiver[];
+const BASEMAP_LAKES = (moBasemap.lakes?.features ?? []) as BasemapLake[];
 
 // ─── Projection ─────────────────────────────────────────────────────────
 //
@@ -140,51 +154,49 @@ function strokeWidthForRiver(
   hovered: boolean,
   focused: boolean,
 ): number {
-  // Wider base than before — at this zoom level, 2px lines disappear.
-  // Length-weighted: longer rivers paint as the trunk, smaller as tributaries.
+  // Curated rivers sit on top of the basemap network; keep them visible but
+  // not so heavy they read as the only rivers in the state.
   const m = lengthMiles ?? 60;
-  const base = Math.max(4, Math.min(8, 3.5 + m / 35));
-  if (focused) return base + 3.5;
-  if (hovered) return base + 2;
+  const base = Math.max(2.6, Math.min(4.8, 2.2 + m / 60));
+  if (focused) return base + 2.4;
+  if (hovered) return base + 1.4;
   return base;
 }
 
+function strokeWidthForBasemapRiver(lengthMi: number): number {
+  // Thin, length-weighted strokes for the NHD basemap network. Mainstems
+  // (Mississippi, Missouri, Osage) render heaviest; small named tributaries
+  // taper to a hairline.
+  if (lengthMi >= 200) return 1.6;
+  if (lengthMi >= 100) return 1.2;
+  if (lengthMi >= 50) return 0.95;
+  return 0.7;
+}
+
 export default function MOMap(props: MOMapProps) {
-  // ── Compute projection window from data bbox ───────────────────────────
+  // Lock the projection window to the full Missouri state outline so the
+  // map always reads as "Missouri", no matter what data subset is loaded.
+  // Earlier we framed to the data bbox, which caused the southern half of
+  // the state to fill the canvas and the visual to drift as data changed.
   const bbox = useMemo(() => {
     let minLon = Infinity, maxLon = -Infinity;
     let minLat = Infinity, maxLat = -Infinity;
-    const include = (lon: number, lat: number) => {
+    for (const [lon, lat] of MO_OUTLINE) {
       if (lon < minLon) minLon = lon;
       if (lon > maxLon) maxLon = lon;
       if (lat < minLat) minLat = lat;
       if (lat > maxLat) maxLat = lat;
-    };
-
-    for (const r of props.rivers) {
-      for (const [lon, lat] of r.geometry.coordinates as Array<[number, number]>) {
-        include(lon, lat);
-      }
-      for (const g of r.gauges ?? []) include(g.lon, g.lat);
-      for (const a of r.access_points ?? []) include(a.lon, a.lat);
     }
-    for (const c of props.campgrounds) include(c.lon, c.lat);
-
-    // Fall back to the full state if we somehow have no data points.
-    if (!isFinite(minLon)) {
-      minLon = -95.77; maxLon = -89.13; minLat = 36.0; maxLat = 40.61;
-    }
-
-    // 8% padding on each side so geometry doesn't kiss the edge.
-    const lonPad = (maxLon - minLon) * 0.08 + 0.05;
-    const latPad = (maxLat - minLat) * 0.08 + 0.05;
+    // Tight padding — the state outline already has visual breathing room.
+    const lonPad = (maxLon - minLon) * 0.02;
+    const latPad = (maxLat - minLat) * 0.02;
     return {
       minLon: minLon - lonPad,
       maxLon: maxLon + lonPad,
       minLat: minLat - latPad,
       maxLat: maxLat + latPad,
     };
-  }, [props.rivers, props.campgrounds]);
+  }, []);
 
   const project = useMemo(() => buildProjector(bbox), [bbox]);
 
@@ -199,6 +211,41 @@ export default function MOMap(props: MOMapProps) {
     }
     return out;
   }, [props.rivers, project]);
+
+  // Basemap rivers — pre-projected once per `project` change, sorted by
+  // length so longer rivers paint underneath shorter ones (so the smaller
+  // tributaries don't get covered up).
+  const basemapRiverPaths = useMemo(() => {
+    return BASEMAP_RIVERS
+      .map((f) => ({
+        name: f.properties.name,
+        lengthMi: f.properties.length_mi,
+        d: lineToPath(f.geometry.coordinates as Array<[number, number]>, project),
+      }))
+      .filter((r) => r.d.length > 0)
+      .sort((a, b) => b.lengthMi - a.lengthMi);
+  }, [project]);
+
+  // Basemap lakes — flatten Polygon and MultiPolygon outer rings into
+  // individual SVG path strings. Holes (inner rings) are ignored at this
+  // simplification level; reservoir holes don't render meaningfully here.
+  const basemapLakePaths = useMemo(() => {
+    const out: Array<{ name: string; d: string }> = [];
+    for (const f of BASEMAP_LAKES) {
+      const rings: Array<Array<[number, number]>> = [];
+      if (f.geometry.type === 'Polygon') {
+        const outer = (f.geometry.coordinates as number[][][])[0];
+        if (outer) rings.push(outer as Array<[number, number]>);
+      } else {
+        for (const poly of f.geometry.coordinates as number[][][][]) {
+          if (poly[0]) rings.push(poly[0] as Array<[number, number]>);
+        }
+      }
+      const d = rings.map((r) => polygonToPath(r, project)).join(' ');
+      if (d) out.push({ name: f.properties.name, d });
+    }
+    return out;
+  }, [project]);
 
   // Cities visible in the framed area (plus a small buffer outside, so the
   // nearest metro still anchors the user's orientation).
@@ -370,12 +417,41 @@ export default function MOMap(props: MOMapProps) {
       <g clipPath="url(#mo-clip)">
         <rect width={W} height={H} fill="url(#mo-bg)" />
         <rect width={W} height={H} fill="url(#mo-grain)" />
+
+        {/* NHD basemap — lakes (filled polygons) under named perennial
+            rivers (thin uniform blue). Renders inside the state clip so it
+            never bleeds across MO's borders. Curated rivers, gauges, etc.
+            paint OUTSIDE this group on top of the basemap. */}
+        <g pointerEvents="none">
+          {basemapLakePaths.map((l) => (
+            <path
+              key={`lake-${l.name}`}
+              d={l.d}
+              fill="#7FB2C2"
+              stroke="#3F8499"
+              strokeWidth={0.6}
+              opacity={0.78}
+            />
+          ))}
+          {basemapRiverPaths.map((r) => (
+            <path
+              key={`bm-${r.name}`}
+              d={r.d}
+              stroke="#3F8499"
+              strokeWidth={strokeWidthForBasemapRiver(r.lengthMi)}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.85}
+            />
+          ))}
+        </g>
       </g>
       <path
         d={stateOutlinePath}
         fill="none"
-        stroke="rgba(80,60,30,0.55)"
-        strokeWidth={2.5}
+        stroke="rgba(80,60,30,0.65)"
+        strokeWidth={2.2}
         strokeLinejoin="round"
       />
 
