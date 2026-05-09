@@ -19,7 +19,7 @@ import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-re
 import { pickSectionForRivers } from '@/lib/social/section-picker';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
-import { buildLiveConditionsMap } from '@/lib/social/live-conditions';
+import { overlayLiveConditions } from '@/lib/social/live-conditions';
 
 const WEEKLY_SEVERITY: Record<string, number> = {
   flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
@@ -139,24 +139,25 @@ async function dispatchVideoRender(
       .order('generated_at', { ascending: false });
 
     const seen = new Set<string>();
-    const rivers = (updates || [])
-      .filter((u: { river_slug: string }) => {
-        if (seen.has(u.river_slug)) return false;
-        seen.add(u.river_slug);
-        return true;
-      })
-      .map((u: { river_slug: string; condition_code: string; gauge_height_ft: number | null }) => ({
-        riverName: u.river_slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-        conditionCode: u.condition_code,
-        gaugeHeightFt: u.gauge_height_ft,
-      }));
+    type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null; quote_text?: string; summary_text?: string | null };
+    const dedupedRaw = ((updates || []) as Row[]).filter((u) => {
+      if (seen.has(u.river_slug)) return false;
+      seen.add(u.river_slug);
+      return true;
+    });
+    const deduped = await overlayLiveConditions(supabase, dedupedRaw);
+    const rivers = deduped.map((u) => ({
+      riverName: u.river_slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      conditionCode: u.condition_code,
+      gaugeHeightFt: u.gauge_height_ft,
+    }));
 
     renderData = {
       rivers,
       dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     };
   } else if (type === 'highlight' && riverSlug) {
-    const { data: update } = await supabase
+    const { data: rawUpdate } = await supabase
       .from('eddy_updates')
       .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
       .eq('river_slug', riverSlug)
@@ -166,16 +167,17 @@ async function dispatchVideoRender(
       .limit(1)
       .maybeSingle();
 
-    if (!update) {
+    if (!rawUpdate) {
       return NextResponse.json({ error: `No current update found for ${riverSlug}` }, { status: 404 });
     }
 
+    const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
     renderData = {
       riverName: update.river_slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
       conditionCode: update.condition_code,
       gaugeHeightFt: update.gauge_height_ft,
-      quoteText: truncateForVideo(update.quote_text),
-      summaryText: truncateForVideo(update.summary_text),
+      quoteText: truncateForVideo(update.quote_text ?? null),
+      summaryText: truncateForVideo(update.summary_text ?? null),
     };
   }
 
@@ -215,17 +217,19 @@ async function dispatchVideoRender(
         .order('generated_at', { ascending: false });
 
       const seen2 = new Set<string>();
-      const deduped = (allUpdates || []).filter((u: { river_slug: string }) => {
+      type DigestRow = { river_slug: string; condition_code: string; gauge_height_ft: number | null; quote_text: string; summary_text: string | null };
+      const dedupedRaw = ((allUpdates || []) as DigestRow[]).filter((u) => {
         if (seen2.has(u.river_slug)) return false;
         seen2.add(u.river_slug);
         return true;
       });
+      const deduped = await overlayLiveConditions(supabase, dedupedRaw);
 
       const formatted = formatDailyDigestCaption(deduped, globalUpdate?.quote_text || null, customContent, platform);
       caption = formatted.caption;
       hashtags = formatted.hashtags;
     } else if (type === 'highlight' && riverSlug) {
-      const { data: update } = await supabase
+      const { data: rawUpdate } = await supabase
         .from('eddy_updates')
         .select('*')
         .eq('river_slug', riverSlug)
@@ -235,7 +239,8 @@ async function dispatchVideoRender(
         .limit(1)
         .maybeSingle();
 
-      if (update) {
+      if (rawUpdate) {
+        const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
         const formatted = formatRiverHighlightCaption(update, customContent, platform);
         caption = formatted.caption;
         hashtags = formatted.hashtags;
@@ -317,13 +322,16 @@ async function postDigest(
     .gt('expires_at', new Date().toISOString())
     .order('generated_at', { ascending: false });
 
-  // Deduplicate by river
+  // Deduplicate by river, then overlay live gauge data so caption matches
+  // OG image (both share the same source of truth now).
   const seen = new Set<string>();
-  const deduped = (updates || []).filter((u: { river_slug: string }) => {
+  type DigestRow = { id: string; river_slug: string; condition_code: string; gauge_height_ft: number | null; quote_text: string; summary_text: string | null };
+  const dedupedRaw = ((updates || []) as DigestRow[]).filter((u) => {
     if (seen.has(u.river_slug)) return false;
     seen.add(u.river_slug);
     return true;
   });
+  const deduped = await overlayLiveConditions(supabase, dedupedRaw);
 
   // Fetch global summary
   const { data: globalUpdate } = await supabase
@@ -365,7 +373,7 @@ async function postHighlight(
   customContent: SocialCustomContent[],
   riverSlug: string
 ) {
-  const { data: update } = await supabase
+  const { data: rawUpdate } = await supabase
     .from('eddy_updates')
     .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
     .eq('river_slug', riverSlug)
@@ -375,9 +383,14 @@ async function postHighlight(
     .limit(1)
     .maybeSingle();
 
-  if (!update) {
+  if (!rawUpdate) {
     return NextResponse.json({ error: `No current update found for ${riverSlug}` }, { status: 404 });
   }
+
+  // Overlay live gauge: caption headline, hook, badge, and OG image now all
+  // read off the same condition + gauge value, regardless of how stale the
+  // eddy_updates row is.
+  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
   const results = await publishToPlatforms(supabase, platforms, (platform) => {
     const { caption, hashtags } = formatRiverHighlightCaption(update, customContent, platform);
@@ -452,23 +465,15 @@ async function postWeekly(
     .order('generated_at', { ascending: false });
 
   const seen = new Set<string>();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dedupedRaw = (updates || []).filter((u: any) => {
+  type WeeklyRow = { id: string; river_slug: string; condition_code: string; gauge_height_ft: number | null; quote_text: string; summary_text: string | null };
+  const dedupedRaw = ((updates || []) as WeeklyRow[]).filter((u) => {
     if (seen.has(u.river_slug)) return false;
     seen.add(u.river_slug);
     return true;
   });
   // Overlay live gauge-derived conditions so the manual post reflects
-  // reality, not yesterday's AI snapshot. buildLiveConditionsMap falls
-  // back gracefully if no primary gauge is mapped.
-  const liveMap = await buildLiveConditionsMap(supabase);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deduped = dedupedRaw.map((u: any) => {
-    const live = liveMap.get(u.river_slug);
-    return live
-      ? { ...u, condition_code: live.condition_code, gauge_height_ft: live.gauge_height_ft ?? u.gauge_height_ft }
-      : u;
-  });
+  // reality, not yesterday's AI snapshot. Drops mismatched prose too.
+  const deduped = await overlayLiveConditions(supabase, dedupedRaw);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const availableSlugs = deduped.map((u: any) => u.river_slug as string);
 

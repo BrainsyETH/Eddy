@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
+import { overlayLiveConditions } from '@/lib/social/live-conditions';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,13 +63,35 @@ async function _GET(
       return NextResponse.json<EddyUpdateResponse>({ available: false, update: null });
     }
 
+    // Overlay live gauge-derived condition + height so the river page's
+    // "Eddy Says" card matches the hero condition badge (which already
+    // computes live from gauge_readings + thresholds). When the live
+    // condition has crossed into a different bucket, the AI prose is
+    // dropped — the frontend falls back to a static quote rather than
+    // showing "sweet spot" copy next to a "High Water" badge.
+    const overlayInput = {
+      river_slug: riverSlug,
+      condition_code: data.condition_code,
+      gauge_height_ft: data.gauge_height_ft,
+      quote_text: data.quote_text,
+      summary_text: data.summary_text,
+    };
+    const [overlaid] = await overlayLiveConditions(supabase, [overlayInput]);
+    const proseAvailable = Boolean(overlaid.quote_text || overlaid.summary_text);
+
+    if (!proseAvailable) {
+      // Live condition has diverged from the AI snapshot — surface no prose
+      // so the client falls back to the static quote.
+      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null });
+    }
+
     return NextResponse.json<EddyUpdateResponse>({
       available: true,
       update: {
-        quoteText: data.quote_text,
-        summaryText: data.summary_text || null,
-        conditionCode: data.condition_code,
-        gaugeHeightFt: data.gauge_height_ft,
+        quoteText: overlaid.quote_text ?? '',
+        summaryText: overlaid.summary_text ?? null,
+        conditionCode: overlaid.condition_code,
+        gaugeHeightFt: overlaid.gauge_height_ft,
         dischargeCfs: data.discharge_cfs,
         sectionSlug: data.section_slug,
         sourcesUsed: data.sources_used || [],

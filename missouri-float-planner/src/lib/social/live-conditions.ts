@@ -120,28 +120,55 @@ export async function buildLiveConditionsMap(
   return result;
 }
 
+export interface OverlayOptions {
+  /**
+   * When the live condition_code disagrees with the stored one, blank out
+   * quote_text / summary_text. The AI prose was written about a different
+   * state (e.g. "sweet spot, dialed in" while the gauge has since climbed
+   * into high water) and showing it next to the live badge produces the
+   * exact contradictions users see in the wild. Defaults to true so every
+   * surface presents internally-consistent copy. Pass `false` only if the
+   * caller has its own staleness handling.
+   */
+  clearProseOnConditionChange?: boolean;
+}
+
 /**
  * Overlay live gauge-derived conditions onto an array of eddy_update rows.
  * Rows with no matching primary gauge fall through unchanged. Returns a new
  * array; does not mutate inputs.
  */
 export async function overlayLiveConditions<
-  T extends { river_slug: string; condition_code: string; gauge_height_ft: number | null },
+  T extends {
+    river_slug: string;
+    condition_code: string;
+    gauge_height_ft: number | null;
+    quote_text?: string;
+    summary_text?: string | null;
+  },
 >(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   updates: T[],
+  options: OverlayOptions = {},
 ): Promise<T[]> {
   if (updates.length === 0) return updates;
+  const { clearProseOnConditionChange = true } = options;
   const liveMap = await buildLiveConditionsMap(supabase);
   if (liveMap.size === 0) return updates; // fall back to stored codes
   return updates.map((u) => {
     const live = liveMap.get(u.river_slug);
     if (!live) return u;
-    return {
+    const conditionChanged = live.condition_code !== u.condition_code;
+    const next: T = {
       ...u,
       condition_code: live.condition_code,
       gauge_height_ft: live.gauge_height_ft ?? u.gauge_height_ft,
     };
+    if (conditionChanged && clearProseOnConditionChange) {
+      if ('quote_text' in next) (next as { quote_text?: string }).quote_text = '';
+      if ('summary_text' in next) (next as { summary_text?: string | null }).summary_text = null;
+    }
+    return next;
   });
 }
