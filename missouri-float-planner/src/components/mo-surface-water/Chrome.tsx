@@ -17,6 +17,7 @@ import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
+import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import type { ConditionCode } from '@/types/api';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
@@ -119,16 +120,20 @@ export function LayerToggles({
   showCampgrounds,
   showAccessPoints,
   showPOIs,
+  showGauges,
   setShowCampgrounds,
   setShowAccessPoints,
   setShowPOIs,
+  setShowGauges,
 }: {
   showCampgrounds: boolean;
   showAccessPoints: boolean;
   showPOIs: boolean;
+  showGauges: boolean;
   setShowCampgrounds: (v: boolean) => void;
   setShowAccessPoints: (v: boolean) => void;
   setShowPOIs: (v: boolean) => void;
+  setShowGauges: (v: boolean) => void;
 }) {
   const toggleStyle = (active: boolean) => ({
     background: active ? THEME.primaryDark : THEME.cardBg,
@@ -139,6 +144,14 @@ export function LayerToggles({
   });
   return (
     <div className="absolute right-3 top-[88px] z-10 flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => setShowGauges(!showGauges)}
+        className="rounded-md border-2 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:opacity-90"
+        style={toggleStyle(showGauges)}
+      >
+        ◎ Gauges ({showGauges ? 'on' : 'off'})
+      </button>
       <button
         type="button"
         onClick={() => setShowAccessPoints(!showAccessPoints)}
@@ -174,13 +187,15 @@ export function LayerToggles({
 // CONDITION_COLORS painting the curated rivers and gauge dots.
 export function PercentileLegend() {
   // Display order = readability order (driest → wettest).
+  // Language matches the per-condition titles on /about so the legend and
+  // the explanatory page agree on what each condition means.
   const items: Array<{ code: ConditionCode; short: string; label: string }> = [
-    { code: 'too_low',   short: 'Too low',  label: 'Frequent dragging / portaging likely' },
-    { code: 'low',       short: 'Low',      label: 'Some dragging in shallow areas' },
-    { code: 'good',      short: 'Good',     label: 'Floatable with minimal scraping' },
-    { code: 'flowing',   short: 'Flowing',  label: 'Ideal — sweet-spot conditions' },
-    { code: 'high',      short: 'High',     label: 'Fast current — strong paddlers only' },
-    { code: 'dangerous', short: 'Flood',    label: 'Flood stage — do not float' },
+    { code: 'too_low',   short: 'Too Low',    label: 'Not recommended' },
+    { code: 'low',       short: 'Low',        label: 'Scraping likely' },
+    { code: 'good',      short: 'Good',       label: 'Floatable' },
+    { code: 'flowing',   short: 'Flowing',    label: 'Ideal conditions' },
+    { code: 'high',      short: 'High Water', label: 'Use caution' },
+    { code: 'dangerous', short: 'Flood',      label: 'Do not float' },
   ];
   return (
     <div
@@ -209,7 +224,7 @@ export function PercentileLegend() {
       {items.map((it) => (
         <div key={it.code} className="mb-0.5 flex items-center gap-2">
           <span style={{ width: 18, height: 4, background: STAGE_VERDICTS[it.code].color, borderRadius: 2 }} />
-          <span className="font-semibold" style={{ width: 60 }}>{it.short}</span>
+          <span className="font-semibold" style={{ width: 74 }}>{it.short}</span>
           <span style={{ color: THEME.inkDim }}>{it.label}</span>
         </div>
       ))}
@@ -918,6 +933,7 @@ function GaugeDetail({
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
+  const eddy = useGaugeEddyReport(gauge.site_no);
   return (
     <div
       className="absolute right-3 z-30 w-[360px] overflow-auto rounded-md border-2 p-4"
@@ -989,6 +1005,8 @@ function GaugeDetail({
         )}
       </div>
 
+      <EddyReportCard report={eddy} />
+
       <div
         className="mt-3 border-t pt-2.5"
         style={{
@@ -999,6 +1017,118 @@ function GaugeDetail({
         Source: USGS NWIS · IV/DV/STAT endpoints. Percentile rank is computed against
         this gauge&apos;s daily period of record for today&apos;s calendar date.
       </div>
+    </div>
+  );
+}
+
+// Per-gauge Eddy report fetched from /api/gauge-update/[siteId]. Returns
+// undefined while loading, null when no update is available, otherwise the
+// hydrated payload.
+type EddyReport = NonNullable<GaugeUpdateResponse['update']>;
+
+function useGaugeEddyReport(siteId: string): EddyReport | null | undefined {
+  const [report, setReport] = useState<EddyReport | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    setReport(undefined);
+    fetch(`/api/gauge-update/${siteId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: GaugeUpdateResponse | null) => {
+        if (cancelled) return;
+        setReport(j?.available ? j.update : null);
+      })
+      .catch(() => { if (!cancelled) setReport(null); });
+    return () => { cancelled = true; };
+  }, [siteId]);
+  return report;
+}
+
+function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
+  const [showFull, setShowFull] = useState(false);
+  if (report === undefined) {
+    return (
+      <div
+        className="mt-3 rounded-md border-2 p-3"
+        style={{ background: '#F4EFE7', borderColor: '#A49C8E', fontFamily: MONO, fontSize: 11, color: THEME.inkDim }}
+      >
+        Loading Eddy&apos;s read on this gauge…
+      </div>
+    );
+  }
+  if (report === null) {
+    // No update yet (cron hasn't run for this gauge, or it's a primary
+    // covered by the river-level Sonnet update). Skip silently — the rest
+    // of the card already explains the reading.
+    return null;
+  }
+  const verdict = STAGE_VERDICTS[report.conditionCode as StageVerdict] ?? STAGE_VERDICTS.unknown;
+  return (
+    <div
+      className="mt-3 rounded-md border-2 p-3"
+      style={{
+        background: '#FAF8F4',
+        borderColor: THEME.cardBorder,
+        boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="uppercase font-bold"
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
+        >
+          Eddy says
+        </span>
+        <span
+          style={{
+            background: verdict.color,
+            color: '#FAF8F4',
+            fontFamily: MONO,
+            fontSize: 9,
+            letterSpacing: '0.1em',
+            padding: '1px 6px',
+            borderRadius: 3,
+            textTransform: 'uppercase',
+            fontWeight: 700,
+          }}
+        >
+          {verdict.label}
+        </span>
+      </div>
+      {report.summaryText && (
+        <p
+          className="mt-2 leading-snug"
+          style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: THEME.primaryDark }}
+        >
+          “{report.summaryText}”
+        </p>
+      )}
+      {(showFull || !report.summaryText) && (
+        <p
+          className="mt-2 leading-snug"
+          style={{ fontFamily: SANS, fontSize: 12, color: THEME.ink }}
+        >
+          {report.quoteText}
+        </p>
+      )}
+      {report.summaryText && (
+        <button
+          type="button"
+          onClick={() => setShowFull((v) => !v)}
+          className="mt-2 uppercase font-bold transition-opacity hover:opacity-70"
+          style={{
+            fontFamily: MONO,
+            fontSize: 9,
+            letterSpacing: '0.15em',
+            color: THEME.inkDim,
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+        >
+          {showFull ? 'Show less' : 'Show full report'}
+        </button>
+      )}
     </div>
   );
 }

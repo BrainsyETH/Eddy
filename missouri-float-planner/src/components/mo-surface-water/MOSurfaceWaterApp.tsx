@@ -51,9 +51,10 @@ export default function MOSurfaceWaterApp() {
   const [modalSelection, setModalSelection] = useState<ModalSelection | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
 
-  const [showCampgrounds, setShowCampgrounds] = useState(true);
-  const [showAccessPoints, setShowAccessPoints] = useState(true);
+  const [showCampgrounds, setShowCampgrounds] = useState(false);
+  const [showAccessPoints, setShowAccessPoints] = useState(false);
   const [showPOIs, setShowPOIs] = useState(true);
+  const [showGauges, setShowGauges] = useState(true);
 
   // Initial fetches
   useEffect(() => {
@@ -339,6 +340,7 @@ export default function MOSurfaceWaterApp() {
         showCampgrounds={showCampgrounds}
         showAccessPoints={showAccessPoints}
         showPOIs={showPOIs}
+        showGauges={showGauges}
         onHoverRiver={setHoveredRiverId}
         onFocusRiver={setFocusedRiverId}
         onHoverGauge={setHoveredGaugeId}
@@ -359,9 +361,11 @@ export default function MOSurfaceWaterApp() {
         showCampgrounds={showCampgrounds}
         showAccessPoints={showAccessPoints}
         showPOIs={showPOIs}
+        showGauges={showGauges}
         setShowCampgrounds={setShowCampgrounds}
         setShowAccessPoints={setShowAccessPoints}
         setShowPOIs={setShowPOIs}
+        setShowGauges={setShowGauges}
       />
       <StatewideSummary
         rivers={rivers}
