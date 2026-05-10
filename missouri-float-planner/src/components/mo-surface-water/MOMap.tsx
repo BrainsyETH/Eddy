@@ -334,6 +334,20 @@ export default function MOMap(props: MOMapProps) {
   const particlesContainerRef = useRef<SVGGElement | null>(null);
   const rafRef = useRef<number>(0);
 
+  // Particle speed (loops-per-second along the river path) — driven by
+  // ConditionCode so the animation actually communicates flow strength,
+  // not the loud-but-meaningless percentile-vs-record. Low → almost
+  // motionless; flooding → sprinting.
+  const SPEED_BY_CONDITION: Record<StageVerdict, number> = {
+    too_low:   0.015,
+    low:       0.035,
+    good:      0.06,
+    flowing:   0.10,
+    high:      0.16,
+    dangerous: 0.22,
+    unknown:   0.04,
+  };
+
   useEffect(() => {
     type P = { riverId: string; t: number; speed: number };
     const particles: P[] = [];
@@ -346,14 +360,18 @@ export default function MOMap(props: MOMapProps) {
         props.focusedRiverId === r.id ||
         verdict === 'flowing' ||
         verdict === 'good' ||
-        verdict === 'high';
+        verdict === 'high' ||
+        verdict === 'dangerous';
       if (!isActive) continue;
       const n = p < 25 ? 2 : p < 75 ? 4 : 7;
+      const baseSpeed = SPEED_BY_CONDITION[verdict ?? 'unknown'];
       for (let i = 0; i < n; i++) {
         particles.push({
           riverId: r.id,
           t: i / n + Math.random() * 0.04,
-          speed: 0.04 + (p / 100) * 0.08 + Math.random() * 0.02,
+          // Small random jitter so particles don't move in lockstep,
+          // anchored to the condition-driven base.
+          speed: baseSpeed * (0.85 + Math.random() * 0.30),
         });
       }
     }
@@ -707,8 +725,12 @@ export default function MOMap(props: MOMapProps) {
           river is split at midpoints between its gauges and painted in
           bands so the river color "flows into" each gauge instead of
           showing one mean color across the whole reach.
-          Color comes from STAGE_VERDICTS (= CONDITION_COLORS), matching
-          the badge on /rivers/[slug] for the same gauge reading. */}
+
+          Wrapped in `clipPath="url(#mo-clip)"` so the curated lines stay
+          inside MO's borders — Eleven Point's lower NHD reach legitimately
+          continues into Arkansas, but on a Missouri-focused map we clip
+          it the same way the basemap is clipped. */}
+      <g clipPath="url(#mo-clip)">
       {orderedRivers.map((r) => {
         const d = riverPaths[r.id];
         if (!d) return null;
@@ -813,13 +835,17 @@ export default function MOMap(props: MOMapProps) {
           </g>
         );
       })}
+      </g>
 
       {/* Particles (continuously redrawn by the RAF effect above) */}
       <g ref={particlesContainerRef} pointerEvents="none" />
 
       {/* Gauges. Radii multiplied by kStable so the dot stays the same
           *screen* size at any zoom — at the state-wide view it doesn't
-          dwarf the rivers, and zoomed in it doesn't balloon. */}
+          dwarf the rivers, and zoomed in it doesn't balloon.
+          Each marker has an invisible 14px screen hit-target as the
+          first child so clicks register reliably even when the visible
+          dot is only a few pixels across. */}
       <g>
         {props.gauges.map((g) => {
           const r = props.rivers.find((x) => x.id === g.river_id);
@@ -831,7 +857,7 @@ export default function MOMap(props: MOMapProps) {
           const isPeak = p != null && p >= 75;
           const isHovered = props.hoveredGaugeId === g.site_no;
           const isFocused = props.focusedGaugeId === g.site_no;
-          const baseR = isFocused ? 6 : isHovered ? 5 : g.is_primary ? 4.2 : 2.8;
+          const baseR = isFocused ? 7 : isHovered ? 6 : g.is_primary ? 5 : 3.5;
           return (
             <g
               key={g.site_no}
@@ -841,8 +867,9 @@ export default function MOMap(props: MOMapProps) {
               onMouseLeave={() => props.onHoverGauge(null)}
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
+              <circle r={14 * kStable} fill="transparent" pointerEvents="all" />
               {isPeak && (
-                <circle r={4 * kStable} fill="none" stroke={color} strokeWidth={1.0 * kStable} opacity={0.7}>
+                <circle r={4 * kStable} fill="none" stroke={color} strokeWidth={1.0 * kStable} opacity={0.7} pointerEvents="none">
                   <animate attributeName="r" from={4 * kStable} to={11 * kStable} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
@@ -852,8 +879,9 @@ export default function MOMap(props: MOMapProps) {
                 fill="#FAF8F4"
                 stroke={color}
                 strokeWidth={(g.is_primary ? 1.8 : 1.2) * kStable}
+                pointerEvents="none"
               />
-              {(isHovered || isFocused) && <circle r={1.4 * kStable} fill={color} />}
+              {(isHovered || isFocused) && <circle r={1.4 * kStable} fill={color} pointerEvents="none" />}
             </g>
           );
         })}
@@ -872,7 +900,8 @@ export default function MOMap(props: MOMapProps) {
                   style={{ cursor: 'pointer' }}
                   onClick={guardClick(() => props.onClickAccessPoint(a.id))}
                 >
-                  <circle r={2.6 * kStable} fill="#4EB86B" stroke="#1A3D23" strokeWidth={0.9 * kStable} />
+                  <circle r={14 * kStable} fill="transparent" pointerEvents="all" />
+                  <circle r={3.6 * kStable} fill="#4EB86B" stroke="#1A3D23" strokeWidth={1.1 * kStable} pointerEvents="none" />
                 </g>
               );
             }),
@@ -886,8 +915,8 @@ export default function MOMap(props: MOMapProps) {
           {props.campgrounds.map((c) => {
             const [x, y] = project(c.lon, c.lat);
             const screenR = c.total_sites != null
-              ? Math.min(5.5, 2.6 + c.total_sites / 50)
-              : 2.6;
+              ? Math.min(7, 3.5 + c.total_sites / 50)
+              : 3.5;
             return (
               <g
                 key={c.id}
@@ -895,7 +924,8 @@ export default function MOMap(props: MOMapProps) {
                 style={{ cursor: 'pointer' }}
                 onClick={guardClick(() => props.onClickCampground(c.id))}
               >
-                <circle r={screenR * kStable} fill="#7A684B" stroke="#F2EAD8" strokeWidth={1.2 * kStable} opacity={0.95} />
+                <circle r={Math.max(14, screenR + 8) * kStable} fill="transparent" pointerEvents="all" />
+                <circle r={screenR * kStable} fill="#7A684B" stroke="#F2EAD8" strokeWidth={1.4 * kStable} opacity={0.95} pointerEvents="none" />
               </g>
             );
           })}
@@ -916,7 +946,8 @@ export default function MOMap(props: MOMapProps) {
                   style={{ cursor: 'pointer' }}
                   onClick={guardClick(() => props.onClickPoi(p.id))}
                 >
-                  <circle r={3.2 * kStable} fill={tone} stroke="#FAF8F4" strokeWidth={1.2 * kStable} />
+                  <circle r={14 * kStable} fill="transparent" pointerEvents="all" />
+                  <circle r={4.5 * kStable} fill={tone} stroke="#FAF8F4" strokeWidth={1.4 * kStable} pointerEvents="none" />
                 </g>
               );
             }),
