@@ -11,7 +11,7 @@
 // Particles ride along the rendered <path> elements using
 // getTotalLength() + getPointAtLength(), the same trick the design uses.
 
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useRef, useMemo, useState, useCallback } from 'react';
 import {
   PERCENTILE_CLASSES,
   STAGE_VERDICTS,
@@ -326,116 +326,26 @@ export default function MOMap(props: MOMapProps) {
     );
   }, [bbox]);
 
-  // ─── Particles ─────────────────────────────────────────────────────────
-  // For each river that's "active" (mean percentile ≥ 60 or hovered/focused
-  // or floatable+prime/pushy), seed N particles. On every frame walk each
-  // particle's t, sample the rendered <path>'s point, and render as small
-  // <circle>s. The DOM <path> elements have stable ids so we can grab them.
-  const particlesContainerRef = useRef<SVGGElement | null>(null);
-  const rafRef = useRef<number>(0);
-
-  // Particle speed (loops-per-second along the river path) — driven by
-  // ConditionCode so the animation actually communicates flow strength,
-  // not the loud-but-meaningless percentile-vs-record. Low → almost
-  // motionless; flooding → sprinting.
-  const SPEED_BY_CONDITION: Record<StageVerdict, number> = {
-    too_low:   0.015,
-    low:       0.035,
-    good:      0.06,
-    flowing:   0.10,
-    high:      0.16,
-    dangerous: 0.22,
-    unknown:   0.04,
+  // ─── Flow animation ────────────────────────────────────────────────────
+  // The river segments paint as flowing dashed lines via CSS-animated
+  // stroke-dashoffset. Each ConditionCode maps to a loop duration: too_low
+  // is ~60s per dash period (almost stationary), dangerous is ~2s
+  // (sprinting). Replaces the old RAF-driven particle dots — same visual
+  // intent (motion communicates flow strength) but seamless and free, no
+  // JS frame loop, and crucially no "no particles for too_low/low" gap
+  // since every segment animates regardless of condition.
+  //
+  // The dash period (sum of dash + gap, in viewBox units) needs to match
+  // the negative `to` value on the @keyframes below — they're both 22.
+  const FLOW_DURATION_BY_CONDITION: Record<StageVerdict, number> = {
+    too_low:   60,
+    low:       30,
+    good:      14,
+    flowing:   8,
+    high:      4,
+    dangerous: 2,
+    unknown:   20,
   };
-
-  useEffect(() => {
-    type P = { riverId: string; t: number; speed: number };
-    const particles: P[] = [];
-    for (const r of props.rivers) {
-      const p = props.percentileByRiver[r.slug] ?? 50;
-      const verdict = props.verdictByRiver[r.slug];
-      const isActive =
-        p >= 60 ||
-        props.hoveredRiverId === r.id ||
-        props.focusedRiverId === r.id ||
-        verdict === 'flowing' ||
-        verdict === 'good' ||
-        verdict === 'high' ||
-        verdict === 'dangerous';
-      if (!isActive) continue;
-      const n = p < 25 ? 2 : p < 75 ? 4 : 7;
-      const baseSpeed = SPEED_BY_CONDITION[verdict ?? 'unknown'];
-      for (let i = 0; i < n; i++) {
-        particles.push({
-          riverId: r.id,
-          t: i / n + Math.random() * 0.04,
-          // Small random jitter so particles don't move in lockstep,
-          // anchored to the condition-driven base.
-          speed: baseSpeed * (0.85 + Math.random() * 0.30),
-        });
-      }
-    }
-
-    let last = performance.now();
-    const draw = () => {
-      const now = performance.now();
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-
-      const g = particlesContainerRef.current;
-      if (!g) {
-        rafRef.current = requestAnimationFrame(draw);
-        return;
-      }
-
-      // Clear and redraw all particles.
-      while (g.firstChild) g.removeChild(g.firstChild);
-
-      for (const p of particles) {
-        p.t += p.speed * dt;
-        if (p.t > 1) p.t -= 1;
-
-        const path = document.getElementById(
-          `mo-river-path-${p.riverId}`,
-        ) as SVGPathElement | null;
-        if (!path) continue;
-
-        const len = path.getTotalLength();
-        if (!len) continue;
-        const pt = path.getPointAtLength(p.t * len);
-
-        const verdict = props.verdictByRiver[
-          props.rivers.find((r) => r.id === p.riverId)?.slug ?? ''
-        ];
-        const tone = verdict ? STAGE_VERDICTS[verdict].inner : '#F2EAD8';
-
-        const c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c1.setAttribute('cx', `${pt.x}`);
-        c1.setAttribute('cy', `${pt.y}`);
-        c1.setAttribute('r', '4');
-        c1.setAttribute('fill', tone);
-        c1.setAttribute('opacity', '0.55');
-        g.appendChild(c1);
-
-        const c2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c2.setAttribute('cx', `${pt.x}`);
-        c2.setAttribute('cy', `${pt.y}`);
-        c2.setAttribute('r', '1.6');
-        c2.setAttribute('fill', '#FAF8F4');
-        g.appendChild(c2);
-      }
-
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    rafRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [
-    props.rivers,
-    props.percentileByRiver,
-    props.verdictByRiver,
-    props.hoveredRiverId,
-    props.focusedRiverId,
-  ]);
 
   // ─── Zoom + pan ────────────────────────────────────────────────────────
   // The SVG viewBox is state. Wheel zooms around the cursor; primary-button
@@ -804,28 +714,58 @@ export default function MOMap(props: MOMapProps) {
               fill="none"
             />
             {/* Painted strokes — segments when we have gauges, otherwise
-                one fallback line. */}
+                one fallback line. Each segment renders a solid base
+                stroke + a thinner inner-tone stroke with animated
+                stroke-dashoffset, so the river visibly flows. Loop
+                duration comes from FLOW_DURATION_BY_CONDITION — too_low
+                is ~60s/cycle (almost still), dangerous is ~2s
+                (sprinting), monotonic in between. */}
             {segs && segs.length ? (
               segs.map((s, i) => (
+                <g key={`${r.id}-seg-${i}`}>
+                  <path
+                    d={s.d}
+                    stroke={STAGE_VERDICTS[s.condition].color}
+                    strokeWidth={sw}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d={s.d}
+                    stroke={STAGE_VERDICTS[s.condition].inner}
+                    strokeWidth={Math.max(1.1, sw * 0.55)}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray="14 8"
+                    style={{
+                      animation: `mo-river-flow ${FLOW_DURATION_BY_CONDITION[s.condition]}s linear infinite`,
+                    }}
+                  />
+                </g>
+              ))
+            ) : (
+              <g>
                 <path
-                  key={`${r.id}-seg-${i}`}
-                  d={s.d}
-                  stroke={STAGE_VERDICTS[s.condition].color}
+                  d={d}
+                  stroke={fallbackColor}
                   strokeWidth={sw}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-              ))
-            ) : (
-              <path
-                d={d}
-                stroke={fallbackColor}
-                strokeWidth={sw}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+                <path
+                  d={d}
+                  stroke={STAGE_VERDICTS[verdict].inner}
+                  strokeWidth={Math.max(1.1, sw * 0.55)}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray="14 8"
+                  style={{
+                    animation: `mo-river-flow ${FLOW_DURATION_BY_CONDITION[verdict]}s linear infinite`,
+                  }}
+                />
+              </g>
             )}
             {/* Dangerous-flood dashed inner stroke spans whichever
                 segments are at flood, so the hazard reads even when
@@ -861,8 +801,11 @@ export default function MOMap(props: MOMapProps) {
       })}
       </g>
 
-      {/* Particles (continuously redrawn by the RAF effect above) */}
-      <g ref={particlesContainerRef} pointerEvents="none" />
+      {/* Flow animation keyframes — applied per-segment via inline style.
+          One dash period = 22 viewBox units (14 dash + 8 gap). */}
+      <style>{`
+        @keyframes mo-river-flow { to { stroke-dashoffset: -22; } }
+      `}</style>
 
       {/* Gauges. Radii multiplied by kStable so the dot stays the same
           *screen* size at any zoom — at the state-wide view it doesn't
