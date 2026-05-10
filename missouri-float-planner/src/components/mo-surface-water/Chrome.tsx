@@ -17,6 +17,7 @@ import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
+import type { ConditionCode } from '@/types/api';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const SANS = 'var(--font-body), system-ui, sans-serif';
@@ -168,7 +169,19 @@ export function LayerToggles({
 
 // ─── Percentile legend ──────────────────────────────────────────────────
 
+// River-condition legend — single source of truth across the page,
+// /plan, /rivers/[slug], embeds. Maps each ConditionCode to the same
+// CONDITION_COLORS painting the curated rivers and gauge dots.
 export function PercentileLegend() {
+  // Display order = readability order (driest → wettest).
+  const items: Array<{ code: ConditionCode; short: string; label: string }> = [
+    { code: 'too_low',   short: 'Too low',  label: 'Frequent dragging / portaging likely' },
+    { code: 'low',       short: 'Low',      label: 'Some dragging in shallow areas' },
+    { code: 'good',      short: 'Good',     label: 'Floatable with minimal scraping' },
+    { code: 'flowing',   short: 'Flowing',  label: 'Ideal — sweet-spot conditions' },
+    { code: 'high',      short: 'High',     label: 'Fast current — strong paddlers only' },
+    { code: 'dangerous', short: 'Flood',    label: 'Flood stage — do not float' },
+  ];
   return (
     <div
       className="absolute left-3 z-10 rounded-md border-2 px-3 py-2.5"
@@ -191,13 +204,13 @@ export function PercentileLegend() {
           marginBottom: 6,
         }}
       >
-        Discharge percentile
+        River conditions
       </div>
-      {PERCENTILE_CLASSES.map((c) => (
-        <div key={c.short} className="mb-0.5 flex items-center gap-2">
-          <span style={{ width: 18, height: 4, background: c.color, borderRadius: 2 }} />
-          <span className="font-semibold" style={{ width: 56 }}>{c.short}</span>
-          <span style={{ color: THEME.inkDim }}>{c.label}</span>
+      {items.map((it) => (
+        <div key={it.code} className="mb-0.5 flex items-center gap-2">
+          <span style={{ width: 18, height: 4, background: STAGE_VERDICTS[it.code].color, borderRadius: 2 }} />
+          <span className="font-semibold" style={{ width: 60 }}>{it.short}</span>
+          <span style={{ color: THEME.inkDim }}>{it.label}</span>
         </div>
       ))}
       <div
@@ -209,7 +222,7 @@ export function PercentileLegend() {
           letterSpacing: '0.05em',
         }}
       >
-        Vs. period of record · USGS NWIS STAT
+        Each river segment fades into the next gauge&apos;s color along the line.
       </div>
     </div>
   );
@@ -540,6 +553,8 @@ export function RightRail({
   poi,
   forecastBySite,
   onClose,
+  onCloseGauge,
+  onAccessPointClick,
 }: {
   river: MORiver | null;
   primaryGauge: MoStatewideGauge | null;
@@ -550,14 +565,20 @@ export function RightRail({
   accessPoint: { ap: MOAccessPoint; river: MORiver } | null;
   poi: { poi: MOPoi; river: MORiver | null } | null;
   forecastBySite: Record<string, MoForecastEntry>;
+  /** Closes the rail entirely (river + gauge). Used by RiverCard's ×. */
   onClose: () => void;
+  /** Closes JUST the gauge focus, falling back to the river card.
+   *  Without this, "Close" on a gauge collapses the river too, which
+   *  felt like a broken navigation step. */
+  onCloseGauge?: () => void;
+  onAccessPointClick?: (id: string) => void;
 }) {
   if (focusedGauge) {
     return (
       <GaugeDetail
         gauge={focusedGauge}
         forecast={forecastBySite[focusedGauge.site_no] ?? null}
-        onClose={onClose}
+        onClose={onCloseGauge ?? onClose}
       />
     );
   }
@@ -583,6 +604,7 @@ export function RightRail({
         primaryHistory={primaryHistory}
         forecast={forecast}
         onClose={onClose}
+        onAccessPointClick={onAccessPointClick}
       />
     );
   }
@@ -602,12 +624,16 @@ function RiverCard({
   primaryHistory,
   forecast,
   onClose,
+  onAccessPointClick,
 }: {
   river: MORiver;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
   forecast: MoForecastEntry | null;
   onClose?: () => void;
+  /** When set, access-point rows in the rail become clickable buttons
+   *  that open the detail modal for that access point. */
+  onAccessPointClick?: (id: string) => void;
 }) {
   const primaryThresholds = (river.gauges ?? []).find((x) => x.is_primary) ?? null;
   // Use the canonical classifier so this badge matches /rivers/[slug] for
@@ -630,7 +656,9 @@ function RiverCard({
   })();
   const tone = STAGE_VERDICTS[verdict];
 
-  const accessSummary = (river.access_points ?? []).slice(0, 4);
+  const allAccess = river.access_points ?? [];
+  const [showAllAccess, setShowAllAccess] = useState(false);
+  const accessSummary = showAllAccess ? allAccess : allAccess.slice(0, 4);
 
   return (
     <div
@@ -678,7 +706,7 @@ function RiverCard({
       )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <KV label="Discharge"
+        <KV label="Flow"
           value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
           sub="cfs" />
         <KV label="Percentile"
@@ -694,7 +722,7 @@ function RiverCard({
             marginBottom: 4,
           }}
         >
-          30-day percentile · primary gauge
+          30-day CFS · primary gauge
         </div>
         <div
           className="rounded-md border-2 p-2.5"
@@ -726,7 +754,7 @@ function RiverCard({
         )}
       </div>
 
-      {accessSummary.length > 0 && (
+      {allAccess.length > 0 && (
         <div className="mt-4">
           <div
             className="uppercase font-bold"
@@ -735,29 +763,38 @@ function RiverCard({
               marginBottom: 6,
             }}
           >
-            Top access points · click on map for detail
+            Access points · {allAccess.length}
           </div>
           <div className="space-y-1">
-            {accessSummary.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center justify-between rounded-sm px-2 py-1"
-                style={{ background: '#F4EFE7', fontFamily: MONO, fontSize: 11 }}
-              >
-                <span className="truncate" style={{ color: THEME.ink }}>{a.name}</span>
-                <span style={{ color: THEME.inkDim, marginLeft: 6 }}>
-                  mi {a.river_mile_downstream != null ? a.river_mile_downstream.toFixed(1) : '—'}
-                </span>
-              </div>
-            ))}
+            {accessSummary.map((a) => {
+              const clickable = !!onAccessPointClick;
+              const Row = clickable ? 'button' : 'div';
+              return (
+                <Row
+                  key={a.id}
+                  type={clickable ? 'button' : undefined}
+                  onClick={clickable ? () => onAccessPointClick(a.id) : undefined}
+                  className={`flex w-full items-center justify-between rounded-sm px-2 py-1 text-left ${clickable ? 'hover:bg-[#EAE0CC] cursor-pointer' : ''}`}
+                  style={{ background: '#F4EFE7', fontFamily: MONO, fontSize: 11, transition: 'background 120ms' }}
+                >
+                  <span className="truncate" style={{ color: THEME.ink }}>{a.name}</span>
+                  <span style={{ color: THEME.inkDim, marginLeft: 6, whiteSpace: 'nowrap' }}>
+                    mi {a.river_mile_downstream != null ? a.river_mile_downstream.toFixed(1) : '—'}
+                    {clickable && <span aria-hidden style={{ marginLeft: 6, color: THEME.inkDim }}>›</span>}
+                  </span>
+                </Row>
+              );
+            })}
           </div>
-          {(river.access_points?.length ?? 0) > accessSummary.length && (
-            <div
-              className="mt-1"
-              style={{ fontFamily: MONO, fontSize: 9.5, color: THEME.inkDim }}
+          {allAccess.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllAccess((v) => !v)}
+              className="mt-1 cursor-pointer hover:underline"
+              style={{ fontFamily: MONO, fontSize: 10, color: THEME.inkDim, letterSpacing: '0.05em' }}
             >
-              + {(river.access_points!.length - accessSummary.length)} more
-            </div>
+              {showAllAccess ? `Show top 4` : `Show all ${allAccess.length}`}
+            </button>
           )}
         </div>
       )}
@@ -827,7 +864,7 @@ function GaugeHover({ gauge }: { gauge: MoStatewideGauge }) {
         </div>
       ) : null}
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <KV label="Discharge"
+        <KV label="Flow"
           value={gauge.dischargeCfs != null ? `${Math.round(gauge.dischargeCfs)}` : '—'} sub="cfs" />
         <KV label="Stage"
           value={gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)}` : '—'} sub="ft" />
@@ -926,7 +963,7 @@ function GaugeDetail({
       />
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <KV label="Discharge"
+        <KV label="Flow"
           value={gauge.dischargeCfs != null ? `${Math.round(gauge.dischargeCfs)}` : '—'} sub="cfs" />
         <KV label="Stage"
           value={gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)}` : '—'} sub="ft" />
@@ -938,7 +975,7 @@ function GaugeDetail({
 
       <div className="mt-3 uppercase font-bold"
         style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em', color: THEME.inkDim }}>
-        30-day percentile
+        30-day CFS
       </div>
       <div
         className="mt-1 rounded-md border-2 p-2.5"
@@ -1207,7 +1244,7 @@ export function TimeScrubber({
             className="font-bold uppercase"
             style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', color: '#F2EAD8' }}
           >
-            Statewide gauge tape · 30 days
+            30-day timeline
           </span>
           <span
             className="ml-3"
@@ -1215,7 +1252,9 @@ export function TimeScrubber({
               fontFamily: MONO, fontSize: 10, color: 'rgba(242,234,216,0.6)',
             }}
           >
-            scrub to replay how every river painted across the past month
+            {history.length
+              ? 'drag to replay how every river ran across the past month'
+              : 'historical readings still loading…'}
           </span>
         </div>
         <div
@@ -1409,6 +1448,54 @@ function LinkRow({ href, label, hint }: { href: string; label: string; hint?: st
   );
 }
 
+// Compact photo strip for the access-point modal. Pulls from
+// access_points.image_urls (00022) — surfaced via the dataset RPC by
+// 00123. Renders the first image as a hero with a horizontally
+// scrollable thumbnail row when more are available; nothing renders if
+// the row has no photos.
+function ImageGallery({ urls, alt }: { urls: string[]; alt: string }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  if (!urls.length) return null;
+  const active = urls[Math.min(activeIdx, urls.length - 1)];
+  return (
+    <div className="mb-4 -mx-1">
+      <div
+        className="rounded-md overflow-hidden border-2"
+        style={{ borderColor: THEME.cardBorder, background: '#0F2D35', aspectRatio: '16 / 9' }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={active}
+          alt={alt}
+          loading="lazy"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
+      {urls.length > 1 && (
+        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 px-1">
+          {urls.map((u, i) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setActiveIdx(i)}
+              aria-label={`Photo ${i + 1} of ${urls.length}`}
+              className="flex-shrink-0 rounded-sm overflow-hidden border-2"
+              style={{
+                width: 60, height: 40,
+                borderColor: i === activeIdx ? THEME.primary : THEME.cardBorder,
+                opacity: i === activeIdx ? 1 : 0.7,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={u} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FactRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-4 py-1.5 border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
@@ -1432,8 +1519,10 @@ export function DetailModal({
   if (selection.kind === 'access') {
     const { ap, river } = selection;
     const mapsHref = `https://www.google.com/maps/search/?api=1&query=${ap.lat},${ap.lon}`;
+    const images = ap.image_urls ?? [];
     return (
       <ModalShell title={ap.name} subtitle={`Access · ${river.name}`} onClose={onClose}>
+        <ImageGallery urls={images} alt={ap.name} />
         <div className="space-y-1 mb-4">
           <FactRow label="Type" value={ap.type.replace(/_/g, ' ')} />
           {ap.river_mile_downstream != null && (

@@ -380,6 +380,8 @@ export default function MOSurfaceWaterApp() {
         poi={null}
         forecastBySite={forecastBySite}
         onClose={closeRail}
+        onCloseGauge={() => setFocusedGaugeId(null)}
+        onAccessPointClick={(id) => handleClickAccess(id)}
       />
 
       <TimeScrubber
