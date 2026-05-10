@@ -69,14 +69,27 @@ export async function buildGaugeTrajectory(riverSlug: string): Promise<GaugeTraj
 
     if (!station?.usgs_site_id) return null;
 
+    return await buildGaugeTrajectoryForSite(station.usgs_site_id);
+  } catch (e) {
+    console.warn(`[GaugeTrajectory] Failed for ${riverSlug}:`, e);
+    return null;
+  }
+}
+
+/**
+ * Same trajectory build, addressed by USGS site ID directly. Used by the
+ * per-gauge Haiku cron which iterates secondary gauges.
+ */
+export async function buildGaugeTrajectoryForSite(usgsSiteId: string): Promise<GaugeTrajectory | null> {
+  try {
     // Fetch 48h of historical data (reuses existing USGS function)
-    const historical = await fetchHistoricalReadings(station.usgs_site_id, 10);
+    const historical = await fetchHistoricalReadings(usgsSiteId, 10);
     if (!historical || historical.readings.length < 4) {
       return null; // Not enough data points
     }
 
     // Fetch daily statistics for percentile context
-    const stats = await fetchDailyStatistics(station.usgs_site_id).catch(() => null);
+    const stats = await fetchDailyStatistics(usgsSiteId).catch(() => null);
 
     // Downsample to hourly: pick the reading closest to each hour mark
     const hourly = downsampleToHourly(historical.readings);
@@ -145,7 +158,7 @@ export async function buildGaugeTrajectory(riverSlug: string): Promise<GaugeTraj
       stats,
     };
   } catch (e) {
-    console.warn(`[GaugeTrajectory] Failed for ${riverSlug}:`, e);
+    console.warn(`[GaugeTrajectory] Failed for site ${usgsSiteId}:`, e);
     return null;
   }
 }
