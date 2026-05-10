@@ -446,11 +446,13 @@ export default function MOMap(props: MOMapProps) {
   const [view, setView] = useState(HOME_VIEW);
   const dragRef = useRef<
     | {
+        pointerId: number;
         startClientX: number;
         startClientY: number;
         startViewX: number;
         startViewY: number;
         moved: boolean;
+        captured: boolean;
       }
     | null
   >(null);
@@ -495,40 +497,62 @@ export default function MOMap(props: MOMapProps) {
     [view, clampView],
   );
 
+  // Drag threshold (pixels of pointer movement before we treat the gesture
+  // as a pan). Below this we leave the click path untouched so feature
+  // markers receive their click events normally.
+  const DRAG_THRESHOLD_PX = 5;
+
   const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
+    // Track potential drag, but DO NOT capture the pointer yet. If we
+    // capture here, all subsequent pointer events (including the click
+    // that follows pointerup) get retargeted to the SVG, and clicks on
+    // markers, the zoom buttons, etc. never reach their original target
+    // — diagnosed via /tmp/click-debug.mjs which showed the click event
+    // landing on `<svg>` with no marker target. We capture lazily in
+    // onPointerMove, only once the user has actually moved past the
+    // drag threshold.
     dragRef.current = {
+      pointerId: e.pointerId,
       startClientX: e.clientX,
       startClientY: e.clientY,
       startViewX: view.x,
       startViewY: view.y,
       moved: false,
+      captured: false,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
   }, [view.x, view.y]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
+    const dx = e.clientX - drag.startClientX;
+    const dy = e.clientY - drag.startClientY;
+    if (!drag.moved &&
+        (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX)) {
+      drag.moved = true;
+      // Once we know this is a real drag, capture the pointer so events
+      // keep flowing even if the cursor leaves the SVG bounds mid-pan.
+      try {
+        e.currentTarget.setPointerCapture(drag.pointerId);
+        drag.captured = true;
+      } catch { /* nothing useful we can do */ }
+    }
+    if (!drag.moved) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const sx = view.w / rect.width;
     const sy = view.h / rect.height;
-    const dx = (e.clientX - drag.startClientX) * sx;
-    const dy = (e.clientY - drag.startClientY) * sy;
-    if (Math.abs(e.clientX - drag.startClientX) > 3 ||
-        Math.abs(e.clientY - drag.startClientY) > 3) {
-      drag.moved = true;
-    }
     setView((v) => clampView({
       ...v,
-      x: drag.startViewX - dx,
-      y: drag.startViewY - dy,
+      x: drag.startViewX - dx * sx,
+      y: drag.startViewY - dy * sy,
     }));
   }, [view.w, view.h, clampView]);
 
   const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    if (dragRef.current) {
-      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    const drag = dragRef.current;
+    if (drag?.captured) {
+      try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
     }
     // Don't null `dragRef` synchronously — onClick reads `moved` to know
     // whether this was a real click or the tail of a drag. Cleared next
