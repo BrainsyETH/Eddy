@@ -127,6 +127,7 @@ interface MOMapProps {
   showCampgrounds: boolean;
   showAccessPoints: boolean;
   showPOIs: boolean;
+  showGauges: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   onHoverGauge: (id: string | null) => void;
@@ -791,6 +792,7 @@ export default function MOMap(props: MOMapProps) {
           Each marker has an invisible 14px screen hit-target as the
           first child so clicks register reliably even when the visible
           dot is only a few pixels across. */}
+      {props.showGauges && (
       <g>
         {props.gauges.map((g) => {
           const r = props.rivers.find((x) => x.id === g.river_id);
@@ -831,6 +833,7 @@ export default function MOMap(props: MOMapProps) {
           );
         })}
       </g>
+      )}
 
       {/* Access points */}
       {props.showAccessPoints && (
