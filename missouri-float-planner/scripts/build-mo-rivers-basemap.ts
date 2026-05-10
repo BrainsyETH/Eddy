@@ -206,14 +206,15 @@ function dissolveLongest(segs: FlowFeat[]): number[][] {
     progressed = false;
     const head = workCoords[0];
     const tail = workCoords[workCoords.length - 1];
+    type BridgeMode = 'prepend' | 'prepend-rev' | 'append' | 'append-rev';
     let bestIdx = -1;
     let bestDist = CHAIN_BRIDGE_TOLERANCE_DEG;
-    let bestMode: 'prepend' | 'prepend-rev' | 'append' | 'append-rev' = 'append';
+    let bestMode: BridgeMode = 'append';
     for (let i = 1; i < chains.length; i++) {
       if (used.has(i)) continue;
       const c = chains[i].coords;
       const cs = c[0], ce = c[c.length - 1];
-      const cands: Array<{ d: number; mode: typeof bestMode }> = [
+      const cands: Array<{ d: number; mode: BridgeMode }> = [
         { d: distDeg(tail, cs), mode: 'append' },
         { d: distDeg(tail, ce), mode: 'append-rev' },
         { d: distDeg(head, ce), mode: 'prepend' },

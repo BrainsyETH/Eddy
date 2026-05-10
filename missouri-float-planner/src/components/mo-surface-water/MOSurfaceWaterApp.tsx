@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   classifyStageFromThresholds,
+  type MOCampground,
   type MODataset,
   type MORiver,
   type StageVerdict,
@@ -27,6 +28,8 @@ import {
   RightRail,
   TimeScrubber,
   LayerToggles,
+  DetailModal,
+  type ModalSelection,
 } from './Chrome';
 
 const MOMap = dynamic(() => import('./MOMap'), { ssr: false });
@@ -42,9 +45,10 @@ export default function MOSurfaceWaterApp() {
   const [focusedRiverId, setFocusedRiverId] = useState<string | null>(null);
   const [hoveredGaugeId, setHoveredGaugeId] = useState<string | null>(null);
   const [focusedGaugeId, setFocusedGaugeId] = useState<string | null>(null);
-  const [focusedCampgroundId, setFocusedCampgroundId] = useState<string | null>(null);
-  const [focusedAccessId, setFocusedAccessId] = useState<string | null>(null);
-  const [focusedPoiId, setFocusedPoiId] = useState<string | null>(null);
+  // Access points / campgrounds / POIs open in a modal popup with link-outs;
+  // they're not pinned in the right rail. Rivers + gauges still pin to the
+  // rail on click.
+  const [modalSelection, setModalSelection] = useState<ModalSelection | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
 
   const [showCampgrounds, setShowCampgrounds] = useState(true);
@@ -155,6 +159,34 @@ export default function MOSurfaceWaterApp() {
     return out;
   }, [gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
 
+  // Per-gauge ConditionCode — derived from the gauge's own thresholds and
+  // reading. Drives the segmented river coloring so each reach inherits
+  // the condition of the gauge nearest to it, instead of every reach
+  // showing the primary gauge's condition.
+  const conditionByGauge: Record<string, StageVerdict> = useMemo(() => {
+    const out: Record<string, StageVerdict> = {};
+    const isToday = dayOffset === 0 || scrubIdx === dayCount - 1;
+    for (const r of rivers) {
+      for (const g of r.gauges ?? []) {
+        const live = gauges.find((x) => x.site_no === g.site_id);
+        let value: number | null = null;
+        if (isToday) {
+          value = g.threshold_unit === 'ft'
+            ? live?.gaugeHeightFt ?? null
+            : live?.dischargeCfs ?? null;
+        } else {
+          const ent = historyEntries.find((e) => e.site_no === g.site_id);
+          const day = ent?.daily[scrubIdx];
+          value = g.threshold_unit === 'ft'
+            ? day?.gaugeHeightFt ?? null
+            : day?.dischargeCfs ?? null;
+        }
+        out[g.site_id] = classifyStageFromThresholds(value, g.threshold_unit, g);
+      }
+    }
+    return out;
+  }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
+
   // Verdict per river based on the gauge_height_ft from the primary gauge.
   // For historical scrubbing, we approximate by mapping percentile back through
   // the per-day stage when available; otherwise we use today's stage.
@@ -226,64 +258,68 @@ export default function MOSurfaceWaterApp() {
   const focusedGauge = gauges.find((g) => g.site_no === focusedGaugeId) ?? null;
   const hoveredGauge = gauges.find((g) => g.site_no === hoveredGaugeId) ?? null;
 
-  const focusedCampground = dataset?.campgrounds.find((c) => c.id === focusedCampgroundId) ?? null;
-  const focusedAccessPoint = (() => {
-    if (!focusedAccessId) return null;
-    for (const r of rivers) {
-      const ap = (r.access_points ?? []).find((a) => a.id === focusedAccessId);
-      if (ap) return { ap, river: r };
-    }
-    return null;
-  })();
-  const focusedPoi = (() => {
-    if (!focusedPoiId) return null;
-    for (const r of rivers) {
-      const p = (r.pois ?? []).find((x) => x.id === focusedPoiId);
-      if (p) return { poi: p, river: r };
-    }
-    return null;
-  })();
-
   const handleFocusGauge = (id: string | null) => {
     setFocusedGaugeId(id);
-    setFocusedCampgroundId(null);
-    setFocusedAccessId(null);
-    setFocusedPoiId(null);
     if (id) {
       const g = gauges.find((x) => x.site_no === id);
       if (g) setFocusedRiverId(g.river_id);
     }
   };
-  const handleFocusCampground = (id: string | null) => {
-    setFocusedCampgroundId(id);
-    if (id) {
-      setFocusedGaugeId(null);
-      setFocusedAccessId(null);
-      setFocusedPoiId(null);
+  // Access points / campgrounds / POIs open the modal popup with link-outs.
+  // We also focus the river they belong to so the right rail keeps showing
+  // its float context behind the modal.
+  const handleClickAccess = (id: string | null) => {
+    if (!id) { setModalSelection(null); return; }
+    for (const r of rivers) {
+      const ap = (r.access_points ?? []).find((a) => a.id === id);
+      if (ap) {
+        setModalSelection({ kind: 'access', ap, river: r });
+        setFocusedRiverId(r.id);
+        return;
+      }
     }
   };
-  const handleFocusAccess = (id: string | null) => {
-    setFocusedAccessId(id);
-    if (id) {
-      setFocusedGaugeId(null);
-      setFocusedCampgroundId(null);
-      setFocusedPoiId(null);
+  const handleClickCampground = (id: string | null) => {
+    if (!id || !dataset) { setModalSelection(null); return; }
+    const camp = dataset.campgrounds.find((c) => c.id === id);
+    if (!camp) return;
+    // Find the river the campground was snapped to (if any) so the modal
+    // can name it. Falls back to nearest-by-distance if snap_river_id is
+    // not present on the row.
+    let nearestRiverName: string | null = null;
+    for (const r of rivers) {
+      // The dataset RPC may attach snap_river_id on the campground row;
+      // check it first if present, otherwise fall back to nearest-distance.
+      const sid = (camp as MOCampground & { snap_river_id?: string | null }).snap_river_id;
+      if (sid && r.id === sid) { nearestRiverName = r.name; break; }
+    }
+    if (!nearestRiverName) {
+      let bestD = Infinity;
+      for (const r of rivers) {
+        for (const c of r.geometry.coordinates as Array<[number, number]>) {
+          const dx = c[0] - camp.lon, dy = c[1] - camp.lat;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestD) { bestD = d2; nearestRiverName = r.name; }
+        }
+      }
+    }
+    setModalSelection({ kind: 'campground', camp, nearestRiverName });
+  };
+  const handleClickPoi = (id: string | null) => {
+    if (!id) { setModalSelection(null); return; }
+    for (const r of rivers) {
+      const p = (r.pois ?? []).find((x) => x.id === id);
+      if (p) {
+        setModalSelection({ kind: 'poi', poi: p, river: r });
+        setFocusedRiverId(r.id);
+        return;
+      }
     }
   };
-  const handleFocusPoi = (id: string | null) => {
-    setFocusedPoiId(id);
-    if (id) {
-      setFocusedGaugeId(null);
-      setFocusedCampgroundId(null);
-      setFocusedAccessId(null);
-    }
-  };
-
+  const closeModal = () => setModalSelection(null);
   const closeRail = () => {
     setFocusedGaugeId(null);
-    setFocusedCampgroundId(null);
-    setFocusedAccessId(null);
-    setFocusedPoiId(null);
+    setFocusedRiverId(null);
   };
 
   return (
@@ -293,6 +329,7 @@ export default function MOSurfaceWaterApp() {
         campgrounds={dataset?.campgrounds ?? []}
         gauges={gauges}
         verdictByRiver={verdictByRiver}
+        conditionByGauge={conditionByGauge}
         percentileByRiver={percentileByRiver}
         percentileByGauge={percentileByGauge}
         hoveredRiverId={hoveredRiverId}
@@ -306,9 +343,9 @@ export default function MOSurfaceWaterApp() {
         onFocusRiver={setFocusedRiverId}
         onHoverGauge={setHoveredGaugeId}
         onFocusGauge={handleFocusGauge}
-        onClickCampground={handleFocusCampground}
-        onClickAccessPoint={handleFocusAccess}
-        onClickPoi={handleFocusPoi}
+        onClickCampground={handleClickCampground}
+        onClickAccessPoint={handleClickAccess}
+        onClickPoi={handleClickPoi}
       />
 
       <HeaderBar
@@ -338,9 +375,9 @@ export default function MOSurfaceWaterApp() {
         primaryHistory={railPrimaryHistory}
         hoveredGauge={hoveredGauge}
         focusedGauge={focusedGauge}
-        campground={focusedCampground}
-        accessPoint={focusedAccessPoint}
-        poi={focusedPoi}
+        campground={null}
+        accessPoint={null}
+        poi={null}
         forecastBySite={forecastBySite}
         onClose={closeRail}
       />
@@ -367,6 +404,8 @@ export default function MOSurfaceWaterApp() {
           Data fetch failed: {error}
         </div>
       )}
+
+      <DetailModal selection={modalSelection} onClose={closeModal} />
     </div>
   );
 }
