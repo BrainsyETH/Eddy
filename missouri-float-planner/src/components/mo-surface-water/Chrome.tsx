@@ -582,6 +582,7 @@ export function RightRail({
         primaryGauge={primaryGauge}
         primaryHistory={primaryHistory}
         forecast={forecast}
+        onClose={onClose}
       />
     );
   }
@@ -600,11 +601,13 @@ function RiverCard({
   primaryGauge,
   primaryHistory,
   forecast,
+  onClose,
 }: {
   river: MORiver;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
   forecast: MoForecastEntry | null;
+  onClose?: () => void;
 }) {
   const primaryThresholds = (river.gauges ?? []).find((x) => x.is_primary) ?? null;
   // Use the canonical classifier so this badge matches /rivers/[slug] for
@@ -634,13 +637,18 @@ function RiverCard({
       className="absolute right-3 z-20 w-[360px] overflow-auto rounded-md border-2 p-4"
       style={{ ...RAIL_BASE_STYLE, top: 96, bottom: 156 }}
     >
+      {onClose && (
+        <div className="absolute right-3 top-3">
+          <CloseBtn onClose={onClose} />
+        </div>
+      )}
       <div
-        className="uppercase font-bold"
+        className="uppercase font-bold pr-9"
         style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
       >
         {river.region ?? '—'} · {river.length_miles?.toFixed(0) ?? '—'} mi
       </div>
-      <div className="mt-1 font-bold leading-tight"
+      <div className="mt-1 font-bold leading-tight pr-9"
         style={{ fontSize: 22, color: THEME.primaryDark, fontFamily: DISPLAY }}>
         {river.name}
       </div>
