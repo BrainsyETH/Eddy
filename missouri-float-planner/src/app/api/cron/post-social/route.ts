@@ -278,7 +278,10 @@ async function runSocialPosting(request: NextRequest) {
   // and keep the row so the callback can still find and report it.
   try {
     const nonRenderCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const renderCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // 12s portrait reels usually render in 60-90s on ubuntu-latest. 10 min is
+    // a generous ceiling; anything older than that is dead and the admin
+    // retry button needs signal sooner than 30 min.
+    const renderCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
     const { count: nonRenderStale } = await supabase
       .from('social_posts')
@@ -298,7 +301,7 @@ async function runSocialPosting(request: NextRequest) {
       .update(
         {
           status: 'failed',
-          error_message: 'Stale — render did not complete within 30 min',
+          error_message: 'Stale — render did not complete within 10 min',
           updated_at: new Date().toISOString(),
         },
         { count: 'exact' },
@@ -405,8 +408,13 @@ async function runSocialPosting(request: NextRequest) {
           rendering += postIds.length;
           console.log(`${LOG_PREFIX} Video render triggered for ${groupKey}: ${postIds.length} platform(s), IDs: ${postIds.join(',')}`);
         } else {
-          // Dispatch failed — fall back to image for all
+          // Dispatch failed — fall back to image for all. Surface the
+          // dispatch failure on each row so a SQL query reveals "why is
+          // everything posting as image" without needing log forensics.
+          // Most common cause: GH_ACTIONS_TOKEN expired or lost scope.
+          const fallbackReason = 'Video dispatch returned non-204 — fell back to image. Check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
           console.error(`${LOG_PREFIX} GH Actions dispatch failed for ${groupKey}, falling back to image`);
+          errors.push(`${groupKey}: ${fallbackReason}`);
           for (let i = 0; i < groupPosts.length; i++) {
             const post = groupPosts[i];
             const id = postIds[i];
@@ -416,7 +424,12 @@ async function runSocialPosting(request: NextRequest) {
 
             await supabase
               .from('social_posts')
-              .update({ media_type: 'image', status: 'publishing', updated_at: new Date().toISOString() })
+              .update({
+                media_type: 'image',
+                status: 'publishing',
+                error_message: fallbackReason,
+                updated_at: new Date().toISOString(),
+              })
               .eq('id', id);
 
             const pubResult = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl, mediaType: 'image' });
@@ -427,13 +440,16 @@ async function runSocialPosting(request: NextRequest) {
                 status: pubResult.success ? 'published' : 'failed',
                 platform_post_id: pubResult.platformPostId || null,
                 published_at: pubResult.success ? new Date().toISOString() : null,
-                error_message: pubResult.success ? null : pubResult.error,
+                // Keep the fallback breadcrumb on success too — without it
+                // the published image looks indistinguishable from an
+                // intentional image post.
+                error_message: pubResult.success ? fallbackReason : pubResult.error,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', id);
 
             if (pubResult.success) published++;
-            else { failed++; errors.push(`${post.platform}/${post.postType}: fallback — ${pubResult.error}`); }
+            else { failed++; errors.push(`${post.platform}/${post.postType}: fallback publish — ${pubResult.error}`); }
           }
         }
       } catch (err) {
