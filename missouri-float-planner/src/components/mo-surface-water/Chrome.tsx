@@ -313,49 +313,127 @@ function Sparkline({
   width?: number;
   height?: number;
 }) {
-  const points = useMemo(() => {
-    if ('points' in history) {
-      return history.points.map((p) => p.percentile ?? 50);
+  // Three render modes:
+  //  1. Most points have a percentile → plot percentile vs. P25/P50/P75
+  //     ribbon. This is the canonical view for established gauges.
+  //  2. No percentiles available but discharge is → plot raw CFS. Used by
+  //     newer gauges and the secondary curated-river gauges that USGS
+  //     hasn't published daily stats for. This is what "river report
+  //     data" means in practice for those rows.
+  //  3. Stage-only → plot raw ft. Last resort.
+  const series = useMemo(() => {
+    const daily = 'points' in history ? history.points : history.daily;
+    const nonNullPct = daily.filter((d) => d.percentile != null).length;
+    const wantPercentile = daily.length > 0 && nonNullPct / daily.length >= 0.5;
+    if (wantPercentile) {
+      const values = daily.map((d) => d.percentile);
+      return { mode: 'percentile' as const, values, min: 0, max: 100, unit: '' };
     }
-    return history.daily.map((d) => d.percentile ?? 50);
+    const cfs = daily.map((d) => d.dischargeCfs);
+    if (cfs.some((v) => v != null)) {
+      const valid = cfs.filter((v): v is number => v != null);
+      const min = Math.min(...valid);
+      const max = Math.max(...valid);
+      const padded = Math.max(1, max - min);
+      return { mode: 'cfs' as const, values: cfs, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'cfs' };
+    }
+    const ft = daily.map((d) => d.gaugeHeightFt);
+    if (ft.some((v) => v != null)) {
+      const valid = ft.filter((v): v is number => v != null);
+      const min = Math.min(...valid);
+      const max = Math.max(...valid);
+      const padded = Math.max(0.05, max - min);
+      return { mode: 'ft' as const, values: ft, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'ft' };
+    }
+    return null;
   }, [history]);
 
-  if (!points.length) return null;
-  const xAt = (i: number) =>
-    points.length === 1 ? width / 2 : (i / (points.length - 1)) * width;
-  const yAt = (p: number) => height - 8 - (p / 100) * (height - 16);
-  const linePath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${xAt(i).toFixed(1)} ${yAt(p).toFixed(1)}`)
-    .join(' ');
-  const cur = points[points.length - 1];
-  const curColor = classifyPercentile(cur).color;
+  if (!series || series.values.length === 0) {
+    return (
+      <div style={{
+        height, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: MONO, fontSize: 10, color: THEME.inkDim,
+      }}>
+        No readings in the last 30 days
+      </div>
+    );
+  }
 
-  // Ribbon: P25–P75 (period-of-record envelope)
-  let ribbon: string | null = null;
-  const yHi = yAt(75), yLo = yAt(25);
-  ribbon = `M0 ${yHi} L${width} ${yHi} L${width} ${yLo} L0 ${yLo} Z`;
+  const { mode, values, min, max, unit } = series;
+  const range = max - min || 1;
+  const xAt = (i: number) =>
+    values.length === 1 ? width / 2 : (i / (values.length - 1)) * width;
+  const yAt = (v: number) => height - 8 - ((v - min) / range) * (height - 16);
+
+  // Build the path, breaking on null gaps so a missing day doesn't draw a
+  // misleading straight line across the gap.
+  const linePath = (() => {
+    let d = '';
+    let penDown = false;
+    values.forEach((v, i) => {
+      if (v == null) { penDown = false; return; }
+      const cmd = penDown ? 'L' : 'M';
+      d += `${cmd}${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)} `;
+      penDown = true;
+    });
+    return d.trim();
+  })();
+
+  // Most recent non-null reading drives the current marker + colour.
+  let lastIdx = values.length - 1;
+  while (lastIdx >= 0 && values[lastIdx] == null) lastIdx--;
+  const cur = lastIdx >= 0 ? values[lastIdx]! : null;
+  const curColor = mode === 'percentile' && cur != null
+    ? classifyPercentile(cur).color
+    : THEME.primaryDark;
+
+  const ribbon = mode === 'percentile'
+    ? `M0 ${yAt(75)} L${width} ${yAt(75)} L${width} ${yAt(25)} L0 ${yAt(25)} Z`
+    : null;
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} style={{ display: 'block' }}>
-      {/* P25–P75 ribbon (history envelope) */}
-      <path d={ribbon} fill="rgba(45,120,137,0.14)" />
-      {/* baseline */}
-      <line x1="0" y1={yAt(50)} x2={width} y2={yAt(50)}
-        stroke="rgba(45,42,36,0.18)" strokeDasharray="2 3" />
-      <line x1="0" y1={yAt(75)} x2={width} y2={yAt(75)} stroke="rgba(45,42,36,0.10)" />
-      <line x1="0" y1={yAt(25)} x2={width} y2={yAt(25)} stroke="rgba(45,42,36,0.10)" />
-      {/* line */}
-      <path d={linePath} stroke={curColor} strokeWidth="2.2" fill="none" strokeLinejoin="round" />
-      {/* current marker */}
-      <circle cx={xAt(points.length - 1)} cy={yAt(cur)} r="3.5"
-        fill={curColor} stroke="#fff" strokeWidth="1.5" />
-      {/* labels */}
-      <text x="3" y={yAt(75) - 2} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>P75</text>
-      <text x="3" y={yAt(25) - 2} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>P25</text>
-      <text x={width - 3} y={yAt(cur) - 6} textAnchor="end"
-        fontSize="9" fontWeight="700" fill={curColor} style={{ fontFamily: MONO }}>
-        P{Math.round(cur)}
-      </text>
+      {ribbon && <path d={ribbon} fill="rgba(45,120,137,0.14)" />}
+      {mode === 'percentile' && (
+        <>
+          <line x1="0" y1={yAt(50)} x2={width} y2={yAt(50)}
+            stroke="rgba(45,42,36,0.18)" strokeDasharray="2 3" />
+          <line x1="0" y1={yAt(75)} x2={width} y2={yAt(75)} stroke="rgba(45,42,36,0.10)" />
+          <line x1="0" y1={yAt(25)} x2={width} y2={yAt(25)} stroke="rgba(45,42,36,0.10)" />
+        </>
+      )}
+      {linePath && <path d={linePath} stroke={curColor} strokeWidth="2.2" fill="none" strokeLinejoin="round" />}
+      {cur != null && (
+        <circle cx={xAt(lastIdx)} cy={yAt(cur)} r="3.5"
+          fill={curColor} stroke="#fff" strokeWidth="1.5" />
+      )}
+      {mode === 'percentile' ? (
+        <>
+          <text x="3" y={yAt(75) - 2} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>P75</text>
+          <text x="3" y={yAt(25) - 2} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>P25</text>
+          {cur != null && (
+            <text x={width - 3} y={yAt(cur) - 6} textAnchor="end"
+              fontSize="9" fontWeight="700" fill={curColor} style={{ fontFamily: MONO }}>
+              P{Math.round(cur)}
+            </text>
+          )}
+        </>
+      ) : (
+        <>
+          <text x="3" y={11} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>
+            {mode === 'cfs' ? `${Math.round(max)} ${unit}` : `${max.toFixed(2)} ${unit}`}
+          </text>
+          <text x="3" y={height - 3} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>
+            {mode === 'cfs' ? `${Math.round(min)} ${unit}` : `${min.toFixed(2)} ${unit}`}
+          </text>
+          {cur != null && (
+            <text x={width - 3} y={yAt(cur) - 6} textAnchor="end"
+              fontSize="9" fontWeight="700" fill={curColor} style={{ fontFamily: MONO }}>
+              {mode === 'cfs' ? `${Math.round(cur)} ${unit}` : `${cur.toFixed(2)} ${unit}`}
+            </text>
+          )}
+        </>
+      )}
     </svg>
   );
 }
