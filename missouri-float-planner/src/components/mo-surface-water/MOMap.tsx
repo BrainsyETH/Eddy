@@ -11,7 +11,7 @@
 // Particles ride along the rendered <path> elements using
 // getTotalLength() + getPointAtLength(), the same trick the design uses.
 
-import { useRef, useMemo, useState, useCallback } from 'react';
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import {
   PERCENTILE_CLASSES,
   STAGE_VERDICTS,
@@ -393,27 +393,39 @@ export default function MOMap(props: MOMapProps) {
     [],
   );
 
-  const onWheel = useCallback(
-    (e: React.WheelEvent<SVGSVGElement>) => {
+  // Wheel zoom is attached natively (not via React's `onWheel` prop)
+  // because React registers wheel listeners as passive by default, which
+  // makes `e.preventDefault()` a no-op and triggers the
+  // "Unable to preventDefault inside passive event listener" warning.
+  // Native `addEventListener` with `{ passive: false }` lets the page
+  // suppress browser scroll while we zoom the SVG.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  // The wheel handler reads `view` and writes to it. We stash the latest
+  // view in a ref so the native listener (registered once) sees fresh
+  // state without needing to re-bind on every view change.
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const svg = e.currentTarget;
+      const v = viewRef.current;
       const rect = svg.getBoundingClientRect();
-      // Cursor in viewBox coords (the world point under the pointer).
-      const px = view.x + ((e.clientX - rect.left) / rect.width) * view.w;
-      const py = view.y + ((e.clientY - rect.top) / rect.height) * view.h;
-      // Trackpads emit small deltas; mouse wheels emit ~100. Normalize so
-      // both feel similar.
+      const px = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
+      const py = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
       const factor = Math.exp(dy / 600);
-      const nw = view.w * factor;
+      const nw = v.w * factor;
       const nh = nw * (H / W);
-      // Re-anchor so the world point under the cursor stays put.
       const nx = px - ((e.clientX - rect.left) / rect.width) * nw;
       const ny = py - ((e.clientY - rect.top) / rect.height) * nh;
       setView(clampView({ x: nx, y: ny, w: nw, h: nh }));
-    },
-    [view, clampView],
-  );
+    };
+    svg.addEventListener('wheel', handler, { passive: false });
+    return () => svg.removeEventListener('wheel', handler);
+  }, [clampView]);
 
   // Drag threshold (pixels of pointer movement before we treat the gesture
   // as a pan). Below this we leave the click path untouched so feature
@@ -524,11 +536,11 @@ export default function MOMap(props: MOMapProps) {
   return (
     <>
     <svg
+      ref={svgRef}
       viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       className="absolute inset-0 h-full w-full"
       style={{ cursor: dragRef.current?.moved ? 'grabbing' : 'grab', touchAction: 'none' }}
-      onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
