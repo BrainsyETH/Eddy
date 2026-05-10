@@ -51,9 +51,12 @@ export default function MOSurfaceWaterApp() {
   const [modalSelection, setModalSelection] = useState<ModalSelection | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
 
-  const [showCampgrounds, setShowCampgrounds] = useState(false);
-  const [showAccessPoints, setShowAccessPoints] = useState(false);
-  const [showPOIs, setShowPOIs] = useState(true);
+  // Access points / campgrounds / springs are paused while we iterate on
+  // the gauge-first experience. The MOMap props are kept so the layers
+  // can be re-enabled by flipping these constants when we're ready.
+  const showCampgrounds = false;
+  const showAccessPoints = false;
+  const showPOIs = false;
   const [showGauges, setShowGauges] = useState(true);
 
   // Initial fetches
@@ -358,13 +361,7 @@ export default function MOSurfaceWaterApp() {
       />
       <PercentileLegend />
       <LayerToggles
-        showCampgrounds={showCampgrounds}
-        showAccessPoints={showAccessPoints}
-        showPOIs={showPOIs}
         showGauges={showGauges}
-        setShowCampgrounds={setShowCampgrounds}
-        setShowAccessPoints={setShowAccessPoints}
-        setShowPOIs={setShowPOIs}
         setShowGauges={setShowGauges}
       />
       <StatewideSummary
@@ -379,6 +376,7 @@ export default function MOSurfaceWaterApp() {
         primaryHistory={railPrimaryHistory}
         hoveredGauge={hoveredGauge}
         focusedGauge={focusedGauge}
+        focusedGaugeVerdict={focusedGauge ? conditionByGauge[focusedGauge.site_no] ?? null : null}
         campground={null}
         accessPoint={null}
         poi={null}

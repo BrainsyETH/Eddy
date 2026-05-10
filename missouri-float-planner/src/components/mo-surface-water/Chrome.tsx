@@ -117,22 +117,10 @@ export function HeaderBar({
 // ─── Layer toggles ──────────────────────────────────────────────────────
 
 export function LayerToggles({
-  showCampgrounds,
-  showAccessPoints,
-  showPOIs,
   showGauges,
-  setShowCampgrounds,
-  setShowAccessPoints,
-  setShowPOIs,
   setShowGauges,
 }: {
-  showCampgrounds: boolean;
-  showAccessPoints: boolean;
-  showPOIs: boolean;
   showGauges: boolean;
-  setShowCampgrounds: (v: boolean) => void;
-  setShowAccessPoints: (v: boolean) => void;
-  setShowPOIs: (v: boolean) => void;
   setShowGauges: (v: boolean) => void;
 }) {
   const toggleStyle = (active: boolean) => ({
@@ -151,30 +139,6 @@ export function LayerToggles({
         style={toggleStyle(showGauges)}
       >
         ◎ Gauges ({showGauges ? 'on' : 'off'})
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowAccessPoints(!showAccessPoints)}
-        className="rounded-md border-2 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:opacity-90"
-        style={toggleStyle(showAccessPoints)}
-      >
-        ● Access ({showAccessPoints ? 'on' : 'off'})
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowCampgrounds(!showCampgrounds)}
-        className="rounded-md border-2 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:opacity-90"
-        style={toggleStyle(showCampgrounds)}
-      >
-        ⛺ Camps ({showCampgrounds ? 'on' : 'off'})
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowPOIs(!showPOIs)}
-        className="rounded-md border-2 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:opacity-90"
-        style={toggleStyle(showPOIs)}
-      >
-        ◉ Springs ({showPOIs ? 'on' : 'off'})
       </button>
     </div>
   );
@@ -563,6 +527,7 @@ export function RightRail({
   primaryHistory,
   hoveredGauge,
   focusedGauge,
+  focusedGaugeVerdict,
   campground,
   accessPoint,
   poi,
@@ -576,6 +541,10 @@ export function RightRail({
   primaryHistory: MoHistoryBundleEntry | null;
   hoveredGauge: MoStatewideGauge | null;
   focusedGauge: MoStatewideGauge | null;
+  /** Editorial-thresholds verdict computed in the parent. Falls back to
+   *  the percentile/USGS label when null (e.g. statewide gauges with no
+   *  curated river binding). */
+  focusedGaugeVerdict: StageVerdict | null;
   campground: MOCampground | null;
   accessPoint: { ap: MOAccessPoint; river: MORiver } | null;
   poi: { poi: MOPoi; river: MORiver | null } | null;
@@ -592,6 +561,7 @@ export function RightRail({
     return (
       <GaugeDetail
         gauge={focusedGauge}
+        verdict={focusedGaugeVerdict}
         forecast={forecastBySite[focusedGauge.site_no] ?? null}
         onClose={onCloseGauge ?? onClose}
       />
@@ -924,16 +894,27 @@ function CloseBtn({ onClose }: { onClose: () => void }) {
 
 function GaugeDetail({
   gauge,
+  verdict,
   forecast,
   onClose,
 }: {
   gauge: MoStatewideGauge;
+  verdict: StageVerdict | null;
   forecast: MoForecastEntry | null;
   onClose: () => void;
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
   const eddy = useGaugeEddyReport(gauge.site_no);
+  // Prefer the editorial verdict (matches the marker color + the rest of
+  // the app); fall back to the USGS percentile classification when the
+  // gauge has no curated thresholds.
+  const verdictInfo = verdict ? STAGE_VERDICTS[verdict] : null;
+  const headlineColor = verdictInfo?.color ?? cls?.color ?? '#857D70';
+  const headlineLabel = verdictInfo?.label ?? cls?.label ?? 'No condition data';
+  const headlineValue = verdict
+    ? (gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : '—')
+    : (gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—');
   return (
     <div
       className="absolute right-3 z-30 w-[360px] overflow-auto rounded-md border-2 p-4"
@@ -959,13 +940,15 @@ function GaugeDetail({
 
       <div
         className="mt-3 flex items-baseline gap-3 rounded-md px-3 py-2.5"
-        style={{ background: cls?.color ?? '#857D70', color: '#FAF8F4' }}
+        style={{ background: headlineColor, color: '#FAF8F4' }}
       >
-        <div className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 28 }}>
-          {gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—'}
+        <div className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
+          {headlineValue}
         </div>
-        <div style={{ fontSize: 13, opacity: 0.9 }}>{cls?.label ?? 'No history available'}</div>
+        <div style={{ fontSize: 13, opacity: 0.95, fontWeight: 600 }}>{headlineLabel}</div>
       </div>
+
+      <EddyReportCard report={eddy} />
 
       <ThresholdProvenance
         thresholds={{
@@ -983,8 +966,8 @@ function GaugeDetail({
           value={gauge.dischargeCfs != null ? `${Math.round(gauge.dischargeCfs)}` : '—'} sub="cfs" />
         <KV label="Stage"
           value={gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)}` : '—'} sub="ft" />
-        <KV label="Median (DOY)"
-          value={gauge.stats?.p50 != null ? `${Math.round(gauge.stats.p50)}` : '—'} sub="cfs" />
+        <KV label="Percentile"
+          value={gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—'} />
         <KV label="Years on record"
           value={gauge.stats?.yearsOfRecord != null ? `${Math.round(gauge.stats.yearsOfRecord)}` : '—'} />
       </div>
@@ -1004,8 +987,6 @@ function GaugeDetail({
           }}>Loading…</div>
         )}
       </div>
-
-      <EddyReportCard report={eddy} />
 
       <div
         className="mt-3 border-t pt-2.5"
