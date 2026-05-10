@@ -28,6 +28,31 @@ import {
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
 
+interface PlatformHealthStats {
+  platform: string;
+  videoPublished: number;
+  imagePublished: number;
+  failed: number;
+  rendering: number;
+  fallbackToImage: number;
+  lastSuccessfulVideoAt: string | null;
+}
+
+interface HealthSnapshot {
+  windowDays: number;
+  generatedAt: string;
+  videoPipelineHealthy: boolean;
+  hoursSinceLastSuccessfulVideo: number | null;
+  byPlatform: PlatformHealthStats[];
+  recentFallbackReasons: Array<{ reason: string; count: number; mostRecentAt: string }>;
+}
+
+interface PreflightOutcome {
+  ok: boolean;
+  status: number;
+  body: { reason?: string | null; checks?: Record<string, unknown>; config?: Record<string, unknown> };
+}
+
 interface VideoFeatures {
   condition_alerts_as_video: boolean;
 }
@@ -242,6 +267,12 @@ export default function SocialAdminPage() {
     status: '',
   });
 
+  // Video pipeline health — surfaces silent fallbacks (image instead of
+  // video) and PAT/scope failures before they pile up.
+  const [health, setHealth] = useState<HealthSnapshot | null>(null);
+  const [preflightResult, setPreflightResult] = useState<PreflightOutcome | null>(null);
+  const [preflightChecking, setPreflightChecking] = useState(false);
+
   // New content form state
   const [newContent, setNewContent] = useState({
     content_type: 'tip',
@@ -353,10 +384,38 @@ export default function SocialAdminPage() {
     }
   }, []);
 
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await adminFetch(`/api/admin/social/health?_t=${Date.now()}`);
+      if (res.ok) {
+        setHealth(await res.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch health:', err);
+    }
+  }, []);
+
+  const runPreflight = useCallback(async () => {
+    setPreflightChecking(true);
+    try {
+      const res = await adminFetch(`/api/admin/social/preflight?_t=${Date.now()}`);
+      const body = await res.json();
+      setPreflightResult({ ok: res.ok, status: res.status, body });
+    } catch (err) {
+      setPreflightResult({
+        ok: false,
+        status: 0,
+        body: { reason: err instanceof Error ? err.message : 'Network error' },
+      });
+    } finally {
+      setPreflightChecking(false);
+    }
+  }, []);
+
   // Initial load — run once on mount
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchConfig(), fetchPosts(), fetchContent(), fetchRivers()]).finally(() =>
+    Promise.all([fetchConfig(), fetchPosts(), fetchContent(), fetchRivers(), fetchHealth()]).finally(() =>
       setLoading(false)
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1014,6 +1073,82 @@ export default function SocialAdminPage() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Video pipeline health */}
+        {health && (
+          <div
+            className={`mb-6 p-4 rounded-lg border ${
+              health.videoPipelineHealthy
+                ? 'bg-green-950/40 border-green-800 text-green-200'
+                : 'bg-red-950/40 border-red-800 text-red-200'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <div className="font-medium flex items-center gap-2">
+                  {health.videoPipelineHealthy ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  Video pipeline {health.videoPipelineHealthy ? 'healthy' : 'unhealthy'}
+                </div>
+                <div className="text-sm mt-1 opacity-80">
+                  Last successful video:{' '}
+                  {health.hoursSinceLastSuccessfulVideo === null
+                    ? `none in the last ${health.windowDays}d`
+                    : `${health.hoursSinceLastSuccessfulVideo}h ago`}
+                </div>
+                <div className="text-xs mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 opacity-80">
+                  {health.byPlatform.map((p) => (
+                    <div key={p.platform}>
+                      <span className="font-medium capitalize">{p.platform}:</span>{' '}
+                      {p.videoPublished} video / {p.imagePublished} image
+                      {p.fallbackToImage > 0 && (
+                        <span className="text-amber-300"> · {p.fallbackToImage} fallback</span>
+                      )}
+                      {p.failed > 0 && <span className="text-red-300"> · {p.failed} failed</span>}
+                    </div>
+                  ))}
+                </div>
+                {health.recentFallbackReasons.length > 0 && (
+                  <details className="mt-2 text-xs">
+                    <summary className="cursor-pointer opacity-80">
+                      Recent error/fallback reasons ({health.recentFallbackReasons.length})
+                    </summary>
+                    <ul className="mt-1 space-y-1 ml-4 list-disc">
+                      {health.recentFallbackReasons.slice(0, 5).map((r, i) => (
+                        <li key={i}>
+                          <span className="opacity-70">×{r.count}</span> {r.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 items-end">
+                <button
+                  onClick={runPreflight}
+                  disabled={preflightChecking}
+                  className="px-3 py-1.5 text-sm rounded bg-neutral-800 hover:bg-neutral-700 text-white disabled:opacity-50"
+                >
+                  {preflightChecking ? 'Checking…' : 'Run preflight'}
+                </button>
+                {preflightResult && (
+                  <div
+                    className={`text-xs max-w-xs text-right ${
+                      preflightResult.ok ? 'text-green-300' : 'text-red-300'
+                    }`}
+                  >
+                    {preflightResult.ok
+                      ? `Preflight OK (${preflightResult.status})`
+                      : `Preflight ${preflightResult.status}: ${preflightResult.body.reason ?? 'failed'}`}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
