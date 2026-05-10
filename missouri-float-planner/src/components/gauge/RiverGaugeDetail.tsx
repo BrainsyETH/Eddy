@@ -13,6 +13,7 @@ import { TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from 
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
+import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
@@ -35,10 +36,14 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
-  // Eddy AI update
+  // Eddy AI update (river-level, pinned to primary gauge)
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
   const [eddyLoading, setEddyLoading] = useState(false);
   const [eddyShowFull, setEddyShowFull] = useState(false);
+
+  // Per-gauge Haiku update (only fetched when on a secondary tab)
+  const [gaugeUpdate, setGaugeUpdate] = useState<GaugeUpdateResponse['update'] | null>(null);
+  const [gaugeUpdateLoading, setGaugeUpdateLoading] = useState(false);
 
   // Set default active gauge when river group loads
   useEffect(() => {
@@ -80,6 +85,35 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     fetchEddy();
     return () => { cancelled = true; };
   }, [riverSlug]);
+
+  // Fetch per-gauge update when active tab is a secondary gauge.
+  // When on the primary tab we leave gaugeUpdate null and the render falls
+  // back to the river-level eddyUpdate above.
+  const isOnPrimaryTab = riverGroup ? activeSiteId === riverGroup.primaryGauge.usgsSiteId : true;
+  useEffect(() => {
+    if (!activeSiteId || isOnPrimaryTab) {
+      setGaugeUpdate(null);
+      return;
+    }
+    let cancelled = false;
+    setGaugeUpdateLoading(true);
+    setEddyShowFull(false);
+
+    async function fetchGaugeUpdate() {
+      try {
+        const res = await fetch(`/api/gauge-update/${activeSiteId}`);
+        if (!res.ok) return;
+        const data: GaugeUpdateResponse = await res.json();
+        if (!cancelled) setGaugeUpdate(data.available ? data.update : null);
+      } catch {
+        // silently fail — UI falls back to static blurb
+      } finally {
+        if (!cancelled) setGaugeUpdateLoading(false);
+      }
+    }
+    fetchGaugeUpdate();
+    return () => { cancelled = true; };
+  }, [activeSiteId, isOnPrimaryTab]);
 
   // Active gauge derived state
   const activeGauge = useMemo(() => {
@@ -241,29 +275,46 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     return { code: result.code, label: getConditionShortLabel(result.code) };
   }, [primaryGauge, primaryThreshold]);
 
-  const eddyConditionCode = primaryCondition.code;
+  // When on a secondary tab, surface the per-gauge Haiku update; otherwise
+  // pin to the primary's Sonnet update. The shared shape lets the existing
+  // render block stay identical regardless of source.
+  const onSecondaryTabWithUpdate = !isOnPrimaryTab;
+  const activeEddyUpdate = onSecondaryTabWithUpdate
+    ? (gaugeUpdate
+        ? {
+            quoteText: gaugeUpdate.quoteText,
+            summaryText: gaugeUpdate.summaryText,
+            generatedAt: gaugeUpdate.generatedAt,
+          }
+        : null)
+    : eddyUpdate;
+  const activeEddyLoading = onSecondaryTabWithUpdate ? gaugeUpdateLoading : eddyLoading;
+  const eddyConditionCode: ConditionCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
   const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
   const labelInfo = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;
 
   const buildStaticText = () => {
-    const blurb = CONDITION_CARD_BLURBS[primaryCondition.code] || CONDITION_CARD_BLURBS.unknown;
+    const sourceGauge = onSecondaryTabWithUpdate ? activeGauge : primaryGauge;
+    const sourceThreshold = onSecondaryTabWithUpdate ? activeThreshold : primaryThreshold;
+    const sourceCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
+    const blurb = CONDITION_CARD_BLURBS[sourceCode] || CONDITION_CARD_BLURBS.unknown;
     const parts: string[] = [];
-    if (primaryGauge?.gaugeHeightFt !== null && primaryGauge?.gaugeHeightFt !== undefined) {
-      parts.push(`Reading ${primaryGauge.gaugeHeightFt.toFixed(1)} ft at ${primaryGauge.name}.`);
+    if (sourceGauge?.gaugeHeightFt !== null && sourceGauge?.gaugeHeightFt !== undefined) {
+      parts.push(`Reading ${sourceGauge.gaugeHeightFt.toFixed(1)} ft at ${sourceGauge.name}.`);
     }
     parts.push(blurb);
-    const optMin = primaryThreshold?.levelOptimalMin;
-    const optMax = primaryThreshold?.levelOptimalMax;
-    const unit = primaryThreshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+    const optMin = sourceThreshold?.levelOptimalMin;
+    const optMax = sourceThreshold?.levelOptimalMax;
+    const unit = sourceThreshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
     if (optMin != null && optMax != null) {
       parts.push(`Optimal range is ${optMin}\u2013${optMax} ${unit}.`);
     }
     return parts.join(' ');
   };
 
-  const eddyDisplayText = eddyUpdate?.summaryText && !eddyShowFull
-    ? eddyUpdate.summaryText
-    : eddyUpdate ? eddyUpdate.quoteText : buildStaticText();
+  const eddyDisplayText = activeEddyUpdate?.summaryText && !eddyShowFull
+    ? activeEddyUpdate.summaryText
+    : activeEddyUpdate ? activeEddyUpdate.quoteText : buildStaticText();
 
   // Tab data for GaugeTabBar
   const tabs = useMemo(() => {
@@ -505,10 +556,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${labelInfo.className}`}>
                     {labelInfo.text}
                   </span>
-                  {eddyUpdate?.generatedAt && (
+                  {activeEddyUpdate?.generatedAt && (
                     <span className="text-[10px] text-neutral-400">
                       &middot; {(() => {
-                        const diffMs = Date.now() - new Date(eddyUpdate.generatedAt).getTime();
+                        const diffMs = Date.now() - new Date(activeEddyUpdate.generatedAt).getTime();
                         const mins = Math.floor(diffMs / 60000);
                         if (mins < 1) return 'Updated just now';
                         if (mins < 60) return `Updated ${mins}m ago`;
@@ -519,17 +570,17 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                       })()}
                     </span>
                   )}
-                  {primaryGauge && (
+                  {(onSecondaryTabWithUpdate ? activeGauge : primaryGauge) && (
                     <span className="text-[10px] text-neutral-400 ml-auto hidden sm:inline">
-                      via {primaryGauge.name}
+                      via {(onSecondaryTabWithUpdate ? activeGauge : primaryGauge)?.name}
                     </span>
                   )}
                 </div>
 
                 {/* Summary + full narrative (expanded by default) */}
-                {eddyLoading && !eddyUpdate ? (
+                {activeEddyLoading && !activeEddyUpdate ? (
                   <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
-                ) : eddyUpdate?.summaryText ? (
+                ) : activeEddyUpdate?.summaryText ? (
                   <>
                     <div className={`rounded-lg px-3.5 py-2.5 mt-1 ${
                       eddyConditionCode === 'flowing' ? 'bg-emerald-200/50' :
@@ -541,14 +592,14 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                       'bg-neutral-200/50'
                     }`}>
                       <p className={`text-sm sm:text-base leading-relaxed font-semibold ${textClass}`}>
-                        &ldquo;{eddyUpdate.summaryText}&rdquo;
+                        &ldquo;{activeEddyUpdate.summaryText}&rdquo;
                       </p>
                     </div>
 
                     {/* Full narrative (shown by default, collapsible) */}
                     {!eddyShowFull && (
                       <p className="text-sm leading-relaxed font-medium mt-3 text-neutral-700">
-                        &ldquo;{eddyUpdate.quoteText}&rdquo;
+                        &ldquo;{activeEddyUpdate.quoteText}&rdquo;
                       </p>
                     )}
 
