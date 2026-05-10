@@ -264,7 +264,13 @@ export default function MOSurfaceWaterApp() {
 
   const handleFocusGauge = (id: string | null) => {
     setFocusedGaugeId(id);
-    if (id) {
+    // Only follow the gauge's parent river when the user had ALREADY
+    // pinned a river — in that case we want the back-nav from the gauge
+    // rail to return them to the river card they were exploring. A cold
+    // click on a gauge marker should open the gauge alone, so closing
+    // it once empties the rail instead of revealing a river card the
+    // user never asked for.
+    if (id && focusedRiverId) {
       const g = gauges.find((x) => x.site_no === id);
       if (g) setFocusedRiverId(g.river_id);
     }
