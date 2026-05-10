@@ -21,6 +21,7 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
+import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
 import moBasemap from '@/data/mo-rivers-basemap.json';
 
@@ -804,7 +805,11 @@ export default function MOMap(props: MOMapProps) {
           const isPeak = p != null && p >= 75;
           const isHovered = props.hoveredGaugeId === g.site_no;
           const isFocused = props.focusedGaugeId === g.site_no;
-          const baseR = isFocused ? 7 : isHovered ? 6 : g.is_primary ? 5 : 3.5;
+          const verdict = props.conditionByGauge[g.site_no] ?? 'unknown';
+          const iconHref = getEddyImageForCondition(verdict);
+          // Marker size in SVG units; primary gauges + hover/focus scale up.
+          const baseSize = isFocused ? 32 : isHovered ? 28 : g.is_primary ? 22 : 16;
+          const size = baseSize * kStable;
           return (
             <g
               key={g.site_no}
@@ -814,21 +819,26 @@ export default function MOMap(props: MOMapProps) {
               onMouseLeave={() => props.onHoverGauge(null)}
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
-              <circle r={14 * kStable} fill="transparent" pointerEvents="all" />
+              <circle r={Math.max(14, baseSize * 0.6) * kStable} fill="transparent" pointerEvents="all" />
               {isPeak && (
-                <circle r={4 * kStable} fill="none" stroke={color} strokeWidth={1.0 * kStable} opacity={0.7} pointerEvents="none">
-                  <animate attributeName="r" from={4 * kStable} to={11 * kStable} dur="2.2s" repeatCount="indefinite" />
+                <circle r={(baseSize * 0.55) * kStable} fill="none" stroke={color} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
+                  <animate attributeName="r" from={(baseSize * 0.55) * kStable} to={(baseSize * 1.1) * kStable} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
               )}
-              <circle
-                r={baseR * kStable}
-                fill="#FAF8F4"
-                stroke={color}
-                strokeWidth={(g.is_primary ? 1.8 : 1.2) * kStable}
+              <image
+                href={iconHref}
+                x={-size / 2}
+                y={-size / 2}
+                width={size}
+                height={size}
                 pointerEvents="none"
+                style={{
+                  filter: isFocused
+                    ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
+                    : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
+                }}
               />
-              {(isHovered || isFocused) && <circle r={1.4 * kStable} fill={color} pointerEvents="none" />}
             </g>
           );
         })}

@@ -187,13 +187,15 @@ export function LayerToggles({
 // CONDITION_COLORS painting the curated rivers and gauge dots.
 export function PercentileLegend() {
   // Display order = readability order (driest → wettest).
+  // Language matches the per-condition titles on /about so the legend and
+  // the explanatory page agree on what each condition means.
   const items: Array<{ code: ConditionCode; short: string; label: string }> = [
-    { code: 'too_low',   short: 'Too low',  label: 'Frequent dragging / portaging likely' },
-    { code: 'low',       short: 'Low',      label: 'Some dragging in shallow areas' },
-    { code: 'good',      short: 'Good',     label: 'Floatable with minimal scraping' },
-    { code: 'flowing',   short: 'Flowing',  label: 'Ideal — sweet-spot conditions' },
-    { code: 'high',      short: 'High',     label: 'Fast current — strong paddlers only' },
-    { code: 'dangerous', short: 'Flood',    label: 'Flood stage — do not float' },
+    { code: 'too_low',   short: 'Too Low',    label: 'Not recommended' },
+    { code: 'low',       short: 'Low',        label: 'Scraping likely' },
+    { code: 'good',      short: 'Good',       label: 'Floatable' },
+    { code: 'flowing',   short: 'Flowing',    label: 'Ideal conditions' },
+    { code: 'high',      short: 'High Water', label: 'Use caution' },
+    { code: 'dangerous', short: 'Flood',      label: 'Do not float' },
   ];
   return (
     <div
@@ -222,7 +224,7 @@ export function PercentileLegend() {
       {items.map((it) => (
         <div key={it.code} className="mb-0.5 flex items-center gap-2">
           <span style={{ width: 18, height: 4, background: STAGE_VERDICTS[it.code].color, borderRadius: 2 }} />
-          <span className="font-semibold" style={{ width: 60 }}>{it.short}</span>
+          <span className="font-semibold" style={{ width: 74 }}>{it.short}</span>
           <span style={{ color: THEME.inkDim }}>{it.label}</span>
         </div>
       ))}
