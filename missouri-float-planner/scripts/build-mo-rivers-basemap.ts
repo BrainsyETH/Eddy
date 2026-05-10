@@ -125,10 +125,17 @@ const LAKE_NAMES = new Set<string>([
 const FCODE_PERENNIAL = new Set([46006, 55800]);
 const SIMPLIFY_TOLERANCE_DEG = 0.0008; // ~80 m at MO latitude
 const MIN_LENGTH_MI = 6; // drop tiny named tributaries
+// See import-nhd-rivers-from-tnm.ts — same digitization-gap problem.
+const CHAIN_BRIDGE_TOLERANCE_DEG = 0.012;
 const TNM_BASE = 'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/HU8/Shape';
 
 function pointKey(c: number[]): string {
   return c[0].toFixed(7) + ',' + c[1].toFixed(7);
+}
+
+function distDeg(a: number[], b: number[]): number {
+  const dx = a[0] - b[0], dy = a[1] - b[1];
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 async function ensureZip(huc: string, cacheDir: string): Promise<string> {
@@ -178,16 +185,58 @@ function dissolveLongest(segs: FlowFeat[]): number[][] {
     comps.get(r)!.push(i);
   }
 
-  let bestChain: number[][] = [];
-  let bestLenKm = 0;
+  type Chain = { coords: number[][]; lengthKm: number };
+  const chains: Chain[] = [];
   comps.forEach((idxs) => {
     const sub = idxs.map((i: number) => segCoords[i]);
-    const chain = chainComponent(sub);
-    if (chain.length < 2) return;
-    const km = turfLength(turfLine(chain), { units: 'kilometers' });
-    if (km > bestLenKm) { bestLenKm = km; bestChain = chain; }
+    const coords = chainComponent(sub);
+    if (coords.length < 2) return;
+    const lengthKm = turfLength(turfLine(coords), { units: 'kilometers' });
+    chains.push({ coords, lengthKm });
   });
-  return bestChain;
+  if (!chains.length) return [];
+
+  // Greedy bridge of NHD HR digitization gaps — see comment in
+  // scripts/import-nhd-rivers-from-tnm.ts for the rationale.
+  chains.sort((a, b) => b.lengthKm - a.lengthKm);
+  const used = new Set<number>([0]);
+  let workCoords = chains[0].coords.slice();
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    const head = workCoords[0];
+    const tail = workCoords[workCoords.length - 1];
+    type BridgeMode = 'prepend' | 'prepend-rev' | 'append' | 'append-rev';
+    let bestIdx = -1;
+    let bestDist = CHAIN_BRIDGE_TOLERANCE_DEG;
+    let bestMode: BridgeMode = 'append';
+    for (let i = 1; i < chains.length; i++) {
+      if (used.has(i)) continue;
+      const c = chains[i].coords;
+      const cs = c[0], ce = c[c.length - 1];
+      const cands: Array<{ d: number; mode: BridgeMode }> = [
+        { d: distDeg(tail, cs), mode: 'append' },
+        { d: distDeg(tail, ce), mode: 'append-rev' },
+        { d: distDeg(head, ce), mode: 'prepend' },
+        { d: distDeg(head, cs), mode: 'prepend-rev' },
+      ];
+      for (const ca of cands) {
+        if (ca.d < bestDist) { bestDist = ca.d; bestIdx = i; bestMode = ca.mode; }
+      }
+    }
+    if (bestIdx >= 0) {
+      const c = chains[bestIdx].coords;
+      switch (bestMode) {
+        case 'append':      workCoords = workCoords.concat(c); break;
+        case 'append-rev':  workCoords = workCoords.concat(c.slice().reverse()); break;
+        case 'prepend':     workCoords = c.concat(workCoords); break;
+        case 'prepend-rev': workCoords = c.slice().reverse().concat(workCoords); break;
+      }
+      used.add(bestIdx);
+      progressed = true;
+    }
+  }
+  return workCoords;
 }
 
 function chainComponent(segs: number[][][]): number[][] {

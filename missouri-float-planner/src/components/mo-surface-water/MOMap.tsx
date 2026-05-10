@@ -116,6 +116,8 @@ interface MOMapProps {
   campgrounds: MOCampground[];
   gauges: MoStatewideGauge[];
   verdictByRiver: Record<string, StageVerdict>;
+  /** Condition code keyed by USGS site id — drives per-segment coloring. */
+  conditionByGauge: Record<string, StageVerdict>;
   percentileByRiver: Record<string, number | null>;
   percentileByGauge: Record<string, number | null>;
   hoveredRiverId: string | null;
@@ -213,6 +215,67 @@ export default function MOMap(props: MOMapProps) {
     }
     return out;
   }, [props.rivers, project]);
+
+  // Per-gauge segments along each curated river. For each river we project
+  // every gauge onto the polyline (nearest-vertex), sort by index, then
+  // split the polyline at midpoints between consecutive gauges. Each
+  // resulting segment carries the condition of its owning gauge — so the
+  // river paints as bands of color that "flow into" each gauge.
+  //
+  // Output: { [riverId]: Array<{ d: string; condition: StageVerdict; siteId: string }> }
+  // When a river has no usable gauges, output is empty and the caller
+  // falls back to a single uniform stroke.
+  const riverSegments = useMemo(() => {
+    const out: Record<
+      string,
+      Array<{ d: string; condition: StageVerdict; siteId: string }>
+    > = {};
+    for (const r of props.rivers) {
+      const coords = r.geometry.coordinates as Array<[number, number]>;
+      if (coords.length < 2) continue;
+      const gs = (r.gauges ?? [])
+        .filter((g) => props.conditionByGauge[g.site_id])
+        .map((g) => {
+          // Project gauge to the nearest vertex on the polyline. Cheap
+          // O(n) scan; rivers max out around 600 vertices so this is fine.
+          let bestIdx = 0;
+          let bestD2 = Infinity;
+          for (let i = 0; i < coords.length; i++) {
+            const dx = coords[i][0] - g.lon;
+            const dy = coords[i][1] - g.lat;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestD2) { bestD2 = d2; bestIdx = i; }
+          }
+          return { siteId: g.site_id, vertexIdx: bestIdx };
+        })
+        .sort((a, b) => a.vertexIdx - b.vertexIdx);
+      if (!gs.length) continue;
+
+      const segs: Array<{ d: string; condition: StageVerdict; siteId: string }> = [];
+      // Boundary indices: 0, mid(g0,g1), mid(g1,g2), …, mid(gN-2,gN-1), len-1
+      const lastIdx = coords.length - 1;
+      const cuts: number[] = [0];
+      for (let i = 0; i < gs.length - 1; i++) {
+        cuts.push(Math.round((gs[i].vertexIdx + gs[i + 1].vertexIdx) / 2));
+      }
+      cuts.push(lastIdx);
+      for (let i = 0; i < gs.length; i++) {
+        const start = cuts[i];
+        const end = cuts[i + 1];
+        if (end - start < 1) continue;
+        // slice end is inclusive in our coord-indexing; slice(end+1) for JS array
+        const slice = coords.slice(start, end + 1);
+        if (slice.length < 2) continue;
+        segs.push({
+          d: lineToPath(slice, project),
+          condition: props.conditionByGauge[gs[i].siteId],
+          siteId: gs[i].siteId,
+        });
+      }
+      if (segs.length) out[r.id] = segs;
+    }
+    return out;
+  }, [props.rivers, props.conditionByGauge, project]);
 
   // Basemap rivers — pre-projected once per `project` change, sorted by
   // length so longer rivers paint underneath shorter ones (so the smaller
@@ -640,22 +703,25 @@ export default function MOMap(props: MOMapProps) {
         })}
       </g>
 
-      {/* Rivers — outer "casing" + condition-painted main stroke. Color
-          comes from STAGE_VERDICTS (which is just CONDITION_COLORS under
-          the hood), so the line color matches the badge on /rivers/[slug]
-          and the same gauge reading. */}
+      {/* Rivers — outer "casing" + per-gauge segmented main stroke. Each
+          river is split at midpoints between its gauges and painted in
+          bands so the river color "flows into" each gauge instead of
+          showing one mean color across the whole reach.
+          Color comes from STAGE_VERDICTS (= CONDITION_COLORS), matching
+          the badge on /rivers/[slug] for the same gauge reading. */}
       {orderedRivers.map((r) => {
         const d = riverPaths[r.id];
         if (!d) return null;
         const slug = r.slug;
         const verdict = props.verdictByRiver[slug] ?? 'unknown';
-        const color = STAGE_VERDICTS[verdict].color;
+        const fallbackColor = STAGE_VERDICTS[verdict].color;
         const isHovered = props.hoveredRiverId === r.id;
         const isFocused = props.focusedRiverId === r.id;
         const sw = strokeWidthForRiver(r.length_miles, isHovered, isFocused);
         const dim =
           (props.focusedRiverId && !isFocused) ||
           (props.hoveredRiverId && !isHovered && !isFocused);
+        const segs = riverSegments[r.id];
 
         return (
           <g
@@ -665,34 +731,75 @@ export default function MOMap(props: MOMapProps) {
             onMouseLeave={() => props.onHoverRiver(null)}
             onClick={guardClick(() => props.onFocusRiver(r.id))}
           >
-            {/* Hit target */}
+            {/* Hit target — single full-river path so hover/click works
+                anywhere along the reach, not just on visible segments. */}
             <path d={d} stroke="transparent" strokeWidth={Math.max(18, sw * 3)} fill="none" strokeLinecap="round" />
-            {/* Glow */}
+            {/* Glow on the full-river path so the focus ring is continuous
+                even when segments paint different colors above. */}
             {(isHovered || isFocused) && (
               <path
                 d={d}
-                stroke={color}
+                stroke={fallbackColor}
                 strokeWidth={sw + 7}
                 fill="none"
                 strokeLinecap="round"
                 opacity={0.35}
-                style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+                style={{ filter: `drop-shadow(0 0 6px ${fallbackColor})` }}
               />
             )}
-            {/* Main stroke */}
+            {/* Hidden full-river path tagged with the stable id so the
+                particle RAF can call getPointAtLength on a continuous
+                path (segments would break particle motion at boundaries). */}
             <path
               id={`mo-river-path-${r.id}`}
               d={d}
-              stroke={color}
+              stroke="transparent"
               strokeWidth={sw}
               fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
             />
-            {/* Inner highlight stroke for the dangerous-flood case so the
-                hazard reads at a glance (dashed pattern + lighter inner
-                tone) — other conditions paint as a single uniform line. */}
-            {verdict === 'dangerous' && (
+            {/* Painted strokes — segments when we have gauges, otherwise
+                one fallback line. */}
+            {segs && segs.length ? (
+              segs.map((s, i) => (
+                <path
+                  key={`${r.id}-seg-${i}`}
+                  d={s.d}
+                  stroke={STAGE_VERDICTS[s.condition].color}
+                  strokeWidth={sw}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))
+            ) : (
+              <path
+                d={d}
+                stroke={fallbackColor}
+                strokeWidth={sw}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {/* Dangerous-flood dashed inner stroke spans whichever
+                segments are at flood, so the hazard reads even when
+                neighbors are at lower conditions. */}
+            {segs && segs.some((s) => s.condition === 'dangerous') &&
+              segs
+                .filter((s) => s.condition === 'dangerous')
+                .map((s, i) => (
+                  <path
+                    key={`${r.id}-flood-${i}`}
+                    d={s.d}
+                    stroke={STAGE_VERDICTS.dangerous.inner}
+                    strokeWidth={Math.max(1.2, sw * 0.42)}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray="4 3"
+                    opacity={1}
+                  />
+                ))}
+            {(!segs || !segs.length) && verdict === 'dangerous' && (
               <path
                 d={d}
                 stroke={STAGE_VERDICTS.dangerous.inner}
