@@ -56,6 +56,9 @@ export interface MOAccessPoint {
   lon: number;
   lat: number;
   ownership: string | null;
+  /** Photos attached to this access point (00022). Always an array,
+   *  empty when none. Surfaced via 00123. */
+  image_urls?: string[];
 }
 
 export interface MOPoi {
