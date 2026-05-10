@@ -288,10 +288,11 @@ async function dispatchVideoRender(
   });
 
   if (!success) {
+    const reason = 'GH Actions dispatch returned non-204 — check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
     for (const id of postIds) {
       await supabase
         .from('social_posts')
-        .update({ media_type: 'image', status: 'failed', error_message: 'GH Actions dispatch failed' })
+        .update({ media_type: 'image', status: 'failed', error_message: reason })
         .eq('id', id);
     }
   }
@@ -656,7 +657,7 @@ async function postWeekly(
       for (const id of postIds) {
         await supabase
           .from('social_posts')
-          .update({ status: 'failed', error_message: 'GH Actions dispatch failed' })
+          .update({ status: 'failed', error_message: 'GH Actions dispatch returned non-204 — check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.' })
           .eq('id', id);
       }
       logAdminAction({
