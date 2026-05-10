@@ -69,10 +69,22 @@ const RIVER_SLUGS: Record<string, string> = {
 
 const FCODE_PERENNIAL = new Set([46006, 55800]);
 const SIMPLIFY_TOLERANCE_DEG = 0.0005; // ~50 m at MO latitude
+// After component-by-component chaining, bridge chains whose endpoints
+// are within ~1.2 km of each other. NHD HR has small (~50–500 m)
+// digitization gaps that split rivers like Eleven Point into 9
+// components at exact-coordinate hashing. Without bridging, the longest
+// single component gets exported, which for Eleven Point is the AR
+// portion — dropping the entire MO main stem.
+const CHAIN_BRIDGE_TOLERANCE_DEG = 0.012;
 const TNM_BASE = 'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/HU8/Shape';
 
 function pointKey(c: number[]): string {
   return c[0].toFixed(7) + ',' + c[1].toFixed(7);
+}
+
+function distDeg(a: number[], b: number[]): number {
+  const dx = a[0] - b[0], dy = a[1] - b[1];
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 async function ensureZip(huc: string, cacheDir: string): Promise<string> {
@@ -94,8 +106,12 @@ interface SegFeature {
 }
 
 /**
- * Build connected components by endpoint hash, walk each into a LineString,
- * return the longest. Returns [] if input is empty or all degenerate.
+ * Build connected components by endpoint hash, walk each into a chain,
+ * then greedily bridge chains whose endpoints are within
+ * CHAIN_BRIDGE_TOLERANCE_DEG of each other (so NHD HR digitization gaps
+ * don't split a river like Eleven Point into 9 disconnected components).
+ *
+ * Returns [] if input is empty or all degenerate.
  */
 function dissolveLongest(segs: SegFeature[]): number[][] {
   const segCoords = segs
@@ -104,7 +120,7 @@ function dissolveLongest(segs: SegFeature[]): number[][] {
     .map((c) => c.map((p) => [p[0], p[1]] as [number, number]));
   if (!segCoords.length) return [];
 
-  // Union-find by shared endpoints.
+  // Union-find by exact-shared endpoints.
   const epIdx = new Map<string, number[]>();
   for (let i = 0; i < segCoords.length; i++) {
     const sk = pointKey(segCoords[i][0]);
@@ -125,16 +141,64 @@ function dissolveLongest(segs: SegFeature[]): number[][] {
     comps.get(r)!.push(i);
   }
 
-  let bestChain: number[][] = [];
-  let bestLenKm = 0;
+  // Walk each component into a chain.
+  type Chain = { coords: number[][]; lengthKm: number };
+  const chains: Chain[] = [];
   comps.forEach((idxs) => {
     const sub = idxs.map((i: number) => segCoords[i]);
-    const chain = chainComponent(sub);
-    if (chain.length < 2) return;
-    const km = turfLength(turfLine(chain), { units: 'kilometers' });
-    if (km > bestLenKm) { bestLenKm = km; bestChain = chain; }
+    const coords = chainComponent(sub);
+    if (coords.length < 2) return;
+    const lengthKm = turfLength(turfLine(coords), { units: 'kilometers' });
+    chains.push({ coords, lengthKm });
   });
-  return bestChain;
+  if (!chains.length) return [];
+
+  // Greedy bridge: starting from the longest chain, repeatedly absorb
+  // any other chain whose endpoint is within CHAIN_BRIDGE_TOLERANCE_DEG
+  // of one of our endpoints. Concatenate in the appropriate orientation.
+  // We stop only when nothing else can be reached.
+  chains.sort((a, b) => b.lengthKm - a.lengthKm);
+  const main = chains[0];
+  const used = new Set<number>([0]);
+  let workCoords = main.coords.slice();
+  // Repeatedly scan for chains whose start or end is near workCoords' head
+  // or tail. tol is in WGS84 degrees, anisotropic at MO latitudes but the
+  // tolerance is a generous bound (~1.2 km) so the approximation is fine.
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    const head = workCoords[0];
+    const tail = workCoords[workCoords.length - 1];
+    let bestIdx = -1;
+    let bestDist = CHAIN_BRIDGE_TOLERANCE_DEG;
+    let bestMode: 'prepend' | 'prepend-rev' | 'append' | 'append-rev' = 'append';
+    for (let i = 1; i < chains.length; i++) {
+      if (used.has(i)) continue;
+      const c = chains[i].coords;
+      const cs = c[0], ce = c[c.length - 1];
+      const candidates: Array<{ d: number; mode: typeof bestMode }> = [
+        { d: distDeg(tail, cs), mode: 'append' },
+        { d: distDeg(tail, ce), mode: 'append-rev' },
+        { d: distDeg(head, ce), mode: 'prepend' },
+        { d: distDeg(head, cs), mode: 'prepend-rev' },
+      ];
+      for (const ca of candidates) {
+        if (ca.d < bestDist) { bestDist = ca.d; bestIdx = i; bestMode = ca.mode; }
+      }
+    }
+    if (bestIdx >= 0) {
+      const c = chains[bestIdx].coords;
+      switch (bestMode) {
+        case 'append':      workCoords = workCoords.concat(c); break;
+        case 'append-rev':  workCoords = workCoords.concat(c.slice().reverse()); break;
+        case 'prepend':     workCoords = c.concat(workCoords); break;
+        case 'prepend-rev': workCoords = c.slice().reverse().concat(workCoords); break;
+      }
+      used.add(bestIdx);
+      progressed = true;
+    }
+  }
+  return workCoords;
 }
 
 /**
