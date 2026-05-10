@@ -216,63 +216,69 @@ export default function MOMap(props: MOMapProps) {
     return out;
   }, [props.rivers, project]);
 
-  // Per-gauge segments along each curated river. For each river we project
-  // every gauge onto the polyline (nearest-vertex), sort by index, then
-  // split the polyline at midpoints between consecutive gauges. Each
-  // resulting segment carries the condition of its owning gauge — so the
-  // river paints as bands of color that "flow into" each gauge.
+  // Per-river gradient stops along each curated river. Replaces the
+  // hard-edged per-segment palette with a single SVG <linearGradient>
+  // whose stops sit at each gauge's projected position along the line —
+  // so adjacent gauges' colors fade smoothly into each other instead of
+  // flipping at midpoints.
   //
-  // Output: { [riverId]: Array<{ d: string; condition: StageVerdict; siteId: string }> }
-  // When a river has no usable gauges, output is empty and the caller
-  // falls back to a single uniform stroke.
-  const riverSegments = useMemo(() => {
+  // Output: { [riverId]: { x1,y1,x2,y2, stops: Array<{ offset, color, condition, siteId }> } }
+  // The gradient direction is the straight line from the river's first
+  // projected vertex to its last. For mostly-N-S or mostly-E-W rivers
+  // (which is most of MO) this tracks the flow direction. Hard-curving
+  // rivers will paint with some color drift relative to local flow, but
+  // the smooth fade reads cleanly regardless.
+  const riverGradients = useMemo(() => {
     const out: Record<
       string,
-      Array<{ d: string; condition: StageVerdict; siteId: string }>
+      {
+        x1: number; y1: number; x2: number; y2: number;
+        stops: Array<{ offset: number; color: string; condition: StageVerdict; siteId: string }>;
+      }
     > = {};
     for (const r of props.rivers) {
       const coords = r.geometry.coordinates as Array<[number, number]>;
       if (coords.length < 2) continue;
+      const first = project(coords[0][0], coords[0][1]);
+      const last = project(coords[coords.length - 1][0], coords[coords.length - 1][1]);
+      const dx = last[0] - first[0];
+      const dy = last[1] - first[1];
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq < 1) continue; // degenerate
+
       const gs = (r.gauges ?? [])
         .filter((g) => props.conditionByGauge[g.site_id])
         .map((g) => {
-          // Project gauge to the nearest vertex on the polyline. Cheap
-          // O(n) scan; rivers max out around 600 vertices so this is fine.
-          let bestIdx = 0;
-          let bestD2 = Infinity;
-          for (let i = 0; i < coords.length; i++) {
-            const dx = coords[i][0] - g.lon;
-            const dy = coords[i][1] - g.lat;
-            const d2 = dx * dx + dy * dy;
-            if (d2 < bestD2) { bestD2 = d2; bestIdx = i; }
-          }
-          return { siteId: g.site_id, vertexIdx: bestIdx };
+          const [gx, gy] = project(g.lon, g.lat);
+          // Project (gx,gy) onto the (first,last) gradient line; t in [0,1].
+          const t = ((gx - first[0]) * dx + (gy - first[1]) * dy) / lenSq;
+          return {
+            siteId: g.site_id,
+            condition: props.conditionByGauge[g.site_id],
+            offset: Math.max(0, Math.min(1, t)),
+          };
         })
-        .sort((a, b) => a.vertexIdx - b.vertexIdx);
+        .sort((a, b) => a.offset - b.offset);
       if (!gs.length) continue;
 
-      const segs: Array<{ d: string; condition: StageVerdict; siteId: string }> = [];
-      // Boundary indices: 0, mid(g0,g1), mid(g1,g2), …, mid(gN-2,gN-1), len-1
-      const lastIdx = coords.length - 1;
-      const cuts: number[] = [0];
-      for (let i = 0; i < gs.length - 1; i++) {
-        cuts.push(Math.round((gs[i].vertexIdx + gs[i + 1].vertexIdx) / 2));
+      // Build stops. SVG interpolates linearly between stops, so
+      // adjacent gauges fade smoothly. We extend the first/last stops
+      // to offsets 0 and 1 so the river ends paint in their nearest
+      // gauge's color rather than gradient-default.
+      const stops: Array<{ offset: number; color: string; condition: StageVerdict; siteId: string }> = [];
+      const firstColor = STAGE_VERDICTS[gs[0].condition].color;
+      const lastColor = STAGE_VERDICTS[gs[gs.length - 1].condition].color;
+      if (gs[0].offset > 0.001) {
+        stops.push({ offset: 0, color: firstColor, condition: gs[0].condition, siteId: gs[0].siteId });
       }
-      cuts.push(lastIdx);
-      for (let i = 0; i < gs.length; i++) {
-        const start = cuts[i];
-        const end = cuts[i + 1];
-        if (end - start < 1) continue;
-        // slice end is inclusive in our coord-indexing; slice(end+1) for JS array
-        const slice = coords.slice(start, end + 1);
-        if (slice.length < 2) continue;
-        segs.push({
-          d: lineToPath(slice, project),
-          condition: props.conditionByGauge[gs[i].siteId],
-          siteId: gs[i].siteId,
-        });
+      for (const g of gs) {
+        stops.push({ offset: g.offset, color: STAGE_VERDICTS[g.condition].color, condition: g.condition, siteId: g.siteId });
       }
-      if (segs.length) out[r.id] = segs;
+      if (gs[gs.length - 1].offset < 0.999) {
+        stops.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
+      }
+
+      out[r.id] = { x1: first[0], y1: first[1], x2: last[0], y2: last[1], stops };
     }
     return out;
   }, [props.rivers, props.conditionByGauge, project]);
@@ -677,7 +683,18 @@ export default function MOMap(props: MOMapProps) {
         const dim =
           (props.focusedRiverId && !isFocused) ||
           (props.hoveredRiverId && !isHovered && !isFocused);
-        const segs = riverSegments[r.id];
+        const grad = riverGradients[r.id];
+        const gradId = `mo-river-grad-${r.id}`;
+        const gradStrokeRef = grad ? `url(#${gradId})` : fallbackColor;
+        // Flow speed for the whole river is driven by the primary gauge's
+        // condition (or the river's overall verdict if there's no
+        // primary). Each river paints at one speed; color fades along
+        // the gradient at each gauge's projected position.
+        const flowDur = FLOW_DURATION_BY_CONDITION[verdict];
+        // Highlight the dangerous portion with a brief dashed inner
+        // overlay if any gauge is at flood — limited to the segment
+        // around that gauge so neighbors aren't visually contaminated.
+        const floodGauges = grad?.stops.filter((s) => s.condition === 'dangerous') ?? [];
 
         return (
           <g
@@ -687,11 +704,25 @@ export default function MOMap(props: MOMapProps) {
             onMouseLeave={() => props.onHoverRiver(null)}
             onClick={guardClick(() => props.onFocusRiver(r.id))}
           >
-            {/* Hit target — single full-river path so hover/click works
-                anywhere along the reach, not just on visible segments. */}
+            {grad && (
+              <defs>
+                <linearGradient
+                  id={gradId}
+                  gradientUnits="userSpaceOnUse"
+                  x1={grad.x1}
+                  y1={grad.y1}
+                  x2={grad.x2}
+                  y2={grad.y2}
+                >
+                  {grad.stops.map((s, i) => (
+                    <stop key={`${gradId}-stop-${i}`} offset={s.offset} stopColor={s.color} />
+                  ))}
+                </linearGradient>
+              </defs>
+            )}
+            {/* Hit target */}
             <path d={d} stroke="transparent" strokeWidth={Math.max(18, sw * 3)} fill="none" strokeLinecap="round" />
-            {/* Glow on the full-river path so the focus ring is continuous
-                even when segments paint different colors above. */}
+            {/* Glow on hover/focus */}
             {(isHovered || isFocused) && (
               <path
                 d={d}
@@ -703,89 +734,36 @@ export default function MOMap(props: MOMapProps) {
                 style={{ filter: `drop-shadow(0 0 6px ${fallbackColor})` }}
               />
             )}
-            {/* Hidden full-river path tagged with the stable id so the
-                particle RAF can call getPointAtLength on a continuous
-                path (segments would break particle motion at boundaries). */}
+            {/* Solid gradient base — colors fade smoothly between adjacent
+                gauges via the linearGradient stops above. One path per
+                river instead of N segments. */}
             <path
-              id={`mo-river-path-${r.id}`}
               d={d}
-              stroke="transparent"
+              stroke={gradStrokeRef}
               strokeWidth={sw}
               fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-            {/* Painted strokes — segments when we have gauges, otherwise
-                one fallback line. Each segment renders a solid base
-                stroke + a thinner inner-tone stroke with animated
-                stroke-dashoffset, so the river visibly flows. Loop
-                duration comes from FLOW_DURATION_BY_CONDITION — too_low
-                is ~60s/cycle (almost still), dangerous is ~2s
-                (sprinting), monotonic in between. */}
-            {segs && segs.length ? (
-              segs.map((s, i) => (
-                <g key={`${r.id}-seg-${i}`}>
-                  <path
-                    d={s.d}
-                    stroke={STAGE_VERDICTS[s.condition].color}
-                    strokeWidth={sw}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d={s.d}
-                    stroke={STAGE_VERDICTS[s.condition].inner}
-                    strokeWidth={Math.max(1.1, sw * 0.55)}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray="14 8"
-                    style={{
-                      animation: `mo-river-flow ${FLOW_DURATION_BY_CONDITION[s.condition]}s linear infinite`,
-                    }}
-                  />
-                </g>
-              ))
-            ) : (
-              <g>
-                <path
-                  d={d}
-                  stroke={fallbackColor}
-                  strokeWidth={sw}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d={d}
-                  stroke={STAGE_VERDICTS[verdict].inner}
-                  strokeWidth={Math.max(1.1, sw * 0.55)}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray="14 8"
-                  style={{
-                    animation: `mo-river-flow ${FLOW_DURATION_BY_CONDITION[verdict]}s linear infinite`,
-                  }}
-                />
-              </g>
-            )}
-            {/* Dangerous-flood dashed inner stroke spans whichever
-                segments are at flood, so the hazard reads even when
-                neighbors are at lower conditions. */}
-            {segs && segs.some((s) => s.condition === 'dangerous') &&
-              segs
-                .filter((s) => s.condition === 'dangerous')
-                .map((s, i) => (
-                  <path
-                    key={`${r.id}-flood-${i}`}
-                    d={s.d}
-                    stroke={STAGE_VERDICTS.dangerous.inner}
-                    strokeWidth={Math.max(1.2, sw * 0.42)}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray="4 3"
-                    opacity={1}
-                  />
-                ))}
-            {(!segs || !segs.length) && verdict === 'dangerous' && (
+            {/* Animated flow overlay — same gradient, dashed, animated
+                stroke-dashoffset. Speed comes from the river's overall
+                verdict (driven by the primary gauge). */}
+            <path
+              d={d}
+              stroke={gradStrokeRef}
+              strokeWidth={Math.max(1.1, sw * 0.55)}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray="14 8"
+              opacity={0.85}
+              style={{
+                animation: `mo-river-flow ${flowDur}s linear infinite`,
+                mixBlendMode: 'screen',
+              }}
+            />
+            {/* Flood emphasis — when ANY gauge is at flood, draw a brief
+                dashed overlay so the hazard reads even through the fade. */}
+            {floodGauges.length > 0 && (
               <path
                 d={d}
                 stroke={STAGE_VERDICTS.dangerous.inner}
@@ -793,7 +771,7 @@ export default function MOMap(props: MOMapProps) {
                 fill="none"
                 strokeLinecap="round"
                 strokeDasharray="4 3"
-                opacity={1}
+                opacity={0.7}
               />
             )}
           </g>
