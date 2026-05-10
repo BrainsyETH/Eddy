@@ -806,10 +806,16 @@ export default function MOMap(props: MOMapProps) {
           const isHovered = props.hoveredGaugeId === g.site_no;
           const isFocused = props.focusedGaugeId === g.site_no;
           const verdict = props.conditionByGauge[g.site_no] ?? 'unknown';
+          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
           const iconHref = getEddyImageForCondition(verdict);
-          // Marker size in SVG units; primary gauges + hover/focus scale up.
-          const baseSize = isFocused ? 32 : isHovered ? 28 : g.is_primary ? 22 : 16;
+          // Pin pattern: the precise gauge point is the small dot at (0,0).
+          // Eddy floats just above it like a labeled pin, so any offset
+          // between USGS coords and the rendered basemap stream is obvious
+          // (the dot stays anchored; only the Eddy badge hovers).
+          const baseSize = isFocused ? 28 : isHovered ? 24 : g.is_primary ? 20 : 14;
           const size = baseSize * kStable;
+          const dotR = (g.is_primary ? 2.2 : 1.6) * kStable;
+          const iconYOffset = -(size * 0.55 + dotR * 1.8);
           return (
             <g
               key={g.site_no}
@@ -819,17 +825,17 @@ export default function MOMap(props: MOMapProps) {
               onMouseLeave={() => props.onHoverGauge(null)}
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
-              <circle r={Math.max(14, baseSize * 0.6) * kStable} fill="transparent" pointerEvents="all" />
+              <circle r={Math.max(14, baseSize * 0.7) * kStable} fill="transparent" pointerEvents="all" />
               {isPeak && (
-                <circle r={(baseSize * 0.55) * kStable} fill="none" stroke={color} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
-                  <animate attributeName="r" from={(baseSize * 0.55) * kStable} to={(baseSize * 1.1) * kStable} dur="2.2s" repeatCount="indefinite" />
+                <circle r={(dotR * 2.5)} fill="none" stroke={color} strokeWidth={1 * kStable} opacity={0.7} pointerEvents="none">
+                  <animate attributeName="r" from={dotR * 2.5} to={dotR * 7} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
               )}
               <image
                 href={iconHref}
                 x={-size / 2}
-                y={-size / 2}
+                y={iconYOffset - size / 2}
                 width={size}
                 height={size}
                 pointerEvents="none"
@@ -838,6 +844,13 @@ export default function MOMap(props: MOMapProps) {
                     ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
                     : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
                 }}
+              />
+              <circle
+                r={dotR}
+                fill={verdictColor}
+                stroke="#FAF8F4"
+                strokeWidth={0.8 * kStable}
+                pointerEvents="none"
               />
             </g>
           );
