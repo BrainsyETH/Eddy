@@ -8,6 +8,7 @@ import { fetchWeather, fetchForecast, getCityForRiver } from '@/lib/weather/open
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime } from '@/lib/calculations/floatTime';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
+import { overlayLiveConditions } from '@/lib/social/live-conditions';
 // Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
 
 // Slug map: user-facing names → DB slugs
@@ -515,7 +516,7 @@ async function handleGetEddyReport(input: Record<string, unknown>) {
   const supabase = createAdminClient();
 
   // Fetch most recent non-expired update for this river (whole-river)
-  const { data: update } = await supabase
+  const { data: rawUpdate } = await supabase
     .from('eddy_updates')
     .select('river_slug, condition_code, gauge_height_ft, discharge_cfs, quote_text, summary_text, sources_used, generated_at, expires_at')
     .eq('river_slug', riverSlug)
@@ -525,9 +526,15 @@ async function handleGetEddyReport(input: Record<string, unknown>) {
     .limit(1)
     .maybeSingle();
 
-  if (!update) {
+  if (!rawUpdate) {
     return { error: `No current Eddy report available for ${riverSlug}. The report may have expired or not been generated yet.` };
   }
+
+  // Overlay live gauge data so the chat answer matches what users see on the
+  // river page and in social posts. If conditions have shifted buckets the
+  // AI prose is suppressed — the chat assistant should not quote stale
+  // narrative back to the user.
+  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
   const ageMs = Date.now() - new Date(update.generated_at).getTime();
   const ageHours = Math.round(ageMs / (1000 * 60 * 60) * 10) / 10;

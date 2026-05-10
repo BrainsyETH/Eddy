@@ -15,10 +15,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
 import { CONDITION_LABELS } from '@/constants';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers } from '@/lib/social/section-picker';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
+import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
 
 export const revalidate = 300;
 
@@ -112,81 +112,14 @@ async function generateDigestImage(size: { width: number; height: number }) {
   const fonts = loadFredokaFont();
   const isPortrait = size.height > size.width;
 
-  // Fetch latest gauge readings + thresholds for live condition computation
-  // This avoids stale condition codes from eddy_updates that may lag behind gauge changes
-  const { data: riverGauges, error: rgError } = await supabase
-    .from('river_gauges')
-    .select(`
-      river_id,
-      level_too_low, level_low, level_optimal_min, level_optimal_max,
-      level_high, level_dangerous, threshold_unit,
-      rivers!inner(slug),
-      gauge_stations!inner(id)
-    `)
-    .eq('is_primary', true);
-
-  if (rgError) {
-    console.error('[OG/Social] river_gauges query failed:', rgError.message);
-  }
-
-  // Build a map of river slug → thresholds + gauge station ID
-  const thresholdMap = new Map<string, { thresholds: ConditionThresholds; gaugeStationId: string }>();
-  for (const rg of riverGauges || []) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const slug = (rg as any).rivers?.slug;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stationId = (rg as any).gauge_stations?.id;
-    if (slug && stationId) {
-      thresholdMap.set(slug, {
-        thresholds: {
-          levelTooLow: rg.level_too_low,
-          levelLow: rg.level_low,
-          levelOptimalMin: rg.level_optimal_min,
-          levelOptimalMax: rg.level_optimal_max,
-          levelHigh: rg.level_high,
-          levelDangerous: rg.level_dangerous,
-          thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
-        },
-        gaugeStationId: stationId,
-      });
-    }
-  }
-
-  // Fetch latest gauge readings for all primary stations
-  const stationIds = Array.from(thresholdMap.values()).map(t => t.gaugeStationId);
-  const { data: latestReadings } = stationIds.length > 0
-    ? await supabase
-        .from('gauge_readings')
-        .select('gauge_station_id, gauge_height_ft, discharge_cfs')
-        .in('gauge_station_id', stationIds)
-        .order('reading_timestamp', { ascending: false })
-    : { data: [] };
-
-  // Deduplicate readings by station (latest first from the ORDER BY)
-  const readingMap = new Map<string, { gauge_height_ft: number | null; discharge_cfs: number | null }>();
-  for (const r of latestReadings || []) {
-    if (!readingMap.has(r.gauge_station_id)) {
-      readingMap.set(r.gauge_station_id, {
-        gauge_height_ft: r.gauge_height_ft,
-        discharge_cfs: r.discharge_cfs,
-      });
-    }
-  }
-
-  // Build river condition map from live gauge data
-  const riverMap = new Map<string, { condition_code: string; gauge_height_ft: number | null }>();
-  thresholdMap.forEach(({ thresholds, gaugeStationId }, slug) => {
-    const reading = readingMap.get(gaugeStationId);
-    const heightFt = reading?.gauge_height_ft ?? null;
-    const dischargeCfs = reading?.discharge_cfs ?? null;
-    const liveCondition = computeCondition(heightFt, thresholds, dischargeCfs);
-    riverMap.set(slug, {
-      condition_code: liveCondition.code,
-      gauge_height_ft: heightFt,
-    });
-  });
-
-  const rivers = Array.from(riverMap.entries());
+  // Pull live gauge-derived conditions so the digest never lags behind the
+  // hourly gauge feed. (eddy_updates.condition_code is frozen daily.)
+  const liveMap = await buildLiveConditionsMap(supabase);
+  const rivers: Array<[string, { condition_code: string; gauge_height_ft: number | null }]> =
+    Array.from(liveMap.entries()).map(([slug, live]) => [
+      slug,
+      { condition_code: live.condition_code, gauge_height_ft: live.gauge_height_ft },
+    ]);
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -372,7 +305,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   const fonts = loadFredokaFont();
 
   // Fetch latest update for this river
-  const { data: update } = await supabase
+  const { data: rawUpdate } = await supabase
     .from('eddy_updates')
     .select('river_slug, condition_code, gauge_height_ft, summary_text, quote_text')
     .eq('river_slug', riverSlug)
@@ -382,9 +315,14 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
     .limit(1)
     .maybeSingle();
 
-  if (!update) {
+  if (!rawUpdate) {
     return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
   }
+
+  // Overlay live gauge data so the headline + badge match reality, and drop
+  // AI prose if the live condition has crossed into a different bucket
+  // (otherwise we'd render "sweet spot" copy next to a "High Water" badge).
+  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
   const RIVER_DISPLAY: Record<string, string> = {
     meramec: 'Meramec River',
@@ -774,11 +712,15 @@ async function generateForecastImage(size: { width: number; height: number }) {
 
   const seen = new Set<string>();
   type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
-  const deduped = ((updates || []) as Row[]).filter((u) => {
+  const dedupedRaw = ((updates || []) as Row[]).filter((u) => {
     if (seen.has(u.river_slug)) return false;
     seen.add(u.river_slug);
     return true;
   });
+  // Overlay live conditions before filtering — a river that flipped from
+  // 'flowing' into 'high' since the AI snapshot should be rated on its live
+  // bucket, not yesterday's.
+  const deduped = await overlayLiveConditions(supabase, dedupedRaw);
   const top = deduped
     .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
     .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
@@ -958,18 +900,20 @@ async function generateSectionImage(size: { width: number; height: number }) {
 
   const { data: updates } = await supabase
     .from('eddy_updates')
-    .select('river_slug, condition_code')
+    .select('river_slug, condition_code, gauge_height_ft')
     .neq('river_slug', 'global')
     .is('section_slug', null)
     .gt('expires_at', new Date().toISOString());
 
-  type Row = { river_slug: string; condition_code: string };
+  type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
   const slugs = Array.from(new Set(((updates || []) as Row[]).map((u) => u.river_slug)));
   const section = pickSectionForRivers(slugs);
   if (!section) {
     return NextResponse.json({ error: 'No section available' }, { status: 404 });
   }
-  const condition = ((updates || []) as Row[]).find((u) => u.river_slug === section.riverSlug)?.condition_code || 'unknown';
+  // Overlay so the "Conditions" stat reflects live water, not the AI snapshot.
+  const overlaid = await overlayLiveConditions(supabase, (updates || []) as Row[]);
+  const condition = overlaid.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'unknown';
   const styles = getStatusStyles(condition as ConditionCode);
 
   return new ImageResponse(
@@ -1443,7 +1387,7 @@ async function generateWarningImage(
   const fonts = loadFredokaFont();
   const isPortrait = size.height > size.width;
 
-  const { data: update } = await supabase
+  const { data: rawUpdate } = await supabase
     .from('eddy_updates')
     .select('river_slug, condition_code, gauge_height_ft')
     .eq('river_slug', riverSlug)
@@ -1453,9 +1397,13 @@ async function generateWarningImage(
     .limit(1)
     .maybeSingle();
 
-  if (!update) {
+  if (!rawUpdate) {
     return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
   }
+
+  // Overlay live conditions: a warning image must always reflect the current
+  // gauge — the whole point of the warning is "right now".
+  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
   const RIVER_DISPLAY: Record<string, string> = {
     meramec: 'Meramec River',
