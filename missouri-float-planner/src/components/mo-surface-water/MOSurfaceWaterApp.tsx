@@ -6,6 +6,7 @@ import {
   classifyStageFromThresholds,
   type MOCampground,
   type MODataset,
+  type MOGauge,
   type MORiver,
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
@@ -159,6 +160,18 @@ export default function MOSurfaceWaterApp() {
     return out;
   }, [gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
 
+  // Editorial thresholds keyed by usgs site id. The dataset RPC returns
+  // these on each MORiver.gauges entry (00115/00119) but the live
+  // `MoStatewideGauge` doesn't carry them, so RightRail looks them up
+  // here when rendering the focused gauge detail.
+  const thresholdsByGauge: Record<string, MOGauge> = useMemo(() => {
+    const out: Record<string, MOGauge> = {};
+    for (const r of rivers) {
+      for (const g of r.gauges ?? []) out[g.site_id] = g;
+    }
+    return out;
+  }, [rivers]);
+
   // Per-gauge ConditionCode — derived from the gauge's own thresholds and
   // reading. Drives the segmented river coloring so each reach inherits
   // the condition of the gauge nearest to it, instead of every reach
@@ -239,9 +252,15 @@ export default function MOSurfaceWaterApp() {
   }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount, forecastBySite]);
 
   // ─── Right-rail selectors ─────────────────────────────────────────────
+  // Rail content is driven ONLY by clicked focus, never by hover. Hover
+  // still highlights features on the map (so the cursor gives feedback)
+  // but the sidebar is otherwise stable until the user clicks something.
+  // This stops the rail from flashing in/out as the cursor passes over
+  // rivers and gauges — the previous "popping up randomly" behavior.
   const focusedRiver = rivers.find((r) => r.id === focusedRiverId) ?? null;
   const hoveredRiver = rivers.find((r) => r.id === hoveredRiverId) ?? null;
-  const railRiver = focusedRiver ?? hoveredRiver;
+  void hoveredRiver;
+  const railRiver = focusedRiver;
   const railPrimaryGauge = (() => {
     if (!railRiver) return null;
     const primary = (railRiver.gauges ?? []).find((g) => g.is_primary);
@@ -256,7 +275,6 @@ export default function MOSurfaceWaterApp() {
   })();
 
   const focusedGauge = gauges.find((g) => g.site_no === focusedGaugeId) ?? null;
-  const hoveredGauge = gauges.find((g) => g.site_no === hoveredGaugeId) ?? null;
 
   const handleFocusGauge = (id: string | null) => {
     setFocusedGaugeId(id);
@@ -373,12 +391,13 @@ export default function MOSurfaceWaterApp() {
         river={railRiver}
         primaryGauge={railPrimaryGauge}
         primaryHistory={railPrimaryHistory}
-        hoveredGauge={hoveredGauge}
         focusedGauge={focusedGauge}
         campground={null}
         accessPoint={null}
         poi={null}
         forecastBySite={forecastBySite}
+        conditionByGauge={conditionByGauge}
+        thresholdsByGauge={thresholdsByGauge}
         onClose={closeRail}
         onCloseGauge={() => setFocusedGaugeId(null)}
         onAccessPointClick={(id) => handleClickAccess(id)}

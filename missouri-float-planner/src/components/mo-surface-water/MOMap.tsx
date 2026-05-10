@@ -878,10 +878,14 @@ export default function MOMap(props: MOMapProps) {
       )}
 
       {/* POIs */}
+      {/* "Springs" toggle. Filtered to type === 'spring' so the toggle
+          does what its label says — caves / waterfalls / scenic
+          viewpoints / other POI types stay hidden until they get their
+          own toggles, instead of all riding the same boolean. */}
       {props.showPOIs && (
         <g>
           {props.rivers.flatMap((r) =>
-            (r.pois ?? []).map((p) => {
+            (r.pois ?? []).filter((p) => p.type === 'spring').map((p) => {
               const [x, y] = project(p.lon, p.lat);
               const tone = POI_TONES[p.type] ?? '#524D43';
               return (
