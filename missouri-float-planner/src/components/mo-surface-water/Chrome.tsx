@@ -18,6 +18,7 @@ import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/rout
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
+import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { ConditionCode } from '@/types/api';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
@@ -983,7 +984,7 @@ function GaugeDetail({
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
-  const eddy = useGaugeEddyReport(gauge.site_no);
+  const eddy = useGaugeRailReport(gauge);
   // Prefer the editorial verdict (matches the marker color + the rest of
   // the app); fall back to the USGS percentile classification when the
   // gauge has no curated thresholds.
@@ -1080,25 +1081,50 @@ function GaugeDetail({
   );
 }
 
-// Per-gauge Eddy report fetched from /api/gauge-update/[siteId]. Returns
-// undefined while loading, null when no update is available, otherwise the
-// hydrated payload.
-type EddyReport = NonNullable<GaugeUpdateResponse['update']>;
+// "Eddy says" payload rendered in the gauge rail. Both endpoints feed
+// the same card, so we normalize to a minimal shape that matches what
+// EddyReportCard reads.
+type EddyReport = {
+  quoteText: string;
+  summaryText: string | null;
+  conditionCode: string;
+  generatedAt: string;
+};
 
-function useGaugeEddyReport(siteId: string): EddyReport | null | undefined {
+// Primary gauges share the river-level Sonnet update from /api/eddy-update
+// (one canonical narrative per river). Secondary gauges have their own
+// Haiku update from /api/gauge-update. The card looks identical either way;
+// only the source endpoint differs.
+function useGaugeRailReport(gauge: MoStatewideGauge | null): EddyReport | null | undefined {
   const [report, setReport] = useState<EddyReport | null | undefined>(undefined);
   useEffect(() => {
+    if (!gauge) { setReport(undefined); return; }
     let cancelled = false;
     setReport(undefined);
-    fetch(`/api/gauge-update/${siteId}`)
+    const url = gauge.is_primary
+      ? `/api/eddy-update/${encodeURIComponent(gauge.river_slug)}`
+      : `/api/gauge-update/${encodeURIComponent(gauge.site_no)}`;
+    fetch(url)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: GaugeUpdateResponse | null) => {
+      .then((j: EddyUpdateResponse | GaugeUpdateResponse | null) => {
         if (cancelled) return;
-        setReport(j?.available ? j.update : null);
+        if (!j?.available || !j.update) {
+          setReport(null);
+          return;
+        }
+        setReport({
+          quoteText: j.update.quoteText,
+          summaryText: j.update.summaryText,
+          conditionCode: j.update.conditionCode,
+          generatedAt: j.update.generatedAt,
+        });
       })
       .catch(() => { if (!cancelled) setReport(null); });
     return () => { cancelled = true; };
-  }, [siteId]);
+    // Refetch only when the identifying fields change. Re-running on every
+    // new `gauge` object reference would re-fire on each parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gauge?.site_no, gauge?.is_primary, gauge?.river_slug]);
   return report;
 }
 
