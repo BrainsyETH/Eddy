@@ -342,6 +342,12 @@ export default function MOSurfaceWaterApp() {
   const closeRail = () => {
     setFocusedGaugeId(null);
     setFocusedRiverId(null);
+    // Also drop hover state so the × button closes a rail that was opened
+    // by hover. Otherwise hoveredRiverId stays set and the rail re-renders
+    // immediately on the next paint.
+    setHoveredRiverId(null);
+    setHoveredGaugeId(null);
+    setHoveredGaugePos(null);
   };
 
   return (

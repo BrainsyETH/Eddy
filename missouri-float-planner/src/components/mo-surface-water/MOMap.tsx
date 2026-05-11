@@ -546,6 +546,14 @@ export default function MOMap(props: MOMapProps) {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onDoubleClick={resetView}
+      onMouseLeave={() => {
+        // Per-river/per-gauge onMouseLeave doesn't always fire when the
+        // cursor exits the viewport (off-screen, into browser chrome),
+        // leaving hoveredRiverId/hoveredGaugeId stuck. Clear them here so
+        // the hover-opened rail closes when the pointer leaves the map.
+        props.onHoverRiver(null);
+        props.onHoverGauge(null, null);
+      }}
       onClick={(e) => {
         // Empty-area click clears focus — but only if we didn't just pan.
         if (dragRef.current?.moved) return;
