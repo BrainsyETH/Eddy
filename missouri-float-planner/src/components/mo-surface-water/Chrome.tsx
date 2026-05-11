@@ -18,7 +18,9 @@ import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/rout
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
+import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { ConditionCode } from '@/types/api';
+import { getEddyImageForCondition } from '@/constants';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const SANS = 'var(--font-body), system-ui, sans-serif';
@@ -983,7 +985,7 @@ function GaugeDetail({
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
-  const eddy = useGaugeEddyReport(gauge.site_no);
+  const eddy = useGaugeRailReport(gauge);
   // Prefer the editorial verdict (matches the marker color + the rest of
   // the app); fall back to the USGS percentile classification when the
   // gauge has no curated thresholds.
@@ -1080,25 +1082,77 @@ function GaugeDetail({
   );
 }
 
-// Per-gauge Eddy report fetched from /api/gauge-update/[siteId]. Returns
-// undefined while loading, null when no update is available, otherwise the
-// hydrated payload.
-type EddyReport = NonNullable<GaugeUpdateResponse['update']>;
+// "Eddy says" payload rendered in the gauge rail. Both endpoints feed
+// the same card, so we normalize to a minimal shape that matches what
+// EddyReportCard reads.
+export type EddyReport = {
+  quoteText: string;
+  summaryText: string | null;
+  conditionCode: string;
+  generatedAt: string;
+};
 
-function useGaugeEddyReport(siteId: string): EddyReport | null | undefined {
-  const [report, setReport] = useState<EddyReport | null | undefined>(undefined);
+// Module-level cache so a gauge fetched once (rail open or first hover)
+// stays warm for subsequent hovers. Cleared on full reload; that's fine —
+// reports refresh daily and the cron writes a new row, not a delta.
+const reportCache = new Map<string, EddyReport | null>();
+const inflight = new Map<string, Promise<EddyReport | null>>();
+
+function fetchReport(gauge: MoStatewideGauge): Promise<EddyReport | null> {
+  const key = `${gauge.is_primary ? 'p' : 's'}:${gauge.is_primary ? gauge.river_slug : gauge.site_no}`;
+  if (reportCache.has(key)) return Promise.resolve(reportCache.get(key) ?? null);
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const url = gauge.is_primary
+    ? `/api/eddy-update/${encodeURIComponent(gauge.river_slug)}`
+    : `/api/gauge-update/${encodeURIComponent(gauge.site_no)}`;
+  const p = fetch(url)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j: EddyUpdateResponse | GaugeUpdateResponse | null) => {
+      if (!j?.available || !j.update) {
+        reportCache.set(key, null);
+        return null;
+      }
+      const norm: EddyReport = {
+        quoteText: j.update.quoteText,
+        summaryText: j.update.summaryText,
+        conditionCode: j.update.conditionCode,
+        generatedAt: j.update.generatedAt,
+      };
+      reportCache.set(key, norm);
+      return norm;
+    })
+    .catch(() => { reportCache.set(key, null); return null; })
+    .finally(() => { inflight.delete(key); });
+  inflight.set(key, p);
+  return p;
+}
+
+// Primary gauges share the river-level Sonnet update from /api/eddy-update
+// (one canonical narrative per river). Secondary gauges have their own
+// Haiku update from /api/gauge-update. The card looks identical either way;
+// only the source endpoint differs.
+function useGaugeRailReport(gauge: MoStatewideGauge | null): EddyReport | null | undefined {
+  const cached = useMemo(() => {
+    if (!gauge) return undefined;
+    const key = `${gauge.is_primary ? 'p' : 's'}:${gauge.is_primary ? gauge.river_slug : gauge.site_no}`;
+    return reportCache.has(key) ? reportCache.get(key) ?? null : undefined;
+    // Same rationale as the effect below: depend on identifying fields,
+    // not the object reference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gauge?.site_no, gauge?.is_primary, gauge?.river_slug]);
+  const [report, setReport] = useState<EddyReport | null | undefined>(cached);
   useEffect(() => {
+    if (!gauge) { setReport(undefined); return; }
+    if (cached !== undefined) { setReport(cached); return; }
     let cancelled = false;
     setReport(undefined);
-    fetch(`/api/gauge-update/${siteId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: GaugeUpdateResponse | null) => {
-        if (cancelled) return;
-        setReport(j?.available ? j.update : null);
-      })
-      .catch(() => { if (!cancelled) setReport(null); });
+    fetchReport(gauge).then((r) => { if (!cancelled) setReport(r); });
     return () => { cancelled = true; };
-  }, [siteId]);
+    // Refetch only when the identifying fields change. Re-running on every
+    // new `gauge` object reference would re-fire on each parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gauge?.site_no, gauge?.is_primary, gauge?.river_slug]);
   return report;
 }
 
@@ -1784,4 +1838,132 @@ export function DetailModal({
   }
 
   return null;
+}
+
+// ─── Hover overlay ──────────────────────────────────────────────────────
+//
+// Small floating card pinned to the hovered gauge. Same Eddy report the
+// rail uses, just compact: avatar + verdict badge + summary + source line.
+// Renders nothing when no report exists (statewide gauges, non-curated
+// rivers) so hovering them stays quiet.
+
+const OVERLAY_W = 360;
+const OVERLAY_GAP = 18;
+
+export function GaugeHoverOverlay({
+  gauge,
+  gaugeName,
+  pos,
+}: {
+  gauge: MoStatewideGauge | null;
+  /** USGS station name like "Current River near Van Buren MO". */
+  gaugeName: string | null;
+  pos: { x: number; y: number } | null;
+}) {
+  const report = useGaugeRailReport(gauge);
+
+  if (!gauge || !pos || !report) return null;
+
+  const verdict = STAGE_VERDICTS[report.conditionCode as StageVerdict] ?? STAGE_VERDICTS.unknown;
+  const eddyImg = getEddyImageForCondition(report.conditionCode);
+  const place = extractPlace(gaugeName);
+
+  // Anchor: prefer right of the marker, flip if it would clip; same for top.
+  const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const overflowsRight = pos.x + OVERLAY_GAP + OVERLAY_W > viewportW - 12;
+  const left = overflowsRight ? Math.max(12, pos.x - OVERLAY_GAP - OVERLAY_W) : pos.x + OVERLAY_GAP;
+  // Estimate height ~120; flip if it would clip the bottom.
+  const overflowsBottom = pos.y + 130 > viewportH - 12;
+  const top = overflowsBottom ? Math.max(12, pos.y - 130) : Math.max(12, pos.y - 20);
+
+  return (
+    <div
+      className="pointer-events-none fixed z-40 rounded-md border-2 p-3"
+      style={{
+        top, left, width: OVERLAY_W,
+        background: THEME.cardBg,
+        borderColor: THEME.cardBorder,
+        boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
+        fontFamily: SANS,
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="flex-shrink-0 rounded-md border-2"
+          style={{ width: 48, height: 48, borderColor: THEME.cardBorder, background: '#F2EAD8', overflow: 'hidden' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={eddyImg} alt="" width={44} height={44} style={{ display: 'block', margin: '2px auto' }} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="uppercase font-bold"
+              style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
+            >
+              Eddy says
+            </span>
+            <span
+              style={{
+                background: verdict.color,
+                color: '#FAF8F4',
+                fontFamily: MONO,
+                fontSize: 9,
+                letterSpacing: '0.1em',
+                padding: '2px 7px',
+                borderRadius: 3,
+                textTransform: 'uppercase',
+                fontWeight: 700,
+              }}
+            >
+              {verdict.label}
+            </span>
+          </div>
+          {report.summaryText && (
+            <p
+              className="mt-1.5 leading-snug"
+              style={{ fontSize: 13.5, fontWeight: 600, color: THEME.primaryDark }}
+            >
+              {report.summaryText.replace(/^["“]|["”]$/g, '')}
+            </p>
+          )}
+          <div
+            className="mt-2 rounded-sm px-2 py-1.5"
+            style={{
+              background: '#F4EFE7',
+              border: `1px solid ${THEME.cardBorder}`,
+              fontFamily: MONO,
+              fontSize: 10,
+              color: THEME.inkDim,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <span style={{ color: THEME.ink, fontWeight: 700 }}>SOURCE</span>{' '}
+            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · {relativeTime(report.generatedAt)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// "Current River near Van Buren MO" → "Van Buren, MO". Falls back to the
+// raw river name when the station label doesn't follow the USGS convention.
+function extractPlace(stationName: string | null): string | null {
+  if (!stationName) return null;
+  const m = stationName.match(/\b(?:near|at|nr|abv|blw)\s+(.+?)\s+(MO|MISSOURI)\b/i);
+  if (m) return `${m[1].trim()}, MO`;
+  return null;
+}
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }

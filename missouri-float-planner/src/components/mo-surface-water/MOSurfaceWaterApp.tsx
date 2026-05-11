@@ -29,6 +29,7 @@ import {
   TimeScrubber,
   LayerToggles,
   DetailModal,
+  GaugeHoverOverlay,
   type ModalSelection,
 } from './Chrome';
 
@@ -44,6 +45,7 @@ export default function MOSurfaceWaterApp() {
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
   const [focusedRiverId, setFocusedRiverId] = useState<string | null>(null);
   const [hoveredGaugeId, setHoveredGaugeId] = useState<string | null>(null);
+  const [hoveredGaugePos, setHoveredGaugePos] = useState<{ x: number; y: number } | null>(null);
   const [focusedGaugeId, setFocusedGaugeId] = useState<string | null>(null);
   // Access points / campgrounds / POIs open in a modal popup with link-outs;
   // they're not pinned in the right rail. Rivers + gauges still pin to the
@@ -261,6 +263,16 @@ export default function MOSurfaceWaterApp() {
 
   const focusedGauge = gauges.find((g) => g.site_no === focusedGaugeId) ?? null;
   const hoveredGauge = gauges.find((g) => g.site_no === hoveredGaugeId) ?? null;
+  // USGS station name lookup for the hover overlay's source line; lives in
+  // the dataset's per-river gauge rows, not in the statewide payload.
+  const hoveredGaugeName = useMemo(() => {
+    if (!hoveredGauge) return null;
+    for (const r of rivers) {
+      const match = (r.gauges ?? []).find((g) => g.site_id === hoveredGauge.site_no);
+      if (match) return match.name;
+    }
+    return null;
+  }, [hoveredGauge, rivers]);
 
   const handleFocusGauge = (id: string | null) => {
     setFocusedGaugeId(id);
@@ -352,7 +364,7 @@ export default function MOSurfaceWaterApp() {
         showGauges={showGauges}
         onHoverRiver={setHoveredRiverId}
         onFocusRiver={setFocusedRiverId}
-        onHoverGauge={setHoveredGaugeId}
+        onHoverGauge={(id, pos) => { setHoveredGaugeId(id); setHoveredGaugePos(pos ?? null); }}
         onFocusGauge={handleFocusGauge}
         onClickCampground={handleClickCampground}
         onClickAccessPoint={handleClickAccess}
@@ -416,6 +428,12 @@ export default function MOSurfaceWaterApp() {
       )}
 
       <DetailModal selection={modalSelection} onClose={closeModal} />
+
+      {/* Hover overlay — only shown when no rail is pinned, so it never
+          fights with the GaugeDetail rail for screen space. */}
+      {!focusedGauge && !focusedRiverId && (
+        <GaugeHoverOverlay gauge={hoveredGauge} gaugeName={hoveredGaugeName} pos={hoveredGaugePos} />
+      )}
     </div>
   );
 }

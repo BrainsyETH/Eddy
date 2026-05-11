@@ -131,7 +131,7 @@ interface MOMapProps {
   showGauges: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
-  onHoverGauge: (id: string | null) => void;
+  onHoverGauge: (id: string | null, screenPos?: { x: number; y: number } | null) => void;
   onFocusGauge: (id: string | null) => void;
   onClickCampground: (id: string | null) => void;
   onClickAccessPoint: (id: string | null) => void;
@@ -833,8 +833,14 @@ export default function MOMap(props: MOMapProps) {
               key={g.site_no}
               transform={`translate(${x} ${y})`}
               style={{ cursor: 'pointer' }}
-              onMouseEnter={() => props.onHoverGauge(g.site_no)}
-              onMouseLeave={() => props.onHoverGauge(null)}
+              onMouseEnter={(e) => {
+                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
+                props.onHoverGauge(g.site_no, {
+                  x: rect.left + rect.width / 2,
+                  y: rect.top + rect.height / 2,
+                });
+              }}
+              onMouseLeave={() => props.onHoverGauge(null, null)}
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
               <circle r={Math.max(14, baseSize * 0.7) * kStable} fill="transparent" pointerEvents="all" />
