@@ -8,9 +8,9 @@ Missouri float trip planner. Monorepo housing the web app, mobile app, and share
 eddy/
 ├── apps/
 │   ├── web/         # Next.js 14 app (formerly missouri-float-planner/)
-│   └── mobile/      # Expo + React Native iOS/Android app (scaffold pending)
+│   └── mobile/      # Expo SDK 56 + React Native iOS/Android app
 ├── packages/
-│   └── shared/      # Cross-platform types, zod schemas, API client, business logic
+│   └── shared/      # Cross-platform types, API client, condition/float-time logic
 ├── scripts/         # ClipEngine shell scripts used by GitHub Actions
 └── .github/         # CI workflows
 ```
@@ -50,4 +50,6 @@ environment variables, and data import scripts.
 
 ## Mobile app
 
-See [`apps/mobile/README.md`](apps/mobile/README.md). Expo scaffold pending.
+See [`apps/mobile/README.md`](apps/mobile/README.md) for running the Expo app.
+It consumes the same REST API as the web frontend (`https://eddy.guide`) and
+shares types/business logic via `@eddy/shared`.

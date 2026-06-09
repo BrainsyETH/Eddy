@@ -4,10 +4,25 @@
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./types/api": "./src/types/api.ts",
+    "./types/geo": "./src/types/geo.ts",
+    "./constants": "./src/constants/index.ts",
+    "./calculations/floatTime": "./src/calculations/floatTime.ts",
+    "./calculations/conditions": "./src/calculations/conditions.ts",
+    "./conditions": "./src/conditions.ts",
+    "./utils/formatters": "./src/utils/formatters.ts",
+    "./utils/geo": "./src/utils/geo.ts",
+    "./navigation": "./src/navigation/deepLinks.ts",
+    "./api": "./src/api/client.ts"
+  },
   "scripts": {
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/geojson": "^7946.0.16",
     "typescript": "^5"
   }
 }
