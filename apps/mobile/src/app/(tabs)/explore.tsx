@@ -17,6 +17,7 @@ import type {
 } from '@eddy/shared/types/api';
 import { CONDITION_COLORS } from '@eddy/shared/constants';
 
+import { RiverMap } from '@/components/river-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -239,6 +240,9 @@ export default function PlanScreen() {
 
           {plan && (
             <View style={styles.resultBlock}>
+              <View style={styles.mapWrapper}>
+                <RiverMap route={plan.route} />
+              </View>
               <View
                 style={[
                   styles.conditionBanner,
@@ -412,6 +416,9 @@ const styles = StyleSheet.create({
   resultBlock: {
     gap: Spacing.three,
     marginTop: Spacing.three,
+  },
+  mapWrapper: {
+    height: 220,
   },
   conditionBanner: {
     borderRadius: Spacing.two,

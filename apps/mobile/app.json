@@ -36,6 +36,14 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "ios": {
+            "version": "6.13.0"
+          }
+        }
       ]
     ],
     "experiments": {

@@ -10,6 +10,7 @@ import type {
 import { CONDITION_COLORS, CONDITION_LABELS } from '@eddy/shared/constants';
 import { formatDistance } from '@eddy/shared/calculations/floatTime';
 
+import { RiverMap } from '@/components/river-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -85,6 +86,10 @@ export default function RiverDetailScreen() {
           </View>
         )}
 
+        <View style={styles.mapWrapper}>
+          <RiverMap route={river.geometry} bounds={river.bounds} />
+        </View>
+
         {river.description && <ThemedText>{river.description}</ThemedText>}
 
         <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -142,6 +147,9 @@ const styles = StyleSheet.create({
   conditionBanner: {
     borderRadius: Spacing.two,
     padding: Spacing.three,
+  },
+  mapWrapper: {
+    height: 240,
   },
   conditionText: {
     color: '#fff',
