@@ -43,7 +43,9 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiBaseUrl": "https://eddy.guide"
+      "apiBaseUrl": "https://eddy.guide",
+      "supabaseUrl": "https://ilefwfpvphadsbptiaur.supabase.co",
+      "supabasePublishableKey": "sb_publishable_RySkEb0tsZAITIOsvlS63w_KZ8ExYh7"
     }
   }
 }

@@ -3,6 +3,7 @@
 // supplies the base URL (web uses relative '', mobile uses https://eddy.guide).
 
 import type {
+  AccessPointsResponse,
   ConditionResponse,
   PlanResponse,
   RiverDetailResponse,
@@ -70,6 +71,11 @@ export function createEddyApiClient(options: EddyApiClientOptions) {
 
     getRiver: (slug: string) =>
       request<RiverDetailResponse>(`/api/rivers/${encodeURIComponent(slug)}`),
+
+    getRiverAccessPoints: (slug: string) =>
+      request<AccessPointsResponse>(
+        `/api/rivers/${encodeURIComponent(slug)}/access-points`
+      ),
 
     getGauge: (siteId: string) =>
       request<unknown>(`/api/gauges/${encodeURIComponent(siteId)}`),

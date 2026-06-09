@@ -1,7 +1,9 @@
+import { Link } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -29,17 +31,26 @@ function ConditionBadge({ code }: { code: ConditionCode }) {
 
 function RiverRow({ river }: { river: RiverListItem }) {
   return (
-    <ThemedView type="backgroundElement" style={styles.row}>
-      <View style={styles.rowText}>
-        <ThemedText style={styles.riverName}>{river.name}</ThemedText>
-        <ThemedText type="small">
-          {river.accessPointCount} access points
-        </ThemedText>
-      </View>
-      {river.currentCondition && (
-        <ConditionBadge code={river.currentCondition.code} />
-      )}
-    </ThemedView>
+    <Link href={`/rivers/${river.slug}`} asChild>
+      <Pressable>
+        {({ pressed }) => (
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.row, pressed && styles.rowPressed]}
+          >
+            <View style={styles.rowText}>
+              <ThemedText style={styles.riverName}>{river.name}</ThemedText>
+              <ThemedText type="small">
+                {river.accessPointCount} access points
+              </ThemedText>
+            </View>
+            {river.currentCondition && (
+              <ConditionBadge code={river.currentCondition.code} />
+            )}
+          </ThemedView>
+        )}
+      </Pressable>
+    </Link>
   );
 }
 
@@ -130,6 +141,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  rowPressed: {
+    opacity: 0.7,
   },
   rowText: {
     gap: 2,
