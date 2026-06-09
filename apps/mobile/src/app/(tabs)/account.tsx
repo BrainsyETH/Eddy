@@ -1,20 +1,83 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import type { SavedPlanSummary } from '@eddy/shared/types/api';
+import {
+  formatDistance,
+  formatFloatTime,
+} from '@eddy/shared/calculations/floatTime';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing } from '@/constants/theme';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 
 type Mode = 'signIn' | 'signUp';
+
+function SavedPlans() {
+  const [plans, setPlans] = useState<SavedPlanSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getMyPlans()
+      .then(({ plans }) => setPlans(plans))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : 'Failed to load plans')
+      );
+  }, []);
+
+  return (
+    <View style={styles.plansSection}>
+      <ThemedText type="subtitle">My saved plans</ThemedText>
+      {error ? (
+        <ThemedText type="small">{error}</ThemedText>
+      ) : plans === null ? (
+        <ActivityIndicator />
+      ) : plans.length === 0 ? (
+        <ThemedText type="small">
+          No saved plans yet. Save a float plan and it will show up here.
+        </ThemedText>
+      ) : (
+        <ScrollView contentContainerStyle={styles.plansList}>
+          {plans.map((plan) => (
+            <ThemedView
+              key={plan.shortCode}
+              type="backgroundElement"
+              style={styles.card}
+            >
+              <ThemedText style={styles.semibold}>
+                {plan.riverName ?? 'Unknown river'}
+              </ThemedText>
+              <ThemedText type="small">
+                {plan.startName ?? '?'} → {plan.endName ?? '?'}
+              </ThemedText>
+              <ThemedText type="small">
+                {plan.distanceMiles != null
+                  ? formatDistance(plan.distanceMiles)
+                  : ''}
+                {plan.estimatedFloatMinutes != null
+                  ? ` · ${formatFloatTime(plan.estimatedFloatMinutes)}`
+                  : ''}
+              </ThemedText>
+            </ThemedView>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
 
 export default function AccountScreen() {
   const { session, loading } = useAuth();
@@ -75,10 +138,7 @@ export default function AccountScreen() {
             <ThemedText type="small">Signed in as</ThemedText>
             <ThemedText style={styles.semibold}>{session.user.email}</ThemedText>
           </ThemedView>
-          <ThemedText type="small">
-            Saved float plans will appear here once plan saving is wired to
-            accounts.
-          </ThemedText>
+          <SavedPlans />
           <Pressable
             onPress={signOut}
             disabled={busy}
@@ -156,6 +216,13 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.one,
+  },
+  plansSection: {
+    flex: 1,
+    gap: Spacing.two,
+  },
+  plansList: {
+    gap: Spacing.two,
   },
   semibold: {
     fontWeight: '600',

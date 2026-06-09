@@ -11,6 +11,7 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="rivers/[slug]" options={{ title: 'River' }} />
+          <Stack.Screen name="gauges/[siteId]" options={{ title: 'Gauge' }} />
         </Stack>
       </ThemeProvider>
     </AuthProvider>

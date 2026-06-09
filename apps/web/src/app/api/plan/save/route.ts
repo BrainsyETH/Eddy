@@ -2,7 +2,7 @@
 // POST /api/plan/save - Save a float plan and get shareable URL
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClientForRequest } from '@/lib/supabase/request';
 import type { SavePlanRequest, SavePlanResponse } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -21,7 +21,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    // Works for cookie sessions (web), bearer tokens (mobile), and anonymous
+    // callers. RLS only allows user_id values matching the caller.
+    const supabase = await createClientForRequest(request);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     // Calculate plan to get snapshot data
     const planResponse = await fetch(
@@ -90,6 +95,8 @@ export async function POST(request: NextRequest) {
       gauge_reading_at_creation: plan.condition.gaugeHeightFt,
       discharge_cfs_at_creation: plan.condition.dischargeCfs, // TODO: Uncomment after migration 00020
       gauge_name_at_creation: plan.condition.gaugeName, // TODO: Uncomment after migration 00021
+      // Spread keeps anonymous saves working before migration 00126 adds the column
+      ...(user && { user_id: user.id }),
     });
 
     if (insertError) {

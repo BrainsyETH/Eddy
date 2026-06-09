@@ -362,6 +362,77 @@ export interface SavePlanResponse {
   url: string;
 }
 
+/** A saved plan row as returned by GET /api/plan/mine (signed-in users). */
+export interface SavedPlanSummary {
+  shortCode: string;
+  createdAt: string;
+  riverName: string | null;
+  startName: string | null;
+  endName: string | null;
+  distanceMiles: number | null;
+  estimatedFloatMinutes: number | null;
+  conditionAtCreation: string | null;
+}
+
+export interface MyPlansResponse {
+  plans: SavedPlanSummary[];
+}
+
+/** Gauge station summary as returned by GET /api/gauges. */
+export interface GaugeStationSummary {
+  id: string;
+  usgsSiteId: string;
+  name: string;
+  coordinates: { lng: number; lat: number };
+  active: boolean;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  thresholdDescriptions: Record<string, string> | null;
+  thresholds:
+    | {
+        riverId: string;
+        riverName: string;
+        riverSlug: string | null;
+        isPrimary: boolean;
+        thresholdUnit: 'ft' | 'cfs';
+        levelTooLow: number | null;
+        levelLow: number | null;
+        levelOptimalMin: number | null;
+        levelOptimalMax: number | null;
+        levelHigh: number | null;
+        levelDangerous: number | null;
+        altLevelTooLow: number | null;
+        altLevelLow: number | null;
+        altLevelOptimalMin: number | null;
+        altLevelOptimalMax: number | null;
+        altLevelHigh: number | null;
+        altLevelDangerous: number | null;
+      }[]
+    | null;
+}
+
+export interface GaugesListResponse {
+  gauges: GaugeStationSummary[];
+}
+
+export interface GaugeHistoryResponse {
+  siteId: string;
+  siteName: string;
+  readings: {
+    timestamp: string;
+    gaugeHeightFt: number | null;
+    dischargeCfs: number | null;
+  }[];
+  stats: {
+    minDischarge: number | null;
+    maxDischarge: number | null;
+    minHeight: number | null;
+    maxHeight: number | null;
+  };
+}
+
 // Multi-day trip planning types
 export interface CampgroundsResponse {
   campgrounds: AccessPoint[];

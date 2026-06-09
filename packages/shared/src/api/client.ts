@@ -5,6 +5,9 @@
 import type {
   AccessPointsResponse,
   ConditionResponse,
+  GaugeHistoryResponse,
+  GaugesListResponse,
+  MyPlansResponse,
   PlanResponse,
   RiverDetailResponse,
   RiversResponse,
@@ -27,8 +30,14 @@ export class ApiError extends Error {
 export interface EddyApiClientOptions {
   /** Origin of the API, e.g. 'https://eddy.guide'. Empty string for same-origin (web). */
   baseUrl: string;
-  /** Extra headers sent with every request (e.g. Authorization on mobile). */
+  /** Extra headers sent with every request. */
   headers?: Record<string, string>;
+  /**
+   * Called before each request; when it returns a token, it is sent as
+   * `Authorization: Bearer <token>`. Lets mobile attach the current Supabase
+   * access token without recreating the client on auth changes.
+   */
+  getAccessToken?: () => Promise<string | null>;
   /** Custom fetch implementation; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -41,14 +50,16 @@ export interface PlanQuery {
 }
 
 export function createEddyApiClient(options: EddyApiClientOptions) {
-  const { baseUrl, headers = {}, fetchImpl = fetch } = options;
+  const { baseUrl, headers = {}, getAccessToken, fetchImpl = fetch } = options;
 
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const url = `${baseUrl}${path}`;
+    const token = getAccessToken ? await getAccessToken() : null;
     const res = await fetchImpl(url, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
         ...headers,
         ...(init?.headers as Record<string, string> | undefined),
       },
@@ -77,8 +88,12 @@ export function createEddyApiClient(options: EddyApiClientOptions) {
         `/api/rivers/${encodeURIComponent(slug)}/access-points`
       ),
 
-    getGauge: (siteId: string) =>
-      request<unknown>(`/api/gauges/${encodeURIComponent(siteId)}`),
+    getGauges: () => request<GaugesListResponse>('/api/gauges'),
+
+    getGaugeHistory: (siteId: string, days = 7) =>
+      request<GaugeHistoryResponse>(
+        `/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`
+      ),
 
     getCondition: (riverId: string) =>
       request<ConditionResponse>(
@@ -102,6 +117,9 @@ export function createEddyApiClient(options: EddyApiClientOptions) {
 
     getSavedPlan: (shortCode: string) =>
       request<PlanResponse>(`/api/plan/${encodeURIComponent(shortCode)}`),
+
+    /** Saved plans for the signed-in user. Requires getAccessToken. */
+    getMyPlans: () => request<MyPlansResponse>('/api/plan/mine'),
   };
 }
 
