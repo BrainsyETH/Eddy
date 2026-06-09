@@ -49,10 +49,10 @@ jobs:
           # invalidates correctly when lockfile changes (the previous
           # hashFiles('package.json') key missed transitive bumps).
           cache: npm
-          cache-dependency-path: missouri-float-planner/remotion/package-lock.json
+          cache-dependency-path: apps/web/remotion/package-lock.json
 
       - name: Install Remotion dependencies
-        working-directory: missouri-float-planner/remotion
+        working-directory: apps/web/remotion
         # `npm ci` is reproducible and ~2x faster than `npm install` when the
         # lockfile is in sync.
         run: npm ci
@@ -65,7 +65,7 @@ jobs:
           echo "Props written ($(wc -c < /tmp/input-props.json) bytes)"
 
       - name: Verify audio file exists
-        working-directory: missouri-float-planner/remotion
+        working-directory: apps/web/remotion
         run: |
           echo "=== Checking public/audio/ ==="
           ls -la public/audio/
@@ -73,7 +73,7 @@ jobs:
           echo "=== Audio file confirmed ==="
 
       - name: Render video
-        working-directory: missouri-float-planner/remotion
+        working-directory: apps/web/remotion
         run: |
           OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
 
@@ -102,7 +102,7 @@ jobs:
 
       - name: Normalize audio for Meta Reels
         id: normalize
-        working-directory: missouri-float-planner/remotion
+        working-directory: apps/web/remotion
         run: |
           set -euxo pipefail
 

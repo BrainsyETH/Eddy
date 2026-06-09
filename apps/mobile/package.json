@@ -1,0 +1,8 @@
+{
+  "name": "@eddy/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "echo 'Expo app not yet scaffolded. See README.'"
+  }
+}

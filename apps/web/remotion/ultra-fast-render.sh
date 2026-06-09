@@ -3,7 +3,7 @@ set -e
 
 echo "🚀 Ultra-fast render (30 seconds)..."
 
-cd ~/eddy/missouri-float-planner/remotion
+cd ~/eddy/apps/web/remotion
 
 # Create a 1-minute video with screenshots
 # Each image shown for 7.5 seconds (8 images = 60 seconds)

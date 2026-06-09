@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-cd ~/eddy/missouri-float-planner/remotion
+cd ~/eddy/apps/web/remotion
 
 echo "🎬 Creating final video with cheerful female voiceover..."
 

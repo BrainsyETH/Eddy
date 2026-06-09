@@ -8,7 +8,7 @@ generated deterministically from `generate-background-music.py` — regenerate
 with:
 
 ```bash
-cd missouri-float-planner/remotion/public/audio
+cd apps/web/remotion/public/audio
 python3 generate-background-music.py
 ```
 

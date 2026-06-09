@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-cd ~/eddy/missouri-float-planner/remotion
+cd ~/eddy/apps/web/remotion
 
 echo "🎬 Rendering with female voice + text overlays..."
 
