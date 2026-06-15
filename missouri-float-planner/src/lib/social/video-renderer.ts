@@ -7,7 +7,25 @@
 //   GH_REPO_OWNER     — GitHub repo owner (default: 'BrainsyETH')
 //   GH_ACTIONS_REF    — Git ref for workflow dispatch (default: 'main')
 
+import { calculateFloatTime, type VesselSpeeds } from '@/lib/calculations/floatTime';
+import type { ConditionCode } from '@/types/api';
+
 const LOG_PREFIX = '[VideoRenderer]';
+
+// Canonical canoe speed profile for float-time estimates in social graphics.
+// calculateFloatTime scales these by condition (high water faster, low slower),
+// which is what makes the "today vs usual" delta meaningful.
+const DEFAULT_CANOE_SPEEDS: VesselSpeeds = {
+  speedLowWater: 2.0,
+  speedNormal: 2.5,
+  speedHighWater: 3.5,
+};
+
+/** Estimated canoe float time (hours, 1 decimal) for a distance at a condition. */
+function canoeHours(distanceMi: number, conditionCode: ConditionCode): number {
+  const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode);
+  return result ? Math.round((result.minutes / 60) * 10) / 10 : 0;
+}
 
 const DEFAULT_OWNER = 'BrainsyETH';
 const DEFAULT_REPO = 'Eddy';
@@ -338,7 +356,9 @@ export function getCompositionForPost(
         outputFilename: `loop-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
       };
 
-    case 'section_guide':
+    case 'section_guide': {
+      const distanceMi = data.distanceMi ?? 0;
+      const code = (data.conditionCode || 'unknown') as ConditionCode;
       return {
         compositionId: 'social-section-portrait',
         inputProps: {
@@ -348,13 +368,17 @@ export function getCompositionForPost(
           putInMile: data.putInMile ?? 0,
           takeOutName: data.takeOutName || 'Take-out',
           takeOutMile: data.takeOutMile ?? 0,
-          distanceMi: data.distanceMi ?? 0,
-          hoursCanoe: data.hoursCanoe ?? 0,
+          distanceMi,
+          // Float time at TODAY's flow vs the normal "flowing" baseline — the
+          // hero delta the composition headlines ("3.5 hrs today, not 4.5").
+          hoursToday: canoeHours(distanceMi, code),
+          hoursTypical: canoeHours(distanceMi, 'flowing'),
           dateLabel: data.dateLabel || defaultDate,
           format,
         },
         outputFilename: `section-${new Date().toISOString().slice(0, 10)}`,
       };
+    }
 
     case 'weekly_trend':
       return {

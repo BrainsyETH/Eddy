@@ -1,14 +1,18 @@
-// Shared prop types and condition utilities for social video compositions
-// NOTE: Remotion project is isolated — cannot import from src/, so we duplicate condition data here.
+// Shared prop types and condition utilities for social video compositions.
+//
+// Condition colors / labels / otter moods / severity are derived from the
+// CANONICAL condition system in shared/condition-system.ts — the single source
+// of truth shared with the Next.js app. It is imported with a relative path
+// because the Remotion subproject is isolated from the app's "@/" alias; the
+// shared file is pure TypeScript so both build pipelines can consume it.
+import {
+  CONDITION_SYSTEM,
+  conditionOtterMood,
+  type ConditionCode as SharedConditionCode,
+  type OtterMood,
+} from "../../../shared/condition-system";
 
-export type ConditionCode =
-  | "flowing"
-  | "good"
-  | "low"
-  | "too_low"
-  | "high"
-  | "dangerous"
-  | "unknown";
+export type ConditionCode = SharedConditionCode;
 
 export interface ConditionStyle {
   solid: string;
@@ -17,79 +21,26 @@ export interface ConditionStyle {
   glow: string;
 }
 
-export const CONDITION_COLORS: Record<ConditionCode, ConditionStyle> = {
-  flowing: {
-    solid: "#10b981",
-    bg: "rgba(16,185,129,0.15)",
-    label: "Flowing",
-    glow: "rgba(16,185,129,0.5)",
-  },
-  good: {
-    solid: "#84cc16",
-    bg: "rgba(132,204,22,0.15)",
-    label: "Good",
-    glow: "rgba(132,204,22,0.4)",
-  },
-  low: {
-    solid: "#eab308",
-    bg: "rgba(234,179,8,0.15)",
-    label: "Low",
-    glow: "rgba(234,179,8,0.3)",
-  },
-  too_low: {
-    solid: "#78716c",
-    bg: "rgba(120,113,108,0.15)",
-    label: "Too Low",
-    glow: "rgba(120,113,108,0.2)",
-  },
-  high: {
-    solid: "#f97316",
-    bg: "rgba(249,115,22,0.2)",
-    label: "High",
-    glow: "rgba(249,115,22,0.4)",
-  },
-  dangerous: {
-    solid: "#ef4444",
-    bg: "rgba(239,68,68,0.15)",
-    label: "Dangerous",
-    glow: "rgba(239,68,68,0.6)",
-  },
-  unknown: {
-    solid: "#9ca3af",
-    bg: "rgba(156,163,175,0.15)",
-    label: "N/A",
-    glow: "transparent",
-  },
-};
+export const CONDITION_COLORS: Record<ConditionCode, ConditionStyle> =
+  Object.fromEntries(
+    Object.entries(CONDITION_SYSTEM).map(([code, def]) => [
+      code,
+      { solid: def.solid, bg: def.bg, label: def.label, glow: def.glow },
+    ])
+  ) as Record<ConditionCode, ConditionStyle>;
 
 /** Severity order for sorting rivers in digest (most notable first) */
-export const SEVERITY_ORDER: Record<ConditionCode, number> = {
-  dangerous: 0,
-  flowing: 1,
-  good: 2,
-  high: 3,
-  low: 4,
-  too_low: 5,
-  unknown: 6,
-};
+export const SEVERITY_ORDER: Record<ConditionCode, number> = Object.fromEntries(
+  Object.entries(CONDITION_SYSTEM).map(([code, def]) => [code, def.severity])
+) as Record<ConditionCode, number>;
 
-type OtterVariant = "standard" | "canoe" | "flag" | "green" | "favicon";
-
-/** Map condition code to the Eddy otter variant */
-export function getOtterVariant(conditionCode: ConditionCode): OtterVariant {
-  switch (conditionCode) {
-    case "flowing":
-    case "good":
-      return "green";
-    case "low":
-    case "too_low":
-      return "flag";
-    case "high":
-    case "dangerous":
-      return "standard";
-    default:
-      return "green";
-  }
+/**
+ * Canonical Eddy otter mood for a condition. Resolved to a local PNG by
+ * EddyMascot (which falls back gracefully for moods whose dedicated asset has
+ * not been downloaded yet — see remotion/public/eddy/DOWNLOAD_ASSETS.md).
+ */
+export function getOtterVariant(conditionCode: ConditionCode): OtterMood {
+  return conditionOtterMood(conditionCode);
 }
 
 // ─── Composition Input Props ──────────────────────────────────────
@@ -144,7 +95,11 @@ export interface SectionGuideProps {
   takeOutName: string;
   takeOutMile: number;
   distanceMi: number;
-  hoursCanoe: number;
+  /** Estimated canoe float time at TODAY's flow (condition-adjusted), in hours. */
+  hoursToday: number;
+  /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
+   *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
+  hoursTypical: number;
   dateLabel?: string;
   format: "square" | "portrait";
 }

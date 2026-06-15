@@ -125,7 +125,7 @@ export function getConditionTailwindColor(code: ConditionCode): string {
     case 'high':
       return 'bg-orange-500';
     case 'flowing':
-      return 'bg-emerald-600';
+      return 'bg-emerald-500'; // matches canonical #10b981 in shared/condition-system.ts
     case 'good':
       return 'bg-lime-500';
     case 'low':
