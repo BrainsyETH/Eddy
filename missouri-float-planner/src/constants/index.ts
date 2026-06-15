@@ -1,6 +1,12 @@
 // src/constants/index.ts
 // App-wide constants for Eddy
 
+import {
+  CONDITION_SYSTEM,
+  conditionOtterMood,
+  type ConditionCode,
+} from '@shared/condition-system';
+
 // Map defaults
 export const DEFAULT_MAP_CENTER = {
   lng: -91.5,
@@ -59,38 +65,22 @@ export const HAZARD_SEVERITY_COLORS = {
   danger: '#ef4444',   // red
 } as const;
 
-// Condition code colors (ordered: Too Low → Low → Good → Flowing → High → Flood)
-export const CONDITION_COLORS = {
-  too_low: '#78716c',   // stone-500 (warm gray-brown)
-  low: '#eab308',  // yellow
-  good: '#84cc16',       // lime-500 (good green)
-  flowing: '#059669',   // emerald-600 (richer green)
-  high: '#f97316',      // orange
-  dangerous: '#ef4444', // red
-  unknown: '#9ca3af',   // gray
-} as const;
+// Condition colors + labels are derived from the canonical condition system in
+// shared/condition-system.ts — the single source of truth shared with the
+// Remotion video project. Do NOT hardcode condition hex/labels here; edit the
+// shared module so the app and video stay in lockstep.
+export const CONDITION_COLORS = Object.fromEntries(
+  Object.entries(CONDITION_SYSTEM).map(([code, def]) => [code, def.solid])
+) as Record<ConditionCode, string>;
 
-// Condition code labels (ordered: Too Low → Low → Good → Flowing → High → Flood)
-export const CONDITION_LABELS = {
-  too_low: 'Too Low - Not Recommended',
-  low: 'Low - Scraping Likely',
-  good: 'Good - Floatable',
-  flowing: 'Flowing - Ideal Conditions',
-  high: 'High Water - Use Caution',
-  dangerous: 'Flood - Do Not Float',
-  unknown: 'Unknown',
-} as const;
+export const CONDITION_LABELS = Object.fromEntries(
+  Object.entries(CONDITION_SYSTEM).map(([code, def]) => [code, def.longLabel])
+) as Record<ConditionCode, string>;
 
 // Short condition labels for compact displays (badges, embeds, etc.)
-export const CONDITION_SHORT_LABELS: Record<string, string> = {
-  too_low: 'Too Low',
-  low: 'Low',
-  good: 'Good',
-  flowing: 'Flowing',
-  high: 'High',
-  dangerous: 'Flood',
-  unknown: 'Unknown',
-};
+export const CONDITION_SHORT_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(CONDITION_SYSTEM).map(([code, def]) => [code, def.label])
+);
 
 // POI types with labels
 export const POI_TYPES = {
@@ -134,24 +124,10 @@ export const EDDY_IMAGES = {
   favicon: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png',
 } as const;
 
-// Map condition code → Eddy otter image
+// Map condition code → Eddy otter image. The condition→mood mapping is canonical
+// (shared/condition-system.ts); here we resolve the mood to the app's Blob asset.
 export function getEddyImageForCondition(code: string): string {
-  switch (code) {
-    case 'flowing':
-    case 'good':
-      return EDDY_IMAGES.green;
-    case 'low':
-      return EDDY_IMAGES.yellow;
-    case 'too_low':
-      return EDDY_IMAGES.flag;
-    case 'high':
-      return EDDY_IMAGES.red;
-    case 'dangerous':
-      return EDDY_IMAGES.flood;
-    case 'unknown':
-    default:
-      return EDDY_IMAGES.flag;
-  }
+  return EDDY_IMAGES[conditionOtterMood(code)];
 }
 
 // Condition-themed background classes for Eddy Says cards and detail views

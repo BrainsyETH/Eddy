@@ -8,7 +8,17 @@ import {
   staticFile,
 } from "remotion";
 
-type EddyVariant = "standard" | "canoe" | "flag" | "green" | "favicon";
+// Presentational variants (standard/canoe/favicon) plus the canonical condition
+// moods from shared/condition-system.ts (green/yellow/flag/red/flood).
+type EddyVariant =
+  | "standard"
+  | "canoe"
+  | "flag"
+  | "green"
+  | "favicon"
+  | "yellow"
+  | "red"
+  | "flood";
 
 interface EddyMascotProps {
   variant?: EddyVariant;
@@ -25,6 +35,14 @@ const variantFiles: Record<EddyVariant, string> = {
   flag: "eddy/eddy-flag.png",
   green: "eddy/eddy-green.png",
   favicon: "eddy/eddy-favicon.png",
+  // Canonical condition moods whose dedicated otters are not yet downloaded as
+  // local assets — fall back to the closest existing otter until
+  // eddy-{yellow,red,flood}.png are added (see DOWNLOAD_ASSETS.md). Once the
+  // assets land, point these three lines at their own files for full host-face
+  // parity with the app.
+  yellow: "eddy/eddy-flag.png",
+  red: "eddy/eddy-standard.png",
+  flood: "eddy/eddy-standard.png",
 };
 
 /**

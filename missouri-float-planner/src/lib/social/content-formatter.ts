@@ -3,6 +3,7 @@
 // Designed for engagement: hook-first structure, deep link CTAs, platform-specific formatting
 
 import type { SocialPlatform, SocialCustomContent } from './types';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
 
 // ---------------------------------------------------------------------------
 // River display names
@@ -30,16 +31,11 @@ const RIVER_SHORT_NAMES: Record<string, string> = {
   courtois: 'Courtois',
 };
 
-// Short condition labels for scannable digest lines
-const SHORT_CONDITION_LABELS: Record<string, string> = {
-  too_low: 'Too Low',
-  low: 'Low',
-  good: 'Good',
-  flowing: 'Flowing',
-  high: 'High',
-  dangerous: 'Flood',
-  unknown: 'Unknown',
-};
+// Short condition labels for scannable digest lines — derived from the canonical
+// condition system (shared/condition-system.ts) so captions, cards, and video agree.
+const SHORT_CONDITION_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(CONDITION_SYSTEM).map(([code, def]) => [code, def.label])
+);
 
 // Condition emoji — light, purposeful usage
 const CONDITION_EMOJI: Record<string, string> = {
