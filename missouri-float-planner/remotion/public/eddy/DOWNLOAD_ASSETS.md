@@ -10,13 +10,12 @@ Download these images from the Vercel Blob storage and place them in this direct
 | `eddy-green.png` | https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter_green.png |
 | `eddy-favicon.png` | https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png |
 
-### Condition-mood otters (for full host-face parity with the app)
+### Condition-mood otters (full host-face parity with the app)
 
 These three complete the canonical condition→otter moods in
-`shared/condition-system.ts` (`low` → yellow, `high` → red, `dangerous` → flood).
-Until they are present, `EddyMascot` falls back to the closest existing otter.
-After downloading, update the `yellow` / `red` / `flood` entries in
-`remotion/src/components/EddyMascot.tsx` to point at these files.
+`shared/condition-system.ts` (`low` → yellow, `high` → red, `dangerous` → flood)
+and are wired up in `remotion/src/components/EddyMascot.tsx`. URLs kept here for
+reproducibility if assets ever need to be re-fetched.
 
 | Filename | URL |
 |----------|-----|

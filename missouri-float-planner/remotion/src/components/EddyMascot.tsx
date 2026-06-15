@@ -35,14 +35,11 @@ const variantFiles: Record<EddyVariant, string> = {
   flag: "eddy/eddy-flag.png",
   green: "eddy/eddy-green.png",
   favicon: "eddy/eddy-favicon.png",
-  // Canonical condition moods whose dedicated otters are not yet downloaded as
-  // local assets — fall back to the closest existing otter until
-  // eddy-{yellow,red,flood}.png are added (see DOWNLOAD_ASSETS.md). Once the
-  // assets land, point these three lines at their own files for full host-face
-  // parity with the app.
-  yellow: "eddy/eddy-flag.png",
-  red: "eddy/eddy-standard.png",
-  flood: "eddy/eddy-standard.png",
+  // Condition-mood otters — full host-face parity with the app (low → yellow,
+  // high → red, dangerous → flood).
+  yellow: "eddy/eddy-yellow.png",
+  red: "eddy/eddy-red.png",
+  flood: "eddy/eddy-flood.png",
 };
 
 /**
