@@ -205,18 +205,58 @@ const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
 const RiverCardsSlide: React.FC<{
   rivers: DigestReelProps["rivers"];
   isPortrait: boolean;
-}> = ({ rivers, isPortrait }) => {
+  title: string;
+  dateLabel: string;
+}> = ({ rivers, isPortrait, title, dateLabel }) => {
   // Scale card size based on river count to fit all on one screen
   const count = rivers.length;
   const cardGap = count > 8 ? 8 : count > 6 ? 10 : 14;
   const cardWidth = isPortrait ? 920 : 850;
+  // Reserve room for the persistent header so this slide is self-contained —
+  // a screenshot of the data slide must still say what it is and when.
+  const headerH = isPortrait ? 120 : 88;
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
+      {/* Persistent header — title + date travel with the conditions so the
+          most data-rich frame survives being screenshotted out of context. */}
       <div
         style={{
           position: "absolute",
           top: isPortrait ? SAFE.top : 40,
+          left: isPortrait ? SAFE.left : 40,
+          right: isPortrait ? SAFE.right : 40,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'Fredoka', system-ui, sans-serif",
+            fontSize: isPortrait ? 48 : 34,
+            fontWeight: 600,
+            color: "#fff",
+          }}
+        >
+          {title}
+        </span>
+        <span
+          style={{
+            fontFamily: "'Geist Sans', system-ui, sans-serif",
+            fontSize: isPortrait ? 26 : 18,
+            color: "rgba(255,255,255,0.6)",
+          }}
+        >
+          {dateLabel}
+        </span>
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          top: (isPortrait ? SAFE.top : 40) + headerH,
           bottom: isPortrait ? SAFE.bottom : 40,
           left: isPortrait ? SAFE.left : 40,
           right: isPortrait ? SAFE.right : 40,
@@ -301,6 +341,8 @@ export const DigestReel: React.FC<DigestReelProps> = ({
           <RiverCardsSlide
             rivers={sortedRivers}
             isPortrait={isPortrait}
+            title={title}
+            dateLabel={dateLabel}
           />
         </Series.Sequence>
 

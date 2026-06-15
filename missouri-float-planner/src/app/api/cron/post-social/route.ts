@@ -393,7 +393,7 @@ async function runSocialPosting(request: NextRequest) {
       try {
         const renderData = await buildRenderData(firstPost, supabase);
         const { compositionId, inputProps, outputFilename } = getCompositionForPost(
-          firstPost.postType as 'daily_digest' | 'river_highlight' | 'branded_loop',
+          firstPost.postType as Parameters<typeof getCompositionForPost>[0],
           renderData,
         );
 
