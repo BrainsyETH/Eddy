@@ -256,6 +256,7 @@ export function getCompositionForPost(
     | 'branded_loop'
     | 'weekly_forecast'
     | 'section_guide'
+    | 'route_draw'
     | 'weekly_trend',
   data: {
     riverName?: string;
@@ -377,6 +378,28 @@ export function getCompositionForPost(
           format,
         },
         outputFilename: `section-${new Date().toISOString().slice(0, 10)}`,
+      };
+    }
+
+    case 'route_draw': {
+      const distanceMi = data.distanceMi ?? 0;
+      const code = (data.conditionCode || 'unknown') as ConditionCode;
+      return {
+        compositionId: 'social-route-portrait',
+        inputProps: {
+          riverName: data.riverName || 'Unknown River',
+          conditionCode: data.conditionCode || 'unknown',
+          putInName: data.putInName || 'Put-in',
+          putInMile: data.putInMile ?? 0,
+          takeOutName: data.takeOutName || 'Take-out',
+          takeOutMile: data.takeOutMile ?? 0,
+          distanceMi,
+          hoursToday: canoeHours(distanceMi, code),
+          hoursTypical: canoeHours(distanceMi, 'flowing'),
+          dateLabel: data.dateLabel || defaultDate,
+          format,
+        },
+        outputFilename: `route-${new Date().toISOString().slice(0, 10)}`,
       };
     }
 
