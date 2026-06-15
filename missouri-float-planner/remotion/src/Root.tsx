@@ -17,12 +17,14 @@ import { GaugeAnimation } from "./compositions/social/GaugeAnimation";
 import { DigestReel, getDigestDuration } from "./compositions/social/DigestReel";
 import { BrandedLoop } from "./compositions/social/BrandedLoop";
 import { SectionGuide } from "./compositions/social/SectionGuide";
+import { RouteDraw } from "./compositions/social/RouteDraw";
 import { TrendReel } from "./compositions/social/TrendReel";
 import type {
   GaugeAnimationProps,
   DigestReelProps,
   BrandedLoopProps,
   SectionGuideProps,
+  RouteDrawProps,
   TrendReelProps,
 } from "./lib/social-props";
 
@@ -416,6 +418,29 @@ export const RemotionRoot: React.FC = () => {
           dateLabel: "April 18, 2026",
           format: "portrait",
         } satisfies SectionGuideProps}
+      />
+
+      {/* Self-drawing route — put-in → take-out draws itself with today's float time */}
+      <Composition
+        id="social-route-portrait"
+        component={RouteDraw}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          riverName: "Current River",
+          conditionCode: "high",
+          putInName: "Akers",
+          putInMile: 20.0,
+          takeOutName: "Pulltite",
+          takeOutMile: 30.5,
+          distanceMi: 10.5,
+          hoursToday: 3.5,
+          hoursTypical: 4.5,
+          dateLabel: "April 18, 2026",
+          format: "portrait",
+        } satisfies RouteDrawProps}
       />
 
       {/* 7-Day Trend reel with sparkline */}

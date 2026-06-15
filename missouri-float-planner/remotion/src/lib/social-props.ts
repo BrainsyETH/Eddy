@@ -104,6 +104,13 @@ export interface SectionGuideProps {
   format: "square" | "portrait";
 }
 
+/**
+ * Self-drawing route reel. Same data as the Section Guide — a route is just a
+ * section visualized as an animated put-in → take-out line with the current
+ * float time stamped on it. Motion reads as a live instrument.
+ */
+export type RouteDrawProps = SectionGuideProps;
+
 export interface TrendReelProps {
   riverName: string;
   conditionCode: ConditionCode;
