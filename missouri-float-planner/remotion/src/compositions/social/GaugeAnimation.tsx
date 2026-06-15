@@ -106,11 +106,6 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   });
   const arrowBounce = frame > 290 ? Math.sin((frame - 290) / 8) * 4 : 0;
 
-  const watermarkOpacity = interpolate(frame, [290, 310], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
   const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
 
   return (
@@ -381,10 +376,9 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         </div>
       </div>
 
-      {/* Watermark */}
-      <div style={{ opacity: watermarkOpacity }}>
-        <Watermark format={isPortrait ? "portrait" : "landscape"} />
-      </div>
+      {/* Watermark — persistent so the eddy.guide source mark survives any
+          mid-animation screenshot (under the global loop fade above). */}
+      <Watermark format={isPortrait ? "portrait" : "landscape"} />
     </AbsoluteFill>
   );
 };

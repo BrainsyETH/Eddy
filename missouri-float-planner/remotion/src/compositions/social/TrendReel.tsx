@@ -357,9 +357,8 @@ export const TrendReel: React.FC<TrendReelProps> = ({
         </div>
       </div>
 
-      <div style={{ opacity: interpolate(frame, [270, 300], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
-        <Watermark format={isPortrait ? "portrait" : "landscape"} />
-      </div>
+      {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}
+      <Watermark format={isPortrait ? "portrait" : "landscape"} />
     </AbsoluteFill>
   );
 };

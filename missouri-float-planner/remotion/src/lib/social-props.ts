@@ -95,7 +95,11 @@ export interface SectionGuideProps {
   takeOutName: string;
   takeOutMile: number;
   distanceMi: number;
-  hoursCanoe: number;
+  /** Estimated canoe float time at TODAY's flow (condition-adjusted), in hours. */
+  hoursToday: number;
+  /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
+   *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
+  hoursTypical: number;
   dateLabel?: string;
   format: "square" | "portrait";
 }

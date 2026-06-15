@@ -50,7 +50,8 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
   takeOutName,
   takeOutMile,
   distanceMi,
-  hoursCanoe,
+  hoursToday,
+  hoursTypical,
   dateLabel,
   format,
 }) => {
@@ -59,6 +60,25 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
   const isPortrait = format === "portrait";
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
+
+  // Float-time hero: how today's flow changes the trip vs a normal day. This is
+  // the non-obvious, decision-grade number — "3.5 hrs today, not the usual 4.5".
+  const deltaHrs = hoursTypical - hoursToday; // + = faster than usual today
+  const absDelta = Math.abs(deltaHrs);
+  const faster = deltaHrs > 0;
+  const significantDelta = absDelta >= 0.3; // ≈18 min — below this it's "the usual"
+  const deltaText = significantDelta
+    ? `${absDelta.toFixed(1)} hrs ${faster ? "faster" : "slower"} than usual (normally ~${hoursTypical.toFixed(1)} hrs)`
+    : `about the usual ~${hoursTypical.toFixed(1)} hrs`;
+  // Faster reads as "go now" (condition color / green); slower as a caution amber.
+  const deltaColor = !significantDelta
+    ? "rgba(255,255,255,0.6)"
+    : faster
+      ? condition.solid
+      : "#eab308";
+  const floatHero = significantDelta
+    ? `~${hoursToday.toFixed(1)} hrs today`
+    : `~${hoursToday.toFixed(1)} hrs`;
 
   const titleEntrance = spring({ frame, fps, config: ENTRANCE });
   const riverEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
@@ -201,19 +221,72 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
           />
         </div>
 
-        {/* Stats strip */}
+        {/* Float-time HERO — the killer graphic. Distance is static and boring;
+            float time AT TODAY'S FLOW is dynamic, non-obvious, and decision-grade. */}
         <div
           style={{
             opacity: statsEntrance,
             transform: `scale(${statsScale})`,
             display: "flex",
-            gap: isPortrait ? 48 : 32,
+            flexDirection: "column",
             alignItems: "center",
-            marginTop: 4,
+            gap: 4,
+            marginTop: 6,
+            backgroundColor: "rgba(255,255,255,0.05)",
+            border: `1.5px solid ${condition.solid}`,
+            borderRadius: 22,
+            padding: isPortrait ? "22px 48px" : "16px 36px",
+            boxShadow: `0 0 30px ${condition.glow}`,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Geist Sans', system-ui, sans-serif",
+              fontSize: isPortrait ? 20 : 16,
+              color: "rgba(255,255,255,0.6)",
+              textTransform: "uppercase",
+              letterSpacing: 2,
+            }}
+          >
+            Float Time
+          </span>
+          <span
+            style={{
+              fontFamily: "'Fredoka', system-ui, sans-serif",
+              fontSize: isPortrait ? 76 : 56,
+              fontWeight: 700,
+              color: condition.solid,
+              textShadow: `0 0 24px ${condition.glow}`,
+              lineHeight: 1.05,
+            }}
+          >
+            {floatHero}
+          </span>
+          <span
+            style={{
+              fontFamily: "'Geist Sans', system-ui, sans-serif",
+              fontSize: isPortrait ? 24 : 18,
+              fontWeight: 500,
+              color: deltaColor,
+              textAlign: "center",
+            }}
+          >
+            {deltaText}
+          </span>
+        </div>
+
+        {/* Secondary stats — distance + conditions */}
+        <div
+          style={{
+            opacity: statsEntrance,
+            transform: `scale(${statsScale})`,
+            display: "flex",
+            gap: isPortrait ? 56 : 40,
+            alignItems: "center",
+            marginTop: 2,
           }}
         >
           <StatCell value={`${distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          <StatCell value={`${hoursCanoe.toFixed(1)} hrs`} label="Est. canoe" isPortrait={isPortrait} />
           <StatCell
             value={condition.label}
             label="Conditions"
@@ -245,9 +318,8 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
         </div>
       </div>
 
-      <div style={{ opacity: interpolate(frame, [270, 300], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
-        <Watermark format={isPortrait ? "portrait" : "landscape"} />
-      </div>
+      {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}
+      <Watermark format={isPortrait ? "portrait" : "landscape"} />
     </AbsoluteFill>
   );
 };

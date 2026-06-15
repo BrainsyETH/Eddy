@@ -305,6 +305,7 @@ export const RemotionRoot: React.FC = () => {
           optimalMin: 2.0,
           optimalMax: 4.5,
           quoteText: "The Current is running clear and steady today — perfect for a lazy float from Akers to Pulltite.",
+          dateLabel: "April 18, 2026",
           format: "square",
         } satisfies GaugeAnimationProps}
       />
@@ -324,6 +325,7 @@ export const RemotionRoot: React.FC = () => {
           optimalMin: 2.0,
           optimalMax: 4.5,
           quoteText: "The Current is running clear and steady today — perfect for a lazy float from Akers to Pulltite.",
+          dateLabel: "April 18, 2026",
           format: "portrait",
         } satisfies GaugeAnimationProps}
       />
@@ -403,13 +405,14 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           riverName: "Current River",
-          conditionCode: "flowing",
+          conditionCode: "high",
           putInName: "Akers",
           putInMile: 20.0,
           takeOutName: "Pulltite",
           takeOutMile: 30.5,
           distanceMi: 10.5,
-          hoursCanoe: 5.3,
+          hoursToday: 3.5,
+          hoursTypical: 4.5,
           dateLabel: "April 18, 2026",
           format: "portrait",
         } satisfies SectionGuideProps}
