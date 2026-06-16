@@ -18,6 +18,10 @@ import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { pickSectionForRivers } from '@/lib/social/section-picker';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap } from '@/lib/social/live-conditions';
+import {
+  WEEKEND_FLOATABLE as FORECAST_FLOATABLE,
+  WEEKEND_SEVERITY as FORECAST_SEVERITY,
+} from '@shared/condition-system';
 
 const CRON_LOCK_NAME = 'post_social';
 // Renders routinely take 5–9 min on GH Actions; give slack before another
@@ -36,12 +40,6 @@ function truncateForVideo(text: string | null): string {
   const lastSpace = truncated.lastIndexOf(' ');
   return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
 }
-
-// Severity order for filtering the weekly forecast's top-3 floatable rivers.
-const FORECAST_SEVERITY: Record<string, number> = {
-  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
-};
-const FORECAST_FLOATABLE = new Set(['flowing', 'good', 'high']);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildRenderData(post: ScheduledPost, supabase: any) {

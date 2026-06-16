@@ -164,3 +164,28 @@ export function conditionOtterMood(code: string): OtterMood {
   return (CONDITION_SYSTEM[code as ConditionCode] ?? CONDITION_SYSTEM.unknown)
     .otter;
 }
+
+/**
+ * "Best for the weekend" ordering — floatable conditions first. This is
+ * DELIBERATELY different from `severity` above (which ranks most-alarming first
+ * for alerts/digests). Used to pick the top rivers to feature in the Weekend
+ * Forecast and to gate which rivers are worth highlighting. Single source of
+ * truth — previously duplicated as WEEKLY_/WEEKEND_/FORECAST_SEVERITY across
+ * quick-post, the cron, the scheduler, and the OG image route.
+ */
+export const WEEKEND_SEVERITY: Record<string, number> = {
+  flowing: 0,
+  good: 1,
+  high: 2,
+  low: 3,
+  dangerous: 4,
+  too_low: 5,
+  unknown: 6,
+};
+
+/** Conditions worth featuring on a weekend — floatable only. */
+export const WEEKEND_FLOATABLE: ReadonlySet<string> = new Set([
+  "flowing",
+  "good",
+  "high",
+]);

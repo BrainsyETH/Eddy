@@ -15,19 +15,7 @@ import { pickSectionForRivers } from './section-picker';
 import { pickNotableTrend } from './trend-picker';
 import { overlayLiveConditions } from './live-conditions';
 
-// Lower = more notable. Mirrors SEVERITY_ORDER in remotion/src/lib/social-props.ts
-// (kept separate because the remotion subproject can't import from src/).
-const WEEKEND_SEVERITY: Record<string, number> = {
-  flowing: 0,
-  good: 1,
-  high: 2,
-  low: 3,
-  dangerous: 4,
-  too_low: 5,
-  unknown: 6,
-};
-// Rivers worth highlighting on a weekend — "floatable" conditions only.
-const WEEKEND_FLOATABLE = new Set(['flowing', 'good', 'high']);
+import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
 import { getCentralDay, getCentralMinutes } from './central-time';
 import type {

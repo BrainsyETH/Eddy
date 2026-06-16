@@ -14,6 +14,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
+import {
+  WEEKEND_FLOATABLE as FORECAST_FLOATABLE,
+  WEEKEND_SEVERITY as FORECAST_SEVERITY,
+} from '@shared/condition-system';
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers } from '@/lib/social/section-picker';
@@ -692,11 +696,6 @@ async function generateTipImage(contentId: string, size: { width: number; height
 // ---------------------------------------------------------------------------
 // Weekly Forecast thumbnail
 // ---------------------------------------------------------------------------
-const FORECAST_FLOATABLE = new Set(['flowing', 'good', 'high']);
-const FORECAST_SEVERITY: Record<string, number> = {
-  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
-};
-
 async function generateForecastImage(size: { width: number; height: number }) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
