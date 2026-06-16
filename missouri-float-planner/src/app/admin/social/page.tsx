@@ -229,7 +229,7 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
   },
   {
     key: 'section_guide',
-    label: 'Section Guide',
+    label: 'Float of the Day',
     time: {
       get: (c) => c.section_guide?.time_utc ?? '17:00',
       set: (c, v, set) => set({
@@ -293,11 +293,10 @@ export default function SocialAdminPage() {
 
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
-  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip' | 'route_draw'>('digest');
+  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip'>('digest');
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
-  const [quickPostAsVideo, setQuickPostAsVideo] = useState(false);
   const [quickPosting, setQuickPosting] = useState(false);
 
   // Preview modal state
@@ -664,7 +663,6 @@ export default function SocialAdminPage() {
           riverSlug: quickPostType === 'highlight' ? quickPostRiver : undefined,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
           platforms: quickPostPlatforms,
-          asVideo: quickPostAsVideo && quickPostType !== 'tip',
         }),
       });
       if (res.ok) {
@@ -878,7 +876,7 @@ export default function SocialAdminPage() {
               <select
                 value={quickPostType}
                 onChange={(e) => {
-                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip' | 'route_draw');
+                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip');
                   setQuickPostRiver('');
                   setQuickPostContentId('');
                 }}
@@ -886,7 +884,6 @@ export default function SocialAdminPage() {
               >
                 <option value="digest">Daily Digest (all rivers)</option>
                 <option value="highlight">River Highlight</option>
-                <option value="route_draw">Route — animated (video, float of the week)</option>
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>
@@ -957,25 +954,12 @@ export default function SocialAdminPage() {
               </label>
             </div>
 
-            {/* Video toggle (digest & highlight only) */}
-            {quickPostType !== 'tip' && (
-              <div className="flex items-center gap-3 p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg">
-                <label className="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={quickPostAsVideo}
-                    onChange={(e) => setQuickPostAsVideo(e.target.checked)}
-                    className="rounded bg-neutral-900 border-neutral-600"
-                  />
-                  Post as animated video
-                </label>
-                <span className="text-xs text-neutral-500">
-                  {quickPostAsVideo
-                    ? 'Renders via GitHub Actions (~3-5 min), then publishes automatically'
-                    : 'Posts static branded image immediately'}
-                </span>
-              </div>
-            )}
+            {/* Media note — Digest/Highlight post as animated video; Tip is an image. */}
+            <div className="p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg text-xs text-neutral-400">
+              {quickPostType === 'tip'
+                ? 'Posts a static branded image immediately.'
+                : 'Posts as an animated video — renders via GitHub Actions (~3-5 min), then publishes automatically.'}
+            </div>
 
             {/* Actions */}
             <div className="flex gap-3">
@@ -991,8 +975,8 @@ export default function SocialAdminPage() {
               >
                 <Send className="w-4 h-4" />
                 {quickPosting
-                  ? (quickPostAsVideo ? 'Dispatching...' : 'Publishing...')
-                  : (quickPostAsVideo ? 'Render & Publish' : 'Publish Now')}
+                  ? (quickPostType === 'tip' ? 'Publishing...' : 'Dispatching...')
+                  : (quickPostType === 'tip' ? 'Publish Now' : 'Render & Publish')}
               </button>
               <button
                 onClick={() => setShowQuickPost(false)}
@@ -1214,7 +1198,7 @@ export default function SocialAdminPage() {
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Everything in one grid. Click a day cell to cycle <span className="text-neutral-300">Off → Video → Image → Off</span>.
+                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Video</span>.
                     If every day for a row is Off, that post type is disabled. Set the time each type fires, or hit Post Now to trigger immediately.
                   </p>
                   <div className="overflow-x-auto">
@@ -1241,9 +1225,11 @@ export default function SocialAdminPage() {
                                 {row.label}
                               </td>
                               {MEDIA_DAYS.map((day) => {
-                                const current = cells?.[day] ?? null;
-                                const next: 'video' | 'image' | null =
-                                  current === null ? 'video' : current === 'video' ? 'image' : null;
+                                // Two-state: Off ↔ Video. Legacy 'image' cells
+                                // read as Video (posts are video-only now).
+                                const raw = cells?.[day] ?? null;
+                                const current: 'video' | null = raw ? 'video' : null;
+                                const next: 'video' | null = current === 'video' ? null : 'video';
                                 return (
                                   <td key={day} className="px-1 py-2 text-center">
                                     <button
@@ -1261,12 +1247,10 @@ export default function SocialAdminPage() {
                                       className={`w-[74px] px-1 py-1 rounded text-xs font-medium transition-colors ${
                                         current === 'video'
                                           ? 'bg-primary-500 text-white hover:bg-primary-600'
-                                          : current === 'image'
-                                          ? 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                                           : 'bg-neutral-900 border border-dashed border-neutral-600 text-neutral-500 hover:border-neutral-400'
                                       }`}
                                     >
-                                      {current === 'video' ? 'Video' : current === 'image' ? 'Image' : 'Off'}
+                                      {current === 'video' ? 'Video' : 'Off'}
                                     </button>
                                   </td>
                                 );

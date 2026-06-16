@@ -146,7 +146,7 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
             textTransform: "uppercase",
           }}
         >
-          Float of the Week
+          Float of the Day
         </div>
 
         {/* River name */}

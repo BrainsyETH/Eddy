@@ -905,14 +905,17 @@ async function generateSectionImage(size: { width: number; height: number }) {
     .gt('expires_at', new Date().toISOString());
 
   type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
-  const slugs = Array.from(new Set(((updates || []) as Row[]).map((u) => u.river_slug)));
-  const section = pickSectionForRivers(slugs);
+  // Overlay live conditions first so the Float of the Day picks the same section
+  // as the reel (floatable flowing/good rivers, 5-9 mi).
+  const overlaid = await overlayLiveConditions(supabase, (updates || []) as Row[]);
+  const floatableSlugs = overlaid
+    .filter((u) => u.condition_code === 'flowing' || u.condition_code === 'good')
+    .map((u) => u.river_slug);
+  const section = pickSectionForRivers(floatableSlugs, { minMi: 5, maxMi: 9 });
   if (!section) {
     return NextResponse.json({ error: 'No section available' }, { status: 404 });
   }
-  // Overlay so the "Conditions" stat reflects live water, not the AI snapshot.
-  const overlaid = await overlayLiveConditions(supabase, (updates || []) as Row[]);
-  const condition = overlaid.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'unknown';
+  const condition = overlaid.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'flowing';
   const styles = getStatusStyles(condition as ConditionCode);
 
   return new ImageResponse(
@@ -941,7 +944,7 @@ async function generateSectionImage(size: { width: number; height: number }) {
             marginBottom: 12,
           }}
         >
-          Float of the Week
+          Float of the Day
         </span>
 
         <span
