@@ -276,10 +276,16 @@ jobs:
               if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
                 VID="${VURL##*v=}"
                 EXISTING=$(curl -s "${SUPABASE_URL}/rest/v1/clip_library?youtube_video_id=eq.${VID}&select=id&limit=1" \
-                  -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
-                if echo "$EXISTING" | python3 -c "import json,sys; sys.exit(0 if json.load(sys.stdin) else 1)" 2>/dev/null; then
+                  -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")
+                # Only a JSON ARRAY with rows means "exists". A non-array (e.g. a
+                # PostgREST error object from a bad key/RLS) must NOT be read as a
+                # hit — fail open and log the raw response so the cause is visible.
+                DEDUP=$(echo "$EXISTING" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or 'null'); print('exists' if isinstance(d,list) and d else ('new' if isinstance(d,list) else 'error'))" 2>/dev/null || echo error)
+                if [ "$DEDUP" = "exists" ]; then
                   echo "  ⏭️  ${VID} already in library, skipping"
                   continue
+                elif [ "$DEDUP" = "error" ]; then
+                  echo "  ⚠️ dedup check failed for ${VID} — Supabase response: $(printf '%s' "$EXISTING" | head -c 140) — proceeding without dedup"
                 fi
               fi
               process_video "$VURL" "$VRIVER" "$PEAK_NUMBER"
