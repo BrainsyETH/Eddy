@@ -1225,10 +1225,10 @@ export default function SocialAdminPage() {
                           <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 w-8"></th>
                           <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[160px]">Post type</th>
                           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                            <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[80px]">{day}</th>
+                            <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[58px]">{day}</th>
                           ))}
-                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[110px]">Time (CST)</th>
-                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[110px]"></th>
+                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[140px]">Time (CST)</th>
+                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[100px]"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1261,7 +1261,7 @@ export default function SocialAdminPage() {
                                           },
                                         },
                                       })}
-                                      className={`w-[74px] px-1 py-1 rounded text-xs font-medium transition-colors ${
+                                      className={`w-[52px] px-1 py-1 rounded text-xs font-medium transition-colors ${
                                         current === 'video'
                                           ? 'bg-primary-500 text-white hover:bg-primary-600'
                                           : 'bg-neutral-900 border border-dashed border-neutral-600 text-neutral-500 hover:border-neutral-400'
@@ -1283,7 +1283,7 @@ export default function SocialAdminPage() {
                                       type="time"
                                       value={timeField.get(config) || ''}
                                       onChange={(e) => timeField.set(config, e.target.value, setConfig)}
-                                      className="w-[90px] px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white text-center"
+                                      className="w-[128px] px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white text-center"
                                     />
                                   );
                                 })()}
