@@ -7,25 +7,9 @@
 //   GH_REPO_OWNER     — GitHub repo owner (default: 'BrainsyETH')
 //   GH_ACTIONS_REF    — Git ref for workflow dispatch (default: 'main')
 
-import { calculateFloatTime, type VesselSpeeds } from '@/lib/calculations/floatTime';
-import type { ConditionCode } from '@/types/api';
+import { POST_TYPES, type RenderData } from './post-types';
 
 const LOG_PREFIX = '[VideoRenderer]';
-
-// Canonical canoe speed profile for float-time estimates in social graphics.
-// calculateFloatTime scales these by condition (high water faster, low slower),
-// which is what makes the "today vs usual" delta meaningful.
-const DEFAULT_CANOE_SPEEDS: VesselSpeeds = {
-  speedLowWater: 2.0,
-  speedNormal: 2.5,
-  speedHighWater: 3.5,
-};
-
-/** Estimated canoe float time (hours, 1 decimal) for a distance at a condition. */
-function canoeHours(distanceMi: number, conditionCode: ConditionCode): number {
-  const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode);
-  return result ? Math.round((result.minutes / 60) * 10) / 10 : 0;
-}
 
 const DEFAULT_OWNER = 'BrainsyETH';
 const DEFAULT_REPO = 'Eddy';
@@ -247,7 +231,8 @@ export async function triggerBrandCheck(params: BrandCheckParams): Promise<boole
 }
 
 /**
- * Map post type + river data to a Remotion composition ID and input props.
+ * Map post type + render data to a Remotion composition ID and input props.
+ * Thin lookup over POST_TYPES (the single source of truth in post-types.ts).
  */
 export function getCompositionForPost(
   postType:
@@ -258,168 +243,15 @@ export function getCompositionForPost(
     | 'section_guide'
     | 'route_draw'
     | 'weekly_trend',
-  data: {
-    riverName?: string;
-    riverSlug?: string;
-    conditionCode?: string;
-    gaugeHeightFt?: number | null;
-    optimalMin?: number;
-    optimalMax?: number;
-    quoteText?: string;
-    summaryText?: string;
-    rivers?: Array<{
-      riverName: string;
-      conditionCode: string;
-      gaugeHeightFt: number | null;
-    }>;
-    dateLabel?: string;
-    globalQuote?: string;
-    title?: string;
-    // Section guide extras
-    putInName?: string;
-    putInMile?: number;
-    takeOutName?: string;
-    takeOutMile?: number;
-    distanceMi?: number;
-    hoursCanoe?: number;
-    // Weekly trend extras
-    currentHeightFt?: number | null;
-    sevenDayFirstFt?: number | null;
-    sevenDayMinFt?: number | null;
-    sevenDayMaxFt?: number | null;
-    deltaFt?: number;
-    direction?: 'rising' | 'falling' | 'flat';
-    series?: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
-  },
+  data: RenderData,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
-  // Always portrait — both platforms get 1080x1920
-  const format = 'portrait' as const;
-
-  // Default date label used by compositions that render it — matches the
-  // OG thumbnail's timestamp format so the grid cover and the reel stay
-  // consistent.
-  const defaultDate = new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  switch (postType) {
-    case 'river_highlight':
-      return {
-        compositionId: 'social-gauge-portrait',
-        inputProps: {
-          riverName: data.riverName || 'Unknown River',
-          conditionCode: data.conditionCode || 'unknown',
-          gaugeHeightFt: data.gaugeHeightFt ?? 0,
-          optimalMin: data.optimalMin ?? 1.5,
-          optimalMax: data.optimalMax ?? 4.0,
-          quoteText: data.quoteText || data.summaryText || '',
-          dateLabel: data.dateLabel || defaultDate,
-          format,
-        },
-        outputFilename: `highlight-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
-      };
-
-    case 'daily_digest':
-      return {
-        compositionId: 'social-digest-portrait',
-        inputProps: {
-          rivers: data.rivers || [],
-          dateLabel: data.dateLabel || defaultDate,
-          globalQuote: data.globalQuote || undefined,
-          format,
-        },
-        outputFilename: `digest-${new Date().toISOString().slice(0, 10)}`,
-      };
-
-    case 'weekly_forecast':
-      return {
-        compositionId: 'social-digest-portrait',
-        inputProps: {
-          rivers: data.rivers || [],
-          dateLabel: data.dateLabel || 'This Weekend',
-          title: data.title || 'Weekend Forecast',
-          // No global quote on forecast — the top-3 list IS the message.
-          format,
-        },
-        outputFilename: `forecast-${new Date().toISOString().slice(0, 10)}`,
-      };
-
-    case 'branded_loop':
-      return {
-        compositionId: 'social-branded-loop',
-        inputProps: {
-          riverName: data.riverName || 'Unknown River',
-          conditionCode: data.conditionCode || 'unknown',
-          summaryText: data.summaryText || data.quoteText || '',
-        },
-        outputFilename: `loop-${(data.riverName || 'river').toLowerCase().replace(/\s+/g, '-')}`,
-      };
-
-    case 'section_guide': {
-      const distanceMi = data.distanceMi ?? 0;
-      const code = (data.conditionCode || 'unknown') as ConditionCode;
-      return {
-        compositionId: 'social-section-portrait',
-        inputProps: {
-          riverName: data.riverName || 'Unknown River',
-          conditionCode: data.conditionCode || 'unknown',
-          putInName: data.putInName || 'Put-in',
-          putInMile: data.putInMile ?? 0,
-          takeOutName: data.takeOutName || 'Take-out',
-          takeOutMile: data.takeOutMile ?? 0,
-          distanceMi,
-          // Float time at TODAY's flow vs the normal "flowing" baseline — the
-          // hero delta the composition headlines ("3.5 hrs today, not 4.5").
-          hoursToday: canoeHours(distanceMi, code),
-          hoursTypical: canoeHours(distanceMi, 'flowing'),
-          dateLabel: data.dateLabel || defaultDate,
-          format,
-        },
-        outputFilename: `section-${new Date().toISOString().slice(0, 10)}`,
-      };
-    }
-
-    case 'route_draw': {
-      const distanceMi = data.distanceMi ?? 0;
-      const code = (data.conditionCode || 'unknown') as ConditionCode;
-      return {
-        compositionId: 'social-route-portrait',
-        inputProps: {
-          riverName: data.riverName || 'Unknown River',
-          conditionCode: data.conditionCode || 'unknown',
-          putInName: data.putInName || 'Put-in',
-          putInMile: data.putInMile ?? 0,
-          takeOutName: data.takeOutName || 'Take-out',
-          takeOutMile: data.takeOutMile ?? 0,
-          distanceMi,
-          hoursToday: canoeHours(distanceMi, code),
-          hoursTypical: canoeHours(distanceMi, 'flowing'),
-          dateLabel: data.dateLabel || defaultDate,
-          format,
-        },
-        outputFilename: `route-${new Date().toISOString().slice(0, 10)}`,
-      };
-    }
-
-    case 'weekly_trend':
-      return {
-        compositionId: 'social-trend-portrait',
-        inputProps: {
-          riverName: data.riverName || 'Unknown River',
-          conditionCode: data.conditionCode || 'unknown',
-          currentHeightFt: data.currentHeightFt ?? null,
-          sevenDayFirstFt: data.sevenDayFirstFt ?? null,
-          sevenDayMinFt: data.sevenDayMinFt ?? null,
-          sevenDayMaxFt: data.sevenDayMaxFt ?? null,
-          deltaFt: data.deltaFt ?? 0,
-          direction: data.direction || 'flat',
-          series: data.series || [],
-          dateLabel: data.dateLabel || 'This Week',
-          format,
-        },
-        outputFilename: `trend-${new Date().toISOString().slice(0, 10)}`,
-      };
+  const def = POST_TYPES[postType];
+  if (!def?.composition || !def.renderProps || !def.outputFilename) {
+    throw new Error(`Post type "${postType}" has no video composition`);
   }
+  return {
+    compositionId: def.composition,
+    inputProps: def.renderProps(data),
+    outputFilename: def.outputFilename(data),
+  };
 }
