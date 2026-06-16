@@ -60,7 +60,7 @@ interface VideoFeatures {
 interface WeeklyReelConfig {
   enabled: boolean;
   day_of_week: number; // 0=Sun..6=Sat
-  time_utc: string;
+  time_cst: string;
   media: 'video' | 'image';
 }
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -82,7 +82,7 @@ interface SocialConfig {
   posting_enabled: boolean;
   posting_frequency_hours: number;
   digest_enabled: boolean;
-  digest_time_utc: string;
+  digest_time_cst: string;
   highlights_per_run: number;
   highlight_cooldown_hours: number;
   enabled_rivers: string[] | null;
@@ -210,19 +210,19 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     key: 'daily_digest',
     label: 'Daily Digest',
     time: {
-      get: (c) => c.digest_time_utc,
-      set: (c, v, set) => set({ ...c, digest_time_utc: v }),
+      get: (c) => c.digest_time_cst,
+      set: (c, v, set) => set({ ...c, digest_time_cst: v }),
     },
     action: 'digest',
   },
   {
     key: 'weekly_forecast',
-    label: 'Weekly Forecast',
+    label: 'Weekend Forecast',
     time: {
-      get: (c) => c.weekly_forecast?.time_utc ?? '22:00',
+      get: (c) => c.weekly_forecast?.time_cst ?? '22:00',
       set: (c, v, set) => set({
         ...c,
-        weekly_forecast: { ...(c.weekly_forecast || { enabled: true, day_of_week: 5, time_utc: '22:00', media: 'video' }), time_utc: v },
+        weekly_forecast: { ...(c.weekly_forecast || { enabled: true, day_of_week: 5, time_cst: '22:00', media: 'video' }), time_cst: v },
       }),
     },
     action: 'weekly_forecast',
@@ -231,27 +231,39 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     key: 'section_guide',
     label: 'Float of the Day',
     time: {
-      get: (c) => c.section_guide?.time_utc ?? '17:00',
+      get: (c) => c.section_guide?.time_cst ?? '17:00',
       set: (c, v, set) => set({
         ...c,
-        section_guide: { ...(c.section_guide || { enabled: true, day_of_week: 3, time_utc: '17:00', media: 'video' }), time_utc: v },
+        section_guide: { ...(c.section_guide || { enabled: true, day_of_week: 3, time_cst: '17:00', media: 'video' }), time_cst: v },
       }),
     },
     action: 'section_guide',
   },
   {
     key: 'weekly_trend',
-    label: '7-Day Trend',
+    label: 'Weekly Trend',
     time: {
-      get: (c) => c.weekly_trend?.time_utc ?? '15:00',
+      get: (c) => c.weekly_trend?.time_cst ?? '15:00',
       set: (c, v, set) => set({
         ...c,
-        weekly_trend: { ...(c.weekly_trend || { enabled: true, day_of_week: 0, time_utc: '15:00', media: 'video' }), time_utc: v },
+        weekly_trend: { ...(c.weekly_trend || { enabled: true, day_of_week: 0, time_cst: '15:00', media: 'video' }), time_cst: v },
       }),
     },
     action: 'weekly_trend',
   },
 ];
+
+// Display names for post_type values — aligned with the post formats we ship.
+const POST_TYPE_LABELS: Record<string, string> = {
+  daily_digest: 'Digest',
+  river_highlight: 'Highlight',
+  weekly_forecast: 'Weekend Forecast',
+  section_guide: 'Float of the Day',
+  weekly_trend: 'Weekly Trend',
+  route_draw: 'Float of the Day', // legacy rows
+  condition_change: 'Alert',
+  manual: 'Tip',
+};
 
 export default function SocialAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('settings');
@@ -293,7 +305,9 @@ export default function SocialAdminPage() {
 
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
-  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip'>('digest');
+  const [quickPostType, setQuickPostType] = useState<
+    'digest' | 'highlight' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'tip'
+  >('digest');
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
@@ -808,7 +822,7 @@ export default function SocialAdminPage() {
                   {videoPreviewPost.platform}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
-                  {videoPreviewPost.post_type === 'daily_digest' ? 'Digest' : videoPreviewPost.post_type === 'river_highlight' ? 'Highlight' : videoPreviewPost.post_type}
+                  {POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
                 </span>
               </div>
               <button onClick={() => setVideoPreviewPost(null)} className="text-neutral-400 hover:text-white">
@@ -876,7 +890,7 @@ export default function SocialAdminPage() {
               <select
                 value={quickPostType}
                 onChange={(e) => {
-                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip');
+                  setQuickPostType(e.target.value as typeof quickPostType);
                   setQuickPostRiver('');
                   setQuickPostContentId('');
                 }}
@@ -884,6 +898,9 @@ export default function SocialAdminPage() {
               >
                 <option value="digest">Daily Digest (all rivers)</option>
                 <option value="highlight">River Highlight</option>
+                <option value="weekly_forecast">Weekend Forecast</option>
+                <option value="section_guide">Float of the Day</option>
+                <option value="weekly_trend">Weekly Trend</option>
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>
@@ -1210,7 +1227,7 @@ export default function SocialAdminPage() {
                           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                             <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[80px]">{day}</th>
                           ))}
-                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[110px]">Time (UTC)</th>
+                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[110px]">Time (CST)</th>
                           <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[110px]"></th>
                         </tr>
                       </thead>
@@ -1395,8 +1412,7 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">
-                    Matrix times are UTC; per-river times are CST (UTC−6).
-                    Click &quot;skip&quot; to enable a day or the x to disable it.
+                    All times are Central (CST). Click &quot;skip&quot; to enable a day or the x to disable it.
                   </p>
                 </div>
 
@@ -1765,7 +1781,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{post.platform}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  {post.post_type === 'daily_digest' ? 'Digest' : post.post_type === 'river_highlight' ? 'Highlight' : post.post_type === 'manual' ? 'Manual' : post.post_type === 'condition_change' ? 'Alert' : post.post_type}
+                                  {POST_TYPE_LABELS[post.post_type] ?? post.post_type}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                   {post.media_type === 'video' ? (

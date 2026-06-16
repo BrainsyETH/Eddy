@@ -13,21 +13,21 @@ export const DEFAULT_VIDEO_FEATURES: VideoFeatures = {
 export const DEFAULT_WEEKLY_FORECAST: WeeklyReelConfig = {
   enabled: false,
   day_of_week: 5, // Friday
-  time_utc: '22:00',
+  time_cst: '22:00',
   media: 'video',
 };
 
 export const DEFAULT_SECTION_GUIDE: WeeklyReelConfig = {
   enabled: false,
   day_of_week: 3, // Wednesday
-  time_utc: '17:00',
+  time_cst: '17:00',
   media: 'video',
 };
 
 export const DEFAULT_WEEKLY_TREND: WeeklyReelConfig = {
   enabled: false,
   day_of_week: 0, // Sunday
-  time_utc: '15:00',
+  time_cst: '15:00',
   media: 'video',
 };
 
@@ -61,7 +61,7 @@ const DEFAULT_CONFIG = {
   posting_enabled: false,
   posting_frequency_hours: 6,
   digest_enabled: false,
-  digest_time_utc: '14:00',
+  digest_time_cst: '14:00',
   highlights_per_run: 1,
   highlight_cooldown_hours: 12,
   enabled_rivers: null,
