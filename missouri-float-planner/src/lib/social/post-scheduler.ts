@@ -150,10 +150,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     console.log(`${LOG_PREFIX} Rivers: ${diag.rivers.join(', ')}`);
   }
 
-  // Load global summary
+  // Load global summary (summary_text — unified with buildPostContext so the
+  // digest caption reads the same on the cron and manual quick-post paths).
   const { data: globalUpdate } = await supabase
     .from('eddy_updates')
-    .select('quote_text')
+    .select('summary_text')
     .eq('river_slug', 'global')
     .is('section_slug', null)
     .gt('expires_at', new Date().toISOString())
@@ -161,7 +162,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     .limit(1)
     .maybeSingle();
 
-  const globalSummary = globalUpdate?.quote_text || null;
+  const globalSummary = globalUpdate?.summary_text || null;
 
   const posts: ScheduledPost[] = [];
   const baseUrl = 'https://eddy.guide';
