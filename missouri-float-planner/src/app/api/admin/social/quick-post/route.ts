@@ -21,10 +21,10 @@ import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
 
-const WEEKLY_SEVERITY: Record<string, number> = {
-  flowing: 0, good: 1, high: 2, low: 3, dangerous: 4, too_low: 5, unknown: 6,
-};
-const WEEKLY_FLOATABLE = new Set(['flowing', 'good', 'high']);
+import {
+  WEEKEND_FLOATABLE as WEEKLY_FLOATABLE,
+  WEEKEND_SEVERITY as WEEKLY_SEVERITY,
+} from '@shared/condition-system';
 
 export const dynamic = 'force-dynamic';
 
