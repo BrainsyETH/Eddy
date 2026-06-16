@@ -118,8 +118,8 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   const centerX = width / 2;
   // Route sits between the put-in lane (below the header) and the take-out lane
   // (above the float-time stamp). Labels live in those lanes — never on the path.
-  const topY = height * 0.34;
-  const bottomY = height * 0.54;
+  const topY = height * 0.33;
+  const bottomY = height * 0.51;
   const amplitude = width * 0.18;
   const route = buildRoute(centerX, topY, bottomY, amplitude);
   const putIn = route[0];
@@ -131,7 +131,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   const faster = deltaHrs > 0;
   const significantDelta = absDelta >= 0.3;
   const deltaText = significantDelta
-    ? `${absDelta.toFixed(1)} hrs ${faster ? "faster" : "slower"} than usual`
+    ? `${absDelta.toFixed(1)} hrs ${faster ? "faster" : "slower"}`
     : "about the usual pace";
   const deltaColor = !significantDelta
     ? "rgba(255,255,255,0.6)"
@@ -372,43 +372,48 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           gap: 10,
         }}
       >
+        {/* Float Time + Distance as co-equal hero stats (same size). */}
         <div
           style={{
             opacity: stampEntrance,
             transform: `scale(${interpolate(stampEntrance, [0, 1], [0.85, 1])})`,
             display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 2,
+            alignItems: "stretch",
+            gap: isPortrait ? 40 : 30,
             backgroundColor: "rgba(10,30,35,0.7)",
             backdropFilter: "blur(10px)",
             WebkitBackdropFilter: "blur(10px)",
             border: `1.5px solid ${condition.solid}`,
             borderRadius: 22,
-            padding: isPortrait ? "20px 52px" : "16px 40px",
+            padding: isPortrait ? "20px 44px" : "16px 34px",
             boxShadow: `0 0 30px ${condition.glow}`,
           }}
         >
-          <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 2 }}>
-            Float Time
-          </span>
-          <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 76 : 56, fontWeight: 700, color: condition.solid, textShadow: `0 0 24px ${condition.glow}`, lineHeight: 1.05 }}>
-            ~{hoursToday.toFixed(1)} hrs
-          </span>
-          <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 24 : 18, fontWeight: 500, color: deltaColor }}>
-            {deltaText}
-          </span>
-        </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: isPortrait ? 250 : 190 }}>
+            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 2 }}>
+              Float Time
+            </span>
+            <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 64 : 48, fontWeight: 700, color: condition.solid, textShadow: `0 0 24px ${condition.glow}`, lineHeight: 1.05 }}>
+              ~{hoursToday.toFixed(1)} hrs
+            </span>
+            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 16, fontWeight: 500, color: deltaColor, textAlign: "center" }}>
+              {deltaText}
+            </span>
+          </div>
 
-        {/* Distance + Eddy */}
-        <div style={{ opacity: stampEntrance, display: "flex", alignItems: "center", gap: 18, marginTop: 2 }}>
-          <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 30 : 24, fontWeight: 600, color: "#fff" }}>
-            {distanceMi.toFixed(1)} mi
-          </span>
-          <span style={{ color: "rgba(255,255,255,0.3)" }}>·</span>
-          <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 30 : 24, fontWeight: 600, color: condition.solid }}>
-            {condition.label}
-          </span>
+          <div style={{ width: 1.5, alignSelf: "stretch", backgroundColor: "rgba(255,255,255,0.15)" }} />
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: isPortrait ? 250 : 190 }}>
+            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 2 }}>
+              Distance
+            </span>
+            <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 64 : 48, fontWeight: 700, color: "#fff", lineHeight: 1.05 }}>
+              {distanceMi.toFixed(1)} mi
+            </span>
+            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 16, fontWeight: 600, color: condition.solid }}>
+              {condition.label}
+            </span>
+          </div>
         </div>
 
         <div style={{ opacity: ctaEntrance, fontFamily: displayFont, fontSize: isPortrait ? 26 : 20, color: condition.solid, letterSpacing: 0.5, marginTop: 4 }}>
@@ -416,10 +421,10 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
         </div>
       </div>
 
-      {/* Eddy paddles in beside the take-out — larger so it reads as the host,
-          to the right of the centered take-out text. */}
-      <div style={{ position: "absolute", right: isPortrait ? 70 : 60, top: takeOut[1] - (isPortrait ? 86 : 64), opacity: takeOutReveal }}>
-        <EddyMascot variant={getOtterVariant(conditionCode)} size={isPortrait ? 168 : 130} delay={195} />
+      {/* Eddy paddles in to the right of the take-out, tucked just beside the
+          label so it never overlaps the centered text or the float-time stamp. */}
+      <div style={{ position: "absolute", right: isPortrait ? 56 : 48, top: takeOut[1] + (isPortrait ? 6 : 4), opacity: takeOutReveal }}>
+        <EddyMascot variant={getOtterVariant(conditionCode)} size={isPortrait ? 150 : 120} delay={195} />
       </div>
 
       {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}

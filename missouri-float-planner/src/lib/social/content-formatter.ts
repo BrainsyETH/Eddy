@@ -350,9 +350,9 @@ export function formatSectionGuideCaption(
     ? canoeHours(section.distanceMi, section.conditionCode as ConditionCode)
     : section.hoursCanoe;
 
-  lines.push(
-    `Float of the Day — ${section.riverName}: ${section.putInName} → ${section.takeOutName}`,
-  );
+  // Headline is the river only — the put-in/take-out appear once below, in the
+  // emphasized detail lines, so they're not duplicated in the caption.
+  lines.push(`Float of the Day — ${section.riverName}`);
   lines.push('');
   lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs canoe`);
   lines.push('');
