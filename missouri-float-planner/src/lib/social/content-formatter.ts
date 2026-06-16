@@ -6,6 +6,7 @@ import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { canoeHours } from './post-types';
 import type { ConditionCode } from '@/types/api';
+import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
 
 // ---------------------------------------------------------------------------
 // Canonical link builder — river pages live at /rivers/<slug>. Building bare
@@ -188,6 +189,8 @@ interface EddyUpdate {
   gauge_height_ft: number | null;
   quote_text: string;
   summary_text: string | null;
+  /** Persisted weather summary (eddy_updates.weather), when available. */
+  weather?: WeatherSummary | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +274,7 @@ export function formatWeeklyForecastCaption(
   topRivers: EddyUpdate[],
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
+  rainNote = false,
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
 
@@ -282,19 +286,26 @@ export function formatWeeklyForecastCaption(
   lines.push(`This Weekend — ${names} 🛶`);
   lines.push('');
 
-  // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft"
+  // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft · 78°/55° · Clear"
   for (const river of topRivers.slice(0, 3)) {
     const name = RIVER_SHORT_NAMES[river.river_slug] || river.river_slug;
     const emoji = CONDITION_EMOJI[river.condition_code] || '';
     const label = SHORT_CONDITION_LABELS[river.condition_code] || 'Unknown';
     const gauge = formatGauge(river.gauge_height_ft);
-    if (river.gauge_height_ft !== null) {
-      lines.push(`${emoji} ${name} — ${label} at ${gauge} ft`);
-    } else {
-      lines.push(`${emoji} ${name} — ${label}`);
-    }
+    const wx = formatWeatherChip(weatherChip(river.weather));
+    const base =
+      river.gauge_height_ft !== null
+        ? `${emoji} ${name} — ${label} at ${gauge} ft`
+        : `${emoji} ${name} — ${label}`;
+    lines.push(wx ? `${base} · ${wx}` : base);
   }
   lines.push('');
+
+  // Rain-everywhere fallback note (best-available picks rather than dry ones).
+  if (rainNote) {
+    lines.push('Rain’s in the forecast across the board this weekend — these are the best bets. Keep an eye on the radar.');
+    lines.push('');
+  }
 
   // CTA
   lines.push(`Pick your float — live conditions, maps, and outfitters → ${BASE_URL}`);
@@ -392,6 +403,7 @@ export function formatWeeklyTrendCaption(
     sevenDayMaxFt: number | null;
     deltaFt: number;
     direction: 'rising' | 'falling' | 'flat';
+    weather?: WeatherSummary | null;
   },
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
@@ -411,6 +423,8 @@ export function formatWeeklyTrendCaption(
   if (trend.sevenDayMinFt !== null && trend.sevenDayMaxFt !== null) {
     lines.push(`Week range: ${trend.sevenDayMinFt.toFixed(1)}–${trend.sevenDayMaxFt.toFixed(1)} ft`);
   }
+  const trendWx = formatWeatherChip(weatherChip(trend.weather));
+  if (trendWx) lines.push(`Forecast: ${trendWx}`);
   lines.push('');
   if (trend.direction === 'rising') {
     lines.push('Levels are climbing — check back midweek for updated conditions.');

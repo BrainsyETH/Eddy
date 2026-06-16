@@ -265,3 +265,48 @@ export function buildWeatherSummary(
     maxPrecipChance: days.length > 0 ? Math.max(...days.map((d) => d.precipChance)) : 0,
   };
 }
+
+/** Precip probability (%) at/above which we treat a river as "rain coming"
+ *  for the Weekend Forecast no-rain filter. Tunable. */
+export const RAIN_CHANCE_THRESHOLD = 40;
+
+/** True when the forecast window carries a meaningful chance of rain. */
+export function hasRainComing(weather: WeatherSummary | null | undefined): boolean {
+  return (weather?.maxPrecipChance ?? 0) >= RAIN_CHANCE_THRESHOLD;
+}
+
+/** A single glanceable forecast chip for social graphics: nearest-day highs/
+ *  lows + condition, with the window's max precip chance (the value that drives
+ *  the no-rain filter, so the displayed rain % explains any "rain coming" flag). */
+export interface WeatherChip {
+  highF: number | null;
+  lowF: number | null;
+  condition: string;
+  precipChance: number;
+}
+
+export function weatherChip(weather: WeatherSummary | null | undefined): WeatherChip | null {
+  if (!weather) return null;
+  const d = weather.forecast?.[0];
+  const precipChance = weather.maxPrecipChance ?? d?.precipChance ?? 0;
+  if (d) return { highF: d.highF, lowF: d.lowF, condition: d.condition, precipChance };
+  if (weather.current) {
+    return { highF: weather.current.tempF, lowF: null, condition: weather.current.condition, precipChance };
+  }
+  return null;
+}
+
+/** Compact one-line label for a chip, e.g. "78°/55° · Clear · 40% rain".
+ *  Rain is omitted below RAIN_CHANCE_THRESHOLD to keep dry-day chips clean. */
+export function formatWeatherChip(chip: WeatherChip | null): string {
+  if (!chip) return '';
+  const temp =
+    chip.highF !== null && chip.lowF !== null
+      ? `${chip.highF}°/${chip.lowF}°`
+      : chip.highF !== null
+        ? `${chip.highF}°`
+        : '';
+  const parts = [temp, chip.condition].filter(Boolean);
+  if (chip.precipChance >= RAIN_CHANCE_THRESHOLD) parts.push(`${chip.precipChance}% rain`);
+  return parts.join(' · ');
+}
