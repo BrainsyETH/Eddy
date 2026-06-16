@@ -16,6 +16,7 @@ import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
 import { pickSectionForRivers } from './section-picker';
 import { pickNotableTrend } from './trend-picker';
+import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import {
   formatDailyDigestCaption,
@@ -79,7 +80,7 @@ export async function buildPostContext(
   async function freshRivers() {
     const { data: updates } = await supabase
       .from('eddy_updates')
-      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, weather')
       .neq('river_slug', 'global')
       .is('section_slug', null)
       .gt('expires_at', nowIso)
@@ -124,11 +125,16 @@ export async function buildPostContext(
   if (postType === 'weekly_forecast') {
     const deduped = await freshRivers();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const topRivers = (deduped as any[])
+    const floatable = (deduped as any[])
       .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
-      .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99))
-      .slice(0, 3);
-    if (topRivers.length === 0) return null;
+      .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99));
+    if (floatable.length === 0) return null;
+    // Prefer rivers with no rain coming; if every floatable river has rain in
+    // the forecast, fall back to the best available and flag it with a note.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dry = floatable.filter((u: any) => !hasRainComing(u.weather));
+    const usingFallback = dry.length === 0;
+    const topRivers = (usingFallback ? floatable : dry).slice(0, 3);
     return {
       postType,
       riverSlug: null,
@@ -138,11 +144,13 @@ export async function buildPostContext(
           riverName: titleize(u.river_slug),
           conditionCode: u.condition_code,
           gaugeHeightFt: u.gauge_height_ft,
+          weather: weatherChip(u.weather),
         })),
         dateLabel: 'This Weekend',
         title: 'Weekend Forecast',
+        rainNote: usingFallback,
       },
-      caption: (platform, custom) => formatWeeklyForecastCaption(topRivers, custom, platform),
+      caption: (platform, custom) => formatWeeklyForecastCaption(topRivers, custom, platform, usingFallback),
       imageUrl: (platform) => og('forecast', platform),
     };
   }
@@ -166,7 +174,7 @@ export async function buildPostContext(
       postType,
       riverSlug: section.riverSlug,
       renderData: { ...section, conditionCode, dateLabel: longDate() },
-      caption: (platform, custom) => formatSectionGuideCaption(section, custom, platform),
+      caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
       // route is video-only; reuse the section thumbnail as the cover.
       imageUrl: (platform) => og('section', platform),
     };
@@ -181,11 +189,13 @@ export async function buildPostContext(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const latest = (deduped as any[]).find((u) => u.river_slug === trend.riverSlug);
     const conditionCode = latest?.condition_code || 'unknown';
+    const weather = weatherChip(latest?.weather);
     return {
       postType,
       riverSlug: trend.riverSlug,
-      renderData: { ...trend, conditionCode, dateLabel: 'This Week' },
-      caption: (platform, custom) => formatWeeklyTrendCaption(trend, custom, platform),
+      renderData: { ...trend, conditionCode, weather, dateLabel: 'This Week' },
+      caption: (platform, custom) =>
+        formatWeeklyTrendCaption({ ...trend, weather: latest?.weather ?? null }, custom, platform),
       imageUrl: (platform) => og('trend', platform),
     };
   }

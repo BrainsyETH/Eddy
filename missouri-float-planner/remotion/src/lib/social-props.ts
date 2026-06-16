@@ -67,17 +67,49 @@ export interface GaugeAnimationProps {
   format: "square" | "portrait";
 }
 
+/** Glanceable weather chip rendered on forecast / trend graphics. */
+export interface WeatherChipProps {
+  highF: number | null;
+  lowF: number | null;
+  condition: string;
+  precipChance: number;
+}
+
+/** Compact one-line weather label: "78°/55° · Clear · 40% rain". Rain is
+ *  omitted below the threshold. Mirrors formatWeatherChip() in the app's
+ *  openweather.ts — kept in sync because Remotion can't import the app alias. */
+export function formatWeatherChipLabel(
+  chip?: WeatherChipProps | null,
+  rainThreshold = 40,
+): string {
+  if (!chip) return "";
+  const temp =
+    chip.highF !== null && chip.lowF !== null
+      ? `${chip.highF}°/${chip.lowF}°`
+      : chip.highF !== null
+        ? `${chip.highF}°`
+        : "";
+  const parts = [temp, chip.condition].filter(Boolean);
+  if (chip.precipChance >= rainThreshold) parts.push(`${chip.precipChance}% rain`);
+  return parts.join(" · ");
+}
+
 export interface DigestReelProps {
   rivers: Array<{
     riverName: string;
     conditionCode: ConditionCode;
     gaugeHeightFt: number | null;
+    /** Forecast chip for the Weekend Forecast variant (null/absent otherwise). */
+    weather?: WeatherChipProps | null;
   }>;
   dateLabel: string;
   globalQuote?: string;
   /** Optional title override. Defaults to "River Report"; the weekly
    *  forecast variant passes "Weekend Forecast" or similar. */
   title?: string;
+  /** Weekend Forecast only: true when every floatable river has rain coming, so
+   *  these are "best available" picks rather than dry ones. Renders a note. */
+  rainNote?: boolean;
   format: "square" | "portrait";
 }
 
@@ -100,6 +132,9 @@ export interface SectionGuideProps {
   /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
    *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
   hoursTypical: number;
+  /** Springs on the run (between put-in and take-out), drawn as dots on the
+   *  RouteDraw route at their mile fraction. */
+  springs?: Array<{ name: string; mile: number; side: string | null }>;
   dateLabel?: string;
   format: "square" | "portrait";
 }
@@ -121,6 +156,8 @@ export interface TrendReelProps {
   deltaFt: number;
   direction: "rising" | "falling" | "flat";
   series: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
+  /** Forecast chip shown under the river name. */
+  weather?: WeatherChipProps | null;
   dateLabel?: string;
   format: "square" | "portrait";
 }

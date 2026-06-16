@@ -14,6 +14,7 @@ import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
   CONDITION_COLORS,
+  formatWeatherChipLabel,
   getOtterVariant,
   type TrendReelProps,
 } from "../../lib/social-props";
@@ -46,6 +47,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   deltaFt,
   direction,
   series,
+  weather,
   dateLabel,
   format,
 }) => {
@@ -53,6 +55,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   const { fps, durationInFrames } = useVideoConfig();
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
   const isPortrait = format === "portrait";
+  const weatherLabel = formatWeatherChipLabel(weather);
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
   const meta = DIRECTION_META[direction];
 
@@ -201,6 +204,21 @@ export const TrendReel: React.FC<TrendReelProps> = ({
             }}
           >
             {dateLabel}
+          </div>
+        )}
+
+        {/* Forecast chip */}
+        {weatherLabel && (
+          <div
+            style={{
+              opacity: dateEntrance,
+              fontFamily: "'Geist Sans', system-ui, sans-serif",
+              fontSize: isPortrait ? 24 : 18,
+              color: "rgba(255,255,255,0.6)",
+              marginTop: 2,
+            }}
+          >
+            {weatherLabel}
           </div>
         )}
 

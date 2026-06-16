@@ -207,7 +207,8 @@ const RiverCardsSlide: React.FC<{
   isPortrait: boolean;
   title: string;
   dateLabel: string;
-}> = ({ rivers, isPortrait, title, dateLabel }) => {
+  rainNote?: boolean;
+}> = ({ rivers, isPortrait, title, dateLabel, rainNote }) => {
   // Scale card size based on river count to fit all on one screen
   const count = rivers.length;
   const cardGap = count > 8 ? 8 : count > 6 ? 10 : 14;
@@ -273,10 +274,26 @@ const RiverCardsSlide: React.FC<{
             riverName={river.riverName}
             conditionCode={river.conditionCode}
             gaugeHeightFt={river.gaugeHeightFt}
+            weather={river.weather}
             delay={i * 5}
             width={cardWidth}
           />
         ))}
+        {rainNote && (
+          <span
+            style={{
+              marginTop: 6,
+              maxWidth: cardWidth,
+              fontFamily: "'Geist Sans', system-ui, sans-serif",
+              fontSize: isPortrait ? 24 : 18,
+              color: "rgba(255,255,255,0.55)",
+              fontStyle: "italic",
+              textAlign: "center",
+            }}
+          >
+            Rain in the forecast everywhere this weekend — these are the best bets.
+          </span>
+        )}
       </div>
     </AbsoluteFill>
   );
@@ -294,6 +311,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   dateLabel,
   globalQuote,
   title = 'River Report',
+  rainNote,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -343,6 +361,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
             isPortrait={isPortrait}
             title={title}
             dateLabel={dateLabel}
+            rainNote={rainNote}
           />
         </Series.Sequence>
 

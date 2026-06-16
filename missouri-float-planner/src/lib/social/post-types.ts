@@ -13,6 +13,7 @@
 import type { MediaType } from './types';
 import type { ConditionCode } from '@/types/api';
 import { calculateFloatTime, type VesselSpeeds } from '@/lib/calculations/floatTime';
+import type { WeatherChip } from '@/lib/weather/openweather';
 
 export type PostKind =
   | 'daily_digest'
@@ -39,10 +40,19 @@ export interface RenderData {
   optimalMax?: number;
   quoteText?: string;
   summaryText?: string;
-  rivers?: Array<{ riverName: string; conditionCode: string; gaugeHeightFt: number | null }>;
+  rivers?: Array<{
+    riverName: string;
+    conditionCode: string;
+    gaugeHeightFt: number | null;
+    weather?: WeatherChip | null;
+  }>;
   dateLabel?: string;
   globalQuote?: string;
   title?: string;
+  /** Weekend Forecast: true when picks are "best available" (rain coming). */
+  rainNote?: boolean;
+  /** Forecast chip for the Weekly Trend post. */
+  weather?: WeatherChip | null;
   // Section guide / route extras
   putInName?: string;
   putInMile?: number;
@@ -50,6 +60,7 @@ export interface RenderData {
   takeOutMile?: number;
   distanceMi?: number;
   hoursCanoe?: number;
+  springs?: Array<{ name: string; mile: number; side: string | null }>;
   // Weekly trend extras
   currentHeightFt?: number | null;
   sevenDayFirstFt?: number | null;
@@ -123,6 +134,7 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     // Float time at TODAY's flow vs the normal "flowing" baseline.
     hoursToday: canoeHours(distanceMi, code),
     hoursTypical: canoeHours(distanceMi, 'flowing'),
+    springs: data.springs ?? [],
     dateLabel: data.dateLabel || defaultDate(),
     format: FORMAT,
   };
@@ -176,6 +188,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       rivers: data.rivers || [],
       dateLabel: data.dateLabel || 'This Weekend',
       title: data.title || 'Weekend Forecast',
+      rainNote: data.rainNote ?? false,
       // No global quote on forecast — the top-3 list IS the message.
       format: FORMAT,
     }),
@@ -213,6 +226,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       deltaFt: data.deltaFt ?? 0,
       direction: data.direction || 'flat',
       series: data.series || [],
+      weather: data.weather ?? null,
       dateLabel: data.dateLabel || 'This Week',
       format: FORMAT,
     }),

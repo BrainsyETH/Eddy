@@ -8,13 +8,17 @@ import {
 import { SNAPPY } from "../../lib/spring-presets";
 import {
   CONDITION_COLORS,
+  formatWeatherChipLabel,
   type ConditionCode,
+  type WeatherChipProps,
 } from "../../lib/social-props";
 
 interface RiverCardProps {
   riverName: string;
   conditionCode: ConditionCode;
   gaugeHeightFt: number | null;
+  /** Optional forecast chip (Weekend Forecast variant). */
+  weather?: WeatherChipProps | null;
   /** Delay before slide-in animation (frames) */
   delay?: number;
   /** Card width */
@@ -31,12 +35,14 @@ export const RiverCard: React.FC<RiverCardProps> = ({
   riverName,
   conditionCode,
   gaugeHeightFt,
+  weather,
   delay = 0,
   width = 700,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
+  const weatherLabel = formatWeatherChipLabel(weather);
 
   const entrance = spring({
     frame: frame - delay,
@@ -85,34 +91,42 @@ export const RiverCard: React.FC<RiverCardProps> = ({
           padding: "22px 32px",
         }}
       >
-        {/* Left: River name + gauge height (identity group) */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 16,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 40,
-              fontWeight: 600,
-              color: "#fff",
-            }}
-          >
-            {riverName}
+        {/* Left: River name + gauge height, with an optional forecast sub-line */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+            <div
+              style={{
+                fontFamily: "'Fredoka', system-ui, sans-serif",
+                fontSize: 40,
+                fontWeight: 600,
+                color: "#fff",
+              }}
+            >
+              {riverName}
+            </div>
+            {gaugeHeightFt !== null && (
+              <span
+                style={{
+                  fontFamily: "'Geist Mono', 'SF Mono', monospace",
+                  fontSize: 24,
+                  color: "rgba(255,255,255,0.5)",
+                  fontWeight: 500,
+                }}
+              >
+                {gaugeHeightFt.toFixed(1)} ft
+              </span>
+            )}
           </div>
-          {gaugeHeightFt !== null && (
+          {weatherLabel && (
             <span
               style={{
-                fontFamily: "'Geist Mono', 'SF Mono', monospace",
-                fontSize: 24,
-                color: "rgba(255,255,255,0.5)",
+                fontFamily: "'Geist Sans', system-ui, sans-serif",
+                fontSize: 22,
+                color: "rgba(255,255,255,0.55)",
                 fontWeight: 500,
               }}
             >
-              {gaugeHeightFt.toFixed(1)} ft
+              {weatherLabel}
             </span>
           )}
         </div>

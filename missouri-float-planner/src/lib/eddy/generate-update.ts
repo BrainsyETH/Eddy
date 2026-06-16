@@ -8,7 +8,7 @@ import { RIVER_NOTES } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
-import { fetchPrecipitationFromWeather, type PrecipitationSummary } from '@/lib/weather/openweather';
+import { fetchPrecipitationFromWeather, buildWeatherSummary, type PrecipitationSummary, type WeatherSummary } from '@/lib/weather/openweather';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
 import { buildGaugeTrajectory, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
@@ -36,6 +36,8 @@ export interface GeneratedUpdate {
   quoteText: string;
   summaryText: string | null;
   sourcesUsed: string[];
+  /** Compact weather snapshot persisted on the update (null if unavailable). */
+  weather: WeatherSummary | null;
 }
 
 /**
@@ -149,6 +151,7 @@ export async function generateEddyUpdate(
       quoteText: cleanMarkers(quoteText),
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
       sourcesUsed,
+      weather: buildWeatherSummary(weather, forecast),
     };
   } catch (e) {
     console.error(`[EddyGen] Haiku call failed for ${target.riverSlug}:`, e);

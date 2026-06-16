@@ -22,6 +22,10 @@ import { colors } from "../../design-tokens/colors";
 
 const FPS = 30;
 
+// Springs read as cool inflows — a distinct sky tone from the condition color
+// and the put-in (accent) / take-out (condition) markers.
+const SPRING_COLOR = "#7dd3fc";
+
 type Pt = [number, number];
 
 /** Build a smooth serpentine "river" polyline from put-in (top) to take-out
@@ -100,6 +104,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   distanceMi,
   hoursToday,
   hoursTypical,
+  springs = [],
   dateLabel,
   format,
 }) => {
@@ -148,6 +153,16 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   });
   const { point: boat, drawn } = along(route, drawProgress);
   const drawComplete = drawProgress >= 0.999;
+
+  // Springs placed by mile fraction along the route; each fades in as the drawn
+  // line passes it. Clamp slightly off the ends so they don't sit under the
+  // put-in / take-out markers.
+  const mileSpan = takeOutMile - putInMile;
+  const springDots = springs.map((s) => {
+    const frac = mileSpan > 0 ? (s.mile - putInMile) / mileSpan : 0;
+    const p = Math.min(0.97, Math.max(0.03, frac));
+    return { p, point: along(route, p).point };
+  });
   const boatPulse = 1 + 0.25 * Math.sin(frame / 5);
 
   // Float-time stamp + take-out reveal land as the line finishes.
@@ -227,6 +242,21 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           <circle cx={putIn[0]} cy={putIn[1]} r={14} fill={colors.accent[400]} filter="url(#routeGlow)" />
           <circle cx={putIn[0]} cy={putIn[1]} r={6} fill="#fff" />
 
+          {/* Springs along the run — fade in as the line passes each one */}
+          {springDots.map((s, i) => {
+            const op = interpolate(drawProgress, [s.p, Math.min(1, s.p + 0.04)], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            return (
+              <g key={i} opacity={op}>
+                <circle cx={s.point[0]} cy={s.point[1]} r={12} fill={SPRING_COLOR} opacity={0.25} filter="url(#routeGlow)" />
+                <circle cx={s.point[0]} cy={s.point[1]} r={6.5} fill={SPRING_COLOR} filter="url(#routeGlow)" />
+                <circle cx={s.point[0]} cy={s.point[1]} r={2.5} fill="#fff" />
+              </g>
+            );
+          })}
+
           {/* Leading "boat" dot rides the draw edge */}
           {!drawComplete && (
             <>
@@ -244,7 +274,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
 
         {/* Put-in lane — above the route, centered, cleaned + truncated name */}
         <EndpointRow
-          top={putIn[1] - (isPortrait ? 104 : 76)}
+          top={putIn[1] - (isPortrait ? 124 : 90)}
           tag="Put-in"
           name={cleanName(putInName)}
           mile={putInMile}
@@ -256,7 +286,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
         />
         {/* Take-out lane — below the route */}
         <EndpointRow
-          top={takeOut[1] + (isPortrait ? 26 : 18)}
+          top={takeOut[1] + (isPortrait ? 44 : 30)}
           tag="Take-out"
           name={cleanName(takeOutName)}
           mile={takeOutMile}
@@ -317,6 +347,14 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
             }}
           >
             {dateLabel}
+          </div>
+        )}
+        {springs.length > 0 && (
+          <div style={{ opacity: dateEntrance, display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+            <div style={{ width: 13, height: 13, borderRadius: "50%", backgroundColor: SPRING_COLOR, boxShadow: `0 0 8px ${SPRING_COLOR}` }} />
+            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 17, color: "rgba(255,255,255,0.6)" }}>
+              Springs on the route
+            </span>
           </div>
         )}
       </div>
@@ -436,10 +474,10 @@ const EndpointRow: React.FC<{
         {tag}
       </span>
     </div>
-    <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 38 : 28, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.1 }}>
+    <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 38 : 28, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.1, textShadow: "0 2px 14px rgba(0,0,0,0.9)" }}>
       {name}
     </span>
-    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.5)" }}>
+    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: isPortrait ? 28 : 20, fontWeight: 600, color: "rgba(255,255,255,0.8)", textShadow: "0 2px 12px rgba(0,0,0,0.95)" }}>
       MM {mile.toFixed(1)}
     </span>
   </div>

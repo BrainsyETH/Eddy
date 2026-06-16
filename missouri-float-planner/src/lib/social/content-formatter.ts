@@ -4,6 +4,18 @@
 
 import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { canoeHours } from './post-types';
+import type { ConditionCode } from '@/types/api';
+import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
+
+// ---------------------------------------------------------------------------
+// Canonical link builder — river pages live at /rivers/<slug>. Building bare
+// `eddy.guide/<slug>` links 404s, so every per-river CTA routes through here.
+// ---------------------------------------------------------------------------
+const BASE_URL = 'https://eddy.guide';
+function riverUrl(slug: string): string {
+  return `${BASE_URL}/rivers/${slug}`;
+}
 
 // ---------------------------------------------------------------------------
 // River display names
@@ -177,6 +189,8 @@ interface EddyUpdate {
   gauge_height_ft: number | null;
   quote_text: string;
   summary_text: string | null;
+  /** Persisted weather summary (eddy_updates.weather), when available. */
+  weather?: WeatherSummary | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +274,7 @@ export function formatWeeklyForecastCaption(
   topRivers: EddyUpdate[],
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
+  rainNote = false,
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
 
@@ -271,22 +286,29 @@ export function formatWeeklyForecastCaption(
   lines.push(`This Weekend — ${names} 🛶`);
   lines.push('');
 
-  // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft"
+  // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft · 78°/55° · Clear"
   for (const river of topRivers.slice(0, 3)) {
     const name = RIVER_SHORT_NAMES[river.river_slug] || river.river_slug;
     const emoji = CONDITION_EMOJI[river.condition_code] || '';
     const label = SHORT_CONDITION_LABELS[river.condition_code] || 'Unknown';
     const gauge = formatGauge(river.gauge_height_ft);
-    if (river.gauge_height_ft !== null) {
-      lines.push(`${emoji} ${name} — ${label} at ${gauge} ft`);
-    } else {
-      lines.push(`${emoji} ${name} — ${label}`);
-    }
+    const wx = formatWeatherChip(weatherChip(river.weather));
+    const base =
+      river.gauge_height_ft !== null
+        ? `${emoji} ${name} — ${label} at ${gauge} ft`
+        : `${emoji} ${name} — ${label}`;
+    lines.push(wx ? `${base} · ${wx}` : base);
   }
   lines.push('');
 
+  // Rain-everywhere fallback note (best-available picks rather than dry ones).
+  if (rainNote) {
+    lines.push('Rain’s in the forecast across the board this weekend — these are the best bets. Keep an eye on the radar.');
+    lines.push('');
+  }
+
   // CTA
-  lines.push('Pick your float at eddy.guide — live conditions, maps, and outfitters.');
+  lines.push(`Pick your float — live conditions, maps, and outfitters → ${BASE_URL}`);
 
   // Custom content snippets
   const snippets = getActiveSnippets(customContent, platform);
@@ -302,17 +324,6 @@ export function formatWeeklyForecastCaption(
 // Section Guide Caption
 // ---------------------------------------------------------------------------
 
-/** First sentence of an access-point description, protecting common
- *  abbreviations (Hwy., Rd., St.…) so we don't split on their periods. */
-function firstSentence(text?: string): string {
-  if (!text) return '';
-  let t = text.trim().replace(/\s+/g, ' ');
-  const ABBR = ['Hwy', 'Rd', 'Mt', 'St', 'Co', 'Jct', 'No', 'Ft', 'Rte', 'Cr', 'Hwys'];
-  for (const a of ABBR) t = t.replace(new RegExp(`\\b${a}\\.`, 'g'), `${a}__D__`);
-  const m = t.match(/^(.*?[.!?])(?:\s|$)/);
-  return (m ? m[1] : t).replace(/__D__/g, '.').trim();
-}
-
 export function formatSectionGuideCaption(
   section: {
     riverSlug: string;
@@ -323,36 +334,51 @@ export function formatSectionGuideCaption(
     takeOutMile: number;
     distanceMi: number;
     hoursCanoe: number;
-    putInDescription?: string;
-    takeOutDescription?: string;
+    conditionCode?: string;
+    putInCamping?: boolean;
     takeOutCamping?: boolean;
+    springs?: Array<{ name: string; mile: number; side: string | null }>;
   },
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
 
+  // Condition-aware float time so the caption matches the reel + cover image
+  // (all three run through canoeHours; flat hoursCanoe is only a fallback).
+  const hours = section.conditionCode
+    ? canoeHours(section.distanceMi, section.conditionCode as ConditionCode)
+    : section.hoursCanoe;
+
   lines.push(
     `Float of the Day — ${section.riverName}: ${section.putInName} → ${section.takeOutName}`,
   );
   lines.push('');
-  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${section.hoursCanoe.toFixed(1)} hrs canoe`);
+  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs canoe`);
+  lines.push('');
 
-  const putInDetail = firstSentence(section.putInDescription);
-  const takeOutDetail = firstSentence(section.takeOutDescription);
+  // Put-in / take-out are the emphasis. Camping flagged only where it exists.
   lines.push(
     `📍 Put-in: ${section.putInName} (MM ${section.putInMile.toFixed(1)})` +
-      (putInDetail ? ` — ${putInDetail}` : ''),
+      (section.putInCamping ? ' 🏕️ camping' : ''),
   );
   lines.push(
     `🏁 Take-out: ${section.takeOutName} (MM ${section.takeOutMile.toFixed(1)})` +
-      (takeOutDetail ? ` — ${takeOutDetail}` : ''),
+      (section.takeOutCamping ? ' 🏕️ camping' : ''),
   );
-  if (section.takeOutCamping) {
-    lines.push('🏕️ Camping available at the take-out.');
+
+  // Springs on the run, if any (cap at 3 so the caption stays scannable).
+  if (section.springs && section.springs.length > 0) {
+    const springText = section.springs
+      .slice(0, 3)
+      .map((s) => `${s.name} (MM ${s.mile.toFixed(1)})`)
+      .join(', ');
+    const more = section.springs.length > 3 ? ` +${section.springs.length - 3} more` : '';
+    lines.push(`💧 Springs on the float: ${springText}${more}`);
   }
+
   lines.push('');
-  lines.push(`Plan this float at eddy.guide/${section.riverSlug}`);
+  lines.push(`Plan this float → ${riverUrl(section.riverSlug)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -377,6 +403,7 @@ export function formatWeeklyTrendCaption(
     sevenDayMaxFt: number | null;
     deltaFt: number;
     direction: 'rising' | 'falling' | 'flat';
+    weather?: WeatherSummary | null;
   },
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
@@ -396,6 +423,8 @@ export function formatWeeklyTrendCaption(
   if (trend.sevenDayMinFt !== null && trend.sevenDayMaxFt !== null) {
     lines.push(`Week range: ${trend.sevenDayMinFt.toFixed(1)}–${trend.sevenDayMaxFt.toFixed(1)} ft`);
   }
+  const trendWx = formatWeatherChip(weatherChip(trend.weather));
+  if (trendWx) lines.push(`Forecast: ${trendWx}`);
   lines.push('');
   if (trend.direction === 'rising') {
     lines.push('Levels are climbing — check back midweek for updated conditions.');
@@ -405,7 +434,7 @@ export function formatWeeklyTrendCaption(
     lines.push('Holding steady — predictable conditions for planning.');
   }
   lines.push('');
-  lines.push(`Full 7-day chart: eddy.guide/${trend.riverSlug}`);
+  lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -523,7 +552,7 @@ export function formatConditionChangeCaption(params: {
   lines.push('');
 
   // 2. Live-conditions CTA — the core value
-  lines.push(`Live gauge + conditions: eddy.guide/${params.riverSlug}`);
+  lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug)}`);
   lines.push(`Share this alert with anyone planning to float ${riverName} this week.`);
 
   return { caption: lines.join('\n'), hashtags: [] };

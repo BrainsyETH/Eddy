@@ -109,6 +109,7 @@ async function runGeneration(request: NextRequest) {
       quote_text: update.quoteText,
       summary_text: update.summaryText,
       sources_used: update.sourcesUsed,
+      weather: update.weather,
       generated_at: new Date().toISOString(),
       expires_at: expiresAt,
       trigger_reason: 'scheduled',

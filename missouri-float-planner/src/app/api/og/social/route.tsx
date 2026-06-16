@@ -13,6 +13,13 @@ import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
+import {
+  hasRainComing,
+  weatherChip,
+  RAIN_CHANCE_THRESHOLD,
+  type WeatherSummary,
+  type WeatherChip,
+} from '@/lib/weather/openweather';
 import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
 import {
   WEEKEND_FLOATABLE as FORECAST_FLOATABLE,
@@ -21,6 +28,7 @@ import {
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers } from '@/lib/social/section-picker';
+import { canoeHours } from '@/lib/social/post-types';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
 
@@ -696,6 +704,21 @@ async function generateTipImage(contentId: string, size: { width: number; height
 // ---------------------------------------------------------------------------
 // Weekly Forecast thumbnail
 // ---------------------------------------------------------------------------
+/** Satori-safe weather label — no degree glyph (Fredoka may lack it), so temps
+ *  read "Hi 78 / Lo 55". e.g. "Hi 78 / Lo 55 · Clear · 40% rain". */
+function ogWeatherLabel(chip: WeatherChip | null): string {
+  if (!chip) return '';
+  const temp =
+    chip.highF !== null && chip.lowF !== null
+      ? `Hi ${chip.highF} / Lo ${chip.lowF}`
+      : chip.highF !== null
+        ? `${chip.highF}`
+        : '';
+  const parts = [temp, chip.condition].filter(Boolean);
+  if (chip.precipChance >= RAIN_CHANCE_THRESHOLD) parts.push(`${chip.precipChance}% rain`);
+  return parts.join(' · ');
+}
+
 async function generateForecastImage(size: { width: number; height: number }) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
@@ -703,14 +726,19 @@ async function generateForecastImage(size: { width: number; height: number }) {
 
   const { data: updates } = await supabase
     .from('eddy_updates')
-    .select('river_slug, condition_code, gauge_height_ft')
+    .select('river_slug, condition_code, gauge_height_ft, weather')
     .neq('river_slug', 'global')
     .is('section_slug', null)
     .gt('expires_at', new Date().toISOString())
     .order('generated_at', { ascending: false });
 
   const seen = new Set<string>();
-  type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
+  type Row = {
+    river_slug: string;
+    condition_code: string;
+    gauge_height_ft: number | null;
+    weather?: WeatherSummary | null;
+  };
   const dedupedRaw = ((updates || []) as Row[]).filter((u) => {
     if (seen.has(u.river_slug)) return false;
     seen.add(u.river_slug);
@@ -720,10 +748,13 @@ async function generateForecastImage(size: { width: number; height: number }) {
   // 'flowing' into 'high' since the AI snapshot should be rated on its live
   // bucket, not yesterday's.
   const deduped = await overlayLiveConditions(supabase, dedupedRaw);
-  const top = deduped
+  const floatable = deduped
     .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
-    .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
-    .slice(0, 3);
+    .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99));
+  // Prefer rivers with no rain coming; fall back to best-available with a note.
+  const dry = floatable.filter((u) => !hasRainComing(u.weather));
+  const usingFallback = dry.length === 0;
+  const top = (usingFallback ? floatable : dry).slice(0, 3);
 
   const RIVER_DISPLAY: Record<string, string> = {
     meramec: 'Meramec',
@@ -806,6 +837,7 @@ async function generateForecastImage(size: { width: number; height: number }) {
             top.map((u) => {
               const styles = getStatusStyles(u.condition_code as ConditionCode);
               const name = RIVER_DISPLAY[u.river_slug] || u.river_slug;
+              const wx = ogWeatherLabel(weatherChip(u.weather));
               return (
                 <div
                   key={u.river_slug}
@@ -829,17 +861,23 @@ async function generateForecastImage(size: { width: number; height: number }) {
                       boxShadow: `0 0 20px ${styles.solid}`,
                     }}
                   />
-                  <span
-                    style={{
-                      fontFamily: 'Fredoka',
-                      fontSize: isPortrait ? 56 : 42,
-                      fontWeight: 600,
-                      color: '#fff',
-                      flex: 1,
-                    }}
-                  >
-                    {name}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <span
+                      style={{
+                        fontFamily: 'Fredoka',
+                        fontSize: isPortrait ? 56 : 42,
+                        fontWeight: 600,
+                        color: '#fff',
+                      }}
+                    >
+                      {name}
+                    </span>
+                    {wx !== '' && (
+                      <span style={{ fontSize: isPortrait ? 26 : 20, color: 'rgba(255,255,255,0.55)' }}>
+                        {wx}
+                      </span>
+                    )}
+                  </div>
                   {u.gauge_height_ft !== null && (
                     <span
                       style={{
@@ -856,6 +894,20 @@ async function generateForecastImage(size: { width: number; height: number }) {
             })
           )}
         </div>
+
+        {/* Rain-everywhere fallback note */}
+        {usingFallback && (
+          <span
+            style={{
+              marginTop: isPortrait ? 32 : 20,
+              fontSize: isPortrait ? 30 : 22,
+              color: 'rgba(255,255,255,0.55)',
+              fontStyle: 'italic',
+            }}
+          >
+            Rain in the forecast everywhere this weekend — best bets above.
+          </span>
+        )}
 
         {/* Footer */}
         <span
@@ -1004,7 +1056,7 @@ async function generateSectionImage(size: { width: number; height: number }) {
           }}
         >
           <StatCell value={`${section.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          <StatCell value={`${section.hoursCanoe.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
+          <StatCell value={`${canoeHours(section.distanceMi, condition as ConditionCode).toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
           <StatCell value={CONDITION_LABELS[condition as keyof typeof CONDITION_LABELS] || '—'} label="Conditions" color={styles.solid} isPortrait={isPortrait} />
         </div>
 
@@ -1151,17 +1203,19 @@ async function generateTrendImage(size: { width: number; height: number }) {
 
   const { data: updates } = await supabase
     .from('eddy_updates')
-    .select('river_slug, condition_code')
+    .select('river_slug, condition_code, weather')
     .neq('river_slug', 'global')
     .is('section_slug', null)
     .gt('expires_at', new Date().toISOString());
 
-  type Row = { river_slug: string; condition_code: string };
-  const slugs = Array.from(new Set(((updates || []) as Row[]).map((u) => u.river_slug)));
+  type Row = { river_slug: string; condition_code: string; weather?: WeatherSummary | null };
+  const rows = (updates || []) as Row[];
+  const slugs = Array.from(new Set(rows.map((u) => u.river_slug)));
   const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
   if (!trend) {
     return NextResponse.json({ error: 'No notable trend' }, { status: 404 });
   }
+  const wx = ogWeatherLabel(weatherChip(rows.find((u) => u.river_slug === trend.riverSlug)?.weather ?? null));
 
   const meta =
     trend.direction === 'rising'
@@ -1242,6 +1296,20 @@ async function generateTrendImage(size: { width: number; height: number }) {
         >
           {trend.riverName}
         </span>
+
+        {wx !== '' && (
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: isPortrait ? 30 : 22,
+              color: 'rgba(255,255,255,0.6)',
+              marginTop: isPortrait ? -28 : -16,
+              marginBottom: isPortrait ? 36 : 22,
+            }}
+          >
+            {wx}
+          </span>
+        )}
 
         {/* Sparkline */}
         <div
