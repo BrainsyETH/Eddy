@@ -31,6 +31,11 @@ on:
         required: false
         type: string
         default: '3'
+      videos_per_channel:
+        description: 'How many recent uploads to scan per channel'
+        required: false
+        type: string
+        default: '5'
 
 jobs:
   extract-clips:
@@ -65,6 +70,8 @@ jobs:
           RIVER_SLUG: ${{ inputs.river_slug }}
           PEAK_NUMBER: ${{ inputs.peak_number || '1' }}
           MAX_CLIPS: ${{ inputs.max_clips || '3' }}
+          VIDEOS_PER_CHANNEL: ${{ inputs.videos_per_channel || '5' }}
+          YOUTUBE_CHANNELS_JSON: ${{ secrets.YOUTUBE_CHANNELS_JSON }}
         run: |
           set -e
           WORK_DIR=$(mktemp -d)
@@ -212,12 +219,75 @@ jobs:
             rm -rf "$VIDEO_DIR"
           }
 
-          # Process: either a single URL or scan channels
+          # Process: either a single URL (manual dispatch) or scan the
+          # configured channels (scheduled daily run).
           if [ -n "$YOUTUBE_URL" ]; then
             process_video "$YOUTUBE_URL" "$RIVER_SLUG" "$PEAK_NUMBER"
+          elif [ -n "$YOUTUBE_CHANNELS_JSON" ]; then
+            VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
+            echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL per channel, up to $MAX_CLIPS new clips)"
+            if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+              echo "⚠️ SUPABASE_URL/KEY not set — cannot dedup; the same videos will be re-clipped each run."
+            fi
+
+            CANDIDATES="$WORK_DIR/candidates.txt"
+            : > "$CANDIDATES"
+
+            # Expand YOUTUBE_CHANNELS_JSON (array of channel URLs, or objects
+            # {url, river_slug}) into newest-first "videoUrl<TAB>river" rows.
+            # Process substitution keeps the loops in this shell so the
+            # MAX_CLIPS counter (read from RESULTS_JSON) stays consistent.
+            while IFS=$'\t' read -r CH_URL CH_RIVER; do
+              [ -z "$CH_URL" ] && continue
+              case "$CH_URL" in
+                *"/videos"|*"watch?v="*|*"youtu.be/"*) LIST_URL="$CH_URL" ;;
+                *) LIST_URL="${CH_URL%/}/videos" ;;
+              esac
+              echo "  • $LIST_URL"
+              while read -r VID; do
+                [ -z "$VID" ] && continue
+                printf '%s\t%s\n' "https://www.youtube.com/watch?v=${VID}" "$CH_RIVER" >> "$CANDIDATES"
+              done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s" "$LIST_URL" 2>/dev/null || true)
+            done < <(echo "$YOUTUBE_CHANNELS_JSON" | python3 -c "
+          import json, sys
+          try:
+              data = json.load(sys.stdin)
+          except Exception as e:
+              sys.stderr.write('Invalid YOUTUBE_CHANNELS_JSON: %s\n' % e); sys.exit(0)
+          for c in data:
+              if isinstance(c, str):
+                  print(c + '\t')
+              else:
+                  print((c.get('url') or '') + '\t' + (c.get('river_slug') or ''))
+          ")
+
+            CAND_TOTAL=$(wc -l < "$CANDIDATES" | tr -d ' ')
+            echo "  Found ${CAND_TOTAL} candidate video(s)"
+
+            while IFS=$'\t' read -r VURL VRIVER; do
+              [ -z "$VURL" ] && continue
+              DONE=$(python3 -c "import json; print(len(json.load(open('$RESULTS_JSON'))))" 2>/dev/null || echo 0)
+              if [ "$DONE" -ge "$MAX_CLIPS" ]; then
+                echo "  Reached MAX_CLIPS=$MAX_CLIPS — stopping"
+                break
+              fi
+              # Skip videos that already have a clip in the library (video-level
+              # dedup so daily runs don't re-process the same uploads).
+              if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+                VID="${VURL##*v=}"
+                EXISTING=$(curl -s "${SUPABASE_URL}/rest/v1/clip_library?youtube_video_id=eq.${VID}&select=id&limit=1" \
+                  -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
+                if echo "$EXISTING" | python3 -c "import json,sys; sys.exit(0 if json.load(sys.stdin) else 1)" 2>/dev/null; then
+                  echo "  ⏭️  ${VID} already in library, skipping"
+                  continue
+                fi
+              fi
+              process_video "$VURL" "$VRIVER" "$PEAK_NUMBER"
+            done < "$CANDIDATES"
           else
-            echo "ℹ️ No URL provided — channel scanning requires YOUTUBE_CHANNELS_JSON secret"
-            echo "  Use workflow_dispatch with youtube_url input for manual processing"
+            echo "ℹ️ No youtube_url input and no YOUTUBE_CHANNELS_JSON secret — nothing to do."
+            echo "  Set YOUTUBE_CHANNELS_JSON (array of channel URLs or {url, river_slug} objects)"
+            echo "  to enable daily channel scanning, or dispatch manually with a youtube_url input."
           fi
 
           # Report results
