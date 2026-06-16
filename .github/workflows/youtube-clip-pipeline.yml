@@ -61,6 +61,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-dejavu-core
 
+      # yt-dlp needs a JavaScript runtime to extract YouTube formats reliably.
+      - name: Install JS runtime (deno) for yt-dlp
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Process YouTube content
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -72,6 +78,7 @@ jobs:
           MAX_CLIPS: ${{ inputs.max_clips || '3' }}
           VIDEOS_PER_CHANNEL: ${{ inputs.videos_per_channel || '5' }}
           YOUTUBE_CHANNELS_JSON: ${{ secrets.YOUTUBE_CHANNELS_JSON }}
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
           set -e
           WORK_DIR=$(mktemp -d)
@@ -79,6 +86,17 @@ jobs:
           mkdir -p "$CLIPS_OUTPUT"
           RESULTS_JSON="$WORK_DIR/results.json"
           echo "[]" > "$RESULTS_JSON"
+
+          # YouTube bot-blocks shared CI IPs; authenticated cookies are required
+          # to download. Write the secret (Netscape cookies.txt format) to a file
+          # the scripts pass to yt-dlp via YOUTUBE_COOKIES_FILE.
+          if [ -n "$YOUTUBE_COOKIES" ]; then
+            export YOUTUBE_COOKIES_FILE="$WORK_DIR/cookies.txt"
+            printf '%s\n' "$YOUTUBE_COOKIES" > "$YOUTUBE_COOKIES_FILE"
+            echo "🔑 Using authenticated YouTube cookies"
+          else
+            echo "⚠️ No YOUTUBE_COOKIES secret set — YouTube will likely block downloads on CI (bot check)."
+          fi
 
           process_video() {
             local URL="$1"
@@ -92,9 +110,9 @@ jobs:
             echo "River: ${RIVER:-auto-detect}"
             echo "════════════════════════════════════════════"
 
-            # Step 1: Scrape heatmap
+            # Step 1: Scrape heatmap. Never let one video abort the batch.
             echo "→ Scraping heatmap..."
-            bash scripts/clipengine/scrape-heatmap.sh "$URL" "$VIDEO_DIR"
+            bash scripts/clipengine/scrape-heatmap.sh "$URL" "$VIDEO_DIR" || true
 
             if [ ! -f "$VIDEO_DIR/heatmap-data.json" ]; then
               echo "⚠️ No heatmap data, skipping"
@@ -133,7 +151,7 @@ jobs:
             # Step 2: Extract clip
             echo "→ Extracting clip at ${PEAK_START}s for ${PEAK_DURATION}s..."
             local RAW_CLIP="$VIDEO_DIR/raw-clip.mp4"
-            bash scripts/clipengine/extract-clip.sh "$URL" "$PEAK_START" "$PEAK_DURATION" "$RAW_CLIP" --transcript
+            bash scripts/clipengine/extract-clip.sh "$URL" "$PEAK_START" "$PEAK_DURATION" "$RAW_CLIP" --transcript || true
 
             if [ ! -f "$RAW_CLIP" ]; then
               echo "⚠️ Clip extraction failed, skipping"
