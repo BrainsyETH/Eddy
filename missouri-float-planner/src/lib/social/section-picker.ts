@@ -12,6 +12,18 @@ interface MileMarker {
   feature_type: string | null;
   is_access_point: boolean;
   is_campground: boolean;
+  has_spring: boolean;
+  side: string | null;
+}
+
+/** A spring on the float, between the put-in and take-out. */
+export interface RouteSpring {
+  /** Cleaned name, e.g. "Welch Spring". */
+  name: string;
+  /** River mile (downstream). */
+  mile: number;
+  /** Bank the spring enters on, if known. */
+  side: string | null;
 }
 
 export interface Section {
@@ -30,8 +42,12 @@ export interface Section {
   /** Raw access-point descriptions (for caption detail). */
   putInDescription: string;
   takeOutDescription: string;
+  /** Whether the put-in access point offers camping. */
+  putInCamping: boolean;
   /** Whether the take-out access point offers camping. */
   takeOutCamping: boolean;
+  /** Springs located on the run (between put-in and take-out). */
+  springs: RouteSpring[];
 }
 
 /** Mile-markers use "-river" / "-creek" suffixes; eddy_updates don't. */
@@ -58,6 +74,16 @@ function cleanDescription(desc: string): string {
     .trim();
 }
 
+/** Spring descriptions read like "Welch Spring enters on the left." — keep the
+ *  name, drop the "enters on …" clause and trailing punctuation. */
+function cleanSpringName(desc: string): string {
+  return desc
+    .replace(/\s+enters?\b.*$/i, '')
+    .replace(/\s+(on|enters?)\s+(the\s+)?(left|right)\b.*$/i, '')
+    .replace(/\.?\s*$/, '')
+    .trim();
+}
+
 let cachedSections: Section[] | null = null;
 
 /**
@@ -69,18 +95,26 @@ export function listAllSections(): Section[] {
   if (cachedSections) return cachedSections;
 
   const markers = mileMarkers as MileMarker[];
-  const byRiver = new Map<string, MileMarker[]>();
+  const accessByRiver = new Map<string, MileMarker[]>();
+  const springsByRiver = new Map<string, MileMarker[]>();
   for (const m of markers) {
-    if (!m.is_access_point) continue;
-    const list = byRiver.get(m.river_id) || [];
-    list.push(m);
-    byRiver.set(m.river_id, list);
+    if (m.is_access_point) {
+      const list = accessByRiver.get(m.river_id) || [];
+      list.push(m);
+      accessByRiver.set(m.river_id, list);
+    }
+    if (m.feature_type === 'spring' || m.has_spring) {
+      const list = springsByRiver.get(m.river_id) || [];
+      list.push(m);
+      springsByRiver.set(m.river_id, list);
+    }
   }
 
   const sections: Section[] = [];
-  const riverIds = Array.from(byRiver.keys()).sort();
+  const riverIds = Array.from(accessByRiver.keys()).sort();
   for (const riverId of riverIds) {
-    const accesses = (byRiver.get(riverId) || []).slice().sort((a, b) => a.mile - b.mile);
+    const accesses = (accessByRiver.get(riverId) || []).slice().sort((a, b) => a.mile - b.mile);
+    const riverSprings = (springsByRiver.get(riverId) || []).slice().sort((a, b) => a.mile - b.mile);
     for (let i = 0; i < accesses.length - 1; i++) {
       const putIn = accesses[i];
       const takeOut = accesses[i + 1];
@@ -88,6 +122,11 @@ export function listAllSections(): Section[] {
       // Skip degenerate sections (same mile marker, or <0.5 mi — likely
       // parallel access points rather than a real float).
       if (distance < 0.5) continue;
+      // Springs strictly between the two access points — the ones you actually
+      // pass on this float.
+      const springs: RouteSpring[] = riverSprings
+        .filter((s) => s.mile > putIn.mile && s.mile < takeOut.mile)
+        .map((s) => ({ name: cleanSpringName(s.description), mile: s.mile, side: s.side }));
       sections.push({
         riverSlug: normalizeSlug(riverId),
         riverName: titleize(riverId.replace(/-river$/, ' River').replace(/-creek$/, ' Creek').replace(/-fork$/, ' Fork')),
@@ -99,7 +138,9 @@ export function listAllSections(): Section[] {
         hoursCanoe: Math.round((distance / 2) * 10) / 10,
         putInDescription: putIn.description,
         takeOutDescription: takeOut.description,
+        putInCamping: !!putIn.is_campground,
         takeOutCamping: !!takeOut.is_campground,
+        springs,
       });
     }
   }

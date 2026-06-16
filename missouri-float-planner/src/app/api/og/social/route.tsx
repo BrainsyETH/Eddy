@@ -21,6 +21,7 @@ import {
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers } from '@/lib/social/section-picker';
+import { canoeHours } from '@/lib/social/post-types';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
 
@@ -1004,7 +1005,7 @@ async function generateSectionImage(size: { width: number; height: number }) {
           }}
         >
           <StatCell value={`${section.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          <StatCell value={`${section.hoursCanoe.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
+          <StatCell value={`${canoeHours(section.distanceMi, condition as ConditionCode).toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
           <StatCell value={CONDITION_LABELS[condition as keyof typeof CONDITION_LABELS] || '—'} label="Conditions" color={styles.solid} isPortrait={isPortrait} />
         </div>
 

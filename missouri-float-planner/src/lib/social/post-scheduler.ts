@@ -234,9 +234,15 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         if (!section) {
           console.log(`${LOG_PREFIX} Section guide: no floatable 5-9mi section available — skipping`);
         } else {
+          const conditionCode =
+            updates.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'flowing';
           const platforms: SocialPlatform[] = ['facebook', 'instagram'];
           for (const platform of platforms) {
-            const { caption, hashtags } = formatSectionGuideCaption(section, customContent, platform);
+            const { caption, hashtags } = formatSectionGuideCaption(
+              { ...section, conditionCode },
+              customContent,
+              platform,
+            );
             posts.push({
               postType: 'section_guide',
               platform,

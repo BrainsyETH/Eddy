@@ -166,7 +166,7 @@ export async function buildPostContext(
       postType,
       riverSlug: section.riverSlug,
       renderData: { ...section, conditionCode, dateLabel: longDate() },
-      caption: (platform, custom) => formatSectionGuideCaption(section, custom, platform),
+      caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
       // route is video-only; reuse the section thumbnail as the cover.
       imageUrl: (platform) => og('section', platform),
     };

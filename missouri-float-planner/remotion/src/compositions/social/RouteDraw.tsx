@@ -244,7 +244,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
 
         {/* Put-in lane — above the route, centered, cleaned + truncated name */}
         <EndpointRow
-          top={putIn[1] - (isPortrait ? 104 : 76)}
+          top={putIn[1] - (isPortrait ? 124 : 90)}
           tag="Put-in"
           name={cleanName(putInName)}
           mile={putInMile}
@@ -256,7 +256,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
         />
         {/* Take-out lane — below the route */}
         <EndpointRow
-          top={takeOut[1] + (isPortrait ? 26 : 18)}
+          top={takeOut[1] + (isPortrait ? 44 : 30)}
           tag="Take-out"
           name={cleanName(takeOutName)}
           mile={takeOutMile}
@@ -436,10 +436,10 @@ const EndpointRow: React.FC<{
         {tag}
       </span>
     </div>
-    <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 38 : 28, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.1 }}>
+    <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 38 : 28, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.1, textShadow: "0 2px 14px rgba(0,0,0,0.9)" }}>
       {name}
     </span>
-    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.5)" }}>
+    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: isPortrait ? 28 : 20, fontWeight: 600, color: "rgba(255,255,255,0.8)", textShadow: "0 2px 12px rgba(0,0,0,0.95)" }}>
       MM {mile.toFixed(1)}
     </span>
   </div>

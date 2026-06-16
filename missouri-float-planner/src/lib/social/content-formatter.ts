@@ -4,6 +4,17 @@
 
 import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { canoeHours } from './post-types';
+import type { ConditionCode } from '@/types/api';
+
+// ---------------------------------------------------------------------------
+// Canonical link builder — river pages live at /rivers/<slug>. Building bare
+// `eddy.guide/<slug>` links 404s, so every per-river CTA routes through here.
+// ---------------------------------------------------------------------------
+const BASE_URL = 'https://eddy.guide';
+function riverUrl(slug: string): string {
+  return `${BASE_URL}/rivers/${slug}`;
+}
 
 // ---------------------------------------------------------------------------
 // River display names
@@ -286,7 +297,7 @@ export function formatWeeklyForecastCaption(
   lines.push('');
 
   // CTA
-  lines.push('Pick your float at eddy.guide — live conditions, maps, and outfitters.');
+  lines.push(`Pick your float — live conditions, maps, and outfitters → ${BASE_URL}`);
 
   // Custom content snippets
   const snippets = getActiveSnippets(customContent, platform);
@@ -302,17 +313,6 @@ export function formatWeeklyForecastCaption(
 // Section Guide Caption
 // ---------------------------------------------------------------------------
 
-/** First sentence of an access-point description, protecting common
- *  abbreviations (Hwy., Rd., St.…) so we don't split on their periods. */
-function firstSentence(text?: string): string {
-  if (!text) return '';
-  let t = text.trim().replace(/\s+/g, ' ');
-  const ABBR = ['Hwy', 'Rd', 'Mt', 'St', 'Co', 'Jct', 'No', 'Ft', 'Rte', 'Cr', 'Hwys'];
-  for (const a of ABBR) t = t.replace(new RegExp(`\\b${a}\\.`, 'g'), `${a}__D__`);
-  const m = t.match(/^(.*?[.!?])(?:\s|$)/);
-  return (m ? m[1] : t).replace(/__D__/g, '.').trim();
-}
-
 export function formatSectionGuideCaption(
   section: {
     riverSlug: string;
@@ -323,36 +323,51 @@ export function formatSectionGuideCaption(
     takeOutMile: number;
     distanceMi: number;
     hoursCanoe: number;
-    putInDescription?: string;
-    takeOutDescription?: string;
+    conditionCode?: string;
+    putInCamping?: boolean;
     takeOutCamping?: boolean;
+    springs?: Array<{ name: string; mile: number; side: string | null }>;
   },
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
 
+  // Condition-aware float time so the caption matches the reel + cover image
+  // (all three run through canoeHours; flat hoursCanoe is only a fallback).
+  const hours = section.conditionCode
+    ? canoeHours(section.distanceMi, section.conditionCode as ConditionCode)
+    : section.hoursCanoe;
+
   lines.push(
     `Float of the Day — ${section.riverName}: ${section.putInName} → ${section.takeOutName}`,
   );
   lines.push('');
-  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${section.hoursCanoe.toFixed(1)} hrs canoe`);
+  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs canoe`);
+  lines.push('');
 
-  const putInDetail = firstSentence(section.putInDescription);
-  const takeOutDetail = firstSentence(section.takeOutDescription);
+  // Put-in / take-out are the emphasis. Camping flagged only where it exists.
   lines.push(
     `📍 Put-in: ${section.putInName} (MM ${section.putInMile.toFixed(1)})` +
-      (putInDetail ? ` — ${putInDetail}` : ''),
+      (section.putInCamping ? ' 🏕️ camping' : ''),
   );
   lines.push(
     `🏁 Take-out: ${section.takeOutName} (MM ${section.takeOutMile.toFixed(1)})` +
-      (takeOutDetail ? ` — ${takeOutDetail}` : ''),
+      (section.takeOutCamping ? ' 🏕️ camping' : ''),
   );
-  if (section.takeOutCamping) {
-    lines.push('🏕️ Camping available at the take-out.');
+
+  // Springs on the run, if any (cap at 3 so the caption stays scannable).
+  if (section.springs && section.springs.length > 0) {
+    const springText = section.springs
+      .slice(0, 3)
+      .map((s) => `${s.name} (MM ${s.mile.toFixed(1)})`)
+      .join(', ');
+    const more = section.springs.length > 3 ? ` +${section.springs.length - 3} more` : '';
+    lines.push(`💧 Springs on the float: ${springText}${more}`);
   }
+
   lines.push('');
-  lines.push(`Plan this float at eddy.guide/${section.riverSlug}`);
+  lines.push(`Plan this float → ${riverUrl(section.riverSlug)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -405,7 +420,7 @@ export function formatWeeklyTrendCaption(
     lines.push('Holding steady — predictable conditions for planning.');
   }
   lines.push('');
-  lines.push(`Full 7-day chart: eddy.guide/${trend.riverSlug}`);
+  lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -523,7 +538,7 @@ export function formatConditionChangeCaption(params: {
   lines.push('');
 
   // 2. Live-conditions CTA — the core value
-  lines.push(`Live gauge + conditions: eddy.guide/${params.riverSlug}`);
+  lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug)}`);
   lines.push(`Share this alert with anyone planning to float ${riverName} this week.`);
 
   return { caption: lines.join('\n'), hashtags: [] };
