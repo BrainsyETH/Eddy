@@ -67,11 +67,16 @@ function titleize(slug: string): string {
 }
 
 function cleanDescription(desc: string): string {
-  // Descriptions come with trailing ". Access." or similar — trim to a name.
-  return desc
-    .replace(/\.\s*Access\.?\s*$/i, '')
-    .replace(/\.?\s*$/, '')
-    .trim();
+  // Mile-marker descriptions can be a whole paragraph ("Onondaga State Park,
+  // Hwy. H bridge. Public access upstream from bridge on west. Onondaga Cave,
+  // ..."). Keep just the name: the first clause up to a comma or sentence
+  // period, protecting common abbreviations (Hwy., Rd., St.) so we don't split
+  // on their dots. The full text still lives in putInDescription/takeOutDescription.
+  let t = (desc || '').trim().replace(/\s+/g, ' ');
+  const ABBR = ['Hwy', 'Hwys', 'Rd', 'Mt', 'St', 'Co', 'Jct', 'No', 'Ft', 'Rte', 'Cr'];
+  for (const a of ABBR) t = t.replace(new RegExp(`\\b${a}\\.`, 'g'), `${a}__D__`);
+  const name = (t.match(/^([^,.]+)/)?.[1] ?? t).replace(/__D__/g, '.').trim();
+  return name || desc.trim();
 }
 
 /** Spring descriptions read like "Welch Spring enters on the left." — keep the
