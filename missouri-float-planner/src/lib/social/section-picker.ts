@@ -11,6 +11,7 @@ interface MileMarker {
   description: string;
   feature_type: string | null;
   is_access_point: boolean;
+  is_campground: boolean;
 }
 
 export interface Section {
@@ -26,6 +27,11 @@ export interface Section {
   distanceMi: number;
   /** Rough float time in hours (2 mph canoe default). */
   hoursCanoe: number;
+  /** Raw access-point descriptions (for caption detail). */
+  putInDescription: string;
+  takeOutDescription: string;
+  /** Whether the take-out access point offers camping. */
+  takeOutCamping: boolean;
 }
 
 /** Mile-markers use "-river" / "-creek" suffixes; eddy_updates don't. */
@@ -91,6 +97,9 @@ export function listAllSections(): Section[] {
         takeOutMile: takeOut.mile,
         distanceMi: distance,
         hoursCanoe: Math.round((distance / 2) * 10) / 10,
+        putInDescription: putIn.description,
+        takeOutDescription: takeOut.description,
+        takeOutCamping: !!takeOut.is_campground,
       });
     }
   }
@@ -100,36 +109,39 @@ export function listAllSections(): Section[] {
 }
 
 /**
- * Week-of-year since 1970. Used to rotate section selection deterministically
- * without needing a DB pointer.
+ * Day-since-1970 index. "Float of the Day" rotates the section daily and
+ * deterministically (same answer all day, no DB pointer needed).
  */
-function weekIndex(date = new Date()): number {
-  const epochMs = date.getTime();
-  return Math.floor(epochMs / (7 * 24 * 60 * 60 * 1000));
+function dayIndex(date = new Date()): number {
+  return Math.floor(date.getTime() / (24 * 60 * 60 * 1000));
 }
 
 /**
  * Pick the section to feature for the given date. Rotates through the full
- * list; always the same answer for the same week.
+ * list; always the same answer for the same day.
  */
 export function pickSectionForDate(date = new Date()): Section | null {
   const all = listAllSections();
   if (all.length === 0) return null;
-  const idx = weekIndex(date) % all.length;
+  const idx = dayIndex(date) % all.length;
   return all[idx];
 }
 
 /**
  * Restrict the rotation to a subset of river slugs (eddy_updates slugs, not
- * mile-marker river_ids). Useful if the admin wants to only feature rivers
- * that are currently available.
+ * mile-marker river_ids) and, optionally, to a distance window. Used by the
+ * Float of the Day, which only features floatable rivers on 5-9 mi sections.
  */
 export function pickSectionForRivers(
   riverSlugs: string[],
+  opts: { minMi?: number; maxMi?: number } = {},
   date = new Date(),
 ): Section | null {
-  const subset = listAllSections().filter((s) => riverSlugs.includes(s.riverSlug));
+  const { minMi = 0, maxMi = Infinity } = opts;
+  const subset = listAllSections().filter(
+    (s) => riverSlugs.includes(s.riverSlug) && s.distanceMi >= minMi && s.distanceMi <= maxMi,
+  );
   if (subset.length === 0) return null;
-  const idx = weekIndex(date) % subset.length;
+  const idx = dayIndex(date) % subset.length;
   return subset[idx];
 }

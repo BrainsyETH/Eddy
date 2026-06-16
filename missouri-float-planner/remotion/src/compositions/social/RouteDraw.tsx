@@ -292,7 +292,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
             textTransform: "uppercase",
           }}
         >
-          Today&rsquo;s Float
+          Float of the Day
         </div>
         <div
           style={{

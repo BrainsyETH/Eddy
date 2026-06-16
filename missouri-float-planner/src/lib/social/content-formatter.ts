@@ -302,6 +302,17 @@ export function formatWeeklyForecastCaption(
 // Section Guide Caption
 // ---------------------------------------------------------------------------
 
+/** First sentence of an access-point description, protecting common
+ *  abbreviations (Hwy., Rd., St.…) so we don't split on their periods. */
+function firstSentence(text?: string): string {
+  if (!text) return '';
+  let t = text.trim().replace(/\s+/g, ' ');
+  const ABBR = ['Hwy', 'Rd', 'Mt', 'St', 'Co', 'Jct', 'No', 'Ft', 'Rte', 'Cr', 'Hwys'];
+  for (const a of ABBR) t = t.replace(new RegExp(`\\b${a}\\.`, 'g'), `${a}__D__`);
+  const m = t.match(/^(.*?[.!?])(?:\s|$)/);
+  return (m ? m[1] : t).replace(/__D__/g, '.').trim();
+}
+
 export function formatSectionGuideCaption(
   section: {
     riverSlug: string;
@@ -312,6 +323,9 @@ export function formatSectionGuideCaption(
     takeOutMile: number;
     distanceMi: number;
     hoursCanoe: number;
+    putInDescription?: string;
+    takeOutDescription?: string;
+    takeOutCamping?: boolean;
   },
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
@@ -319,12 +333,24 @@ export function formatSectionGuideCaption(
   const lines: string[] = [];
 
   lines.push(
-    `Float of the Week — ${section.riverName}: ${section.putInName} → ${section.takeOutName}`,
+    `Float of the Day — ${section.riverName}: ${section.putInName} → ${section.takeOutName}`,
   );
   lines.push('');
   lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${section.hoursCanoe.toFixed(1)} hrs canoe`);
-  lines.push(`📍 Put-in: ${section.putInName} (MM ${section.putInMile.toFixed(1)})`);
-  lines.push(`🏁 Take-out: ${section.takeOutName} (MM ${section.takeOutMile.toFixed(1)})`);
+
+  const putInDetail = firstSentence(section.putInDescription);
+  const takeOutDetail = firstSentence(section.takeOutDescription);
+  lines.push(
+    `📍 Put-in: ${section.putInName} (MM ${section.putInMile.toFixed(1)})` +
+      (putInDetail ? ` — ${putInDetail}` : ''),
+  );
+  lines.push(
+    `🏁 Take-out: ${section.takeOutName} (MM ${section.takeOutMile.toFixed(1)})` +
+      (takeOutDetail ? ` — ${takeOutDetail}` : ''),
+  );
+  if (section.takeOutCamping) {
+    lines.push('🏕️ Camping available at the take-out.');
+  }
   lines.push('');
   lines.push(`Plan this float at eddy.guide/${section.riverSlug}`);
 

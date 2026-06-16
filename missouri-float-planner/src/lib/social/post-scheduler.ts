@@ -226,10 +226,13 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Section guide: already posted today — skipping`);
       } else {
-        const availableSlugs = updates.map((u) => u.river_slug);
-        const section = pickSectionForRivers(availableSlugs);
+        // Float of the Day: only ideal-floatable rivers (flowing/good), 5-9 mi.
+        const floatableSlugs = updates
+          .filter((u) => u.condition_code === 'flowing' || u.condition_code === 'good')
+          .map((u) => u.river_slug);
+        const section = pickSectionForRivers(floatableSlugs, { minMi: 5, maxMi: 9 });
         if (!section) {
-          console.log(`${LOG_PREFIX} Section guide: no rotatable section for available rivers — skipping`);
+          console.log(`${LOG_PREFIX} Section guide: no floatable 5-9mi section available — skipping`);
         } else {
           const platforms: SocialPlatform[] = ['facebook', 'instagram'];
           for (const platform of platforms) {

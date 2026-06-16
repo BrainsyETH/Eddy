@@ -149,13 +149,19 @@ export async function buildPostContext(
 
   if (postType === 'section_guide' || postType === 'route_draw') {
     const deduped = await freshRivers();
+    // Float of the Day: only ideal-floatable rivers (flowing / good — never
+    // too_low/low/high/dangerous), on a 5-9 mi section. Skip the post if none.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const slugs = (deduped as any[]).map((u) => u.river_slug as string);
-    const section = pickSectionForRivers(slugs);
+    const floatable = (deduped as any[]).filter(
+      (u) => u.condition_code === 'flowing' || u.condition_code === 'good',
+    );
+    const section = pickSectionForRivers(
+      floatable.map((u) => u.river_slug as string),
+      { minMi: 5, maxMi: 9 },
+    );
     if (!section) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const latest = (deduped as any[]).find((u) => u.river_slug === section.riverSlug);
-    const conditionCode = latest?.condition_code || 'unknown';
+    const latest = floatable.find((u) => u.river_slug === section.riverSlug);
+    const conditionCode = latest?.condition_code || 'flowing';
     return {
       postType,
       riverSlug: section.riverSlug,
