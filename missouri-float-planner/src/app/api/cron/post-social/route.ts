@@ -15,13 +15,8 @@ import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-c
 import type { PlatformAdapter, SocialPlatform, ScheduledPost } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
-import { pickSectionForRivers } from '@/lib/social/section-picker';
-import { pickNotableTrend } from '@/lib/social/trend-picker';
-import { buildLiveConditionsMap } from '@/lib/social/live-conditions';
-import {
-  WEEKEND_FLOATABLE as FORECAST_FLOATABLE,
-  WEEKEND_SEVERITY as FORECAST_SEVERITY,
-} from '@shared/condition-system';
+import { buildPostContext } from '@/lib/social/post-context';
+import type { PostKind } from '@/lib/social/post-types';
 
 const CRON_LOCK_NAME = 'post_social';
 // Renders routinely take 5–9 min on GH Actions; give slack before another
@@ -32,201 +27,16 @@ export const dynamic = 'force-dynamic';
 
 const LOG_PREFIX = '[SocialCron]';
 
-/** Truncate text to ~200 chars for video teaser (full text goes in caption) */
-function truncateForVideo(text: string | null): string {
-  if (!text) return '';
-  if (text.length <= 120) return text;
-  const truncated = text.slice(0, 120);
-  const lastSpace = truncated.lastIndexOf(' ');
-  return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildRenderData(post: ScheduledPost, supabase: any) {
-  // All branches below read condition_code and gauge_height_ft from
-  // eddy_updates, which is frozen at the daily AI-regen cron. Pull the
-  // live gauge-derived conditions once so props match reality (not
-  // yesterday's snapshot).
-  const liveMap = await buildLiveConditionsMap(supabase);
-
-  if (post.postType === 'section_guide') {
-    // Re-pick the same section the scheduler picked. The week-based
-    // rotation in pickSectionForRivers is deterministic for a given date,
-    // so we get the same answer as long as we pass the same river list.
-    const { data: updates } = await supabase
-      .from('eddy_updates')
-      .select('river_slug')
-      .neq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', new Date().toISOString());
-    const slugs = Array.from(
-      new Set(((updates || []) as Array<{ river_slug: string }>).map((u) => u.river_slug)),
-    );
-    const section = pickSectionForRivers(slugs) || null;
-    if (!section) return {};
-
-    // Pull current condition for the picked river.
-    const { data: update } = await supabase
-      .from('eddy_updates')
-      .select('condition_code')
-      .eq('river_slug', section.riverSlug)
-      .is('section_slug', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return {
-      ...section,
-      conditionCode: liveMap.get(section.riverSlug)?.condition_code || update?.condition_code || 'unknown',
-      dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-    };
-  }
-
-  if (post.postType === 'weekly_trend') {
-    const { data: updates } = await supabase
-      .from('eddy_updates')
-      .select('river_slug, condition_code')
-      .neq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', new Date().toISOString());
-    const slugs = Array.from(
-      new Set(((updates || []) as Array<{ river_slug: string; condition_code: string }>).map((u) => u.river_slug)),
-    );
-    const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
-    if (!trend) return {};
-    const latest = (updates || []).find((u: { river_slug: string; condition_code: string }) => u.river_slug === trend.riverSlug);
-    return {
-      ...trend,
-      conditionCode: liveMap.get(trend.riverSlug)?.condition_code || latest?.condition_code || 'unknown',
-      dateLabel: 'This Week',
-    };
-  }
-
-  if (post.postType === 'weekly_forecast') {
-    const { data: updates } = await supabase
-      .from('eddy_updates')
-      .select('river_slug, condition_code, gauge_height_ft')
-      .neq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('generated_at', { ascending: false });
-
-    const seen = new Set<string>();
-    const rivers = ((updates || []) as Array<{ river_slug: string; condition_code: string; gauge_height_ft: number | null }>)
-      .filter((u) => {
-        if (seen.has(u.river_slug)) return false;
-        seen.add(u.river_slug);
-        return true;
-      })
-      .map((u) => {
-        const live = liveMap.get(u.river_slug);
-        return {
-          river_slug: u.river_slug,
-          condition_code: live?.condition_code ?? u.condition_code,
-          gauge_height_ft: live?.gauge_height_ft ?? u.gauge_height_ft,
-        };
-      })
-      .filter((u) => FORECAST_FLOATABLE.has(u.condition_code))
-      .sort((a, b) => (FORECAST_SEVERITY[a.condition_code] ?? 99) - (FORECAST_SEVERITY[b.condition_code] ?? 99))
-      .slice(0, 3)
-      .map((u) => ({
-        riverName: u.river_slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-        conditionCode: u.condition_code,
-        gaugeHeightFt: u.gauge_height_ft,
-      }));
-
-    return {
-      rivers,
-      dateLabel: 'This Weekend',
-      title: 'Weekend Forecast',
-    };
-  }
-
-  if (post.postType === 'daily_digest') {
-    const { data: updates } = await supabase
-      .from('eddy_updates')
-      .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
-      .neq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('generated_at', { ascending: false });
-
-    const seen = new Set<string>();
-    const rivers = (updates || [])
-      .filter((u: { river_slug: string }) => {
-        if (seen.has(u.river_slug)) return false;
-        seen.add(u.river_slug);
-        return true;
-      })
-      .map((u: { river_slug: string; condition_code: string; gauge_height_ft: number | null }) => {
-        const live = liveMap.get(u.river_slug);
-        return {
-          riverName: u.river_slug
-            .split('-')
-            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' '),
-          conditionCode: live?.condition_code ?? u.condition_code,
-          gaugeHeightFt: live?.gauge_height_ft ?? u.gauge_height_ft,
-        };
-      });
-
-    const { data: globalUpdate } = await supabase
-      .from('eddy_updates')
-      .select('quote_text')
-      .eq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return {
-      rivers,
-      dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-      globalQuote: globalUpdate?.quote_text || undefined,
-    };
-  }
-
-  if (post.eddyUpdateId) {
-    const { data: update } = await supabase
-      .from('eddy_updates')
-      .select('river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
-      .eq('id', post.eddyUpdateId)
-      .single();
-
-    if (update) {
-      let optimalMin = 1.5;
-      let optimalMax = 4.0;
-      const { data: gauge } = await supabase
-        .from('river_gauges')
-        .select('level_optimal_min, level_optimal_max')
-        .eq('river_id', update.river_slug)
-        .eq('is_primary', true)
-        .maybeSingle();
-
-      if (gauge) {
-        optimalMin = gauge.level_optimal_min ?? optimalMin;
-        optimalMax = gauge.level_optimal_max ?? optimalMax;
-      }
-
-      const live = liveMap.get(update.river_slug);
-      return {
-        riverName: update.river_slug
-          .split('-')
-          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' '),
-        conditionCode: live?.condition_code ?? update.condition_code,
-        gaugeHeightFt: live?.gauge_height_ft ?? update.gauge_height_ft,
-        optimalMin,
-        optimalMax,
-        quoteText: truncateForVideo(update.quote_text),
-        summaryText: truncateForVideo(update.summary_text),
-      };
-    }
-  }
-
-  return {};
+  // Assembly is unified in buildPostContext; this returns just the Remotion
+  // render data for the video dispatch (captions come from the scheduler).
+  const ctx = await buildPostContext(supabase, {
+    postType: post.postType as PostKind,
+    riverSlug: post.riverSlug ?? undefined,
+    eddyUpdateId: post.eddyUpdateId ?? undefined,
+  });
+  return ctx?.renderData ?? {};
 }
 
 function getAdapter(platform: SocialPlatform): PlatformAdapter | null {

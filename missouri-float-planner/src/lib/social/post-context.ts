@@ -1,0 +1,233 @@
+// src/lib/social/post-context.ts
+//
+// Single assembler for social posts. Given a post type (+ optional river /
+// eddy_update id), it fetches live conditions ONCE and returns everything the
+// downstream surfaces need:
+//   - renderData  → Remotion inputProps (via POST_TYPES[kind].renderProps)
+//   - caption()   → per-platform caption (the right content-formatter)
+//   - imageUrl()  → OG share image / video cover
+//
+// This replaces the duplicated assembly that previously lived in three places
+// (quick-post helpers, the cron's buildRenderData, and the scheduler), which is
+// what let them drift (route_draw missing, digest caption source mismatch, etc).
+
+import type { SocialPlatform, SocialCustomContent } from './types';
+import type { PostKind, RenderData } from './post-types';
+import { overlayLiveConditions } from './live-conditions';
+import { pickSectionForRivers } from './section-picker';
+import { pickNotableTrend } from './trend-picker';
+import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
+import {
+  formatDailyDigestCaption,
+  formatRiverHighlightCaption,
+  formatWeeklyForecastCaption,
+  formatSectionGuideCaption,
+  formatWeeklyTrendCaption,
+} from './content-formatter';
+
+const BASE_URL = 'https://eddy.guide';
+
+/** Truncate text to ~200 chars for a video teaser (full text goes in caption). */
+export function truncateForVideo(text: string | null): string {
+  if (!text) return '';
+  if (text.length <= 200) return text;
+  const truncated = text.slice(0, 200);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
+}
+
+const titleize = (slug: string) =>
+  slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+const longDate = () =>
+  new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+const og = (type: string, platform: SocialPlatform, extra = '') =>
+  `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
+
+export interface PostContext {
+  postType: PostKind;
+  /** Composition input props (consumed by POST_TYPES[kind].renderProps). */
+  renderData: RenderData;
+  riverSlug: string | null;
+  /** Per-platform caption + hashtags. */
+  caption: (platform: SocialPlatform, custom: SocialCustomContent[]) => { caption: string; hashtags: string[] };
+  /** OG image (image post) / video cover thumbnail. */
+  imageUrl: (platform: SocialPlatform) => string;
+}
+
+interface BuildOpts {
+  postType: PostKind;
+  riverSlug?: string;
+  eddyUpdateId?: string;
+}
+
+/**
+ * Assemble a PostContext. Returns null when there's nothing to post (e.g. no
+ * floatable rivers for the forecast, no notable trend), so callers return a
+ * clean 404 instead of inserting an empty record.
+ */
+export async function buildPostContext(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  opts: BuildOpts,
+): Promise<PostContext | null> {
+  const { postType } = opts;
+  const nowIso = new Date().toISOString();
+
+  // --- Multi-river types: fetch + dedupe + overlay live conditions once ---
+  async function freshRivers() {
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', nowIso)
+      .order('generated_at', { ascending: false });
+    const seen = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dedupedRaw = ((updates || []) as any[]).filter((u) => {
+      if (seen.has(u.river_slug)) return false;
+      seen.add(u.river_slug);
+      return true;
+    });
+    return overlayLiveConditions(supabase, dedupedRaw);
+  }
+
+  if (postType === 'daily_digest') {
+    const deduped = await freshRivers();
+    const { data: globalUpdate } = await supabase
+      .from('eddy_updates')
+      .select('summary_text')
+      .eq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', nowIso)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const globalSummary: string | null = globalUpdate?.summary_text || null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rivers = (deduped as any[]).map((u) => ({
+      riverName: titleize(u.river_slug),
+      conditionCode: u.condition_code,
+      gaugeHeightFt: u.gauge_height_ft,
+    }));
+    return {
+      postType,
+      riverSlug: null,
+      renderData: { rivers, dateLabel: longDate(), globalQuote: globalSummary || undefined },
+      caption: (platform, custom) => formatDailyDigestCaption(deduped, globalSummary, custom, platform),
+      imageUrl: (platform) => og('digest', platform),
+    };
+  }
+
+  if (postType === 'weekly_forecast') {
+    const deduped = await freshRivers();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const topRivers = (deduped as any[])
+      .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
+      .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99))
+      .slice(0, 3);
+    if (topRivers.length === 0) return null;
+    return {
+      postType,
+      riverSlug: null,
+      renderData: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        rivers: topRivers.map((u: any) => ({
+          riverName: titleize(u.river_slug),
+          conditionCode: u.condition_code,
+          gaugeHeightFt: u.gauge_height_ft,
+        })),
+        dateLabel: 'This Weekend',
+        title: 'Weekend Forecast',
+      },
+      caption: (platform, custom) => formatWeeklyForecastCaption(topRivers, custom, platform),
+      imageUrl: (platform) => og('forecast', platform),
+    };
+  }
+
+  if (postType === 'section_guide' || postType === 'route_draw') {
+    const deduped = await freshRivers();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slugs = (deduped as any[]).map((u) => u.river_slug as string);
+    const section = pickSectionForRivers(slugs);
+    if (!section) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const latest = (deduped as any[]).find((u) => u.river_slug === section.riverSlug);
+    const conditionCode = latest?.condition_code || 'unknown';
+    return {
+      postType,
+      riverSlug: section.riverSlug,
+      renderData: { ...section, conditionCode, dateLabel: longDate() },
+      caption: (platform, custom) => formatSectionGuideCaption(section, custom, platform),
+      // route is video-only; reuse the section thumbnail as the cover.
+      imageUrl: (platform) => og('section', platform),
+    };
+  }
+
+  if (postType === 'weekly_trend') {
+    const deduped = await freshRivers();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slugs = (deduped as any[]).map((u) => u.river_slug as string);
+    const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
+    if (!trend) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const latest = (deduped as any[]).find((u) => u.river_slug === trend.riverSlug);
+    const conditionCode = latest?.condition_code || 'unknown';
+    return {
+      postType,
+      riverSlug: trend.riverSlug,
+      renderData: { ...trend, conditionCode, dateLabel: 'This Week' },
+      caption: (platform, custom) => formatWeeklyTrendCaption(trend, custom, platform),
+      imageUrl: (platform) => og('trend', platform),
+    };
+  }
+
+  if (postType === 'river_highlight') {
+    // Fetch by explicit eddy_update id (cron) or latest for a river (quick-post).
+    let query = supabase
+      .from('eddy_updates')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .is('section_slug', null);
+    query = opts.eddyUpdateId
+      ? query.eq('id', opts.eddyUpdateId)
+      : query.eq('river_slug', opts.riverSlug).gt('expires_at', nowIso)
+          .order('generated_at', { ascending: false }).limit(1);
+    const { data: rawUpdate } = await query.maybeSingle();
+    if (!rawUpdate) return null;
+    const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+
+    // Optimal band for the gauge composition.
+    let optimalMin = 1.5;
+    let optimalMax = 4.0;
+    const { data: gauge } = await supabase
+      .from('river_gauges')
+      .select('level_optimal_min, level_optimal_max')
+      .eq('river_id', update.river_slug)
+      .eq('is_primary', true)
+      .maybeSingle();
+    if (gauge) {
+      optimalMin = gauge.level_optimal_min ?? optimalMin;
+      optimalMax = gauge.level_optimal_max ?? optimalMax;
+    }
+
+    return {
+      postType,
+      riverSlug: update.river_slug,
+      renderData: {
+        riverName: titleize(update.river_slug),
+        conditionCode: update.condition_code,
+        gaugeHeightFt: update.gauge_height_ft,
+        optimalMin,
+        optimalMax,
+        quoteText: truncateForVideo(update.quote_text ?? null),
+        summaryText: truncateForVideo(update.summary_text ?? null),
+      },
+      caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
+      imageUrl: (platform) => og('highlight', platform, `&river=${update.river_slug}`),
+    };
+  }
+
+  return null;
+}
