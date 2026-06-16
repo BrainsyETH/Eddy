@@ -74,7 +74,7 @@ async function handleSave(request: NextRequest) {
     posting_enabled: body.posting_enabled,
     posting_frequency_hours: body.posting_frequency_hours,
     digest_enabled: body.digest_enabled,
-    digest_time_utc: body.digest_time_utc,
+    digest_time_cst: body.digest_time_cst,
     highlights_per_run: body.highlights_per_run,
     highlight_cooldown_hours: body.highlight_cooldown_hours,
     enabled_rivers: body.enabled_rivers,

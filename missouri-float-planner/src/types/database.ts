@@ -802,7 +802,7 @@ export interface Database {
           posting_enabled: boolean;
           posting_frequency_hours: number;
           digest_enabled: boolean;
-          digest_time_utc: string;
+          digest_time_cst: string;
           highlights_per_run: number;
           highlight_cooldown_hours: number;
           enabled_rivers: string[] | null;
@@ -815,7 +815,7 @@ export interface Database {
           posting_enabled?: boolean;
           posting_frequency_hours?: number;
           digest_enabled?: boolean;
-          digest_time_utc?: string;
+          digest_time_cst?: string;
           highlights_per_run?: number;
           highlight_cooldown_hours?: number;
           enabled_rivers?: string[] | null;
@@ -828,7 +828,7 @@ export interface Database {
           posting_enabled?: boolean;
           posting_frequency_hours?: number;
           digest_enabled?: boolean;
-          digest_time_utc?: string;
+          digest_time_cst?: string;
           highlights_per_run?: number;
           highlight_cooldown_hours?: number;
           enabled_rivers?: string[] | null;

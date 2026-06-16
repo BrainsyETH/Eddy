@@ -175,12 +175,12 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   {
     const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
     if (config.weekly_forecast?.enabled && todayMedia) {
-      const { time_utc } = config.weekly_forecast;
-      const timeMatches = skipTimeCheck || isDueNow(time_utc);
+      const { time_cst } = config.weekly_forecast;
+      const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_utc} CST — skipping`);
+        console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_cst} CST — skipping`);
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
       } else if (updates.length === 0) {
@@ -217,12 +217,12 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   {
     const todayMedia = config.media_schedule?.section_guide?.[todayKey] ?? null;
     if (config.section_guide?.enabled && todayMedia) {
-      const { time_utc } = config.section_guide;
-      const timeMatches = skipTimeCheck || isDueNow(time_utc);
+      const { time_cst } = config.section_guide;
+      const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Section guide: not near ${time_utc} CST — skipping`);
+        console.log(`${LOG_PREFIX} Section guide: not near ${time_cst} CST — skipping`);
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Section guide: already posted today — skipping`);
       } else {
@@ -257,12 +257,12 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   {
     const todayMedia = config.media_schedule?.weekly_trend?.[todayKey] ?? null;
     if (config.weekly_trend?.enabled && todayMedia) {
-      const { time_utc } = config.weekly_trend;
-      const timeMatches = skipTimeCheck || isDueNow(time_utc);
+      const { time_cst } = config.weekly_trend;
+      const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('weekly_trend', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Weekly trend: not near ${time_utc} CST — skipping`);
+        console.log(`${LOG_PREFIX} Weekly trend: not near ${time_cst} CST — skipping`);
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Weekly trend: already posted today — skipping`);
       } else {
@@ -301,8 +301,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
     if (digestAlreadyPosted && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
-    } else if (!isDueNow(config.digest_time_utc) && !skipTimeCheck) {
-      console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} CST), skipping digest`);
+    } else if (!isDueNow(config.digest_time_cst) && !skipTimeCheck) {
+      console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_cst} CST), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
       for (const platform of platforms) {

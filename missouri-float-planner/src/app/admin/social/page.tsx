@@ -60,7 +60,7 @@ interface VideoFeatures {
 interface WeeklyReelConfig {
   enabled: boolean;
   day_of_week: number; // 0=Sun..6=Sat
-  time_utc: string;
+  time_cst: string;
   media: 'video' | 'image';
 }
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -82,7 +82,7 @@ interface SocialConfig {
   posting_enabled: boolean;
   posting_frequency_hours: number;
   digest_enabled: boolean;
-  digest_time_utc: string;
+  digest_time_cst: string;
   highlights_per_run: number;
   highlight_cooldown_hours: number;
   enabled_rivers: string[] | null;
@@ -210,8 +210,8 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     key: 'daily_digest',
     label: 'Daily Digest',
     time: {
-      get: (c) => c.digest_time_utc,
-      set: (c, v, set) => set({ ...c, digest_time_utc: v }),
+      get: (c) => c.digest_time_cst,
+      set: (c, v, set) => set({ ...c, digest_time_cst: v }),
     },
     action: 'digest',
   },
@@ -219,10 +219,10 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     key: 'weekly_forecast',
     label: 'Weekend Forecast',
     time: {
-      get: (c) => c.weekly_forecast?.time_utc ?? '22:00',
+      get: (c) => c.weekly_forecast?.time_cst ?? '22:00',
       set: (c, v, set) => set({
         ...c,
-        weekly_forecast: { ...(c.weekly_forecast || { enabled: true, day_of_week: 5, time_utc: '22:00', media: 'video' }), time_utc: v },
+        weekly_forecast: { ...(c.weekly_forecast || { enabled: true, day_of_week: 5, time_cst: '22:00', media: 'video' }), time_cst: v },
       }),
     },
     action: 'weekly_forecast',
@@ -231,10 +231,10 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     key: 'section_guide',
     label: 'Float of the Day',
     time: {
-      get: (c) => c.section_guide?.time_utc ?? '17:00',
+      get: (c) => c.section_guide?.time_cst ?? '17:00',
       set: (c, v, set) => set({
         ...c,
-        section_guide: { ...(c.section_guide || { enabled: true, day_of_week: 3, time_utc: '17:00', media: 'video' }), time_utc: v },
+        section_guide: { ...(c.section_guide || { enabled: true, day_of_week: 3, time_cst: '17:00', media: 'video' }), time_cst: v },
       }),
     },
     action: 'section_guide',
@@ -243,10 +243,10 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     key: 'weekly_trend',
     label: 'Weekly Trend',
     time: {
-      get: (c) => c.weekly_trend?.time_utc ?? '15:00',
+      get: (c) => c.weekly_trend?.time_cst ?? '15:00',
       set: (c, v, set) => set({
         ...c,
-        weekly_trend: { ...(c.weekly_trend || { enabled: true, day_of_week: 0, time_utc: '15:00', media: 'video' }), time_utc: v },
+        weekly_trend: { ...(c.weekly_trend || { enabled: true, day_of_week: 0, time_cst: '15:00', media: 'video' }), time_cst: v },
       }),
     },
     action: 'weekly_trend',

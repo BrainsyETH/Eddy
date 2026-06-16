@@ -65,8 +65,8 @@ export interface WeeklyReelConfig {
   enabled: boolean;
   /** 0 = Sunday, 6 = Saturday. */
   day_of_week: number;
-  /** "HH:MM" UTC, single point in time. Cron checks within a 30-min window. */
-  time_utc: string;
+  /** "HH:MM" Central time. Cron checks within a 30-min window. */
+  time_cst: string;
   media: MediaType;
 }
 
@@ -78,7 +78,7 @@ export interface SocialConfig {
   posting_enabled: boolean;
   posting_frequency_hours: number;
   digest_enabled: boolean;
-  digest_time_utc: string;
+  digest_time_cst: string;
   highlights_per_run: number;
   highlight_cooldown_hours: number;
   enabled_rivers: string[] | null;
