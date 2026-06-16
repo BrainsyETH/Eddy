@@ -176,11 +176,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
     if (config.weekly_forecast?.enabled && todayMedia) {
       const { time_utc } = config.weekly_forecast;
-      const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+      const timeMatches = skipTimeCheck || isDueNow(time_utc);
       const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_utc} UTC — skipping`);
+        console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_utc} CST — skipping`);
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
       } else if (updates.length === 0) {
@@ -218,11 +218,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     const todayMedia = config.media_schedule?.section_guide?.[todayKey] ?? null;
     if (config.section_guide?.enabled && todayMedia) {
       const { time_utc } = config.section_guide;
-      const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+      const timeMatches = skipTimeCheck || isDueNow(time_utc);
       const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Section guide: not near ${time_utc} UTC — skipping`);
+        console.log(`${LOG_PREFIX} Section guide: not near ${time_utc} CST — skipping`);
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Section guide: already posted today — skipping`);
       } else {
@@ -258,11 +258,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     const todayMedia = config.media_schedule?.weekly_trend?.[todayKey] ?? null;
     if (config.weekly_trend?.enabled && todayMedia) {
       const { time_utc } = config.weekly_trend;
-      const timeMatches = skipTimeCheck || isNearUtcTime(time_utc, 30);
+      const timeMatches = skipTimeCheck || isDueNow(time_utc);
       const alreadyPosted = await hasPostedToday('weekly_trend', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Weekly trend: not near ${time_utc} UTC — skipping`);
+        console.log(`${LOG_PREFIX} Weekly trend: not near ${time_utc} CST — skipping`);
       } else if (alreadyPosted) {
         console.log(`${LOG_PREFIX} Weekly trend: already posted today — skipping`);
       } else {
@@ -301,8 +301,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
     if (digestAlreadyPosted && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
-    } else if (!isNearDigestTime(config.digest_time_utc) && !skipTimeCheck) {
-      console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} UTC), skipping digest`);
+    } else if (!isDueNow(config.digest_time_utc) && !skipTimeCheck) {
+      console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_utc} CST), skipping digest`);
     } else {
       const platforms: SocialPlatform[] = ['facebook', 'instagram'];
       for (const platform of platforms) {
@@ -472,23 +472,6 @@ async function hasPostedToday(
     return true;
   }
   return false;
-}
-
-// Check if current time is within `windowMinutes` of a configured UTC time.
-function isNearUtcTime(timeUtc: string, windowMinutes: number): boolean {
-  const [hours, minutes] = timeUtc.split(':').map(Number);
-  if (isNaN(hours) || isNaN(minutes)) return false;
-  const now = new Date();
-  const target = new Date();
-  target.setUTCHours(hours, minutes, 0, 0);
-
-  const diffMs = Math.abs(now.getTime() - target.getTime());
-  return diffMs / (1000 * 60) <= windowMinutes;
-}
-
-// Back-compat for existing digest call site.
-function isNearDigestTime(digestTimeUtc: string): boolean {
-  return isNearUtcTime(digestTimeUtc, 45);
 }
 
 // Get failed posts eligible for retry
