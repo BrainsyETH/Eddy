@@ -55,6 +55,20 @@ const HOOK_EXAMPLES: Record<HookStyle, string[]> = {
 };
 
 /**
+ * Build the source-attribution lines for a clip: credit the original creator
+ * and link back to the source video. Returned as separate lines so the same
+ * citation is used by both the AI prompt and the template fallback.
+ */
+function buildAttributionLines(clip?: CaptionParams['clipMetadata']): string[] {
+  const lines: string[] = [];
+  const creator = clip?.sourceCreator?.trim();
+  const url = clip?.sourceUrl?.trim();
+  if (creator) lines.push(`📹 Clip: ${creator}`);
+  if (url) lines.push(url);
+  return lines;
+}
+
+/**
  * Generate a caption using Claude Sonnet.
  * Falls back to template-based generation if API fails.
  */
@@ -70,6 +84,11 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
   const recentCaptions = await getRecentCaptions(5);
 
   const hookExamples = HOOK_EXAMPLES[params.hookStyle].join('\n- ');
+
+  const attributionLines = buildAttributionLines(params.clipMetadata);
+  const attributionPrompt = attributionLines.length
+    ? `ATTRIBUTION (required): this clip is sourced from another creator. End the caption with these lines verbatim, each on its own line, and do not omit them:\n${attributionLines.join('\n')}`
+    : '';
 
   const prompt = `Generate an Instagram caption for the Eddy.guide account (Missouri float trip / river conditions guide).
 
@@ -92,7 +111,7 @@ ${params.conditionCode ? `CONDITION: ${params.conditionCode}` : ''}
 ${params.gaugeHeight ? `GAUGE HEIGHT: ${params.gaugeHeight} ft` : ''}
 ${params.clipMetadata?.description ? `CLIP SHOWS: ${params.clipMetadata.description}` : ''}
 
-${params.clipMetadata?.sourceCreator ? `ATTRIBUTION: Must credit "${params.clipMetadata.sourceCreator}" as the clip source. Add "📹 ${params.clipMetadata.sourceCreator}" at the end.` : ''}
+${attributionPrompt}
 
 RECENT CAPTIONS (avoid repeating these hooks):
 ${recentCaptions.map((c) => `- ${c.slice(0, 100)}`).join('\n')}
@@ -159,8 +178,9 @@ function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
   }
   caption += `Check current conditions and plan your float at eddy.guide`;
 
-  if (clipMetadata?.sourceCreator) {
-    caption += `\n\n📹 ${clipMetadata.sourceCreator}`;
+  const attributionLines = buildAttributionLines(clipMetadata);
+  if (attributionLines.length) {
+    caption += `\n\n${attributionLines.join('\n')}`;
   }
 
   const hashtags = [
