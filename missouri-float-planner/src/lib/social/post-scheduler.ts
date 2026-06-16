@@ -203,7 +203,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               riverSlug: null,
               caption,
               imageUrl: `${baseUrl}/api/og/social?type=forecast&platform=${platform}`,
-              mediaType: todayMedia,
+              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: null,
             });
@@ -243,7 +243,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               riverSlug: section.riverSlug,
               caption,
               imageUrl: `${baseUrl}/api/og/social?type=section&platform=${platform}`,
-              mediaType: todayMedia,
+              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: null,
             });
@@ -281,7 +281,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               riverSlug: trend.riverSlug,
               caption,
               imageUrl: `${baseUrl}/api/og/social?type=trend&platform=${platform}`,
-              mediaType: todayMedia,
+              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: latest?.id ?? null,
             });
@@ -319,7 +319,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
           riverSlug: null,
           caption,
           imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
-          mediaType: digestMediaType,
+          mediaType: 'video', // video-only; digest matrix cell is the on/off gate
           hashtags,
           eddyUpdateId: null,
         });
@@ -416,7 +416,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         riverSlug: update.river_slug,
         caption,
         imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
-        mediaType: highlightMediaType as MediaType,
+        mediaType: 'video', // video-only; highlight matrix cell is the on/off gate
         hashtags,
         eddyUpdateId: update.id,
       });

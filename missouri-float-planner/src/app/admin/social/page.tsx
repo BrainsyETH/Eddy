@@ -229,7 +229,7 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
   },
   {
     key: 'section_guide',
-    label: 'Section Guide',
+    label: 'Float of the Day',
     time: {
       get: (c) => c.section_guide?.time_utc ?? '17:00',
       set: (c, v, set) => set({
@@ -293,11 +293,10 @@ export default function SocialAdminPage() {
 
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
-  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip' | 'route_draw'>('digest');
+  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip'>('digest');
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
-  const [quickPostAsVideo, setQuickPostAsVideo] = useState(false);
   const [quickPosting, setQuickPosting] = useState(false);
 
   // Preview modal state
@@ -664,7 +663,6 @@ export default function SocialAdminPage() {
           riverSlug: quickPostType === 'highlight' ? quickPostRiver : undefined,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
           platforms: quickPostPlatforms,
-          asVideo: quickPostAsVideo && quickPostType !== 'tip',
         }),
       });
       if (res.ok) {
@@ -878,7 +876,7 @@ export default function SocialAdminPage() {
               <select
                 value={quickPostType}
                 onChange={(e) => {
-                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip' | 'route_draw');
+                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip');
                   setQuickPostRiver('');
                   setQuickPostContentId('');
                 }}
@@ -886,7 +884,6 @@ export default function SocialAdminPage() {
               >
                 <option value="digest">Daily Digest (all rivers)</option>
                 <option value="highlight">River Highlight</option>
-                <option value="route_draw">Route — animated (video, float of the week)</option>
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>
@@ -957,25 +954,12 @@ export default function SocialAdminPage() {
               </label>
             </div>
 
-            {/* Video toggle (digest & highlight only) */}
-            {quickPostType !== 'tip' && (
-              <div className="flex items-center gap-3 p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg">
-                <label className="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={quickPostAsVideo}
-                    onChange={(e) => setQuickPostAsVideo(e.target.checked)}
-                    className="rounded bg-neutral-900 border-neutral-600"
-                  />
-                  Post as animated video
-                </label>
-                <span className="text-xs text-neutral-500">
-                  {quickPostAsVideo
-                    ? 'Renders via GitHub Actions (~3-5 min), then publishes automatically'
-                    : 'Posts static branded image immediately'}
-                </span>
-              </div>
-            )}
+            {/* Media note — Digest/Highlight post as animated video; Tip is an image. */}
+            <div className="p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg text-xs text-neutral-400">
+              {quickPostType === 'tip'
+                ? 'Posts a static branded image immediately.'
+                : 'Posts as an animated video — renders via GitHub Actions (~3-5 min), then publishes automatically.'}
+            </div>
 
             {/* Actions */}
             <div className="flex gap-3">
@@ -991,8 +975,8 @@ export default function SocialAdminPage() {
               >
                 <Send className="w-4 h-4" />
                 {quickPosting
-                  ? (quickPostAsVideo ? 'Dispatching...' : 'Publishing...')
-                  : (quickPostAsVideo ? 'Render & Publish' : 'Publish Now')}
+                  ? (quickPostType === 'tip' ? 'Publishing...' : 'Dispatching...')
+                  : (quickPostType === 'tip' ? 'Publish Now' : 'Render & Publish')}
               </button>
               <button
                 onClick={() => setShowQuickPost(false)}

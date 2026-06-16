@@ -147,7 +147,7 @@ export async function buildPostContext(
     };
   }
 
-  if (postType === 'section_guide' || postType === 'route_draw') {
+  if (postType === 'section_guide') {
     const deduped = await freshRivers();
     // Float of the Day: only ideal-floatable rivers (flowing / good — never
     // too_low/low/high/dangerous), on a 5-9 mi section. Skip the post if none.

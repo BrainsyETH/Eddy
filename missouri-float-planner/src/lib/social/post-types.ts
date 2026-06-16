@@ -19,9 +19,7 @@ export type PostKind =
   | 'river_highlight'
   | 'weekly_forecast'
   | 'section_guide'
-  | 'route_draw'
   | 'weekly_trend'
-  | 'branded_loop'
   | 'tip';
 
 /** Post types that have a Remotion video composition (can be dispatched to render). */
@@ -135,7 +133,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     id: 'river_highlight',
     label: 'River Highlight',
     needs: 'river',
-    media: ['image', 'video'],
+    media: ['video'],
     composition: 'social-gauge-portrait',
     ogType: 'highlight',
     renderProps: (data) => ({
@@ -155,7 +153,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     id: 'daily_digest',
     label: 'Daily Digest',
     needs: 'none',
-    media: ['image', 'video'],
+    media: ['video'],
     composition: 'social-digest-portrait',
     ogType: 'digest',
     renderProps: (data) => ({
@@ -171,7 +169,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     id: 'weekly_forecast',
     label: 'Weekend Forecast',
     needs: 'none',
-    media: ['image', 'video'],
+    media: ['video'],
     composition: 'social-digest-portrait',
     ogType: 'forecast',
     renderProps: (data) => ({
@@ -184,33 +182,25 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     outputFilename: () => `forecast-${isoDay()}`,
   },
 
+  // "Float of the Day" — the animated self-drawing route. The static section
+  // card (social-section-portrait) is retired; section_guide now renders the
+  // route composition. The OG section image is kept only as the video cover.
   section_guide: {
     id: 'section_guide',
-    label: 'Section Guide',
-    needs: 'none',
-    media: ['image', 'video'],
-    composition: 'social-section-portrait',
-    ogType: 'section',
-    renderProps: sectionRouteProps,
-    outputFilename: () => `section-${isoDay()}`,
-  },
-
-  route_draw: {
-    id: 'route_draw',
-    label: 'Route (animated)',
+    label: 'Float of the Day',
     needs: 'none',
     media: ['video'],
     composition: 'social-route-portrait',
-    // No OG image — route is video-only.
+    ogType: 'section',
     renderProps: sectionRouteProps,
-    outputFilename: () => `route-${isoDay()}`,
+    outputFilename: () => `float-of-day-${isoDay()}`,
   },
 
   weekly_trend: {
     id: 'weekly_trend',
     label: 'Weekly Trend',
     needs: 'none',
-    media: ['image', 'video'],
+    media: ['video'],
     composition: 'social-trend-portrait',
     ogType: 'trend',
     renderProps: (data) => ({
@@ -227,20 +217,6 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       format: FORMAT,
     }),
     outputFilename: () => `trend-${isoDay()}`,
-  },
-
-  branded_loop: {
-    id: 'branded_loop',
-    label: 'Branded Loop',
-    needs: 'river',
-    media: ['video'],
-    composition: 'social-branded-loop',
-    renderProps: (data) => ({
-      riverName: data.riverName || 'Unknown River',
-      conditionCode: data.conditionCode || 'unknown',
-      summaryText: data.summaryText || data.quoteText || '',
-    }),
-    outputFilename: (data) => `loop-${slugify(data.riverName || 'river')}`,
   },
 
   tip: {

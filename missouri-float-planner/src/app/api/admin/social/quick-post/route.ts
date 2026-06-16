@@ -9,16 +9,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { FacebookAdapter } from '@/lib/social/facebook-adapter';
 import { InstagramAdapter } from '@/lib/social/instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
-import type { SocialPlatform, SocialCustomContent, MediaType } from '@/lib/social/types';
+import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
-import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { buildPostContext, type PostContext } from '@/lib/social/post-context';
 import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 
 export const dynamic = 'force-dynamic';
 
 const BASE_URL = 'https://eddy.guide';
-const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 function getAdapter(platform: SocialPlatform) {
   if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
@@ -35,12 +33,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { type, riverSlug, contentId, platforms, asVideo } = body as {
-    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'route_draw';
+  const { type, riverSlug, contentId, platforms } = body as {
+    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
     riverSlug?: string;
     contentId?: string;
     platforms: string[];
-    asVideo?: boolean;
   };
 
   if (!type) {
@@ -80,7 +77,7 @@ export async function POST(request: NextRequest) {
     const kind: VideoPostKind =
       type === 'digest' ? 'daily_digest'
       : type === 'highlight' ? 'river_highlight'
-      : type; // weekly_forecast | section_guide | weekly_trend | route_draw
+      : type; // weekly_forecast | section_guide | weekly_trend
 
     const ctx = await buildPostContext(supabase, { postType: kind, riverSlug });
     if (!ctx) {
@@ -90,25 +87,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Decide media. route_draw is video-only; digest/highlight follow the
-    // asVideo toggle; the weekly reels follow today's matrix cell (default video).
-    let mediaType: MediaType;
-    if (kind === 'route_draw') {
-      mediaType = 'video';
-    } else if (type === 'digest' || type === 'highlight') {
-      mediaType = asVideo ? 'video' : 'image';
-    } else {
-      const { data: config } = await getOrCreateConfig(supabase);
-      const cell = config?.media_schedule?.[kind as 'weekly_forecast' | 'section_guide' | 'weekly_trend']?.[
-        DAY_KEYS[new Date().getUTCDay()]
-      ] as MediaType | null | undefined;
-      mediaType = cell ?? 'video';
-    }
-
-    if (mediaType === 'video') {
-      return await dispatchVideo(supabase, kind, ctx, validPlatforms, customContent);
-    }
-    return await publishImage(supabase, kind, ctx, validPlatforms, customContent);
+    // All non-tip formats are video-only.
+    return await dispatchVideo(supabase, kind, ctx, validPlatforms, customContent);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -194,35 +174,6 @@ async function dispatchVideo(
     details: { platforms, dispatched: postIds.length },
   });
   return NextResponse.json({ rendering: postIds.length });
-}
-
-// --- Image: publish inline through the platform adapters ---
-
-async function publishImage(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  kind: VideoPostKind,
-  ctx: PostContext,
-  platforms: SocialPlatform[],
-  customContent: SocialCustomContent[],
-) {
-  const results = await publishToPlatforms(supabase, platforms, (platform) => {
-    const { caption, hashtags } = ctx.caption(platform, customContent);
-    return {
-      caption,
-      imageUrl: ctx.imageUrl(platform),
-      hashtags,
-      postType: kind,
-      riverSlug: ctx.riverSlug,
-    };
-  });
-
-  logAdminAction({
-    action: `quick_post_${kind}`,
-    entityType: 'social_post',
-    details: { platforms, results: results.map((r) => ({ platform: r.platform, success: r.success })) },
-  });
-  return NextResponse.json({ results });
 }
 
 // --- Tip (custom content, image-only) ---

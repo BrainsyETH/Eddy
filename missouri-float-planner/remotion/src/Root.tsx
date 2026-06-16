@@ -15,14 +15,12 @@ import { scenes, reelScenes, getSceneFrames, getTotalFrames, getReelTotalFrames,
 import { ReelFull } from "./compositions/ReelFull";
 import { GaugeAnimation } from "./compositions/social/GaugeAnimation";
 import { DigestReel, getDigestDuration } from "./compositions/social/DigestReel";
-import { BrandedLoop } from "./compositions/social/BrandedLoop";
 import { SectionGuide } from "./compositions/social/SectionGuide";
 import { RouteDraw } from "./compositions/social/RouteDraw";
 import { TrendReel } from "./compositions/social/TrendReel";
 import type {
   GaugeAnimationProps,
   DigestReelProps,
-  BrandedLoopProps,
   SectionGuideProps,
   RouteDrawProps,
   TrendReelProps,
@@ -380,21 +378,6 @@ export const RemotionRoot: React.FC = () => {
           globalQuote: "Most rivers are running well today with spring rains keeping levels up across the Ozarks.",
           format: "portrait",
         } satisfies DigestReelProps}
-      />
-
-      {/* Branded Loop — simple eye-catcher (1080x1080, loops) */}
-      <Composition
-        id="social-branded-loop"
-        component={BrandedLoop}
-        durationInFrames={120}
-        fps={FPS}
-        width={1080}
-        height={1080}
-        defaultProps={{
-          riverName: "Current River",
-          conditionCode: "flowing",
-          summaryText: "Clear skies and perfect levels. Get on the water today!",
-        } satisfies BrandedLoopProps}
       />
 
       {/* Section Guide — float-of-the-week reel */}

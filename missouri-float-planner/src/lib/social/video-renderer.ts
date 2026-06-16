@@ -238,10 +238,8 @@ export function getCompositionForPost(
   postType:
     | 'daily_digest'
     | 'river_highlight'
-    | 'branded_loop'
     | 'weekly_forecast'
     | 'section_guide'
-    | 'route_draw'
     | 'weekly_trend',
   data: RenderData,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
