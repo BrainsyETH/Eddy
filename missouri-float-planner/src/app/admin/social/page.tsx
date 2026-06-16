@@ -1198,7 +1198,7 @@ export default function SocialAdminPage() {
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Everything in one grid. Click a day cell to cycle <span className="text-neutral-300">Off → Video → Image → Off</span>.
+                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Video</span>.
                     If every day for a row is Off, that post type is disabled. Set the time each type fires, or hit Post Now to trigger immediately.
                   </p>
                   <div className="overflow-x-auto">
@@ -1225,9 +1225,11 @@ export default function SocialAdminPage() {
                                 {row.label}
                               </td>
                               {MEDIA_DAYS.map((day) => {
-                                const current = cells?.[day] ?? null;
-                                const next: 'video' | 'image' | null =
-                                  current === null ? 'video' : current === 'video' ? 'image' : null;
+                                // Two-state: Off ↔ Video. Legacy 'image' cells
+                                // read as Video (posts are video-only now).
+                                const raw = cells?.[day] ?? null;
+                                const current: 'video' | null = raw ? 'video' : null;
+                                const next: 'video' | null = current === 'video' ? null : 'video';
                                 return (
                                   <td key={day} className="px-1 py-2 text-center">
                                     <button
@@ -1245,12 +1247,10 @@ export default function SocialAdminPage() {
                                       className={`w-[74px] px-1 py-1 rounded text-xs font-medium transition-colors ${
                                         current === 'video'
                                           ? 'bg-primary-500 text-white hover:bg-primary-600'
-                                          : current === 'image'
-                                          ? 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                                           : 'bg-neutral-900 border border-dashed border-neutral-600 text-neutral-500 hover:border-neutral-400'
                                       }`}
                                     >
-                                      {current === 'video' ? 'Video' : current === 'image' ? 'Image' : 'Off'}
+                                      {current === 'video' ? 'Video' : 'Off'}
                                     </button>
                                   </td>
                                 );
