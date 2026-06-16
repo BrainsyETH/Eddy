@@ -19,6 +19,13 @@ if [ -z "$YOUTUBE_URL" ] || [ -z "$START_SECS" ] || [ -z "$OUTPUT_PATH" ]; then
     exit 1
 fi
 
+# Authenticated cookies (Netscape format) let yt-dlp past YouTube's bot check
+# on shared CI IPs. Provided via YOUTUBE_COOKIES_FILE by the workflow.
+COOKIE_ARGS=()
+if [ -n "${YOUTUBE_COOKIES_FILE:-}" ] && [ -f "$YOUTUBE_COOKIES_FILE" ]; then
+    COOKIE_ARGS=(--cookies "$YOUTUBE_COOKIES_FILE")
+fi
+
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
@@ -33,6 +40,8 @@ echo ""
 # Step 1: Download video
 echo "Step 1: Downloading video..."
 yt-dlp \
+    "${COOKIE_ARGS[@]}" \
+    --retries 5 \
     --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
     --merge-output-format mp4 \
     --output "$TEMP_DIR/source.%(ext)s" \
@@ -52,6 +61,7 @@ if [ "$TRANSCRIPT_FLAG" = "--transcript" ]; then
     echo ""
     echo "Step 2: Fetching transcript..."
     yt-dlp \
+        "${COOKIE_ARGS[@]}" \
         --write-auto-subs \
         --sub-lang en \
         --sub-format vtt \
