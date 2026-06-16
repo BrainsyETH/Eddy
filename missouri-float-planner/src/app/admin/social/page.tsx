@@ -293,7 +293,7 @@ export default function SocialAdminPage() {
 
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
-  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip'>('digest');
+  const [quickPostType, setQuickPostType] = useState<'digest' | 'highlight' | 'tip' | 'route_draw'>('digest');
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
@@ -878,7 +878,7 @@ export default function SocialAdminPage() {
               <select
                 value={quickPostType}
                 onChange={(e) => {
-                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip');
+                  setQuickPostType(e.target.value as 'digest' | 'highlight' | 'tip' | 'route_draw');
                   setQuickPostRiver('');
                   setQuickPostContentId('');
                 }}
@@ -886,6 +886,7 @@ export default function SocialAdminPage() {
               >
                 <option value="digest">Daily Digest (all rivers)</option>
                 <option value="highlight">River Highlight</option>
+                <option value="route_draw">Route — animated (video, float of the week)</option>
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>

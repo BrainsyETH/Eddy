@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { type, riverSlug, contentId, platforms, asVideo } = body as {
-    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
+    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'route_draw';
     riverSlug?: string;
     contentId?: string;
     platforms: string[];
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       return await dispatchVideoRender(supabase, validPlatforms, customContent, type, riverSlug);
     }
 
-    if (type === 'weekly_forecast' || type === 'section_guide' || type === 'weekly_trend') {
+    if (type === 'weekly_forecast' || type === 'section_guide' || type === 'weekly_trend' || type === 'route_draw') {
       return await postWeekly(supabase, validPlatforms, customContent, type);
     }
 
@@ -453,7 +453,7 @@ async function postWeekly(
   supabase: any,
   platforms: SocialPlatform[],
   customContent: SocialCustomContent[],
-  postType: 'weekly_forecast' | 'section_guide' | 'weekly_trend',
+  postType: 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'route_draw',
 ) {
   // Pull fresh updates + config (for the per-reel time_utc, though we
   // skip the time check since this is a manual trigger).
@@ -484,8 +484,12 @@ async function postWeekly(
   const { data: config } = await getOrCreateConfig(supabase);
   const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
   const todayKey = DAY_KEYS[new Date().getUTCDay()];
-  const matrixMedia = config?.media_schedule?.[postType]?.[todayKey] as MediaType | null | undefined;
-  const mediaType: MediaType = matrixMedia ?? 'video';
+  // route_draw is a video-only composition (no OG image); everything else
+  // honors the matrix cell, defaulting to video.
+  const matrixMedia = postType === 'route_draw'
+    ? undefined
+    : (config?.media_schedule?.[postType]?.[todayKey] as MediaType | null | undefined);
+  const mediaType: MediaType = postType === 'route_draw' ? 'video' : (matrixMedia ?? 'video');
 
   // Build per-type payload: caption, image URL, video render data.
   let renderData: Record<string, unknown> = {};
@@ -501,9 +505,9 @@ async function postWeekly(
       );
     }
   }
-  if (postType === 'section_guide' && availableSlugs.length === 0) {
+  if ((postType === 'section_guide' || postType === 'route_draw') && availableSlugs.length === 0) {
     return NextResponse.json(
-      { error: 'No rivers with fresh updates — section guide skipped.' },
+      { error: 'No rivers with fresh updates — section/route skipped.' },
       { status: 404 },
     );
   }
@@ -530,7 +534,9 @@ async function postWeekly(
       return (platform) => formatWeeklyForecastCaption(topRivers, customContent, platform);
     }
 
-    if (postType === 'section_guide') {
+    if (postType === 'section_guide' || postType === 'route_draw') {
+      // route_draw reuses the section's data + caption — it's the same float
+      // visualized as an animated route.
       const section = pickSectionForRivers(availableSlugs);
       if (!section) return () => ({ caption: '', hashtags: [] });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -575,6 +581,7 @@ async function postWeekly(
   const imageKind =
     postType === 'weekly_forecast' ? 'forecast'
     : postType === 'section_guide' ? 'section'
+    : postType === 'route_draw' ? 'section'  // route is video-only; reuse section thumbnail as the cover
     : postType === 'weekly_trend' ? 'trend'
     : 'highlight';
   // None of the new thumbnails need the river param (they re-pick internally),
@@ -715,7 +722,8 @@ type PostBuilder = (platform: SocialPlatform) => {
     | 'manual'
     | 'weekly_forecast'
     | 'section_guide'
-    | 'weekly_trend';
+    | 'weekly_trend'
+    | 'route_draw';
   riverSlug: string | null;
 };
 

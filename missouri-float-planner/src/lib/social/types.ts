@@ -9,7 +9,8 @@ export type PostType =
   | 'condition_change'
   | 'weekly_forecast'
   | 'section_guide'
-  | 'weekly_trend';
+  | 'weekly_trend'
+  | 'route_draw';
 export type PostStatus = 'pending' | 'rendering' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
