@@ -50,6 +50,7 @@ export interface RenderData {
   takeOutMile?: number;
   distanceMi?: number;
   hoursCanoe?: number;
+  springs?: Array<{ name: string; mile: number; side: string | null }>;
   // Weekly trend extras
   currentHeightFt?: number | null;
   sevenDayFirstFt?: number | null;
@@ -123,6 +124,7 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     // Float time at TODAY's flow vs the normal "flowing" baseline.
     hoursToday: canoeHours(distanceMi, code),
     hoursTypical: canoeHours(distanceMi, 'flowing'),
+    springs: data.springs ?? [],
     dateLabel: data.dateLabel || defaultDate(),
     format: FORMAT,
   };

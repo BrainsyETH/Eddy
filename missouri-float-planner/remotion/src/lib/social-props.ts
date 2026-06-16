@@ -100,6 +100,9 @@ export interface SectionGuideProps {
   /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
    *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
   hoursTypical: number;
+  /** Springs on the run (between put-in and take-out), drawn as dots on the
+   *  RouteDraw route at their mile fraction. */
+  springs?: Array<{ name: string; mile: number; side: string | null }>;
   dateLabel?: string;
   format: "square" | "portrait";
 }

@@ -211,3 +211,57 @@ export function fetchPrecipitationFromWeather(
       : 0,
   };
 }
+
+// ============================================
+// Compact summary — persisted on eddy_updates.weather
+// ============================================
+
+/**
+ * Small, serializable weather snapshot stored alongside each Eddy update so
+ * social graphics can show forecast conditions and the Weekend Forecast can
+ * skip rivers with rain coming — without re-hitting OpenWeather at render time.
+ */
+export interface WeatherSummary {
+  /** Current conditions, or null if the current-weather fetch failed. */
+  current: { tempF: number; condition: string; icon: string } | null;
+  /** Up to 3 days ahead (today first). */
+  forecast: Array<{
+    date: string; // YYYY-MM-DD
+    dayOfWeek: string; // e.g. "Sat"
+    highF: number;
+    lowF: number;
+    condition: string; // e.g. "Clear", "Rain"
+    icon: string; // OpenWeather icon code (e.g. "10d")
+    precipChance: number; // 0-100
+  }>;
+  /** Today's precip probability (0-100). */
+  todayPrecipChance: number;
+  /** Highest precip probability across the forecast window (0-100) — the
+   *  signal the Weekend Forecast uses to skip rivers with rain coming. */
+  maxPrecipChance: number;
+}
+
+/** Build the persisted summary from the fetched current + forecast data. */
+export function buildWeatherSummary(
+  weather: WeatherData | null,
+  forecast: ForecastData | null,
+): WeatherSummary | null {
+  if (!weather && !forecast) return null;
+  const days = (forecast?.days ?? []).slice(0, 3).map((d) => ({
+    date: d.date,
+    dayOfWeek: d.dayOfWeek,
+    highF: Math.round(d.tempHigh),
+    lowF: Math.round(d.tempLow),
+    condition: d.condition,
+    icon: d.conditionIcon,
+    precipChance: Math.round(d.precipitation),
+  }));
+  return {
+    current: weather
+      ? { tempF: Math.round(weather.temp), condition: weather.condition, icon: weather.conditionIcon }
+      : null,
+    forecast: days,
+    todayPrecipChance: days[0]?.precipChance ?? 0,
+    maxPrecipChance: days.length > 0 ? Math.max(...days.map((d) => d.precipChance)) : 0,
+  };
+}
