@@ -111,11 +111,11 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
 
   // ─── Route geometry ──────────────────────────────────────
   const centerX = width / 2;
-  // Route sits between the header and the float-time stamp so the take-out
-  // marker + label stay clear of the card below.
-  const topY = height * 0.26;
-  const bottomY = height * 0.53;
-  const amplitude = width * 0.25;
+  // Route sits between the put-in lane (below the header) and the take-out lane
+  // (above the float-time stamp). Labels live in those lanes — never on the path.
+  const topY = height * 0.34;
+  const bottomY = height * 0.54;
+  const amplitude = width * 0.18;
   const route = buildRoute(centerX, topY, bottomY, amplitude);
   const putIn = route[0];
   const takeOut = route[route.length - 1];
@@ -242,29 +242,27 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           </g>
         </svg>
 
-        {/* Put-in label (anchored near the top marker) */}
-        <RouteLabel
-          x={putIn[0]}
-          y={putIn[1]}
-          align={putIn[0] > centerX ? "right" : "left"}
+        {/* Put-in lane — above the route, centered, cleaned + truncated name */}
+        <EndpointRow
+          top={putIn[1] - (isPortrait ? 104 : 76)}
           tag="Put-in"
-          name={putInName}
+          name={cleanName(putInName)}
           mile={putInMile}
           color={colors.accent[400]}
           opacity={riverEntrance}
+          isPortrait={isPortrait}
           labelFont={labelFont}
           displayFont={displayFont}
         />
-        {/* Take-out label */}
-        <RouteLabel
-          x={takeOut[0]}
-          y={takeOut[1]}
-          align={takeOut[0] > centerX ? "right" : "left"}
+        {/* Take-out lane — below the route */}
+        <EndpointRow
+          top={takeOut[1] + (isPortrait ? 26 : 18)}
           tag="Take-out"
-          name={takeOutName}
+          name={cleanName(takeOutName)}
           mile={takeOutMile}
           color={condition.solid}
           opacity={takeOutReveal}
+          isPortrait={isPortrait}
           labelFont={labelFont}
           displayFont={displayFont}
         />
@@ -380,9 +378,10 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
         </div>
       </div>
 
-      {/* Eddy hosting from the corner, clear of the float-time stamp */}
-      <div style={{ position: "absolute", left: isPortrait ? 36 : 60, bottom: isPortrait ? REEL_SAFE.bottom + 170 : 320, opacity: takeOutReveal }}>
-        <EddyMascot variant={getOtterVariant(conditionCode)} size={isPortrait ? 120 : 100} delay={195} />
+      {/* Eddy paddles in beside the take-out — larger so it reads as the host,
+          to the right of the centered take-out text. */}
+      <div style={{ position: "absolute", right: isPortrait ? 70 : 60, top: takeOut[1] - (isPortrait ? 86 : 64), opacity: takeOutReveal }}>
+        <EddyMascot variant={getOtterVariant(conditionCode)} size={isPortrait ? 168 : 130} delay={195} />
       </div>
 
       {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}
@@ -391,39 +390,56 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   );
 };
 
-const RouteLabel: React.FC<{
-  x: number;
-  y: number;
-  align: "left" | "right";
+/** Access-point names can be long ("Hazel Creek Recreation Area and access in
+ *  Mark Twain National Forest"). Keep the first clause and cap on a word
+ *  boundary so the label fits one line and never overruns the graphic. */
+function cleanName(s: string): string {
+  let t = (s || "").split(/[,.]/)[0].trim().replace(/\s+/g, " ");
+  if (t.length > 26) {
+    t = t.slice(0, 26);
+    const sp = t.lastIndexOf(" ");
+    t = (sp > 14 ? t.slice(0, sp) : t) + "…";
+  }
+  return t;
+}
+
+/** Put-in / take-out info in a fixed full-width lane (centered), so the label
+ *  never overlaps the animated route path. */
+const EndpointRow: React.FC<{
+  top: number;
   tag: string;
   name: string;
   mile: number;
   color: string;
   opacity: number;
+  isPortrait: boolean;
   labelFont: string;
   displayFont: string;
-}> = ({ x, y, align, tag, name, mile, color, opacity, labelFont, displayFont }) => (
+}> = ({ top, tag, name, mile, color, opacity, isPortrait, labelFont, displayFont }) => (
   <div
     style={{
       position: "absolute",
-      top: y - 28,
-      left: align === "left" ? x + 28 : undefined,
-      right: align === "right" ? undefined : undefined,
-      ...(align === "right" ? { left: x - 28, transform: "translateX(-100%)" } : {}),
+      top,
+      left: 0,
+      right: 0,
       opacity,
       display: "flex",
       flexDirection: "column",
-      alignItems: align === "right" ? "flex-end" : "flex-start",
-      maxWidth: 360,
+      alignItems: "center",
+      gap: 2,
+      padding: "0 70px",
     }}
   >
-    <span style={{ fontFamily: labelFont, fontSize: 18, color, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>
-      {tag}
-    </span>
-    <span style={{ fontFamily: displayFont, fontSize: 34, fontWeight: 600, color: "#fff", lineHeight: 1.1, textAlign: align === "right" ? "right" : "left" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: color, boxShadow: `0 0 10px ${color}` }} />
+      <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>
+        {tag}
+      </span>
+    </div>
+    <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 38 : 28, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.1 }}>
       {name}
     </span>
-    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: 20, color: "rgba(255,255,255,0.5)" }}>
+    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.5)" }}>
       MM {mile.toFixed(1)}
     </span>
   </div>
