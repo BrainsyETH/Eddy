@@ -324,10 +324,10 @@ export default async function RiverGuidePage({ params }: Props) {
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                   <a
-                    href="#access"
+                    href="#guide"
                     className="inline-flex items-center px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors no-underline"
                   >
-                    View access points
+                    River Guide
                   </a>
                 </div>
 
@@ -425,12 +425,12 @@ export default async function RiverGuidePage({ params }: Props) {
             </div>
 
             {accessPoints && accessPoints.length > 0 ? (
-              <div className="rounded-xl border border-neutral-200 overflow-hidden divide-y divide-neutral-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {accessPoints.map((ap) => (
                   <Link
                     key={ap.id}
                     href={`/plan?river=${slug}&putIn=${ap.id}`}
-                    className="flex items-center gap-4 px-4 py-3.5 bg-white hover:bg-primary-50 transition-colors no-underline"
+                    className="flex items-center gap-4 px-4 py-3.5 bg-white border border-neutral-200 rounded-xl hover:bg-primary-50 hover:border-primary-300 transition-colors no-underline"
                   >
                     <div className="w-12 flex-shrink-0 text-sm font-mono font-medium text-primary-600">
                       {ap.river_mile_downstream != null ? `mi ${parseFloat(ap.river_mile_downstream).toFixed(0)}` : '—'}
