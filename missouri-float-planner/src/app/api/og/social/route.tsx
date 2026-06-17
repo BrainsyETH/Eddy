@@ -27,7 +27,7 @@ import {
 } from '@shared/condition-system';
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
-import { pickSectionForRivers } from '@/lib/social/section-picker';
+import { pickSectionForRivers, findSection, type Section } from '@/lib/social/section-picker';
 import { canoeHours } from '@/lib/social/post-types';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
@@ -49,6 +49,12 @@ function getSize(platform: string | null): { width: number; height: number } {
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 1).trim() + '...';
+}
+
+function numParam(v: string | null): number | null {
+  if (v === null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -74,7 +80,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'section') {
-      return await generateSectionImage(size);
+      return await generateSectionImage(size, {
+        river: riverSlug,
+        putInMile: numParam(searchParams.get('putInMile')),
+        takeOutMile: numParam(searchParams.get('takeOutMile')),
+        condition: searchParams.get('condition'),
+      });
     }
 
     if (type === 'trend') {
@@ -944,30 +955,46 @@ async function generateForecastImage(size: { width: number; height: number }) {
 // ---------------------------------------------------------------------------
 // Section Guide thumbnail
 // ---------------------------------------------------------------------------
-async function generateSectionImage(size: { width: number; height: number }) {
+async function generateSectionImage(
+  size: { width: number; height: number },
+  params?: { river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
+) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
   const isPortrait = size.height > size.width;
 
-  const { data: updates } = await supabase
-    .from('eddy_updates')
-    .select('river_slug, condition_code, gauge_height_ft')
-    .neq('river_slug', 'global')
-    .is('section_slug', null)
-    .gt('expires_at', new Date().toISOString());
+  let section: Section | null = null;
+  let condition = 'flowing';
 
-  type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
-  // Overlay live conditions first so the Float of the Day picks the same section
-  // as the reel (floatable flowing/good rivers, 5-9 mi).
-  const overlaid = await overlayLiveConditions(supabase, (updates || []) as Row[]);
-  const floatableSlugs = overlaid
-    .filter((u) => u.condition_code === 'flowing' || u.condition_code === 'good')
-    .map((u) => u.river_slug);
-  const section = pickSectionForRivers(floatableSlugs, { minMi: 5, maxMi: 9 });
-  if (!section) {
-    return NextResponse.json({ error: 'No section available' }, { status: 404 });
+  // Preferred path: the post baked the exact section + condition into the URL,
+  // so render THAT float (matching the reel) instead of re-picking. The unique
+  // URL also defeats Meta's by-URL OG-image cache, which previously served a
+  // stale cover from an earlier post.
+  if (params?.river && params.putInMile != null && params.takeOutMile != null) {
+    section = await findSection(supabase, params.river, params.putInMile, params.takeOutMile);
+    if (section) condition = params.condition || 'flowing';
   }
-  const condition = overlaid.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'flowing';
+
+  // Fallback (legacy / param-less URL): re-pick today's section live.
+  if (!section) {
+    const { data: updates } = await supabase
+      .from('eddy_updates')
+      .select('river_slug, condition_code, gauge_height_ft')
+      .neq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString());
+    type Row = { river_slug: string; condition_code: string; gauge_height_ft: number | null };
+    const overlaid = await overlayLiveConditions(supabase, (updates || []) as Row[]);
+    const floatableSlugs = overlaid
+      .filter((u) => u.condition_code === 'flowing' || u.condition_code === 'good')
+      .map((u) => u.river_slug);
+    section = await pickSectionForRivers(supabase, floatableSlugs, { minMi: 5, maxMi: 9 });
+    if (!section) {
+      return NextResponse.json({ error: 'No section available' }, { status: 404 });
+    }
+    condition = overlaid.find((u) => u.river_slug === section!.riverSlug)?.condition_code || 'flowing';
+  }
+
   const styles = getStatusStyles(condition as ConditionCode);
 
   return new ImageResponse(

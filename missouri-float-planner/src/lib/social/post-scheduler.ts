@@ -236,12 +236,18 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         const floatableSlugs = updates
           .filter((u) => u.condition_code === 'flowing' || u.condition_code === 'good')
           .map((u) => u.river_slug);
-        const section = pickSectionForRivers(floatableSlugs, { minMi: 5, maxMi: 9 });
+        const section = await pickSectionForRivers(supabase, floatableSlugs, { minMi: 5, maxMi: 9 });
         if (!section) {
           console.log(`${LOG_PREFIX} Section guide: no floatable 5-9mi section available — skipping`);
         } else {
           const conditionCode =
             updates.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'flowing';
+          // Cover carries the exact section + condition so it renders the same
+          // float as the reel, and the URL is unique per section (Meta caches OG
+          // images by URL — a shared URL served a stale cover).
+          const coverParams =
+            `&river=${section.riverSlug}&putInMile=${section.putInMile}` +
+            `&takeOutMile=${section.takeOutMile}&condition=${conditionCode}`;
           const platforms: SocialPlatform[] = ['facebook', 'instagram'];
           for (const platform of platforms) {
             const { caption, hashtags } = formatSectionGuideCaption(
@@ -254,7 +260,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               platform,
               riverSlug: section.riverSlug,
               caption,
-              imageUrl: `${baseUrl}/api/og/social?type=section&platform=${platform}`,
+              imageUrl: `${baseUrl}/api/og/social?type=section&platform=${platform}${coverParams}`,
               mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: null,
