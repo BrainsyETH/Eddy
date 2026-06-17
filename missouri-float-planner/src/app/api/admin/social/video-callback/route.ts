@@ -107,15 +107,29 @@ export async function POST(request: NextRequest) {
 
     console.log(`${LOG_PREFIX} Publishing video to ${platform}: ${postId}`);
 
-    // Update DB with video URL
-    await supabase
+    // Idempotency claim — atomically move this post from 'rendering' to
+    // 'publishing'. Only the callback that wins this transition publishes.
+    // The render workflow retries its callback (curl --max-time 60) while an
+    // Instagram Reel publish can poll the container for up to ~150s, so a
+    // retry routinely arrives while the first publish is still in flight (or
+    // already done). Without this guard that retry double-posted to Meta and
+    // orphaned the first post (DB keeps only the last platform_post_id).
+    const { data: claimed } = await supabase
       .from('social_posts')
       .update({
         video_url: videoUrl,
         status: 'publishing',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', postId);
+      .eq('id', postId)
+      .eq('status', 'rendering')
+      .select('id');
+
+    if (!claimed || claimed.length === 0) {
+      console.log(`${LOG_PREFIX} ${postId} (${platform}) already claimed by a prior callback — skipping to avoid a duplicate post`);
+      results.push({ postId, platform, success: true, error: 'already handled (idempotent skip)' });
+      continue;
+    }
 
     const adapter = getAdapter(platform);
     if (!adapter) {

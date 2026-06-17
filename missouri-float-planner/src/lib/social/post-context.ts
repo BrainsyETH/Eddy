@@ -163,20 +163,30 @@ export async function buildPostContext(
     const floatable = (deduped as any[]).filter(
       (u) => u.condition_code === 'flowing' || u.condition_code === 'good',
     );
-    const section = pickSectionForRivers(
+    const section = await pickSectionForRivers(
+      supabase,
       floatable.map((u) => u.river_slug as string),
       { minMi: 5, maxMi: 9 },
     );
     if (!section) return null;
     const latest = floatable.find((u) => u.river_slug === section.riverSlug);
     const conditionCode = latest?.condition_code || 'flowing';
+    // Cover image carries the exact section + condition so it renders the SAME
+    // float as the reel (instead of re-picking), and so the URL is unique per
+    // section — Meta caches OG images by URL, and a shared URL served a stale
+    // cover from a previous post.
+    const coverParams =
+      `&river=${section.riverSlug}` +
+      `&putInMile=${section.putInMile}` +
+      `&takeOutMile=${section.takeOutMile}` +
+      `&condition=${conditionCode}`;
     return {
       postType,
       riverSlug: section.riverSlug,
       renderData: { ...section, conditionCode, dateLabel: longDate() },
       caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
       // route is video-only; reuse the section thumbnail as the cover.
-      imageUrl: (platform) => og('section', platform),
+      imageUrl: (platform) => og('section', platform, coverParams),
     };
   }
 

@@ -1,7 +1,13 @@
 // src/lib/social/section-picker.ts
-// Build a deterministic rotation of put-in → take-out section pairs from the
-// repo's mile-markers JSON. One section per week, rotating across rivers so
-// the feed stays varied.
+// Build a deterministic rotation of put-in → take-out float sections for the
+// Float of the Day.
+//
+// Access points come from the DB `access_points` table, filtered to the SAME
+// public + approved set the river planner shows (is_public AND approved). This
+// is the single source of truth for endpoints, so the Float can never feature a
+// private / unapproved access that isn't on the planner. Springs (features
+// along the run) still come from the mile-marker JSON, which is on the same
+// downstream-mile scale.
 
 import mileMarkers from '../../../floatmissouri_mile_markers.json';
 
@@ -18,11 +24,8 @@ interface MileMarker {
 
 /** A spring on the float, between the put-in and take-out. */
 export interface RouteSpring {
-  /** Cleaned name, e.g. "Welch Spring". */
   name: string;
-  /** River mile (downstream). */
   mile: number;
-  /** Bank the spring enters on, if known. */
   side: string | null;
 }
 
@@ -37,9 +40,9 @@ export interface Section {
   takeOutMile: number;
   /** Distance in miles. */
   distanceMi: number;
-  /** Rough float time in hours (2 mph canoe default). */
+  /** Rough float time in hours (2 mph canoe default; callers prefer the
+   *  condition-aware canoeHours()). */
   hoursCanoe: number;
-  /** Raw access-point descriptions (for caption detail). */
   putInDescription: string;
   takeOutDescription: string;
   /** Whether the put-in access point offers camping. */
@@ -50,33 +53,24 @@ export interface Section {
   springs: RouteSpring[];
 }
 
-/** Mile-markers use "-river" / "-creek" suffixes; eddy_updates don't. */
+interface AccessRow {
+  name: string;
+  mile: number;
+  description: string | null;
+  isCampground: boolean;
+}
+
+/** Longest float we'll ever offer as a "section" (caps the pair-building). */
+const MAX_SECTION_MI = 12;
+
+/** Mile-markers use "-river" / "-creek" / "-fork" suffixes; DB slugs don't. */
 function normalizeSlug(markerId: string): string {
-  return markerId
-    .replace(/-river$/, '')
-    .replace(/-creek$/, '')
-    .replace(/-fork$/, '');
+  return markerId.replace(/-river$/, '').replace(/-creek$/, '').replace(/-fork$/, '');
 }
 
-function titleize(slug: string): string {
-  // "current-river" → "Current River"; "big-piney-river" → "Big Piney River"
-  return slug
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
-function cleanDescription(desc: string): string {
-  // Mile-marker descriptions can be a whole paragraph ("Onondaga State Park,
-  // Hwy. H bridge. Public access upstream from bridge on west. Onondaga Cave,
-  // ..."). Keep just the name: the first clause up to a comma or sentence
-  // period, protecting common abbreviations (Hwy., Rd., St.) so we don't split
-  // on their dots. The full text still lives in putInDescription/takeOutDescription.
-  let t = (desc || '').trim().replace(/\s+/g, ' ');
-  const ABBR = ['Hwy', 'Hwys', 'Rd', 'Mt', 'St', 'Co', 'Jct', 'No', 'Ft', 'Rte', 'Cr'];
-  for (const a of ABBR) t = t.replace(new RegExp(`\\b${a}\\.`, 'g'), `${a}__D__`);
-  const name = (t.match(/^([^,.]+)/)?.[1] ?? t).replace(/__D__/g, '.').trim();
-  return name || desc.trim();
+/** DB access-point names are already curated — just normalize whitespace. */
+function cleanName(s: string): string {
+  return (s || '').trim().replace(/\s+/g, ' ');
 }
 
 /** Spring descriptions read like "Welch Spring enters on the left." — keep the
@@ -89,68 +83,103 @@ function cleanSpringName(desc: string): string {
     .trim();
 }
 
-let cachedSections: Section[] | null = null;
+// ---------------------------------------------------------------------------
+// Springs from the mile-marker JSON, keyed by normalized slug.
+// ---------------------------------------------------------------------------
+let springsBySlug: Map<string, MileMarker[]> | null = null;
+function getSpringsBySlug(): Map<string, MileMarker[]> {
+  if (springsBySlug) return springsBySlug;
+  const m = new Map<string, MileMarker[]>();
+  for (const marker of mileMarkers as MileMarker[]) {
+    if (marker.feature_type === 'spring' || marker.has_spring) {
+      const slug = normalizeSlug(marker.river_id);
+      const list = m.get(slug) || [];
+      list.push(marker);
+      m.set(slug, list);
+    }
+  }
+  springsBySlug = m;
+  return m;
+}
 
 /**
- * Build (and cache) the full list of consecutive access-point pairs across
- * every river. Order is: sort rivers alphabetically, within each river sort
- * access points by mile ascending, pair consecutive points.
+ * Build the full list of public + approved put-in → take-out sections across
+ * every river, from the DB. Pairs every public+approved access point with each
+ * downstream public+approved access point up to MAX_SECTION_MI — so a real
+ * 5–9 mi float that skips a closely-spaced intermediate access is still
+ * offered (consecutive-only would miss those). Queried fresh each call
+ * (~hundreds of rows); no module cache, to avoid serverless staleness.
  */
-export function listAllSections(): Section[] {
-  if (cachedSections) return cachedSections;
+export async function listAllSections(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<Section[]> {
+  const { data, error } = await supabase
+    .from('access_points')
+    .select('name, river_mile_downstream, description, type, types, rivers!inner(slug, name)')
+    .eq('is_public', true)
+    .eq('approved', true)
+    .not('river_mile_downstream', 'is', null);
 
-  const markers = mileMarkers as MileMarker[];
-  const accessByRiver = new Map<string, MileMarker[]>();
-  const springsByRiver = new Map<string, MileMarker[]>();
-  for (const m of markers) {
-    if (m.is_access_point) {
-      const list = accessByRiver.get(m.river_id) || [];
-      list.push(m);
-      accessByRiver.set(m.river_id, list);
-    }
-    if (m.feature_type === 'spring' || m.has_spring) {
-      const list = springsByRiver.get(m.river_id) || [];
-      list.push(m);
-      springsByRiver.set(m.river_id, list);
-    }
+  if (error || !data) {
+    if (error) console.error('[SectionPicker] access_points query failed:', error.message);
+    return [];
   }
 
+  // Group access points by river slug.
+  const byRiver = new Map<string, { name: string; access: AccessRow[] }>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of data as any[]) {
+    const slug: string | undefined = row.rivers?.slug;
+    if (!slug) continue;
+    const entry: { name: string; access: AccessRow[] } =
+      byRiver.get(slug) || { name: row.rivers?.name || slug, access: [] };
+    const types: string[] = Array.isArray(row.types) ? row.types : [];
+    entry.access.push({
+      name: cleanName(row.name),
+      mile: Number(row.river_mile_downstream),
+      description: row.description || null,
+      isCampground: row.type === 'campground' || types.includes('campground'),
+    });
+    byRiver.set(slug, entry);
+  }
+
+  const springs = getSpringsBySlug();
   const sections: Section[] = [];
-  const riverIds = Array.from(accessByRiver.keys()).sort();
-  for (const riverId of riverIds) {
-    const accesses = (accessByRiver.get(riverId) || []).slice().sort((a, b) => a.mile - b.mile);
-    const riverSprings = (springsByRiver.get(riverId) || []).slice().sort((a, b) => a.mile - b.mile);
-    for (let i = 0; i < accesses.length - 1; i++) {
-      const putIn = accesses[i];
-      const takeOut = accesses[i + 1];
-      const distance = Math.round((takeOut.mile - putIn.mile) * 10) / 10;
-      // Skip degenerate sections (same mile marker, or <0.5 mi — likely
-      // parallel access points rather than a real float).
-      if (distance < 0.5) continue;
-      // Springs strictly between the two access points — the ones you actually
-      // pass on this float.
-      const springs: RouteSpring[] = riverSprings
-        .filter((s) => s.mile > putIn.mile && s.mile < takeOut.mile)
-        .map((s) => ({ name: cleanSpringName(s.description), mile: s.mile, side: s.side }));
-      sections.push({
-        riverSlug: normalizeSlug(riverId),
-        riverName: titleize(riverId.replace(/-river$/, ' River').replace(/-creek$/, ' Creek').replace(/-fork$/, ' Fork')),
-        putInName: cleanDescription(putIn.description),
-        putInMile: putIn.mile,
-        takeOutName: cleanDescription(takeOut.description),
-        takeOutMile: takeOut.mile,
-        distanceMi: distance,
-        hoursCanoe: Math.round((distance / 2) * 10) / 10,
-        putInDescription: putIn.description,
-        takeOutDescription: takeOut.description,
-        putInCamping: !!putIn.is_campground,
-        takeOutCamping: !!takeOut.is_campground,
-        springs,
-      });
+  for (const slug of Array.from(byRiver.keys()).sort()) {
+    const { name: riverName, access } = byRiver.get(slug)!;
+    const sorted = access.slice().sort((a, b) => a.mile - b.mile);
+    const riverSprings = springs.get(slug) || [];
+
+    for (let i = 0; i < sorted.length; i++) {
+      const putIn = sorted[i];
+      for (let j = i + 1; j < sorted.length; j++) {
+        const takeOut = sorted[j];
+        const distance = Math.round((takeOut.mile - putIn.mile) * 10) / 10;
+        if (distance < 0.5) continue;
+        if (distance > MAX_SECTION_MI) break; // sorted by mile — further j only grow
+        const secSprings: RouteSpring[] = riverSprings
+          .filter((s) => s.mile > putIn.mile && s.mile < takeOut.mile)
+          .map((s) => ({ name: cleanSpringName(s.description), mile: s.mile, side: s.side }))
+          .sort((a, b) => a.mile - b.mile);
+        sections.push({
+          riverSlug: slug,
+          riverName,
+          putInName: putIn.name,
+          putInMile: putIn.mile,
+          takeOutName: takeOut.name,
+          takeOutMile: takeOut.mile,
+          distanceMi: distance,
+          hoursCanoe: Math.round((distance / 2) * 10) / 10,
+          putInDescription: putIn.description || '',
+          takeOutDescription: takeOut.description || '',
+          putInCamping: putIn.isCampground,
+          takeOutCamping: takeOut.isCampground,
+          springs: secSprings,
+        });
+      }
     }
   }
-
-  cachedSections = sections;
   return sections;
 }
 
@@ -163,31 +192,44 @@ function dayIndex(date = new Date()): number {
 }
 
 /**
- * Pick the section to feature for the given date. Rotates through the full
- * list; always the same answer for the same day.
+ * Pick the section to feature for the given floatable rivers + distance window,
+ * rotating deterministically by day. Returns null when nothing qualifies.
  */
-export function pickSectionForDate(date = new Date()): Section | null {
-  const all = listAllSections();
-  if (all.length === 0) return null;
-  const idx = dayIndex(date) % all.length;
-  return all[idx];
-}
-
-/**
- * Restrict the rotation to a subset of river slugs (eddy_updates slugs, not
- * mile-marker river_ids) and, optionally, to a distance window. Used by the
- * Float of the Day, which only features floatable rivers on 5-9 mi sections.
- */
-export function pickSectionForRivers(
+export async function pickSectionForRivers(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   riverSlugs: string[],
   opts: { minMi?: number; maxMi?: number } = {},
   date = new Date(),
-): Section | null {
+): Promise<Section | null> {
   const { minMi = 0, maxMi = Infinity } = opts;
-  const subset = listAllSections().filter(
+  const all = await listAllSections(supabase);
+  const subset = all.filter(
     (s) => riverSlugs.includes(s.riverSlug) && s.distanceMi >= minMi && s.distanceMi <= maxMi,
   );
   if (subset.length === 0) return null;
-  const idx = dayIndex(date) % subset.length;
-  return subset[idx];
+  return subset[dayIndex(date) % subset.length];
+}
+
+/**
+ * Find a specific section by river + endpoint miles — used by the cover image
+ * so it renders the EXACT same section the reel did (rather than re-picking,
+ * which could diverge). Returns null if no matching section exists.
+ */
+export async function findSection(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  riverSlug: string,
+  putInMile: number,
+  takeOutMile: number,
+): Promise<Section | null> {
+  const all = await listAllSections(supabase);
+  return (
+    all.find(
+      (s) =>
+        s.riverSlug === riverSlug &&
+        Math.abs(s.putInMile - putInMile) < 0.05 &&
+        Math.abs(s.takeOutMile - takeOutMile) < 0.05,
+    ) || null
+  );
 }
