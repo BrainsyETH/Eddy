@@ -174,7 +174,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
   {
     const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
-    if (config.weekly_forecast?.enabled && todayMedia) {
+    // The grid (media_schedule) is the single source of truth for which days a
+    // type fires — same as daily_digest/river_highlight. The legacy `enabled`
+    // flag isn't maintained by the grid UI, so gating on it silently desynced
+    // these posts off even with every day set to Video.
+    if (todayMedia && config.weekly_forecast) {
       const { time_cst } = config.weekly_forecast;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
@@ -216,7 +220,9 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // --- Section Guide (media_schedule.section_guide drives day/media) ---
   {
     const todayMedia = config.media_schedule?.section_guide?.[todayKey] ?? null;
-    if (config.section_guide?.enabled && todayMedia) {
+    // Grid cell is the gate (see weekly_forecast note above) — not the legacy
+    // `enabled` flag, which the grid never sets.
+    if (todayMedia && config.section_guide) {
       const { time_cst } = config.section_guide;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
@@ -262,7 +268,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // --- Weekly Trend (media_schedule.weekly_trend drives day/media) ---
   {
     const todayMedia = config.media_schedule?.weekly_trend?.[todayKey] ?? null;
-    if (config.weekly_trend?.enabled && todayMedia) {
+    // Grid cell is the gate, not the legacy `enabled` flag.
+    if (todayMedia && config.weekly_trend) {
       const { time_cst } = config.weekly_trend;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('weekly_trend', null, supabase);
@@ -435,8 +442,13 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   return { posts, diagnostics: diag };
 }
 
-// Check if a river's scheduled Central Time falls within the current 30-min window
-function isDueNow(scheduledTimeCst: string, windowMinutes: number = 30): boolean {
+// True when the scheduled Central time falls within the current fire window.
+// The window (35 min) is intentionally a touch wider than the 30-min cron
+// interval, so a time that lands exactly on a cron boundary (e.g. 07:00 →
+// 12:00 UTC) still fires off the NEXT tick (diff = 30) when Vercel drops or
+// delays the on-time tick. hasPostedToday() dedups, so the wider window can
+// never double-post — it only ever catches an otherwise-missed run.
+function isDueNow(scheduledTimeCst: string, windowMinutes: number = 35): boolean {
   const nowCstMinutes = getCentralMinutes();
 
   const [schedH, schedM] = scheduledTimeCst.split(':').map(Number);
