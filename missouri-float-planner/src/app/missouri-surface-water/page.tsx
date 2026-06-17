@@ -4,7 +4,7 @@ import MOSurfaceWaterApp from '@/components/mo-surface-water/MOSurfaceWaterApp';
 export const metadata: Metadata = {
   title: 'USGS Missouri Surface Water — Eddy',
   description:
-    'Live statewide surface-water instrument for Missouri: every active USGS NWIS gauge, percentile-painted reaches, animated flow on rising rivers, gauge detail, and a 30-day time scrubber.',
+    'Live surface-water map for Missouri float trips: USGS NWIS gauges across the floatable rivers, condition-painted reaches, animated flow on rising water, gauge detail, and a 30-day time scrubber.',
 };
 
 // Bypass static generation; the live USGS feed is the point.

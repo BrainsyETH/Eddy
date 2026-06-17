@@ -68,6 +68,10 @@ function dailyAggregate(
 export async function GET() {
   try {
     const dataset = await fetchMODataset();
+    // Every river/gauge binding — primary AND secondary. The scrubber colors
+    // each reach from its nearest gauge's condition, so the history for
+    // secondary gauges has to be present too; without it, scrubbing back in
+    // time dropped the secondary gauges to "unknown" and greyed the reaches.
     const targets: Array<{
       river_id: string;
       river_slug: string;
@@ -76,22 +80,29 @@ export async function GET() {
     }> = [];
     for (const r of dataset.rivers) {
       for (const g of r.gauges ?? []) {
-        if (g.is_primary) {
-          targets.push({
-            river_id: r.id,
-            river_slug: r.slug,
-            site_no: g.site_id,
-            is_primary: true,
-          });
-        }
+        targets.push({
+          river_id: r.id,
+          river_slug: r.slug,
+          site_no: g.site_id,
+          is_primary: g.is_primary,
+        });
       }
     }
 
-    const results = await Promise.all(
-      targets.map(async (t) => {
+    // Fetch history + daily stats once per unique site. A single gauge can be
+    // the primary for more than one river (e.g. 07017200 covers both Courtois
+    // and Huzzah Creek), so de-dupe the USGS round-trips by site number.
+    type SiteHistory = {
+      daily: MoHistoryBundleEntry['daily'];
+      band: MoHistoryBundleEntry['band'];
+    };
+    const uniqueSites = Array.from(new Set(targets.map((t) => t.site_no)));
+    const perSite = new Map<string, SiteHistory>();
+    await Promise.all(
+      uniqueSites.map(async (siteNo) => {
         const [history, stats] = await Promise.all([
-          fetchHistoricalReadings(t.site_no, DAYS),
-          fetchDailyStatistics(t.site_no),
+          fetchHistoricalReadings(siteNo, DAYS),
+          fetchDailyStatistics(siteNo),
         ]);
         const dailyRaw = history ? dailyAggregate(history.readings) : [];
         const daily = dailyRaw.map((d) => ({
@@ -101,19 +112,26 @@ export async function GET() {
               ? calculateDischargePercentile(d.dischargeCfs, stats)
               : null,
         }));
-        const entry: MoHistoryBundleEntry = {
-          river_id: t.river_id,
-          river_slug: t.river_slug,
-          site_no: t.site_no,
-          is_primary: t.is_primary,
+        perSite.set(siteNo, {
           daily,
           band: stats
             ? { p25: stats.p25 ?? null, p50: stats.p50 ?? null, p75: stats.p75 ?? null }
             : null,
-        };
-        return entry;
+        });
       }),
     );
+
+    const results: MoHistoryBundleEntry[] = targets.map((t) => {
+      const site = perSite.get(t.site_no);
+      return {
+        river_id: t.river_id,
+        river_slug: t.river_slug,
+        site_no: t.site_no,
+        is_primary: t.is_primary,
+        daily: site?.daily ?? [],
+        band: site?.band ?? null,
+      };
+    });
 
     const body: MoHistoryBundleResponse = {
       generatedAt: new Date().toISOString(),

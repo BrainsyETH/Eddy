@@ -234,6 +234,16 @@ export function classifyStageFromThresholds(
   return result.code;
 }
 
+/**
+ * Stable key for per-river, per-site condition lookups. A single physical
+ * gauge can be the primary for more than one river, each with its own
+ * editorial thresholds, so the condition map is keyed by river + site rather
+ * than by site alone (otherwise the rivers overwrite each other).
+ */
+export function condKey(riverId: string, siteId: string): string {
+  return `${riverId}::${siteId}`;
+}
+
 export function colorForCondition(c: ConditionCode | null | undefined): string {
   if (!c) return CONDITION_COLORS.unknown;
   return CONDITION_COLORS[c];
