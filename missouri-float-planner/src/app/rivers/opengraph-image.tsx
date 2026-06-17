@@ -1,12 +1,12 @@
-// src/app/gauges/opengraph-image.tsx
-// OG image for the gauges dashboard — Flood otter + "River Levels" in Fredoka coral
+// src/app/rivers/opengraph-image.tsx
+// OG image for the River Reports index — Flood otter + "River Reports" in Fredoka coral
 
 import { ImageResponse } from 'next/og';
 import { loadFredokaFont, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export const alt = 'River Levels — Real-time water levels on eddy.guide';
+export const alt = 'River Reports — Real-time river conditions on eddy.guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -96,7 +96,7 @@ export default async function Image() {
               marginBottom: 20,
             }}
           >
-            River Levels
+            River Reports
           </span>
 
           {/* Subtitle */}

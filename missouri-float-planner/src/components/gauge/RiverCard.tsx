@@ -93,7 +93,7 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
     levelDangerous: primaryThreshold.levelDangerous,
   };
 
-  const href = riverSlug ? `/gauges/${riverSlug}` : '#';
+  const href = riverSlug ? `/rivers/${riverSlug}` : '#';
 
   return (
     <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300">

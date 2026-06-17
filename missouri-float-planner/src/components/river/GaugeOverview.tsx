@@ -224,7 +224,7 @@ export default function GaugeOverview({
       {/* Full report link */}
       {riverSlug && (
         <Link
-          href={`/gauges/${riverSlug}`}
+          href={`/rivers/${riverSlug}`}
           className="flex items-center justify-center gap-1.5 mt-4 py-2.5 rounded-lg border border-primary-200 bg-primary-50 text-primary-700 text-sm font-semibold hover:bg-primary-100 transition-colors"
         >
           View full river report

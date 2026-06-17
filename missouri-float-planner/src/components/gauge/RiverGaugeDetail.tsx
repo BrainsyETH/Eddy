@@ -1,12 +1,14 @@
 'use client';
 
 // src/components/gauge/RiverGaugeDetail.tsx
-// Full-page river gauge detail view with tab switching between gauges
+// Embeddable "Current Conditions" panel for a river — gauge tabs, trend chart,
+// current reading, Eddy Says, and threshold table. Rendered inside the
+// canonical river hub at /rivers/[slug].
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
+import { ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
@@ -21,7 +23,6 @@ import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
-import SiteFooter from '@/components/ui/SiteFooter';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
@@ -235,7 +236,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   // Share handler
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/gauges/${riverSlug}`;
+    const shareUrl = `${window.location.origin}/rivers/${riverSlug}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.share) {
       try { await navigator.share({ url: shareUrl }); return; } catch { /* cancelled */ }
@@ -340,62 +341,36 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-neutral-50">
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-6 w-32 bg-neutral-200 rounded" />
-            <div className="h-10 w-72 bg-neutral-200 rounded" />
-            <div className="h-5 w-96 bg-neutral-200 rounded" />
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 mt-8">
-              <div className="h-64 bg-neutral-200 rounded-xl" />
-              <div className="space-y-4">
-                <div className="h-36 bg-neutral-200 rounded-xl" />
-                <div className="h-24 bg-neutral-200 rounded-xl" />
-              </div>
-            </div>
+      <section className="animate-pulse space-y-6">
+        <div className="h-7 w-48 bg-neutral-200 rounded" />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+          <div className="h-64 bg-neutral-200 rounded-xl" />
+          <div className="space-y-4">
+            <div className="h-36 bg-neutral-200 rounded-xl" />
+            <div className="h-24 bg-neutral-200 rounded-xl" />
           </div>
         </div>
-      </div>
+      </section>
     );
   }
 
   if (!riverGroup || !activeGauge) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-neutral-900 mb-2">River Not Found</h1>
-          <p className="text-neutral-600 mb-4">Could not find river &ldquo;{riverSlug}&rdquo;.</p>
-          <Link href="/gauges" className="text-primary-600 hover:text-primary-700 font-medium">
-            &larr; Back to all rivers
-          </Link>
-        </div>
-      </div>
+      <section className="bg-white border border-neutral-200 rounded-xl p-6 text-center">
+        <p className="text-sm text-neutral-600">
+          Live gauge data isn&apos;t available for this river right now.
+        </p>
+      </section>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
-        {/* Back link */}
-        <Link
-          href="/gauges"
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          All Rivers
-        </Link>
-
-        {/* Header */}
+    <section id="conditions" className="scroll-mt-24">
+        {/* Section heading */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm text-neutral-500">
-              {riverGroup.allGauges.length} gauge{riverGroup.allGauges.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          <h1 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-            {riverGroup.riverName}
-          </h1>
+          <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+            Current Conditions
+          </h2>
 
           <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
             <span>{activeGauge.name}</span>
@@ -625,7 +600,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2 mt-4 ml-0 sm:ml-[72px] sm:mt-3">
               <Link
-                href={`/rivers/${riverSlug}`}
+                href={`/plan?river=${riverSlug}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#163F4A] text-white text-xs font-semibold rounded-md hover:bg-[#1A4A57] transition-colors shadow-[2px_2px_0_#0F2D35]"
               >
                 Plan a Trip
@@ -661,26 +636,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             />
           </div>
         )}
-      </div>
-
-      {/* Cross-link: Plan a float */}
-      <div className="max-w-5xl mx-auto px-4 mt-8">
-        <div className="bg-primary-50 border border-primary-200 rounded-xl p-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="font-bold text-neutral-900 text-sm">Ready to float?</p>
-            <p className="text-xs text-neutral-600 mt-0.5">Plan a trip on the {riverGroup.riverName} with live conditions and access points.</p>
-          </div>
-          <Link
-            href={`/rivers/${riverSlug}`}
-            className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-colors hover:brightness-110"
-            style={{ backgroundColor: '#F07052' }}
-          >
-            Plan Your Float
-          </Link>
-        </div>
-      </div>
-
-      <SiteFooter maxWidth="max-w-5xl" className="mt-8" />
-    </div>
+    </section>
   );
 }

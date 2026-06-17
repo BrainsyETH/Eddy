@@ -58,7 +58,7 @@ export default async function Home() {
                   Plan Your Float
                 </Link>
                 <Link
-                  href="/gauges"
+                  href="/rivers"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
                   River Reports
@@ -93,7 +93,7 @@ export default async function Home() {
             Check River Levels
           </h2>
           <Link
-            href="/gauges"
+            href="/rivers"
             className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors no-underline"
           >
             View all rivers
@@ -155,7 +155,7 @@ export default async function Home() {
               return (
                 <Link
                   key={river.id}
-                  href={`/plan?river=${river.slug}`}
+                  href={`/rivers/${river.slug}`}
                   className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:border-neutral-300 hover:shadow-sm transition-all no-underline"
                 >
                   <span

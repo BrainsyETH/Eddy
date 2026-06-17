@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/server';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import RiverGuideIslands from './RiverGuideIslands';
+import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
+import SiteFooter from '@/components/ui/SiteFooter';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -339,6 +341,9 @@ export default async function RiverGuidePage({ params }: Props) {
         </section>
 
         <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+          {/* Current conditions — live gauges, trend, Eddy Says */}
+          <RiverGaugeDetail riverSlug={slug} />
+
           {/* Access points list */}
           {accessPoints && accessPoints.length > 0 && (
             <section className="bg-white border border-neutral-200 rounded-xl p-5 md:p-6">
@@ -403,6 +408,8 @@ export default async function RiverGuidePage({ params }: Props) {
             </Link>
           </div>
         </div>
+
+        <SiteFooter maxWidth="max-w-5xl" className="mt-12" />
       </div>
     </>
   );

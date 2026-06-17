@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { FloatPlan } from '@/types/api';
@@ -109,8 +110,17 @@ export default function SharedPlanPage() {
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
       {/* Plan title bar */}
-      <div className="flex-shrink-0 px-4 py-3 bg-white border-b-2 border-neutral-200 text-center">
-        <h1 className="text-lg font-bold text-neutral-900">Float Plan &middot; {plan.river.name}</h1>
+      <div className="flex-shrink-0 px-4 py-3 bg-white border-b-2 border-neutral-200">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+          <h1 className="text-lg font-bold text-neutral-900 truncate">Float Plan &middot; {plan.river.name}</h1>
+          <Link
+            href={`/plan?river=${plan.river.slug}`}
+            className="flex-shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-all hover:brightness-110"
+            style={{ backgroundColor: '#F07052' }}
+          >
+            Plan your own float
+          </Link>
+        </div>
       </div>
 
       {/* Plan Summary - full width on top */}
