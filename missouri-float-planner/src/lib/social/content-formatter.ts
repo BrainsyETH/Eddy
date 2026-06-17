@@ -354,7 +354,7 @@ export function formatSectionGuideCaption(
   // emphasized detail lines, so they're not duplicated in the caption.
   lines.push(`Float of the Day — ${section.riverName}`);
   lines.push('');
-  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs canoe`);
+  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs with no stops`);
   lines.push('');
 
   // Put-in / take-out are the emphasis. Camping flagged only where it exists.

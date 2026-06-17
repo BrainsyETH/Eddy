@@ -349,14 +349,6 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
             {dateLabel}
           </div>
         )}
-        {springs.length > 0 && (
-          <div style={{ opacity: dateEntrance, display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-            <div style={{ width: 13, height: 13, borderRadius: "50%", backgroundColor: SPRING_COLOR, boxShadow: `0 0 8px ${SPRING_COLOR}` }} />
-            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 17, color: "rgba(255,255,255,0.6)" }}>
-              Springs on the route
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ─── Float-time stamp (hero) ────────────────────────── */}
