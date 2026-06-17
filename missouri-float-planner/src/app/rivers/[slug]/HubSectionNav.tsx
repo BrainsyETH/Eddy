@@ -2,7 +2,8 @@
 
 // src/app/rivers/[slug]/HubSectionNav.tsx
 // Sticky in-page section nav for the river hub with scroll-spy + a persistent
-// "Plan this float" CTA. Mirrors the design's status/access/guide sub-bar.
+// "Plan this float" CTA. The "River guide" tab only appears when the river has
+// a published guide (blog).
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -13,19 +14,21 @@ const SECTIONS = [
   { id: 'guide', label: 'River guide' },
 ];
 
-export default function HubSectionNav({ planUrl }: { planUrl: string }) {
+export default function HubSectionNav({ planUrl, hasGuide = true }: { planUrl: string; hasGuide?: boolean }) {
   const [active, setActive] = useState('status');
+  const sections = hasGuide ? SECTIONS : SECTIONS.filter((s) => s.id !== 'guide');
 
   useEffect(() => {
+    const ids = (hasGuide ? SECTIONS : SECTIONS.filter((s) => s.id !== 'guide')).map((s) => s.id);
     let ticking = false;
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        let current = SECTIONS[0].id;
-        for (const s of SECTIONS) {
-          const el = document.getElementById(s.id);
-          if (el && el.getBoundingClientRect().top <= 160) current = s.id;
+        let current = ids[0];
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top <= 160) current = id;
         }
         setActive(current);
         ticking = false;
@@ -34,13 +37,13 @@ export default function HubSectionNav({ planUrl }: { planUrl: string }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [hasGuide]);
 
   return (
     <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200">
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between gap-3 py-2">
         <nav className="flex gap-1 overflow-x-auto">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <a
               key={s.id}
               href={`#${s.id}`}
