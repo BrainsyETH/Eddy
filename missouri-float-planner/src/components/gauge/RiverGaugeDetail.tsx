@@ -365,14 +365,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   }
 
   return (
-    <section id="conditions" className="scroll-mt-28">
-        {/* Section heading */}
-        <div className="mb-6">
-          <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-            Current Conditions
-          </h2>
-
-          <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
+    <div>
+        {/* Gauge meta */}
+        <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500 mb-5">
             <span>{activeGauge.name}</span>
             <span className="text-neutral-300">&middot;</span>
             <a
@@ -414,33 +409,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               </button>
             </div>
           </div>
-        </div>
-
-        {/* At-a-glance status */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="bg-white border border-neutral-200 rounded-lg px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 mb-1">Condition</div>
-            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-white ${condition.tailwindColor}`}>
-              {condition.label}
-            </span>
-          </div>
-          <div className="bg-white border border-neutral-200 rounded-lg px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 mb-1">Current level</div>
-            <div className="text-base font-bold text-neutral-900 tabular-nums">
-              {latestValue != null
-                ? `${effectiveUnit === 'cfs' ? latestValue.toLocaleString() : latestValue.toFixed(1)} ${effectiveUnit}`
-                : '—'}
-            </div>
-          </div>
-          <div className="bg-white border border-neutral-200 rounded-lg px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 mb-1">Optimal</div>
-            <div className="text-base font-bold text-neutral-900 tabular-nums">
-              {activeThreshold?.levelOptimalMin != null && activeThreshold?.levelOptimalMax != null
-                ? `${activeThreshold.levelOptimalMin}–${activeThreshold.levelOptimalMax} ${activeThreshold.thresholdUnit}`
-                : '—'}
-            </div>
-          </div>
-        </div>
 
         {/* Gauge Tab Bar */}
         {tabs.length > 1 && (
@@ -662,6 +630,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             />
           </div>
         )}
-    </section>
+    </div>
   );
 }
