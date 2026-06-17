@@ -1,71 +1,28 @@
 // src/app/rivers/page.tsx
-// Rivers index page - browse all supported rivers (server-rendered)
+// River Reports — the canonical, status-first river index. Server-rendered hero
+// (with Eddy's cross-river summary) wrapping the live conditions dashboard.
 
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import { Suspense } from 'react';
 import SiteFooter from '@/components/ui/SiteFooter';
-import RiverCardGrid from '@/components/river/RiverCardGrid';
-import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
+import EmailSignup from '@/components/ui/EmailSignup';
+import RiverReportsGrid from '@/components/gauge/RiverReportsGrid';
+import { EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import { getRivers } from '@/lib/data/rivers';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 export const revalidate = 300; // ISR every 5 minutes
 
 export const metadata: Metadata = {
-  title: 'Float Rivers',
-  description: 'Browse all supported rivers with live conditions, access points, and float planning tools. Check real-time water levels before your next float trip.',
+  title: 'River Reports',
+  description: 'Live USGS conditions for every Missouri float river — water levels, flow trends, and Eddy\'s float report. Check real-time levels before your next float.',
 };
-
-// Curated hero images for each river (Unsplash, free to use)
-const RIVER_HERO_IMAGES: Record<string, string> = {
-  'meramec': '/blog/planning-first-trip/01-hero-missouri-river-float.png',
-  'current': '/blog/planning-first-trip/07-missouri-river-bluffs.png',
-  'eleven-point': '/blog/planning-first-trip/04-missouri-river-campsite.png',
-  'jacks-fork': '/blog/planning-first-trip/06-friends-floating-missouri-river.png',
-  'niangua': 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&q=80',
-  'big-piney': 'https://images.unsplash.com/photo-1414609245224-afa02bfb3fda?w=800&q=80',
-  'huzzah': 'https://images.unsplash.com/photo-1469521669194-babb45599def?w=800&q=80',
-  'courtois': 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&q=80',
-};
-
-// Brief descriptions for each river
-const RIVER_DESCRIPTIONS: Record<string, string> = {
-  'meramec': 'One of the longest free-flowing rivers in the region, winding through scenic bluffs and popular with paddlers of all levels.',
-  'current': 'A National Scenic Riverway fed by massive springs, known for crystal-clear water and excellent floating year-round.',
-  'eleven-point': 'A designated National Scenic River offering remote floating through the Mark Twain National Forest.',
-  'jacks-fork': 'A spring-fed tributary of the Current River within the National Scenic Riverways, great for shorter float trips.',
-  'niangua': 'A scenic stream known for leisurely summer floats and beautiful surroundings.',
-  'big-piney': 'A beautiful river with Class I-II rapids, bluffs, and a remote feel — excellent for intermediate paddlers.',
-  'huzzah': 'A smaller, spring-fed stream in the Meramec basin known for quick floats and family-friendly conditions.',
-  'courtois': 'A tributary of the Huzzah, offering intimate floating through wooded hills with relatively consistent water levels.',
-};
-
-async function getRiverImages(riverIds: string[]): Promise<Record<string, string>> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from('access_points')
-    .select('river_id, image_urls')
-    .in('river_id', riverIds)
-    .eq('approved', true)
-    .not('image_urls', 'eq', '{}');
-
-  const images: Record<string, string> = {};
-  for (const row of data || []) {
-    if (!images[row.river_id] && row.image_urls?.length > 0) {
-      images[row.river_id] = row.image_urls[0];
-    }
-  }
-  return images;
-}
 
 export default async function RiversPage() {
   const rivers = await getRivers();
 
-  // Fetch one representative image per river from access points
-  const riverImages = await getRiverImages(rivers.map(r => r.id));
-
-  // Build Eddy's summary across all rivers
+  // Build Eddy's summary across all rivers (server-side, from current conditions)
   const conditionCodes = rivers.map(r => r.currentCondition?.code ?? null);
   const eddySummary = buildRiversSummary(conditionCodes);
 
@@ -96,7 +53,7 @@ export default async function RiversPage() {
                 className="text-2xl md:text-4xl font-bold mb-1"
                 style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
               >
-                Float Rivers
+                River Reports
               </h1>
               <p className="text-sm md:text-base text-white/70 max-w-md">
                 {eddySummary}
@@ -106,28 +63,20 @@ export default async function RiversPage() {
         </div>
       </section>
 
-      {/* River Cards with Filters */}
+      {/* Live conditions dashboard (filter + search + per-river cards) */}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
-        <RiverCardGrid
-          rivers={rivers.map((river) => ({
-            id: river.id,
-            slug: river.slug,
-            name: river.name,
-            conditionCode: river.currentCondition?.code,
-            conditionColor: river.currentCondition?.code ? CONDITION_COLORS[river.currentCondition.code] : '#9ca3af',
-            conditionLabel: river.currentCondition?.code ? CONDITION_LABELS[river.currentCondition.code] : 'Unknown',
-            description: RIVER_DESCRIPTIONS[river.slug] || river.description,
-            imageUrl: riverImages[river.id] || RIVER_HERO_IMAGES[river.slug],
-            lengthMiles: river.lengthMiles,
-            accessPointCount: river.accessPointCount,
-            region: river.region,
-            difficultyRating: river.difficultyRating,
-          }))}
-        />
+        <Suspense fallback={<div className="h-48 rounded-xl bg-white border border-neutral-200 animate-pulse" />}>
+          <RiverReportsGrid />
+        </Suspense>
 
-        {/* Info box */}
-        <div className="mt-8 bg-primary-50 border border-primary-200 rounded-xl p-6">
-          <h3 className="text-base font-bold text-neutral-900 mb-2">About These Rivers</h3>
+        {/* Email signup CTA */}
+        <div className="mt-8 bg-white border border-neutral-200 rounded-xl p-6">
+          <EmailSignup variant="light" source="rivers" />
+        </div>
+
+        {/* Data attribution */}
+        <div className="mt-4 bg-primary-50 border border-primary-200 rounded-xl p-6">
+          <h3 className="text-base font-bold text-neutral-900 mb-2">About This Data</h3>
           <p className="text-sm text-neutral-700">
             All condition data is provided by the <strong>United States Geological Survey (USGS)</strong> through
             their Water Services API. Readings are updated hourly and typically lag real-time conditions by

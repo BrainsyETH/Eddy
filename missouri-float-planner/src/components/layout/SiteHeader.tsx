@@ -23,7 +23,7 @@ const NAV_ITEMS: NavItem[] = [
     matches: (p) => p === '/plan' || p.startsWith('/plan/'),
   },
   {
-    href: '/gauges',
+    href: '/rivers',
     label: 'River Reports',
     // River Reports owns both the live conditions dashboard (/gauges) and the
     // river browse/guide surfaces (/rivers), so browsing a river no longer

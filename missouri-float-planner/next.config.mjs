@@ -27,6 +27,12 @@ const nextConfig = {
     // search engines, equivalent to 301 for ranking transfer). Query params
     // not in destination are forwarded automatically.
     return [
+      // River Reports consolidated from /gauges onto the canonical /rivers index.
+      {
+        source: '/gauges',
+        destination: '/rivers',
+        permanent: true,
+      },
       {
         source: '/rivers/:slug',
         has: [{ type: 'query', key: 'putIn' }],
