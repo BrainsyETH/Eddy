@@ -135,7 +135,7 @@ export default function GaugesPage() {
                 className="text-2xl md:text-4xl font-bold mb-1"
                 style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
               >
-                River Levels
+                River Reports
               </h1>
               <p className="text-sm md:text-base text-white/70 max-w-md">
                 Real-time USGS gauge data for Missouri float rivers.
