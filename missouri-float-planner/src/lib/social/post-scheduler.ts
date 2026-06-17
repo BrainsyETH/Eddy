@@ -442,8 +442,13 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   return { posts, diagnostics: diag };
 }
 
-// Check if a river's scheduled Central Time falls within the current 30-min window
-function isDueNow(scheduledTimeCst: string, windowMinutes: number = 30): boolean {
+// True when the scheduled Central time falls within the current fire window.
+// The window (35 min) is intentionally a touch wider than the 30-min cron
+// interval, so a time that lands exactly on a cron boundary (e.g. 07:00 →
+// 12:00 UTC) still fires off the NEXT tick (diff = 30) when Vercel drops or
+// delays the on-time tick. hasPostedToday() dedups, so the wider window can
+// never double-post — it only ever catches an otherwise-missed run.
+function isDueNow(scheduledTimeCst: string, windowMinutes: number = 35): boolean {
   const nowCstMinutes = getCentralMinutes();
 
   const [schedH, schedM] = scheduledTimeCst.split(':').map(Number);
