@@ -132,9 +132,17 @@ export async function listAllSections(
   for (const row of data as any[]) {
     const slug: string | undefined = row.rivers?.slug;
     if (!slug) continue;
+    const types: string[] = Array.isArray(row.types) ? row.types : [];
+    // Endpoints must be reachable by car. Float camps (type campground /
+    // float_camp with no 'access' marker) are river-access-only — you can't get
+    // a car there to put in or take out — so they're excluded as endpoints.
+    // We key off the access marker, not the name: "Boze Mill Float Camp" is
+    // actually type 'access' and IS a valid take-out.
+    const carAccessible =
+      row.type === 'access' || types.includes('access') || types.includes('boat_ramp');
+    if (!carAccessible) continue;
     const entry: { name: string; access: AccessRow[] } =
       byRiver.get(slug) || { name: row.rivers?.name || slug, access: [] };
-    const types: string[] = Array.isArray(row.types) ? row.types : [];
     entry.access.push({
       name: cleanName(row.name),
       mile: Number(row.river_mile_downstream),
