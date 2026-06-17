@@ -11,11 +11,9 @@ import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
-import RiverGuideIslands from './RiverGuideIslands';
 import RiverHubMap from './RiverHubMap';
 import RiverHeroStats from './RiverHeroStats';
 import HubSectionNav from './HubSectionNav';
-import RiverGuideDisclosure from './RiverGuideDisclosure';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
 
@@ -156,7 +154,7 @@ export default async function RiverGuidePage({ params }: Props) {
       .single(),
     supabase
       .from('blog_posts')
-      .select('slug, title')
+      .select('slug, title, description, featured_image_url')
       .eq('river_slug', slug)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
@@ -323,12 +321,14 @@ export default async function RiverGuidePage({ params }: Props) {
                     Plan a Float on the {river.name}
                     <ArrowRight className="w-5 h-5" />
                   </Link>
-                  <a
-                    href="#guide"
-                    className="inline-flex items-center px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors no-underline"
-                  >
-                    River Guide
-                  </a>
+                  {guidePost && (
+                    <Link
+                      href={`/blog/${guidePost.slug}`}
+                      className="inline-flex items-center px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors no-underline"
+                    >
+                      River Guide
+                    </Link>
+                  )}
                 </div>
 
                 {/* Meta */}
@@ -374,7 +374,7 @@ export default async function RiverGuidePage({ params }: Props) {
         </section>
 
         {/* ===== Sticky section nav + persistent CTA ===== */}
-        <HubSectionNav planUrl={planUrl} />
+        <HubSectionNav planUrl={planUrl} hasGuide={!!guidePost} />
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
           {/* ===== Live report ===== */}
@@ -450,28 +450,41 @@ export default async function RiverGuidePage({ params }: Props) {
             )}
           </section>
 
-          {/* ===== River guide (progressive disclosure) ===== */}
-          <section id="guide" className="scroll-mt-24 pt-12">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-3" style={{ fontFamily: 'var(--font-display)' }}>
-              River guide
-            </h2>
-            <RiverGuideDisclosure>
-              <RiverGuideIslands riverSlug={slug} />
-              {guidePost && (
-                <Link
-                  href={`/blog/${guidePost.slug}`}
-                  className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
-                >
-                  <p className="text-sm font-semibold text-neutral-900">
-                    Read the full {river.name} Float Trip Guide →
-                  </p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    Best floats, access points, outfitters, and everything you need to know.
-                  </p>
-                </Link>
-              )}
-            </RiverGuideDisclosure>
-          </section>
+          {/* ===== River guide (blog) ===== */}
+          {guidePost && (
+            <section id="guide" className="scroll-mt-24 pt-12">
+              <h2 className="text-2xl font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
+                River guide
+              </h2>
+              <Link
+                href={`/blog/${guidePost.slug}`}
+                className="group block overflow-hidden rounded-2xl border border-neutral-200 bg-white hover:shadow-md hover:border-neutral-300 transition-all no-underline"
+              >
+                {(guidePost.featured_image_url || heroImage) && (
+                  <div className="relative h-52 md:h-64 overflow-hidden bg-neutral-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={guidePost.featured_image_url || heroImage || ''}
+                      alt={guidePost.title}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                    />
+                  </div>
+                )}
+                <div className="p-5 md:p-6">
+                  <div className="text-lg md:text-xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+                    {guidePost.title}
+                  </div>
+                  {guidePost.description && (
+                    <p className="text-sm text-neutral-600 leading-relaxed line-clamp-2">{guidePost.description}</p>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold text-primary-600 group-hover:gap-2.5 transition-all">
+                    Read the full {river.name} guide
+                    <ArrowRight className="w-4 h-4" />
+                  </span>
+                </div>
+              </Link>
+            </section>
+          )}
         </main>
 
         <SiteFooter maxWidth="max-w-5xl" className="mt-12" />

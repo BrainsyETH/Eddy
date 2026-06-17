@@ -61,7 +61,9 @@ export default function RiverReportsGrid() {
     if (riverGroups.length === 0) return;
     const timeout = setTimeout(() => {
       const siteIds = riverGroups.slice(0, 9).map(g => g.primaryGauge.usgsSiteId);
-      prefetchHistory(siteIds, 3);
+      // Match the 14-day window the cards render so the prefetch warms the same
+      // React Query cache key (and coalesces into one request per gauge).
+      prefetchHistory(siteIds, 14);
     }, 1000);
     return () => clearTimeout(timeout);
   }, [riverGroups, prefetchHistory]);
