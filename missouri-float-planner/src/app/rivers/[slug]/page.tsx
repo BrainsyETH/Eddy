@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import RiverGuideIslands from './RiverGuideIslands';
+import RiverHubMap from './RiverHubMap';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
 
@@ -340,72 +341,159 @@ export default async function RiverGuidePage({ params }: Props) {
           </div>
         </section>
 
-        <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-          {/* Current conditions — live gauges, trend, Eddy Says */}
-          <RiverGaugeDetail riverSlug={slug} />
+        {/* Sticky section nav */}
+        <nav className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200">
+          <div className="max-w-5xl mx-auto px-4">
+            <div className="flex gap-1 overflow-x-auto">
+              {[
+                { href: '#conditions', label: 'Conditions' },
+                { href: '#access', label: 'Access Points' },
+                { href: '#map', label: 'Map' },
+                { href: '#services', label: 'Services' },
+              ].map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="whitespace-nowrap px-3 py-3 text-sm font-semibold text-neutral-600 hover:text-neutral-900 border-b-2 border-transparent hover:border-primary-400 transition-colors no-underline"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </nav>
 
-          {/* Access points list */}
-          {accessPoints && accessPoints.length > 0 && (
-            <section className="bg-white border border-neutral-200 rounded-xl p-5 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-                  Access Points
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+            {/* Main column */}
+            <div className="space-y-6 min-w-0">
+              {/* Current conditions — live gauges, trend, Eddy Says */}
+              <RiverGaugeDetail riverSlug={slug} />
+
+              {/* Overview map */}
+              <section id="map" className="scroll-mt-28">
+                <h2 className="text-lg font-bold text-neutral-900 mb-3" style={{ fontFamily: 'var(--font-display)' }}>
+                  Map
                 </h2>
-                <span className="text-xs text-neutral-500">{accessPoints.length} on river</span>
-              </div>
-              <p className="text-sm text-neutral-600 mb-4">
-                Tap any access point to start a float plan from there.
-              </p>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {accessPoints.map((ap) => (
-                  <li key={ap.id}>
-                    <Link
-                      href={`/plan?river=${slug}&putIn=${ap.id}`}
-                      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 bg-neutral-50 hover:bg-primary-50 hover:border-primary-300 transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-neutral-900 text-sm truncate">{ap.name}</div>
-                        {ap.river_mile_downstream != null && (
-                          <div className="text-[11px] text-neutral-500">
-                            Mile {parseFloat(ap.river_mile_downstream).toFixed(1)}
+                <RiverHubMap riverSlug={slug} />
+              </section>
+
+              {/* Access points list */}
+              {accessPoints && accessPoints.length > 0 && (
+                <section id="access" className="scroll-mt-28 bg-white border border-neutral-200 rounded-xl p-5 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                      Access Points
+                    </h2>
+                    <span className="text-xs text-neutral-500">{accessPoints.length} on river</span>
+                  </div>
+                  <p className="text-sm text-neutral-600 mb-4">
+                    Tap any access point to start a float plan from there.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {accessPoints.map((ap) => (
+                      <li key={ap.id}>
+                        <Link
+                          href={`/plan?river=${slug}&putIn=${ap.id}`}
+                          className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 bg-neutral-50 hover:bg-primary-50 hover:border-primary-300 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-semibold text-neutral-900 text-sm truncate">{ap.name}</div>
+                            {ap.river_mile_downstream != null && (
+                              <div className="text-[11px] text-neutral-500">
+                                Mile {parseFloat(ap.river_mile_downstream).toFixed(1)}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <ArrowRight className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {/* Live data islands (visuals + nearby services) */}
+              <div id="services" className="scroll-mt-28">
+                <RiverGuideIslands riverSlug={slug} />
+              </div>
+
+              {/* Blog cross-link */}
+              {guidePost && (
+                <Link
+                  href={`/blog/${guidePost.slug}`}
+                  className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
+                >
+                  <p className="text-sm font-semibold text-neutral-900">
+                    Read the full {river.name} Float Trip Guide →
+                  </p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Best floats, access points, outfitters, and everything you need to know.
+                  </p>
+                </Link>
+              )}
+
+              {/* Secondary CTA */}
+              <div className="text-center pt-2">
+                <Link
+                  href={planUrl}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors"
+                >
+                  Open the planner
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Sticky status + action rail (desktop) */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-28 space-y-4">
+                <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-2">
+                    Current condition
+                  </div>
+                  <span
+                    className="inline-block px-3 py-1.5 rounded-md text-sm font-bold text-white"
+                    style={{ backgroundColor: conditionColor }}
+                  >
+                    {conditionLabel}
+                  </span>
+
+                  <div className="mt-4 space-y-2 text-sm text-neutral-600 border-t border-neutral-100 pt-4">
+                    {lengthMiles && (
+                      <div className="flex items-center gap-2">
+                        <Ruler className="w-4 h-4 text-neutral-400" /> {lengthMiles.toFixed(1)} miles
                       </div>
-                      <ArrowRight className="w-4 h-4 text-neutral-400 flex-shrink-0" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+                    )}
+                    {river.difficulty_rating && (
+                      <div className="flex items-center gap-2">
+                        <Mountain className="w-4 h-4 text-neutral-400" /> {river.difficulty_rating}
+                      </div>
+                    )}
+                    {river.region && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-neutral-400" /> {river.region}
+                      </div>
+                    )}
+                  </div>
 
-          {/* Live data islands (visuals + nearby services) */}
-          <RiverGuideIslands riverSlug={slug} />
-
-          {/* Blog cross-link */}
-          {guidePost && (
-            <Link
-              href={`/blog/${guidePost.slug}`}
-              className="block bg-primary-50 rounded-xl border border-primary-100 p-4 hover:bg-primary-100 transition-colors"
-            >
-              <p className="text-sm font-semibold text-neutral-900">
-                Read the full {river.name} Float Trip Guide →
-              </p>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                Best floats, access points, outfitters, and everything you need to know.
-              </p>
-            </Link>
-          )}
-
-          {/* Secondary CTA */}
-          <div className="text-center pt-2">
-            <Link
-              href={planUrl}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors"
-            >
-              Open the planner
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+                  <Link
+                    href={planUrl}
+                    className="mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white no-underline transition-all hover:brightness-110"
+                    style={{ backgroundColor: '#F07052' }}
+                  >
+                    Plan this float
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <a
+                    href="#conditions"
+                    className="mt-2 block text-center text-sm font-medium text-primary-600 hover:text-primary-700 no-underline"
+                  >
+                    View live conditions
+                  </a>
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
 
