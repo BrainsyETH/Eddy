@@ -6,7 +6,6 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { Suspense } from 'react';
 import SiteFooter from '@/components/ui/SiteFooter';
-import EmailSignup from '@/components/ui/EmailSignup';
 import RiverReportsGrid from '@/components/gauge/RiverReportsGrid';
 import { EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
@@ -69,13 +68,8 @@ export default async function RiversPage() {
           <RiverReportsGrid />
         </Suspense>
 
-        {/* Email signup CTA */}
-        <div className="mt-8 bg-white border border-neutral-200 rounded-xl p-6">
-          <EmailSignup variant="light" source="rivers" />
-        </div>
-
         {/* Data attribution */}
-        <div className="mt-4 bg-primary-50 border border-primary-200 rounded-xl p-6">
+        <div className="mt-8 bg-primary-50 border border-primary-200 rounded-xl p-6">
           <h3 className="text-base font-bold text-neutral-900 mb-2">About This Data</h3>
           <p className="text-sm text-neutral-700">
             All condition data is provided by the <strong>United States Geological Survey (USGS)</strong> through

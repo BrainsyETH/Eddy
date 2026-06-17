@@ -2,7 +2,6 @@
 // Shared footer component used across all pages — multi-column layout
 
 import Link from 'next/link';
-import EmailSignup from './EmailSignup';
 
 interface SiteFooterProps {
   /** Show the safety disclaimer block above the footer text */
@@ -68,11 +67,6 @@ export default function SiteFooter({
               <li><Link href="/privacy" className="text-primary-200 hover:text-white transition-colors">Privacy Policy</Link></li>
             </ul>
           </div>
-        </div>
-
-        {/* Email signup */}
-        <div className="mb-6 border-t border-primary-600/30 pt-6">
-          <EmailSignup variant="dark" />
         </div>
 
         <div className="border-t border-primary-600/30 pt-4 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-primary-300">
