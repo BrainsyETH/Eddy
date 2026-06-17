@@ -1,44 +1,17 @@
 // src/app/gauges/[slug]/page.tsx
-// Dual-mode route: handles both numeric USGS siteId (redirects to river) and river slugs (renders detail)
+// Legacy gauge detail route. River conditions now live on the canonical river
+// hub at /rivers/[slug], so this route permanently redirects there:
+//   • river slug    → /rivers/<slug>
+//   • USGS site id  → /rivers/<primary river slug for that gauge>
+// A numeric site id with no associated river falls back to the standalone
+// single-gauge view.
 
-import { redirect } from 'next/navigation';
+import { permanentRedirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { Metadata } from 'next';
 import GaugeDetailView from '@/components/gauge/GaugeDetailView';
-import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 
 interface Props {
   params: Promise<{ slug: string }>;
-}
-
-async function getGaugeData(siteId: string) {
-  try {
-    const supabase = createAdminClient();
-    const { data: station } = await supabase
-      .from('gauge_stations')
-      .select('id, usgs_site_id, name')
-      .eq('usgs_site_id', siteId)
-      .eq('active', true)
-      .single();
-    return station;
-  } catch {
-    return null;
-  }
-}
-
-async function getRiverData(slug: string) {
-  try {
-    const supabase = createAdminClient();
-    const { data: river } = await supabase
-      .from('rivers')
-      .select('id, name, slug')
-      .eq('slug', slug)
-      .eq('active', true)
-      .single();
-    return river;
-  } catch {
-    return null;
-  }
 }
 
 async function getPrimaryRiverSlugForGauge(siteId: string): Promise<string | null> {
@@ -69,59 +42,17 @@ async function getPrimaryRiverSlugForGauge(siteId: string): Promise<string | nul
   }
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-
-  if (/^\d+$/.test(slug)) {
-    // Numeric = USGS site ID
-    const station = await getGaugeData(slug);
-    const name = station?.name || `Gauge ${slug}`;
-    return {
-      title: `${name} | Eddy`,
-      description: `Real-time water levels and flow data for ${name}. Current gauge height, discharge (CFS), and conditions.`,
-      openGraph: {
-        title: `${name} | Eddy`,
-        description: `Real-time water levels and flow data for ${name}.`,
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: `${name} | Eddy`,
-        description: `Real-time water levels and flow data for ${name}.`,
-      },
-    };
-  }
-
-  // Alphabetic = river slug
-  const river = await getRiverData(slug);
-  const name = river?.name || slug;
-  return {
-    title: `${name} River Levels | Eddy`,
-    description: `Real-time gauge data and conditions for ${name}. View current water levels, flow trends, and Eddy's float report.`,
-    openGraph: {
-      title: `${name} River Levels | Eddy`,
-      description: `Real-time gauge data and conditions for ${name}.`,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: `${name} River Levels | Eddy`,
-      description: `Real-time gauge data and conditions for ${name}.`,
-    },
-  };
-}
-
 export default async function GaugeSlugPage({ params }: Props) {
   const { slug } = await params;
 
+  // Numeric = USGS site id → send to that gauge's river hub
   if (/^\d+$/.test(slug)) {
-    // Numeric = USGS site ID — redirect to river page
     const riverSlug = await getPrimaryRiverSlugForGauge(slug);
-    if (riverSlug) {
-      redirect(`/gauges/${riverSlug}`);
-    }
-    // Fallback: render individual gauge detail if no river found
+    if (riverSlug) permanentRedirect(`/rivers/${riverSlug}`);
+    // Orphan gauge with no associated river — keep the standalone gauge view.
     return <GaugeDetailView siteId={slug} />;
   }
 
-  // River slug — render river gauge detail
-  return <RiverGaugeDetail riverSlug={slug} />;
+  // River slug → canonical river hub (conditions render inline there)
+  permanentRedirect(`/rivers/${slug}`);
 }

@@ -89,7 +89,7 @@ export default function FeaturedRivers() {
 
 function FeaturedCard({ river }: { river: RiverGroup }) {
   const { riverName, riverSlug, condition, primaryGauge, primaryThreshold } = river;
-  const href = riverSlug ? `/gauges/${riverSlug}` : '#';
+  const href = riverSlug ? `/rivers/${riverSlug}` : '#';
 
   // Fetch Eddy update for this river
   const [eddyText, setEddyText] = useState<string | null>(null);
