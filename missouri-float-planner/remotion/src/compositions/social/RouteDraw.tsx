@@ -274,7 +274,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
 
         {/* Put-in lane — above the route, centered, cleaned + truncated name */}
         <EndpointRow
-          top={putIn[1] - (isPortrait ? 124 : 90)}
+          top={putIn[1] - (isPortrait ? 150 : 112)}
           tag="Put-in"
           name={cleanName(putInName)}
           mile={putInMile}
@@ -437,7 +437,10 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
  *  Mark Twain National Forest"). Keep the first clause and cap on a word
  *  boundary so the label fits one line and never overruns the graphic. */
 function cleanName(s: string): string {
-  let t = (s || "").split(/[,.]/)[0].trim().replace(/\s+/g, " ");
+  // Names arrive pre-cleaned (first clause) from the picker; just cap length so
+  // long ones don't overrun. We deliberately don't re-split on punctuation here,
+  // which would re-break names like "Hwy. 76 Bridge".
+  let t = (s || "").trim().replace(/\s+/g, " ");
   if (t.length > 26) {
     t = t.slice(0, 26);
     const sp = t.lastIndexOf(" ");
