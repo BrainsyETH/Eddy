@@ -89,8 +89,8 @@ export default async function Home() {
 
             {/* Eddy mascot + live quote bubble */}
             <div className="relative flex flex-col items-center gap-5 md:block md:min-h-[380px]">
-              {/* Otter — above the bubble on mobile, behind/below it on desktop */}
-              <div className="order-1 md:order-none flex justify-center md:absolute md:bottom-0 md:right-0">
+              {/* Otter — below the bubble so the caret points down at Eddy */}
+              <div className="order-2 md:order-none flex justify-center md:absolute md:bottom-0 md:right-0">
                 <Image
                   src={EDDY_CANOE}
                   alt="Eddy the Otter"
@@ -101,7 +101,7 @@ export default async function Home() {
                 />
               </div>
               {/* Live quote bubble */}
-              <div className="order-2 md:order-none w-full max-w-sm md:max-w-none md:absolute md:top-0 md:left-0 md:right-12 z-20">
+              <div className="order-1 md:order-none w-full max-w-sm md:max-w-none md:absolute md:top-0 md:left-0 md:right-12 z-20">
                 <EddyHeroBubble />
               </div>
             </div>
