@@ -605,7 +605,6 @@ export function RightRail({
   river,
   primaryGauge,
   primaryHistory,
-  hoveredGauge,
   focusedGauge,
   focusedGaugeVerdict,
   campground,
@@ -619,7 +618,6 @@ export function RightRail({
   river: MORiver | null;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
-  hoveredGauge: MoStatewideGauge | null;
   focusedGauge: MoStatewideGauge | null;
   /** Editorial-thresholds verdict computed in the parent. Falls back to
    *  the percentile/USGS label when null (e.g. statewide gauges with no
@@ -646,9 +644,6 @@ export function RightRail({
         onClose={onCloseGauge ?? onClose}
       />
     );
-  }
-  if (hoveredGauge && !river) {
-    return <GaugeHover gauge={hoveredGauge} />;
   }
   if (campground) {
     return <CampgroundCard campground={campground} onClose={onClose} />;
@@ -893,63 +888,6 @@ function RiverCard({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function GaugeHover({ gauge }: { gauge: MoStatewideGauge }) {
-  const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
-  const history = useHistory(gauge.site_no);
-  return (
-    <div
-      className="absolute right-3 z-20 w-[300px] rounded-md border-2 p-3"
-      style={{ ...RAIL_BASE_STYLE, top: 96 }}
-    >
-      <div
-        className="uppercase font-bold"
-        style={{
-          fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.15em', color: THEME.inkDim,
-        }}
-      >
-        USGS #{gauge.site_no}
-      </div>
-      <div className="mt-1 font-bold leading-tight" style={{ fontSize: 14, color: THEME.ink }}>
-        {gauge.river_name}
-      </div>
-      {cls && gauge.percentile != null ? (
-        <div
-          className="mt-2 inline-flex items-center gap-2 rounded-md px-2.5 py-1"
-          style={{
-            background: cls.color, color: '#FAF8F4',
-            fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-          }}
-        >
-          <span>P{Math.round(gauge.percentile)}</span>
-          <span style={{ opacity: 0.85, fontWeight: 500 }}>{cls.label}</span>
-        </div>
-      ) : null}
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <KV label="Flow"
-          value={gauge.dischargeCfs != null ? `${Math.round(gauge.dischargeCfs)}` : '—'} sub="cfs" />
-        <KV label="Stage"
-          value={gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)}` : '—'} sub="ft" />
-      </div>
-      {history && (
-        <div
-          className="mt-2 rounded-md border-2 p-2"
-          style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}
-        >
-          <Sparkline history={history} width={280} height={64} />
-        </div>
-      )}
-      <div
-        className="mt-1.5 uppercase"
-        style={{
-          fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.05em', color: THEME.inkDim,
-        }}
-      >
-        Click to lock detail panel →
-      </div>
     </div>
   );
 }
@@ -1842,10 +1780,11 @@ export function DetailModal({
 
 // ─── Hover overlay ──────────────────────────────────────────────────────
 //
-// Small floating card pinned to the hovered gauge. Same Eddy report the
-// rail uses, just compact: avatar + verdict badge + summary + source line.
-// Renders nothing when no report exists (statewide gauges, non-curated
-// rivers) so hovering them stays quiet.
+// Small floating card pinned to the hovered gauge. When Eddy has a report
+// for the gauge it shows the avatar + verdict badge + summary + source line;
+// otherwise it falls back to a compact live-reading card (verdict + flow/
+// stage) so every gauge gives feedback on hover. This is the single hover
+// affordance — the right rail only opens on click (GaugeDetail).
 
 const OVERLAY_W = 360;
 const OVERLAY_GAP = 18;
@@ -1853,20 +1792,31 @@ const OVERLAY_GAP = 18;
 export function GaugeHoverOverlay({
   gauge,
   gaugeName,
+  verdict: verdictCode,
   pos,
 }: {
   gauge: MoStatewideGauge | null;
   /** USGS station name like "Current River near Van Buren MO". */
   gaugeName: string | null;
+  /** Editorial condition for this gauge, used for the fallback card when
+   *  Eddy has no written report yet. */
+  verdict: StageVerdict | null;
   pos: { x: number; y: number } | null;
 }) {
   const report = useGaugeRailReport(gauge);
 
-  if (!gauge || !pos || !report) return null;
+  if (!gauge || !pos) return null;
 
-  const verdict = STAGE_VERDICTS[report.conditionCode as StageVerdict] ?? STAGE_VERDICTS.unknown;
-  const eddyImg = getEddyImageForCondition(report.conditionCode);
+  // Prefer Eddy's written report; fall back to the live reading + editorial
+  // condition while the report is loading or when none exists.
+  const conditionCode = report ? report.conditionCode : verdictCode ?? 'unknown';
+  const verdict = STAGE_VERDICTS[conditionCode as StageVerdict] ?? STAGE_VERDICTS.unknown;
+  const eddyImg = getEddyImageForCondition(conditionCode);
   const place = extractPlace(gaugeName);
+  const readingLine = [
+    gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : null,
+    gauge.dischargeCfs != null ? `${Math.round(gauge.dischargeCfs)} cfs` : null,
+  ].filter(Boolean).join(' · ') || 'No live reading';
 
   // Anchor: prefer right of the marker, flip if it would clip; same for top.
   const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024;
@@ -1902,7 +1852,7 @@ export function GaugeHoverOverlay({
               className="uppercase font-bold"
               style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
             >
-              Eddy says
+              {report ? 'Eddy says' : 'Live reading'}
             </span>
             <span
               style={{
@@ -1920,14 +1870,14 @@ export function GaugeHoverOverlay({
               {verdict.label}
             </span>
           </div>
-          {report.summaryText && (
-            <p
-              className="mt-1.5 leading-snug"
-              style={{ fontSize: 13.5, fontWeight: 600, color: THEME.primaryDark }}
-            >
-              {report.summaryText.replace(/^["“]|["”]$/g, '')}
-            </p>
-          )}
+          <p
+            className="mt-1.5 leading-snug"
+            style={{ fontSize: 13.5, fontWeight: 600, color: THEME.primaryDark }}
+          >
+            {report?.summaryText
+              ? report.summaryText.replace(/^["“]|["”]$/g, '')
+              : readingLine}
+          </p>
           <div
             className="mt-2 rounded-sm px-2 py-1.5"
             style={{
@@ -1940,7 +1890,7 @@ export function GaugeHoverOverlay({
             }}
           >
             <span style={{ color: THEME.ink, fontWeight: 700 }}>SOURCE</span>{' '}
-            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · {relativeTime(report.generatedAt)}
+            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · {report ? relativeTime(report.generatedAt) : 'live'}
           </div>
         </div>
       </div>

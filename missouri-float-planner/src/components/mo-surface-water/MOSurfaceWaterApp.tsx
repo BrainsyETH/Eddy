@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   classifyStageFromThresholds,
+  condKey,
   type MOCampground,
   type MODataset,
   type MORiver,
@@ -143,7 +144,10 @@ export default function MOSurfaceWaterApp() {
       }
     } else {
       for (const r of rivers) {
-        const ent = historyEntries.find((e) => e.river_slug === r.slug);
+        // Pin to the primary entry — the bundle now also carries secondary
+        // gauges, which share a river_slug, so an unqualified find could
+        // return a secondary gauge's percentile for the river headline.
+        const ent = historyEntries.find((e) => e.river_slug === r.slug && e.is_primary);
         const p = ent?.daily[scrubIdx]?.percentile ?? null;
         out[r.slug] = p;
       }
@@ -169,6 +173,11 @@ export default function MOSurfaceWaterApp() {
   // reading. Drives the segmented river coloring so each reach inherits
   // the condition of the gauge nearest to it, instead of every reach
   // showing the primary gauge's condition.
+  //
+  // Keyed by `${river_id}::${site_id}` (see condKey), not by site alone: a
+  // single physical gauge can be the primary for two rivers with different
+  // editorial thresholds (07017200 → Courtois + Huzzah), so the same reading
+  // must classify independently per river.
   const conditionByGauge: Record<string, StageVerdict> = useMemo(() => {
     const out: Record<string, StageVerdict> = {};
     const isToday = dayOffset === 0 || scrubIdx === dayCount - 1;
@@ -187,7 +196,7 @@ export default function MOSurfaceWaterApp() {
             ? day?.gaugeHeightFt ?? null
             : day?.dischargeCfs ?? null;
         }
-        out[g.site_id] = classifyStageFromThresholds(value, g.threshold_unit, g);
+        out[condKey(r.id, g.site_id)] = classifyStageFromThresholds(value, g.threshold_unit, g);
       }
     }
     return out;
@@ -358,7 +367,6 @@ export default function MOSurfaceWaterApp() {
         gauges={gauges}
         verdictByRiver={verdictByRiver}
         conditionByGauge={conditionByGauge}
-        percentileByRiver={percentileByRiver}
         percentileByGauge={percentileByGauge}
         hoveredRiverId={hoveredRiverId}
         focusedRiverId={focusedRiverId}
@@ -398,9 +406,8 @@ export default function MOSurfaceWaterApp() {
         river={railRiver}
         primaryGauge={railPrimaryGauge}
         primaryHistory={railPrimaryHistory}
-        hoveredGauge={hoveredGauge}
         focusedGauge={focusedGauge}
-        focusedGaugeVerdict={focusedGauge ? conditionByGauge[focusedGauge.site_no] ?? null : null}
+        focusedGaugeVerdict={focusedGauge ? conditionByGauge[condKey(focusedGauge.river_id, focusedGauge.site_no)] ?? null : null}
         campground={null}
         accessPoint={null}
         poi={null}
@@ -438,7 +445,12 @@ export default function MOSurfaceWaterApp() {
       {/* Hover overlay — only shown when no rail is pinned, so it never
           fights with the GaugeDetail rail for screen space. */}
       {!focusedGauge && !focusedRiverId && (
-        <GaugeHoverOverlay gauge={hoveredGauge} gaugeName={hoveredGaugeName} pos={hoveredGaugePos} />
+        <GaugeHoverOverlay
+          gauge={hoveredGauge}
+          gaugeName={hoveredGaugeName}
+          verdict={hoveredGauge ? conditionByGauge[condKey(hoveredGauge.river_id, hoveredGauge.site_no)] ?? null : null}
+          pos={hoveredGaugePos}
+        />
       )}
     </div>
   );

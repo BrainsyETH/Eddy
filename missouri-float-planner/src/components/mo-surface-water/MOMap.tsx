@@ -13,9 +13,8 @@
 
 import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import {
-  PERCENTILE_CLASSES,
   STAGE_VERDICTS,
-  classifyPercentile,
+  condKey,
   type MORiver,
   type MOCampground,
   type StageVerdict,
@@ -117,9 +116,10 @@ interface MOMapProps {
   campgrounds: MOCampground[];
   gauges: MoStatewideGauge[];
   verdictByRiver: Record<string, StageVerdict>;
-  /** Condition code keyed by USGS site id — drives per-segment coloring. */
+  /** Condition code keyed by `${river_id}::${site_id}` (condKey) — drives
+   *  per-segment coloring. Keyed per river, not per site, so a gauge shared
+   *  by two rivers classifies independently against each river's thresholds. */
   conditionByGauge: Record<string, StageVerdict>;
-  percentileByRiver: Record<string, number | null>;
   percentileByGauge: Record<string, number | null>;
   hoveredRiverId: string | null;
   focusedRiverId: string | null;
@@ -147,11 +147,6 @@ const POI_TONES: Record<string, string> = {
   geological: '#5C4E38',
   other: '#524D43',
 };
-
-function colorForPercentile(p: number | null | undefined): string {
-  if (p == null || isNaN(p)) return '#857D70';
-  return classifyPercentile(p).color;
-}
 
 function strokeWidthForRiver(
   lengthMiles: number | null | undefined,
@@ -249,14 +244,14 @@ export default function MOMap(props: MOMapProps) {
       if (lenSq < 1) continue; // degenerate
 
       const gs = (r.gauges ?? [])
-        .filter((g) => props.conditionByGauge[g.site_id])
+        .filter((g) => props.conditionByGauge[condKey(r.id, g.site_id)])
         .map((g) => {
           const [gx, gy] = project(g.lon, g.lat);
           // Project (gx,gy) onto the (first,last) gradient line; t in [0,1].
           const t = ((gx - first[0]) * dx + (gy - first[1]) * dy) / lenSq;
           return {
             siteId: g.site_id,
-            condition: props.conditionByGauge[g.site_id],
+            condition: props.conditionByGauge[condKey(r.id, g.site_id)],
             offset: Math.max(0, Math.min(1, t)),
           };
         })
@@ -821,12 +816,14 @@ export default function MOMap(props: MOMapProps) {
           if (!gauge) return null;
           const [x, y] = project(gauge.lon, gauge.lat);
           const p = props.percentileByGauge[g.site_no] ?? g.percentile;
-          const color = colorForPercentile(p);
-          const isPeak = p != null && p >= 75;
           const isHovered = props.hoveredGaugeId === g.site_no;
           const isFocused = props.focusedGaugeId === g.site_no;
-          const verdict = props.conditionByGauge[g.site_no] ?? 'unknown';
+          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
           const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
+          // Pulse the marker when the river is running high — by discharge
+          // percentile when USGS publishes it, otherwise by the editorial
+          // condition so stage-only gauges still flag rising water.
+          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
           const iconHref = getEddyImageForCondition(verdict);
           // Pin pattern: the precise gauge point is the small dot at (0,0).
           // Eddy floats just above it like a labeled pin, so any offset
@@ -852,8 +849,8 @@ export default function MOMap(props: MOMapProps) {
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
               <circle r={Math.max(14, baseSize * 0.7) * kStable} fill="transparent" pointerEvents="all" />
-              {isPeak && (
-                <circle r={(dotR * 2.5)} fill="none" stroke={color} strokeWidth={1 * kStable} opacity={0.7} pointerEvents="none">
+              {elevated && (
+                <circle r={(dotR * 2.5)} fill="none" stroke={verdictColor} strokeWidth={1 * kStable} opacity={0.7} pointerEvents="none">
                   <animate attributeName="r" from={dotR * 2.5} to={dotR * 7} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
@@ -973,7 +970,7 @@ export default function MOMap(props: MOMapProps) {
         letterSpacing="0.1em"
         fill="rgba(80,60,30,0.55)"
       >
-        Stream colour: percentile vs. period of record · {PERCENTILE_CLASSES.length} bands
+        Stream colour: float condition at the nearest gauge · fades between gauges
       </text>
     </svg>
 
