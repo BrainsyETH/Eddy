@@ -108,7 +108,7 @@ if [ -n "$TRANSCRIPT_VTT" ] && [ -f "$TRANSCRIPT_VTT" ] && [ -n "$FONT" ]; then
     CAPTION_FILTERS=$(CLIP_START="$CLIP_START" DURATION_SECS="$DURATION_SECS" TRANSCRIPT_VTT="$TRANSCRIPT_VTT" FONT="$FONT" python3 << 'PYEOF'
 import re, sys, os
 
-clip_start = int(os.environ.get("CLIP_START", "0"))
+clip_start = int(float(os.environ.get("CLIP_START", "0")))
 try:
     clip_dur = float(os.environ.get("DURATION_SECS", "15"))
 except (ValueError, TypeError):
