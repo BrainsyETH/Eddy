@@ -66,19 +66,19 @@ export const ClipReel: React.FC<ClipReelProps> = ({
         </div>
       </div>
 
-      {/* Source clip band — 16:9 at full width, y centered in the safe area */}
-      <div style={{ position: "absolute", top: 470, left: 0, width: 1080, height: 608, overflow: "hidden", opacity: videoFade }}>
+      {/* Source clip band — 16:9 at full width, raised so messaging clears the UI */}
+      <div style={{ position: "absolute", top: 410, left: 0, width: 1080, height: 608, overflow: "hidden", opacity: videoFade }}>
         <OffthreadVideo src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
 
-      {/* Messaging — directly below the clip, ABOVE the Reels bottom UI zone */}
+      {/* Messaging — directly below the clip, comfortably ABOVE the Reels bottom UI zone */}
       <div
         style={{
           position: "absolute",
-          top: 1100,
+          top: 1040,
           left: 0,
           right: 0,
-          maxHeight: SAFE_BOTTOM_Y - 1100,
+          maxHeight: SAFE_BOTTOM_Y - 1040,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
