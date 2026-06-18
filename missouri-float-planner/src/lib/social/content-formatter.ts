@@ -390,6 +390,82 @@ export function formatSectionGuideCaption(
 }
 
 // ---------------------------------------------------------------------------
+// Favorite Float Caption — evergreen, editorial. Mirrors the Float of the Day
+// layout but leads with the guide's "why" and never quotes a live float-time
+// delta (favorites aren't tied to today's gauge).
+// ---------------------------------------------------------------------------
+
+export function formatFavoriteFloatCaption(
+  fav: {
+    riverSlug: string;
+    riverName: string;
+    putInName: string;
+    putInMile: number;
+    takeOutName: string;
+    takeOutMile: number;
+    distanceMi: number;
+    tagline: string;
+    bestFor: string;
+    difficulty: string;
+    putInCamping?: boolean;
+    takeOutCamping?: boolean;
+    springs?: Array<{ name: string; mile: number; side: string | null }>;
+  },
+  customContent: SocialCustomContent[],
+  platform: SocialPlatform,
+): { caption: string; hashtags: string[] } {
+  const lines: string[] = [];
+  // Typical canoe pace at normal "flowing" flow — evergreen, no live delta.
+  const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
+
+  lines.push(`Eddy's Favorite Float — ${fav.riverName}`);
+  if (fav.tagline) {
+    lines.push('');
+    lines.push(`“${fav.tagline}”`);
+  }
+  lines.push('');
+  lines.push(
+    `🛶 ${fav.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs at a relaxed pace` +
+      (fav.difficulty ? ` · Class ${fav.difficulty}` : ''),
+  );
+  lines.push('');
+
+  lines.push(
+    `📍 Put-in: ${fav.putInName} (MM ${fav.putInMile.toFixed(1)})` +
+      (fav.putInCamping ? ' 🏕️ camping' : ''),
+  );
+  lines.push(
+    `🏁 Take-out: ${fav.takeOutName} (MM ${fav.takeOutMile.toFixed(1)})` +
+      (fav.takeOutCamping ? ' 🏕️ camping' : ''),
+  );
+
+  if (fav.springs && fav.springs.length > 0) {
+    const springText = fav.springs
+      .slice(0, 3)
+      .map((s) => `${s.name} (MM ${s.mile.toFixed(1)})`)
+      .join(', ');
+    const more = fav.springs.length > 3 ? ` +${fav.springs.length - 3} more` : '';
+    lines.push(`💧 Springs on the float: ${springText}${more}`);
+  }
+
+  if (fav.bestFor) {
+    lines.push('');
+    lines.push(`Best for: ${fav.bestFor}`);
+  }
+
+  lines.push('');
+  lines.push(`Plan this float → ${riverUrl(fav.riverSlug)}`);
+
+  const snippets = getActiveSnippets(customContent, platform);
+  if (snippets.length > 0) {
+    lines.push('');
+    lines.push(snippets.join('\n'));
+  }
+
+  return { caption: lines.join('\n'), hashtags: [] };
+}
+
+// ---------------------------------------------------------------------------
 // Weekly Trend Caption
 // ---------------------------------------------------------------------------
 

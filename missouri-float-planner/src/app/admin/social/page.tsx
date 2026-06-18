@@ -74,6 +74,7 @@ interface MediaSchedule {
   daily_digest: DayMediaMap;
   weekly_forecast?: WeeklyDayMediaMap;
   section_guide?: WeeklyDayMediaMap;
+  favorite_float?: WeeklyDayMediaMap;
   weekly_trend?: WeeklyDayMediaMap;
 }
 
@@ -94,6 +95,7 @@ interface SocialConfig {
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
   section_guide: WeeklyReelConfig;
+  favorite_float: WeeklyReelConfig;
   weekly_trend: WeeklyReelConfig;
 }
 
@@ -181,7 +183,7 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
 };
 
 // Post types that can be triggered from the Posting Schedule row's "Post Now" button.
-type PostNowType = 'digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
+type PostNowType = 'digest' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend';
 
 // Declarative config for each row in the unified Posting Schedule matrix.
 // `time` is either a getter/setter pair into SocialConfig, or the literal
@@ -193,7 +195,7 @@ type RowTimeField = 'per_river' | {
 };
 
 interface ScheduleRow {
-  key: 'river_highlight' | 'daily_digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
+  key: 'river_highlight' | 'daily_digest' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend';
   label: string;
   time: RowTimeField;
   action: PostNowType | 'none';
@@ -240,6 +242,18 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     action: 'section_guide',
   },
   {
+    key: 'favorite_float',
+    label: "Eddy's Favorite Float",
+    time: {
+      get: (c) => c.favorite_float?.time_cst ?? '12:00',
+      set: (c, v, set) => set({
+        ...c,
+        favorite_float: { ...(c.favorite_float || { enabled: true, day_of_week: 6, time_cst: '12:00', media: 'video' }), time_cst: v },
+      }),
+    },
+    action: 'favorite_float',
+  },
+  {
     key: 'weekly_trend',
     label: 'Weekly Trend',
     time: {
@@ -259,6 +273,7 @@ const POST_TYPE_LABELS: Record<string, string> = {
   river_highlight: 'Highlight',
   weekly_forecast: 'Weekend Forecast',
   section_guide: 'Float of the Day',
+  favorite_float: "Eddy's Favorite Float",
   weekly_trend: 'Weekly Trend',
   route_draw: 'Float of the Day', // legacy rows
   condition_change: 'Alert',
@@ -306,7 +321,7 @@ export default function SocialAdminPage() {
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
   const [quickPostType, setQuickPostType] = useState<
-    'digest' | 'highlight' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'tip'
+    'digest' | 'highlight' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend' | 'tip'
   >('digest');
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
@@ -900,6 +915,7 @@ export default function SocialAdminPage() {
                 <option value="highlight">River Highlight</option>
                 <option value="weekly_forecast">Weekend Forecast</option>
                 <option value="section_guide">Float of the Day</option>
+                <option value="favorite_float">Eddy&apos;s Favorite Float</option>
                 <option value="weekly_trend">Weekly Trend</option>
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>

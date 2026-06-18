@@ -9,6 +9,7 @@ export type PostType =
   | 'condition_change'
   | 'weekly_forecast'
   | 'section_guide'
+  | 'favorite_float'
   | 'weekly_trend'
   | 'route_draw';
 export type PostStatus = 'pending' | 'rendering' | 'publishing' | 'published' | 'failed' | 'skipped';
@@ -57,6 +58,8 @@ export interface MediaSchedule {
   /** Weekly reels: cell = 'video' | 'image' | null (null = don't fire). */
   weekly_forecast?: DayMediaMap;
   section_guide?: DayMediaMap;
+  /** Evergreen Favorite Float (from the river-guide blogs). */
+  favorite_float?: DayMediaMap;
   weekly_trend?: DayMediaMap;
 }
 
@@ -90,6 +93,7 @@ export interface SocialConfig {
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
   section_guide: WeeklyReelConfig;
+  favorite_float: WeeklyReelConfig;
   weekly_trend: WeeklyReelConfig;
   updated_at: string;
 }

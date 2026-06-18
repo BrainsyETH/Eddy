@@ -15,6 +15,7 @@ import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
 import { pickSectionForRivers } from './section-picker';
+import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
@@ -23,6 +24,7 @@ import {
   formatRiverHighlightCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
+  formatFavoriteFloatCaption,
   formatWeeklyTrendCaption,
 } from './content-formatter';
 
@@ -187,6 +189,32 @@ export async function buildPostContext(
       caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
       // route is video-only; reuse the section thumbnail as the cover.
       imageUrl: (platform) => og('section', platform, coverParams),
+    };
+  }
+
+  if (postType === 'favorite_float') {
+    // Evergreen, editorial — a curated section from the river-guide blogs. No
+    // live-conditions overlay; rotates deterministically by day.
+    const fav = await pickFavoriteFloat(supabase);
+    if (!fav) return null;
+    // Bake the exact endpoints into the cover URL so the poster renders the SAME
+    // float as the reel (and the unique URL defeats Meta's by-URL OG cache).
+    const coverParams =
+      `&river=${fav.riverSlug}` +
+      `&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
+      `&toSlug=${encodeURIComponent(fav.toSlug)}`;
+    return {
+      postType,
+      riverSlug: fav.riverSlug,
+      renderData: {
+        ...fav,
+        // 'flowing' is the evergreen baseline: it makes hoursToday === hoursTypical
+        // in the shared route props, so the reel shows typical pace with no delta.
+        conditionCode: 'flowing',
+        dateLabel: longDate(),
+      },
+      caption: (platform, custom) => formatFavoriteFloatCaption(fav, custom, platform),
+      imageUrl: (platform) => og('favorite', platform, coverParams),
     };
   }
 

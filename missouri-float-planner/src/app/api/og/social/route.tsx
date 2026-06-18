@@ -6,6 +6,7 @@
 //   ?type=tip&id=uuid                  — custom content snippet thumbnail
 //   ?type=forecast                     — weekly forecast: top 3 floatable rivers
 //   ?type=section                      — section guide: float of the week
+//   ?type=favorite&river=&fromSlug=&toSlug= — Eddy's Favorite Float (evergreen, from guides)
 //   ?type=trend                        — 7-day trend: river with biggest gauge move
 //   ?type=warning&river=slug&from=...  — condition-change warning (flowing → high/dangerous)
 
@@ -28,6 +29,7 @@ import {
 import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers, findSection, type Section } from '@/lib/social/section-picker';
+import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/social/favorite-floats';
 import { canoeHours } from '@/lib/social/post-types';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
@@ -85,6 +87,14 @@ export async function GET(request: NextRequest) {
         putInMile: numParam(searchParams.get('putInMile')),
         takeOutMile: numParam(searchParams.get('takeOutMile')),
         condition: searchParams.get('condition'),
+      });
+    }
+
+    if (type === 'favorite') {
+      return await generateFavoriteImage(size, {
+        river: riverSlug,
+        fromSlug: searchParams.get('fromSlug'),
+        toSlug: searchParams.get('toSlug'),
       });
     }
 
@@ -1109,6 +1119,163 @@ async function generateSectionImage(
             right: 0,
             height: 6,
             background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, ${styles.solid})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Eddy's Favorite Float thumbnail — the evergreen, editorial cousin of the
+// Section Guide cover. Same route card, neutral water-teal accent, the guide's
+// section name as a tagline, and difficulty in place of the live condition.
+// ---------------------------------------------------------------------------
+async function generateFavoriteImage(
+  size: { width: number; height: number },
+  params: { river?: string | null; fromSlug?: string | null; toSlug?: string | null },
+) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  // Preferred path: the post baked the exact endpoints into the URL, so render
+  // THAT float (matching the reel). Fall back to today's rotation if absent.
+  let fav: FavoriteFloat | null = null;
+  if (params.river && params.fromSlug && params.toSlug) {
+    fav = await findFavoriteFloat(supabase, params.river, params.fromSlug, params.toSlug);
+  }
+  if (!fav) fav = await pickFavoriteFloat(supabase);
+  if (!fav) {
+    return NextResponse.json({ error: 'No favorite float available' }, { status: 404 });
+  }
+
+  const accent = BRAND_COLORS.bluewater;
+  const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 38 : 30,
+            fontWeight: 600,
+            color: accent,
+            textTransform: 'uppercase',
+            letterSpacing: 6,
+            marginBottom: 12,
+          }}
+        >
+          Eddy&apos;s Favorite Float
+        </span>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 104 : 80,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 0.95,
+            letterSpacing: -3,
+            marginBottom: fav.tagline ? 14 : (isPortrait ? 56 : 40),
+          }}
+        >
+          {fav.riverName}
+        </span>
+
+        {fav.tagline && (
+          <span
+            style={{
+              fontSize: isPortrait ? 38 : 30,
+              color: 'rgba(255,255,255,0.7)',
+              fontStyle: 'italic',
+              marginBottom: isPortrait ? 48 : 32,
+            }}
+          >
+            {truncate(fav.tagline, 60)}
+          </span>
+        )}
+
+        {/* Route card: put-in → take-out */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 28,
+            padding: isPortrait ? '36px 40px' : '28px 32px',
+            marginBottom: isPortrait ? 48 : 32,
+          }}
+        >
+          <RouteLabel
+            label="Put-in"
+            name={fav.putInName}
+            mile={fav.putInMile}
+            color={BRAND_COLORS.accentCoral}
+            isPortrait={isPortrait}
+          />
+          <div
+            style={{
+              height: 1,
+              margin: isPortrait ? '24px 0' : '18px 0',
+              background: 'rgba(255,255,255,0.12)',
+            }}
+          />
+          <RouteLabel
+            label="Take-out"
+            name={fav.takeOutName}
+            mile={fav.takeOutMile}
+            color={accent}
+            isPortrait={isPortrait}
+          />
+        </div>
+
+        {/* Stats strip */}
+        <div style={{ display: 'flex', gap: isPortrait ? 56 : 40 }}>
+          <StatCell value={`${fav.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
+          <StatCell value={`${hours.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
+          {fav.difficulty && (
+            <StatCell value={`Class ${fav.difficulty}`} label="Difficulty" color={accent} isPortrait={isPortrait} />
+          )}
+        </div>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, ${accent})`,
           }}
         />
       </div>

@@ -43,6 +43,11 @@ export interface FloatSection {
   from_slug?: string;
   /** Access point slug for the take-out. Used to build the planner deep link. */
   to_slug?: string;
+  /** Marks this section as one of "Eddy's Favorite Floats". When ANY section
+   *  across all guides sets this, the Favorite Float social post narrows its
+   *  daily rotation to only flagged sections; otherwise every guide section is
+   *  a candidate. */
+  eddy_favorite?: boolean;
 }
 
 export interface SpringStop {

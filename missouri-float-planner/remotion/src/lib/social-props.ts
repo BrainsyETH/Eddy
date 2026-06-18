@@ -143,8 +143,22 @@ export interface SectionGuideProps {
  * Self-drawing route reel. Same data as the Section Guide — a route is just a
  * section visualized as an animated put-in → take-out line with the current
  * float time stamped on it. Motion reads as a live instrument.
+ *
+ * The optional fields let the SAME composition serve "Eddy's Favorite Floats":
+ * a relabeled eyebrow, an editorial tagline under the river name, and an
+ * evergreen mode (neutral accent, no live faster/slower delta, difficulty shown
+ * instead of the live condition).
  */
-export type RouteDrawProps = SectionGuideProps;
+export interface RouteDrawProps extends SectionGuideProps {
+  /** Eyebrow label. Defaults to "Float of the Day"; favorites pass "Eddy's Favorite Float". */
+  label?: string;
+  /** Editorial hook shown under the river name (replaces the date for favorites). */
+  tagline?: string;
+  /** Evergreen mode: neutral accent + no live float-time delta + difficulty stat. */
+  evergreen?: boolean;
+  /** Difficulty class label (e.g. "Class I–II"), shown in evergreen mode. */
+  difficulty?: string;
+}
 
 export interface TrendReelProps {
   riverName: string;

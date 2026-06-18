@@ -26,6 +26,15 @@ const FPS = 30;
 // and the put-in (accent) / take-out (condition) markers.
 const SPRING_COLOR = "#7dd3fc";
 
+// Evergreen "favorite" accent — a calm brand water-teal used instead of a live
+// condition color when the post isn't tied to today's gauge (Favorite Floats).
+const EVERGREEN_STYLE = {
+  solid: colors.primary[300],
+  bg: "rgba(114,181,196,0.12)",
+  glow: "rgba(114,181,196,0.45)",
+  label: "Favorite",
+};
+
 type Pt = [number, number];
 
 /** Build a smooth serpentine "river" polyline from put-in (top) to take-out
@@ -107,10 +116,18 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   springs = [],
   dateLabel,
   format,
+  label = "Float of the Day",
+  tagline,
+  evergreen = false,
+  difficulty,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
-  const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
+  // Favorites are evergreen — not tied to today's gauge — so they use a neutral
+  // brand accent instead of a live condition color.
+  const condition = evergreen
+    ? EVERGREEN_STYLE
+    : CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
   const isPortrait = format === "portrait";
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
 
@@ -130,10 +147,14 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   const absDelta = Math.abs(deltaHrs);
   const faster = deltaHrs > 0;
   const significantDelta = absDelta >= 0.3;
-  const deltaText = significantDelta
-    ? `${absDelta.toFixed(1)} hrs ${faster ? "faster" : "slower"}`
-    : "about the usual pace";
-  const deltaColor = !significantDelta
+  // Evergreen favorites aren't a live snapshot — show the typical pace, never a
+  // "faster/slower today" delta (there's no today to compare against).
+  const deltaText = evergreen
+    ? "typical pace"
+    : significantDelta
+      ? `${absDelta.toFixed(1)} hrs ${faster ? "faster" : "slower"}`
+      : "about the usual pace";
+  const deltaColor = evergreen || !significantDelta
     ? "rgba(255,255,255,0.6)"
     : faster
       ? condition.solid
@@ -322,7 +343,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
             textTransform: "uppercase",
           }}
         >
-          Float of the Day
+          {label}
         </div>
         <div
           style={{
@@ -337,16 +358,20 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
         >
           {riverName}
         </div>
-        {dateLabel && (
+        {/* Favorites show the guide's section name ("why"); otherwise the date. */}
+        {(tagline || dateLabel) && (
           <div
             style={{
               opacity: dateEntrance,
               fontFamily: labelFont,
               fontSize: isPortrait ? 28 : 22,
               color: "rgba(255,255,255,0.55)",
+              textAlign: "center",
+              padding: "0 60px",
+              fontStyle: tagline ? "italic" : "normal",
             }}
           >
-            {dateLabel}
+            {tagline || dateLabel}
           </div>
         )}
       </div>
@@ -403,7 +428,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
               {distanceMi.toFixed(1)} mi
             </span>
             <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 16, fontWeight: 600, color: condition.solid }}>
-              {condition.label}
+              {evergreen ? (difficulty ? `Class ${difficulty}` : "Favorite") : condition.label}
             </span>
           </div>
         </div>

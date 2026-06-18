@@ -193,10 +193,29 @@ export async function listAllSections(
 
 /**
  * Day-since-1970 index. "Float of the Day" rotates the section daily and
- * deterministically (same answer all day, no DB pointer needed).
+ * deterministically (same answer all day, no DB pointer needed). Exported so
+ * other daily rotations (e.g. Eddy's Favorite Floats) share the same clock.
  */
-function dayIndex(date = new Date()): number {
+export function dayIndex(date = new Date()): number {
   return Math.floor(date.getTime() / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Springs on a run between two miles, from the mile-marker JSON, cleaned and
+ * sorted downstream. Shared by the access-point section builder above and the
+ * favorite-floats picker (which builds sections straight from guide endpoints).
+ */
+export function springsForRun(
+  riverSlug: string,
+  putInMile: number,
+  takeOutMile: number,
+): RouteSpring[] {
+  const lo = Math.min(putInMile, takeOutMile);
+  const hi = Math.max(putInMile, takeOutMile);
+  return (getSpringsBySlug().get(riverSlug) || [])
+    .filter((s) => s.mile > lo && s.mile < hi)
+    .map((s) => ({ name: cleanSpringName(s.description), mile: s.mile, side: s.side }))
+    .sort((a, b) => a.mile - b.mile);
 }
 
 /**

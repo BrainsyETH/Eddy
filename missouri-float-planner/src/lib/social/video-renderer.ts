@@ -240,6 +240,7 @@ export function getCompositionForPost(
     | 'river_highlight'
     | 'weekly_forecast'
     | 'section_guide'
+    | 'favorite_float'
     | 'weekly_trend',
   data: RenderData,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {

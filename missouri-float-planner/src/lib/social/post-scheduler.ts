@@ -9,9 +9,11 @@ import {
   formatRiverHighlightCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
+  formatFavoriteFloatCaption,
   formatWeeklyTrendCaption,
 } from './content-formatter';
 import { pickSectionForRivers } from './section-picker';
+import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { overlayLiveConditions } from './live-conditions';
 
@@ -261,6 +263,49 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               riverSlug: section.riverSlug,
               caption,
               imageUrl: `${baseUrl}/api/og/social?type=section&platform=${platform}${coverParams}`,
+              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
+              hashtags,
+              eddyUpdateId: null,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // --- Favorite Float (media_schedule.favorite_float drives day/media) ---
+  // Evergreen + editorial: a curated section from the river-guide blogs. No
+  // condition gating and no eddy_updates dependency — it posts year-round.
+  {
+    const todayMedia = config.media_schedule?.favorite_float?.[todayKey] ?? null;
+    if (todayMedia && config.favorite_float) {
+      const { time_cst } = config.favorite_float;
+      const timeMatches = skipTimeCheck || isDueNow(time_cst);
+      const alreadyPosted = await hasPostedToday('favorite_float', null, supabase);
+
+      if (!timeMatches) {
+        console.log(`${LOG_PREFIX} Favorite float: not near ${time_cst} CST — skipping`);
+      } else if (alreadyPosted) {
+        console.log(`${LOG_PREFIX} Favorite float: already posted today — skipping`);
+      } else {
+        const fav = await pickFavoriteFloat(supabase);
+        if (!fav) {
+          console.log(`${LOG_PREFIX} Favorite float: no resolvable guide section — skipping`);
+        } else {
+          // Cover carries the exact endpoints so the poster matches the reel and
+          // the URL is unique per float (defeats Meta's by-URL OG cache).
+          const coverParams =
+            `&river=${fav.riverSlug}&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
+            `&toSlug=${encodeURIComponent(fav.toSlug)}`;
+          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          for (const platform of platforms) {
+            const { caption, hashtags } = formatFavoriteFloatCaption(fav, customContent, platform);
+            posts.push({
+              postType: 'favorite_float',
+              platform,
+              riverSlug: fav.riverSlug,
+              caption,
+              imageUrl: `${baseUrl}/api/og/social?type=favorite&platform=${platform}${coverParams}`,
               mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: null,
