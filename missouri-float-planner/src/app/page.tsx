@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRiverGuides } from '@/lib/data/rivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
+import EddyHeroBubble from '@/components/home/EddyHeroBubble';
 import FloatingWellNow from '@/components/home/FloatingWellNow';
 import SiteFooter from '@/components/ui/SiteFooter';
 
@@ -54,9 +55,9 @@ export default async function Home() {
           </svg>
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
-          <div className="flex items-center justify-between gap-8">
-            <div className="flex-1 max-w-xl">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
+            <div className="max-w-xl">
               <h1
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
                 style={{ fontFamily: 'var(--font-display)' }}
@@ -86,16 +87,23 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Otter mascot — visible on all screen sizes */}
-            <div className="flex-shrink-0">
-              <Image
-                src={EDDY_CANOE}
-                alt="Eddy the Otter"
-                width={320}
-                height={320}
-                className="w-20 md:w-52 lg:w-64 h-auto drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
-                priority
-              />
+            {/* Eddy mascot + live quote bubble */}
+            <div className="relative flex flex-col items-center gap-5 md:block md:min-h-[380px]">
+              {/* Otter — above the bubble on mobile, behind/below it on desktop */}
+              <div className="order-1 md:order-none flex justify-center md:absolute md:bottom-0 md:right-0">
+                <Image
+                  src={EDDY_CANOE}
+                  alt="Eddy the Otter"
+                  width={320}
+                  height={320}
+                  className="w-36 sm:w-44 md:w-52 lg:w-60 h-auto animate-float drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
+                  priority
+                />
+              </div>
+              {/* Live quote bubble */}
+              <div className="order-2 md:order-none w-full max-w-sm md:max-w-none md:absolute md:top-0 md:left-0 md:right-12 z-20">
+                <EddyHeroBubble />
+              </div>
             </div>
           </div>
         </div>

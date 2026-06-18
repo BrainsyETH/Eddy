@@ -82,7 +82,7 @@ export default function EddySaysReport() {
   return (
     <div className="h-full rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
       <div className="h-full bg-white rounded-[13px] p-5 md:p-6 flex flex-col">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-start gap-3 mb-3">
           <div className="flex-shrink-0 w-10 h-10 relative">
             <Image
               src={getEddyImageForCondition('flowing')}
@@ -92,10 +92,12 @@ export default function EddySaysReport() {
               sizes="40px"
             />
           </div>
-          <div className="flex items-baseline gap-1.5 min-w-0">
-            <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Eddy says</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-neutral-900 leading-snug" style={{ fontFamily: 'var(--font-display)' }}>
+              What&apos;s Eddy say about Missouri rivers today?
+            </h2>
             {globalUpdate?.generatedAt && (
-              <span className="text-[10px] text-neutral-400 font-normal truncate">&middot; {formatGeneratedAge(globalUpdate.generatedAt)}</span>
+              <span className="block text-[10px] text-neutral-400 font-normal mt-0.5">{formatGeneratedAge(globalUpdate.generatedAt)}</span>
             )}
           </div>
         </div>
