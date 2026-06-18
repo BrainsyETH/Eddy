@@ -1,14 +1,13 @@
 // src/app/page.tsx
 // Landing page for Eddy — "Home v2" layout: status-forward hero, two pillar
-// cards, a side-by-side Eddy read + live river list, a river-guide band, river
-// pills, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is unchanged;
+// cards, a side-by-side Eddy read + live river list, a featured-rivers guide
+// band, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is unchanged;
 // only the section structure was reworked.
 
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { getRivers } from '@/lib/data/rivers';
-import { CONDITION_COLORS } from '@/constants';
+import { getRivers, getRiverHeroImages } from '@/lib/data/rivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
 import FloatingWellNow from '@/components/home/FloatingWellNow';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -20,18 +19,30 @@ const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy
 // "Running clean" = ideal/floatable conditions, used for the hero status pill.
 const CLEAN_CODES = new Set<string>(['flowing', 'good']);
 
-// Evergreen river-guide entries. Placeholder copy + links until dedicated guide
-// posts exist; tiles are tinted from the theme palette.
-const GUIDES = [
-  { glyph: '🎒', kicker: 'Gear', title: 'What to pack for a day float', tile: 'bg-support-100 text-support-700' },
-  { glyph: '🧭', kicker: 'Routes', title: 'Picking the right put-in & take-out', tile: 'bg-accent-100 text-accent-700' },
-  { glyph: '⚠️', kicker: 'Safety', title: 'When a river is too high to float', tile: 'bg-secondary-100 text-secondary-700' },
+// Featured rivers for the river-guide band. Current River is the hero feature;
+// the rest render as compact cards. Images come from getRiverHeroImages, with a
+// gradient fallback for rivers that don't have access-point photos yet.
+const FEATURE_RIVER = {
+  slug: 'current',
+  name: 'Current River',
+  tagline: 'Missouri’s spring-fed classic — clear, cool water and the state’s most popular float.',
+};
+const SIDE_RIVERS = [
+  { slug: 'eleven-point', name: 'Eleven Point' },
+  { slug: 'jacks-fork', name: 'Jacks Fork' },
+  { slug: 'huzzah', name: 'Huzzah' },
+  { slug: 'meramec', name: 'Meramec' },
 ];
+const FEATURED_RIVER_SLUGS = [FEATURE_RIVER.slug, ...SIDE_RIVERS.map((r) => r.slug)];
 
 export default async function Home() {
-  const rivers = await getRivers();
+  const [rivers, heroImages] = await Promise.all([
+    getRivers(),
+    getRiverHeroImages(FEATURED_RIVER_SLUGS),
+  ]);
   const totalCount = rivers.length;
   const cleanCount = rivers.filter((r) => CLEAN_CODES.has(r.currentCondition?.code ?? 'unknown')).length;
+  const featureImage = heroImages[FEATURE_RIVER.slug];
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
@@ -112,14 +123,11 @@ export default async function Home() {
             href="/rivers"
             className="group bg-white border border-neutral-200 rounded-2xl p-6 md:p-7 flex flex-col shadow-soft-md hover:shadow-soft-lg hover:border-neutral-300 transition-all no-underline"
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-support-600 mb-3" style={{ fontFamily: 'var(--font-mono)' }}>
-              01 · Status
-            </span>
             <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
               River Reports
             </h2>
             <p className="text-sm text-neutral-500 leading-relaxed mb-4">
-              Is it floatable right now? Live USGS levels, trends, and Eddy&apos;s plain-English read for every river.
+              Is it floatable right now? Live USGS river data, weather reports, and custom updates for every river.
             </p>
             <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600">
               See what&apos;s running <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -130,9 +138,6 @@ export default async function Home() {
             href="/plan"
             className="group bg-white border border-neutral-200 rounded-2xl p-6 md:p-7 flex flex-col shadow-soft-md hover:shadow-soft-lg hover:border-neutral-300 transition-all no-underline"
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-600 mb-3" style={{ fontFamily: 'var(--font-mono)' }}>
-              02 · Action
-            </span>
             <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
               Plan a Float
             </h2>
@@ -150,7 +155,15 @@ export default async function Home() {
       <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-14 md:pt-20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
           {/* Eddy's read */}
-          <EddySaysReport />
+          <div className="flex flex-col gap-3">
+            <EddySaysReport />
+            <Link
+              href="/rivers"
+              className="self-start inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600 hover:text-accent-700 transition-colors no-underline"
+            >
+              See what Eddy says about other rivers <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
 
           {/* Live river list */}
           <div className="bg-white border border-neutral-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col">
@@ -170,7 +183,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ─── River Guide (evergreen) ─── */}
+      {/* ─── Featured Rivers (the river guide) ─── */}
       <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-14 md:pt-20">
         <div className="flex items-end justify-between gap-6 flex-wrap mb-6">
           <div>
@@ -178,86 +191,87 @@ export default async function Home() {
               The river guide
             </span>
             <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 max-w-md" style={{ fontFamily: 'var(--font-display)' }}>
-              New to floating? Start here.
+              Explore Missouri&apos;s float rivers
             </h2>
           </div>
-          <p className="text-sm text-neutral-500 max-w-sm leading-relaxed">
-            Everything that doesn&apos;t change with the weather — how to read a level, what to pack, and how to pick your stretch.
-          </p>
+          <Link
+            href="/rivers"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-500 hover:text-neutral-800 transition-colors no-underline"
+          >
+            All rivers <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-5">
-          {/* Featured guide */}
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-5">
+          {/* Featured: Current River */}
           <Link
-            href="/blog"
-            className="group bg-white border border-neutral-200 rounded-2xl overflow-hidden flex flex-col hover:shadow-soft-lg hover:border-neutral-300 transition-all no-underline"
+            href={`/rivers/${FEATURE_RIVER.slug}`}
+            className="group relative block rounded-2xl overflow-hidden border border-neutral-200 min-h-[18rem] no-underline"
           >
-            <div className="relative h-44 md:h-52 overflow-hidden" style={{ background: 'linear-gradient(135deg, #163F4A 0%, #0F2D35 100%)' }}>
-              <svg className="absolute bottom-0 w-full opacity-20" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                <path fill="white" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L0,320Z" />
-              </svg>
-              <span className="absolute bottom-3 left-3 text-[11px] font-medium text-white/85 bg-black/25 px-2.5 py-1 rounded-md" style={{ fontFamily: 'var(--font-mono)' }}>
-                Conditions 101
+            {featureImage ? (
+              <Image
+                src={featureImage}
+                alt={FEATURE_RIVER.name}
+                fill
+                sizes="(min-width: 768px) 56vw, 100vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #163F4A 0%, #0F2D35 100%)' }} />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/80 mb-2" style={{ fontFamily: 'var(--font-mono)' }}>
+                Featured river
               </span>
-            </div>
-            <div className="p-6">
-              <h3 className="text-lg md:text-xl font-bold text-neutral-900 mb-1.5 leading-snug" style={{ fontFamily: 'var(--font-display)' }}>
-                How to read a river level (and why it matters)
+              <h3 className="text-2xl md:text-3xl font-bold text-white mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
+                {FEATURE_RIVER.name}
               </h3>
-              <p className="text-sm text-neutral-500 leading-relaxed">
-                What &ldquo;2.8 ft&rdquo; and &ldquo;runnable&rdquo; actually mean, how thresholds work, and when a river&apos;s too low to bother — or too high to be safe.
+              <p className="text-sm text-white/85 max-w-md leading-relaxed mb-3">
+                {FEATURE_RIVER.tagline}
               </p>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white">
+                View river report <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </span>
             </div>
           </Link>
 
-          {/* Compact guides */}
+          {/* Side rivers */}
           <div className="flex flex-col gap-3">
-            {GUIDES.map((g) => (
-              <Link
-                key={g.title}
-                href="/blog"
-                className="group bg-white border border-neutral-200 rounded-xl p-4 flex items-center gap-4 hover:border-neutral-300 hover:shadow-soft-sm transition-all no-underline"
-              >
-                <span className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${g.tile}`}>
-                  {g.glyph}
-                </span>
-                <div className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400" style={{ fontFamily: 'var(--font-mono)' }}>
-                    {g.kicker}
-                  </span>
-                  <h3 className="text-sm font-bold text-neutral-800 leading-snug mt-0.5" style={{ fontFamily: 'var(--font-display)' }}>
-                    {g.title}
-                  </h3>
-                </div>
-              </Link>
-            ))}
+            {SIDE_RIVERS.map((river) => {
+              const img = heroImages[river.slug];
+              return (
+                <Link
+                  key={river.slug}
+                  href={`/rivers/${river.slug}`}
+                  className="group bg-white border border-neutral-200 rounded-xl p-3 flex items-center gap-4 hover:border-neutral-300 hover:shadow-soft-sm transition-all no-underline"
+                >
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    {img ? (
+                      <Image src={img} alt={river.name} fill sizes="64px" className="object-cover" />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ background: 'linear-gradient(135deg, #163F4A 0%, #0F2D35 100%)' }}
+                      >
+                        <span className="text-white/90 text-lg font-bold" style={{ fontFamily: 'var(--font-display)' }}>
+                          {river.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
+                      {river.name}
+                    </h3>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-600">
+                      View report <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-        </div>
-      </section>
-
-      {/* ─── Jump to a River ─── */}
-      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-14 md:pt-20">
-        <h2 className="text-lg font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
-          Jump to a river
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {rivers.map((river) => {
-            const condCode = river.currentCondition?.code ?? 'unknown';
-            const dotColor = CONDITION_COLORS[condCode] || CONDITION_COLORS.unknown;
-            return (
-              <Link
-                key={river.id}
-                href={`/rivers/${river.slug}`}
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:border-neutral-300 hover:shadow-sm transition-all no-underline"
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: dotColor }}
-                />
-                {river.name}
-              </Link>
-            );
-          })}
         </div>
       </section>
 
@@ -269,7 +283,7 @@ export default async function Home() {
         >
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-              Add live data to your site.
+              Run an outfitter or a campground?
             </h2>
             <p className="text-sm text-white/70 max-w-xl leading-relaxed">
               Embed real-time gauge readings, condition badges, and Eddy&apos;s analysis directly on your outfitter site, blog, or community page.
