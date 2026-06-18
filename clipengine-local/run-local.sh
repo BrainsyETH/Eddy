@@ -30,12 +30,24 @@ MAX_CLIPS="${MAX_CLIPS:-3}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --url)   SINGLE_URL="$2"; shift 2 ;;
-    --river) SINGLE_RIVER="$2"; shift 2 ;;
-    --peak)  PEAK_NUMBER="$2"; shift 2 ;;
+    --url)        SINGLE_URL="$2"; shift 2 ;;
+    --river)      SINGLE_RIVER="$2"; shift 2 ;;
+    --peak)       PEAK_NUMBER="$2"; shift 2 ;;
+    --no-publish) NO_PUBLISH=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
+
+# Load publishing secrets: optional .env override first, then the macOS keychain.
+[ -f "$HERE/.env" ] && set -a && . "$HERE/.env" && set +a
+. "$HERE/load-secrets.sh"
+
+# Publish to the Eddy app pipeline only when creds exist and --no-publish wasn't passed.
+PUBLISH=0
+if [ "${NO_PUBLISH:-0}" != 1 ] && [ -n "${BLOB_READ_WRITE_TOKEN:-}" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_KEY:-}" ]; then
+  PUBLISH=1
+fi
+echo "Publish mode: $([ "$PUBLISH" = 1 ] && echo 'ON → Blob + clip_library (app gates & posts)' || echo 'OFF → render to output/ only')"
 
 process_video() {
   local URL="$1" RIVER="$2" PEAK="$3"
@@ -71,7 +83,16 @@ process_video() {
   local VTT; VTT="$(find "$WORK" -name '*.vtt' -type f | head -1 || true)"
   bash "$CE/finalize-reel.sh" "$WORK/raw-clip.mp4" "${RIVER:-Unknown River}" "$FINAL" "${VTT:-}" "$PEAK_START"
 
-  if [ -f "$FINAL" ]; then echo "✅ Done: $FINAL"; else echo "⚠️  Finalize failed"; fi
+  if [ -f "$FINAL" ]; then
+    echo "✅ Done: $FINAL"
+    # Auto-publish: hand the clip to the Eddy app's pipeline (Blob + clip_library,
+    # brand_check_status=pending). Only when creds are present and not disabled.
+    if [ "$PUBLISH" = 1 ]; then
+      bash "$HERE/publish-clip.sh" "$FINAL" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" || echo "⚠️  publish step failed (clip still saved locally)"
+    fi
+  else
+    echo "⚠️  Finalize failed"
+  fi
   rm -rf "$WORK"
 }
 
