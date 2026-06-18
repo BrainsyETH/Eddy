@@ -56,13 +56,15 @@ export default function EddySaysReport() {
 
   if (loading || groupsLoading) {
     return (
-      <div className="bg-white rounded-2xl border border-neutral-200 p-5 md:p-6 shadow-sm animate-pulse">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-neutral-200 rounded-full" />
-          <div className="flex-1 min-w-0">
-            <div className="h-3 bg-neutral-200 rounded w-16 mb-2.5" />
-            <div className="h-3.5 bg-neutral-100 rounded w-full mb-1.5" />
-            <div className="h-3.5 bg-neutral-100 rounded w-3/4" />
+      <div className="h-full rounded-2xl p-[1.5px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+        <div className="h-full bg-white rounded-[14px] p-5 md:p-6 animate-pulse flex flex-col justify-center">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 bg-neutral-200 rounded-full" />
+            <div className="flex-1 min-w-0">
+              <div className="h-3 bg-neutral-200 rounded w-16 mb-2.5" />
+              <div className="h-3.5 bg-neutral-100 rounded w-full mb-1.5" />
+              <div className="h-3.5 bg-neutral-100 rounded w-3/4" />
+            </div>
           </div>
         </div>
       </div>
@@ -79,37 +81,39 @@ export default function EddySaysReport() {
     : fallbackText;
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 p-5 md:p-6 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-10 h-10 relative">
-          <Image
-            src={getEddyImageForCondition('flowing')}
-            alt="Eddy"
-            fill
-            className="object-contain"
-            sizes="40px"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold tracking-wide uppercase text-neutral-400">Eddy says</span>
-            {globalUpdate?.generatedAt && (
-              <span className="text-[10px] text-neutral-400">&middot; {formatGeneratedAge(globalUpdate.generatedAt)}</span>
+    <div className="h-full rounded-2xl p-[1.5px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+      <div className="h-full bg-white rounded-[14px] p-5 md:p-6 flex flex-col justify-center">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 relative">
+            <Image
+              src={getEddyImageForCondition('flowing')}
+              alt="Eddy"
+              fill
+              className="object-contain"
+              sizes="40px"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold tracking-wide uppercase text-neutral-400">Eddy says</span>
+              {globalUpdate?.generatedAt && (
+                <span className="text-[10px] text-neutral-400">&middot; {formatGeneratedAge(globalUpdate.generatedAt)}</span>
+              )}
+            </div>
+            <p className="text-sm text-neutral-700 leading-relaxed font-medium">
+              &ldquo;{displayText}&rdquo;
+            </p>
+            {globalUpdate?.summaryText && (
+              <button
+                onClick={() => setShowFull(!showFull)}
+                aria-expanded={showFull}
+                aria-label={showFull ? 'Show less of Eddy report' : 'Show full Eddy report'}
+                className="flex items-center gap-1 text-[11px] font-semibold text-neutral-400 hover:text-neutral-600 transition-colors mt-1.5"
+              >
+                {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" aria-hidden="true" /></> : <>Full report <ChevronDown className="w-2.5 h-2.5" aria-hidden="true" /></>}
+              </button>
             )}
           </div>
-          <p className="text-sm text-neutral-700 leading-relaxed font-medium">
-            &ldquo;{displayText}&rdquo;
-          </p>
-          {globalUpdate?.summaryText && (
-            <button
-              onClick={() => setShowFull(!showFull)}
-              aria-expanded={showFull}
-              aria-label={showFull ? 'Show less of Eddy report' : 'Show full Eddy report'}
-              className="flex items-center gap-1 text-[11px] font-semibold text-neutral-400 hover:text-neutral-600 transition-colors mt-1.5"
-            >
-              {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" aria-hidden="true" /></> : <>Full report <ChevronDown className="w-2.5 h-2.5" aria-hidden="true" /></>}
-            </button>
-          )}
         </div>
       </div>
     </div>
