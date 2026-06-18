@@ -16,3 +16,15 @@ _kc() { security find-generic-password -s eddy-clipengine -a "$1" -w 2>/dev/null
 : "${BLOB_READ_WRITE_TOKEN:=$(_kc BLOB_READ_WRITE_TOKEN)}"
 
 export SUPABASE_URL SUPABASE_KEY BLOB_READ_WRITE_TOKEN
+
+# YouTube cookies (Netscape cookies.txt) are stored in the keychain. Materialize
+# them to a private temp file so yt-dlp can read them via YOUTUBE_COOKIES_FILE.
+if [ -z "${YOUTUBE_COOKIES_FILE:-}" ]; then
+  _ck="$(_kc YOUTUBE_COOKIES)"
+  if [ -n "$_ck" ]; then
+    _ckf="${TMPDIR:-/tmp}/eddy-clipengine-cookies.txt"
+    ( umask 077; printf '%s\n' "$_ck" > "$_ckf" )
+    export YOUTUBE_COOKIES_FILE="$_ckf"
+  fi
+  unset _ck
+fi
