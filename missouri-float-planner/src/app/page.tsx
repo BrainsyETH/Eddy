@@ -73,6 +73,8 @@ export default async function Home() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/plan"
+                  data-ga-event="cta_plan_float"
+                  data-ga-label="hero"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all no-underline hover:brightness-110"
                   style={{ backgroundColor: '#F07052' }}
                 >
@@ -80,6 +82,8 @@ export default async function Home() {
                 </Link>
                 <Link
                   href="/rivers"
+                  data-ga-event="cta_river_reports"
+                  data-ga-label="hero"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
                   River Reports
@@ -145,6 +149,8 @@ export default async function Home() {
           {/* Featured: Current River */}
           <Link
             href={guideHref(FEATURE_RIVER.slug)}
+            data-ga-event="guide_click"
+            data-ga-label={FEATURE_RIVER.slug}
             className="group relative block rounded-2xl overflow-hidden border border-neutral-200 min-h-[18rem] no-underline"
           >
             {featureImage ? (
@@ -183,6 +189,8 @@ export default async function Home() {
                 <Link
                   key={river.slug}
                   href={guideHref(river.slug)}
+                  data-ga-event="guide_click"
+                  data-ga-label={river.slug}
                   className="group bg-white border border-neutral-200 rounded-xl p-3 flex items-center gap-4 hover:border-neutral-300 hover:shadow-soft-sm transition-all no-underline"
                 >
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
@@ -230,6 +238,7 @@ export default async function Home() {
           </div>
           <Link
             href="/embed"
+            data-ga-event="cta_embed"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-all hover:brightness-110"
             style={{ backgroundColor: '#F07052' }}
           >

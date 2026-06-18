@@ -32,6 +32,11 @@ const NAV_ITEMS: NavItem[] = [
       p === '/gauges' || p.startsWith('/gauges/') || p === '/rivers' || p.startsWith('/rivers/'),
   },
   {
+    href: '/blog',
+    label: 'Guides',
+    matches: (p) => p === '/blog' || p.startsWith('/blog/'),
+  },
+  {
     href: '/about',
     label: 'About',
     matches: (p) => p === '/about',

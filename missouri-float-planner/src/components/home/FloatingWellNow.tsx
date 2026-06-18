@@ -30,7 +30,7 @@ export default function FloatingWellNow() {
   if (isLoading) {
     return (
       <ul className="flex flex-col">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <li
             key={i}
             className="flex items-center gap-3 py-3 border-b border-neutral-100 last:border-0 animate-pulse"
