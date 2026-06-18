@@ -486,9 +486,12 @@ async function hasPostedToday(
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
-  } else {
-    query = query.is('river_slug', null);
   }
+  // When riverSlug is null we dedup by post_type + day alone. These types post
+  // once per day regardless of which river they feature — and section_guide /
+  // weekly_trend rows DO carry a river_slug, so the old `.is('river_slug', null)`
+  // never matched them: they were never deduped and fired again on the +30
+  // catch-up tick (the 7:00 + 7:30 double-post).
 
   const { data } = await query.limit(1);
   if (data && data.length > 0) {
