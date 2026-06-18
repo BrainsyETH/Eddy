@@ -43,7 +43,9 @@ jobs:
           CLIP_URL: ${{ inputs.clip_url }}
         run: |
           set -e
-          WORK_DIR=$(mktemp -d)
+          # Exported so the Python step below sees it (it reads WORK_DIR from the
+          # environment; without export it fell back to /tmp and found no frames).
+          export WORK_DIR=$(mktemp -d)
 
           # Download clip
           echo "Downloading clip..."
