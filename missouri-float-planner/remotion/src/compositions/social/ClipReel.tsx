@@ -11,10 +11,16 @@ import type { ClipReelProps } from "../../lib/social-props";
 
 const FONT = "'Fredoka', system-ui, sans-serif";
 
+// Reels UI (caption, username, audio, right-side action rail) covers roughly the
+// bottom ~35% and right ~15% on both Instagram and Facebook. All messaging and
+// branding is kept above y≈1240 and horizontally centered/narrow so it stays
+// visible across every Reel surface. The bottom teal band is intentionally clear
+// (the platform UI fills it).
+const SAFE_BOTTOM_Y = 1240;
+
 /**
- * ClipReel — wraps a downloaded YouTube clip in the Eddy branded frame:
- * otter + wordmark + river name on top, the source clip in a centered band,
- * a CTA and creator credit on the bottom. 1080x1920, duration = clip length.
+ * ClipReel — wraps a downloaded YouTube clip in the Eddy branded frame, laid out
+ * to keep all text/logos inside the Reels title-safe area.
  */
 export const ClipReel: React.FC<ClipReelProps> = ({
   videoUrl,
@@ -29,11 +35,11 @@ export const ClipReel: React.FC<ClipReelProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.primary[900], fontFamily: FONT }}>
-      {/* Top brand band: otter + wordmark + river name */}
+      {/* Top brand cluster — well clear of the top edge */}
       <div
         style={{
           position: "absolute",
-          top: 48,
+          top: 96,
           left: 0,
           right: 0,
           display: "flex",
@@ -41,8 +47,8 @@ export const ClipReel: React.FC<ClipReelProps> = ({
           alignItems: "center",
         }}
       >
-        <EddyMascot variant="canoe" size={180} />
-        <div style={{ color: "#fff", fontSize: 46, fontWeight: 600, marginTop: 4, letterSpacing: 0.5 }}>
+        <EddyMascot variant="canoe" size={150} />
+        <div style={{ color: "#fff", fontSize: 46, fontWeight: 600, marginTop: 2, letterSpacing: 0.5 }}>
           eddy.guide
         </div>
         <div
@@ -50,49 +56,52 @@ export const ClipReel: React.FC<ClipReelProps> = ({
             color: colors.secondary[300],
             fontSize: 58,
             fontWeight: 600,
-            marginTop: 28,
+            marginTop: 22,
             textAlign: "center",
-            padding: "0 48px",
-            lineHeight: 1.1,
+            padding: "0 120px",
+            lineHeight: 1.05,
           }}
         >
           {riverName}
         </div>
       </div>
 
-      {/* Source clip band — 1080x608 (16:9) centered at y=746 */}
-      <div style={{ position: "absolute", top: 746, left: 0, width: 1080, height: 608, overflow: "hidden", opacity: videoFade }}>
+      {/* Source clip band — 16:9 at full width, y centered in the safe area */}
+      <div style={{ position: "absolute", top: 470, left: 0, width: 1080, height: 608, overflow: "hidden", opacity: videoFade }}>
         <OffthreadVideo src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
 
-      {/* Bottom brand band: CTA + creator credit */}
+      {/* Messaging — directly below the clip, ABOVE the Reels bottom UI zone */}
       <div
         style={{
           position: "absolute",
-          bottom: 150,
+          top: 1100,
           left: 0,
           right: 0,
+          maxHeight: SAFE_BOTTOM_Y - 1100,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 22,
+          gap: 16,
         }}
       >
+        {creatorCredit ? (
+          <div style={{ color: colors.secondary[400], fontSize: 28 }}>🎥 Clip via {creatorCredit}</div>
+        ) : null}
         <div
           style={{
             backgroundColor: colors.accent[500],
             color: "#fff",
-            fontSize: 40,
+            fontSize: 36,
             fontWeight: 600,
-            padding: "16px 34px",
+            padding: "14px 30px",
             borderRadius: 999,
+            maxWidth: 820,
+            textAlign: "center",
           }}
         >
           Plan your float trip at eddy.guide
         </div>
-        {creatorCredit ? (
-          <div style={{ color: colors.secondary[400], fontSize: 30 }}>🎥 Clip via {creatorCredit}</div>
-        ) : null}
       </div>
     </AbsoluteFill>
   );
