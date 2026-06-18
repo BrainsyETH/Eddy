@@ -33,6 +33,29 @@ the cloud too.
 
 Output → `output/<videoId>-peak<N>.mp4`.
 
+## Publishing to Facebook / Instagram
+
+This machine does NOT post to social directly. Instead, when publish creds are
+present it uploads each finished clip to Vercel Blob and inserts it into Supabase
+`clip_library` (`brand_check_status=pending`) — exactly like the cloud
+`youtube-clip-pipeline.yml`. The deployed Eddy app then runs its brand-check →
+decide → `post-social` flow and publishes approved clips to FB/IG. The review
+gate stays intact; inserting a clip does not post it.
+
+Secrets live in the **macOS keychain** (service `eddy-clipengine`), not on disk.
+Store them with `set-secret.sh` (value read silently, straight into the keychain):
+
+```bash
+./set-secret.sh SUPABASE_KEY          # Supabase service-role key
+./set-secret.sh BLOB_READ_WRITE_TOKEN # Vercel Blob read/write token
+# SUPABASE_URL is already stored (FloatMe project)
+```
+
+`load-secrets.sh` pulls them into the environment at runtime. With all three set,
+`run-local.sh` auto-publishes after each render; use `--no-publish` to render only.
+`publish-clip.sh` can also run standalone. An optional gitignored `.env` overrides
+the keychain per-run if present.
+
 ## Requirements
 
 `yt-dlp`, `ffmpeg`/`ffprobe`, `python3`. On a home IP you usually don't need
