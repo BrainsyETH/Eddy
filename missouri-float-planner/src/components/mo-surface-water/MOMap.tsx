@@ -162,6 +162,15 @@ function strokeWidthForRiver(
   return base;
 }
 
+// Round a raw distance down to a tidy 1/2/5 × 10ⁿ value for the scale bar.
+function niceDistance(km: number): number {
+  if (km <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(km)));
+  const f = km / pow;
+  const nice = f >= 5 ? 5 : f >= 2 ? 2 : 1;
+  return nice * pow;
+}
+
 function strokeWidthForBasemapRiver(lengthMi: number): number {
   // Length-weighted strokes for the NHD basemap network. The previous
   // ramp made small named tributaries (e.g. Jacks Fork at 46 mi) render
@@ -205,6 +214,15 @@ export default function MOMap(props: MOMapProps) {
     () => polygonToPath(MO_OUTLINE, project),
     [project],
   );
+  // Projected anchor for the Ozark highland tint (southern plateau).
+  const ozarkTint = useMemo(() => project(-92.0, 37.05), [project]);
+  // Kilometres represented by one viewBox unit — drives the scale bar.
+  const kmPerUnit = useMemo(() => {
+    const [x0] = project(-92, 38);
+    const [x1] = project(-91, 38);
+    const dxUnits = Math.abs(x1 - x0) || 1;
+    return (111.32 * Math.cos((38 * Math.PI) / 180)) / dxUnits;
+  }, [project]);
   const riverPaths = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of props.rivers) {
@@ -567,6 +585,21 @@ export default function MOMap(props: MOMapProps) {
           <stop offset="60%" stopColor="#EADFC2" />
           <stop offset="100%" stopColor="#D4C394" />
         </radialGradient>
+        {/* Muted highland tint — anchored over the southern Ozark Plateau
+            where the float rivers live, fading to nothing toward the
+            glaciated plains in the north. Adds regional depth and fills the
+            otherwise-blank canvas without inventing data. */}
+        <radialGradient id="mo-ozark" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#6F8A5E" stopOpacity="0.22" />
+          <stop offset="55%" stopColor="#7D9468" stopOpacity="0.10" />
+          <stop offset="100%" stopColor="#7D9468" stopOpacity="0" />
+        </radialGradient>
+        {/* Soft drop shadow so the parchment silhouette lifts off the dark
+            teal backdrop. Cast by a dark copy of the state path drawn just
+            behind the parchment fill. */}
+        <filter id="mo-shadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="10" stdDeviation="16" floodColor="#04141A" floodOpacity="0.6" />
+        </filter>
         <pattern id="mo-grain" width="180" height="180" patternUnits="userSpaceOnUse">
           {Array.from({ length: 70 }).map((_, i) => {
             const seed = (i * 9301 + 49297) % 233280;
@@ -586,17 +619,32 @@ export default function MOMap(props: MOMapProps) {
       {/* Backdrop (matches Eddy primary-900) */}
       <rect width={W} height={H} fill="#0F2D35" />
 
+      {/* Shadow caster — a dark copy of the state, blurred via the filter.
+          The parchment group paints over its fill, leaving only the soft
+          halo around MO's edges. */}
+      <path d={stateOutlinePath} fill="#0B2027" filter="url(#mo-shadow)" />
+
       {/* State silhouette — parchment fill, clipped to state, plus a stroked
           border for definition. The state path may extend off-canvas; SVG
           clips it naturally. */}
       <g clipPath="url(#mo-clip)">
         <rect width={W} height={H} fill="url(#mo-bg)" />
         <rect width={W} height={H} fill="url(#mo-grain)" />
+        {/* Ozark highland tint (objectBoundingBox gradient on an ellipse over
+            the southern plateau). */}
+        <ellipse
+          cx={ozarkTint[0]}
+          cy={ozarkTint[1]}
+          rx={560}
+          ry={430}
+          fill="url(#mo-ozark)"
+        />
 
         {/* NHD basemap — lakes (filled polygons) under named perennial
             rivers (thin uniform blue). Renders inside the state clip so it
             never bleeds across MO's borders. Curated rivers, gauges, etc.
-            paint OUTSIDE this group on top of the basemap. */}
+            paint OUTSIDE this group on top of the basemap. Kept low-contrast
+            so the colored curated reaches read as the foreground. */}
         <g pointerEvents="none">
           {basemapLakePaths.map((l) => (
             <path
@@ -605,19 +653,19 @@ export default function MOMap(props: MOMapProps) {
               fill="#7FB2C2"
               stroke="#3F8499"
               strokeWidth={0.6}
-              opacity={0.78}
+              opacity={0.5}
             />
           ))}
           {basemapRiverPaths.map((r) => (
             <path
               key={`bm-${r.name}`}
               d={r.d}
-              stroke="#3F8499"
+              stroke="#4E8DA1"
               strokeWidth={strokeWidthForBasemapRiver(r.lengthMi)}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.85}
+              opacity={0.42}
             />
           ))}
         </g>
@@ -739,6 +787,16 @@ export default function MOMap(props: MOMapProps) {
             )}
             {/* Hit target */}
             <path d={d} stroke="transparent" strokeWidth={Math.max(18, sw * 3)} fill="none" strokeLinecap="round" />
+            {/* Permanent dark casing — frames the colored reach so it reads
+                cleanly over both the parchment and the muted basemap. */}
+            <path
+              d={d}
+              stroke="rgba(15,45,53,0.55)"
+              strokeWidth={sw + 2.6}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
             {/* Glow on hover/focus */}
             {(isHovered || isFocused) && (
               <path
@@ -825,14 +883,15 @@ export default function MOMap(props: MOMapProps) {
           // condition so stage-only gauges still flag rising water.
           const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
           const iconHref = getEddyImageForCondition(verdict);
-          // Pin pattern: the precise gauge point is the small dot at (0,0).
-          // Eddy floats just above it like a labeled pin, so any offset
-          // between USGS coords and the rendered basemap stream is obvious
-          // (the dot stays anchored; only the Eddy badge hovers).
-          const baseSize = isFocused ? 28 : isHovered ? 24 : g.is_primary ? 20 : 14;
-          const size = baseSize * kStable;
-          const dotR = (g.is_primary ? 2.2 : 1.6) * kStable;
-          const iconYOffset = -(size * 0.55 + dotR * 1.8);
+          // Condition chip: a crisp colored disc with a cream halo reads at
+          // any zoom. The Eddy avatar is the personality layer — shown only
+          // on hover/focus or once zoomed in (view < 0.5x), where it floats
+          // just above the chip like a labeled pin so the anchor stays put.
+          const showOtter = isHovered || isFocused || view.w < W * 0.5;
+          const chipR = ((g.is_primary ? 5 : 3.6) + (isFocused ? 2.6 : isHovered ? 1.4 : 0)) * kStable;
+          const otterSize = (isFocused ? 32 : 27) * kStable;
+          const iconYOffset = -(chipR + otterSize * 0.58);
+          const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
           return (
             <g
               key={g.site_no}
@@ -848,32 +907,35 @@ export default function MOMap(props: MOMapProps) {
               onMouseLeave={() => props.onHoverGauge(null, null)}
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
-              <circle r={Math.max(14, baseSize * 0.7) * kStable} fill="transparent" pointerEvents="all" />
+              <circle r={hitR} fill="transparent" pointerEvents="all" />
               {elevated && (
-                <circle r={(dotR * 2.5)} fill="none" stroke={verdictColor} strokeWidth={1 * kStable} opacity={0.7} pointerEvents="none">
-                  <animate attributeName="r" from={dotR * 2.5} to={dotR * 7} dur="2.2s" repeatCount="indefinite" />
+                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
+                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
               )}
-              <image
-                href={iconHref}
-                x={-size / 2}
-                y={iconYOffset - size / 2}
-                width={size}
-                height={size}
-                pointerEvents="none"
-                style={{
-                  filter: isFocused
-                    ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
-                    : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
-                }}
-              />
+              {showOtter && (
+                <image
+                  href={iconHref}
+                  x={-otterSize / 2}
+                  y={iconYOffset - otterSize / 2}
+                  width={otterSize}
+                  height={otterSize}
+                  pointerEvents="none"
+                  style={{
+                    filter: isFocused
+                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
+                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
+                  }}
+                />
+              )}
               <circle
-                r={dotR}
+                r={chipR}
                 fill={verdictColor}
                 stroke="#FAF8F4"
-                strokeWidth={0.8 * kStable}
+                strokeWidth={1.5 * kStable}
                 pointerEvents="none"
+                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
               />
             </g>
           );
@@ -972,6 +1034,33 @@ export default function MOMap(props: MOMapProps) {
       >
         Stream colour: float condition at the nearest gauge · fades between gauges
       </text>
+
+      {/* Scale bar + north arrow — anchored to the viewport (screen-fixed) in
+          the empty left-centre band so they never collide with the corner
+          cards. Bar length tracks a tidy ground distance for the zoom. */}
+      {(() => {
+        const m = kStable;
+        const km = niceDistance(view.w * 0.16 * kmPerUnit);
+        const barUnits = km / kmPerUnit;
+        const ox = view.x + view.w * 0.04;
+        const oy = view.y + view.h * 0.5;
+        const tick = 4.5 * m;
+        const ink = 'rgba(45,42,36,0.78)';
+        return (
+          <g pointerEvents="none" fontFamily="var(--font-mono), ui-monospace, monospace">
+            <g transform={`translate(${ox + barUnits / 2} ${oy - 26 * m})`}>
+              <path d={`M0 ${-9 * m} L${5 * m} ${5 * m} L${-5 * m} ${5 * m} Z`} fill={ink} />
+              <text x={0} y={-12 * m} textAnchor="middle" fontSize={9 * m} fontWeight={700} fill={ink}>N</text>
+            </g>
+            <line x1={ox} y1={oy} x2={ox + barUnits} y2={oy} stroke={ink} strokeWidth={1.6 * m} strokeLinecap="round" />
+            <line x1={ox} y1={oy - tick} x2={ox} y2={oy + tick} stroke={ink} strokeWidth={1.6 * m} />
+            <line x1={ox + barUnits} y1={oy - tick} x2={ox + barUnits} y2={oy + tick} stroke={ink} strokeWidth={1.6 * m} />
+            <text x={ox + barUnits / 2} y={oy - 5 * m} textAnchor="middle" fontSize={9 * m} fill={ink}>
+              {km} km · {Math.round(km * 0.621371)} mi
+            </text>
+          </g>
+        );
+      })()}
     </svg>
 
     {/* Zoom controls — overlay, not inside the SVG, so they stay fixed
@@ -1012,7 +1101,7 @@ export default function MOMap(props: MOMapProps) {
           background: zoomedIn ? '#FAF8F4' : '#E8E2D5',
           color: zoomedIn ? '#2D2A24' : '#857D70',
           borderColor: '#3F3B33',
-          fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', lineHeight: 1,
+          fontSize: 9.5, fontWeight: 700, letterSpacing: '0', lineHeight: 1,
           boxShadow: zoomedIn ? '2px 2px 0 #1A1814' : 'none',
           cursor: zoomedIn ? 'pointer' : 'default',
         }}
