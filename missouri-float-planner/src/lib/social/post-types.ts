@@ -20,6 +20,7 @@ export type PostKind =
   | 'river_highlight'
   | 'weekly_forecast'
   | 'section_guide'
+  | 'favorite_float'
   | 'weekly_trend'
   | 'tip';
 
@@ -61,6 +62,13 @@ export interface RenderData {
   distanceMi?: number;
   hoursCanoe?: number;
   springs?: Array<{ name: string; mile: number; side: string | null }>;
+  // Favorite Float (evergreen, editorial) extras
+  /** Guide section's catchy name, shown under the river name (replaces the date). */
+  tagline?: string;
+  /** Guide "Best for" audience line. */
+  bestFor?: string;
+  /** Difficulty class label from the guide (e.g. "I–II"). */
+  difficulty?: string;
   // Weekly trend extras
   currentHeightFt?: number | null;
   sevenDayFirstFt?: number | null;
@@ -207,6 +215,30 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     ogType: 'section',
     renderProps: sectionRouteProps,
     outputFilename: () => `float-of-day-${isoDay()}`,
+  },
+
+  // "Eddy's Favorite Floats" — same self-drawing route reel as Float of the Day,
+  // but evergreen (no live float-time delta) and editorial: the eyebrow becomes
+  // "Eddy's Favorite Float" and the guide's section name + difficulty ride along
+  // as the "why". Source sections come from the river-guide blogs.
+  favorite_float: {
+    id: 'favorite_float',
+    label: "Eddy's Favorite Float",
+    needs: 'none',
+    media: ['video'],
+    composition: 'social-route-portrait',
+    ogType: 'favorite',
+    renderProps: (data) => ({
+      ...sectionRouteProps(data),
+      // Evergreen: float time is the typical "flowing" pace (post-context sets
+      // conditionCode='flowing'), so hoursToday === hoursTypical and the reel
+      // hides the faster/slower delta. Neutral accent + editorial copy below.
+      label: "Eddy's Favorite Float",
+      tagline: data.tagline,
+      difficulty: data.difficulty,
+      evergreen: true,
+    }),
+    outputFilename: () => `favorite-float-${isoDay()}`,
   },
 
   weekly_trend: {

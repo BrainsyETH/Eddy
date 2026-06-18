@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { type, riverSlug, contentId, platforms } = body as {
-    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
+    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend';
     riverSlug?: string;
     contentId?: string;
     platforms: string[];
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     const kind: VideoPostKind =
       type === 'digest' ? 'daily_digest'
       : type === 'highlight' ? 'river_highlight'
-      : type; // weekly_forecast | section_guide | weekly_trend
+      : type; // weekly_forecast | section_guide | favorite_float | weekly_trend
 
     const ctx = await buildPostContext(supabase, { postType: kind, riverSlug });
     if (!ctx) {
