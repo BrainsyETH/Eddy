@@ -156,7 +156,9 @@ export default async function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
           {/* Eddy's read */}
           <div className="flex flex-col gap-3">
-            <EddySaysReport />
+            <div className="flex-1">
+              <EddySaysReport />
+            </div>
             <Link
               href="/rivers"
               className="self-start inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600 hover:text-accent-700 transition-colors no-underline"
@@ -191,21 +193,18 @@ export default async function Home() {
               The river guide
             </span>
             <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 max-w-md" style={{ fontFamily: 'var(--font-display)' }}>
-              Explore Missouri&apos;s float rivers
+              New to floating? Start here.
             </h2>
           </div>
-          <Link
-            href="/rivers"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-500 hover:text-neutral-800 transition-colors no-underline"
-          >
-            All rivers <ArrowRight className="w-4 h-4" />
-          </Link>
+          <p className="text-sm text-neutral-500 max-w-sm leading-relaxed">
+            Everything that doesn&apos;t change with the weather — how to read a level, what to pack, and how to pick your stretch.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-5">
           {/* Featured: Current River */}
           <Link
-            href={`/rivers/${FEATURE_RIVER.slug}`}
+            href="/blog"
             className="group relative block rounded-2xl overflow-hidden border border-neutral-200 min-h-[18rem] no-underline"
           >
             {featureImage ? (
@@ -231,7 +230,7 @@ export default async function Home() {
                 {FEATURE_RIVER.tagline}
               </p>
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-                View river report <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                Read the guide <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </div>
           </Link>
@@ -243,7 +242,7 @@ export default async function Home() {
               return (
                 <Link
                   key={river.slug}
-                  href={`/rivers/${river.slug}`}
+                  href="/blog"
                   className="group bg-white border border-neutral-200 rounded-xl p-3 flex items-center gap-4 hover:border-neutral-300 hover:shadow-soft-sm transition-all no-underline"
                 >
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
@@ -265,7 +264,7 @@ export default async function Home() {
                       {river.name}
                     </h3>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-600">
-                      View report <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      Read guide <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </span>
                   </div>
                 </Link>
