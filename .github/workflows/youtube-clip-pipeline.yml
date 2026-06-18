@@ -124,6 +124,19 @@ jobs:
             local VIDEO_ID=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d['video_id'])")
             local CHANNEL=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('channel','Unknown'))")
             local TITLE=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('title',''))")
+
+            # River is detected per-video by scrape-heatmap (a channel covers many
+            # rivers). A dispatch/channel river_slug overrides; otherwise use the
+            # detected one. No river at all → skip (only known-river clips post).
+            local DETECTED_RIVER=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('river_slug','') or '')")
+            if [ -z "$RIVER" ]; then RIVER="$DETECTED_RIVER"; fi
+            if [ -z "$RIVER" ]; then
+              echo "⚠️ No Eddy river detected for $VIDEO_ID, skipping"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+            echo "River (resolved): $RIVER"
+
             local PEAK_IDX=$((PEAK - 1))
             local PEAK_START=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX]['start_secs'] if len(peaks)>$PEAK_IDX else '')")
             local PEAK_DURATION=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX].get('duration_secs',13) if len(peaks)>$PEAK_IDX else '')")
