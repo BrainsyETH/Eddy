@@ -128,16 +128,24 @@ else
       */videos|*watch?v=*|*youtu.be/*) LIST_URL="$CH_URL" ;;
       *) LIST_URL="${CH_URL%/}/videos" ;;
     esac
-    echo "  • $LIST_URL  (credit: ${CH_IG:+@${CH_IG#@}}${CH_IG:-channel name}; river auto-detected per video)"
-    while read -r VID; do
-      [ -z "$VID" ] && continue
+    CRED_DISP="${CH_IG:+@${CH_IG#@}}"; CRED_DISP="${CRED_DISP:-channel name}"
+    echo "  • $LIST_URL  (credit: $CRED_DISP)"
+    # One cheap listing call returns id+title for all newest videos; detect the
+    # river from the TITLE and only deep-scrape/download matches. This avoids a
+    # heavy per-video yt-dlp -J on every video (slow + 403-prone).
+    while IFS= read -r LINE; do
+      [ -z "$LINE" ] && continue
       [ "$COUNT" -ge "$MAX_CLIPS" ] && { echo "  Reached MAX_CLIPS=$MAX_CLIPS"; break 2; }
-      # Count only produced clips (process_video returns 0 on a new render),
-      # so no-river skips don't burn the MAX_CLIPS budget.
-      if process_video "https://www.youtube.com/watch?v=${VID}" "" "$PEAK_NUMBER" "$CH_IG"; then
+      VID="${LINE%%|||*}"; VTITLE="${LINE#*|||}"
+      VRIVER="$(bash "$CE/detect-river.sh" "$VTITLE")"
+      if [ -z "$VRIVER" ]; then
+        echo "    ⏭️  no river in title: ${VTITLE:0:64}"; continue; fi
+      echo "    🎯 $VRIVER ← ${VTITLE:0:64}"
+      # Count only produced clips so no-river/failed videos don't burn MAX_CLIPS.
+      if process_video "https://www.youtube.com/watch?v=${VID}" "$VRIVER" "$PEAK_NUMBER" "$CH_IG"; then
         COUNT=$((COUNT + 1))
       fi
-    done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s" "$LIST_URL" 2>/dev/null || true)
+    done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
   done < <(python3 -c "
 import json,sys
 # Pipe-delimited (not tab): tab is IFS-whitespace, so empty middle fields would
