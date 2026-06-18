@@ -12,7 +12,8 @@ set -euo pipefail
 ACC="${1:-}"
 case "$ACC" in
   SUPABASE_URL|SUPABASE_KEY|BLOB_READ_WRITE_TOKEN|YOUTUBE_COOKIES) ;;
-  *) echo "Usage: $0 <SUPABASE_URL|SUPABASE_KEY|BLOB_READ_WRITE_TOKEN|YOUTUBE_COOKIES> [value | --clip | --file <path>]"; exit 1 ;;
+  META_PAGE_ACCESS_TOKEN|META_PAGE_ID|META_INSTAGRAM_ACCOUNT_ID) ;;
+  *) echo "Usage: $0 <name> [value | --clip | --file <path>]  (names: SUPABASE_URL|SUPABASE_KEY|BLOB_READ_WRITE_TOKEN|YOUTUBE_COOKIES|META_PAGE_ACCESS_TOKEN|META_PAGE_ID|META_INSTAGRAM_ACCOUNT_ID)"; exit 1 ;;
 esac
 
 if [ "${2:-}" = "--file" ]; then
