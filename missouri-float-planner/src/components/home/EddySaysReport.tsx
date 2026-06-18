@@ -1,9 +1,10 @@
 'use client';
 
 // src/components/home/EddySaysReport.tsx
-// Overall Eddy Says report for the landing page — fetches the global summary
+// Statewide "Eddy says" card for the landing page — reads the shared batched
+// Eddy updates (useEddyUpdates) so it shares one fetch with the hero bubble.
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
@@ -11,7 +12,7 @@ import { ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { getEddyImageForCondition } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
-import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
+import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 
 function formatGeneratedAge(isoString: string | null): string | null {
   if (!isoString) return null;
@@ -28,36 +29,14 @@ function formatGeneratedAge(isoString: string | null): string | null {
 
 export default function EddySaysReport() {
   const { riverGroups, isLoading: groupsLoading } = useRiverGroups();
-  const [globalUpdate, setGlobalUpdate] = useState<{ quoteText: string; summaryText: string | null; generatedAt: string | null } | null>(null);
+  const { data: eddyUpdates, isLoading: updatesLoading } = useEddyUpdates();
   const [showFull, setShowFull] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  // Fetch global Eddy update
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchGlobal() {
-      try {
-        const res = await fetch('/api/eddy-update/global');
-        if (!res.ok) return;
-        const data: EddyUpdateResponse = await res.json();
-        if (!cancelled && data.available && data.update) {
-          setGlobalUpdate({
-            quoteText: data.update.quoteText,
-            summaryText: data.update.summaryText,
-            generatedAt: data.update.generatedAt,
-          });
-        }
-      } catch { /* silent */ } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    fetchGlobal();
-    return () => { cancelled = true; };
-  }, []);
+  const globalUpdate = eddyUpdates?.global ?? null;
 
-  if (loading || groupsLoading) {
+  if (updatesLoading || groupsLoading) {
     return (
-      <div className="h-full rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+      <div className="h-full min-h-[240px] rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
         <div className="h-full bg-white rounded-[13px] p-5 md:p-6 animate-pulse flex flex-col">
           <div className="flex items-center gap-3 mb-3">
             <div className="flex-shrink-0 w-10 h-10 bg-neutral-200 rounded-full" />
@@ -80,7 +59,7 @@ export default function EddySaysReport() {
     : fallbackText;
 
   return (
-    <div className="h-full rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+    <div className="h-full min-h-[240px] rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
       <div className="h-full bg-white rounded-[13px] p-5 md:p-6 flex flex-col">
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-shrink-0 w-10 h-10 relative">
@@ -116,6 +95,7 @@ export default function EddySaysReport() {
         )}
         <Link
           href="/rivers"
+          data-ga-event="eddy_other_rivers"
           className="mt-auto pt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600 hover:text-accent-700 transition-colors no-underline"
         >
           See what Eddy says about other rivers <ArrowRight className="w-4 h-4" />

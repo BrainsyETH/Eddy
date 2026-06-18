@@ -4,17 +4,17 @@
 // Live, rotating "Eddy says" speech bubble for the hero. Cycles through rivers
 // (floatable first) showing each river's level + status + Eddy's quote, with a
 // "Live" chip, progress dots, pause-on-hover, and reduced-motion support.
-// Data: useRiverGroups (level/condition) + /api/eddy-update/{slug} (quote).
+// Data: useRiverGroups (level/condition) + useEddyUpdates (one batched quote call).
 
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 import { useRiverGroups } from '@/hooks/useRiverGroups';
+import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { CONDITION_COLORS } from '@/constants';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { RiverGroup } from '@/lib/river-groups';
-import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
 // Show the best-looking rivers first, capped to keep the rotation tight.
 const RANK: Record<string, number> = {
@@ -45,6 +45,7 @@ function usePrefersReducedMotion(): boolean {
 
 export default function EddyHeroBubble() {
   const { riverGroups, isLoading } = useRiverGroups();
+  const { data: eddyUpdates } = useEddyUpdates();
   const reduceMotion = usePrefersReducedMotion();
 
   const slides = useMemo(
@@ -59,32 +60,11 @@ export default function EddyHeroBubble() {
   const [fading, setFading] = useState(false);
   const [paused, setPaused] = useState(false);
   const [interacted, setInteracted] = useState(false);
-  const [quotes, setQuotes] = useState<Record<string, string>>({});
-  const fetchedRef = useRef<Set<string>>(new Set());
 
   // Keep index in range when the slide set changes.
   useEffect(() => {
     setIndex((i) => (slides.length ? i % slides.length : 0));
   }, [slides.length]);
-
-  // Fetch each river's Eddy quote once.
-  useEffect(() => {
-    let cancelled = false;
-    slides.forEach((r) => {
-      const slug = r.riverSlug;
-      if (!slug || fetchedRef.current.has(slug)) return;
-      fetchedRef.current.add(slug);
-      fetch(`/api/eddy-update/${slug}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data: EddyUpdateResponse | null) => {
-          if (cancelled || !data?.available || !data.update) return;
-          const text = data.update.summaryText || data.update.quoteText;
-          if (text) setQuotes((q) => ({ ...q, [slug]: text }));
-        })
-        .catch(() => {});
-    });
-    return () => { cancelled = true; };
-  }, [slides]);
 
   // Auto-rotate (paused on hover / when reduced motion is requested).
   useEffect(() => {
@@ -105,8 +85,10 @@ export default function EddyHeroBubble() {
   const river = slides[index];
   const color = CONDITION_COLORS[river.condition.code] || CONDITION_COLORS.unknown;
   const level = levelLabel(river);
+  const update = river.riverSlug ? eddyUpdates?.[river.riverSlug] : undefined;
   const quote =
-    (river.riverSlug && quotes[river.riverSlug]) ||
+    update?.quoteText ||
+    update?.summaryText ||
     CONDITION_CARD_BLURBS[river.condition.code] ||
     CONDITION_CARD_BLURBS.unknown;
   const href = river.riverSlug ? `/rivers/${river.riverSlug}` : '#';
@@ -179,7 +161,12 @@ export default function EddyHeroBubble() {
             </button>
           ))}
         </div>
-        <Link href={href} className="inline-flex items-center gap-1 text-xs font-bold text-accent-600 hover:text-accent-700 transition-colors no-underline">
+        <Link
+          href={href}
+          data-ga-event="bubble_river"
+          data-ga-label={river.riverSlug ?? river.riverName}
+          className="inline-flex items-center gap-1 text-xs font-bold text-accent-600 hover:text-accent-700 transition-colors no-underline"
+        >
           See {river.riverName} <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -199,7 +186,7 @@ function BubbleShell({
 }) {
   return (
     <div
-      className="relative bg-white rounded-2xl p-5 text-left shadow-[0_18px_44px_rgba(8,24,21,0.30)]"
+      className="relative bg-white rounded-2xl p-5 text-left shadow-[0_18px_44px_rgba(8,24,21,0.30)] min-h-[210px]"
       onMouseEnter={onPause ? () => onPause(true) : undefined}
       onMouseLeave={onPause ? () => onPause(false) : undefined}
     >

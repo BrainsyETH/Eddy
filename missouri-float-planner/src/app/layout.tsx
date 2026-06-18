@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import { Fredoka } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
+import AnalyticsListener from "@/components/AnalyticsListener";
 
 import "./globals.css";
 
@@ -118,6 +119,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} ${fredoka.variable} antialiased`}
       >
         <Providers>
+          <AnalyticsListener />
           <SiteHeader />
           {children}
         </Providers>

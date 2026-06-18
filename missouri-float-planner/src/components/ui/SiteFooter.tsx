@@ -41,6 +41,7 @@ export default function SiteFooter({
           <div>
             <h3 className="text-white font-semibold mb-2">Learn</h3>
             <ul className="space-y-1.5">
+              <li><Link href="/blog" className="text-primary-200 hover:text-white transition-colors">River Guides</Link></li>
               <li><Link href="/about" className="text-primary-200 hover:text-white transition-colors">How Eddy Works</Link></li>
               <li><Link href="/about#conditions" className="text-primary-200 hover:text-white transition-colors">Condition Codes</Link></li>
             </ul>
