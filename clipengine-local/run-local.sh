@@ -61,27 +61,37 @@ process_video() {
 
   bash "$CE/scrape-heatmap.sh" "$URL" "$WORK" || true
   if [ ! -f "$WORK/heatmap-data.json" ]; then
-    echo "⚠️  No heatmap data, skipping"; rm -rf "$WORK"; return; fi
+    echo "⚠️  No heatmap data, skipping"; rm -rf "$WORK"; return 1; fi
 
   local VIDEO_ID PEAK_IDX PEAK_START PEAK_DURATION CHANNEL CREDIT
   VIDEO_ID="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json'))['video_id'])")"
   CHANNEL="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json')).get('channel','') or '')" 2>/dev/null || echo "")"
   # On-screen + caption credit: IG @handle if known, else the YouTube channel name.
   if [ -n "$IG" ]; then CREDIT="@${IG#@}"; else CREDIT="$CHANNEL"; fi
+
+  # River is detected per-video by scrape-heatmap (a channel covers many rivers).
+  # A passed-in --river overrides detection. No river → skip before downloading.
+  local DETECTED; DETECTED="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json')).get('river_slug','') or '')" 2>/dev/null || echo "")"
+  if [ -z "$RIVER" ]; then RIVER="$DETECTED"; fi
+  if [ -z "$RIVER" ]; then
+    echo "⏭️  No Eddy river detected for this video — skipping (only known-river clips post)."
+    rm -rf "$WORK"; return 1; fi
+  echo "   River: $RIVER"
+
   PEAK_IDX=$((PEAK - 1))
   PEAK_START="$(python3 -c "import json;p=json.load(open('$WORK/heatmap-data.json')).get('peaks',[]);print(p[$PEAK_IDX]['start_secs'] if len(p)>$PEAK_IDX else '')")"
   PEAK_DURATION="$(python3 -c "import json;p=json.load(open('$WORK/heatmap-data.json')).get('peaks',[]);print(p[$PEAK_IDX].get('duration_secs',13) if len(p)>$PEAK_IDX else '')")"
   if [ -z "$PEAK_START" ]; then
-    echo "⚠️  No peak at position $PEAK, skipping"; rm -rf "$WORK"; return; fi
+    echo "⚠️  No peak at position $PEAK, skipping"; rm -rf "$WORK"; return 1; fi
 
   local FINAL="$OUT/${VIDEO_ID}-peak${PEAK}.mp4"
   if [ -f "$FINAL" ]; then
-    echo "⏭️  Already rendered: $FINAL — skipping"; rm -rf "$WORK"; return; fi
+    echo "⏭️  Already rendered: $FINAL — skipping"; rm -rf "$WORK"; return 1; fi
 
   echo "→ Extracting clip at ${PEAK_START}s for ${PEAK_DURATION}s..."
   bash "$CE/extract-clip.sh" "$URL" "$PEAK_START" "$PEAK_DURATION" "$WORK/raw-clip.mp4" --transcript || true
   if [ ! -f "$WORK/raw-clip.mp4" ]; then
-    echo "⚠️  Extraction failed, skipping"; rm -rf "$WORK"; return; fi
+    echo "⚠️  Extraction failed, skipping"; rm -rf "$WORK"; return 1; fi
 
   echo "→ Finalizing to Reel format (credit: ${CREDIT:-none})..."
   local VTT; VTT="$(find "$WORK" -name '*.vtt' -type f | head -1 || true)"
@@ -90,18 +100,14 @@ process_video() {
   if [ -f "$FINAL" ]; then
     echo "✅ Done: $FINAL"
     # Auto-publish into the Eddy app pipeline (Blob + clip_library, pending) when
-    # creds are present. Only known-river clips post (per project decision).
+    # creds are present. River is already known (skipped above otherwise).
     if [ "$PUBLISH" = 1 ]; then
-      if [ -z "$RIVER" ]; then
-        echo "⏭️  Not publishing — no river known (only known-river clips post)."
-      else
-        bash "$HERE/publish-clip.sh" "$FINAL" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" || echo "⚠️  publish step failed (clip still saved locally)"
-      fi
+      bash "$HERE/publish-clip.sh" "$FINAL" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" || echo "⚠️  publish step failed (clip still saved locally)"
     fi
+    rm -rf "$WORK"; return 0
   else
-    echo "⚠️  Finalize failed"
+    echo "⚠️  Finalize failed"; rm -rf "$WORK"; return 1
   fi
-  rm -rf "$WORK"
 }
 
 if [ -n "$SINGLE_URL" ]; then
@@ -116,19 +122,21 @@ else
     case "$CH_URL" in
       *REPLACE_WITH*|*ANOTHER_CHANNEL*) echo "  • skipping placeholder $CH_URL"; continue ;;
     esac
-    # Only known-river clips post, so don't even scan channels with no river_slug.
-    if [ -z "$CH_RIVER" ]; then
-      echo "  ⏭️  ${CH_URL##*/} — no river_slug set, skipping"; continue; fi
+    # River is detected per-video (a channel covers many rivers), so scan every
+    # channel; process_video skips videos with no detected Eddy river.
     case "$CH_URL" in
       */videos|*watch?v=*|*youtu.be/*) LIST_URL="$CH_URL" ;;
       *) LIST_URL="${CH_URL%/}/videos" ;;
     esac
-    echo "  • $LIST_URL  (river: $CH_RIVER, credit: ${CH_IG:+@${CH_IG#@}}${CH_IG:-channel name})"
+    echo "  • $LIST_URL  (credit: ${CH_IG:+@${CH_IG#@}}${CH_IG:-channel name}; river auto-detected per video)"
     while read -r VID; do
       [ -z "$VID" ] && continue
       [ "$COUNT" -ge "$MAX_CLIPS" ] && { echo "  Reached MAX_CLIPS=$MAX_CLIPS"; break 2; }
-      process_video "https://www.youtube.com/watch?v=${VID}" "$CH_RIVER" "$PEAK_NUMBER" "$CH_IG"
-      COUNT=$((COUNT + 1))
+      # Count only produced clips (process_video returns 0 on a new render),
+      # so no-river skips don't burn the MAX_CLIPS budget.
+      if process_video "https://www.youtube.com/watch?v=${VID}" "" "$PEAK_NUMBER" "$CH_IG"; then
+        COUNT=$((COUNT + 1))
+      fi
     done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s" "$LIST_URL" 2>/dev/null || true)
   done < <(python3 -c "
 import json,sys

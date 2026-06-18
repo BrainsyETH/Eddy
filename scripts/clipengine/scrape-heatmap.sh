@@ -126,6 +126,32 @@ if not peaks:
             "end_formatted": f"0:{CLIP_DURATION:02d}",
         })
 
+# Detect which Eddy river this video is about (per-video, not per-channel — a
+# channel may cover many rivers). Match the river name in title + description;
+# if several appear, take the first mentioned. No match → river_slug stays empty
+# and the clip won't be posted.
+description = info.get("description") or ""
+RIVERS = {
+    "big-piney": ["big piney"],
+    "courtois": ["courtois"],
+    "current": ["current river", "the current"],
+    "eleven-point": ["eleven point", "eleven-point", "11 point"],
+    "huzzah": ["huzzah"],
+    "jacks-fork": ["jacks fork", "jack's fork", "jacks-fork"],
+    "meramec": ["meramec"],
+    "niangua": ["niangua"],
+}
+_text = (title + " " + description).lower()
+_hits = []
+for _slug, _kws in RIVERS.items():
+    _found = [_text.find(k) for k in _kws if k in _text]
+    if _found:
+        _hits.append((min(_found), _slug))
+_hits.sort()
+river_slug = _hits[0][1] if _hits else ""
+print(f"  River: {river_slug or '(none detected — will not post)'}" +
+      (f"  [also matched: {[h[1] for h in _hits[1:]]}]" if len(_hits) > 1 else ""))
+
 result = {
     "video_id": video_id,
     "title": title,
@@ -133,6 +159,7 @@ result = {
     "duration_secs": duration,
     "view_count": views,
     "source": source,
+    "river_slug": river_slug,
     "peaks": peaks,
 }
 
