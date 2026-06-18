@@ -5,7 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { getEddyImageForCondition } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
@@ -56,8 +57,8 @@ export default function EddySaysReport() {
 
   if (loading || groupsLoading) {
     return (
-      <div className="h-full rounded-2xl p-[1.5px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
-        <div className="h-full bg-white rounded-[14px] p-5 md:p-6 animate-pulse flex flex-col justify-center">
+      <div className="h-full rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+        <div className="h-full bg-white rounded-[13px] p-5 md:p-6 animate-pulse flex flex-col justify-center">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 w-10 h-10 bg-neutral-200 rounded-full" />
             <div className="flex-1 min-w-0">
@@ -81,8 +82,8 @@ export default function EddySaysReport() {
     : fallbackText;
 
   return (
-    <div className="h-full rounded-2xl p-[1.5px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
-      <div className="h-full bg-white rounded-[14px] p-5 md:p-6 flex flex-col justify-center">
+    <div className="h-full rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+      <div className="h-full bg-white rounded-[13px] p-5 md:p-6 flex flex-col">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-10 h-10 relative">
             <Image
@@ -94,10 +95,10 @@ export default function EddySaysReport() {
             />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold tracking-wide uppercase text-neutral-400">Eddy says</span>
+            <div className="flex items-center gap-2 mb-1.5">
+              <h2 className="text-base font-bold text-neutral-900 leading-none" style={{ fontFamily: 'var(--font-display)' }}>Eddy says</h2>
               {globalUpdate?.generatedAt && (
-                <span className="text-[10px] text-neutral-400">&middot; {formatGeneratedAge(globalUpdate.generatedAt)}</span>
+                <span className="text-[10px] text-neutral-400 font-normal">&middot; {formatGeneratedAge(globalUpdate.generatedAt)}</span>
               )}
             </div>
             <p className="text-sm text-neutral-700 leading-relaxed font-medium">
@@ -115,6 +116,12 @@ export default function EddySaysReport() {
             )}
           </div>
         </div>
+        <Link
+          href="/rivers"
+          className="mt-auto pt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600 hover:text-accent-700 transition-colors no-underline"
+        >
+          See what Eddy says about other rivers <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
     </div>
   );
