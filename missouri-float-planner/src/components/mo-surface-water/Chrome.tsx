@@ -9,6 +9,7 @@ import {
   classifyStageFromThresholds,
   type MORiver,
   type MOCampground,
+  type MOGauge,
   type MOAccessPoint,
   type MOPoi,
   type StageVerdict,
@@ -252,6 +253,19 @@ export function StatewideSummary({
     { label: 'High',     n: verdictCounts.high,      color: STAGE_VERDICTS.high.color },
     { label: 'Flood',    n: verdictCounts.dangerous, color: STAGE_VERDICTS.dangerous.color },
   ];
+  // Only surface an "unknown" tile when some river actually lacks a reading,
+  // so the tiles always sum to the river count instead of silently dropping
+  // one. (Keeps "7 floatable rivers" reconciled with the verdict row.)
+  if (verdictCounts.unknown > 0) {
+    items.push({ label: 'No data', n: verdictCounts.unknown, color: STAGE_VERDICTS.unknown.color });
+  }
+
+  // Percentile (discharge) context only renders when at least one gauge
+  // publishes discharge stats — most MO stage gauges don't, and "0 low /
+  // 0 normal / 0 high" read as broken.
+  const hasHydrology =
+    percentileCounts.low + percentileCounts.below + percentileCounts.normal +
+    percentileCounts.above + percentileCounts.high > 0;
 
   return (
     <div
@@ -291,15 +305,17 @@ export function StatewideSummary({
           </div>
         ))}
       </div>
-      <div
-        className="mt-2 border-t pt-2 flex gap-3"
-        style={{ borderColor: '#DBD5CA', fontSize: 9, color: THEME.inkDim }}
-      >
-        <span>Hydrology:</span>
-        <span style={{ color: PERCENTILE_CLASSES[0].color }}>{percentileCounts.low + percentileCounts.below} low</span>
-        <span style={{ color: PERCENTILE_CLASSES[2].color }}>{percentileCounts.normal} normal</span>
-        <span style={{ color: PERCENTILE_CLASSES[3].color }}>{percentileCounts.above + percentileCounts.high} high</span>
-      </div>
+      {hasHydrology && (
+        <div
+          className="mt-2 border-t pt-2 flex gap-3"
+          style={{ borderColor: '#DBD5CA', fontSize: 9, color: THEME.inkDim }}
+        >
+          <span>Hydrology:</span>
+          <span style={{ color: PERCENTILE_CLASSES[0].color }}>{percentileCounts.low + percentileCounts.below} low</span>
+          <span style={{ color: PERCENTILE_CLASSES[2].color }}>{percentileCounts.normal} normal</span>
+          <span style={{ color: PERCENTILE_CLASSES[3].color }}>{percentileCounts.above + percentileCounts.high} high</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -1347,47 +1363,59 @@ export function TimeScrubber({
 }) {
   const RANGE = 30;
 
-  // Aggregate statewide-mean percentile per day for the trendline.
-  const trend = useMemo(() => {
-    if (!history.length) return [] as Array<{ x: number; y: number }>;
-    const byDay = new Map<string, number[]>();
-    for (const e of history) {
-      for (const d of e.daily) {
-        if (d.percentile == null) continue;
-        const arr = byDay.get(d.date) ?? [];
-        arr.push(d.percentile);
-        byDay.set(d.date, arr);
-      }
+  // Per-river primary condition for each of the past 30 days, derived from
+  // stage history. These gauges report stage (not always discharge), so a
+  // percentile-based trend was empty for most of them — the timeline read as
+  // broken. Instead: the trendline is the share of rivers that were
+  // floatable per day, and the stripe is the full condition distribution.
+  const { trend, dailyBands, dayCount } = useMemo(() => {
+    const primaryEntries = history.filter((e) => e.is_primary);
+    // Anchor the day axis to history[0] so this matches the parent's dayCount
+    // (historyEntries[0].daily.length) and the scrubber thumb stays aligned.
+    const L = history[0]?.daily.length ?? 0;
+    if (!L) {
+      return {
+        trend: [] as Array<{ x: number; y: number }>,
+        dailyBands: [] as Array<{ x: number; counts: Record<StageVerdict, number> }>,
+        dayCount: RANGE,
+      };
     }
-    const dates = Array.from(byDay.keys()).sort();
-    return dates.map((date, i) => {
-      const arr = byDay.get(date)!;
-      const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-      return { x: i, y: mean };
-    });
-  }, [history]);
+    // Resolve each river's primary thresholds + matching history entry once.
+    const series = rivers
+      .map((r) => {
+        const primary = (r.gauges ?? []).find((g) => g.is_primary);
+        if (!primary) return null;
+        const ent = primaryEntries.find((e) => e.site_no === primary.site_id);
+        if (!ent) return null;
+        return { primary, ent };
+      })
+      .filter((s): s is { primary: MOGauge; ent: MoHistoryBundleEntry } => s != null);
 
-  const dayCount = trend.length || RANGE;
-
-  // Look up the verdict-band for each day across all rivers, for tiny
-  // segmented stripes underneath the trendline.
-  const dailyBands = useMemo(() => {
-    if (!history.length) return [] as Array<{ x: number; counts: { p25: number; normal: number; p75: number; p90: number; low: number } }>;
-    const days = history[0].daily.map((d) => d.date);
-    return days.map((_date, i) => {
-      const counts = { low: 0, p25: 0, normal: 0, p75: 0, p90: 0 };
-      for (const e of history) {
-        const p = e.daily[i]?.percentile;
-        if (p == null) continue;
-        if (p < 10) counts.low++;
-        else if (p < 25) counts.p25++;
-        else if (p < 75) counts.normal++;
-        else if (p < 90) counts.p75++;
-        else counts.p90++;
+    const trendOut: Array<{ x: number; y: number }> = [];
+    const bandsOut: Array<{ x: number; counts: Record<StageVerdict, number> }> = [];
+    for (let i = 0; i < L; i++) {
+      const counts: Record<StageVerdict, number> = {
+        too_low: 0, low: 0, good: 0, flowing: 0, high: 0, dangerous: 0, unknown: 0,
+      };
+      let floatable = 0;
+      let known = 0;
+      for (const { primary, ent } of series) {
+        const day = ent.daily[i];
+        const value = primary.threshold_unit === 'ft'
+          ? day?.gaugeHeightFt ?? null
+          : day?.dischargeCfs ?? null;
+        const c = classifyStageFromThresholds(value, primary.threshold_unit, primary);
+        counts[c]++;
+        if (c !== 'unknown') {
+          known++;
+          if (c === 'good' || c === 'flowing') floatable++;
+        }
       }
-      return { x: i, counts };
-    });
-  }, [history]);
+      bandsOut.push({ x: i, counts });
+      trendOut.push({ x: i, y: known ? (floatable / known) * 100 : 0 });
+    }
+    return { trend: trendOut, dailyBands: bandsOut, dayCount: L };
+  }, [history, rivers, RANGE]);
 
   const W = 1500, H = 64;
   const xAt = (i: number) => (i / Math.max(1, dayCount - 1)) * W;
@@ -1405,8 +1433,6 @@ export function TimeScrubber({
     Math.round(((dayCount - 1) * (RANGE + off)) / RANGE);
   const offsetFromIndex = (idx: number) =>
     Math.round((idx / Math.max(1, dayCount - 1)) * RANGE) - RANGE;
-
-  void rivers;
 
   return (
     <div
@@ -1434,7 +1460,7 @@ export function TimeScrubber({
             }}
           >
             {history.length
-              ? 'drag to replay how every river ran across the past month'
+              ? 'drag to replay the past month · line = share of rivers floatable'
               : 'historical readings still loading…'}
           </span>
         </div>
@@ -1461,26 +1487,20 @@ export function TimeScrubber({
           {fillPath && <path d={fillPath} fill="rgba(74,154,173,0.20)" />}
           {linePath && <path d={linePath} stroke="#A3D1DB" strokeWidth="2.2" fill="none" />}
 
-          {/* Color stripe along the bottom — counts of rivers per band per day */}
+          {/* Color stripe along the bottom — distribution of river conditions
+              per day, in the same vocabulary as the map and legend. */}
           {dailyBands.map((b) => {
-            const total =
-              b.counts.low + b.counts.p25 + b.counts.normal + b.counts.p75 + b.counts.p90;
+            const order: StageVerdict[] = ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous'];
+            const total = order.reduce((s, k) => s + b.counts[k], 0);
             if (!total) return null;
             const xc = xAt(b.x);
             const w = W / Math.max(1, dayCount) - 1;
             let acc = 0;
             const segs: Array<{ start: number; len: number; color: string }> = [];
-            const ratios: Array<{ k: keyof typeof b.counts; color: string }> = [
-              { k: 'low',    color: PERCENTILE_CLASSES[0].color },
-              { k: 'p25',    color: PERCENTILE_CLASSES[1].color },
-              { k: 'normal', color: PERCENTILE_CLASSES[2].color },
-              { k: 'p75',    color: PERCENTILE_CLASSES[3].color },
-              { k: 'p90',    color: PERCENTILE_CLASSES[4].color },
-            ];
-            for (const { k, color } of ratios) {
+            for (const k of order) {
               const ratio = b.counts[k] / total;
               if (ratio === 0) continue;
-              segs.push({ start: acc, len: ratio * w, color });
+              segs.push({ start: acc, len: ratio * w, color: STAGE_VERDICTS[k].color });
               acc += ratio * w;
             }
             return (
