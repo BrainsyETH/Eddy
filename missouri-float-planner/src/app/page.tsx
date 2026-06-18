@@ -55,7 +55,7 @@ export default async function Home() {
           </svg>
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8 md:pb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
             <div className="max-w-xl">
               <h1
@@ -109,43 +109,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ─── Two Pillars (overlap the hero) ─── */}
-      <section className="relative z-20 max-w-6xl mx-auto w-full px-4 sm:px-6 -mt-10 md:-mt-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Link
-            href="/rivers"
-            className="group bg-white border border-neutral-200 rounded-2xl p-6 md:p-7 flex flex-col shadow-soft-md hover:shadow-soft-lg hover:border-neutral-300 transition-all no-underline"
-          >
-            <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
-              River Reports
-            </h2>
-            <p className="text-sm text-neutral-500 leading-relaxed mb-4">
-              Is it floatable right now? Live USGS river data, weather reports, and custom updates for every river.
-            </p>
-            <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600">
-              See what&apos;s running <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </span>
-          </Link>
-
-          <Link
-            href="/plan"
-            className="group bg-white border border-neutral-200 rounded-2xl p-6 md:p-7 flex flex-col shadow-soft-md hover:shadow-soft-lg hover:border-neutral-300 transition-all no-underline"
-          >
-            <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
-              Plan a Float
-            </h2>
-            <p className="text-sm text-neutral-500 leading-relaxed mb-4">
-              Pick a put-in and take-out. Get float time, mileage, and shuttle — then a link to share with your crew.
-            </p>
-            <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-semibold text-accent-600">
-              Build a trip <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </span>
-          </Link>
-        </div>
-      </section>
-
       {/* ─── Eddy's Read + Floating Well Now ─── */}
-      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-14 md:pt-20">
+      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-12 md:pt-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
           {/* Eddy's read */}
           <EddySaysReport />
