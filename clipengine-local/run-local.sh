@@ -1,0 +1,112 @@
+#!/bin/bash
+# run-local.sh — Run the Eddy ClipEngine pipeline locally (no cloud upload).
+#
+# Mirrors .github/workflows/youtube-clip-pipeline.yml but:
+#   • reads channels from clipengine-local/channels.json (not a GH secret)
+#   • writes finished Reels to clipengine-local/output/ (no Vercel Blob / Supabase)
+#
+# Usage:
+#   ./run-local.sh                                  # scan all channels in channels.json
+#   ./run-local.sh --url <youtube-url> [--river current] [--peak 1]
+#
+# Env (optional):
+#   YOUTUBE_COOKIES_FILE   Netscape cookies.txt — only needed if YouTube bot-blocks you
+#   VIDEOS_PER_CHANNEL     newest uploads to scan per channel (default 5)
+#   MAX_CLIPS              stop after this many clips when scanning (default 3)
+
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/.." && pwd)"
+CE="$REPO/scripts/clipengine"
+OUT="$HERE/output"
+mkdir -p "$OUT"
+
+PEAK_NUMBER=1
+SINGLE_URL=""
+SINGLE_RIVER=""
+VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
+MAX_CLIPS="${MAX_CLIPS:-3}"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --url)   SINGLE_URL="$2"; shift 2 ;;
+    --river) SINGLE_RIVER="$2"; shift 2 ;;
+    --peak)  PEAK_NUMBER="$2"; shift 2 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+
+process_video() {
+  local URL="$1" RIVER="$2" PEAK="$3"
+  local WORK; WORK="$(mktemp -d)"
+
+  echo ""
+  echo "════════════════════════════════════════════"
+  echo "Processing: $URL  (river: ${RIVER:-none})"
+  echo "════════════════════════════════════════════"
+
+  bash "$CE/scrape-heatmap.sh" "$URL" "$WORK" || true
+  if [ ! -f "$WORK/heatmap-data.json" ]; then
+    echo "⚠️  No heatmap data, skipping"; rm -rf "$WORK"; return; fi
+
+  local VIDEO_ID PEAK_IDX PEAK_START PEAK_DURATION
+  VIDEO_ID="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json'))['video_id'])")"
+  PEAK_IDX=$((PEAK - 1))
+  PEAK_START="$(python3 -c "import json;p=json.load(open('$WORK/heatmap-data.json')).get('peaks',[]);print(p[$PEAK_IDX]['start_secs'] if len(p)>$PEAK_IDX else '')")"
+  PEAK_DURATION="$(python3 -c "import json;p=json.load(open('$WORK/heatmap-data.json')).get('peaks',[]);print(p[$PEAK_IDX].get('duration_secs',13) if len(p)>$PEAK_IDX else '')")"
+  if [ -z "$PEAK_START" ]; then
+    echo "⚠️  No peak at position $PEAK, skipping"; rm -rf "$WORK"; return; fi
+
+  local FINAL="$OUT/${VIDEO_ID}-peak${PEAK}.mp4"
+  if [ -f "$FINAL" ]; then
+    echo "⏭️  Already rendered: $FINAL — skipping"; rm -rf "$WORK"; return; fi
+
+  echo "→ Extracting clip at ${PEAK_START}s for ${PEAK_DURATION}s..."
+  bash "$CE/extract-clip.sh" "$URL" "$PEAK_START" "$PEAK_DURATION" "$WORK/raw-clip.mp4" --transcript || true
+  if [ ! -f "$WORK/raw-clip.mp4" ]; then
+    echo "⚠️  Extraction failed, skipping"; rm -rf "$WORK"; return; fi
+
+  echo "→ Finalizing to Reel format..."
+  local VTT; VTT="$(find "$WORK" -name '*.vtt' -type f | head -1 || true)"
+  bash "$CE/finalize-reel.sh" "$WORK/raw-clip.mp4" "${RIVER:-Unknown River}" "$FINAL" "${VTT:-}" "$PEAK_START"
+
+  if [ -f "$FINAL" ]; then echo "✅ Done: $FINAL"; else echo "⚠️  Finalize failed"; fi
+  rm -rf "$WORK"
+}
+
+if [ -n "$SINGLE_URL" ]; then
+  process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER"
+else
+  CHANNELS="$HERE/channels.json"
+  [ -f "$CHANNELS" ] || { echo "No channels.json at $CHANNELS"; exit 1; }
+  echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL each, up to $MAX_CLIPS clips)"
+  COUNT=0
+  while IFS=$'\t' read -r CH_URL CH_RIVER; do
+    [ -z "$CH_URL" ] && continue
+    case "$CH_URL" in
+      *REPLACE_WITH*|*ANOTHER_CHANNEL*) echo "  • skipping placeholder $CH_URL"; continue ;;
+    esac
+    case "$CH_URL" in
+      */videos|*watch?v=*|*youtu.be/*) LIST_URL="$CH_URL" ;;
+      *) LIST_URL="${CH_URL%/}/videos" ;;
+    esac
+    echo "  • $LIST_URL"
+    while read -r VID; do
+      [ -z "$VID" ] && continue
+      [ "$COUNT" -ge "$MAX_CLIPS" ] && { echo "  Reached MAX_CLIPS=$MAX_CLIPS"; break 2; }
+      process_video "https://www.youtube.com/watch?v=${VID}" "$CH_RIVER" "$PEAK_NUMBER"
+      COUNT=$((COUNT + 1))
+    done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s" "$LIST_URL" 2>/dev/null || true)
+  done < <(python3 -c "
+import json,sys
+for c in json.load(open('$CHANNELS')):
+    if isinstance(c,str): print(c+'\t')
+    else: print((c.get('url') or '')+'\t'+(c.get('river_slug') or ''))
+")
+fi
+
+echo ""
+echo "════════════════════════════════════════════"
+echo "📁 Output: $OUT"
+ls -1 "$OUT"/*.mp4 2>/dev/null || echo "  (no clips produced)"
