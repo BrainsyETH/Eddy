@@ -1,0 +1,151 @@
+# .github/workflows/render-clip.yml
+# ClipEngine: brand a downloaded clip with Remotion (the clip-reel composition)
+# and insert it into clip_library. The raw, UNBRANDED clip is extracted + uploaded
+# locally (cookies/403), then this workflow wraps it in the Eddy frame — branding
+# happens here ONLY (no local finalize-reel), so clips are never branded twice.
+
+name: Render Clip
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:        { description: 'Public URL of the RAW extracted clip', required: true, type: string }
+      youtube_video_id: { description: 'Source YouTube video id', required: true, type: string }
+      river_slug:       { description: 'Detected river slug', required: true, type: string }
+      river_name:       { description: 'River display name for the frame', required: true, type: string }
+      creator:          { description: 'Creator credit (channel or @handle)', required: false, type: string }
+      source_url:       { description: 'Original YouTube URL', required: false, type: string }
+      youtube_channel:  { description: 'Source channel name', required: false, type: string }
+      peak_number:      { description: 'Heatmap peak index', required: false, type: string, default: '1' }
+      duration_secs:    { description: 'Clip length in seconds', required: true, type: string }
+      clip_start_secs:  { description: 'Clip start offset in the source', required: false, type: string, default: '0' }
+      orientation:      { description: 'portrait | landscape', required: false, type: string, default: 'portrait' }
+      heatmap_score:    { description: 'Heatmap score', required: false, type: string, default: '0' }
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/remotion/package-lock.json
+
+      - name: Install Remotion dependencies
+        working-directory: missouri-float-planner/remotion
+        run: npm ci
+
+      - name: Write input props
+        run: |
+          python3 - <<'PY' > /tmp/clip-props.json
+          import json, os
+          print(json.dumps({
+              "videoUrl": os.environ["VIDEO_URL"],
+              "riverName": os.environ["RIVER_NAME"],
+              "creatorCredit": os.environ.get("CREATOR", ""),
+              "durationSecs": float(os.environ.get("DURATION_SECS") or 13),
+          }))
+          PY
+          echo "props: $(cat /tmp/clip-props.json)"
+        env:
+          VIDEO_URL: ${{ inputs.video_url }}
+          RIVER_NAME: ${{ inputs.river_name }}
+          CREATOR: ${{ inputs.creator }}
+          DURATION_SECS: ${{ inputs.duration_secs }}
+
+      - name: Render clip-reel
+        working-directory: missouri-float-planner/remotion
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: |
+          npx remotion render \
+            --entry-point=src/index.ts \
+            --props=/tmp/clip-props.json \
+            --codec=h264 \
+            --audio-codec=aac \
+            --enforce-audio-track \
+            --crf=23 \
+            --public-dir=./public \
+            clip-reel \
+            "/tmp/branded.mp4"
+          echo "Rendered: $(stat -c%s /tmp/branded.mp4) bytes"
+
+      - name: Normalize audio for Meta (keep the clip's own audio)
+        working-directory: missouri-float-planner/remotion
+        run: |
+          set -e
+          npx remotion ffmpeg -y -i /tmp/branded.mp4 \
+            -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            -movflags +faststart /tmp/final.mp4
+          mv /tmp/final.mp4 /tmp/branded.mp4
+          echo "Normalized: $(stat -c%s /tmp/branded.mp4) bytes"
+
+      - name: Upload finished clip to Vercel Blob
+        id: upload
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: |
+          DATE_PREFIX=$(date -u +%Y-%m-%d)
+          BLOB_PATH="clips/${DATE_PREFIX}/${{ inputs.youtube_video_id }}-peak${{ inputs.peak_number }}.mp4"
+          RESPONSE=$(curl -s -X PUT \
+            "https://blob.vercel-storage.com/${BLOB_PATH}" \
+            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
+            -H "x-content-type: video/mp4" \
+            -H "x-cache-control-max-age: 31536000" \
+            --data-binary "@/tmp/branded.mp4")
+          CLIP_URL=$(echo "$RESPONSE" | jq -r '.url')
+          if [ "$CLIP_URL" = "null" ] || [ -z "$CLIP_URL" ]; then
+            echo "::error::Upload failed: $RESPONSE"; exit 1; fi
+          echo "clip_url=${CLIP_URL}" >> "$GITHUB_OUTPUT"
+          echo "Uploaded: ${CLIP_URL}"
+
+      - name: Insert into clip_library (pending)
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CLIP_URL: ${{ steps.upload.outputs.clip_url }}
+          VIDEO_ID: ${{ inputs.youtube_video_id }}
+          CHANNEL: ${{ inputs.youtube_channel }}
+          RIVER_SLUG: ${{ inputs.river_slug }}
+          SOURCE_URL: ${{ inputs.source_url }}
+          CLIP_START: ${{ inputs.clip_start_secs }}
+          DURATION_SECS: ${{ inputs.duration_secs }}
+          ORIENTATION: ${{ inputs.orientation }}
+          HEATMAP_SCORE: ${{ inputs.heatmap_score }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          start = float(os.environ.get("CLIP_START") or 0)
+          dur = float(os.environ.get("DURATION_SECS") or 13)
+          row = {
+              "youtube_video_id": os.environ["VIDEO_ID"],
+              "youtube_channel": os.environ.get("CHANNEL") or None,
+              "river_slug": os.environ.get("RIVER_SLUG") or None,
+              "clip_url": os.environ["CLIP_URL"],
+              "duration_secs": int(dur),
+              "clip_start_secs": start,
+              "clip_end_secs": start + dur,
+              "orientation": os.environ.get("ORIENTATION") or "portrait",
+              "heatmap_score": float(os.environ.get("HEATMAP_SCORE") or 0),
+              "source_creator": os.environ.get("CHANNEL") or None,
+              "source_url": os.environ.get("SOURCE_URL") or None,
+              "brand_check_status": "pending",
+          }
+          req = urllib.request.Request(
+              f"{os.environ['SUPABASE_URL']}/rest/v1/clip_library",
+              data=json.dumps(row).encode(),
+              headers={
+                  "apikey": os.environ["SUPABASE_KEY"],
+                  "Authorization": f"Bearer {os.environ['SUPABASE_KEY']}",
+                  "Content-Type": "application/json",
+                  "Prefer": "return=minimal",
+              }, method="POST")
+          with urllib.request.urlopen(req, timeout=15) as r:
+              print("Inserted clip_library:", r.status)
+          PY
