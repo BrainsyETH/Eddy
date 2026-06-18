@@ -21,6 +21,7 @@ import {
   Lightbulb,
   ExternalLink,
   Layers,
+  Send,
   X,
 } from 'lucide-react';
 
@@ -183,6 +184,32 @@ export default function ClipsAdminPage() {
       }
     } catch (err) {
       console.error('Brand check failed:', err);
+    }
+  };
+
+  // ─── Post an approved clip straight to FB/IG ───
+  const [postingClip, setPostingClip] = useState<string | null>(null);
+  const postClip = async (clipId: string) => {
+    if (!confirm('Post this clip to Facebook and Instagram now?')) return;
+    setPostingClip(clipId);
+    try {
+      const res = await adminFetch('/api/admin/clips/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clipId, platforms: ['instagram', 'facebook'] }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        const ok = (data.results || []).filter((r: { success: boolean }) => r.success).map((r: { platform: string }) => r.platform);
+        alert(`Posted to: ${ok.join(', ') || 'none'}`);
+      } else {
+        const errs = (data.results || []).map((r: { platform: string; error?: string }) => `${r.platform}: ${r.error}`).join('\n');
+        alert(`Post failed:\n${errs || data.error || 'Unknown error'}`);
+      }
+    } catch {
+      alert('Post failed: network error');
+    } finally {
+      setPostingClip(null);
     }
   };
 
@@ -440,6 +467,16 @@ export default function ClipsAdminPage() {
                                     title="Run brand check"
                                   >
                                     <ShieldCheck className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {clip.brand_check_status === 'approved' && (
+                                  <button
+                                    onClick={() => postClip(clip.id)}
+                                    disabled={postingClip === clip.id}
+                                    className="p-1.5 text-neutral-400 hover:text-emerald-400 transition-colors disabled:opacity-40"
+                                    title="Post to Facebook & Instagram"
+                                  >
+                                    <Send className="w-4 h-4" />
                                   </button>
                                 )}
                                 {clip.source_url && (
