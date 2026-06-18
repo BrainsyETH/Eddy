@@ -91,3 +91,51 @@ export async function getRivers(): Promise<RiverListItem[]> {
 
   return riversWithConditions;
 }
+
+/**
+ * Fetches a representative hero image (the first access-point photo, ordered by
+ * river mile) for each given river slug. Mirrors the image logic used on the
+ * river detail page. Returns a `slug -> imageUrl` map with `null` for rivers
+ * that have no access-point photos yet. Never throws — callers fall back to a
+ * placeholder.
+ */
+export async function getRiverHeroImages(
+  slugs: string[],
+): Promise<Record<string, string | null>> {
+  const images: Record<string, string | null> = {};
+  for (const slug of slugs) images[slug] = null;
+  if (slugs.length === 0) return images;
+
+  try {
+    const supabase = createAdminClient();
+
+    const { data: rivers, error: riversError } = await supabase
+      .from('rivers')
+      .select('id, slug')
+      .in('slug', slugs);
+    if (riversError || !rivers?.length) return images;
+
+    const idToSlug = new Map<string, string>(rivers.map((r) => [r.id, r.slug]));
+
+    const { data: accessPoints, error: apError } = await supabase
+      .from('access_points')
+      .select('river_id, image_urls, river_mile_downstream')
+      .eq('approved', true)
+      .in('river_id', rivers.map((r) => r.id))
+      .not('image_urls', 'is', null)
+      .order('river_mile_downstream', { ascending: true, nullsFirst: false });
+    if (apError || !accessPoints?.length) return images;
+
+    for (const ap of accessPoints) {
+      const slug = idToSlug.get(ap.river_id);
+      if (!slug || images[slug]) continue; // keep the first (lowest-mile) image
+      const firstImage = Array.isArray(ap.image_urls)
+        ? ap.image_urls.find((u: unknown): u is string => typeof u === 'string' && u.length > 0)
+        : null;
+      if (firstImage) images[slug] = firstImage;
+    }
+    return images;
+  } catch {
+    return images;
+  }
+}
