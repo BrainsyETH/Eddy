@@ -1,22 +1,45 @@
 // src/app/page.tsx
-// Landing page for Eddy — redesigned with spacious, modern layout
+// Landing page for Eddy — "Home v2" layout: status-forward hero, two pillar
+// cards, a side-by-side Eddy read + live river list, a featured-rivers guide
+// band, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is unchanged;
+// only the section structure was reworked.
 
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { getRivers } from '@/lib/data/rivers';
-import { CONDITION_COLORS } from '@/constants';
-import FloatEstimator from './FloatEstimator';
-import FeaturedRivers from '@/components/home/FeaturedRivers';
+import { getRiverGuides } from '@/lib/data/rivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
+import EddyHeroBubble from '@/components/home/EddyHeroBubble';
+import FloatingWellNow from '@/components/home/FloatingWellNow';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const revalidate = 300; // ISR every 5 minutes
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
+// Featured rivers for the river-guide band. Current River is the hero feature;
+// the rest render as compact cards. Each links to its blog guide post, which
+// also supplies the card image (gradient fallback if a river has no post).
+const FEATURE_RIVER = {
+  slug: 'current',
+  name: 'Current River',
+  tagline: 'Missouri’s spring-fed classic — clear, cool water and the state’s most popular float.',
+};
+const SIDE_RIVERS = [
+  { slug: 'eleven-point', name: 'Eleven Point' },
+  { slug: 'jacks-fork', name: 'Jacks Fork' },
+  { slug: 'huzzah', name: 'Huzzah' },
+  { slug: 'meramec', name: 'Meramec' },
+];
+const FEATURED_RIVER_SLUGS = [FEATURE_RIVER.slug, ...SIDE_RIVERS.map((r) => r.slug)];
+
 export default async function Home() {
-  const rivers = await getRivers();
+  const riverGuides = await getRiverGuides(FEATURED_RIVER_SLUGS);
+  const guideHref = (slug: string) => {
+    const guide = riverGuides[slug];
+    return guide ? `/blog/${guide.postSlug}` : '/blog';
+  };
+  const featureImage = riverGuides[FEATURE_RIVER.slug]?.image ?? null;
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
@@ -32,11 +55,9 @@ export default async function Home() {
           </svg>
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-24">
-          <div className="flex items-center justify-between gap-8">
-            <div className="flex-1 max-w-xl">
-              {/* Live badge removed */}
-
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8 md:pb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
+            <div className="max-w-xl">
               <h1
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
                 style={{ fontFamily: 'var(--font-display)' }}
@@ -66,107 +87,154 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Otter mascot — visible on all screen sizes */}
-            <div className="flex-shrink-0">
-              <Image
-                src={EDDY_CANOE}
-                alt="Eddy the Otter"
-                width={320}
-                height={320}
-                className="w-20 md:w-52 lg:w-64 h-auto drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
-                priority
-              />
+            {/* Eddy mascot + live quote bubble */}
+            <div className="relative flex flex-col items-center gap-5 md:block md:min-h-[380px]">
+              {/* Otter — below the bubble so the caret points down at Eddy */}
+              <div className="order-2 md:order-none flex justify-center md:absolute md:bottom-0 md:right-0">
+                <Image
+                  src={EDDY_CANOE}
+                  alt="Eddy the Otter"
+                  width={320}
+                  height={320}
+                  className="w-36 sm:w-44 md:w-52 lg:w-60 h-auto animate-float drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
+                  priority
+                />
+              </div>
+              {/* Live quote bubble */}
+              <div className="order-1 md:order-none w-full max-w-sm md:max-w-none md:absolute md:top-0 md:left-0 md:right-12 z-20">
+                <EddyHeroBubble />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Eddy Says ─── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8">
-        <EddySaysReport />
-      </section>
+      {/* ─── Eddy's Read + Floating Well Now ─── */}
+      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-12 md:pt-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
+          {/* Eddy's read */}
+          <EddySaysReport />
 
-      {/* ─── Live Gauge Data ─── */}
-      <section className="px-4 sm:px-6 lg:px-16 xl:px-24 pb-8 md:pb-10">
-        <div className="flex items-end justify-between mb-2">
-          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-            Check River Levels
-          </h2>
-          <Link
-            href="/rivers"
-            className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors no-underline"
-          >
-            View all rivers
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {/* Featured Rivers (client component with live data) */}
-        <FeaturedRivers />
-      </section>
-
-      {/* ─── Plan Your Float ─── */}
-      <section>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-16">
-          <div className="max-w-2xl mx-auto">
-            <FloatEstimator rivers={rivers} />
+          {/* Live river list */}
+          <div className="bg-white border border-neutral-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+                Floating well now
+              </h2>
+              <Link
+                href="/rivers"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition-colors no-underline"
+              >
+                All rivers <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <FloatingWellNow />
           </div>
         </div>
       </section>
 
-      {/* ─── Embed Widgets CTA ─── */}
-      <section className="bg-neutral-50 border-t border-neutral-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-            Add live data to your site.
+      {/* ─── Featured Rivers (the river guide) ─── */}
+      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-14 md:pt-20">
+        <div className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 max-w-md" style={{ fontFamily: 'var(--font-display)' }}>
+            New to floating? Start here.
           </h2>
-          <p className="text-sm text-neutral-500 max-w-md mx-auto mb-8 leading-relaxed">
-            Embed real-time gauge readings, condition badges, and Eddy&apos;s analysis directly on your outfitter site, blog, or community page.
-          </p>
-          <Link
-            href="/embed"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors text-sm no-underline"
-          >
-            Explore Embed Widgets
-            <ArrowRight className="w-4 h-4" />
-          </Link>
         </div>
-      </section>
 
-      {/* ─── Browse All Rivers ─── */}
-      <section className="border-t border-neutral-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-16">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-              All Rivers
-            </h2>
-            <Link
-              href="/plan"
-              className="flex items-center gap-1 text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors no-underline"
-            >
-              Plan a float
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {rivers.map(river => {
-              const condCode = river.currentCondition?.code ?? 'unknown';
-              const dotColor = CONDITION_COLORS[condCode] || CONDITION_COLORS.unknown;
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-5">
+          {/* Featured: Current River */}
+          <Link
+            href={guideHref(FEATURE_RIVER.slug)}
+            className="group relative block rounded-2xl overflow-hidden border border-neutral-200 min-h-[18rem] no-underline"
+          >
+            {featureImage ? (
+              <Image
+                src={featureImage}
+                alt={FEATURE_RIVER.name}
+                fill
+                sizes="(min-width: 768px) 56vw, 100vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #163F4A 0%, #0F2D35 100%)' }} />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/80 mb-2" style={{ fontFamily: 'var(--font-mono)' }}>
+                Featured river
+              </span>
+              <h3 className="text-2xl md:text-3xl font-bold text-white mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
+                {FEATURE_RIVER.name}
+              </h3>
+              <p className="text-sm text-white/85 max-w-md leading-relaxed mb-3">
+                {FEATURE_RIVER.tagline}
+              </p>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white">
+                Read the guide <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Side rivers */}
+          <div className="flex flex-col gap-3">
+            {SIDE_RIVERS.map((river) => {
+              const img = riverGuides[river.slug]?.image ?? null;
               return (
                 <Link
-                  key={river.id}
-                  href={`/rivers/${river.slug}`}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:border-neutral-300 hover:shadow-sm transition-all no-underline"
+                  key={river.slug}
+                  href={guideHref(river.slug)}
+                  className="group bg-white border border-neutral-200 rounded-xl p-3 flex items-center gap-4 hover:border-neutral-300 hover:shadow-soft-sm transition-all no-underline"
                 >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: dotColor }}
-                  />
-                  {river.name}
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    {img ? (
+                      <Image src={img} alt={river.name} fill sizes="64px" className="object-cover" />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ background: 'linear-gradient(135deg, #163F4A 0%, #0F2D35 100%)' }}
+                      >
+                        <span className="text-white/90 text-lg font-bold" style={{ fontFamily: 'var(--font-display)' }}>
+                          {river.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
+                      {river.name}
+                    </h3>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-600">
+                      Read guide <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
+                  </div>
                 </Link>
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* ─── Embed CTA ─── */}
+      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-14 md:pt-20 pb-14 md:pb-20">
+        <div
+          className="rounded-2xl p-8 md:p-10 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center"
+          style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 100%)' }}
+        >
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+              Run an outfitter or a campground?
+            </h2>
+            <p className="text-sm text-white/70 max-w-xl leading-relaxed">
+              Embed real-time gauge readings, condition badges, and Eddy&apos;s analysis directly on your outfitter site, blog, or community page.
+            </p>
+          </div>
+          <Link
+            href="/embed"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-all hover:brightness-110"
+            style={{ backgroundColor: '#F07052' }}
+          >
+            Explore Embed Widgets <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 

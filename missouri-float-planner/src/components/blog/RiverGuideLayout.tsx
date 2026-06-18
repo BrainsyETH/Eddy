@@ -122,7 +122,7 @@ function buildPlannerUrl(
   const putIn = apIds.get(section.from_slug);
   const takeOut = apIds.get(section.to_slug);
   if (!putIn || !takeOut) return undefined;
-  return `/rivers/${riverSlug}?putIn=${putIn}&takeOut=${takeOut}`;
+  return `/plan?river=${riverSlug}&putIn=${putIn}&takeOut=${takeOut}`;
 }
 
 export default async function RiverGuideLayout({ post }: Props) {
@@ -153,14 +153,14 @@ export default async function RiverGuideLayout({ post }: Props) {
         }}
       >
         <Link
-          href="/blog"
+          href={post.river_slug ? `/rivers/${post.river_slug}` : '/blog'}
           style={{
             color: 'var(--color-primary-600)',
             textDecoration: 'none',
             fontWeight: 600,
           }}
         >
-          ← Back to Blog
+          ← View Report
         </Link>
         {post.published_at && (
           <>
@@ -763,7 +763,7 @@ export default async function RiverGuideLayout({ post }: Props) {
                 Plan your {riverName} trip on Eddy
               </h3>
               <Link
-                href={`/rivers/${slug}`}
+                href={`/plan?river=${slug}`}
                 style={{
                   display: 'inline-block',
                   marginTop: 14,

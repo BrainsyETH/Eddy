@@ -91,3 +91,53 @@ export async function getRivers(): Promise<RiverListItem[]> {
 
   return riversWithConditions;
 }
+
+/**
+ * A river's most recent published guide post: its blog slug + featured image.
+ */
+export interface RiverGuide {
+  postSlug: string;
+  image: string | null;
+}
+
+/**
+ * Fetches the most recent published guide post for each given river slug
+ * (blog_posts.river_slug), returning its blog slug + featured image. Mirrors the
+ * guide-post lookup on the river detail page. Returns `null` for rivers without
+ * a published post. Never throws — callers fall back to the blog index /
+ * a placeholder image.
+ */
+export async function getRiverGuides(
+  slugs: string[],
+): Promise<Record<string, RiverGuide | null>> {
+  const guides: Record<string, RiverGuide | null> = {};
+  for (const slug of slugs) guides[slug] = null;
+  if (slugs.length === 0) return guides;
+
+  try {
+    const supabase = createAdminClient();
+
+    const { data: posts, error } = await supabase
+      .from('blog_posts')
+      .select('river_slug, slug, featured_image_url, published_at')
+      .in('river_slug', slugs)
+      .eq('status', 'published')
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false });
+    if (error || !posts?.length) return guides;
+
+    for (const post of posts) {
+      const riverSlug = post.river_slug as string | null;
+      // Keep the most recent post per river (results are ordered desc).
+      if (!riverSlug || guides[riverSlug] || typeof post.slug !== 'string' || !post.slug) continue;
+      const image =
+        typeof post.featured_image_url === 'string' && post.featured_image_url
+          ? post.featured_image_url
+          : null;
+      guides[riverSlug] = { postSlug: post.slug, image };
+    }
+    return guides;
+  } catch {
+    return guides;
+  }
+}
