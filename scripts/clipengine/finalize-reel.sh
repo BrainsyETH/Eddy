@@ -108,7 +108,7 @@ if [ -n "$TRANSCRIPT_VTT" ] && [ -f "$TRANSCRIPT_VTT" ] && [ -n "$FONT" ]; then
     CAPTION_FILTERS=$(CLIP_START="$CLIP_START" DURATION_SECS="$DURATION_SECS" TRANSCRIPT_VTT="$TRANSCRIPT_VTT" FONT="$FONT" python3 << 'PYEOF'
 import re, sys, os
 
-clip_start = int(os.environ.get("CLIP_START", "0"))
+clip_start = int(float(os.environ.get("CLIP_START", "0")))
 try:
     clip_dur = float(os.environ.get("DURATION_SECS", "15"))
 except (ValueError, TypeError):
@@ -250,21 +250,47 @@ else
     AUDIO_FLAGS="-an"
 fi
 
-# Layout: 1080x1920
-# Top bar: 0-180px — brand color
-# Video: centered in remaining space at y=746
+# Layout: 1080x1920 — top brand band (otter + wordmark + river name),
+# source video centered at y=746, bottom brand band (CTA + creator credit).
 VIDEO_Y=746
 
-# Render branded frame with eddy.guide text watermark (no external logo file needed)
-ffmpeg -y \
-    -i "$SOURCE_VIDEO" \
-    -filter_complex "\
-[0:v]scale=1080:608:force_original_aspect_ratio=decrease,pad=1080:608:(ow-iw)/2:(oh-ih)/2:color=$BG_COLOR[video];\
-color=c=$BG_COLOR:s=1080x1920:d=$DURATION_SECS[bg];\
-[bg][video]overlay=0:$VIDEO_Y[withvid];\
-[withvid]drawtext=text='eddy.guide':fontsize=36:fontcolor=white@0.9:x=(w-text_w)/2:y=75${FONT:+:fontfile=$FONT}\
-$EXTRA_FILTERS\
-" \
+# Brand assets resolved from the repo (otter mascot PNG + Fredoka wordmark font).
+REPO_ROOT="$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)"
+ASSET_DIR="$REPO_ROOT/missouri-float-planner/remotion/public"
+OTTER="$ASSET_DIR/eddy/eddy-canoe.png"
+BRAND_FONT="$ASSET_DIR/fonts/Fredoka-Variable.ttf"
+[ -f "$BRAND_FONT" ] || BRAND_FONT="$FONT"
+FONT_OPT=""; [ -n "$BRAND_FONT" ] && FONT_OPT=":fontfile=$BRAND_FONT"
+
+# Escape dynamic text for drawtext (\ : %). Caller may pass CREATOR_CREDIT
+# (e.g. "@ozarkmediaco" or a channel name) for on-screen attribution.
+esc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/:/\\:/g' -e 's/%/\\%/g'; }
+RIVER_ESC="$(esc "$RIVER_NAME")"
+CREDIT_RAW="${CREATOR_CREDIT:-}"
+CREDIT_ESC="$(esc "$CREDIT_RAW")"
+
+# Compose the filtergraph: source band, teal bg, otter overlay, brand text.
+FG="[0:v]scale=1080:608:force_original_aspect_ratio=decrease,pad=1080:608:(ow-iw)/2:(oh-ih)/2:color=$BG_COLOR[vid];"
+FG="$FG color=c=$BG_COLOR:s=1080x1920:d=$DURATION_SECS[bg];"
+FG="$FG [bg][vid]overlay=0:$VIDEO_Y[base]"
+OTTER_INPUT=()
+if [ -f "$OTTER" ]; then
+    OTTER_INPUT=(-loop 1 -i "$OTTER")
+    FG="$FG;[1:v]scale=-2:170[otter];[base][otter]overlay=(W-w)/2:64[stage]"
+    STAGE="stage"
+else
+    STAGE="base"
+fi
+TXT="drawtext=text='eddy.guide':fontsize=46:fontcolor=white$FONT_OPT:x=(w-text_w)/2:y=250"
+TXT="$TXT,drawtext=text='$RIVER_ESC':fontsize=58:fontcolor=0xD9C9B0$FONT_OPT:x=(w-text_w)/2:y=560"
+TXT="$TXT,drawtext=text='Plan your float at eddy.guide':fontsize=40:fontcolor=white$FONT_OPT:box=1:boxcolor=0xF07052:boxborderw=22:x=(w-text_w)/2:y=1470"
+if [ -n "$CREDIT_RAW" ]; then
+    TXT="$TXT,drawtext=text='Clip via $CREDIT_ESC':fontsize=30:fontcolor=0xC9B391$FONT_OPT:x=(w-text_w)/2:y=1640"
+fi
+FG="$FG;[$STAGE]$TXT$EXTRA_FILTERS"
+
+ffmpeg -y -i "$SOURCE_VIDEO" "${OTTER_INPUT[@]}" \
+    -filter_complex "$FG" \
     -c:v libx264 -preset fast -crf 20 \
     $AUDIO_FLAGS \
     -t "$DURATION_SECS" \
