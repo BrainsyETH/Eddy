@@ -93,6 +93,15 @@ process_video() {
   if [ ! -f "$WORK/raw-clip.mp4" ]; then
     echo "⚠️  Extraction failed, skipping"; rm -rf "$WORK"; return 1; fi
 
+  # Cloud-Remotion branding path: upload the RAW clip and hand off — branding
+  # happens in Remotion only (no local finalize-reel), so it's never double-branded.
+  if [ "${REMOTION:-0}" = 1 ]; then
+    echo "→ Handing off to cloud Remotion branding..."
+    bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" \
+      || echo "⚠️  handoff failed"
+    rm -rf "$WORK"; return 0
+  fi
+
   echo "→ Finalizing to Reel format (credit: ${CREDIT:-none})..."
   local VTT; VTT="$(find "$WORK" -name '*.vtt' -type f | head -1 || true)"
   CREATOR_CREDIT="$CREDIT" bash "$CE/finalize-reel.sh" "$WORK/raw-clip.mp4" "${RIVER:-Unknown River}" "$FINAL" "${VTT:-}" "$PEAK_START"
