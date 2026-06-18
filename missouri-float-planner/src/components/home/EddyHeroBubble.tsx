@@ -58,6 +58,7 @@ export default function EddyHeroBubble() {
   const [index, setIndex] = useState(0);
   const [fading, setFading] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [interacted, setInteracted] = useState(false);
   const [quotes, setQuotes] = useState<Record<string, string>>({});
   const fetchedRef = useRef<Set<string>>(new Set());
 
@@ -87,7 +88,7 @@ export default function EddyHeroBubble() {
 
   // Auto-rotate (paused on hover / when reduced motion is requested).
   useEffect(() => {
-    if (paused || reduceMotion || slides.length <= 1) return;
+    if (paused || interacted || reduceMotion || slides.length <= 1) return;
     let fadeTimer: ReturnType<typeof setTimeout>;
     const interval = setInterval(() => {
       setFading(true);
@@ -97,7 +98,7 @@ export default function EddyHeroBubble() {
       }, FADE_MS);
     }, ROTATE_MS);
     return () => { clearInterval(interval); clearTimeout(fadeTimer); };
-  }, [paused, reduceMotion, slides.length]);
+  }, [paused, interacted, reduceMotion, slides.length]);
 
   if (isLoading || slides.length === 0) return <BubbleShell skeleton />;
 
@@ -111,6 +112,7 @@ export default function EddyHeroBubble() {
   const href = river.riverSlug ? `/rivers/${river.riverSlug}` : '#';
 
   const goTo = (i: number) => {
+    setInteracted(true); // manual navigation stops the auto-rotation
     if (i === index) return;
     setFading(true);
     setTimeout(() => { setIndex(i); setFading(false); }, FADE_MS / 2);
@@ -220,8 +222,8 @@ function BubbleShell({
       ) : (
         children
       )}
-      {/* Tail pointing down toward the otter (desktop only) */}
-      <div className="hidden md:block absolute -bottom-2 right-10 w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
+      {/* Tail pointing down toward the otter (centered on mobile, right on desktop) */}
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-10 w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
     </div>
   );
 }
