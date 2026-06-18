@@ -18,12 +18,14 @@ import { DigestReel, getDigestDuration } from "./compositions/social/DigestReel"
 import { SectionGuide } from "./compositions/social/SectionGuide";
 import { RouteDraw } from "./compositions/social/RouteDraw";
 import { TrendReel } from "./compositions/social/TrendReel";
+import { ClipReel, getClipReelDuration } from "./compositions/social/ClipReel";
 import type {
   GaugeAnimationProps,
   DigestReelProps,
   SectionGuideProps,
   RouteDrawProps,
   TrendReelProps,
+  ClipReelProps,
 } from "./lib/social-props";
 
 import "./style.css";
@@ -76,6 +78,24 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
+      />
+
+      {/* Branded wrapper around a downloaded YouTube clip (ClipEngine) */}
+      <Composition
+        id="clip-reel"
+        component={ClipReel}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={async ({ props }: { props: ClipReelProps }) => ({
+          durationInFrames: getClipReelDuration(props.durationSecs, FPS),
+        })}
+        defaultProps={{
+          videoUrl: "",
+          riverName: "Current River",
+          creatorCredit: "",
+          durationSecs: 13,
+        } satisfies ClipReelProps}
       />
 
       {/* ============================================

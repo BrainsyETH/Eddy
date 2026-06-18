@@ -36,6 +36,22 @@
     {
       "path": "/api/cron/social-preflight",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/brand-check-pending",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/brand-check-pending",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/post-clip",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/post-clip",
+      "schedule": "0 0 * * *"
     }
   ]
 }

@@ -175,3 +175,14 @@ export interface TrendReelProps {
   dateLabel?: string;
   format: "square" | "portrait";
 }
+
+export interface ClipReelProps {
+  /** Public URL of the raw (unbranded) downloaded clip to wrap. */
+  videoUrl: string;
+  /** River display name, e.g. "Current River". */
+  riverName: string;
+  /** Creator attribution shown bottom (channel name or @handle). */
+  creatorCredit?: string;
+  /** Clip length in seconds — drives composition duration. */
+  durationSecs: number;
+}

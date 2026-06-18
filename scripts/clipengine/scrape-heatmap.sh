@@ -69,61 +69,87 @@ print(f"  Duration: {duration}s")
 print(f"  Views: {views:,}")
 print(f"  Channel: {channel}")
 
-CLIP_DURATION = 13
+# Clip length tracks the WIDTH of the most-replayed span, not a fixed window:
+# find contiguous runs of high-engagement heatmap segments and use their extent,
+# clamped to [CLIP_MIN, CLIP_MAX]. CLIP_MAX overridable via MAX_CLIP_SECS.
+CLIP_MIN = 12
+CLIP_MAX = int(os.environ.get("MAX_CLIP_SECS", "60"))
+FALLBACK_DURATION = 15
 peaks = []
 source = "fallback"
 
-# yt-dlp heatmap entries look like {start_time, end_time, value}.
-hm = [h for h in heatmap if isinstance(h, dict) and "start_time" in h and "value" in h]
+def fmt(s):
+    return f"{int(s // 60)}:{int(s % 60):02d}"
+
+# yt-dlp heatmap entries look like {start_time, end_time, value}, value ~0-1.
+hm = sorted(
+    [h for h in heatmap if isinstance(h, dict) and "start_time" in h and "value" in h],
+    key=lambda x: float(x["start_time"]),
+)
 if hm:
     source = "heatmap"
-    windows = []
-    for h in hm:
-        start = float(h["start_time"])
-        end = start + CLIP_DURATION
-        score = sum(float(x.get("value", 0)) for x in hm if start <= float(x["start_time"]) < end)
-        windows.append((start, end, score))
-    windows.sort(key=lambda x: x[2], reverse=True)
-    selected = []
-    for start, end, score in windows:
-        if all(not (start < e and end > s) for s, e, _ in selected):
-            selected.append((start, end, score))
-            if len(selected) >= 5:
-                break
-    selected.sort(key=lambda x: x[0])
-    for start, end, score in selected:
+    vals = [float(h["value"]) for h in hm]
+    vmax = max(vals)
+    vmean = sum(vals) / len(vals)
+    # "popular" = notably above average (35% of the way from mean to the peak).
+    # Adapts to the curve: a sharp spike on a flat baseline still yields a span,
+    # and broadly-elevated videos give longer (capped) clips.
+    thresh = vmean + (vmax - vmean) * 0.35
+    runs, i, n = [], 0, len(hm)
+    while i < n:
+        if float(hm[i]["value"]) >= thresh:
+            j = i
+            while j < n and float(hm[j]["value"]) >= thresh:
+                j += 1
+            seg = hm[i:j]
+            r_start = float(seg[0]["start_time"])
+            r_end = float(seg[-1].get("end_time", seg[-1]["start_time"]))
+            runs.append({"start": r_start, "end": r_end, "score": sum(float(s["value"]) for s in seg)})
+            i = j
+        else:
+            i += 1
+    runs.sort(key=lambda r: r["score"], reverse=True)
+    for r in runs[:5]:
+        start, dur = r["start"], r["end"] - r["start"]
+        if dur > CLIP_MAX:                       # cap — center the window on the run
+            mid = (r["start"] + r["end"]) / 2
+            start, dur = max(0.0, mid - CLIP_MAX / 2), float(CLIP_MAX)
+        elif dur < CLIP_MIN:                     # floor — pad around a sharp spike
+            start, dur = max(0.0, start - (CLIP_MIN - dur) / 2), float(CLIP_MIN)
+        start, dur = round(start, 1), round(dur, 1)
         peaks.append({
-            "start_secs": round(start, 1),
-            "end_secs": round(start + CLIP_DURATION, 1),
-            "duration_secs": CLIP_DURATION,
-            "score": round(score, 3),
-            "start_formatted": f"{int(start//60)}:{int(start%60):02d}",
-            "end_formatted": f"{int((start+CLIP_DURATION)//60)}:{int((start+CLIP_DURATION)%60):02d}",
+            "start_secs": start,
+            "end_secs": round(start + dur, 1),
+            "duration_secs": dur,
+            "score": round(r["score"], 3),
+            "start_formatted": fmt(start),
+            "end_formatted": fmt(start + dur),
         })
-    print(f"  Heatmap: {len(hm)} points -> {len(peaks)} peaks")
+    peaks.sort(key=lambda p: p["start_secs"])
+    print(f"  Heatmap: {len(hm)} segments -> {len(peaks)} popular sections (lengths: {[p['duration_secs'] for p in peaks]}s)")
 
 if not peaks:
     print("  ⚠️  No heatmap data — using evenly-spaced fallback positions")
     source = "fallback"
-    if duration > CLIP_DURATION * 2:
+    if duration > FALLBACK_DURATION * 2:
         for pct in [0.25, 0.50, 0.75]:
             pos = round(duration * pct, 1)
             peaks.append({
                 "start_secs": pos,
-                "end_secs": round(pos + CLIP_DURATION, 1),
-                "duration_secs": CLIP_DURATION,
+                "end_secs": round(pos + FALLBACK_DURATION, 1),
+                "duration_secs": FALLBACK_DURATION,
                 "score": 0.3,
-                "start_formatted": f"{int(pos//60)}:{int(pos%60):02d}",
-                "end_formatted": f"{int((pos+CLIP_DURATION)//60)}:{int((pos+CLIP_DURATION)%60):02d}",
+                "start_formatted": fmt(pos),
+                "end_formatted": fmt(pos + FALLBACK_DURATION),
             })
     else:
         peaks.append({
             "start_secs": 0.0,
-            "end_secs": float(CLIP_DURATION),
-            "duration_secs": CLIP_DURATION,
+            "end_secs": float(FALLBACK_DURATION),
+            "duration_secs": FALLBACK_DURATION,
             "score": 0.3,
             "start_formatted": "0:00",
-            "end_formatted": f"0:{CLIP_DURATION:02d}",
+            "end_formatted": fmt(FALLBACK_DURATION),
         })
 
 # Detect which Eddy river this video is about (per-video, not per-channel — a
