@@ -7,7 +7,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { getRivers, getRiverHeroImages } from '@/lib/data/rivers';
+import { getRivers, getRiverGuides } from '@/lib/data/rivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
 import FloatingWellNow from '@/components/home/FloatingWellNow';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -20,8 +20,8 @@ const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy
 const CLEAN_CODES = new Set<string>(['flowing', 'good']);
 
 // Featured rivers for the river-guide band. Current River is the hero feature;
-// the rest render as compact cards. Images come from getRiverHeroImages, with a
-// gradient fallback for rivers that don't have access-point photos yet.
+// the rest render as compact cards. Each links to its blog guide post, which
+// also supplies the card image (gradient fallback if a river has no post).
 const FEATURE_RIVER = {
   slug: 'current',
   name: 'Current River',
@@ -36,13 +36,17 @@ const SIDE_RIVERS = [
 const FEATURED_RIVER_SLUGS = [FEATURE_RIVER.slug, ...SIDE_RIVERS.map((r) => r.slug)];
 
 export default async function Home() {
-  const [rivers, heroImages] = await Promise.all([
+  const [rivers, riverGuides] = await Promise.all([
     getRivers(),
-    getRiverHeroImages(FEATURED_RIVER_SLUGS),
+    getRiverGuides(FEATURED_RIVER_SLUGS),
   ]);
   const totalCount = rivers.length;
   const cleanCount = rivers.filter((r) => CLEAN_CODES.has(r.currentCondition?.code ?? 'unknown')).length;
-  const featureImage = heroImages[FEATURE_RIVER.slug];
+  const guideHref = (slug: string) => {
+    const guide = riverGuides[slug];
+    return guide ? `/blog/${guide.postSlug}` : '/blog';
+  };
+  const featureImage = riverGuides[FEATURE_RIVER.slug]?.image ?? null;
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
@@ -204,7 +208,7 @@ export default async function Home() {
         <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-5">
           {/* Featured: Current River */}
           <Link
-            href="/blog"
+            href={guideHref(FEATURE_RIVER.slug)}
             className="group relative block rounded-2xl overflow-hidden border border-neutral-200 min-h-[18rem] no-underline"
           >
             {featureImage ? (
@@ -238,11 +242,11 @@ export default async function Home() {
           {/* Side rivers */}
           <div className="flex flex-col gap-3">
             {SIDE_RIVERS.map((river) => {
-              const img = heroImages[river.slug];
+              const img = riverGuides[river.slug]?.image ?? null;
               return (
                 <Link
                   key={river.slug}
-                  href="/blog"
+                  href={guideHref(river.slug)}
                   className="group bg-white border border-neutral-200 rounded-xl p-3 flex items-center gap-4 hover:border-neutral-300 hover:shadow-soft-sm transition-all no-underline"
                 >
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">

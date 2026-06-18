@@ -93,49 +93,51 @@ export async function getRivers(): Promise<RiverListItem[]> {
 }
 
 /**
- * Fetches a representative hero image (the first access-point photo, ordered by
- * river mile) for each given river slug. Mirrors the image logic used on the
- * river detail page. Returns a `slug -> imageUrl` map with `null` for rivers
- * that have no access-point photos yet. Never throws — callers fall back to a
- * placeholder.
+ * A river's most recent published guide post: its blog slug + featured image.
  */
-export async function getRiverHeroImages(
+export interface RiverGuide {
+  postSlug: string;
+  image: string | null;
+}
+
+/**
+ * Fetches the most recent published guide post for each given river slug
+ * (blog_posts.river_slug), returning its blog slug + featured image. Mirrors the
+ * guide-post lookup on the river detail page. Returns `null` for rivers without
+ * a published post. Never throws — callers fall back to the blog index /
+ * a placeholder image.
+ */
+export async function getRiverGuides(
   slugs: string[],
-): Promise<Record<string, string | null>> {
-  const images: Record<string, string | null> = {};
-  for (const slug of slugs) images[slug] = null;
-  if (slugs.length === 0) return images;
+): Promise<Record<string, RiverGuide | null>> {
+  const guides: Record<string, RiverGuide | null> = {};
+  for (const slug of slugs) guides[slug] = null;
+  if (slugs.length === 0) return guides;
 
   try {
     const supabase = createAdminClient();
 
-    const { data: rivers, error: riversError } = await supabase
-      .from('rivers')
-      .select('id, slug')
-      .in('slug', slugs);
-    if (riversError || !rivers?.length) return images;
+    const { data: posts, error } = await supabase
+      .from('blog_posts')
+      .select('river_slug, slug, featured_image_url, published_at')
+      .in('river_slug', slugs)
+      .eq('status', 'published')
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false });
+    if (error || !posts?.length) return guides;
 
-    const idToSlug = new Map<string, string>(rivers.map((r) => [r.id, r.slug]));
-
-    const { data: accessPoints, error: apError } = await supabase
-      .from('access_points')
-      .select('river_id, image_urls, river_mile_downstream')
-      .eq('approved', true)
-      .in('river_id', rivers.map((r) => r.id))
-      .not('image_urls', 'is', null)
-      .order('river_mile_downstream', { ascending: true, nullsFirst: false });
-    if (apError || !accessPoints?.length) return images;
-
-    for (const ap of accessPoints) {
-      const slug = idToSlug.get(ap.river_id);
-      if (!slug || images[slug]) continue; // keep the first (lowest-mile) image
-      const firstImage = Array.isArray(ap.image_urls)
-        ? ap.image_urls.find((u: unknown): u is string => typeof u === 'string' && u.length > 0)
-        : null;
-      if (firstImage) images[slug] = firstImage;
+    for (const post of posts) {
+      const riverSlug = post.river_slug as string | null;
+      // Keep the most recent post per river (results are ordered desc).
+      if (!riverSlug || guides[riverSlug] || typeof post.slug !== 'string' || !post.slug) continue;
+      const image =
+        typeof post.featured_image_url === 'string' && post.featured_image_url
+          ? post.featured_image_url
+          : null;
+      guides[riverSlug] = { postSlug: post.slug, image };
     }
-    return images;
+    return guides;
   } catch {
-    return images;
+    return guides;
   }
 }
