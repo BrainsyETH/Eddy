@@ -10,18 +10,36 @@ import { fontFamilies } from "../design-tokens/fonts";
 import { BRAND_EYEBROW_COLOR, NEUTRAL_ACCENT, NEUTRAL_GLOW, PLAN_CTA } from "../lib/brand";
 import type { Caption } from "../lib/social-props";
 
-// Vertical geometry tuned in #713/#714 so the readable masthead text clears the
-// Reels TOP chrome (handle/sound) and the footer messaging clears the BOTTOM UI
-// zone (caption + right-hand action rail). The mascot may sit slightly into the
-// top chrome — it's decorative — while the eyebrow/title/CTA stay in the safe
-// band. The bottom teal area is intentionally left to the platform UI.
-const MASTHEAD_TOP = 96;
+// Vertical geometry. Two layouts share this frame:
+//
+//  • BAND (landscape sources): the footage is a centered 16:9 band. Earlier this
+//    pinned the masthead to the top and the band+footer into the top ~55% of the
+//    1080×1920 canvas, leaving the bottom ~46% as a dead teal void (the content
+//    read as shoved up and off-center). The band is now CENTERED in the frame
+//    with the masthead bracketing it above and the credit/CTA below, so the
+//    composition is balanced and the masthead clears the Reels top chrome while
+//    the footer clears the bottom caption/handle row.
+//
+//  • FULL-BLEED (vertical sources): the footage fills the frame behind scrims, so
+//    there's no void — the masthead sits high and the footer low over the
+//    scrims, framing the footage. That layout already reads well, so it keeps the
+//    original positions.
 const MASCOT_SIZE = 150;
-const MEDIA_TOP = 410;
 const MEDIA_W = 1080;
 const MEDIA_H = 608; // 16:9 at full canvas width (landscape sources)
-const CAPTION_TOP = 928; // just above the footer, over the lower media
-const FOOTER_TOP = 1040;
+
+// Full-bleed (vertical source) positions — masthead high / footer low over the
+// full-frame footage + scrims.
+const FB_MASTHEAD_TOP = 96;
+const FB_CAPTION_TOP = 928;
+const FB_FOOTER_TOP = 1040;
+
+// Band (landscape source) positions — content centered in the frame so there's
+// no lopsided bottom void. Band centered at ~y=992; masthead above, footer below.
+const BAND_MASTHEAD_TOP = 300;
+const BAND_MEDIA_TOP = 688; // 688→1296, centered in the 1920 canvas
+const BAND_CAPTION_TOP = 1180; // over the lower band, above the footer
+const BAND_FOOTER_TOP = 1320; // below the band, clear of the bottom handle/caption
 
 interface ReelBrandFrameProps {
   /** Small uppercase series-style eyebrow above the title (coral). */
@@ -69,6 +87,12 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   const titleIn = spring({ frame: frame - 8, fps, config: ENTRANCE });
   const footerIn = spring({ frame: frame - 16, fps, config: ENTRANCE });
 
+  // Center the content for the landscape band; keep the high/low framing for
+  // full-bleed (vertical) sources, which fill the frame.
+  const mastheadTop = fullBleed ? FB_MASTHEAD_TOP : BAND_MASTHEAD_TOP;
+  const captionTop = fullBleed ? FB_CAPTION_TOP : BAND_CAPTION_TOP;
+  const footerTop = fullBleed ? FB_FOOTER_TOP : BAND_FOOTER_TOP;
+
   return (
     <AbsoluteFill style={{ backgroundColor: colors.primary[900], fontFamily: fontFamilies.body }}>
       {/* Media — full-bleed for vertical sources, else the centered 16:9 band. */}
@@ -100,7 +124,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
           />
         </>
       ) : (
-        <div style={{ position: "absolute", top: MEDIA_TOP, left: 0, width: MEDIA_W, height: MEDIA_H, overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: BAND_MEDIA_TOP, left: 0, width: MEDIA_W, height: MEDIA_H, overflow: "hidden" }}>
           {children}
         </div>
       )}
@@ -109,7 +133,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
       <div
         style={{
           position: "absolute",
-          top: MASTHEAD_TOP,
+          top: mastheadTop,
           left: 0,
           right: 0,
           display: "flex",
@@ -152,7 +176,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
 
       {/* Captions — active transcript phrase over the lower media */}
       {captions && captions.length > 0 ? (
-        <div style={{ position: "absolute", top: CAPTION_TOP, left: 40, right: 40, display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: captionTop, left: 40, right: 40, display: "flex", justifyContent: "center" }}>
           <Captions cues={captions} />
         </div>
       ) : null}
@@ -161,7 +185,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
       <div
         style={{
           position: "absolute",
-          top: FOOTER_TOP,
+          top: footerTop,
           left: 0,
           right: 0,
           display: "flex",
