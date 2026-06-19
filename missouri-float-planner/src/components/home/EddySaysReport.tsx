@@ -73,7 +73,7 @@ export default function EddySaysReport() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-bold text-neutral-900 leading-snug" style={{ fontFamily: 'var(--font-display)' }}>
-              What&apos;s Eddy say about Missouri rivers today?
+              What&apos;s Eddy say about Ozark rivers today?
             </h2>
             {globalUpdate?.generatedAt && (
               <span className="block text-[10px] text-neutral-400 font-normal mt-0.5">{formatGeneratedAge(globalUpdate.generatedAt)}</span>

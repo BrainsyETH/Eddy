@@ -15,7 +15,7 @@ export const revalidate = 300; // ISR every 5 minutes
 
 export const metadata: Metadata = {
   title: 'River Reports',
-  description: 'Live USGS conditions for every Missouri float river — water levels, flow trends, and Eddy\'s float report. Check real-time levels before your next float.',
+  description: 'Live USGS conditions for every Ozark float river — water levels, flow trends, and Eddy\'s float report. Check real-time levels before your next float.',
 };
 
 export default async function RiversPage() {

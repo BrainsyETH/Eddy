@@ -6,6 +6,7 @@
 // look. Shared shell (CardFrame) + reusable Pill / StatBox / Sparkline.
 
 import type { ReactNode } from 'react';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
 
 // ── palette (mirrors globals.css tokens) ──────────────────────────────
 const SAND = '#F4EFE7';        // secondary-100 — card background
@@ -22,18 +23,12 @@ export interface ConditionMeta {
   label: string;
 }
 
-const CONDITIONS: Record<string, ConditionMeta> = {
-  flowing: { accent: '#2E9E5B', tint: '#D7F0DF', label: 'Flowing' },
-  good: { accent: '#3FA463', tint: '#D7F0DF', label: 'Good' },
-  low: { accent: '#D69500', tint: '#FBEFC8', label: 'Low' },
-  too_low: { accent: '#9A8C78', tint: '#E9E2D5', label: 'Too Low' },
-  high: { accent: '#E5733A', tint: '#FBE0D0', label: 'High' },
-  dangerous: { accent: '#DC2626', tint: '#F8D6D2', label: 'Flood' },
-  unknown: { accent: '#9CA3AF', tint: '#E9E6E0', label: 'Unknown' },
-};
-
+// Derived from the canonical condition system (shared/condition-system.ts) so
+// the cards' colors and labels match the rest of the site exactly. Never
+// hardcode condition hex/labels here.
 export function conditionMeta(code: string | null | undefined): ConditionMeta {
-  return CONDITIONS[code ?? 'unknown'] ?? CONDITIONS.unknown;
+  const def = CONDITION_SYSTEM[(code ?? 'unknown') as keyof typeof CONDITION_SYSTEM] ?? CONDITION_SYSTEM.unknown;
+  return { accent: def.solid, tint: def.bg, label: def.label };
 }
 
 // Topographic contour lines across the card, generated as gentle waves.

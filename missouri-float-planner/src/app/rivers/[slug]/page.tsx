@@ -232,8 +232,8 @@ export default async function RiverGuidePage({ params }: Props) {
   if (river.description) descParts.push(river.description);
   if (lengthMiles) descParts.push(`${lengthMiles.toFixed(1)} miles.`);
   if (river.difficulty_rating) descParts.push(`Difficulty: ${river.difficulty_rating}.`);
-  if (river.region) descParts.push(`Located in ${river.region}, Missouri.`);
-  const fullDescription = descParts.join(' ') || `Float trip guide for ${river.name} in Missouri.`;
+  if (river.region) descParts.push(`Located in ${river.region}.`);
+  const fullDescription = descParts.join(' ') || `Float trip guide for ${river.name} in the Ozarks.`;
 
   const touristAttractionJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',

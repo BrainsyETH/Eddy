@@ -429,7 +429,7 @@ export default function AboutPage() {
                 name: 'What rivers does Eddy cover?',
                 acceptedAnswer: {
                   '@type': 'Answer',
-                  text: 'Eddy currently covers 8 Missouri Ozark rivers: Meramec River, Current River, Eleven Point River, Jacks Fork, Niangua River, Big Piney River, Huzzah Creek, and Courtois Creek.',
+                  text: 'Eddy currently covers 8 Ozark rivers: Meramec River, Current River, Eleven Point River, Jacks Fork, Niangua River, Big Piney River, Huzzah Creek, and Courtois Creek.',
                 },
               },
             ],

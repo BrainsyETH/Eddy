@@ -88,7 +88,7 @@ export default async function Image() {
         <span style={{ fontSize: 34, lineHeight: 1.3, color: INK_SOFT, maxWidth: 700 }}>
           {summary
             ? truncate(summary, 130)
-            : 'Live water levels and conditions for every Missouri float river.'}
+            : 'Live water levels and conditions for every Ozark float river.'}
         </span>
         {pills.length > 0 && (
           <div style={{ display: 'flex', gap: 12, marginTop: 26, flexWrap: 'wrap' }}>

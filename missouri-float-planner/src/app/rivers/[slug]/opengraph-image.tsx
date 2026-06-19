@@ -87,13 +87,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
   const meta = conditionMeta(code);
   const badge: CardBadge | null =
-    code === 'unknown'
-      ? null
-      : {
-          label: code === 'good' || code === 'flowing' ? 'Float!' : meta.label,
-          accent: meta.accent,
-          tint: meta.tint,
-        };
+    code === 'unknown' ? null : { label: meta.label, accent: meta.accent, tint: meta.tint };
 
   const fonts = loadFredokaFont();
   const avatar = await loadEddyAvatar().catch(() => null);

@@ -23,7 +23,7 @@ const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy
 const FEATURE_RIVER = {
   slug: 'current',
   name: 'Current River',
-  tagline: 'Missouri’s spring-fed classic — clear, cool water and the state’s most popular float.',
+  tagline: 'The Ozarks’ spring-fed classic — clear, cool water and the region’s most popular float.',
 };
 const SIDE_RIVERS = [
   { slug: 'eleven-point', name: 'Eleven Point' },
