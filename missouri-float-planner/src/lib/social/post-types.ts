@@ -146,6 +146,10 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     hoursTypical: canoeHours(distanceMi, 'flowing'),
     springs: data.springs ?? [],
     dateLabel: data.dateLabel || defaultDate(),
+    // Background art behind the route (RouteDraw composites it with a scrim).
+    // Favorite + Float-of-the-Day pass the river's cached AI background here so
+    // the reel matches its cover; absent → RouteDraw's solid bg.
+    photoUrl: data.photoUrl,
     format: FORMAT,
   };
 }
