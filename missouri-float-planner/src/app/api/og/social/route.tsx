@@ -932,6 +932,7 @@ async function generateForecastImage(size: { width: number; height: number }) {
                 color: '#fff',
                 lineHeight: 0.92,
                 letterSpacing: -3,
+                textShadow: '0 2px 16px rgba(0,0,0,0.5)',
                 marginBottom: isPortrait ? 36 : 24,
               }}
             >
@@ -1097,6 +1098,7 @@ async function generateSectionImage(
             color: '#fff',
             lineHeight: 0.92,
             letterSpacing: -3,
+            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
             marginBottom: isPortrait ? 44 : 30,
           }}
         >
@@ -1238,6 +1240,7 @@ async function generateFavoriteImage(
             color: '#fff',
             lineHeight: 0.92,
             letterSpacing: -3,
+            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
             marginBottom: isPortrait ? 44 : 30,
           }}
         >
