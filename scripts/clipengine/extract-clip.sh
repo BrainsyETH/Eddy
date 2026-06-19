@@ -37,19 +37,49 @@ echo "Start: ${START_SECS}s"
 echo "Duration: ${DURATION_SECS}s"
 echo ""
 
-# Step 1: Download video
-echo "Step 1: Downloading video..."
+# Step 1: Download ONLY the clip window, not the whole video.
+# Downloading a full 1080p source (often 1+ GB for a long video) just to slice
+# out ~15s is the wrong process — yt-dlp's --download-sections fetches only the
+# byte range we need (a few MB). We pad the window by SECTION_PAD seconds on each
+# side so keyframe snapping can't clip the edges, then seek by that pad in step 3.
+# Falls back to a full download if the section grab yields nothing.
+SECTION_PAD=3
+DL_START=$(awk "BEGIN{s=$START_SECS-$SECTION_PAD; if(s<0)s=0; print s}")
+DL_END=$(awk "BEGIN{print $START_SECS+$DURATION_SECS+$SECTION_PAD}")
+SEEK_OFFSET=$(awk "BEGIN{print $START_SECS-$DL_START}")
+
+echo "Step 1: Downloading clip window ${DL_START}s–${DL_END}s (not full video)..."
 yt-dlp \
     "${COOKIE_ARGS[@]}" \
     --retries 5 \
+    --download-sections "*${DL_START}-${DL_END}" \
+    --downloader ffmpeg \
     --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
     --merge-output-format mp4 \
     --output "$TEMP_DIR/source.%(ext)s" \
     --no-playlist \
     --quiet \
-    "$YOUTUBE_URL"
+    "$YOUTUBE_URL" || true
 
 SOURCE_VIDEO=$(find "$TEMP_DIR" -name "source.*" -type f | head -1)
+
+# Fallback: if the windowed download produced nothing, grab the full video and
+# seek into it the old way (SEEK_OFFSET becomes the absolute start).
+if [ -z "$SOURCE_VIDEO" ] || [ ! -f "$SOURCE_VIDEO" ]; then
+    echo "  ⚠️  windowed download empty — falling back to full download"
+    yt-dlp \
+        "${COOKIE_ARGS[@]}" \
+        --retries 5 \
+        --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
+        --merge-output-format mp4 \
+        --output "$TEMP_DIR/source.%(ext)s" \
+        --no-playlist \
+        --quiet \
+        "$YOUTUBE_URL"
+    SOURCE_VIDEO=$(find "$TEMP_DIR" -name "source.*" -type f | head -1)
+    SEEK_OFFSET="$START_SECS"
+fi
+
 if [ -z "$SOURCE_VIDEO" ] || [ ! -f "$SOURCE_VIDEO" ]; then
     echo "❌ Download failed"
     exit 1
@@ -85,7 +115,7 @@ echo "Step 3: Extracting clip at ${START_SECS}s for ${DURATION_SECS}s..."
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 ffmpeg -y \
-    -ss "$START_SECS" \
+    -ss "$SEEK_OFFSET" \
     -i "$SOURCE_VIDEO" \
     -t "$DURATION_SECS" \
     -c:v libx264 -preset fast -crf 20 \
