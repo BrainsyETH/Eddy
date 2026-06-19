@@ -32,6 +32,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Fail early + clearly if the secrets this workflow needs to upload + record
+      # the clip are missing, instead of branding a clip that then can't be saved.
+      - name: Check required secrets
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=()
+          [ -n "$BLOB_READ_WRITE_TOKEN" ] || missing+=("BLOB_READ_WRITE_TOKEN")
+          [ -n "$SUPABASE_URL" ] || missing+=("NEXT_PUBLIC_SUPABASE_URL")
+          [ -n "$SUPABASE_KEY" ] || missing+=("SUPABASE_SERVICE_ROLE_KEY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing Actions secret(s): ${missing[*]}. The branded clip can't be uploaded/inserted. Add them in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "✅ Required secrets present"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
