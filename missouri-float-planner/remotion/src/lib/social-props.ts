@@ -158,6 +158,9 @@ export type RouteDrawProps = SectionGuideProps & {
   evergreen?: boolean;
   /** Difficulty class label (e.g. "Class I–II"), shown in evergreen mode. */
   difficulty?: string;
+  /** Favorites only: a real section photo (public URL) composited behind the
+   *  graphic, dimmed for legibility. Absent → solid brand background. */
+  photoUrl?: string;
 }
 
 export type TrendReelProps = {

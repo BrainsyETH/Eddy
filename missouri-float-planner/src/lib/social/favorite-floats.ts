@@ -34,6 +34,9 @@ export interface FavoriteFloat extends Section {
   toSlug: string;
   /** Source guide's blog slug (deep-link target for the caption). */
   postSlug: string;
+  /** Guide section's hero photo (public URL), composited behind the reel + OG
+   *  cover. Optional — sections without a photo fall back to the solid bg. */
+  photoUrl?: string;
 }
 
 interface GuideRow {
@@ -170,6 +173,7 @@ async function loadFavoritePool(
         fromSlug: putIn.slug,
         toSlug: takeOut.slug,
         postSlug: guide.slug,
+        photoUrl: section.photo ?? undefined,
       });
     }
   }

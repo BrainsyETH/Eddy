@@ -1,7 +1,7 @@
 # .github/workflows/remotion-check.yml
-# Guardrail for the Remotion subproject: typecheck + a render smoke test, so a
-# broken composition (or type drift like the standing errors this enforces away)
-# fails in CI instead of at a live clip/reel render.
+# Guardrail for the Remotion subproject: typecheck + a render smoke test +
+# visual regression, so a broken composition (or a token/layout change that
+# silently *shifts* the brand) fails in CI instead of at a live clip/reel render.
 
 name: Remotion Check
 
@@ -15,11 +15,21 @@ on:
     paths:
       - 'missouri-float-planner/remotion/**'
   workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Render the check stills and commit them as the new visual baselines (run from the branch carrying the intended visual change).'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # contents:write lets the update_baselines dispatch commit refreshed
+    # baselines back to the branch it ran on.
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: missouri-float-planner/remotion
@@ -61,3 +71,39 @@ jobs:
               "$comp" "/tmp/stills/${comp}.png" --frame=120
           done
           ls -la /tmp/stills
+
+      # update_baselines mode: adopt the freshly rendered stills as the canonical
+      # baselines (generated in THIS runner so anti-aliasing matches the gate) and
+      # commit them back to the branch. Run this intentionally when a composition
+      # is meant to change.
+      - name: Update visual baselines
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
+        run: |
+          npm run test:visual:update
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test/baselines
+          if git diff --cached --quiet; then
+            echo "Baselines already up to date."
+          else
+            git commit -m "remotion-check: refresh visual baselines"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      # Default mode: fail if any composition drifts from its committed baseline.
+      - name: Visual regression
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.update_baselines) }}
+        run: npm run test:visual
+
+      # On a mismatch, surface both the diff images (what shifted) and the fresh
+      # stills (so an *intended* change can be adopted as the new baseline from a
+      # CI-rendered file, sidestepping cross-runner anti-aliasing).
+      - name: Upload visual diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diffs
+          path: |
+            /tmp/visual-diffs/
+            /tmp/stills/
+          if-no-files-found: ignore
