@@ -100,7 +100,9 @@ async function generateImage(prompt) {
 }
 
 async function uploadToBlob(key, bytes) {
-  const res = await fetch(`https://blob.vercel-storage.com/og-backgrounds/${key}.png`, {
+  // Timestamp the path so each regeneration yields a fresh, immutable URL — no
+  // CDN staleness when you re-run to iterate on prompts (old images orphan; fine).
+  const res = await fetch(`https://blob.vercel-storage.com/og-backgrounds/${key}-${Date.now()}.png`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${BLOB_READ_WRITE_TOKEN}`,
