@@ -136,13 +136,15 @@ export default function CompactAccessCard({
             <>
               <button
                 onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                aria-label="Previous image"
               >
                 <ChevronLeft size={14} />
               </button>
               <button
                 onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                aria-label="Next image"
               >
                 <ChevronRight size={14} />
               </button>

@@ -88,3 +88,15 @@ export async function loadOtterImage(url: string): Promise<string> {
   const base64 = Buffer.from(buffer).toString('base64');
   return `data:image/png;base64,${base64}`;
 }
+
+// Fetch any image URL and inline it as a base64 data URI for Satori/ImageResponse
+// (which can't reliably lazy-load remote images). 3s timeout; throws on a bad
+// response so callers can try/catch and degrade gracefully (e.g. drop the photo).
+export async function loadImageAsDataUri(url: string): Promise<string> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
+  if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
+  const buffer = await response.arrayBuffer();
+  const base64 = Buffer.from(buffer).toString('base64');
+  const contentType = response.headers.get('content-type') || 'image/png';
+  return `data:${contentType};base64,${base64}`;
+}

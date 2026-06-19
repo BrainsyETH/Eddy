@@ -13,7 +13,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
+import { loadFredokaFont, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
 import {
   hasRainComing,
   weatherChip,
@@ -1154,6 +1154,18 @@ async function generateFavoriteImage(
   const accent = BRAND_COLORS.bluewater;
   const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
 
+  // Real guide photography behind the card (matches the reel). Inlined as a data
+  // URI because Satori can't lazy-load remote images; a dead/slow URL degrades
+  // to the solid-gradient card below rather than failing the cover.
+  let photoDataUri: string | null = null;
+  if (fav.photoUrl) {
+    try {
+      photoDataUri = await loadImageAsDataUri(fav.photoUrl);
+    } catch {
+      // Keep the gradient background.
+    }
+  }
+
   return new ImageResponse(
     (
       <div
@@ -1169,6 +1181,35 @@ async function generateFavoriteImage(
           position: 'relative',
         }}
       >
+        {photoDataUri && (
+          <img
+            src={photoDataUri}
+            width={size.width}
+            height={size.height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        )}
+        {photoDataUri && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background:
+                'linear-gradient(160deg, rgba(13,42,44,0.82) 0%, rgba(26,61,64,0.68) 50%, rgba(13,42,44,0.9) 100%)',
+            }}
+          />
+        )}
+
         <span
           style={{
             fontFamily: 'Fredoka',

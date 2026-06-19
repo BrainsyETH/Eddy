@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 
 import { useRiverGroups } from '@/hooks/useRiverGroups';
@@ -86,9 +87,11 @@ export default function EddyHeroBubble() {
   const color = CONDITION_COLORS[river.condition.code] || CONDITION_COLORS.unknown;
   const level = levelLabel(river);
   const update = river.riverSlug ? eddyUpdates?.[river.riverSlug] : undefined;
+  // Prefer the short summary so the bubble shows a complete quote rather than a
+  // truncated full one; fall back to the full quote, then a static blurb.
   const quote =
-    update?.quoteText ||
     update?.summaryText ||
+    update?.quoteText ||
     CONDITION_CARD_BLURBS[river.condition.code] ||
     CONDITION_CARD_BLURBS.unknown;
   const href = river.riverSlug ? `/rivers/${river.riverSlug}` : '#';
@@ -102,21 +105,20 @@ export default function EddyHeroBubble() {
 
   return (
     <BubbleShell onPause={setPaused}>
-      {/* Header: identity + live */}
-      <div className="flex items-center justify-between mb-3">
+      {/* Header: identity */}
+      <div className="flex items-center mb-3">
         <div className="flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-support-500 border-2 border-support-200 flex-shrink-0" />
+          <Image
+            src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png"
+            alt="Eddy"
+            width={24}
+            height={24}
+            className="w-6 h-6 rounded-full flex-shrink-0"
+          />
           <span className="text-sm font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
             Eddy says
           </span>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-support-600">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-support-500 opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-support-500" />
-          </span>
-          Live
-        </span>
       </div>
 
       {/* Rotating river content */}
@@ -209,8 +211,11 @@ function BubbleShell({
       ) : (
         children
       )}
-      {/* Tail pointing down toward the otter (centered on mobile, right on desktop) */}
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-10 w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
+      {/* Tail pointing down toward the otter: centered on mobile; on desktop the
+          tip sits over Eddy's center. Eddy is flush-right at w-52 (md) / w-60 (lg),
+          so its center is 104px / 120px from the column edge; the bubble is inset
+          right-12 (48px) and the tail is 20px wide, giving right = center-58px. */}
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-[46px] lg:right-[62px] w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
     </div>
   );
 }

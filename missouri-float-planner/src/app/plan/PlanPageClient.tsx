@@ -802,9 +802,9 @@ function RiverSwitcher({
                 r.slug === currentSlug ? 'bg-primary-50' : ''
               }`}
             >
-              <div>
-                <div className="font-semibold text-neutral-900 text-sm">{r.name}</div>
-                <div className="text-[11px] text-neutral-500">{r.lengthMiles.toFixed(1)} mi · {r.region}</div>
+              <div className="min-w-0">
+                <div className="font-semibold text-neutral-900 text-sm truncate">{r.name}</div>
+                <div className="text-[11px] text-neutral-500 truncate">{r.lengthMiles.toFixed(1)} mi · {r.region}</div>
               </div>
               <span
                 className={`w-2 h-2 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}

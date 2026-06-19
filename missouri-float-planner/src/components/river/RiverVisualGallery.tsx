@@ -229,12 +229,14 @@ function Lightbox({
             <button
               onClick={() => onNavigate(currentIndex > 0 ? currentIndex - 1 : visuals.length - 1)}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              aria-label="Previous photo"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <button
               onClick={() => onNavigate(currentIndex < visuals.length - 1 ? currentIndex + 1 : 0)}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              aria-label="Next photo"
             >
               <ChevronRight className="w-6 h-6" />
             </button>

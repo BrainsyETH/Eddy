@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Audio,
   Easing,
+  Img,
   useCurrentFrame,
   useVideoConfig,
   spring,
@@ -122,6 +123,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   tagline,
   evergreen = false,
   difficulty,
+  photoUrl,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
@@ -188,13 +190,15 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   });
   const boatPulse = 1 + 0.25 * Math.sin(frame / 5);
 
-  // Float-time stamp + take-out reveal land as the line finishes.
-  const stampEntrance = spring({ frame: frame - 190, fps, config: ENTRANCE });
+  // The payoff (float time + distance) lands first — front-loaded into the first
+  // second for retention — while the route keeps drawing as live "proof" beneath
+  // it. The take-out reveal still ties to the line finishing.
+  const stampEntrance = spring({ frame: frame - 25, fps, config: ENTRANCE });
   const takeOutReveal = interpolate(drawProgress, [0.9, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const ctaEntrance = spring({ frame: frame - 290, fps, config: { damping: 12, mass: 0.5, stiffness: 100 } });
+  const ctaEntrance = spring({ frame: frame - 120, fps, config: { damping: 12, mass: 0.5, stiffness: 100 } });
 
   const labelFont = "'Geist Sans', system-ui, sans-serif";
   const displayFont = "'Fredoka', system-ui, sans-serif";
@@ -210,6 +214,25 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           })
         }
       />
+
+      {/* Favorites composite a real section photo behind the graphic; a dimmed
+          teal wash keeps the white text legible + on-brand. A dead/slow URL
+          degrades to the solid background (SafeImg) so the daily render never
+          fails. Daily Float-of-the-Day passes no photoUrl → solid bg unchanged. */}
+      {photoUrl && (
+        <AbsoluteFill style={{ opacity: bgOpacity }}>
+          <SafeImg
+            src={photoUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          <AbsoluteFill
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(15,45,53,0.74) 0%, rgba(15,45,53,0.58) 46%, rgba(15,45,53,0.85) 100%)",
+            }}
+          />
+        </AbsoluteFill>
+      )}
 
       {/* Ambient condition glow behind the route */}
       <div
@@ -478,3 +501,33 @@ const EndpointRow: React.FC<{
     </span>
   </div>
 );
+
+/**
+ * Full-bleed image that degrades to nothing — the solid brand background shows
+ * through — if the source fails to load. Favorites pass a real (public) section
+ * photo URL; a dead or slow URL must never fail the daily posting render, so we
+ * both pass Remotion's `onError` (which keeps the render from failing) and catch
+ * any synchronous error as a belt-and-suspenders fallback.
+ */
+class SafeImg extends React.Component<
+  { src: string; style?: React.CSSProperties },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    // Swallow — the fallback (solid background) renders instead.
+  }
+  render() {
+    if (this.state.failed) return null;
+    return (
+      <Img
+        src={this.props.src}
+        onError={() => this.setState({ failed: true })}
+        style={this.props.style}
+      />
+    );
+  }
+}

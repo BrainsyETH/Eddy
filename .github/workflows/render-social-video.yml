@@ -1,13 +1,10 @@
 # .github/workflows/render-social-video.yml
 # Renders a Remotion composition to MP4 and publishes to social platforms.
 #
-# Single render per video — the callback publishes to all platforms
-# (Instagram + Facebook) from one rendered file.
-#
-# Audio: ffmpeg always re-encodes audio from source MP3 into the final
-# MP4 at Meta-compatible specs (AAC 48kHz stereo, faststart).
-# Remotion's <Audio> is kept for preview but its 44.1kHz output is
-# replaced by the normalize step. Workflow hard-fails if no audio.
+# The render + audio mux/validation run in the prebuilt container via
+# render-reusable.yml (audio_mode=social); this workflow just kicks that off and
+# publishes from the one rendered file (the callback fans out to Instagram +
+# Facebook). Kept as workflow_dispatch so the app's API dispatch is unchanged.
 
 name: Render Social Video
 
@@ -31,201 +28,43 @@ on:
         required: true
         type: string
 
+# packages:read so the reusable render job can pull the private GHCR render image.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   render:
+    uses: ./.github/workflows/render-reusable.yml
+    with:
+      composition_id: ${{ inputs.composition_id }}
+      input_props: ${{ inputs.input_props }}
+      output_filename: ${{ inputs.output_filename }}
+      blob_prefix: social-videos
+      audio_mode: social
+    secrets: inherit
+
+  callback:
+    needs: render
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          # Built-in npm cache keyed on the lockfile — replaces the manual
-          # actions/cache step. Saves ~30-60s per run vs. cold install, and
-          # invalidates correctly when lockfile changes (the previous
-          # hashFiles('package.json') key missed transitive bumps).
-          cache: npm
-          cache-dependency-path: missouri-float-planner/remotion/package-lock.json
-
-      - name: Install Remotion dependencies
-        working-directory: missouri-float-planner/remotion
-        # `npm ci` is reproducible and ~2x faster than `npm install` when the
-        # lockfile is in sync.
-        run: npm ci
-
-      - name: Write input props to file
-        env:
-          INPUT_PROPS_JSON: ${{ inputs.input_props }}
-        run: |
-          printf '%s' "$INPUT_PROPS_JSON" > /tmp/input-props.json
-          echo "Props written ($(wc -c < /tmp/input-props.json) bytes)"
-
-      - name: Verify audio file exists
-        working-directory: missouri-float-planner/remotion
-        run: |
-          echo "=== Checking public/audio/ ==="
-          ls -la public/audio/
-          file public/audio/background-music.wav
-          echo "=== Audio file confirmed ==="
-
-      - name: Render video
-        working-directory: missouri-float-planner/remotion
-        run: |
-          OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
-
-          # CRF 23 is visually identical to 18 on phones for short-form
-          # social. Meta re-encodes everything anyway. Halves the encode
-          # time and the upload payload.
-          # Parallel encoding (default since Remotion 4.x) on ubuntu-latest
-          # 4-core runners cuts wall time roughly in half on portrait reels.
-          # The previous --disable-parallel-encoding was a workaround for
-          # an old bug; not needed anymore.
-          npx remotion render \
-            --entry-point=src/index.ts \
-            --props=/tmp/input-props.json \
-            --codec=h264 \
-            --audio-codec=aac \
-            --enforce-audio-track \
-            --crf=23 \
-            --log=verbose \
-            --public-dir=./public \
-            "${{ inputs.composition_id }}" \
-            "$OUTFILE"
-
-          echo "Render complete: $(stat -c%s "$OUTFILE") bytes"
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: 'true'
-
-      - name: Normalize audio for Meta Reels
-        id: normalize
-        working-directory: missouri-float-planner/remotion
-        run: |
-          set -euxo pipefail
-
-          OUTFILE="/tmp/${{ inputs.output_filename }}.mp4"
-          AUDIO_SRC="public/audio/background-music.wav"
-
-          DURATION=$(npx remotion ffprobe -v error \
-            -show_entries format=duration \
-            -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
-          echo "Video duration: ${DURATION}s"
-
-          if [ -z "$DURATION" ]; then
-            echo "::error::Could not read video duration"; exit 1
-          fi
-
-          # Re-encode audio to Meta-compatible specs (AAC 48kHz stereo, 192kb/s).
-          # Remotion ships a stripped ffmpeg without afade — we rely on plain
-          # volume scaling. -stream_loop -1 on the source guarantees coverage
-          # even if the video outruns the MP3.
-          npx remotion ffmpeg -y \
-            -stream_loop -1 -i "$AUDIO_SRC" \
-            -i "$OUTFILE" \
-            -c:v copy \
-            -c:a aac -b:a 192k -ar 48000 -ac 2 \
-            -t "$DURATION" \
-            -af "volume=0.9" \
-            -map 1:v:0 -map 0:a:0 \
-            -movflags +faststart \
-            "/tmp/normalized.mp4"
-
-          mv "/tmp/normalized.mp4" "$OUTFILE"
-          echo "Audio normalized: $(stat -c%s "$OUTFILE") bytes"
-
-          echo "=== Stream inventory ==="
-          npx remotion ffprobe -v error -show_streams \
-            -show_entries stream=index,codec_type,codec_name,sample_rate,channels,bit_rate,duration \
-            -of default=noprint_wrappers=1 "$OUTFILE"
-
-          echo "=== Encoded audio size gate ==="
-          # Use ffprobe to read the audio stream's bit_rate directly.
-          # Previous approach grepped ffmpeg's mux summary (audio:NKiB) which
-          # is unstable across ffmpeg versions and stdout/stderr routing.
-          # Floor at 64 kb/s — well below the 192 kb/s target but high enough
-          # to fail silent placeholders (which compress to <16 kb/s in AAC).
-          AUDIO_BPS=$(npx remotion ffprobe -v error \
-            -select_streams a:0 \
-            -show_entries stream=bit_rate \
-            -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
-          AUDIO_KIB=$(printf '%.0f' "$(echo "($AUDIO_BPS * $DURATION) / 8 / 1024" | bc -l)")
-          MIN_AUDIO_BPS=64000
-          echo "Audio bitrate: ${AUDIO_BPS} bps (~${AUDIO_KIB} KiB total over ${DURATION}s, min ${MIN_AUDIO_BPS} bps)"
-
-          if [ -z "$AUDIO_BPS" ] || [ "$AUDIO_BPS" -lt "$MIN_AUDIO_BPS" ]; then
-            echo "::error::Audio bitrate ${AUDIO_BPS:-0} bps is below ${MIN_AUDIO_BPS} bps floor — source track is likely silent or corrupt (public/audio/background-music.wav)"
-            exit 1
-          fi
-
-          echo "=== Silence probe ==="
-          # Remotion's ffmpeg allowlist has silencedetect but not volumedetect.
-          # noise=-40dB catches anything below roughly whisper level.
-          SILENCE_OUTPUT=$(npx remotion ffmpeg -hide_banner -nostats \
-            -i "$OUTFILE" -af "silencedetect=noise=-40dB:d=0.1" -vn -f null - 2>&1 || true)
-          echo "$SILENCE_OUTPUT"
-
-          TOTAL_SILENCE=$(echo "$SILENCE_OUTPUT" | awk '
-            /silence_duration:/ {
-              for (i=1; i<=NF; i++) if ($i == "silence_duration:") { sum += $(i+1); next }
-            }
-            END { printf "%.3f", (sum + 0) }')
-          echo "Total silence: ${TOTAL_SILENCE}s of ${DURATION}s"
-
-          MAX_SILENCE=$(echo "$DURATION * 0.8" | bc)
-          IS_SILENT=$(echo "$TOTAL_SILENCE > $MAX_SILENCE" | bc)
-          if [ "$IS_SILENT" = "1" ]; then
-            echo "::error::Audio is >80% silent (${TOTAL_SILENCE}s / ${DURATION}s)"
-            exit 1
-          fi
-
-          echo "audio_verified=true" >> "$GITHUB_OUTPUT"
-          echo "audio_kib=${AUDIO_KIB}" >> "$GITHUB_OUTPUT"
-          echo "total_silence_s=${TOTAL_SILENCE}" >> "$GITHUB_OUTPUT"
-          echo "Audio confirmed (${AUDIO_KIB}KiB, ${TOTAL_SILENCE}s silence) — proceeding to upload"
-
-      - name: Upload to Vercel Blob
-        id: upload
-        run: |
-          FILENAME="${{ inputs.output_filename }}.mp4"
-          DATE_PREFIX=$(date -u +%Y-%m-%d)
-          BLOB_PATH="social-videos/${DATE_PREFIX}/${FILENAME}"
-
-          RESPONSE=$(curl -s -X PUT \
-            "https://blob.vercel-storage.com/${BLOB_PATH}" \
-            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-            -H "x-content-type: video/mp4" \
-            -H "x-cache-control-max-age: 31536000" \
-            --data-binary "@/tmp/${FILENAME}")
-
-          VIDEO_URL=$(echo "$RESPONSE" | jq -r '.url')
-
-          if [ "$VIDEO_URL" = "null" ] || [ -z "$VIDEO_URL" ]; then
-            echo "::error::Upload failed: $RESPONSE"
-            exit 1
-          fi
-
-          echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
-          echo "Uploaded: ${VIDEO_URL}"
-        env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-
       - name: Callback to publish posts
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          # Retry the callback up to 3 times with backoff. A Vercel cold
-          # start can blow past the default 30s curl deadline; without
-          # retries, a successfully rendered + uploaded video would sit in
-          # 'rendering' until the stale-reaper killed it.
+          # Retry the callback up to 3 times with backoff. A Vercel cold start can
+          # blow past the default curl deadline; without retries a rendered +
+          # uploaded video would sit in 'rendering' until the stale-reaper killed it.
           PAYLOAD=$(cat <<EOF
           {
             "postIds": "${{ inputs.post_ids }}",
-            "videoUrl": "${{ steps.upload.outputs.video_url }}",
+            "videoUrl": "${{ needs.render.outputs.clip_url }}",
             "status": "rendered",
-            "audioVerified": ${{ steps.normalize.outputs.audio_verified == 'true' }},
-            "audioKib": "${{ steps.normalize.outputs.audio_kib }}",
-            "totalSilenceS": "${{ steps.normalize.outputs.total_silence_s }}"
+            "audioVerified": ${{ needs.render.outputs.audio_verified == 'true' }},
+            "audioKib": "${{ needs.render.outputs.audio_kib }}",
+            "totalSilenceS": "${{ needs.render.outputs.total_silence_s }}"
           }
           EOF
           )
@@ -250,12 +89,18 @@ jobs:
           done
           echo "::error::Callback failed after 3 attempts — video uploaded but post stuck in rendering"
           exit 1
+
+  # Runs if the render or callback failed, so a stuck post is reported instead of
+  # silently sitting in 'rendering'.
+  report-failure:
+    needs: [render, callback]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report failure
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-
-      - name: Report failure
-        if: failure()
         run: |
           PAYLOAD=$(cat <<EOF
           {
@@ -280,6 +125,3 @@ jobs:
               sleep $((attempt * 5))
             fi
           done
-        env:
-          SITE_URL: ${{ secrets.SITE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}

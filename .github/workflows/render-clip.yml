@@ -1,8 +1,13 @@
 # .github/workflows/render-clip.yml
 # ClipEngine: brand a downloaded clip with Remotion (the clip-reel composition)
 # and insert it into clip_library. The raw, UNBRANDED clip is extracted + uploaded
-# locally (cookies/403), then this workflow wraps it in the Eddy frame — branding
+# upstream (cookies/403), then this workflow wraps it in the Eddy frame — branding
 # happens here ONLY (no local finalize-reel), so clips are never branded twice.
+#
+# The render itself runs in the prebuilt container via render-reusable.yml; this
+# workflow just builds props (prepare), calls the reusable render, and records
+# the result (persist). Kept as workflow_dispatch so the cloud pipeline's
+# `gh workflow run render-clip.yml` keeps working unchanged.
 
 name: Render Clip
 
@@ -24,16 +29,21 @@ on:
       captions:         { description: 'Timed caption cues JSON (relative to clip start)', required: false, type: string, default: '[]' }
       source_orientation: { description: 'Orientation of the SOURCE clip (portrait|landscape)', required: false, type: string, default: 'landscape' }
 
-jobs:
-  render:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+# contents:read for checkout; packages:read so the reusable render job can pull
+# the private GHCR render image with the job's GITHUB_TOKEN.
+permissions:
+  contents: read
+  packages: read
 
-      # Fail early + clearly if the secrets this workflow needs to upload + record
-      # the clip are missing, instead of branding a clip that then can't be saved.
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      props_json: ${{ steps.props.outputs.props_json }}
+    steps:
+      # Fail early + clearly if the secrets needed to upload + record the clip are
+      # missing, instead of branding a clip that then can't be saved.
       - name: Check required secrets
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
@@ -50,20 +60,17 @@ jobs:
           fi
           echo "✅ Required secrets present"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: missouri-float-planner/remotion/package-lock.json
-
-      - name: Install Remotion dependencies
-        working-directory: missouri-float-planner/remotion
-        run: npm ci
-
-      - name: Write input props
+      - name: Build input props
+        id: props
+        env:
+          VIDEO_URL: ${{ inputs.video_url }}
+          RIVER_NAME: ${{ inputs.river_name }}
+          CREATOR: ${{ inputs.creator }}
+          DURATION_SECS: ${{ inputs.duration_secs }}
+          CAPTIONS: ${{ inputs.captions }}
+          SOURCE_ORIENTATION: ${{ inputs.source_orientation }}
         run: |
-          python3 - <<'PY' > /tmp/clip-props.json
+          PROPS=$(python3 - <<'PY'
           import json, os
           print(json.dumps({
               "videoUrl": os.environ["VIDEO_URL"],
@@ -74,66 +81,36 @@ jobs:
               "sourceOrientation": os.environ.get("SOURCE_ORIENTATION") or "landscape",
           }))
           PY
-          echo "props: $(cat /tmp/clip-props.json)"
-        env:
-          VIDEO_URL: ${{ inputs.video_url }}
-          RIVER_NAME: ${{ inputs.river_name }}
-          CREATOR: ${{ inputs.creator }}
-          DURATION_SECS: ${{ inputs.duration_secs }}
-          CAPTIONS: ${{ inputs.captions }}
-          SOURCE_ORIENTATION: ${{ inputs.source_orientation }}
+          )
+          # Heredoc-delimited output handles any JSON content safely.
+          {
+            echo "props_json<<__PROPS_EOF__"
+            echo "$PROPS"
+            echo "__PROPS_EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "props: $PROPS"
 
-      - name: Render clip-reel
-        working-directory: missouri-float-planner/remotion
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: 'true'
-        run: |
-          npx remotion render \
-            --entry-point=src/index.ts \
-            --props=/tmp/clip-props.json \
-            --codec=h264 \
-            --audio-codec=aac \
-            --enforce-audio-track \
-            --crf=23 \
-            --public-dir=./public \
-            clip-reel \
-            "/tmp/branded.mp4"
-          echo "Rendered: $(stat -c%s /tmp/branded.mp4) bytes"
+  render:
+    needs: prepare
+    uses: ./.github/workflows/render-reusable.yml
+    with:
+      composition_id: clip-reel
+      input_props: ${{ needs.prepare.outputs.props_json }}
+      output_filename: ${{ inputs.youtube_video_id }}-peak${{ inputs.peak_number }}
+      blob_prefix: clips
+      audio_mode: clip
+    secrets: inherit
 
-      - name: Normalize audio for Meta (keep the clip's own audio)
-        working-directory: missouri-float-planner/remotion
-        run: |
-          set -e
-          npx remotion ffmpeg -y -i /tmp/branded.mp4 \
-            -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 \
-            -movflags +faststart /tmp/final.mp4
-          mv /tmp/final.mp4 /tmp/branded.mp4
-          echo "Normalized: $(stat -c%s /tmp/branded.mp4) bytes"
-
-      - name: Upload finished clip to Vercel Blob
-        id: upload
-        env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: |
-          DATE_PREFIX=$(date -u +%Y-%m-%d)
-          BLOB_PATH="clips/${DATE_PREFIX}/${{ inputs.youtube_video_id }}-peak${{ inputs.peak_number }}.mp4"
-          RESPONSE=$(curl -s -X PUT \
-            "https://blob.vercel-storage.com/${BLOB_PATH}" \
-            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-            -H "x-content-type: video/mp4" \
-            -H "x-cache-control-max-age: 31536000" \
-            --data-binary "@/tmp/branded.mp4")
-          CLIP_URL=$(echo "$RESPONSE" | jq -r '.url')
-          if [ "$CLIP_URL" = "null" ] || [ -z "$CLIP_URL" ]; then
-            echo "::error::Upload failed: $RESPONSE"; exit 1; fi
-          echo "clip_url=${CLIP_URL}" >> "$GITHUB_OUTPUT"
-          echo "Uploaded: ${CLIP_URL}"
-
+  persist:
+    needs: render
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
       - name: Insert into clip_library (pending)
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CLIP_URL: ${{ steps.upload.outputs.clip_url }}
+          CLIP_URL: ${{ needs.render.outputs.clip_url }}
           VIDEO_ID: ${{ inputs.youtube_video_id }}
           CHANNEL: ${{ inputs.youtube_channel }}
           RIVER_SLUG: ${{ inputs.river_slug }}
@@ -174,10 +151,15 @@ jobs:
               print("Inserted clip_library:", r.status)
           PY
 
-      # Dispatchers fire-and-forget, so a failed render would otherwise just
-      # never appear in the library. Surface it (log + optional site callback).
+  # Dispatchers fire-and-forget, so a failed render/persist would otherwise just
+  # never appear in the library. Runs if ANY upstream job failed (including the
+  # reusable render). Surface it (log + optional site callback).
+  report-failure:
+    needs: [prepare, render, persist]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
       - name: Report render failure
-        if: failure()
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
