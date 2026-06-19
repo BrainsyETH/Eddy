@@ -57,7 +57,7 @@ export default async function Home() {
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-14 md:pt-20 pb-8 md:pb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
-            <div className="max-w-xl">
+            <div className="max-w-xl mx-auto md:mx-0 text-center md:text-left">
               <h1
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
                 style={{ fontFamily: 'var(--font-display)' }}
@@ -66,17 +66,16 @@ export default async function Home() {
                 <br className="hidden sm:block" />
                 <span style={{ color: '#F07052' }}>Float.</span>
               </h1>
-              <p className="text-base md:text-lg text-white/80 max-w-lg mb-8 leading-relaxed">
+              <p className="text-base md:text-lg text-white/80 max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed">
                 Real-time USGS gauge data, river analysis, and trip insights for paddlers, anglers, and float enthusiasts.
               </p>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
                 <Link
                   href="/plan"
                   data-ga-event="cta_plan_float"
                   data-ga-label="hero"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all no-underline hover:brightness-110"
-                  style={{ backgroundColor: '#F07052' }}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-colors no-underline bg-accent-500 hover:bg-accent-600"
                 >
                   Plan Your Float
                 </Link>
@@ -239,8 +238,7 @@ export default async function Home() {
           <Link
             href="/embed"
             data-ga-event="cta_embed"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-all hover:brightness-110"
-            style={{ backgroundColor: '#F07052' }}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-colors bg-accent-500 hover:bg-accent-600"
           >
             Explore Embed Widgets <ArrowRight className="w-4 h-4" />
           </Link>
