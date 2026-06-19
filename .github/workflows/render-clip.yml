@@ -155,3 +155,19 @@ jobs:
           with urllib.request.urlopen(req, timeout=15) as r:
               print("Inserted clip_library:", r.status)
           PY
+
+      # Dispatchers fire-and-forget, so a failed render would otherwise just
+      # never appear in the library. Surface it (log + optional site callback).
+      - name: Report render failure
+        if: failure()
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "::error::render-clip failed for ${{ inputs.youtube_video_id }} (peak ${{ inputs.peak_number }}, river ${{ inputs.river_slug }})"
+          if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
+            curl -s -X POST "${SITE_URL}/api/admin/clips/callback" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -d "{\"status\": \"failed\", \"error\": \"render-clip failed for ${{ inputs.youtube_video_id }} (${{ inputs.river_slug }})\"}" || true
+          fi
