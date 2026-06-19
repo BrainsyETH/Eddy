@@ -211,11 +211,11 @@ function BubbleShell({
       ) : (
         children
       )}
-      {/* Tail pointing down toward the otter: centered on mobile; on desktop the
-          tip sits over Eddy's center. Eddy is flush-right at w-52 (md) / w-60 (lg),
-          so its center is 104px / 120px from the column edge; the bubble is inset
-          right-12 (48px) and the tail is 20px wide, giving right = center-58px. */}
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-[46px] lg:right-[62px] w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
+      {/* Tail pointing down at the otter: centered on mobile; on desktop the tip
+          sits over Eddy's body. Eddy is flush-right (w-52 md / w-60 lg), but the
+          otter sits left of the canoe art's center, so these offsets center the tail
+          on the otter — not the image box. Nudge these px if it reads off-center. */}
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-[60px] lg:right-[80px] w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
     </div>
   );
 }
