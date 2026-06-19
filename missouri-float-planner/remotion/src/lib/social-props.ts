@@ -14,7 +14,7 @@ import {
 
 export type ConditionCode = SharedConditionCode;
 
-export interface ConditionStyle {
+export type ConditionStyle = {
   solid: string;
   bg: string;
   label: string;
@@ -45,7 +45,7 @@ export function getOtterVariant(conditionCode: ConditionCode): OtterMood {
 
 // ─── Composition Input Props ──────────────────────────────────────
 
-export interface GaugeAnimationProps {
+export type GaugeAnimationProps = {
   riverName: string;
   conditionCode: ConditionCode;
   gaugeHeightFt: number;
@@ -68,7 +68,7 @@ export interface GaugeAnimationProps {
 }
 
 /** Glanceable weather chip rendered on forecast / trend graphics. */
-export interface WeatherChipProps {
+export type WeatherChipProps = {
   highF: number | null;
   lowF: number | null;
   condition: string;
@@ -94,7 +94,7 @@ export function formatWeatherChipLabel(
   return parts.join(" · ");
 }
 
-export interface DigestReelProps {
+export type DigestReelProps = {
   rivers: Array<{
     riverName: string;
     conditionCode: ConditionCode;
@@ -113,13 +113,13 @@ export interface DigestReelProps {
   format: "square" | "portrait";
 }
 
-export interface BrandedLoopProps {
+export type BrandedLoopProps = {
   riverName: string;
   conditionCode: ConditionCode;
   summaryText: string;
 }
 
-export interface SectionGuideProps {
+export type SectionGuideProps = {
   riverName: string;
   conditionCode: ConditionCode;
   putInName: string;
@@ -149,7 +149,7 @@ export interface SectionGuideProps {
  * evergreen mode (neutral accent, no live faster/slower delta, difficulty shown
  * instead of the live condition).
  */
-export interface RouteDrawProps extends SectionGuideProps {
+export type RouteDrawProps = SectionGuideProps & {
   /** Eyebrow label. Defaults to "Float of the Day"; favorites pass "Eddy's Favorite Float". */
   label?: string;
   /** Editorial hook shown under the river name (replaces the date for favorites). */
@@ -160,7 +160,7 @@ export interface RouteDrawProps extends SectionGuideProps {
   difficulty?: string;
 }
 
-export interface TrendReelProps {
+export type TrendReelProps = {
   riverName: string;
   conditionCode: ConditionCode;
   currentHeightFt: number | null;
@@ -176,7 +176,14 @@ export interface TrendReelProps {
   format: "square" | "portrait";
 }
 
-export interface ClipReelProps {
+/** One timed on-screen caption phrase; times in seconds relative to clip start. */
+export type Caption = {
+  start: number;
+  end: number;
+  text: string;
+};
+
+export type ClipReelProps = {
   /** Public URL of the raw (unbranded) downloaded clip to wrap. */
   videoUrl: string;
   /** River display name, e.g. "Current River". */
@@ -185,4 +192,11 @@ export interface ClipReelProps {
   creatorCredit?: string;
   /** Clip length in seconds — drives composition duration. */
   durationSecs: number;
+  /** Timed transcript captions rendered over the clip (optional). */
+  captions?: Caption[];
+  /**
+   * Orientation of the SOURCE video. Vertical sources fill the frame; landscape
+   * (default) sit in the centered 16:9 band. The output is always portrait.
+   */
+  sourceOrientation?: "portrait" | "landscape";
 }

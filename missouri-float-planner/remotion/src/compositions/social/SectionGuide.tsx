@@ -10,6 +10,8 @@ import {
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
 import { Watermark } from "../../components/Watermark";
+import { BrandCTA } from "../../components/BrandCTA";
+import { ReelMasthead } from "../../components/ReelMasthead";
 import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
@@ -134,51 +136,17 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
           gap: 22,
         }}
       >
-        {/* Title */}
-        <div
-          style={{
-            opacity: titleEntrance,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 42 : 32,
-            fontWeight: 500,
-            color: colors.accent[400],
-            letterSpacing: 1,
-            textTransform: "uppercase",
-          }}
-        >
-          Float of the Day
-        </div>
-
-        {/* River name */}
-        <div
-          style={{
-            opacity: riverEntrance,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 76 : 56,
-            fontWeight: 600,
-            color: "#fff",
-            textAlign: "center",
-            textShadow: `0 0 30px ${condition.glow}`,
-            marginTop: -8,
-          }}
-        >
-          {riverName}
-        </div>
-
-        {/* Date */}
-        {dateLabel && (
-          <div
-            style={{
-              opacity: dateEntrance,
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: isPortrait ? 28 : 22,
-              color: "rgba(255,255,255,0.55)",
-              marginTop: -14,
-            }}
-          >
-            {dateLabel}
-          </div>
-        )}
+        {/* Masthead — eyebrow + river name + date */}
+        <ReelMasthead
+          eyebrow="Float of the Day"
+          title={riverName}
+          subtitle={dateLabel}
+          glow={condition.glow}
+          isPortrait={isPortrait}
+          eyebrowOpacity={titleEntrance}
+          titleOpacity={riverEntrance}
+          subtitleOpacity={dateEntrance}
+        />
 
         {/* Route card — put-in → take-out */}
         <div
@@ -305,17 +273,7 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
         </div>
 
         {/* CTA */}
-        <div
-          style={{
-            opacity: ctaEntrance,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 28 : 22,
-            color: condition.solid,
-            letterSpacing: 0.5,
-          }}
-        >
-          Plan this float at eddy.guide
-        </div>
+        <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} />
       </div>
 
       {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}

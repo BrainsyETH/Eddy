@@ -21,6 +21,8 @@ on:
       clip_start_secs:  { description: 'Clip start offset in the source', required: false, type: string, default: '0' }
       orientation:      { description: 'portrait | landscape', required: false, type: string, default: 'portrait' }
       heatmap_score:    { description: 'Heatmap score', required: false, type: string, default: '0' }
+      captions:         { description: 'Timed caption cues JSON (relative to clip start)', required: false, type: string, default: '[]' }
+      source_orientation: { description: 'Orientation of the SOURCE clip (portrait|landscape)', required: false, type: string, default: 'landscape' }
 
 jobs:
   render:
@@ -29,6 +31,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Fail early + clearly if the secrets this workflow needs to upload + record
+      # the clip are missing, instead of branding a clip that then can't be saved.
+      - name: Check required secrets
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=()
+          [ -n "$BLOB_READ_WRITE_TOKEN" ] || missing+=("BLOB_READ_WRITE_TOKEN")
+          [ -n "$SUPABASE_URL" ] || missing+=("NEXT_PUBLIC_SUPABASE_URL")
+          [ -n "$SUPABASE_KEY" ] || missing+=("SUPABASE_SERVICE_ROLE_KEY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing Actions secret(s): ${missing[*]}. The branded clip can't be uploaded/inserted. Add them in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "✅ Required secrets present"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -50,6 +70,8 @@ jobs:
               "riverName": os.environ["RIVER_NAME"],
               "creatorCredit": os.environ.get("CREATOR", ""),
               "durationSecs": float(os.environ.get("DURATION_SECS") or 13),
+              "captions": json.loads(os.environ.get("CAPTIONS") or "[]"),
+              "sourceOrientation": os.environ.get("SOURCE_ORIENTATION") or "landscape",
           }))
           PY
           echo "props: $(cat /tmp/clip-props.json)"
@@ -58,6 +80,8 @@ jobs:
           RIVER_NAME: ${{ inputs.river_name }}
           CREATOR: ${{ inputs.creator }}
           DURATION_SECS: ${{ inputs.duration_secs }}
+          CAPTIONS: ${{ inputs.captions }}
+          SOURCE_ORIENTATION: ${{ inputs.source_orientation }}
 
       - name: Render clip-reel
         working-directory: missouri-float-planner/remotion
@@ -149,3 +173,19 @@ jobs:
           with urllib.request.urlopen(req, timeout=15) as r:
               print("Inserted clip_library:", r.status)
           PY
+
+      # Dispatchers fire-and-forget, so a failed render would otherwise just
+      # never appear in the library. Surface it (log + optional site callback).
+      - name: Report render failure
+        if: failure()
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "::error::render-clip failed for ${{ inputs.youtube_video_id }} (peak ${{ inputs.peak_number }}, river ${{ inputs.river_slug }})"
+          if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
+            curl -s -X POST "${SITE_URL}/api/admin/clips/callback" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -d "{\"status\": \"failed\", \"error\": \"render-clip failed for ${{ inputs.youtube_video_id }} (${{ inputs.river_slug }})\"}" || true
+          fi

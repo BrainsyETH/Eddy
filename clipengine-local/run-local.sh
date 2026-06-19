@@ -50,6 +50,16 @@ if [ "${NO_PUBLISH:-0}" != 1 ] && [ -n "${BLOB_READ_WRITE_TOKEN:-}" ] && [ -n "$
 fi
 echo "Publish mode: $([ "$PUBLISH" = 1 ] && echo 'ON → Blob + clip_library (app gates & posts)' || echo 'OFF → render to output/ only')"
 
+# Branding path: default to the cloud-Remotion handoff (the same on-brand
+# clip-reel composition the pipeline renders) whenever we can publish + dispatch,
+# so local runs don't quietly produce the divergent ffmpeg look. Falls back to
+# the local ffmpeg finalize when that's not possible. Force with REMOTION=1/0.
+USE_REMOTION="${REMOTION:-auto}"
+if [ "$USE_REMOTION" = auto ]; then
+  if [ "$PUBLISH" = 1 ] && command -v gh >/dev/null 2>&1; then USE_REMOTION=1; else USE_REMOTION=0; fi
+fi
+echo "Branding: $([ "$USE_REMOTION" = 1 ] && echo 'Remotion clip-reel (cloud handoff)' || echo 'local ffmpeg finalize (fallback)')"
+
 process_video() {
   local URL="$1" RIVER="$2" PEAK="$3" IG="${4:-}"
   local WORK; WORK="$(mktemp -d)"
@@ -95,7 +105,7 @@ process_video() {
 
   # Cloud-Remotion branding path: upload the RAW clip and hand off — branding
   # happens in Remotion only (no local finalize-reel), so it's never double-branded.
-  if [ "${REMOTION:-0}" = 1 ]; then
+  if [ "$USE_REMOTION" = 1 ]; then
     echo "→ Handing off to cloud Remotion branding..."
     bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" \
       || echo "⚠️  handoff failed"

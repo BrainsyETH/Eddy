@@ -11,6 +11,8 @@ import {
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
 import { Watermark } from "../../components/Watermark";
+import { BrandCTA } from "../../components/BrandCTA";
+import { ReelMasthead } from "../../components/ReelMasthead";
 import { ENTRANCE } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
@@ -332,48 +334,19 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           gap: 8,
         }}
       >
-        <div
-          style={{
-            opacity: titleEntrance,
-            fontFamily: displayFont,
-            fontSize: isPortrait ? 40 : 30,
-            fontWeight: 500,
-            color: colors.accent[400],
-            letterSpacing: 1,
-            textTransform: "uppercase",
-          }}
-        >
-          {label}
-        </div>
-        <div
-          style={{
-            opacity: riverEntrance,
-            fontFamily: displayFont,
-            fontSize: isPortrait ? 72 : 54,
-            fontWeight: 600,
-            color: "#fff",
-            textAlign: "center",
-            textShadow: `0 0 30px ${condition.glow}`,
-          }}
-        >
-          {riverName}
-        </div>
-        {/* Favorites show the guide's section name ("why"); otherwise the date. */}
-        {(tagline || dateLabel) && (
-          <div
-            style={{
-              opacity: dateEntrance,
-              fontFamily: labelFont,
-              fontSize: isPortrait ? 28 : 22,
-              color: "rgba(255,255,255,0.55)",
-              textAlign: "center",
-              padding: "0 60px",
-              fontStyle: tagline ? "italic" : "normal",
-            }}
-          >
-            {tagline || dateLabel}
-          </div>
-        )}
+        {/* Favorites relabel the eyebrow + show the guide's section name as the
+            tagline ("why"); otherwise the date. */}
+        <ReelMasthead
+          eyebrow={label}
+          title={riverName}
+          subtitle={tagline || dateLabel}
+          subtitleItalic={!!tagline}
+          glow={condition.glow}
+          isPortrait={isPortrait}
+          eyebrowOpacity={titleEntrance}
+          titleOpacity={riverEntrance}
+          subtitleOpacity={dateEntrance}
+        />
       </div>
 
       {/* ─── Float-time stamp (hero) ────────────────────────── */}
@@ -433,9 +406,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           </div>
         </div>
 
-        <div style={{ opacity: ctaEntrance, fontFamily: displayFont, fontSize: isPortrait ? 26 : 20, color: condition.solid, letterSpacing: 0.5, marginTop: 4 }}>
-          Plan this float at eddy.guide
-        </div>
+        <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} style={{ marginTop: 4 }} />
       </div>
 
       {/* Eddy paddles in to the right of the take-out, tucked just beside the

@@ -41,6 +41,12 @@ jobs:
   extract-clips:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Dispatching render-clip.yml needs actions:write. The default GITHUB_TOKEN
+    # can trigger workflow_dispatch; if your org restricts that, set a GH_PAT
+    # secret (a PAT with the "workflow" scope) and it will be used instead.
+    permissions:
+      contents: read
+      actions: write
 
     steps:
       - name: Checkout
@@ -55,11 +61,6 @@ jobs:
         run: |
           ffmpeg -version | head -1
           ffprobe -version | head -1
-
-      - name: Install fonts
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-dejavu-core
 
       # yt-dlp needs a JavaScript runtime to extract YouTube formats reliably.
       - name: Install JS runtime (deno) for yt-dlp
@@ -79,11 +80,10 @@ jobs:
           VIDEOS_PER_CHANNEL: ${{ inputs.videos_per_channel || '5' }}
           YOUTUBE_CHANNELS_JSON: ${{ secrets.YOUTUBE_CHANNELS_JSON }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
           set -e
           WORK_DIR=$(mktemp -d)
-          CLIPS_OUTPUT="$WORK_DIR/clips"
-          mkdir -p "$CLIPS_OUTPUT"
           RESULTS_JSON="$WORK_DIR/results.json"
           echo "[]" > "$RESULTS_JSON"
 
@@ -123,7 +123,6 @@ jobs:
             # Extract peak info
             local VIDEO_ID=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d['video_id'])")
             local CHANNEL=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('channel','Unknown'))")
-            local TITLE=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('title',''))")
 
             # River is detected per-video by scrape-heatmap (a channel covers many
             # rivers). A dispatch/channel river_slug overrides; otherwise use the
@@ -172,79 +171,89 @@ jobs:
               return
             fi
 
-            # Step 3: Finalize to reel format
-            echo "→ Finalizing to Reel format..."
-            local RIVER_NAME="${RIVER:-Unknown River}"
-            local FINAL_CLIP="$CLIPS_OUTPUT/${VIDEO_ID}-peak${PEAK}.mp4"
-            local TRANSCRIPT_FILE=$(find "$VIDEO_DIR" -name "*.vtt" -type f | head -1)
-
-            bash scripts/clipengine/finalize-reel.sh \
-              "$RAW_CLIP" \
-              "$RIVER_NAME" \
-              "$FINAL_CLIP" \
-              "${TRANSCRIPT_FILE:-}" \
-              "${PEAK_START}"
-
-            if [ ! -f "$FINAL_CLIP" ]; then
-              echo "⚠️ Finalization failed, skipping"
-              rm -rf "$VIDEO_DIR"
-              return
+            # Step 3: Brand via Remotion (the render pipeline) — not ffmpeg.
+            # Upload the RAW clip, then dispatch render-clip.yml, which wraps it
+            # in the clip-reel composition, uploads the branded result, and
+            # inserts clip_library (pending). Branding happens ONLY there, so
+            # clips match every other Eddy reel and are never branded twice.
+            echo "→ Resolving river display name..."
+            local RIVER_NAME="$RIVER"
+            if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+              local RIVER_RESP=$(curl -s \
+                "${SUPABASE_URL}/rest/v1/rivers?slug=eq.${RIVER}&select=name" \
+                -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")
+              local RESOLVED=$(echo "$RIVER_RESP" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '[]'); print(d[0]['name'] if d else '')" 2>/dev/null || echo "")
+              [ -n "$RESOLVED" ] && RIVER_NAME="$RESOLVED"
             fi
 
-            # Step 4: Upload to Vercel Blob
-            echo "→ Uploading to CDN..."
+            echo "→ Uploading RAW clip to CDN for Remotion..."
             local DATE_PREFIX=$(date -u +%Y-%m-%d)
-            local BLOB_PATH="clips/${DATE_PREFIX}/${VIDEO_ID}-peak${PEAK}.mp4"
-
+            local RAW_BLOB_PATH="clips-raw/${DATE_PREFIX}/${VIDEO_ID}-peak${PEAK}.mp4"
             local UPLOAD_RESPONSE=$(curl -s -X PUT \
-              "https://blob.vercel-storage.com/${BLOB_PATH}" \
+              "https://blob.vercel-storage.com/${RAW_BLOB_PATH}" \
               -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
               -H "x-content-type: video/mp4" \
-              -H "x-cache-control-max-age: 31536000" \
-              --data-binary "@${FINAL_CLIP}")
+              --data-binary "@${RAW_CLIP}")
 
-            local CLIP_URL=$(echo "$UPLOAD_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('url',''))" 2>/dev/null || echo "")
+            local RAW_URL=$(echo "$UPLOAD_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('url',''))" 2>/dev/null || echo "")
 
-            if [ -z "$CLIP_URL" ] || [ "$CLIP_URL" = "null" ]; then
-              echo "⚠️ Upload failed: $UPLOAD_RESPONSE"
+            if [ -z "$RAW_URL" ] || [ "$RAW_URL" = "null" ]; then
+              echo "⚠️ Raw upload failed: $UPLOAD_RESPONSE"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+            echo "✅ Raw uploaded: $RAW_URL"
+
+            # Timed captions from the transcript (parity with the old burn-in).
+            # extract-clip.sh --transcript copies the VTT next to the raw clip.
+            local CAPTIONS_JSON="[]"
+            if [ -f "$VIDEO_DIR/transcript.en.vtt" ]; then
+              CAPTIONS_JSON=$(python3 scripts/clipengine/vtt-to-captions.py \
+                "$VIDEO_DIR/transcript.en.vtt" "$PEAK_START" "${PEAK_DURATION:-13}" 2>/dev/null || echo "[]")
+            fi
+
+            # Source orientation drives band (landscape) vs full-bleed (vertical)
+            # framing in the Remotion composition.
+            local SRC_DIMS=$(ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height -of csv=s=x:p=0 "$RAW_CLIP" 2>/dev/null)
+            local SRC_ORIENT="landscape"
+            [ "$(echo "$SRC_DIMS" | cut -dx -f2)" -gt "$(echo "$SRC_DIMS" | cut -dx -f1)" ] 2>/dev/null && SRC_ORIENT="portrait"
+
+            echo "→ Dispatching render-clip (Remotion branding)..."
+            if gh workflow run render-clip.yml --ref main \
+              -f video_url="$RAW_URL" \
+              -f youtube_video_id="$VIDEO_ID" \
+              -f river_slug="$RIVER" \
+              -f river_name="$RIVER_NAME" \
+              -f creator="$CHANNEL" \
+              -f source_url="$URL" \
+              -f youtube_channel="$CHANNEL" \
+              -f peak_number="$PEAK" \
+              -f duration_secs="${PEAK_DURATION:-13}" \
+              -f clip_start_secs="$PEAK_START" \
+              -f orientation="portrait" \
+              -f heatmap_score="$PEAK_SCORE" \
+              -f captions="$CAPTIONS_JSON" \
+              -f source_orientation="$SRC_ORIENT"; then
+              echo "✅ Dispatched render-clip — it brands the clip and inserts clip_library (pending)."
+            else
+              echo "⚠️ Could not dispatch render-clip (needs actions:write + a token allowed to dispatch). Skipping."
               rm -rf "$VIDEO_DIR"
               return
             fi
 
-            echo "✅ Uploaded: $CLIP_URL"
-
-            # Detect orientation
-            local DIMS=$(ffprobe -v error -select_streams v:0 \
-              -show_entries stream=width,height \
-              -of csv=s=x:p=0 "$FINAL_CLIP" 2>/dev/null)
-            local W=$(echo "$DIMS" | cut -dx -f1)
-            local H=$(echo "$DIMS" | cut -dx -f2)
-            local ORIENTATION="landscape"
-            [ "$H" -gt "$W" ] 2>/dev/null && ORIENTATION="portrait"
-
-            local CLIP_DURATION=$(ffprobe -v error -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 "$FINAL_CLIP" 2>/dev/null | cut -d. -f1)
-
-            # Append to results
+            # Count this as a produced clip (drives MAX_CLIPS + the run summary).
             python3 -c "
-          import json, sys
-          results = json.load(open('$RESULTS_JSON'))
-          results.append({
+          import json
+          r = json.load(open('$RESULTS_JSON'))
+          r.append({
               'youtube_video_id': '$VIDEO_ID',
-              'youtube_channel': '''$CHANNEL''',
               'river_slug': '${RIVER:-}',
-              'clip_url': '$CLIP_URL',
-              'duration_secs': ${CLIP_DURATION:-0},
-              'clip_start_secs': $PEAK_START,
-              'clip_end_secs': $PEAK_START + ${PEAK_DURATION:-13},
-              'orientation': '$ORIENTATION',
-              'heatmap_score': $PEAK_SCORE,
-              'source_creator': '''$CHANNEL''',
-              'source_url': '$URL',
-              'title': '''$TITLE''',
+              'peak': $PEAK,
+              'raw_url': '$RAW_URL',
+              'dispatched': True,
           })
-          with open('$RESULTS_JSON', 'w') as f:
-              json.dump(results, f, indent=2)
+          json.dump(r, open('$RESULTS_JSON', 'w'), indent=2)
           "
 
             rm -rf "$VIDEO_DIR"
@@ -331,85 +340,21 @@ jobs:
           TOTAL=$(python3 -c "import json; print(len(json.load(open('$RESULTS_JSON'))))")
           echo ""
           echo "════════════════════════════════════════════"
-          echo "📊 Pipeline Results: $TOTAL clips extracted"
+          echo "📊 Pipeline Results: $TOTAL render(s) dispatched"
           echo "════════════════════════════════════════════"
-          python3 -c "import json; [print(f'  • {c[\"youtube_video_id\"]} → {c[\"clip_url\"]}') for c in json.load(open('$RESULTS_JSON'))]"
+          python3 -c "import json; [print(f'  • {c[\"youtube_video_id\"]} (peak {c.get(\"peak\")}) → render-clip dispatched') for c in json.load(open('$RESULTS_JSON'))]"
 
-          # Save results for callback step
+          # Save results for the summary step
           cp "$RESULTS_JSON" "$GITHUB_WORKSPACE/clip-results.json"
 
-      - name: Callback to Eddy API
+      - name: Summary
         if: success()
-        env:
-          SITE_URL: ${{ secrets.SITE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          RESULTS=$(cat "$GITHUB_WORKSPACE/clip-results.json")
-          TOTAL=$(echo "$RESULTS" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
-
-          if [ "$TOTAL" -eq 0 ]; then
-            echo "No clips to insert"
-            exit 0
-          fi
-
-          # Insert directly into Supabase
-          echo "Inserting $TOTAL clips into clip_library..."
-          cat > /tmp/insert_clips.py << 'PYEOF'
-          import json, urllib.request, os
-
-          supabase_url = os.environ["SUPABASE_URL"]
-          supabase_key = os.environ["SUPABASE_KEY"]
-
-          with open(os.path.join(os.environ["GITHUB_WORKSPACE"], "clip-results.json")) as f:
-              clips = json.load(f)
-
-          for clip in clips:
-              row = {
-                  "youtube_video_id": clip["youtube_video_id"],
-                  "youtube_channel": clip.get("youtube_channel"),
-                  "river_slug": clip.get("river_slug") or None,
-                  "clip_url": clip["clip_url"],
-                  "duration_secs": clip.get("duration_secs"),
-                  "clip_start_secs": clip.get("clip_start_secs"),
-                  "clip_end_secs": clip.get("clip_end_secs"),
-                  "orientation": clip.get("orientation", "portrait"),
-                  "heatmap_score": clip.get("heatmap_score"),
-                  "source_creator": clip.get("source_creator"),
-                  "source_url": clip.get("source_url"),
-                  "brand_check_status": "pending",
-              }
-
-              body = json.dumps(row).encode()
-              req = urllib.request.Request(
-                  f"{supabase_url}/rest/v1/clip_library",
-                  data=body,
-                  headers={
-                      "apikey": supabase_key,
-                      "Authorization": f"Bearer {supabase_key}",
-                      "Content-Type": "application/json",
-                      "Prefer": "return=minimal",
-                  },
-                  method="POST",
-              )
-
-              try:
-                  with urllib.request.urlopen(req, timeout=10) as resp:
-                      print(f"  Inserted: {clip['youtube_video_id']}")
-              except Exception as e:
-                  print(f"  Failed to insert {clip['youtube_video_id']}: {e}")
-          PYEOF
-          python3 /tmp/insert_clips.py
-
-          # Optional: notify the site
-          if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
-            curl -s -X POST \
-              "${SITE_URL}/api/admin/clips/callback" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${CRON_SECRET}" \
-              -d "{\"clips\": $RESULTS, \"status\": \"completed\"}" || true
-          fi
+          TOTAL=$(python3 -c "import json; print(len(json.load(open('$GITHUB_WORKSPACE/clip-results.json'))))" 2>/dev/null || echo 0)
+          echo "Dispatched $TOTAL render-clip run(s)."
+          echo "Each one brands its clip with Remotion and inserts clip_library"
+          echo "(brand_check_status=pending); the brand-check + auto-post crons take"
+          echo "it from there. Clips appear in the library as those renders finish."
 
       - name: Report failure
         if: failure()
