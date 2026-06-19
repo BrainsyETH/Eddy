@@ -28,7 +28,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   return (
     <ReelBrandFrame
       eyebrow="On the Water"
-      title={riverName}
+      title={prettifyRiverName(riverName)}
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}
@@ -42,6 +42,22 @@ export const ClipReel: React.FC<ClipReelProps> = ({
     </ReelBrandFrame>
   );
 };
+
+/**
+ * River names reach the clip from the YouTube pipeline, which can pass a raw
+ * slug ("jacks-fork") when its display-name lookup falls back. Prettify so the
+ * on-screen title never shows a slug: "jacks-fork" -> "Jacks Fork". Already-clean
+ * names ("Jacks Fork River", "Huzzah Creek") pass through unchanged.
+ */
+export function prettifyRiverName(name: string): string {
+  return (name || "")
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
 
 /** Composition duration in frames for a clip of the given length. */
 export function getClipReelDuration(durationSecs: number, fps: number): number {
