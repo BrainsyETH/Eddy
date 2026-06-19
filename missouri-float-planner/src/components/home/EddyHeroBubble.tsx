@@ -211,8 +211,11 @@ function BubbleShell({
       ) : (
         children
       )}
-      {/* Tail pointing down toward the otter (centered on mobile, right on desktop) */}
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-10 w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
+      {/* Tail pointing down toward the otter: centered on mobile; on desktop the
+          tip sits over Eddy's center. Eddy is flush-right at w-52 (md) / w-60 (lg),
+          so its center is 104px / 120px from the column edge; the bubble is inset
+          right-12 (48px) and the tail is 20px wide, giving right = center-58px. */}
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-[46px] lg:right-[62px] w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
     </div>
   );
 }
