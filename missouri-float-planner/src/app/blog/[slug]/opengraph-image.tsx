@@ -1,12 +1,11 @@
 // src/app/blog/[slug]/opengraph-image.tsx
-// Dynamic OG image for blog posts (River Guides + general Guides). A clean,
-// branded card — Eddy logo, category kicker, and the post title — distinct from
-// the River Report card so guides read as guides when shared.
+// Dynamic OG image for blog posts (River Guides + general Guides) — Field
+// Notebook card: Eddy logo, category kicker, and the post title.
 
 import { ImageResponse } from 'next/og';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFredokaFont, loadEddyAvatar } from '@/lib/og/fonts';
-import { ContentCard } from '@/lib/og/cardLayout';
+import { CardFrame } from '@/lib/og/cardLayout';
 
 export const alt = 'Float trip guide on Eddy';
 export const size = { width: 1200, height: 630 };
@@ -51,9 +50,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
   return new ImageResponse(
     (
-      <ContentCard
+      <CardFrame
         eyebrow={CATEGORY_KICKER[category] ?? category}
-        title={truncate(title, 92)}
+        title={truncate(title, 76)}
         avatar={avatar}
       />
     ),

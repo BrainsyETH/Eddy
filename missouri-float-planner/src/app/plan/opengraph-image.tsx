@@ -4,7 +4,7 @@
 
 import { ImageResponse } from 'next/og';
 import { loadFredokaFont, loadEddyAvatar, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
-import { ContentCard } from '@/lib/og/cardLayout';
+import { CardFrame } from '@/lib/og/cardLayout';
 
 export const alt = 'Plan a float trip on Eddy';
 export const size = { width: 1200, height: 630 };
@@ -21,13 +21,11 @@ export default async function Image() {
 
   return new ImageResponse(
     (
-      <ContentCard
-        eyebrow="Float Planner"
-        title="Plan a Float Trip"
-        body="Put-in to take-out with live water levels and float-time estimates."
-        avatar={avatar}
-        otter={otter}
-      />
+      <CardFrame eyebrow="Float Planner" title="Plan a Float Trip" avatar={avatar} otter={otter}>
+        <span style={{ fontSize: 38, lineHeight: 1.3, color: '#3F3B33', maxWidth: 700 }}>
+          Put-in to take-out with live water levels and float-time estimates.
+        </span>
+      </CardFrame>
     ),
     { ...size, fonts },
   );
