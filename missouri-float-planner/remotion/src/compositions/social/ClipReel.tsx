@@ -34,7 +34,8 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   return (
     <ReelBrandFrame
       eyebrow="On the Water"
-      title={prettifyRiverName(riverName)}
+      title={hasRiver ? prettifyRiverName(riverName) : OZARK_PADDLING_LABEL}
+      cta={hasRiver ? PLAN_CTA : GENERIC_CTA}
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}
