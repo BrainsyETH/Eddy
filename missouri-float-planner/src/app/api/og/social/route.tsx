@@ -1078,6 +1078,8 @@ async function generateSectionImage(
           background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
           padding: isPortrait ? '120px 72px' : '72px 64px',
           justifyContent: 'center',
+          alignItems: 'center',
+          textAlign: 'center',
           position: 'relative',
         }}
       >
@@ -1144,7 +1146,9 @@ async function generateSectionImage(
             color: 'rgba(255,255,255,0.35)',
             position: 'absolute',
             bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
           }}
         >
           eddy.guide
@@ -1220,6 +1224,8 @@ async function generateFavoriteImage(
           background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
           padding: isPortrait ? '120px 72px' : '72px 64px',
           justifyContent: 'center',
+          alignItems: 'center',
+          textAlign: 'center',
           position: 'relative',
         }}
       >
@@ -1290,7 +1296,9 @@ async function generateFavoriteImage(
             color: 'rgba(255,255,255,0.35)',
             position: 'absolute',
             bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
           }}
         >
           eddy.guide
@@ -1350,6 +1358,8 @@ async function generateClipImage(
           background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
           padding: isPortrait ? '120px 72px' : '72px 64px',
           justifyContent: 'center',
+          alignItems: 'center',
+          textAlign: 'center',
           position: 'relative',
         }}
       >
@@ -1404,7 +1414,9 @@ async function generateClipImage(
             color: 'rgba(255,255,255,0.35)',
             position: 'absolute',
             bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
           }}
         >
           eddy.guide
