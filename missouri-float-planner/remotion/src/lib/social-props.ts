@@ -176,6 +176,13 @@ export type TrendReelProps = {
   format: "square" | "portrait";
 }
 
+/** One timed on-screen caption phrase; times in seconds relative to clip start. */
+export type Caption = {
+  start: number;
+  end: number;
+  text: string;
+};
+
 export type ClipReelProps = {
   /** Public URL of the raw (unbranded) downloaded clip to wrap. */
   videoUrl: string;
@@ -185,4 +192,6 @@ export type ClipReelProps = {
   creatorCredit?: string;
   /** Clip length in seconds — drives composition duration. */
   durationSecs: number;
+  /** Timed transcript captions rendered over the clip (optional). */
+  captions?: Caption[];
 }

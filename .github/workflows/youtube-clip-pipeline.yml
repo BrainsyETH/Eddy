@@ -212,6 +212,14 @@ jobs:
             fi
             echo "✅ Raw uploaded: $RAW_URL"
 
+            # Timed captions from the transcript (parity with the old burn-in).
+            # extract-clip.sh --transcript copies the VTT next to the raw clip.
+            local CAPTIONS_JSON="[]"
+            if [ -f "$VIDEO_DIR/transcript.en.vtt" ]; then
+              CAPTIONS_JSON=$(python3 scripts/clipengine/vtt-to-captions.py \
+                "$VIDEO_DIR/transcript.en.vtt" "$PEAK_START" "${PEAK_DURATION:-13}" 2>/dev/null || echo "[]")
+            fi
+
             echo "→ Dispatching render-clip (Remotion branding)..."
             if gh workflow run render-clip.yml --ref main \
               -f video_url="$RAW_URL" \
@@ -225,7 +233,8 @@ jobs:
               -f duration_secs="${PEAK_DURATION:-13}" \
               -f clip_start_secs="$PEAK_START" \
               -f orientation="portrait" \
-              -f heatmap_score="$PEAK_SCORE"; then
+              -f heatmap_score="$PEAK_SCORE" \
+              -f captions="$CAPTIONS_JSON"; then
               echo "✅ Dispatched render-clip — it brands the clip and inserts clip_library (pending)."
             else
               echo "⚠️ Could not dispatch render-clip (needs actions:write + a token allowed to dispatch). Skipping."

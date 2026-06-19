@@ -51,6 +51,13 @@ RAW_URL=$(echo "$UP" | python3 -c "import json,sys;print(json.load(sys.stdin).ge
 [ -n "$RAW_URL" ] || { echo "❌ handoff: raw upload failed: $UP"; exit 1; }
 echo "  ✅ raw: $RAW_URL"
 
+# Timed captions from the transcript, if extract-clip wrote one next to the raw.
+CAPTIONS_JSON="[]"
+VTT="$(dirname "$RAW")/transcript.en.vtt"
+if [ -f "$VTT" ]; then
+  CAPTIONS_JSON=$(python3 "$HERE/../scripts/clipengine/vtt-to-captions.py" "$VTT" "$START" "$DUR" 2>/dev/null || echo "[]")
+fi
+
 echo "→ handoff: dispatching render-clip (Remotion branding)..."
 gh workflow run render-clip.yml --ref main \
   -f video_url="$RAW_URL" \
@@ -64,5 +71,6 @@ gh workflow run render-clip.yml --ref main \
   -f duration_secs="$DUR" \
   -f clip_start_secs="$START" \
   -f orientation="portrait" \
-  -f heatmap_score="$SCORE"
+  -f heatmap_score="$SCORE" \
+  -f captions="$CAPTIONS_JSON"
 echo "  ✅ dispatched — Remotion will brand it and insert clip_library (pending)."

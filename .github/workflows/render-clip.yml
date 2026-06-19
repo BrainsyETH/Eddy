@@ -21,6 +21,7 @@ on:
       clip_start_secs:  { description: 'Clip start offset in the source', required: false, type: string, default: '0' }
       orientation:      { description: 'portrait | landscape', required: false, type: string, default: 'portrait' }
       heatmap_score:    { description: 'Heatmap score', required: false, type: string, default: '0' }
+      captions:         { description: 'Timed caption cues JSON (relative to clip start)', required: false, type: string, default: '[]' }
 
 jobs:
   render:
@@ -50,6 +51,7 @@ jobs:
               "riverName": os.environ["RIVER_NAME"],
               "creatorCredit": os.environ.get("CREATOR", ""),
               "durationSecs": float(os.environ.get("DURATION_SECS") or 13),
+              "captions": json.loads(os.environ.get("CAPTIONS") or "[]"),
           }))
           PY
           echo "props: $(cat /tmp/clip-props.json)"
@@ -58,6 +60,7 @@ jobs:
           RIVER_NAME: ${{ inputs.river_name }}
           CREATOR: ${{ inputs.creator }}
           DURATION_SECS: ${{ inputs.duration_secs }}
+          CAPTIONS: ${{ inputs.captions }}
 
       - name: Render clip-reel
         working-directory: missouri-float-planner/remotion
