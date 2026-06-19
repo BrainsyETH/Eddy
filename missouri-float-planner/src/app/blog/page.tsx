@@ -106,7 +106,7 @@ export default async function BlogPage() {
               <p className="text-neutral-500">No blog posts yet. Check back soon!</p>
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
               {blogPosts.map((post) => {
                 const riverName = post.river_slug ? riverNames[post.river_slug] ?? null : null;
                 const displayTitle = stripRiverName(post.title, riverName);
@@ -114,11 +114,11 @@ export default async function BlogPage() {
                   <Link
                     key={post.slug}
                     href={`/blog/${post.slug}`}
-                    className="group flex flex-col bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm
+                    className="group flex flex-col overflow-hidden bg-white border-2 border-neutral-200 rounded-xl p-4 sm:p-6 shadow-sm
                                hover:border-primary-400 hover:shadow-md transition-all no-underline"
                   >
                     {post.featured_image_url && (
-                      <div className="mb-4 -mt-2 -mx-2 rounded-t-lg overflow-hidden">
+                      <div className="-mt-4 -mx-4 sm:-mt-6 sm:-mx-6 mb-4 rounded-t-xl overflow-hidden">
                         <img
                           src={post.featured_image_url}
                           alt={riverName ?? post.title}
@@ -145,7 +145,7 @@ export default async function BlogPage() {
 
                     <div className="mt-auto pt-2 flex justify-center">
                       <span
-                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-accent-500 transition-colors group-hover:bg-accent-600"
+                        className="inline-flex w-full sm:w-auto justify-center items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-accent-500 transition-colors group-hover:bg-accent-600"
                       >
                         View Guide
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

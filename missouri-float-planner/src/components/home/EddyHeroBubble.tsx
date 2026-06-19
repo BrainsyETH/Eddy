@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 
 import { useRiverGroups } from '@/hooks/useRiverGroups';
@@ -104,21 +105,20 @@ export default function EddyHeroBubble() {
 
   return (
     <BubbleShell onPause={setPaused}>
-      {/* Header: identity + live */}
-      <div className="flex items-center justify-between mb-3">
+      {/* Header: identity */}
+      <div className="flex items-center mb-3">
         <div className="flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-support-500 border-2 border-support-200 flex-shrink-0" />
+          <Image
+            src="https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png"
+            alt="Eddy"
+            width={24}
+            height={24}
+            className="w-6 h-6 rounded-full flex-shrink-0"
+          />
           <span className="text-sm font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
             Eddy says
           </span>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-support-600">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-support-500 opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-support-500" />
-          </span>
-          Live
-        </span>
       </div>
 
       {/* Rotating river content */}

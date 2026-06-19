@@ -48,7 +48,7 @@ export default function SiteFooter({
           <div>
             <h3 className="text-white font-semibold mb-2">Connect</h3>
             <ul className="space-y-1.5">
-              <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Embed Widgets</Link></li>
+              <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Widgets</Link></li>
               <li>
                 <a href="https://instagram.com/eddy.guide" target="_blank" rel="noopener noreferrer" className="text-primary-200 hover:text-white transition-colors">
                   Instagram
