@@ -13,10 +13,32 @@
 //
 // No npm deps — uses Node 20+ global fetch + Buffer.
 
-const { OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, SUPABASE_URL, SUPABASE_KEY } = process.env;
+import { readFileSync, existsSync } from 'node:fs';
+
+// Convenience: auto-load the app's .env.local (or .env) so you can run this from
+// the repo root without re-exporting secrets. Already-set process.env wins. Also
+// accepts the Next-style names (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).
+for (const p of ['missouri-float-planner/.env.local', 'missouri-float-planner/.env', '.env.local', '.env']) {
+  if (!existsSync(p)) continue;
+  for (const line of readFileSync(p, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!m) continue;
+    let val = m[2].trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+    if (process.env[m[1]] === undefined) process.env[m[1]] = val;
+  }
+  console.log(`Loaded env from ${p}`);
+  break;
+}
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 for (const [k, v] of Object.entries({ OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, SUPABASE_URL, SUPABASE_KEY })) {
   if (!v) {
-    console.error(`Missing required env var: ${k}`);
+    console.error(`Missing required env var: ${k} (set it, or add it to missouri-float-planner/.env.local)`);
     process.exit(1);
   }
 }
