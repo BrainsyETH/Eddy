@@ -10,6 +10,7 @@ import {
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
 import { Watermark } from "../../components/Watermark";
+import { BrandCTA } from "../../components/BrandCTA";
 import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
@@ -305,17 +306,7 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
         </div>
 
         {/* CTA */}
-        <div
-          style={{
-            opacity: ctaEntrance,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 28 : 22,
-            color: condition.solid,
-            letterSpacing: 0.5,
-          }}
-        >
-          Plan this float at eddy.guide
-        </div>
+        <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} />
       </div>
 
       {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}

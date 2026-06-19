@@ -11,6 +11,7 @@ import {
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
 import { Watermark } from "../../components/Watermark";
+import { BrandCTA } from "../../components/BrandCTA";
 import { ENTRANCE } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
@@ -433,9 +434,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           </div>
         </div>
 
-        <div style={{ opacity: ctaEntrance, fontFamily: displayFont, fontSize: isPortrait ? 26 : 20, color: condition.solid, letterSpacing: 0.5, marginTop: 4 }}>
-          Plan this float at eddy.guide
-        </div>
+        <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} style={{ marginTop: 4 }} />
       </div>
 
       {/* Eddy paddles in to the right of the take-out, tucked just beside the
