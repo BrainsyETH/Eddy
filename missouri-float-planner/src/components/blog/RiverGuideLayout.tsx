@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { npsHeroImage } from '@/lib/services/npsCampground';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -76,19 +77,20 @@ interface Props {
   post: RiverGuidePost;
 }
 
-function formatDate(d: string | null): string {
-  if (!d) return '';
-  return new Date(d).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+interface ApInfo {
+  id: string;
+  imageUrl: string | null;
+  npsImageUrl: string | null;
 }
 
-async function resolveAccessPointIds(
+// Resolve each section's put-in/take-out access points: the access point id
+// (for planner deep links) plus any photo we can show on the float card — the
+// access point's own image first, then its linked NPS campground's photo. This
+// lets sections with no explicit `photo` fall back to access-point imagery.
+async function resolveAccessPoints(
   riverSlug: string,
   sections: FloatSection[],
-): Promise<Map<string, string>> {
+): Promise<Map<string, ApInfo>> {
   const slugs = new Set<string>();
   for (const s of sections) {
     if (s.from_slug) slugs.add(s.from_slug);
@@ -106,23 +108,75 @@ async function resolveAccessPointIds(
 
   const { data: aps } = await supabase
     .from('access_points')
-    .select('slug, id')
+    .select('slug, id, image_urls, nps_campground_id')
     .eq('river_id', river.id)
     .in('slug', Array.from(slugs));
 
-  return new Map(((aps ?? []) as { slug: string; id: string }[]).map((a) => [a.slug, a.id]));
+  const apRows = (aps ?? []) as {
+    slug: string;
+    id: string;
+    image_urls: string[] | null;
+    nps_campground_id: string | null;
+  }[];
+
+  // Resolve hero photos for any NPS campgrounds linked to these access points.
+  const cgIds = Array.from(
+    new Set(apRows.map((a) => a.nps_campground_id).filter((x): x is string => !!x)),
+  );
+  const cgHero = new Map<string, string>();
+  if (cgIds.length > 0) {
+    const { data: cgs } = await supabase
+      .from('nps_campgrounds')
+      .select('id, images')
+      .in('id', cgIds);
+    for (const cg of (cgs ?? []) as { id: string; images: unknown }[]) {
+      const hero = npsHeroImage(cg.images);
+      if (hero) cgHero.set(cg.id, hero.url);
+    }
+  }
+
+  return new Map(
+    apRows.map((a): [string, ApInfo] => [
+      a.slug,
+      {
+        id: a.id,
+        imageUrl: a.image_urls && a.image_urls.length > 0 ? a.image_urls[0] : null,
+        npsImageUrl: a.nps_campground_id ? cgHero.get(a.nps_campground_id) ?? null : null,
+      },
+    ]),
+  );
 }
 
 function buildPlannerUrl(
   riverSlug: string,
   section: FloatSection,
-  apIds: Map<string, string>,
+  aps: Map<string, ApInfo>,
 ): string | undefined {
   if (!section.from_slug || !section.to_slug) return undefined;
-  const putIn = apIds.get(section.from_slug);
-  const takeOut = apIds.get(section.to_slug);
+  const putIn = aps.get(section.from_slug)?.id;
+  const takeOut = aps.get(section.to_slug)?.id;
   if (!putIn || !takeOut) return undefined;
   return `/plan?river=${riverSlug}&putIn=${putIn}&takeOut=${takeOut}`;
+}
+
+// Photo shown on a float card when guide_data didn't specify one: the put-in's
+// access-point photo, then the take-out's, then either access point's linked
+// NPS campground photo.
+function resolveSectionPhoto(
+  section: FloatSection,
+  aps: Map<string, ApInfo>,
+): string | undefined {
+  if (section.photo) return section.photo;
+  const order = [section.from_slug, section.to_slug].filter(Boolean) as string[];
+  for (const slug of order) {
+    const url = aps.get(slug)?.imageUrl;
+    if (url) return url;
+  }
+  for (const slug of order) {
+    const url = aps.get(slug)?.npsImageUrl;
+    if (url) return url;
+  }
+  return undefined;
 }
 
 export default async function RiverGuideLayout({ post }: Props) {
@@ -131,7 +185,7 @@ export default async function RiverGuideLayout({ post }: Props) {
   const riverName = g.hero.title_top;
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
-  const apIds = await resolveAccessPointIds(slug, g.sections);
+  const aps = await resolveAccessPoints(slug, g.sections);
 
   return (
     <article className="eddy-guide-root" style={{ background: 'var(--color-neutral-50)' }}>
@@ -162,12 +216,6 @@ export default async function RiverGuideLayout({ post }: Props) {
         >
           ← View Report
         </Link>
-        {post.published_at && (
-          <>
-            <span>·</span>
-            <span>{formatDate(post.published_at)}</span>
-          </>
-        )}
         {post.read_time_minutes && (
           <>
             <span>·</span>
@@ -444,7 +492,8 @@ export default async function RiverGuideLayout({ post }: Props) {
                       key={s.id}
                       section={s}
                       index={idx}
-                      plannerUrl={buildPlannerUrl(slug, s, apIds)}
+                      plannerUrl={buildPlannerUrl(slug, s, aps)}
+                      photoFallback={resolveSectionPhoto(s, aps)}
                     />
                   );
                 })}

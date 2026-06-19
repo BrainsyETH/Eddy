@@ -13,6 +13,9 @@ interface Props {
    *  with this section's put-in and take-out. Built by RiverGuideLayout from
    *  the section's from_slug / to_slug after resolving access point IDs. */
   plannerUrl?: string;
+  /** Photo to use when the section has no explicit `photo` — resolved by
+   *  RiverGuideLayout from the section's access-point imagery. */
+  photoFallback?: string;
 }
 
 const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
@@ -21,8 +24,9 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
   II:   { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
 };
 
-export default function FloatSectionCard({ section: s, index, plannerUrl }: Props) {
+export default function FloatSectionCard({ section: s, index, plannerUrl, photoFallback }: Props) {
   const dc = DIFF_COLORS[s.diff] ?? DIFF_COLORS.I;
+  const photo = s.photo || photoFallback || null;
   const titleContent = (
     <>
       {s.from} <span style={{ color: 'var(--color-neutral-400)' }}>→</span> {s.to}
@@ -44,10 +48,10 @@ export default function FloatSectionCard({ section: s, index, plannerUrl }: Prop
         data-guide-section-grid
         style={{
           display: 'grid',
-          gridTemplateColumns: s.photo ? '260px 1fr' : '120px 1fr',
+          gridTemplateColumns: photo ? '260px 1fr' : '120px 1fr',
         }}
       >
-        {s.photo ? (
+        {photo ? (
           <div
             style={{
               position: 'relative',
@@ -58,7 +62,7 @@ export default function FloatSectionCard({ section: s, index, plannerUrl }: Prop
             }}
           >
             <Image
-              src={s.photo}
+              src={photo}
               alt={`${s.from} → ${s.to}`}
               fill
               loading="lazy"
