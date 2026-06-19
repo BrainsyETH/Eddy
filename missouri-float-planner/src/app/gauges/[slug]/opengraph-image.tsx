@@ -1,12 +1,13 @@
-// src/app/gauges/[siteId]/opengraph-image.tsx
-// Dynamic OG image for individual gauge station pages
-// Shows gauge name, current height (ft), discharge (CFS), and condition status
+// src/app/gauges/[slug]/opengraph-image.tsx
+// Dynamic OG image for individual gauge station pages — clean branded card:
+// gauge name + a single live-readings line (height · discharge · condition).
 
 import { ImageResponse } from 'next/og';
 import { createClient } from '@/lib/supabase/server';
-import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
-import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
+import { loadFredokaFont, loadEddyAvatar } from '@/lib/og/fonts';
+import { getStatusStyles, BRAND_COLORS } from '@/lib/og/colors';
 import { computeCondition } from '@/lib/conditions';
+import { ContentCard } from '@/lib/og/cardLayout';
 import type { ConditionCode } from '@/lib/og/types';
 
 export const alt = 'Gauge station water levels on Eddy';
@@ -17,17 +18,14 @@ export const revalidate = 300;
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 1).trim() + '...';
+  return text.slice(0, maxLength - 1).trim() + '…';
 }
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = await params;
-  const rawSlug = resolvedParams?.slug;
+  const { slug: rawSlug } = await params;
 
-  // Handle both numeric siteId and alphabetic river slug
   let siteId = rawSlug && /^\d+$/.test(rawSlug) ? rawSlug : null;
 
-  // If it's a river slug, look up the primary gauge's siteId
   if (!siteId && rawSlug) {
     try {
       const supabase = await createClient();
@@ -51,11 +49,10 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         }
       }
     } catch {
-      // fallback
+      // fall through to defaults
     }
   }
 
-  // Default fallback data
   let gaugeName = rawSlug ? `Gauge ${rawSlug}` : 'Gauge';
   let gaugeHeightFt: number | null = null;
   let dischargeCfs: number | null = null;
@@ -64,8 +61,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   if (siteId) {
     try {
       const supabase = await createClient();
-
-      // Fetch gauge station
       const { data: station } = await supabase
         .from('gauge_stations')
         .select('id, usgs_site_id, name')
@@ -76,7 +71,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
       if (station) {
         gaugeName = station.name;
 
-        // Fetch latest reading
         const { data: reading } = await supabase
           .from('gauge_readings')
           .select('gauge_height_ft, discharge_cfs')
@@ -90,7 +84,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           dischargeCfs = reading.discharge_cfs ? parseFloat(reading.discharge_cfs) : null;
         }
 
-        // Fetch thresholds from primary river association
         const { data: riverGauge } = await supabase
           .from('river_gauges')
           .select('threshold_unit, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous')
@@ -100,7 +93,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           .maybeSingle();
 
         if (riverGauge) {
-          const condition = computeCondition(
+          status = computeCondition(
             gaugeHeightFt,
             {
               thresholdUnit: (riverGauge.threshold_unit as 'ft' | 'cfs') || 'ft',
@@ -111,254 +104,33 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               levelHigh: riverGauge.level_high,
               levelDangerous: riverGauge.level_dangerous,
             },
-            dischargeCfs
-          );
-          status = condition.code;
+            dischargeCfs,
+          ).code;
         }
       }
     } catch {
-      // Database fetch failed, use defaults
+      // Database fetch failed — render with the gauge name only.
     }
   }
 
-  const statusStyles = getStatusStyles(status);
-  const [gradientStart, gradientEnd] = getStatusGradient(status);
+  const parts: string[] = [];
+  if (gaugeHeightFt !== null) parts.push(`${gaugeHeightFt.toFixed(1)} ft`);
+  if (dischargeCfs !== null) parts.push(`${dischargeCfs.toLocaleString()} cfs`);
+  if (status !== 'unknown') parts.push(getStatusStyles(status).label);
+  const body = parts.length > 0 ? parts.join('  ·  ') : 'Live USGS gauge readings';
+
   const fonts = loadFredokaFont();
-
-  // Load otter image with fallback
-  let otterImage: string | null = null;
-  try {
-    otterImage = await loadConditionOtter(status);
-  } catch {
-    // Otter image fetch failed — render without it
-  }
-
-  // Adaptive font size for gauge name
-  const nameFontSize = gaugeName.length > 30 ? 52 : gaugeName.length > 20 ? 64 : 76;
+  const avatar = await loadEddyAvatar().catch(() => null);
 
   return new ImageResponse(
     (
-      <div
-        style={{
-          display: 'flex',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: '#1A3D40',
-          position: 'relative',
-        }}
-      >
-        {/* LEFT — Gauge info */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            padding: otterImage ? '44px 0 48px 56px' : '44px 56px 48px',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Gauge name */}
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: nameFontSize,
-              fontWeight: 600,
-              color: BRAND_COLORS.accentCoral,
-              lineHeight: 1.1,
-              letterSpacing: -2,
-              marginBottom: 24,
-            }}
-          >
-            {truncate(gaugeName, 40)}
-          </span>
-
-          {/* Readings — large numbers */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 72,
-              alignItems: 'flex-end',
-              marginBottom: 28,
-            }}
-          >
-            {/* Gauge Height */}
-            {gaugeHeightFt !== null && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: 20,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.45)',
-                    textTransform: 'uppercase',
-                    letterSpacing: 3,
-                  }}
-                >
-                  Gauge Height
-                </span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span
-                    style={{
-                      fontFamily: 'Fredoka',
-                      fontSize: 120,
-                      fontWeight: 600,
-                      color: 'white',
-                      lineHeight: 1,
-                      letterSpacing: -3,
-                    }}
-                  >
-                    {gaugeHeightFt.toFixed(1)}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: 'Fredoka',
-                      fontSize: 48,
-                      fontWeight: 600,
-                      color: 'rgba(255,255,255,0.6)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    ft
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Discharge CFS */}
-            {dischargeCfs !== null && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: 20,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.45)',
-                    textTransform: 'uppercase',
-                    letterSpacing: 3,
-                  }}
-                >
-                  Discharge
-                </span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span
-                    style={{
-                      fontFamily: 'Fredoka',
-                      fontSize: 120,
-                      fontWeight: 600,
-                      color: 'white',
-                      lineHeight: 1,
-                      letterSpacing: -3,
-                    }}
-                  >
-                    {dischargeCfs.toLocaleString()}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: 'Fredoka',
-                      fontSize: 48,
-                      fontWeight: 600,
-                      color: 'rgba(255,255,255,0.6)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    cfs
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Status Badge */}
-          {status !== 'unknown' && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                backgroundColor: statusStyles.bg,
-                border: `2px solid ${statusStyles.border}`,
-                borderRadius: 100,
-                padding: '12px 32px',
-                alignSelf: 'flex-start',
-              }}
-            >
-              <div
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  backgroundColor: statusStyles.solid,
-                }}
-              />
-              <span
-                style={{
-                  fontFamily: 'system-ui, sans-serif',
-                  fontSize: 36,
-                  fontWeight: 700,
-                  color: statusStyles.text,
-                }}
-              >
-                {statusStyles.label}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT — Condition Otter */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 340,
-              padding: 32,
-              flexShrink: 0,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={280}
-              height={280}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        {/* Domain watermark */}
-        <span
-          style={{
-            position: 'absolute',
-            bottom: 20,
-            right: 36,
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 18,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.5)',
-          }}
-        >
-          eddy.guide
-        </span>
-
-        {/* Bottom accent bar with condition gradient */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${gradientStart} 0%, ${BRAND_COLORS.accentCoral} 50%, ${gradientEnd} 100%)`,
-          }}
-        />
-      </div>
+      <ContentCard
+        title={truncate(gaugeName, 36)}
+        titleColor={BRAND_COLORS.accentCoral}
+        body={body}
+        avatar={avatar}
+      />
     ),
-    {
-      ...size,
-      fonts,
-    }
+    { ...size, fonts },
   );
 }
