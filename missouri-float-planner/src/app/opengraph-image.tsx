@@ -20,7 +20,7 @@ export default async function Image() {
 
   return new ImageResponse(
     (
-      <CardFrame eyebrow="Missouri Float Trips" title="Eddy" avatar={avatar} otter={otter}>
+      <CardFrame eyebrow="Ozark Float Trips" title="Eddy" avatar={avatar} otter={otter}>
         <span style={{ fontSize: 38, lineHeight: 1.3, color: '#3F3B33', maxWidth: 720 }}>
           Get live conditions, water levels, and float trip plans.
         </span>

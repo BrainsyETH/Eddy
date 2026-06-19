@@ -156,7 +156,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     console.error('Error generating /plan metadata:', err);
     return {
       title: 'Plan a Float Trip',
-      description: 'Plan your next Missouri float trip with Eddy.',
+      description: 'Plan your next Ozark float trip with Eddy.',
     };
   }
 }
