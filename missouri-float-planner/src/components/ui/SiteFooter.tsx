@@ -2,6 +2,10 @@
 // Shared footer component used across all pages — multi-column layout
 
 import Link from 'next/link';
+import { Instagram, Facebook, type LucideIcon } from 'lucide-react';
+import { SOCIAL_LINKS } from '@/constants/social';
+
+const SOCIAL_ICONS: Record<string, LucideIcon> = { instagram: Instagram, facebook: Facebook };
 
 interface SiteFooterProps {
   /** Show the safety disclaimer block above the footer text */
@@ -50,16 +54,23 @@ export default function SiteFooter({
             <h3 className="text-white font-semibold mb-2">Connect</h3>
             <ul className="space-y-1.5">
               <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Embed Widgets</Link></li>
-              <li>
-                <a href="https://instagram.com/eddy_guide" target="_blank" rel="noopener noreferrer" className="text-primary-200 hover:text-white transition-colors">
-                  Instagram
-                </a>
-              </li>
-              <li>
-                <a href="https://facebook.com/eddy.guide" target="_blank" rel="noopener noreferrer" className="text-primary-200 hover:text-white transition-colors">
-                  Facebook
-                </a>
-              </li>
+              {SOCIAL_LINKS.map((s) => {
+                const Icon = SOCIAL_ICONS[s.icon];
+                return (
+                  <li key={s.label}>
+                    <a
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Eddy on ${s.label}`}
+                      className="inline-flex items-center gap-2 text-primary-200 hover:text-white transition-colors"
+                    >
+                      {Icon && <Icon className="w-4 h-4" aria-hidden />}
+                      {s.label}
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           </div>
           <div>
