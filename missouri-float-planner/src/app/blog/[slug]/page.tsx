@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, ArrowRight, Clock, Calendar } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
 import EmbedHostResize from '@/components/embed/EmbedHostResize';
@@ -99,15 +99,6 @@ export default async function BlogPostPage({
   if (!post) {
     notFound();
   }
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   const articleJsonLd = {
     '@context': 'https://schema.org',
@@ -260,15 +251,6 @@ export default async function BlogPostPage({
               <ArrowLeft className="w-4 h-4" />
               Back to Blog
             </Link>
-            {post.published_at && (
-              <>
-                <span>•</span>
-                <time dateTime={post.published_at} className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {formatDate(post.published_at)}
-                </time>
-              </>
-            )}
             {post.read_time_minutes && (
               <>
                 <span>•</span>

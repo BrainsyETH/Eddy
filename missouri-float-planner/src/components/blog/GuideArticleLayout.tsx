@@ -27,15 +27,6 @@ interface Props {
   post: ArticleGuidePost;
 }
 
-function formatDate(d: string | null): string {
-  if (!d) return '';
-  return new Date(d).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
 function buildToc(post: ArticleGuidePost): TocItem[] {
   const g = post.guide_data;
   const items: TocItem[] = [];
@@ -470,12 +461,6 @@ export default function GuideArticleLayout({ post }: Props) {
         <Link href="/blog" style={{ color: 'var(--color-primary-600)', textDecoration: 'none', fontWeight: 600 }}>
           ← All guides
         </Link>
-        {post.published_at && (
-          <>
-            <span>·</span>
-            <span>{formatDate(post.published_at)}</span>
-          </>
-        )}
         {post.read_time_minutes && (
           <>
             <span>·</span>
