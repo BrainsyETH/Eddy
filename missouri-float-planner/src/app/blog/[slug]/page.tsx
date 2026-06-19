@@ -77,13 +77,13 @@ export async function generateMetadata(
       title: post.title,
       description: post.description || undefined,
       type: 'article',
-      images: post.og_image_url ? [post.og_image_url] : post.featured_image_url ? [post.featured_image_url] : undefined,
+      // Share image comes from the branded opengraph-image.tsx in this segment.
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.description || undefined,
-      images: post.og_image_url ? [post.og_image_url] : post.featured_image_url ? [post.featured_image_url] : undefined,
+      // Share image comes from the branded twitter-image.tsx in this segment.
     },
   };
 }

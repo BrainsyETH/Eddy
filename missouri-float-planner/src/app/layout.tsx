@@ -5,6 +5,7 @@ import { Fredoka } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
 import AnalyticsListener from "@/components/AnalyticsListener";
+import { SOCIAL_SAME_AS } from "@/constants/social";
 
 import "./globals.css";
 
@@ -89,6 +90,7 @@ export default function RootLayout({
               name: 'Eddy',
               url: BASE_URL,
               description: 'Plan your next float trip with live water conditions, access points, float times & weather.',
+              sameAs: SOCIAL_SAME_AS,
               potentialAction: {
                 '@type': 'SearchAction',
                 target: `${BASE_URL}/rivers/{slug}`,
