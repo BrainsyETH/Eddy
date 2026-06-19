@@ -73,6 +73,13 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
       continue;
     }
 
+    // Branded cover so the Reel's grid thumbnail isn't the black first video
+    // frame (clips have no OG cover otherwise). Per-platform for the right size.
+    const coverUrl =
+      `https://eddy.guide/api/og/social?type=clip&platform=${platform}` +
+      (clip.river_slug ? `&river=${encodeURIComponent(clip.river_slug)}` : '') +
+      (clip.source_creator ? `&creator=${encodeURIComponent(clip.source_creator)}` : '');
+
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
       .insert({
@@ -81,6 +88,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
         river_slug: clip.river_slug || null,
         caption,
         video_url: clip.clip_url,
+        image_url: coverUrl,
         media_type: 'video',
         hashtags,
         status: 'publishing',
@@ -94,7 +102,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     }
 
     try {
-      const result = await adapter.publishPost({ caption, videoUrl: clip.clip_url || undefined, mediaType: 'video' });
+      const result = await adapter.publishPost({ caption, videoUrl: clip.clip_url || undefined, coverUrl, mediaType: 'video' });
       if (result.success) {
         await supabase
           .from('social_posts')

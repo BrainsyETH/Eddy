@@ -48,6 +48,19 @@ const longDate = () =>
 const og = (type: string, platform: SocialPlatform, extra = '') =>
   `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
 
+/** Cached AI background URL (og_backgrounds) by key — the same art the cover
+ *  uses — so the reel video matches its cover. Null → existing behavior
+ *  (Favorite falls back to its guide photo; Float-of-the-Day to a solid bg). */
+async function bgUrl(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  key: string | null | undefined,
+): Promise<string | null> {
+  if (!key) return null;
+  const { data } = await supabase.from('og_backgrounds').select('url').eq('key', key).maybeSingle();
+  return data?.url || null;
+}
+
 export interface PostContext {
   postType: PostKind;
   /** Composition input props (consumed by POST_TYPES[kind].renderProps). */
@@ -182,10 +195,11 @@ export async function buildPostContext(
       `&putInMile=${section.putInMile}` +
       `&takeOutMile=${section.takeOutMile}` +
       `&condition=${conditionCode}`;
+    const sectionBg = await bgUrl(supabase, section.riverSlug);
     return {
       postType,
       riverSlug: section.riverSlug,
-      renderData: { ...section, conditionCode, dateLabel: longDate() },
+      renderData: { ...section, conditionCode, dateLabel: longDate(), photoUrl: sectionBg || undefined },
       caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
       // route is video-only; reuse the section thumbnail as the cover.
       imageUrl: (platform) => og('section', platform, coverParams),
@@ -203,6 +217,9 @@ export async function buildPostContext(
       `&river=${fav.riverSlug}` +
       `&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
       `&toSlug=${encodeURIComponent(fav.toSlug)}`;
+    // Prefer the river's AI background (same art as the cover); fall back to the
+    // guide section's own photo.
+    const favBg = await bgUrl(supabase, fav.riverSlug);
     return {
       postType,
       riverSlug: fav.riverSlug,
@@ -212,6 +229,7 @@ export async function buildPostContext(
         // in the shared route props, so the reel shows typical pace with no delta.
         conditionCode: 'flowing',
         dateLabel: longDate(),
+        photoUrl: favBg || fav.photoUrl,
       },
       caption: (platform, custom) => formatFavoriteFloatCaption(fav, custom, platform),
       imageUrl: (platform) => og('favorite', platform, coverParams),

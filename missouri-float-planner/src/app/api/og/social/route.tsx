@@ -183,6 +183,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (type === 'clip') {
+      return await generateClipImage(size, {
+        river: riverSlug,
+        creator: searchParams.get('creator'),
+      });
+    }
+
     if (type === 'trend') {
       return await generateTrendImage(size);
     }
@@ -1297,6 +1304,120 @@ async function generateFavoriteImage(
             right: 0,
             height: 6,
             background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, ${accent})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Clip cover — the still shown as a river_highlight Reel's grid thumbnail. Clips
+// have no OG cover otherwise, so Instagram falls back to the video's first frame
+// (which fades in → black). Mirrors the ClipReel framing: "On the Water" eyebrow
+// + river name over the river's AI background. Tier-2 (no river) → "Ozark Paddling".
+// ---------------------------------------------------------------------------
+async function generateClipImage(
+  size: { width: number; height: number },
+  params: { river?: string | null; creator?: string | null },
+) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  const riverSlug = params.river || null;
+  let riverName = 'Ozark Paddling';
+  if (riverSlug) {
+    const { data: river } = await supabase.from('rivers').select('name').eq('slug', riverSlug).maybeSingle();
+    riverName = river?.name || riverSlug;
+  }
+  const creator = (params.creator || '').trim();
+
+  const photoDataUri =
+    (await loadBackgroundDataUri(supabase, riverSlug)) ??
+    (await loadRiverPhotoDataUri(supabase, riverSlug));
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {photoLayers(photoDataUri, size)}
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 38 : 30,
+            fontWeight: 600,
+            color: BRAND_COLORS.accentCoral,
+            textTransform: 'uppercase',
+            letterSpacing: 6,
+            marginBottom: 12,
+          }}
+        >
+          On the Water
+        </span>
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: heroFontSize(riverName, isPortrait),
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 0.92,
+            letterSpacing: -3,
+            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
+            marginBottom: isPortrait ? 28 : 18,
+          }}
+        >
+          {riverName}
+        </span>
+
+        {creator !== '' && (
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: isPortrait ? 34 : 26,
+              color: 'rgba(255,255,255,0.78)',
+            }}
+          >
+            Clip via {creator}
+          </span>
+        )}
+
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.greenTreeline}, ${BRAND_COLORS.accentCoral}, ${BRAND_COLORS.bluewater})`,
           }}
         />
       </div>
