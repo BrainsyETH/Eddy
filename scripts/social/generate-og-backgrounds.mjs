@@ -56,21 +56,31 @@ const BASE_STYLE = [
   'Muted, sophisticated, modern outdoor-brand look. Portrait 2:3 composition.',
 ].join(' ');
 
-// Per-key subject. River keys must match rivers.slug; plus two specials.
+// Per-key subject. River keys must match rivers.slug; plus two specials. Each
+// line adds a SIGNATURE feature + its own lighting/palette so the eight rivers
+// read as a varied set, not near-duplicates, while sharing BASE_STYLE.
 const SUBJECTS = {
-  current: 'The Current River: deep, clear, spring-fed blue-green water below tall dolomite bluffs.',
-  'jacks-fork': 'The Jacks Fork: a narrow, wild spring-branch winding between high bluffs.',
-  meramec: 'The Meramec River: a wide gravel-bar river with caves and limestone bluffs.',
-  'eleven-point': 'The Eleven Point: a remote, forested, spring-fed river.',
-  niangua: 'The Niangua River: rolling Ozark hills and clear spring water.',
-  'big-piney': 'The Big Piney: a clear, rocky, forested Ozark river.',
-  huzzah: 'Huzzah Creek: a small, clear Ozark creek over gravel bars, lined with pine.',
-  courtois: 'Courtois Creek: a small, clear Ozark creek beneath bluffs.',
+  current:
+    'The Current River — towering blue-grey dolomite bluffs above deep aqua spring-fed water, with a turquoise spring boil. Cool blue palette, bright midday light.',
+  'jacks-fork':
+    'The Jacks Fork — a tight, narrow canyon where sheer vertical bluffs hug a slim winding river. Dramatic and shadowed, deep greens.',
+  meramec:
+    'The Meramec River — a wide river bend with a dark cave mouth set into the limestone bluff and broad pale gravel bars. Warmer, earthy tones.',
+  'eleven-point':
+    'The Eleven Point — remote and quiet, soft fog drifting over a forested spring-fed river with few bluffs. Muted palette, soft dawn light.',
+  niangua:
+    'The Niangua River — gentle rolling Ozark hills and a clear spring pool, pastoral and open. Brighter green under an open sky.',
+  'big-piney':
+    'The Big Piney — rocky riffles and pine-ridge hills, a clear shallow run tumbling over stone. Crisp, fresh greens.',
+  huzzah:
+    'Huzzah Creek — an intimate small creek with a close-up gravel bar and overhanging sycamores. Cozy, low-angle, warm.',
+  courtois:
+    'Courtois Creek — a small creek tucked beneath a sheltering limestone bluff, with a touch of autumn orange in the trees.',
   // Specials
   forecast:
-    'A bright, optimistic Ozark weekend mood: clear warm sky and sun glinting on calm blue water — inviting and upbeat (still deep-green poster style).',
+    'The brightest, most inviting scene of the set — warm golden-sunrise light over glassy calm blue water, clear sky, luminous and optimistic (still the deep-green poster style).',
   danger:
-    'A tense caution mood: high, fast, churning swollen water under a dark stormy sky, deeper shadows, and a stronger amber-to-red warning accent (still NO text, still on-brand deep teal).',
+    'A high-water DANGER mood — a swollen, fast, churning river with whitecaps and submerged gravel bars under a dark, turbulent storm sky with bruised clouds; deep shadows and a strong amber-to-red warning glow. Tense and urgent. Keep the top and left open. Still NO text.',
 };
 
 const SIZE = '1024x1536'; // portrait; OG route cover-crops to 9:16 + 1:1
@@ -90,7 +100,9 @@ async function generateImage(prompt) {
 }
 
 async function uploadToBlob(key, bytes) {
-  const res = await fetch(`https://blob.vercel-storage.com/og-backgrounds/${key}.png`, {
+  // Timestamp the path so each regeneration yields a fresh, immutable URL — no
+  // CDN staleness when you re-run to iterate on prompts (old images orphan; fine).
+  const res = await fetch(`https://blob.vercel-storage.com/og-backgrounds/${key}-${Date.now()}.png`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${BLOB_READ_WRITE_TOKEN}`,
