@@ -20,6 +20,7 @@ interface BlogPost {
   featured_image_url: string | null;
   read_time_minutes: number | null;
   published_at: string | null;
+  river_slug: string | null;
 }
 
 async function getBlogPosts(): Promise<BlogPost[]> {
@@ -27,7 +28,7 @@ async function getBlogPosts(): Promise<BlogPost[]> {
 
   const { data: posts, error } = await supabase
     .from('blog_posts')
-    .select('slug, title, description, category, featured_image_url, read_time_minutes, published_at')
+    .select('slug, title, description, category, featured_image_url, read_time_minutes, published_at, river_slug')
     .eq('status', 'published')
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false });
@@ -40,8 +41,43 @@ async function getBlogPosts(): Promise<BlogPost[]> {
   return posts || [];
 }
 
+// Look up display names for the rivers referenced by the posts, so cards can
+// lead with the river name (e.g. "Current River") instead of burying it in the title.
+async function getRiverNames(slugs: string[]): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(slugs.filter(Boolean)));
+  if (unique.length === 0) return {};
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from('rivers').select('slug, name').in('slug', unique);
+
+  if (error) {
+    console.error('Error fetching river names:', error);
+    return {};
+  }
+
+  const map: Record<string, string> = {};
+  for (const river of data || []) {
+    if (river.slug && river.name) map[river.slug] = river.name;
+  }
+  return map;
+}
+
+// Titles are stored as "<River Name> Float Trip Guide: …". Once the card shows
+// the river name on top, strip that leading prefix so it isn't repeated.
+function stripRiverName(title: string, riverName: string | null): string {
+  if (!riverName) return title;
+  const trimmed = title.trimStart();
+  if (trimmed.toLowerCase().startsWith(riverName.toLowerCase())) {
+    return trimmed.slice(riverName.length).replace(/^[\s:–—-]+/, '').trim() || title;
+  }
+  return title;
+}
+
 export default async function BlogPage() {
   const blogPosts = await getBlogPosts();
+  const riverNames = await getRiverNames(
+    blogPosts.map((post) => post.river_slug).filter((slug): slug is string => Boolean(slug)),
+  );
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
@@ -71,56 +107,54 @@ export default async function BlogPage() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {blogPosts.map((post) => (
-                <Link
-                  key={post.slug}
-                  href={`/blog/${post.slug}`}
-                  className="group block bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm
-                             hover:border-primary-400 hover:shadow-md transition-all no-underline"
-                >
-                  {post.featured_image_url && (
-                    <div className="mb-4 -mt-2 -mx-2 rounded-t-lg overflow-hidden">
-                      <img
-                        src={post.featured_image_url}
-                        alt={post.title}
-                        className="w-full h-40 object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-700">
-                      {post.category}
-                    </span>
-                    {post.read_time_minutes && (
-                      <span className="text-xs text-neutral-500">{post.read_time_minutes} min read</span>
+              {blogPosts.map((post) => {
+                const riverName = post.river_slug ? riverNames[post.river_slug] ?? null : null;
+                const displayTitle = stripRiverName(post.title, riverName);
+                return (
+                  <Link
+                    key={post.slug}
+                    href={`/blog/${post.slug}`}
+                    className="group flex flex-col bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm
+                               hover:border-primary-400 hover:shadow-md transition-all no-underline"
+                  >
+                    {post.featured_image_url && (
+                      <div className="mb-4 -mt-2 -mx-2 rounded-t-lg overflow-hidden">
+                        <img
+                          src={post.featured_image_url}
+                          alt={riverName ?? post.title}
+                          className="w-full h-40 object-cover"
+                        />
+                      </div>
                     )}
-                  </div>
-
-                  <h2 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-primary-700 transition-colors">
-                    {post.title}
-                  </h2>
-
-                  {post.description && (
-                    <p className="text-sm text-neutral-600 mb-4 line-clamp-2">{post.description}</p>
-                  )}
-
-                  <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
-                    {post.published_at && (
-                      <time dateTime={post.published_at} className="text-xs text-neutral-500">
-                        {new Date(post.published_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </time>
-                    )}
-                    <div className="flex items-center gap-1 text-sm font-medium text-primary-600 group-hover:text-primary-700">
-                      Read more
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-700">
+                        {riverName ?? post.category}
+                      </span>
+                      {post.read_time_minutes && (
+                        <span className="text-xs text-neutral-500">{post.read_time_minutes} min read</span>
+                      )}
                     </div>
-                  </div>
-                </Link>
-              ))}
+
+                    <h2 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-primary-700 transition-colors">
+                      {displayTitle}
+                    </h2>
+
+                    {post.description && (
+                      <p className="text-sm text-neutral-600 mb-4 line-clamp-2">{post.description}</p>
+                    )}
+
+                    <div className="mt-auto pt-2 flex justify-center">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all group-hover:brightness-110"
+                        style={{ backgroundColor: '#F07052' }}
+                      >
+                        View Guide
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
 

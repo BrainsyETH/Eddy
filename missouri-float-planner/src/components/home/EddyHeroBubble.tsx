@@ -86,9 +86,11 @@ export default function EddyHeroBubble() {
   const color = CONDITION_COLORS[river.condition.code] || CONDITION_COLORS.unknown;
   const level = levelLabel(river);
   const update = river.riverSlug ? eddyUpdates?.[river.riverSlug] : undefined;
+  // Prefer the short summary so the bubble shows a complete quote rather than a
+  // truncated full one; fall back to the full quote, then a static blurb.
   const quote =
-    update?.quoteText ||
     update?.summaryText ||
+    update?.quoteText ||
     CONDITION_CARD_BLURBS[river.condition.code] ||
     CONDITION_CARD_BLURBS.unknown;
   const href = river.riverSlug ? `/rivers/${river.riverSlug}` : '#';
