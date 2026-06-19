@@ -12,6 +12,7 @@
 import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { orderedOfferings, offeringLabel } from '@/lib/services/offerings';
+import { npsHeroImage, npsFeeLabel, npsSiteLabel } from '@/lib/services/npsCampground';
 
 type ServiceType = 'outfitter' | 'campground' | 'cabin_lodge';
 
@@ -83,48 +84,6 @@ interface Props {
 
 function digitsOnly(s: string | null): string {
   return (s ?? '').replace(/\D/g, '');
-}
-
-// nps_campgrounds.images / .fees are jsonb scalar strings holding array text
-// (supabase returns them as a JS string), so unwrap up to two layers of
-// JSON-string encoding before using the value.
-function parseJsonish<T>(value: unknown): T | null {
-  let v: unknown = value;
-  for (let i = 0; i < 2 && typeof v === 'string'; i++) {
-    try {
-      v = JSON.parse(v);
-    } catch {
-      return null;
-    }
-  }
-  return (v ?? null) as T | null;
-}
-
-// NPS image arrays often lead with a campsite map; prefer a real photo.
-function npsHeroImage(raw: unknown): { url: string; alt: string } | null {
-  const imgs = parseJsonish<Array<{ url?: string; altText?: string; title?: string }>>(raw);
-  if (!Array.isArray(imgs) || imgs.length === 0) return null;
-  const isMap = (i: { altText?: string; title?: string }) =>
-    /\bmap\b/i.test(`${i.altText ?? ''} ${i.title ?? ''}`);
-  const pick = imgs.find((i) => i.url && !isMap(i)) ?? imgs.find((i) => i.url);
-  if (!pick?.url) return null;
-  return { url: pick.url, alt: pick.altText || pick.title || '' };
-}
-
-function npsFeeLabel(raw: unknown): string | null {
-  const fees = parseJsonish<Array<{ cost?: string | number }>>(raw);
-  if (!Array.isArray(fees)) return null;
-  const costs = fees
-    .map((f) => (typeof f.cost === 'string' ? parseFloat(f.cost) : f.cost))
-    .filter((n): n is number => typeof n === 'number' && !isNaN(n) && n > 0);
-  if (costs.length === 0) return null;
-  const min = Math.min(...costs);
-  return `from $${Number.isInteger(min) ? min : min.toFixed(2)}/night`;
-}
-
-function siteCountLabel(total: number | null, reservable: number | null): string | null {
-  if (!total) return null;
-  return reservable ? `${total} sites · ${reservable} reservable` : `${total} sites`;
 }
 
 function nearbySitesLabel(tent: number | null, rv: number | null): string | null {
@@ -417,7 +376,7 @@ export default async function DirectoryCards({ riverSlug }: Props) {
           authorized: 'NPS' as const,
           imageUrl: hero?.url ?? null,
           imageAlt: hero?.alt ?? '',
-          sitesLabel: siteCountLabel(cg.total_sites, cg.sites_reservable),
+          sitesLabel: npsSiteLabel(cg.total_sites, cg.sites_reservable),
           feeLabel: npsFeeLabel(cg.fees),
           displayOrder: 900,
         };
