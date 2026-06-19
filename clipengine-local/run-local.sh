@@ -80,13 +80,12 @@ process_video() {
   if [ -n "$IG" ]; then CREDIT="@${IG#@}"; else CREDIT="$CHANNEL"; fi
 
   # River is detected per-video by scrape-heatmap (a channel covers many rivers).
-  # A passed-in --river overrides detection. No river → skip before downloading.
+  # A passed-in --river overrides detection. No known river → Tier 2: still
+  # produce the clip with generic "Ozark paddling" branding (the channel scan
+  # already gated on paddling topic, and brand-check is the final backstop).
   local DETECTED; DETECTED="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json')).get('river_slug','') or '')" 2>/dev/null || echo "")"
   if [ -z "$RIVER" ]; then RIVER="$DETECTED"; fi
-  if [ -z "$RIVER" ]; then
-    echo "⏭️  No Eddy river detected for this video — skipping (only known-river clips post)."
-    rm -rf "$WORK"; return 1; fi
-  echo "   River: $RIVER"
+  if [ -n "$RIVER" ]; then echo "   River: $RIVER"; else echo "   River: (none — generic Ozark paddling)"; fi
 
   PEAK_IDX=$((PEAK - 1))
   PEAK_START="$(python3 -c "import json;p=json.load(open('$WORK/heatmap-data.json')).get('peaks',[]);print(p[$PEAK_IDX]['start_secs'] if len(p)>$PEAK_IDX else '')")"
@@ -114,7 +113,7 @@ process_video() {
 
   echo "→ Finalizing to Reel format (credit: ${CREDIT:-none})..."
   local VTT; VTT="$(find "$WORK" -name '*.vtt' -type f | head -1 || true)"
-  CREATOR_CREDIT="$CREDIT" bash "$CE/finalize-reel.sh" "$WORK/raw-clip.mp4" "${RIVER:-Unknown River}" "$FINAL" "${VTT:-}" "$PEAK_START"
+  CREATOR_CREDIT="$CREDIT" bash "$CE/finalize-reel.sh" "$WORK/raw-clip.mp4" "$RIVER" "$FINAL" "${VTT:-}" "$PEAK_START"
 
   if [ -f "$FINAL" ]; then
     echo "✅ Done: $FINAL"
@@ -142,24 +141,29 @@ else
       *REPLACE_WITH*|*ANOTHER_CHANNEL*) echo "  • skipping placeholder $CH_URL"; continue ;;
     esac
     # River is detected per-video (a channel covers many rivers), so scan every
-    # channel; process_video skips videos with no detected Eddy river.
+    # channel; videos are gated on paddling topic, not on a known river.
     case "$CH_URL" in
       */videos|*watch?v=*|*youtu.be/*) LIST_URL="$CH_URL" ;;
       *) LIST_URL="${CH_URL%/}/videos" ;;
     esac
     CRED_DISP="${CH_IG:+@${CH_IG#@}}"; CRED_DISP="${CRED_DISP:-channel name}"
     echo "  • $LIST_URL  (credit: $CRED_DISP)"
-    # One cheap listing call returns id+title for all newest videos; detect the
-    # river from the TITLE and only deep-scrape/download matches. This avoids a
-    # heavy per-video yt-dlp -J on every video (slow + 403-prone).
+    # One cheap listing call returns id+title for all newest videos; gate on the
+    # TITLE (known river → Tier 1, else paddling topic → Tier 2) and only
+    # deep-scrape/download those. Avoids a heavy per-video yt-dlp -J on every
+    # video (slow + 403-prone) and skips non-paddling uploads.
     while IFS= read -r LINE; do
       [ -z "$LINE" ] && continue
       [ "$COUNT" -ge "$MAX_CLIPS" ] && { echo "  Reached MAX_CLIPS=$MAX_CLIPS"; break 2; }
       VID="${LINE%%|||*}"; VTITLE="${LINE#*|||}"
       VRIVER="$(bash "$CE/detect-river.sh" "$VTITLE")"
-      if [ -z "$VRIVER" ]; then
-        echo "    ⏭️  no river in title: ${VTITLE:0:64}"; continue; fi
-      echo "    🎯 $VRIVER ← ${VTITLE:0:64}"
+      if [ -n "$VRIVER" ]; then
+        echo "    🎯 $VRIVER ← ${VTITLE:0:64}"
+      elif [ "$(bash "$CE/detect-paddling.sh" "$VTITLE")" = yes ]; then
+        echo "    🛶 paddling, no known river ← ${VTITLE:0:64}"
+      else
+        echo "    ⏭️  not paddling: ${VTITLE:0:64}"; continue
+      fi
       # Count only produced clips so no-river/failed videos don't burn MAX_CLIPS.
       if process_video "https://www.youtube.com/watch?v=${VID}" "$VRIVER" "$PEAK_NUMBER" "$CH_IG"; then
         COUNT=$((COUNT + 1))

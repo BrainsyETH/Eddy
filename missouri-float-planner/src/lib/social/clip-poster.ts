@@ -28,8 +28,21 @@ function getAdapter(platform: SocialPlatform) {
   return null;
 }
 
-export function buildClipCaption(riverName: string, creator: string | null): { caption: string; hashtags: string[] } {
-  const riverTag = '#' + riverName.replace(/[^A-Za-z0-9]/g, '');
+// Tier 1 = a known Eddy river (river name + targeted hashtag + "plan your float
+// trip" CTA pointing at a real guide page). Tier 2 = good paddling content with
+// no known river (generic "Ozark paddling" header + softer CTA + no river/Missouri
+// hashtag, since the clip may be out of state). Pass a null/empty riverName for
+// Tier 2.
+export function buildClipCaption(riverName: string | null, creator: string | null): { caption: string; hashtags: string[] } {
+  const hasRiver = !!(riverName && riverName.trim());
+  if (!hasRiver) {
+    const hashtags = ['#kayaking', '#canoe', '#float', '#paddling', '#Ozarks', '#eddyguide'];
+    const lines = ['🛶 Ozark paddling.', ''];
+    if (creator) lines.push(`🎥 Clip via ${creator}`);
+    lines.push('Find your next float at eddy.guide', '', hashtags.join(' '));
+    return { caption: lines.join('\n'), hashtags };
+  }
+  const riverTag = '#' + riverName!.replace(/[^A-Za-z0-9]/g, '');
   const hashtags = [riverTag, '#kayaking', '#canoe', '#float', '#paddling', '#Ozarks', '#Missouri', '#eddyguide'];
   const lines = [`🛶 ${riverName}.`, ''];
   if (creator) lines.push(`🎥 Clip via ${creator}`);
@@ -41,10 +54,12 @@ export function buildClipCaption(riverName: string, creator: string | null): { c
 // and appends them to clip.used_in_posts. Caller ensures the clip is approved.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function publishClip(supabase: any, clip: ClipRow, platforms: SocialPlatform[]): Promise<ClipPostResult> {
-  let riverName = clip.river_slug || 'an Ozark river';
+  // Tier 2 clips have no river_slug → riverName stays null and buildClipCaption
+  // produces the generic "Ozark paddling" caption.
+  let riverName: string | null = null;
   if (clip.river_slug) {
     const { data: river } = await supabase.from('rivers').select('name').eq('slug', clip.river_slug).single();
-    if (river?.name) riverName = river.name;
+    riverName = river?.name || clip.river_slug;
   }
   const { caption, hashtags } = buildClipCaption(riverName, clip.source_creator);
 

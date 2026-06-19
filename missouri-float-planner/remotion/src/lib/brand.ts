@@ -11,6 +11,16 @@ import { colors } from "../design-tokens/colors";
  *  "Full 7-day chart…") intentionally differ. */
 export const PLAN_CTA = "Plan this float at eddy.guide";
 
+/** Tier-2 hero label for clips not tied to one of Eddy's known rivers (e.g.
+ *  out-of-Missouri paddling content). Stands in for the river name in the
+ *  ClipReel masthead so the frame stays branded without naming a river we
+ *  don't cover. */
+export const OZARK_PADDLING_LABEL = "Ozark Paddling";
+
+/** Tier-2 CTA — softer than PLAN_CTA because there's no specific river/float
+ *  page to send the viewer to. */
+export const GENERIC_CTA = "Find your next float at eddy.guide";
+
 /** Eyebrow / series-label accent (coral) — the small uppercase label every
  *  reel sets above the river name. */
 export const BRAND_EYEBROW_COLOR = colors.accent[400];

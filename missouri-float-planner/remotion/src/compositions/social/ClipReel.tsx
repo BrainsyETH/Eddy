@@ -1,6 +1,7 @@
 import React from "react";
 import { OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
+import { GENERIC_CTA, OZARK_PADDLING_LABEL, PLAN_CTA } from "../../lib/brand";
 import type { ClipReelProps } from "../../lib/social-props";
 
 /**
@@ -25,10 +26,16 @@ export const ClipReel: React.FC<ClipReelProps> = ({
     extrapolateRight: "clamp",
   });
 
+  // Tier 2: a clip with no known Eddy river (e.g. out-of-Missouri paddling)
+  // still renders the same frame, but with a generic hero label + softer CTA
+  // instead of a river name + "plan this float" page promise.
+  const hasRiver = !!(riverName && riverName.trim());
+
   return (
     <ReelBrandFrame
       eyebrow="On the Water"
-      title={riverName}
+      title={hasRiver ? riverName : OZARK_PADDLING_LABEL}
+      cta={hasRiver ? PLAN_CTA : GENERIC_CTA}
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}
