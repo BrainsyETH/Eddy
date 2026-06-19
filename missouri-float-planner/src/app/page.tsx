@@ -232,7 +232,7 @@ export default async function Home() {
               Run an outfitter or a campground?
             </h2>
             <p className="text-sm text-white/70 max-w-xl leading-relaxed">
-              Embed real-time gauge readings, condition badges, and Eddy&apos;s analysis directly on your outfitter site, blog, or community page.
+              Add real-time gauge readings, condition badges, and Eddy&apos;s analysis directly to your outfitter site, blog, or community page.
             </p>
           </div>
           <Link
@@ -240,7 +240,7 @@ export default async function Home() {
             data-ga-event="cta_embed"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-colors bg-accent-500 hover:bg-accent-600"
           >
-            Explore Embed Widgets <ArrowRight className="w-4 h-4" />
+            Explore Widgets <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </section>
