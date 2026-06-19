@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
+import { parseNpsImages, parseJsonish } from '@/lib/services/npsCampground';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,14 +142,16 @@ async function _GET(
         );
         if (alreadyListed) continue;
 
-        const feesData = typeof cg.fees === 'string' ? JSON.parse(cg.fees) : cg.fees || [];
+        const feesData = parseJsonish<Array<{ cost?: string | number }>>(cg.fees) ?? [];
         const firstFee = feesData[0];
         const feeNote = firstFee ? `$${firstFee.cost}/night` : null;
 
         // Build amenities list from NPS data
-        const amenitiesObj = typeof cg.amenities === 'string' ? JSON.parse(cg.amenities) : cg.amenities || {};
+        const amenitiesObj = parseJsonish<{ potableWater?: string[] }>(cg.amenities) ?? {};
         const offeredServices: string[] = ['camping_primitive'];
-        if (amenitiesObj.potableWater?.some((v: string) => v !== 'No')) offeredServices.push('showers');
+        if (Array.isArray(amenitiesObj.potableWater) && amenitiesObj.potableWater.some((v) => v !== 'No')) {
+          offeredServices.push('showers');
+        }
 
         npsCampgrounds.push({
           id: cg.id,
@@ -183,7 +186,7 @@ async function _GET(
           seasonOpenMonth: null,
           seasonCloseMonth: null,
           details: {
-            images: Array.isArray(cg.images) ? cg.images : [],
+            images: parseNpsImages(cg.images),
           },
           isPrimary: false,
           sectionDescription: null,

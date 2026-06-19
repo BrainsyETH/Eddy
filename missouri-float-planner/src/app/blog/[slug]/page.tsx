@@ -6,7 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
 import EmbedHostResize from '@/components/embed/EmbedHostResize';
 import RiverGuideLayout from '@/components/blog/RiverGuideLayout';
-import type { GuideData, RiverGuidePost } from '@/types/blog';
+import GuideArticleLayout from '@/components/blog/GuideArticleLayout';
+import type { GuideData, RiverGuidePost, ArticleGuideData, ArticleGuidePost } from '@/types/blog';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -76,13 +77,13 @@ export async function generateMetadata(
       title: post.title,
       description: post.description || undefined,
       type: 'article',
-      images: post.og_image_url ? [post.og_image_url] : post.featured_image_url ? [post.featured_image_url] : undefined,
+      // Share image comes from the branded opengraph-image.tsx in this segment.
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.description || undefined,
-      images: post.og_image_url ? [post.og_image_url] : post.featured_image_url ? [post.featured_image_url] : undefined,
+      // Share image comes from the branded twitter-image.tsx in this segment.
     },
   };
 }
@@ -123,11 +124,18 @@ export default async function BlogPostPage({
     },
   };
 
+  // Article guides (general "Guides" posts) reuse the River Guide look via a
+  // separate, river-agnostic layout. They carry guide_data.kind === 'article'.
+  const articleGuide: ArticleGuideData | null =
+    post.guide_data && (post.guide_data as unknown as { kind?: string }).kind === 'article'
+      ? (post.guide_data as unknown as ArticleGuideData)
+      : null;
+
   // FAQ JSON-LD. Prefer structured guide_data; fall back to regex over the
   // legacy HTML body for older River Guide posts.
   let faqJsonLd: object | null = null;
   const isRiverGuide = post.category === 'River Guides';
-  if (isRiverGuide && post.guide_data?.faq?.length) {
+  if ((isRiverGuide || articleGuide) && post.guide_data?.faq?.length) {
     faqJsonLd = {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
@@ -173,6 +181,35 @@ export default async function BlogPostPage({
       { '@type': 'ListItem', position: 3, name: post.title, item: `${BASE_URL}/blog/${post.slug}` },
     ],
   };
+
+  // Field Notebook layout for general "Guides" articles with structured data.
+  if (articleGuide) {
+    const articlePost: ArticleGuidePost = {
+      id: post.id,
+      slug: post.slug,
+      title: post.title,
+      description: post.description,
+      category: post.category,
+      featured_image_url: post.featured_image_url,
+      og_image_url: post.og_image_url,
+      meta_keywords: post.meta_keywords,
+      read_time_minutes: post.read_time_minutes,
+      published_at: post.published_at,
+      guide_data: articleGuide,
+    };
+    return (
+      <>
+        <EmbedHostResize />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+        {faqJsonLd && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+        )}
+        <GuideArticleLayout post={articlePost} />
+        <SiteFooter />
+      </>
+    );
+  }
 
   // Field Notebook layout for River Guide posts that have structured data.
   if (isRiverGuide && post.guide_data) {

@@ -158,3 +158,93 @@ export interface RiverGuidePost {
   guide_data: GuideData;
 }
 
+// =====================================================================
+// General "Guides" articles (non-river). These reuse the River Guide
+// Field Notebook look (src/components/blog/GuideArticleLayout.tsx) but are
+// not tied to a single river, so they swap the river-specific sections
+// (live gauge, springs, outfitter directory, access-point planner links)
+// for a flexible ordered list of content blocks. Persisted as JSONB in
+// blog_posts.guide_data with kind:'article' as the discriminator.
+// =====================================================================
+
+export interface ArticleTldrTile {
+  label: string;
+  value: string;
+}
+
+export interface ArticleStat {
+  label: string;
+  value: string;
+}
+
+export interface ArticleCard {
+  title: string;
+  /** Italic sub-line under the title, e.g. "Closest to St. Louis". */
+  subtitle?: string;
+  body: string;
+  /** Optional 2–4 mini stats rendered in the field-notebook stat strip. */
+  stats?: ArticleStat[];
+  /** Small pill tags, e.g. "Beginner", "Outfitter shuttle". */
+  tags?: string[];
+  /** Optional internal link (e.g. /blog/<river-guide> or /rivers/<slug>). */
+  href?: string;
+  href_label?: string;
+}
+
+export interface ArticleStep {
+  name: string;
+  body: string;
+}
+
+export interface ArticleTable {
+  columns: string[];
+  rows: string[][];
+}
+
+/** Ordered content blocks rendered by GuideArticleLayout. Each carries an
+ *  `id` (used for the section anchor + table of contents) except `callout`,
+ *  which is an inline aside. */
+export type ArticleBlock =
+  | { type: 'prose'; id: string; toc: string; eyebrow?: string; title: string; html: string }
+  | { type: 'bullets'; id: string; toc: string; eyebrow?: string; title: string; intro_html?: string; bullets: GuideBullet[] }
+  | { type: 'checklist'; id: string; toc: string; eyebrow?: string; title: string; intro_html?: string; columns?: { heading: string; items: string[] }[]; items?: string[] }
+  | { type: 'steps'; id: string; toc: string; eyebrow?: string; title: string; intro_html?: string; steps: ArticleStep[] }
+  | { type: 'cards'; id: string; toc: string; eyebrow?: string; title: string; intro_html?: string; cards: ArticleCard[] }
+  | { type: 'table'; id: string; toc: string; eyebrow?: string; title: string; intro_html?: string; table: ArticleTable }
+  | { type: 'callout'; tone: CalloutTone; quote: string };
+
+export interface ArticleCta {
+  eyebrow?: string;
+  title: string;
+  body?: string;
+  href: string;
+  button: string;
+}
+
+export interface ArticleGuideData {
+  /** Discriminator: routes the post to GuideArticleLayout instead of the
+   *  river-specific RiverGuideLayout. */
+  kind: 'article';
+  hero: GuideHero;
+  tldr?: ArticleTldrTile[];
+  pre_launch_notes?: GuideBullet[];
+  intro_html: string;
+  blocks: ArticleBlock[];
+  faq: FaqItem[];
+  cta?: ArticleCta;
+}
+
+export interface ArticleGuidePost {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  category: string;
+  featured_image_url: string | null;
+  og_image_url: string | null;
+  meta_keywords: string[] | null;
+  read_time_minutes: number | null;
+  published_at: string | null;
+  guide_data: ArticleGuideData;
+}
+

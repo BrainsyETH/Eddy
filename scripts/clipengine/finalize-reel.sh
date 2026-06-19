@@ -271,7 +271,15 @@ FONT_OPT=""; [ -n "$BRAND_FONT" ] && FONT_OPT=":fontfile=$BRAND_FONT"
 # Escape dynamic text for drawtext (\ : %). Caller may pass CREATOR_CREDIT
 # (e.g. "@ozarkmediaco" or a channel name) for on-screen attribution.
 esc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/:/\\:/g' -e 's/%/\\%/g'; }
-RIVER_ESC="$(esc "$RIVER_NAME")"
+# Tier 2 (no known river) → generic hero label + softer CTA, mirroring the
+# Remotion ClipReel fallback so both branding paths match.
+if [ -n "$RIVER_NAME" ]; then
+    TITLE_TEXT="$RIVER_NAME"; CTA_TEXT="Plan your float at eddy.guide"
+else
+    TITLE_TEXT="Ozark Paddling"; CTA_TEXT="Find your next float at eddy.guide"
+fi
+RIVER_ESC="$(esc "$TITLE_TEXT")"
+CTA_ESC="$(esc "$CTA_TEXT")"
 CREDIT_RAW="${CREATOR_CREDIT:-}"
 CREDIT_ESC="$(esc "$CREDIT_RAW")"
 
@@ -289,7 +297,7 @@ else
 fi
 TXT="drawtext=text='eddy.guide':fontsize=46:fontcolor=white$FONT_OPT:x=(w-text_w)/2:y=250"
 TXT="$TXT,drawtext=text='$RIVER_ESC':fontsize=58:fontcolor=0xD9C9B0$FONT_OPT:x=(w-text_w)/2:y=560"
-TXT="$TXT,drawtext=text='Plan your float at eddy.guide':fontsize=40:fontcolor=white$FONT_OPT:box=1:boxcolor=0xF07052:boxborderw=22:x=(w-text_w)/2:y=1470"
+TXT="$TXT,drawtext=text='$CTA_ESC':fontsize=40:fontcolor=white$FONT_OPT:box=1:boxcolor=0xF07052:boxborderw=22:x=(w-text_w)/2:y=1470"
 if [ -n "$CREDIT_RAW" ]; then
     TXT="$TXT,drawtext=text='Clip via $CREDIT_ESC':fontsize=30:fontcolor=0xC9B391$FONT_OPT:x=(w-text_w)/2:y=1640"
 fi

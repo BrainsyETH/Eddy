@@ -21,7 +21,6 @@ while [ $# -gt 0 ]; do
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
-[ -n "$RIVER" ] || { echo "--river is required" >&2; exit 1; }
 
 # Credit: @handle if known, else channel name (else generic).
 if [ -n "$IG" ]; then
@@ -32,10 +31,23 @@ else
   CREDIT="🎥 Clip via the original creator"
 fi
 
-CAPTION="🛶 ${RIVER}.
+# Tier 1 (known river) vs Tier 2 (no river → generic "Ozark paddling"). Tier 2
+# drops the river + Missouri hashtags (the clip may be out of state) and uses a
+# softer CTA, since there's no specific float page to point at.
+if [ -n "$RIVER" ]; then
+  HEADER="🛶 ${RIVER}."
+  CTA="Plan your float trip at eddy.guide"
+  TAGS="#${RIVER//[^A-Za-z0-9]/} #kayaking #canoe #float #paddling #Ozarks #Missouri #eddyguide"
+else
+  HEADER="🛶 Ozark paddling."
+  CTA="Find your next float at eddy.guide"
+  TAGS="#kayaking #canoe #float #paddling #Ozarks #eddyguide"
+fi
+
+CAPTION="${HEADER}
 
 ${CREDIT}
-Plan your float trip at eddy.guide"
+${CTA}"
 
 # Facebook only: append the clickable original video link.
 if [ "$PLATFORM" = "fb" ] && [ -n "$URL" ]; then
@@ -43,10 +55,8 @@ if [ "$PLATFORM" = "fb" ] && [ -n "$URL" ]; then
 ▶️ Full video: ${URL}"
 fi
 
-# River hashtag (spaces stripped) + a base set.
-RIVERTAG="#${RIVER//[^A-Za-z0-9]/}"
 CAPTION="${CAPTION}
 
-${RIVERTAG} #kayaking #canoe #float #paddling #Ozarks #Missouri #eddyguide"
+${TAGS}"
 
 printf '%s\n' "$CAPTION"

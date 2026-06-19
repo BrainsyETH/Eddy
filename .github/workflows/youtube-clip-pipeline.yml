@@ -126,15 +126,12 @@ jobs:
 
             # River is detected per-video by scrape-heatmap (a channel covers many
             # rivers). A dispatch/channel river_slug overrides; otherwise use the
-            # detected one. No river at all → skip (only known-river clips post).
+            # detected one. No known river → Tier 2: the clip still renders with
+            # generic "Ozark paddling" branding (candidates were already gated on
+            # paddling topic; brand-check is the final backstop).
             local DETECTED_RIVER=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('river_slug','') or '')")
             if [ -z "$RIVER" ]; then RIVER="$DETECTED_RIVER"; fi
-            if [ -z "$RIVER" ]; then
-              echo "⚠️ No Eddy river detected for $VIDEO_ID, skipping"
-              rm -rf "$VIDEO_DIR"
-              return
-            fi
-            echo "River (resolved): $RIVER"
+            echo "River (resolved): ${RIVER:-(none — generic Ozark paddling)}"
 
             local PEAK_IDX=$((PEAK - 1))
             local PEAK_START=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX]['start_secs'] if len(peaks)>$PEAK_IDX else '')")
@@ -296,10 +293,19 @@ jobs:
                 *) LIST_URL="${CH_URL%/}/videos" ;;
               esac
               echo "  • $LIST_URL"
-              while read -r VID; do
-                [ -z "$VID" ] && continue
-                printf '%s\t%s\n' "https://www.youtube.com/watch?v=${VID}" "$CH_RIVER" >> "$CANDIDATES"
-              done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s" "$LIST_URL" 2>/dev/null || true)
+              # Gate on the TITLE so we don't deep-scrape non-paddling uploads:
+              # a per-channel river_slug wins; else detect a known river (Tier 1);
+              # else keep only if it's paddling content (Tier 2, generic brand).
+              while IFS= read -r LINE; do
+                [ -z "$LINE" ] && continue
+                VID="${LINE%%|||*}"; VT="${LINE#*|||}"
+                ROW_RIVER="$CH_RIVER"
+                if [ -z "$ROW_RIVER" ]; then ROW_RIVER="$(bash scripts/clipengine/detect-river.sh "$VT")"; fi
+                if [ -z "$ROW_RIVER" ] && [ "$(bash scripts/clipengine/detect-paddling.sh "$VT")" != yes ]; then
+                  continue
+                fi
+                printf '%s\t%s\n' "https://www.youtube.com/watch?v=${VID}" "$ROW_RIVER" >> "$CANDIDATES"
+              done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
             done < <(echo "$YOUTUBE_CHANNELS_JSON" | python3 -c "
           import json, sys
           try:

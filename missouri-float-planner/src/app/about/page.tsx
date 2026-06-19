@@ -312,7 +312,7 @@ export default function AboutPage() {
             </p>
             <div className="space-y-3">
               <div>
-                <h3 className="font-bold text-neutral-900 mb-1">Embeddable Widgets</h3>
+                <h3 className="font-bold text-neutral-900 mb-1">Widgets</h3>
                 <p className="text-neutral-700 mb-2">
                   Drop a live conditions widget, a link button, or a full float trip planner onto
                   your site with a simple copy-paste. Supports light and dark themes.
@@ -331,7 +331,7 @@ export default function AboutPage() {
               style={{ backgroundColor: '#2D7889' }}
             >
               <Code2 className="w-4 h-4" />
-              View Embed Guide & API Docs
+              View Guide & API Docs
             </Link>
           </div>
         </AboutCollapsibleSection>

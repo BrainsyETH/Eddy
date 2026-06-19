@@ -9,7 +9,9 @@ export const alt = 'Eddy - Your River Guide';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export const dynamic = 'force-dynamic';
+// Static brand card — cache the generated PNG (regenerate daily) instead of
+// rebuilding it on every request.
+export const revalidate = 86400;
 
 export default async function Image() {
   const fonts = loadFredokaFont();

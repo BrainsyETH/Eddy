@@ -337,6 +337,15 @@ export default function MapContainer({
 
     map.current.on('load', () => {
       setMapLoaded(true);
+
+      // MapLibre auto-expands the compact attribution the first time it populates
+      // (on style load), and only re-collapses on a drag. Force it minimized here
+      // so it starts as just the (i); the toggle button still expands it on click.
+      const attribEl = mapContainer.current?.querySelector('.maplibregl-ctrl-attrib');
+      if (attribEl) {
+        attribEl.classList.remove('maplibregl-compact-show');
+        attribEl.removeAttribute('open');
+      }
     });
 
     // Cleanup
