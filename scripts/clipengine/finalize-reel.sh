@@ -4,6 +4,12 @@
 # Landscape videos → branded frame (Eddy logo top, video middle, captions bottom)
 # Vertical videos  → pass through as-is
 #
+# NOTE: This ffmpeg branding is the LOCAL-ONLY fallback (run-local.sh without
+# REMOTION=1). The canonical branding is the Remotion `clip-reel` composition
+# (missouri-float-planner/remotion/src/compositions/social/ClipReel.tsx) rendered
+# by render-clip.yml — the cloud pipeline and the local handoff both use it so
+# clips match the rest of the render pipeline. Prefer the Remotion path.
+#
 # Usage: finalize-reel.sh <source-video> <river-name> <output-path> [transcript-vtt] [clip-start-sec]
 #
 # Ported from ClawsifiedInfo/agents/eddy-marketing/scripts/finalize-youtube-clip.sh
