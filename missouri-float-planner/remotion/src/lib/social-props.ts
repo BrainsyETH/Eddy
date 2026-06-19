@@ -194,4 +194,9 @@ export type ClipReelProps = {
   durationSecs: number;
   /** Timed transcript captions rendered over the clip (optional). */
   captions?: Caption[];
+  /**
+   * Orientation of the SOURCE video. Vertical sources fill the frame; landscape
+   * (default) sit in the centered 16:9 band. The output is always portrait.
+   */
+  sourceOrientation?: "portrait" | "landscape";
 }

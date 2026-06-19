@@ -58,6 +58,11 @@ if [ -f "$VTT" ]; then
   CAPTIONS_JSON=$(python3 "$HERE/../scripts/clipengine/vtt-to-captions.py" "$VTT" "$START" "$DUR" 2>/dev/null || echo "[]")
 fi
 
+# Source orientation drives band (landscape) vs full-bleed (vertical) framing.
+SRC_DIMS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$RAW" 2>/dev/null || echo "")
+SRC_ORIENT="landscape"
+[ -n "$SRC_DIMS" ] && [ "${SRC_DIMS#*x}" -gt "${SRC_DIMS%x*}" ] 2>/dev/null && SRC_ORIENT="portrait"
+
 echo "→ handoff: dispatching render-clip (Remotion branding)..."
 gh workflow run render-clip.yml --ref main \
   -f video_url="$RAW_URL" \
@@ -72,5 +77,6 @@ gh workflow run render-clip.yml --ref main \
   -f clip_start_secs="$START" \
   -f orientation="portrait" \
   -f heatmap_score="$SCORE" \
-  -f captions="$CAPTIONS_JSON"
+  -f captions="$CAPTIONS_JSON" \
+  -f source_orientation="$SRC_ORIENT"
 echo "  ✅ dispatched — Remotion will brand it and insert clip_library (pending)."

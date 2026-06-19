@@ -1,7 +1,6 @@
 import React from "react";
 import { OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
-import { Captions } from "../../components/Captions";
 import type { ClipReelProps } from "../../lib/social-props";
 
 /**
@@ -9,9 +8,16 @@ import type { ClipReelProps } from "../../lib/social-props";
  * its branding matches the rest of the render pipeline (RouteDraw, SectionGuide,
  * …): mascot masthead, white river name, persistent watermark, canonical CTA,
  * and timed transcript captions over the footage. A clip has no live gauge
- * reading, so the frame uses the neutral brand accent.
+ * reading, so the frame uses the neutral brand accent. Vertical sources fill the
+ * frame (full-bleed); landscape sources sit in the centered 16:9 band.
  */
-export const ClipReel: React.FC<ClipReelProps> = ({ videoUrl, riverName, creatorCredit, captions }) => {
+export const ClipReel: React.FC<ClipReelProps> = ({
+  videoUrl,
+  riverName,
+  creatorCredit,
+  captions,
+  sourceOrientation,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const videoFade = interpolate(frame, [0, 10], [0, 1], {
@@ -24,6 +30,8 @@ export const ClipReel: React.FC<ClipReelProps> = ({ videoUrl, riverName, creator
       eyebrow="On the Water"
       title={riverName}
       creatorCredit={creatorCredit}
+      captions={captions}
+      fullBleed={sourceOrientation === "portrait"}
       frame={frame}
       fps={fps}
     >
@@ -31,7 +39,6 @@ export const ClipReel: React.FC<ClipReelProps> = ({ videoUrl, riverName, creator
         src={videoUrl}
         style={{ width: "100%", height: "100%", objectFit: "cover", opacity: videoFade }}
       />
-      {captions && captions.length > 0 ? <Captions cues={captions} /> : null}
     </ReelBrandFrame>
   );
 };

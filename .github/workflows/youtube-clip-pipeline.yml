@@ -220,6 +220,13 @@ jobs:
                 "$VIDEO_DIR/transcript.en.vtt" "$PEAK_START" "${PEAK_DURATION:-13}" 2>/dev/null || echo "[]")
             fi
 
+            # Source orientation drives band (landscape) vs full-bleed (vertical)
+            # framing in the Remotion composition.
+            local SRC_DIMS=$(ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height -of csv=s=x:p=0 "$RAW_CLIP" 2>/dev/null)
+            local SRC_ORIENT="landscape"
+            [ "$(echo "$SRC_DIMS" | cut -dx -f2)" -gt "$(echo "$SRC_DIMS" | cut -dx -f1)" ] 2>/dev/null && SRC_ORIENT="portrait"
+
             echo "→ Dispatching render-clip (Remotion branding)..."
             if gh workflow run render-clip.yml --ref main \
               -f video_url="$RAW_URL" \
@@ -234,7 +241,8 @@ jobs:
               -f clip_start_secs="$PEAK_START" \
               -f orientation="portrait" \
               -f heatmap_score="$PEAK_SCORE" \
-              -f captions="$CAPTIONS_JSON"; then
+              -f captions="$CAPTIONS_JSON" \
+              -f source_orientation="$SRC_ORIENT"; then
               echo "✅ Dispatched render-clip — it brands the clip and inserts clip_library (pending)."
             else
               echo "⚠️ Could not dispatch render-clip (needs actions:write + a token allowed to dispatch). Skipping."
