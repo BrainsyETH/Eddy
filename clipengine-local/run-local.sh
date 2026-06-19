@@ -22,6 +22,29 @@ CE="$REPO/scripts/clipengine"
 OUT="$HERE/output"
 mkdir -p "$OUT"
 
+# ── Self-update guard ────────────────────────────────────────────────────────
+# The GitHub repo is the source of truth; this clone exists only to download &
+# clip locally. Sync to origin/main before doing any work so the cron never runs
+# a stale pipeline, then re-exec the (possibly updated) script once — re-execing
+# avoids running a half-old copy of this very file. Set NO_SELF_UPDATE=1 to skip
+# (e.g. while iterating on local script edits).
+if [ "${NO_SELF_UPDATE:-0}" != 1 ] && [ -z "${_EDDY_SELF_UPDATED:-}" ] \
+   && command -v git >/dev/null 2>&1 \
+   && git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "↻ self-update: syncing $REPO to origin/main…"
+  if git -C "$REPO" fetch --quiet origin main 2>/dev/null \
+     && git -C "$REPO" checkout --quiet main 2>/dev/null \
+     && git -C "$REPO" merge --ff-only --quiet origin/main 2>/dev/null; then
+    echo "  ✓ now at $(git -C "$REPO" rev-parse --short HEAD) (origin/main)"
+  else
+    echo "  ⚠️  could not fast-forward to origin/main — running current checkout"
+    echo "     (branch: $(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null), likely local edits or divergence)"
+  fi
+  export _EDDY_SELF_UPDATED=1
+  exec "$HERE/run-local.sh" "$@"
+fi
+# ─────────────────────────────────────────────────────────────────────────────
+
 PEAK_NUMBER=1
 SINGLE_URL=""
 SINGLE_RIVER=""
