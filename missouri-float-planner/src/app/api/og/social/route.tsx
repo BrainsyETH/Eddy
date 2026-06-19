@@ -59,6 +59,69 @@ function numParam(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** A river's published-guide hero photo as a data URI, for compositing behind a
+ *  cover (Satori can't lazy-load remote images). Null when there's no guide
+ *  photo, so the caller keeps its solid-gradient background. */
+async function loadRiverPhotoDataUri(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  riverSlug: string | null | undefined,
+): Promise<string | null> {
+  if (!riverSlug) return null;
+  const { data } = await supabase
+    .from('blog_posts')
+    .select('featured_image_url, og_image_url')
+    .eq('category', 'River Guides')
+    .eq('status', 'published')
+    .eq('river_slug', riverSlug)
+    .limit(1)
+    .maybeSingle();
+  const url = data?.featured_image_url || data?.og_image_url;
+  if (!url) return null;
+  try {
+    return await loadImageAsDataUri(url);
+  } catch {
+    return null;
+  }
+}
+
+/** Full-bleed photo + legibility scrim layers for a cover (empty when no photo,
+ *  so the card's gradient shows through). Shared by Favorite / Section / Forecast
+ *  so the three read as one photo-led series. */
+function photoLayers(dataUri: string | null, size: { width: number; height: number }) {
+  if (!dataUri) return [];
+  return [
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key="bg"
+      src={dataUri}
+      width={size.width}
+      height={size.height}
+      alt=""
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+    />,
+    <div
+      key="scrim"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background:
+          'linear-gradient(160deg, rgba(13,42,44,0.84) 0%, rgba(26,61,64,0.7) 50%, rgba(13,42,44,0.92) 100%)',
+      }}
+    />,
+  ];
+}
+
+/** Largest cover title that still fits the safe zone, scaled by name length. */
+function heroFontSize(name: string, isPortrait: boolean): number {
+  const n = (name || '').length;
+  if (isPortrait) return n <= 10 ? 164 : n <= 14 ? 140 : n <= 17 ? 122 : 106;
+  return n <= 10 ? 128 : n <= 14 ? 110 : n <= 17 ? 96 : 84;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const platform = searchParams.get('platform');
@@ -799,6 +862,7 @@ async function generateForecastImage(size: { width: number; height: number }) {
   const bestGauge = best && best.gauge_height_ft !== null
     ? `${bestWeather ? ' · ' : ''}${best.gauge_height_ft.toFixed(1)} ft`
     : '';
+  const photoDataUri = best ? await loadRiverPhotoDataUri(supabase, best.river_slug) : null;
 
   return new ImageResponse(
     (
@@ -815,6 +879,8 @@ async function generateForecastImage(size: { width: number; height: number }) {
           position: 'relative',
         }}
       >
+        {photoLayers(photoDataUri, size)}
+
         {/* Eyebrow */}
         <span
           style={{
@@ -836,10 +902,10 @@ async function generateForecastImage(size: { width: number; height: number }) {
             <span
               style={{
                 fontFamily: 'Fredoka',
-                fontSize: isPortrait ? (bestName.length > 16 ? 112 : 132) : (bestName.length > 16 ? 84 : 96),
+                fontSize: heroFontSize(bestName, isPortrait),
                 fontWeight: 700,
                 color: '#fff',
-                lineHeight: 0.95,
+                lineHeight: 0.92,
                 letterSpacing: -3,
                 marginBottom: isPortrait ? 36 : 24,
               }}
@@ -963,6 +1029,7 @@ async function generateSectionImage(
   }
 
   const styles = getStatusStyles(condition as ConditionCode);
+  const photoDataUri = await loadRiverPhotoDataUri(supabase, section.riverSlug);
 
   return new ImageResponse(
     (
@@ -979,6 +1046,8 @@ async function generateSectionImage(
           position: 'relative',
         }}
       >
+        {photoLayers(photoDataUri, size)}
+
         <span
           style={{
             fontFamily: 'Fredoka',
@@ -996,10 +1065,10 @@ async function generateSectionImage(
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: isPortrait ? (section.riverName.length > 16 ? 112 : 132) : (section.riverName.length > 16 ? 84 : 96),
+            fontSize: heroFontSize(section.riverName, isPortrait),
             fontWeight: 700,
             color: '#fff',
-            lineHeight: 0.95,
+            lineHeight: 0.92,
             letterSpacing: -3,
             marginBottom: isPortrait ? 44 : 30,
           }}
@@ -1099,6 +1168,9 @@ async function generateFavoriteImage(
       // Keep the gradient background.
     }
   }
+  // Fall back to the river's guide hero photo so a section without its own photo
+  // still gets the photo-led look (same source Section + Forecast use).
+  if (!photoDataUri) photoDataUri = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
 
   return new ImageResponse(
     (
@@ -1115,34 +1187,7 @@ async function generateFavoriteImage(
           position: 'relative',
         }}
       >
-        {photoDataUri && (
-          <img
-            src={photoDataUri}
-            width={size.width}
-            height={size.height}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
-        )}
-        {photoDataUri && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background:
-                'linear-gradient(160deg, rgba(13,42,44,0.82) 0%, rgba(26,61,64,0.68) 50%, rgba(13,42,44,0.9) 100%)',
-            }}
-          />
-        )}
+        {photoLayers(photoDataUri, size)}
 
         <span
           style={{
@@ -1161,29 +1206,16 @@ async function generateFavoriteImage(
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: isPortrait ? (fav.riverName.length > 16 ? 112 : 132) : (fav.riverName.length > 16 ? 84 : 96),
+            fontSize: heroFontSize(fav.riverName, isPortrait),
             fontWeight: 700,
             color: '#fff',
-            lineHeight: 0.95,
+            lineHeight: 0.92,
             letterSpacing: -3,
-            marginBottom: fav.tagline ? 16 : (isPortrait ? 40 : 28),
+            marginBottom: isPortrait ? 44 : 30,
           }}
         >
           {fav.riverName}
         </span>
-
-        {fav.tagline && (
-          <span
-            style={{
-              fontSize: isPortrait ? 40 : 30,
-              color: 'rgba(255,255,255,0.7)',
-              fontStyle: 'italic',
-              marginBottom: isPortrait ? 44 : 30,
-            }}
-          >
-            {truncate(fav.tagline, 60)}
-          </span>
-        )}
 
         {/* Put-in only — "Starts at …" replaces the full route card */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: isPortrait ? 48 : 32 }}>
