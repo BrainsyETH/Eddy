@@ -19,6 +19,7 @@ import { SectionGuide } from "./compositions/social/SectionGuide";
 import { RouteDraw } from "./compositions/social/RouteDraw";
 import { TrendReel } from "./compositions/social/TrendReel";
 import { ClipReel, getClipReelDuration } from "./compositions/social/ClipReel";
+import { DemoWalkthrough, getDemoDuration, type DemoWalkthroughProps } from "./compositions/social/DemoWalkthrough";
 import type {
   GaugeAnimationProps,
   DigestReelProps,
@@ -32,6 +33,21 @@ import "./style.css";
 
 const totalFrames = getTotalFrames();
 const reelTotalFrames = getReelTotalFrames();
+
+// Shared defaults for the Demo Walkthrough cuts. `sourceSrc` points at the raw
+// screen recording in /public; set it to "" to preview the branded storyboard
+// before the footage lands. Override any field per-render with --props.
+const demoDefaults = {
+  sourceSrc: "eddy-demo-source.mp4",
+  variant: "full" as const,
+  captions: true,
+  music: true,
+  musicSrc: "audio/background-music.wav",
+  hook: false,
+  hookSrc: "audio/eddy-hook.mp3",
+  showMascot: true,
+  videoObjectPosition: "center",
+} satisfies DemoWalkthroughProps;
 
 /**
  * Root composition registry.
@@ -96,6 +112,50 @@ export const RemotionRoot: React.FC = () => {
           creatorCredit: "",
           durationSecs: 13,
         } satisfies ClipReelProps}
+      />
+
+      {/* ============================================
+          DEMO WALKTHROUGH — branded cut of the raw
+          screen recording (EDL: src/lib/demo-edl.ts)
+          ============================================ */}
+
+      {/* Primary 9:16 cut (~:40) for TikTok / Reels / Shorts */}
+      <Composition
+        id="demo-walkthrough"
+        component={DemoWalkthrough}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={async ({ props }: { props: DemoWalkthroughProps }) => ({
+          durationInFrames: getDemoDuration(props.variant),
+        })}
+        defaultProps={demoDefaults}
+      />
+
+      {/* :30 cut — drops the stage-trend, threshold, and shuttle beats */}
+      <Composition
+        id="demo-walkthrough-short"
+        component={DemoWalkthrough}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={async ({ props }: { props: DemoWalkthroughProps }) => ({
+          durationInFrames: getDemoDuration(props.variant),
+        })}
+        defaultProps={{ ...demoDefaults, variant: "short" } satisfies DemoWalkthroughProps}
+      />
+
+      {/* 4:5 feed cut (1080×1350) — better real estate in the Instagram feed */}
+      <Composition
+        id="demo-walkthrough-feed"
+        component={DemoWalkthrough}
+        fps={FPS}
+        width={1080}
+        height={1350}
+        calculateMetadata={async ({ props }: { props: DemoWalkthroughProps }) => ({
+          durationInFrames: getDemoDuration(props.variant),
+        })}
+        defaultProps={demoDefaults}
       />
 
       {/* ============================================

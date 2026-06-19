@@ -10,7 +10,7 @@ import {
 
 // Presentational variants (standard/canoe/favicon) plus the canonical condition
 // moods from shared/condition-system.ts (green/yellow/flag/red/flood).
-type EddyVariant =
+export type EddyVariant =
   | "standard"
   | "canoe"
   | "flag"
