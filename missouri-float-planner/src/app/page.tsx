@@ -59,15 +59,13 @@ export default async function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
             <div className="max-w-xl mx-auto md:mx-0 text-center md:text-left">
               <h1
-                className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-4"
-                style={{ fontFamily: 'var(--font-display)' }}
+                className="text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-4"
+                style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
               >
-                Plan Your Next{' '}
-                <br className="hidden sm:block" />
-                <span style={{ color: '#F07052' }}>Float.</span>
+                Eddy
               </h1>
               <p className="text-base md:text-lg text-white/80 max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed">
-                Real-time USGS gauge data, river analysis, and trip insights for paddlers, anglers, and float enthusiasts.
+                Get live conditions, water levels, and float trip plans.
               </p>
 
               <div className="flex flex-wrap justify-center md:justify-start gap-3">

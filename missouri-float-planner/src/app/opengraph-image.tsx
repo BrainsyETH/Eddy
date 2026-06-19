@@ -96,50 +96,8 @@ export default async function Image() {
               maxWidth: 620,
             }}
           >
-            Plan Your Float & Check River Levels
+            Get live conditions, water levels, and float trip plans.
           </span>
-
-          {/* Feature pills */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 14,
-              marginTop: 36,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: 'rgba(57,160,202,0.2)',
-                color: '#39a0ca',
-                border: '1px solid rgba(57,160,202,0.3)',
-                borderRadius: 100,
-                padding: '14px 28px',
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 24,
-                fontWeight: 600,
-              }}
-            >
-              Live USGS Data
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: 'rgba(240,112,82,0.15)',
-                color: '#F07052',
-                border: '1px solid rgba(240,112,82,0.25)',
-                borderRadius: 100,
-                padding: '14px 28px',
-                fontFamily: 'system-ui, sans-serif',
-                fontSize: 24,
-                fontWeight: 600,
-              }}
-            >
-              Float Time Estimates
-            </div>
-          </div>
         </div>
 
         {/* Domain watermark */}
