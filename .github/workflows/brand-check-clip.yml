@@ -181,3 +181,22 @@ jobs:
               print(f"Failed to update clip: {e}")
           PYEOF
           python3 /tmp/brand_check.py
+
+      # If anything above failed (download, frame extraction, etc.) the clip would
+      # otherwise sit in 'review' forever (the cron flipped it there before
+      # dispatch). Mark it 'failed' with an error so it surfaces for retry.
+      - name: Mark clip failed on workflow error
+        if: failure()
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CLIP_ID: ${{ inputs.clip_id }}
+        run: |
+          curl -s -X PATCH \
+            "${SUPABASE_URL}/rest/v1/clip_library?id=eq.${CLIP_ID}" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d '{"brand_check_status":"failed","brand_check_error":"Brand-check workflow failed (download/frame/eval) — see the Actions run logs"}' \
+            || true

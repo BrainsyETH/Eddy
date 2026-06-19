@@ -14,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'missouri-float-planner/remotion/**'
+      - '.github/workflows/build-remotion-image.yml'
   workflow_dispatch:
 
 jobs:
@@ -25,6 +26,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # The default buildx 'docker' driver can't export the gha cache (the build
+      # fails immediately with "Cache export is not supported"). setup-buildx
+      # provides the docker-container driver that supports it.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

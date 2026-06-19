@@ -173,15 +173,27 @@ jobs:
             # in the clip-reel composition, uploads the branded result, and
             # inserts clip_library (pending). Branding happens ONLY there, so
             # clips match every other Eddy reel and are never branded twice.
-            echo "→ Resolving river display name..."
-            local RIVER_NAME="$RIVER"
+            # Resolve the river's display name AND validate it's a real Eddy
+            # river. If the slug isn't in the rivers table (a mis-detection, or an
+            # out-of-area river like the Buffalo), skip — don't post a clip with a
+            # bogus river. When the DB is unreachable, fall back to the slug
+            # (ClipReel prettifies it) rather than blocking.
+            echo "→ Resolving + validating river..."
+            local RIVER_NAME=""
             if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
               local RIVER_RESP=$(curl -s \
                 "${SUPABASE_URL}/rest/v1/rivers?slug=eq.${RIVER}&select=name" \
                 -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")
-              local RESOLVED=$(echo "$RIVER_RESP" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '[]'); print(d[0]['name'] if d else '')" 2>/dev/null || echo "")
-              [ -n "$RESOLVED" ] && RIVER_NAME="$RESOLVED"
+              RIVER_NAME=$(echo "$RIVER_RESP" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '[]'); print(d[0]['name'] if d else '')" 2>/dev/null || echo "")
+              if [ -z "$RIVER_NAME" ]; then
+                echo "⚠️ '$RIVER' is not a known Eddy river — skipping $VIDEO_ID (only real rivers post)"
+                rm -rf "$VIDEO_DIR"
+                return
+              fi
+            else
+              RIVER_NAME="$RIVER"
             fi
+            echo "River name: $RIVER_NAME"
 
             echo "→ Uploading RAW clip to CDN for Remotion..."
             local DATE_PREFIX=$(date -u +%Y-%m-%d)

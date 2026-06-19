@@ -46,6 +46,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'No approved clip available to post' });
   }
 
+  // Atomic claim: stamp posting_claimed_at only if it's unset or stale (>15 min).
+  // Concurrent runs serialize on the row, so the second sees a fresh stamp and
+  // its conditional update matches 0 rows — preventing a double-post.
+  const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data: claimed, error: claimError } = await supabase
+    .from('clip_library')
+    .update({ posting_claimed_at: new Date().toISOString() })
+    .eq('id', next.id)
+    .or(`posting_claimed_at.is.null,posting_claimed_at.lt.${staleBefore}`)
+    .select('id');
+
+  if (claimError) {
+    console.error(`${LOG} claim failed:`, claimError.message);
+    return NextResponse.json({ error: claimError.message }, { status: 500 });
+  }
+  if (!claimed || claimed.length === 0) {
+    console.log(`${LOG} clip ${next.id} already claimed by a concurrent run — skipping`);
+    return NextResponse.json({ message: 'Clip already claimed by a concurrent run' });
+  }
+
   console.log(`${LOG} posting clip ${next.id} (${next.river_slug})`);
   const result = await publishClip(supabase, next as ClipRow, ['instagram', 'facebook']);
   return NextResponse.json({ clipId: next.id, ...result });
