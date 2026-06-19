@@ -788,11 +788,17 @@ async function generateForecastImage(size: { width: number; height: number }) {
     courtois: 'Courtois',
   };
 
-  const dateLabel = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Chicago',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
+  // Cover features only the single best bet (best condition, rain-free if any).
+  const best = top[0] || null;
+  const bestName = best ? (RIVER_DISPLAY[best.river_slug] || best.river_slug) : '';
+  const bestStyles = best ? getStatusStyles(best.condition_code as ConditionCode) : null;
+  const bestCondLabel = best
+    ? (CONDITION_LABELS[best.condition_code as keyof typeof CONDITION_LABELS] || bestStyles!.label)
+    : '';
+  const bestWeather = best ? ogWeatherLabel(weatherChip(best.weather)) : '';
+  const bestGauge = best && best.gauge_height_ft !== null
+    ? `${bestWeather ? ' · ' : ''}${best.gauge_height_ft.toFixed(1)} ft`
+    : '';
 
   return new ImageResponse(
     (
@@ -818,115 +824,66 @@ async function generateForecastImage(size: { width: number; height: number }) {
             color: BRAND_COLORS.accentCoral,
             textTransform: 'uppercase',
             letterSpacing: 6,
-            marginBottom: 8,
+            marginBottom: 16,
           }}
         >
-          This Weekend
-        </span>
-        <span
-          style={{
-            fontSize: isPortrait ? 28 : 22,
-            color: 'rgba(255,255,255,0.5)',
-            marginBottom: 48,
-          }}
-        >
-          Weekend Forecast · {dateLabel}
+          Best Bets Right Now
         </span>
 
-        {/* Title */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 120 : 96,
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 0.95,
-            letterSpacing: -3,
-            marginBottom: isPortrait ? 56 : 40,
-          }}
-        >
-          Best Bets
-        </span>
-
-        {/* River list — each row: condition dot + name + gauge */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: isPortrait ? 24 : 16 }}>
-          {top.length === 0 ? (
-            <span style={{ fontSize: isPortrait ? 36 : 28, color: 'rgba(255,255,255,0.5)' }}>
-              No floatable rivers right now.
+        {best && bestStyles ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            {/* Hero: the single best river */}
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? (bestName.length > 16 ? 112 : 132) : (bestName.length > 16 ? 84 : 96),
+                fontWeight: 700,
+                color: '#fff',
+                lineHeight: 0.95,
+                letterSpacing: -3,
+                marginBottom: isPortrait ? 36 : 24,
+              }}
+            >
+              {bestName}
             </span>
-          ) : (
-            top.map((u) => {
-              const styles = getStatusStyles(u.condition_code as ConditionCode);
-              const name = RIVER_DISPLAY[u.river_slug] || u.river_slug;
-              const wx = ogWeatherLabel(weatherChip(u.weather));
-              return (
-                <div
-                  key={u.river_slug}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: isPortrait ? 28 : 20,
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    border: `1px solid rgba(255,255,255,0.08)`,
-                    borderRadius: 24,
-                    padding: isPortrait ? '24px 36px' : '20px 28px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      width: isPortrait ? 28 : 22,
-                      height: isPortrait ? 28 : 22,
-                      borderRadius: '50%',
-                      backgroundColor: styles.solid,
-                      boxShadow: `0 0 20px ${styles.solid}`,
-                    }}
-                  />
-                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <span
-                      style={{
-                        fontFamily: 'Fredoka',
-                        fontSize: isPortrait ? 56 : 42,
-                        fontWeight: 600,
-                        color: '#fff',
-                      }}
-                    >
-                      {name}
-                    </span>
-                    {wx !== '' && (
-                      <span style={{ fontSize: isPortrait ? 26 : 20, color: 'rgba(255,255,255,0.55)' }}>
-                        {wx}
-                      </span>
-                    )}
-                  </div>
-                  {u.gauge_height_ft !== null && (
-                    <span
-                      style={{
-                        fontSize: isPortrait ? 40 : 30,
-                        fontWeight: 700,
-                        color: styles.solid,
-                      }}
-                    >
-                      {u.gauge_height_ft.toFixed(1)} ft
-                    </span>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
 
-        {/* Rain-everywhere fallback note */}
-        {usingFallback && (
-          <span
-            style={{
-              marginTop: isPortrait ? 32 : 20,
-              fontSize: isPortrait ? 30 : 22,
-              color: 'rgba(255,255,255,0.55)',
-              fontStyle: 'italic',
-            }}
-          >
-            Rain in the forecast everywhere this weekend — best bets above.
+            {/* Fact 1 — condition */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                backgroundColor: bestStyles.bg,
+                border: `2px solid ${bestStyles.border}`,
+                borderRadius: 100,
+                padding: isPortrait ? '18px 40px' : '14px 32px',
+                marginBottom: isPortrait ? 28 : 18,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  width: isPortrait ? 22 : 18,
+                  height: isPortrait ? 22 : 18,
+                  borderRadius: '50%',
+                  backgroundColor: bestStyles.solid,
+                }}
+              />
+              <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 700, color: bestStyles.text }}>
+                {bestCondLabel}
+              </span>
+            </div>
+
+            {/* Fact 2 — weather + gauge */}
+            {(bestWeather || bestGauge) && (
+              <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 36 : 28, color: 'rgba(255,255,255,0.75)' }}>
+                {bestWeather}{bestGauge}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span style={{ fontSize: isPortrait ? 44 : 32, color: 'rgba(255,255,255,0.55)' }}>
+            No floatable rivers right now.
           </span>
         )}
 
@@ -1039,61 +996,38 @@ async function generateSectionImage(
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 104 : 80,
+            fontSize: isPortrait ? (section.riverName.length > 16 ? 112 : 132) : (section.riverName.length > 16 ? 84 : 96),
             fontWeight: 700,
             color: '#fff',
             lineHeight: 0.95,
             letterSpacing: -3,
-            marginBottom: isPortrait ? 56 : 40,
+            marginBottom: isPortrait ? 44 : 30,
           }}
         >
           {section.riverName}
         </span>
 
-        {/* Route card: put-in → take-out */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 28,
-            padding: isPortrait ? '36px 40px' : '28px 32px',
-            marginBottom: isPortrait ? 48 : 32,
-          }}
-        >
-          <RouteLabel
-            label="Put-in"
-            name={section.putInName}
-            mile={section.putInMile}
-            color={BRAND_COLORS.accentCoral}
-            isPortrait={isPortrait}
-          />
+        {/* Put-in only — "Starts at …" replaces the full route card */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: isPortrait ? 48 : 32 }}>
           <div
             style={{
-              height: 1,
-              margin: isPortrait ? '24px 0' : '18px 0',
-              background: 'rgba(255,255,255,0.12)',
+              display: 'flex',
+              width: isPortrait ? 20 : 16,
+              height: isPortrait ? 20 : 16,
+              borderRadius: '50%',
+              backgroundColor: BRAND_COLORS.accentCoral,
+              boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
+              flexShrink: 0,
             }}
           />
-          <RouteLabel
-            label="Take-out"
-            name={section.takeOutName}
-            mile={section.takeOutMile}
-            color={styles.solid}
-            isPortrait={isPortrait}
-          />
+          <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
+            Starts at {section.putInName}
+          </span>
         </div>
 
-        {/* Stats strip */}
-        <div
-          style={{
-            display: 'flex',
-            gap: isPortrait ? 56 : 40,
-          }}
-        >
+        {/* Two facts */}
+        <div style={{ display: 'flex', gap: isPortrait ? 64 : 44 }}>
           <StatCell value={`${section.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          <StatCell value={`${canoeHours(section.distanceMi, condition as ConditionCode).toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
           <StatCell value={CONDITION_LABELS[condition as keyof typeof CONDITION_LABELS] || '—'} label="Conditions" color={styles.solid} isPortrait={isPortrait} />
         </div>
 
@@ -1227,12 +1161,12 @@ async function generateFavoriteImage(
         <span
           style={{
             fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 104 : 80,
+            fontSize: isPortrait ? (fav.riverName.length > 16 ? 112 : 132) : (fav.riverName.length > 16 ? 84 : 96),
             fontWeight: 700,
             color: '#fff',
             lineHeight: 0.95,
             letterSpacing: -3,
-            marginBottom: fav.tagline ? 14 : (isPortrait ? 56 : 40),
+            marginBottom: fav.tagline ? 16 : (isPortrait ? 40 : 28),
           }}
         >
           {fav.riverName}
@@ -1241,57 +1175,41 @@ async function generateFavoriteImage(
         {fav.tagline && (
           <span
             style={{
-              fontSize: isPortrait ? 38 : 30,
+              fontSize: isPortrait ? 40 : 30,
               color: 'rgba(255,255,255,0.7)',
               fontStyle: 'italic',
-              marginBottom: isPortrait ? 48 : 32,
+              marginBottom: isPortrait ? 44 : 30,
             }}
           >
             {truncate(fav.tagline, 60)}
           </span>
         )}
 
-        {/* Route card: put-in → take-out */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 28,
-            padding: isPortrait ? '36px 40px' : '28px 32px',
-            marginBottom: isPortrait ? 48 : 32,
-          }}
-        >
-          <RouteLabel
-            label="Put-in"
-            name={fav.putInName}
-            mile={fav.putInMile}
-            color={BRAND_COLORS.accentCoral}
-            isPortrait={isPortrait}
-          />
+        {/* Put-in only — "Starts at …" replaces the full route card */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: isPortrait ? 48 : 32 }}>
           <div
             style={{
-              height: 1,
-              margin: isPortrait ? '24px 0' : '18px 0',
-              background: 'rgba(255,255,255,0.12)',
+              display: 'flex',
+              width: isPortrait ? 20 : 16,
+              height: isPortrait ? 20 : 16,
+              borderRadius: '50%',
+              backgroundColor: BRAND_COLORS.accentCoral,
+              boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
+              flexShrink: 0,
             }}
           />
-          <RouteLabel
-            label="Take-out"
-            name={fav.takeOutName}
-            mile={fav.takeOutMile}
-            color={accent}
-            isPortrait={isPortrait}
-          />
+          <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
+            Starts at {fav.putInName}
+          </span>
         </div>
 
-        {/* Stats strip */}
-        <div style={{ display: 'flex', gap: isPortrait ? 56 : 40 }}>
+        {/* Two facts */}
+        <div style={{ display: 'flex', gap: isPortrait ? 64 : 44 }}>
           <StatCell value={`${fav.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          <StatCell value={`${hours.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
-          {fav.difficulty && (
+          {fav.difficulty ? (
             <StatCell value={`Class ${fav.difficulty}`} label="Difficulty" color={accent} isPortrait={isPortrait} />
+          ) : (
+            <StatCell value={`${hours.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
           )}
         </div>
 
@@ -1325,69 +1243,6 @@ async function generateFavoriteImage(
   );
 }
 
-function RouteLabel({
-  label,
-  name,
-  mile,
-  color,
-  isPortrait,
-}: {
-  label: string;
-  name: string;
-  mile: number;
-  color: string;
-  isPortrait: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-      <div
-        style={{
-          display: 'flex',
-          width: isPortrait ? 20 : 16,
-          height: isPortrait ? 20 : 16,
-          borderRadius: '50%',
-          backgroundColor: color,
-          boxShadow: `0 0 16px ${color}`,
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 22 : 18,
-            color: 'rgba(255,255,255,0.45)',
-            textTransform: 'uppercase',
-            letterSpacing: 2,
-          }}
-        >
-          {label}
-        </span>
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 48 : 36,
-            fontWeight: 600,
-            color: '#fff',
-            lineHeight: 1.1,
-          }}
-        >
-          {name}
-        </span>
-      </div>
-      <span
-        style={{
-          fontSize: isPortrait ? 28 : 22,
-          color: 'rgba(255,255,255,0.5)',
-          flexShrink: 0,
-        }}
-      >
-        MM {mile.toFixed(1)}
-      </span>
-    </div>
-  );
-}
-
 function StatCell({
   value,
   label,
@@ -1404,7 +1259,7 @@ function StatCell({
       <span
         style={{
           fontFamily: 'Fredoka',
-          fontSize: isPortrait ? 54 : 40,
+          fontSize: isPortrait ? 64 : 48,
           fontWeight: 700,
           color: color || '#fff',
           lineHeight: 1,
