@@ -91,7 +91,7 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-neutral-900">{poi.name}</p>
+                    <p className="font-semibold text-neutral-900 truncate">{poi.name}</p>
                     <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${POI_TYPE_COLORS[poi.type] || POI_TYPE_COLORS.other}`}>
                       {POI_TYPE_LABELS[poi.type] || poi.type}
                     </span>

@@ -545,13 +545,15 @@ function AccessPointDetailCard({
             <>
               <button
                 onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
-                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                aria-label="Previous image"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                aria-label="Next image"
               >
                 <ChevronRight size={16} />
               </button>
@@ -742,7 +744,7 @@ function AccessPointDetailCard({
                     <Store size={14} className="text-neutral-400 mt-0.5 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{service.name}</span>
+                        <span className="font-medium text-sm min-w-0 break-words">{service.name}</span>
                         <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
                           {formatServiceType(service.type)}
                         </span>

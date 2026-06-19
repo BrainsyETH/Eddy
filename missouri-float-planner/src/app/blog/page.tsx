@@ -145,8 +145,7 @@ export default async function BlogPage() {
 
                     <div className="mt-auto pt-2 flex justify-center">
                       <span
-                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all group-hover:brightness-110"
-                        style={{ backgroundColor: '#F07052' }}
+                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-accent-500 transition-colors group-hover:bg-accent-600"
                       >
                         View Guide
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -163,7 +162,7 @@ export default async function BlogPage() {
             <p className="text-neutral-600 mb-4">Ready to start planning your float?</p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors shadow-lg"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
             >
               Plan Your Float
               <ArrowRight className="w-5 h-5" />

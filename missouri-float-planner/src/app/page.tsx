@@ -75,8 +75,7 @@ export default async function Home() {
                   href="/plan"
                   data-ga-event="cta_plan_float"
                   data-ga-label="hero"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all no-underline hover:brightness-110"
-                  style={{ backgroundColor: '#F07052' }}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-colors no-underline bg-accent-500 hover:bg-accent-600"
                 >
                   Plan Your Float
                 </Link>
@@ -239,8 +238,7 @@ export default async function Home() {
           <Link
             href="/embed"
             data-ga-event="cta_embed"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-all hover:brightness-110"
-            style={{ backgroundColor: '#F07052' }}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold rounded-xl text-sm no-underline whitespace-nowrap transition-colors bg-accent-500 hover:bg-accent-600"
           >
             Explore Embed Widgets <ArrowRight className="w-4 h-4" />
           </Link>
