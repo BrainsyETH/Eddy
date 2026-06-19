@@ -121,7 +121,7 @@ jobs:
           HEATMAP_SCORE: ${{ inputs.heatmap_score }}
         run: |
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, urllib.request, urllib.parse
           start = float(os.environ.get("CLIP_START") or 0)
           dur = float(os.environ.get("DURATION_SECS") or 13)
           row = {
@@ -138,6 +138,26 @@ jobs:
               "source_url": os.environ.get("SOURCE_URL") or None,
               "brand_check_status": "pending",
           }
+
+          # Never store a river_slug that isn't a real river — guards manual
+          # dispatches / mis-detections so the library stays filterable.
+          slug = row["river_slug"]
+          if slug:
+              try:
+                  q = urllib.parse.quote(slug, safe="")
+                  vreq = urllib.request.Request(
+                      f"{os.environ['SUPABASE_URL']}/rest/v1/rivers?slug=eq.{q}&select=slug",
+                      headers={
+                          "apikey": os.environ["SUPABASE_KEY"],
+                          "Authorization": f"Bearer {os.environ['SUPABASE_KEY']}",
+                      })
+                  with urllib.request.urlopen(vreq, timeout=10) as vr:
+                      if not json.loads(vr.read() or "[]"):
+                          print(f"river '{slug}' not in rivers — storing null river_slug")
+                          row["river_slug"] = None
+              except Exception as e:
+                  print(f"river validation skipped: {e}")
+
           req = urllib.request.Request(
               f"{os.environ['SUPABASE_URL']}/rest/v1/clip_library",
               data=json.dumps(row).encode(),
