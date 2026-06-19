@@ -1,0 +1,33 @@
+# Generate + cache the AI cover backgrounds (OpenAI gpt-image-1) for social OG
+# covers. Manual dispatch — generate-once + cache, so this runs rarely (initial
+# seed, or a seasonal refresh), never per post. Requires an OPENAI_API_KEY repo
+# secret (the same key used locally for voiceover); BLOB + Supabase secrets are
+# already configured for the render pipeline.
+name: Generate OG Backgrounds
+
+on:
+  workflow_dispatch:
+    inputs:
+      keys:
+        description: 'Space-separated keys to (re)generate; blank = all rivers + forecast + danger'
+        required: false
+        type: string
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Generate backgrounds
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/social/generate-og-backgrounds.mjs ${{ inputs.keys }}

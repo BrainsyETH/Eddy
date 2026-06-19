@@ -85,6 +85,28 @@ async function loadRiverPhotoDataUri(
   }
 }
 
+/** A cached AI cover background (og_backgrounds) as a data URI, by key — a river
+ *  slug, or 'forecast' / 'danger'. This model-made art is the PREFERRED cover
+ *  background; callers fall back to a guide photo, then the solid gradient. */
+async function loadBackgroundDataUri(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  key: string | null | undefined,
+): Promise<string | null> {
+  if (!key) return null;
+  const { data } = await supabase
+    .from('og_backgrounds')
+    .select('url')
+    .eq('key', key)
+    .maybeSingle();
+  if (!data?.url) return null;
+  try {
+    return await loadImageAsDataUri(data.url);
+  } catch {
+    return null;
+  }
+}
+
 /** Full-bleed photo + legibility scrim layers for a cover (empty when no photo,
  *  so the card's gradient shows through). Shared by Favorite / Section / Forecast
  *  so the three read as one photo-led series. */
@@ -862,7 +884,10 @@ async function generateForecastImage(size: { width: number; height: number }) {
   const bestGauge = best && best.gauge_height_ft !== null
     ? `${bestWeather ? ' · ' : ''}${best.gauge_height_ft.toFixed(1)} ft`
     : '';
-  const photoDataUri = best ? await loadRiverPhotoDataUri(supabase, best.river_slug) : null;
+  const photoDataUri = best
+    ? ((await loadBackgroundDataUri(supabase, 'forecast')) ??
+       (await loadRiverPhotoDataUri(supabase, best.river_slug)))
+    : null;
 
   return new ImageResponse(
     (
@@ -1029,7 +1054,9 @@ async function generateSectionImage(
   }
 
   const styles = getStatusStyles(condition as ConditionCode);
-  const photoDataUri = await loadRiverPhotoDataUri(supabase, section.riverSlug);
+  const photoDataUri =
+    (await loadBackgroundDataUri(supabase, section.riverSlug)) ??
+    (await loadRiverPhotoDataUri(supabase, section.riverSlug));
 
   return new ImageResponse(
     (
@@ -1160,16 +1187,16 @@ async function generateFavoriteImage(
   // Real guide photography behind the card (matches the reel). Inlined as a data
   // URI because Satori can't lazy-load remote images; a dead/slow URL degrades
   // to the solid-gradient card below rather than failing the cover.
-  let photoDataUri: string | null = null;
-  if (fav.photoUrl) {
+  // Prefer the cached AI cover background; then the guide section's own photo;
+  // then the river's guide hero photo. (Solid gradient if all absent.)
+  let photoDataUri = await loadBackgroundDataUri(supabase, fav.riverSlug);
+  if (!photoDataUri && fav.photoUrl) {
     try {
       photoDataUri = await loadImageAsDataUri(fav.photoUrl);
     } catch {
-      // Keep the gradient background.
+      // fall through to the river hero / gradient
     }
   }
-  // Fall back to the river's guide hero photo so a section without its own photo
-  // still gets the photo-led look (same source Section + Forecast use).
   if (!photoDataUri) photoDataUri = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
 
   return new ImageResponse(
@@ -1618,6 +1645,7 @@ async function generateWarningImage(
     newCondition === 'dangerous'
       ? 'Do not float until levels drop'
       : 'Experienced paddlers only';
+  const photoDataUri = await loadBackgroundDataUri(supabase, 'danger');
 
   return new ImageResponse(
     (
@@ -1634,6 +1662,8 @@ async function generateWarningImage(
           position: 'relative',
         }}
       >
+        {photoLayers(photoDataUri, size)}
+
         {/* Warning eyebrow banner */}
         <div
           style={{
