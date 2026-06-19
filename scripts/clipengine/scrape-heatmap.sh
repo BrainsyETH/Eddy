@@ -74,9 +74,8 @@ print(f"  Channel: {channel}")
 # clamped to [CLIP_MIN, CLIP_MAX]. CLIP_MAX overridable via MAX_CLIP_SECS.
 CLIP_MIN = 12
 CLIP_MAX = int(os.environ.get("MAX_CLIP_SECS", "60"))
-FALLBACK_DURATION = 15
 peaks = []
-source = "fallback"
+source = "none"
 
 def fmt(s):
     return f"{int(s // 60)}:{int(s % 60):02d}"
@@ -129,28 +128,13 @@ if hm:
     print(f"  Heatmap: {len(hm)} segments -> {len(peaks)} popular sections (lengths: {[p['duration_secs'] for p in peaks]}s)")
 
 if not peaks:
-    print("  ⚠️  No heatmap data — using evenly-spaced fallback positions")
-    source = "fallback"
-    if duration > FALLBACK_DURATION * 2:
-        for pct in [0.25, 0.50, 0.75]:
-            pos = round(duration * pct, 1)
-            peaks.append({
-                "start_secs": pos,
-                "end_secs": round(pos + FALLBACK_DURATION, 1),
-                "duration_secs": FALLBACK_DURATION,
-                "score": 0.3,
-                "start_formatted": fmt(pos),
-                "end_formatted": fmt(pos + FALLBACK_DURATION),
-            })
-    else:
-        peaks.append({
-            "start_secs": 0.0,
-            "end_secs": float(FALLBACK_DURATION),
-            "duration_secs": FALLBACK_DURATION,
-            "score": 0.3,
-            "start_formatted": "0:00",
-            "end_formatted": fmt(FALLBACK_DURATION),
-        })
+    # No "most replayed" heatmap (or a flat curve with no standout section) means
+    # YouTube has no real engagement signal for this video — typically a low-view
+    # upload. Rather than guessing with evenly-spaced fixed-length clips, skip it:
+    # emit zero peaks so the runner moves on and we only ever clip moments viewers
+    # actually replayed. (Clip length stays heatmap-driven, never a fixed default.)
+    print("  ⏭️  No replay-engagement heatmap — skipping (clips require a real engagement peak)")
+    source = "none"
 
 # Detect which Eddy river this video is about (per-video, not per-channel — a
 # channel may cover many rivers). Match the river name in title + description;
