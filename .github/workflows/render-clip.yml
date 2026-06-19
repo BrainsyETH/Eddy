@@ -11,8 +11,8 @@ on:
     inputs:
       video_url:        { description: 'Public URL of the RAW extracted clip', required: true, type: string }
       youtube_video_id: { description: 'Source YouTube video id', required: true, type: string }
-      river_slug:       { description: 'Detected river slug', required: true, type: string }
-      river_name:       { description: 'River display name for the frame', required: true, type: string }
+      river_slug:       { description: 'Detected river slug (empty = Tier 2, generic Ozark paddling)', required: false, type: string, default: '' }
+      river_name:       { description: 'River display name for the frame (empty = generic)', required: false, type: string, default: '' }
       creator:          { description: 'Creator credit (channel or @handle)', required: false, type: string }
       source_url:       { description: 'Original YouTube URL', required: false, type: string }
       youtube_channel:  { description: 'Source channel name', required: false, type: string }
