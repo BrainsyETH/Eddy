@@ -69,6 +69,8 @@ export interface RenderData {
   bestFor?: string;
   /** Difficulty class label from the guide (e.g. "I–II"). */
   difficulty?: string;
+  /** Favorites only: guide section photo (public URL) composited behind the reel. */
+  photoUrl?: string;
   // Weekly trend extras
   currentHeightFt?: number | null;
   sevenDayFirstFt?: number | null;
@@ -237,6 +239,8 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       tagline: data.tagline,
       difficulty: data.difficulty,
       evergreen: true,
+      // Real guide photography behind the route (favorites only); absent → solid bg.
+      photoUrl: data.photoUrl,
     }),
     outputFilename: () => `favorite-float-${isoDay()}`,
   },
