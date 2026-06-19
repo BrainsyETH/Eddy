@@ -41,6 +41,7 @@ interface ClipItem {
   heatmap_score: number | null;
   brand_check_status: string;
   brand_check_result: Record<string, unknown> | null;
+  brand_check_error: string | null;
   source_creator: string | null;
   source_url: string | null;
   content_tags: string[];
@@ -78,7 +79,20 @@ const BRAND_BADGES: Record<string, { label: string; className: string }> = {
   approved: { label: 'Approved', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
   rejected: { label: 'Rejected', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
   review: { label: 'In Review', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  failed: { label: 'Failed', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
 };
+
+// River options for the metadata editor (fix a null/wrong river_slug).
+const RIVER_OPTIONS: [string, string][] = [
+  ['meramec', 'Meramec River'],
+  ['current', 'Current River'],
+  ['eleven-point', 'Eleven Point River'],
+  ['jacks-fork', 'Jacks Fork River'],
+  ['niangua', 'Niangua River'],
+  ['big-piney', 'Big Piney River'],
+  ['huzzah', 'Huzzah Creek'],
+  ['courtois', 'Courtois Creek'],
+];
 
 const TAB_ITEMS: { key: Tab; label: string; icon: typeof Film }[] = [
   { key: 'library', label: 'Clip Library', icon: Film },
@@ -213,6 +227,32 @@ export default function ClipsAdminPage() {
     }
   };
 
+  // ─── Manage a clip: override the verdict (approve/reject), fix river/metadata ───
+  const [savingClip, setSavingClip] = useState<string | null>(null);
+  const patchClip = async (id: string, fields: Record<string, unknown>) => {
+    setSavingClip(id);
+    try {
+      const res = await adminFetch('/api/admin/clips', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...fields }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Update failed: ${err.error || res.status}`);
+        return;
+      }
+      const { clip } = await res.json();
+      setClips((prev) => prev.map((c) => (c.id === id ? { ...c, ...clip } : c)));
+      setPreviewClip((p) => (p && p.id === id ? { ...p, ...clip } : p));
+    } catch {
+      alert('Update failed: network error');
+    } finally {
+      setSavingClip(null);
+    }
+  };
+  const setClipStatus = (id: string, status: string) => patchClip(id, { brand_check_status: status });
+
   // ─── Compile montage ───
   const compileMontage = async () => {
     const ids = Array.from(selectedClips);
@@ -322,6 +362,7 @@ export default function ClipsAdminPage() {
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
                 <option value="review">In Review</option>
+                <option value="failed">Failed</option>
               </select>
               <select
                 value={clipFilter.river_slug}
@@ -442,6 +483,7 @@ export default function ClipsAdminPage() {
                                 {clip.brand_check_status === 'rejected' && <XCircle className="w-3 h-3" />}
                                 {clip.brand_check_status === 'pending' && <AlertCircle className="w-3 h-3" />}
                                 {clip.brand_check_status === 'review' && <Eye className="w-3 h-3" />}
+                                {clip.brand_check_status === 'failed' && <AlertCircle className="w-3 h-3" />}
                                 {badge.label}
                               </span>
                             </td>
@@ -467,6 +509,37 @@ export default function ClipsAdminPage() {
                                     title="Run brand check"
                                   >
                                     <ShieldCheck className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {(clip.brand_check_status === 'review' || clip.brand_check_status === 'failed') && (
+                                  <button
+                                    onClick={() => triggerBrandCheck(clip.id)}
+                                    className="p-1.5 text-neutral-400 hover:text-blue-400 transition-colors"
+                                    title="Retry brand check"
+                                  >
+                                    <RefreshCw className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {clip.brand_check_status !== 'approved' && (
+                                  <button
+                                    onClick={() => setClipStatus(clip.id, 'approved')}
+                                    disabled={savingClip === clip.id}
+                                    className="p-1.5 text-neutral-400 hover:text-green-400 transition-colors disabled:opacity-40"
+                                    title="Approve (override)"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {clip.brand_check_status !== 'rejected' && (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm('Reject this clip? It will not be posted.')) setClipStatus(clip.id, 'rejected');
+                                    }}
+                                    disabled={savingClip === clip.id}
+                                    className="p-1.5 text-neutral-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                                    title="Reject (override)"
+                                  >
+                                    <XCircle className="w-4 h-4" />
                                   </button>
                                 )}
                                 {clip.brand_check_status === 'approved' && (
@@ -863,6 +936,14 @@ export default function ClipsAdminPage() {
                   <MetadataRow label="Brand Status" value={previewClip.brand_check_status} />
                 </div>
 
+                {/* Brand check error (workflow failure) */}
+                {previewClip.brand_check_error && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-xs text-red-400 uppercase font-medium mb-1">Brand Check Error</p>
+                    <p className="text-sm text-red-300">{previewClip.brand_check_error}</p>
+                  </div>
+                )}
+
                 {/* Brand check result */}
                 {previewClip.brand_check_result && (
                   <div className="p-4 bg-neutral-900 rounded-lg">
@@ -872,6 +953,58 @@ export default function ClipsAdminPage() {
                     </pre>
                   </div>
                 )}
+
+                {/* Manage: override the verdict + fix the river */}
+                <div className="p-4 bg-neutral-900 rounded-lg space-y-3">
+                  <p className="text-xs text-neutral-500 uppercase font-medium">Manage</p>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-neutral-400 w-14">River</label>
+                    <select
+                      value={previewClip.river_slug || ''}
+                      onChange={(e) => patchClip(previewClip.id, { river_slug: e.target.value })}
+                      disabled={savingClip === previewClip.id}
+                      className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm disabled:opacity-40"
+                    >
+                      <option value="">— none —</option>
+                      {RIVER_OPTIONS.map(([slug, label]) => (
+                        <option key={slug} value={slug}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {previewClip.brand_check_status !== 'approved' && (
+                      <button
+                        onClick={() => setClipStatus(previewClip.id, 'approved')}
+                        disabled={savingClip === previewClip.id}
+                        className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40"
+                      >
+                        <CheckCircle className="w-4 h-4" /> Approve
+                      </button>
+                    )}
+                    {previewClip.brand_check_status !== 'rejected' && (
+                      <button
+                        onClick={() => {
+                          if (confirm('Reject this clip? It will not be posted.')) setClipStatus(previewClip.id, 'rejected');
+                        }}
+                        disabled={savingClip === previewClip.id}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40"
+                      >
+                        <XCircle className="w-4 h-4" /> Reject
+                      </button>
+                    )}
+                    <button
+                      onClick={() => triggerBrandCheck(previewClip.id)}
+                      className="flex items-center gap-2 px-3 py-2 bg-neutral-700 text-white rounded-lg text-sm font-medium hover:bg-neutral-600 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" /> Re-run brand check
+                    </button>
+                  </div>
+                  {previewClip.used_in_posts?.length > 0 && (
+                    <p className="text-xs text-neutral-500">
+                      Used in {previewClip.used_in_posts.length} post{previewClip.used_in_posts.length !== 1 ? 's' : ''}.
+                    </p>
+                  )}
+                </div>
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-2">

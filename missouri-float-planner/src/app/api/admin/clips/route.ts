@@ -38,3 +38,50 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ clips: data, total: count });
 }
+
+const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'review', 'failed'];
+
+// PATCH — manual management of a clip: override the brand-check verdict
+// (approve/reject), fix a wrong/null river, or edit metadata. Body: { id, ... }.
+// updated_at is maintained by the DB trigger.
+export async function PATCH(request: NextRequest) {
+  const authError = requireAdminAuth(request);
+  if (authError) return authError;
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.id !== 'string') {
+    return NextResponse.json({ error: 'id is required' }, { status: 400 });
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (body.brand_check_status !== undefined) {
+    if (!ALLOWED_STATUSES.includes(body.brand_check_status)) {
+      return NextResponse.json(
+        { error: `brand_check_status must be one of ${ALLOWED_STATUSES.join(', ')}` },
+        { status: 400 },
+      );
+    }
+    updates.brand_check_status = body.brand_check_status;
+  }
+  if (body.river_slug !== undefined) updates.river_slug = body.river_slug || null;
+  if (body.content_type !== undefined) updates.content_type = body.content_type || null;
+  if (body.tone !== undefined) updates.tone = body.tone || null;
+  if (Array.isArray(body.content_tags)) updates.content_tags = body.content_tags;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('clip_library')
+    .update(updates)
+    .eq('id', body.id)
+    .select('*')
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ clip: data });
+}
