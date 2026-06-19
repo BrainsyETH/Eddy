@@ -10,7 +10,8 @@ import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import { EDDY_IMAGES } from '@/constants';
-import type { NearbyServiceDirectory, ServiceOffering, NearbyServiceDirectoryType } from '@/types/api';
+import { OFFERING_LABELS } from '@/lib/services/offerings';
+import type { NearbyServiceDirectory, NearbyServiceDirectoryType } from '@/types/api';
 
 interface NearbyServicesProps {
   riverSlug: string;
@@ -21,35 +22,6 @@ const TYPE_LABELS: Record<NearbyServiceDirectoryType, string> = {
   outfitter: 'Outfitter',
   campground: 'Campground',
   cabin_lodge: 'Cabin & Lodge',
-};
-
-const OFFERING_LABELS: Record<ServiceOffering, string> = {
-  canoe_rental: 'Canoes',
-  kayak_rental: 'Kayaks',
-  raft_rental: 'Rafts',
-  tube_rental: 'Tubes',
-  jon_boat_rental: 'Jon Boats',
-  shuttle: 'Shuttle',
-  camping_primitive: 'Tent Camping',
-  camping_rv: 'RV Sites',
-  cabins: 'Cabins',
-  lodge_rooms: 'Lodge Rooms',
-  general_store: 'General Store',
-  food_service: 'Food',
-  showers: 'Showers',
-  fishing_supplies: 'Fishing',
-  horseback_riding: 'Horseback',
-  swimming_pool: 'Pool',
-  wifi: 'Wi-Fi',
-  potable_water: 'Water',
-  fire_rings: 'Fire Rings',
-  picnic_tables: 'Picnic Tables',
-  boat_ramp: 'Boat Ramp',
-  dump_station: 'Dump Station',
-  flush_toilets: 'Flush Toilets',
-  vault_toilets: 'Vault Toilets',
-  laundry: 'Laundry',
-  playground: 'Playground',
 };
 
 function formatPhone(phone: string): string {
