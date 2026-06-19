@@ -1,17 +1,17 @@
 'use client';
 
 // src/app/embed/page.tsx
-// API docs-style guide for adding Eddy river widgets to external websites.
-// Left sidebar navigation with structured widget documentation.
+// "Workbench" layout for adding Eddy river widgets to external websites.
+// Top bar + left rail (Configure + widget picker) + right workspace with
+// Preview / Code / Install tabs. One widget is configured and shown at a time.
+// The Docs / API top-bar links open a Reference view (full params + API docs).
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Copy, Check, ChevronDown, X, Search } from 'lucide-react';
-import SiteFooter from '@/components/ui/SiteFooter';
+import { Copy, Check, ChevronDown, X, Search, ArrowLeft } from 'lucide-react';
 import FeedbackModal from '@/components/ui/FeedbackModal';
-
-const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
+import { EDDY_IMAGES } from '@/constants';
 
 const RIVER_OPTIONS = [
   { slug: 'meramec', name: 'Meramec River' },
@@ -24,31 +24,173 @@ const RIVER_OPTIONS = [
   { slug: 'courtois', name: 'Courtois Creek' },
 ];
 
-// Navigation structure
-const NAV_SECTIONS = [
+const SERVICE_CATEGORIES = [
+  { value: 'all', label: 'All Services' },
+  { value: 'outfitter', label: 'Outfitters' },
+  { value: 'campground', label: 'Campgrounds' },
+  { value: 'cabin_lodge', label: 'Cabins & Lodges' },
+] as const;
+
+const INSTALL_GUIDES = [
+  { name: 'WordPress', steps: 'Edit a page → add a Custom HTML block → paste the code → Update.' },
+  { name: 'Squarespace', steps: 'Add a block → under "More" choose Code → paste → Save.' },
+  { name: 'Wix', steps: 'Add → Embed Code → Embed HTML → paste → Apply.' },
+  { name: 'Anything else', steps: 'Look for a "Custom HTML" / "Embed Code" option. The iframe works anywhere.' },
+];
+
+type ThemeMode = 'light' | 'dark';
+type ServiceFilter = 'all' | 'outfitter' | 'campground' | 'cabin_lodge';
+type WidgetTab = 'preview' | 'code' | 'install';
+
+interface WidgetCtx {
+  baseUrl: string;
+  selectedRiver: string;
+  selectedRiverName: string;
+  theme: ThemeMode;
+  serviceFilter: ServiceFilter;
+  highlightSlugs: string[];
+  gaugeDays: number;
+  resizeScript: string;
+}
+
+interface WidgetParam {
+  name: string;
+  values: string;
+  note?: string;
+}
+
+interface WidgetDef {
+  key: string;
+  title: string;
+  badge?: string;
+  badgeBg?: string;
+  desc: string;
+  previewHeight: number;
+  buildSrc: (c: WidgetCtx) => string;
+  buildCode: (c: WidgetCtx) => string;
+  params: WidgetParam[];
+  hasFilters?: boolean;
+  hasDays?: boolean;
+  isBadge?: boolean;
+}
+
+// Standard responsive iframe snippet (auto-resizes, no hardcoded height).
+function standardIframe(src: string, title: string, resizeScript: string) {
+  return `<iframe
+  src="${src}"
+  data-eddy-embed
+  width="100%"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
+  title="${title}"
+  loading="lazy"
+></iframe>
+${resizeScript}`;
+}
+
+// Fixed-width inline snippet for the compact condition badge.
+function badgeIframe(src: string, title: string, resizeScript: string) {
+  return `<iframe
+  src="${src}"
+  data-eddy-embed
+  width="280"
+  style="border:none; overflow:hidden; display:inline-block; vertical-align:middle;"
+  title="${title}"
+  loading="lazy"
+></iframe>
+${resizeScript}`;
+}
+
+// Services accepts theme + optional type + optional highlight slugs.
+function servicesQuery(c: WidgetCtx) {
+  const p = new URLSearchParams({ theme: c.theme });
+  if (c.serviceFilter !== 'all') p.set('type', c.serviceFilter);
+  if (c.highlightSlugs.length > 0) p.set('highlight', c.highlightSlugs.join(','));
+  return p.toString();
+}
+
+const WIDGETS: WidgetDef[] = [
   {
-    title: 'Getting Started',
-    items: [
-      { id: 'configuration', label: 'Configuration' },
-      { id: 'installation', label: 'Installation' },
+    key: 'current',
+    title: 'Live Conditions',
+    badge: 'REC',
+    badgeBg: '#256574',
+    desc: 'Gauge readings, weather, condition badge and a 14-day trend chart. Updates automatically.',
+    previewHeight: 480,
+    buildSrc: (c) => `${c.baseUrl}/embed/widget/${c.selectedRiver}?theme=${c.theme}`,
+    buildCode: (c) => standardIframe(`${c.baseUrl}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - River Conditions from Eddy`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
     ],
   },
   {
-    title: 'Widgets',
-    items: [
-      { id: 'live-conditions', label: 'Live Conditions' },
-      { id: 'eddy-quote', label: 'Eddy\'s Daily Quote' },
-      { id: 'float-planner', label: 'Float Trip Planner' },
-      { id: 'services-directory', label: 'Services Directory' },
-      { id: 'gauge-report', label: 'Gauge Report' },
-      { id: 'condition-badge', label: 'Condition Badge' },
+    key: 'quote',
+    title: "Eddy's Daily Quote",
+    desc: "Eddy's plain-language read on the river, with a clear float / no-float verdict. Updates throughout the day.",
+    previewHeight: 300,
+    buildSrc: (c) => `${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`,
+    buildCode: (c) => standardIframe(`${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
     ],
   },
   {
-    title: 'Advanced',
-    items: [
-      { id: 'parameters', label: 'Parameters Reference' },
-      { id: 'api', label: 'API Access' },
+    key: 'planner',
+    title: 'Float Trip Planner',
+    badge: 'OUTFITTERS',
+    badgeBg: '#F07052',
+    desc: 'Visitors pick a put-in and take-out and get shuttle distance, float time, conditions, and the outfitters on that stretch. The selected river is pre-selected but visitors can change it.',
+    previewHeight: 420,
+    buildSrc: (c) => `${c.baseUrl}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`,
+    buildCode: (c) => standardIframe(`${c.baseUrl}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, 'Plan Your Float - Eddy', c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'river', values: 'slug', note: 'Pre-select a river (e.g. current, meramec).' },
+      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+    ],
+  },
+  {
+    key: 'services',
+    title: 'Services Directory',
+    badge: 'NEW',
+    badgeBg: '#419959',
+    desc: 'Nearby outfitters, campgrounds (including NPS sites reservable via recreation.gov) and lodging with one-tap click-to-call, website, and reservation links.',
+    previewHeight: 400,
+    hasFilters: true,
+    buildSrc: (c) => `${c.baseUrl}/embed/services/${c.selectedRiver}?${servicesQuery(c)}`,
+    buildCode: (c) => standardIframe(`${c.baseUrl}/embed/services/${c.selectedRiver}?${servicesQuery(c)}`, `${c.selectedRiverName} - Outfitters & Services from Eddy`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'type', values: 'outfitter / campground / cabin_lodge', note: 'Set with the category filter above.' },
+      { name: 'highlight', values: 'slug,slug,...', note: 'Show only specific listings (set above).' },
+      { name: 'partner', values: 'your business name' },
+    ],
+  },
+  {
+    key: 'gauge',
+    title: 'Gauge Report',
+    desc: 'A 7 / 14 / 30-day gauge height chart, current reading, and the "Eddy Says" weekly read. Great for a quick visual sense of conditions over time.',
+    previewHeight: 480,
+    hasDays: true,
+    buildSrc: (c) => `${c.baseUrl}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`,
+    buildCode: (c) => standardIframe(`${c.baseUrl}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`, `${c.selectedRiverName} - Gauge Report from Eddy`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'days', values: '7 / 14 / 30', note: 'Default chart period.' },
+      { name: 'partner', values: 'your business name' },
+    ],
+  },
+  {
+    key: 'badge',
+    title: 'Condition Badge',
+    desc: 'Compact inline status badge with the river name and a live condition dot. Perfect for sidebars, blog posts and footers.',
+    previewHeight: 44,
+    isBadge: true,
+    buildSrc: (c) => `${c.baseUrl}/embed/badge/${c.selectedRiver}?theme=${c.theme}`,
+    buildCode: (c) => badgeIframe(`${c.baseUrl}/embed/badge/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - Condition Badge from Eddy`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
     ],
   },
 ];
@@ -59,21 +201,19 @@ function CopyButton({ text, large = false }: { text: string; large?: boolean }) 
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (large) {
     return (
       <button
         onClick={handleCopy}
-        className={`flex items-center justify-center gap-2 w-full px-4 py-3 font-semibold rounded-xl transition-all text-sm ${
-          copied
-            ? 'bg-green-500 text-white'
-            : 'bg-primary-600 hover:bg-primary-700 text-white'
+        className={`flex items-center justify-center gap-2 w-full px-4 py-3 font-semibold rounded-lg text-sm text-white transition-colors ${
+          copied ? 'bg-support-600' : 'bg-accent-500 hover:bg-accent-600'
         }`}
       >
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-        {copied ? 'Copied to clipboard!' : 'Copy Code to Clipboard'}
+        {copied ? 'Copied to clipboard!' : 'Copy code'}
       </button>
     );
   }
@@ -81,29 +221,31 @@ function CopyButton({ text, large = false }: { text: string; large?: boolean }) 
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-neutral-700 hover:bg-neutral-600 text-neutral-200 transition-colors"
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md text-white transition-colors ${
+        copied ? 'bg-support-600' : 'bg-accent-500 hover:bg-accent-600'
+      }`}
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-      {copied ? 'Copied!' : 'Copy'}
+      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? 'Copied' : 'Copy code'}
     </button>
   );
 }
 
 function CodeBlock({ code, label = 'HTML' }: { code: string; label?: string }) {
   return (
-    <div className="bg-neutral-900 rounded-xl overflow-hidden mb-3 min-w-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700">
-        <span className="text-xs text-neutral-400 font-medium">{label}</span>
+    <div className="rounded-lg overflow-hidden border-2 border-neutral-900 shadow-md min-w-0" style={{ background: '#0F2D35' }}>
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-primary-700 gap-3">
+        <span className="text-xs font-mono text-primary-300 truncate">{label}</span>
         <CopyButton text={code} />
       </div>
-      <pre className="p-4 text-xs text-neutral-300 overflow-x-auto max-w-full">
+      <pre className="m-0 p-4 text-xs leading-relaxed font-mono overflow-x-auto max-w-full" style={{ color: '#D4EAEF', whiteSpace: 'pre' }}>
         <code>{code}</code>
       </pre>
     </div>
   );
 }
 
-function WidgetPreview({ src, height, theme }: { src: string; height?: number; theme: string }) {
+function WidgetPreview({ src, height, theme }: { src: string; height?: number; theme: ThemeMode }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | undefined>(height);
 
@@ -119,25 +261,26 @@ function WidgetPreview({ src, height, theme }: { src: string; height?: number; t
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  // Reset to fallback when src changes so we don't keep stale heights
+  // Reset to fallback when src changes so we don't keep stale heights.
   useEffect(() => {
     setMeasuredHeight(height);
   }, [src, height]);
 
+  const dark = theme === 'dark';
   return (
-    <div className="mb-4">
-      <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
-      <div className={`rounded-xl border-2 p-4 flex justify-center ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-        <div className="w-full" style={{ maxWidth: 540 }}>
-          <iframe
-            ref={ref}
-            src={src}
-            width="100%"
-            height={measuredHeight}
-            style={{ border: 'none', borderRadius: '12px', display: 'block' }}
-            title="Widget preview"
-          />
-        </div>
+    <div
+      className="rounded-xl border-2 border-dashed flex justify-center p-6 md:p-9"
+      style={{ background: dark ? '#0F2D35' : '#EDEBE6', borderColor: dark ? '#2D5660' : '#C2BAAC' }}
+    >
+      <div className="w-full" style={{ maxWidth: 540 }}>
+        <iframe
+          ref={ref}
+          src={src}
+          width="100%"
+          height={measuredHeight}
+          style={{ border: 'none', borderRadius: '12px', display: 'block' }}
+          title="Widget preview"
+        />
       </div>
     </div>
   );
@@ -155,50 +298,22 @@ function ParamRow({ name, values, description }: { name: string; values: string;
   );
 }
 
-// All section IDs for scroll tracking
-const ALL_SECTION_IDS = NAV_SECTIONS.flatMap(s => s.items.map(i => i.id));
-
 export default function EmbedPage() {
   const [selectedRiver, setSelectedRiver] = useState('current');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [activeSection, setActiveSection] = useState('configuration');
-  const [serviceFilter, setServiceFilter] = useState<'all' | 'outfitter' | 'campground' | 'cabin_lodge'>('all');
+  const [theme, setTheme] = useState<ThemeMode>('light');
+  const [activeWidget, setActiveWidget] = useState('current');
+  const [activeTab, setActiveTab] = useState<WidgetTab>('preview');
+  const [showReference, setShowReference] = useState(false);
+  const [gaugeDays, setGaugeDays] = useState(14);
+  const [serviceFilter, setServiceFilter] = useState<ServiceFilter>('all');
   const [highlightSlugs, setHighlightSlugs] = useState<string[]>([]);
   const [servicesList, setServicesList] = useState<{ slug: string; name: string; type: string }[]>([]);
   const [highlightSearch, setHighlightSearch] = useState('');
   const [highlightDropdownOpen, setHighlightDropdownOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const highlightRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // Scroll-spy: track which section is in view
-  const setupObserver = useCallback(() => {
-    observerRef.current?.disconnect();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Find the topmost visible section
-        const visible = entries
-          .filter(e => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          setActiveSection(visible[0].target.id);
-        }
-      },
-      { rootMargin: '-80px 0px -60% 0px', threshold: 0 }
-    );
-    ALL_SECTION_IDS.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-    observerRef.current = observer;
-  }, []);
-
-  useEffect(() => {
-    setupObserver();
-    return () => observerRef.current?.disconnect();
-  }, [setupObserver]);
-
-  // Fetch services list for the selected river
+  // Fetch the services list for the selected river (powers the highlight picker).
   useEffect(() => {
     fetch(`/api/rivers/${selectedRiver}/services`)
       .then(r => r.ok ? r.json() : null)
@@ -215,7 +330,7 @@ export default function EmbedPage() {
     setHighlightSlugs([]);
   }, [selectedRiver]);
 
-  // Close highlight dropdown on outside click
+  // Close the highlight dropdown on outside click.
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (highlightRef.current && !highlightRef.current.contains(e.target as Node)) {
@@ -233,605 +348,473 @@ export default function EmbedPage() {
   // host page; matches iframes by event.source so multiple Eddy widgets coexist.
   const resizeScript = `<script>(function(){if(window.__eddyEmbedResizer)return;window.__eddyEmbedResizer=1;window.addEventListener("message",function(e){var d=e&&e.data;if(!d||d.type!=="eddy-embed:resize"||typeof d.height!=="number")return;var f=document.querySelectorAll("iframe[data-eddy-embed]");for(var i=0;i<f.length;i++){if(f[i].contentWindow===e.source){f[i].style.height=d.height+"px";break;}}});})();</script>`;
 
-  // Embed codes — heights auto-adjust via postMessage, so no hardcoded height attr.
-  const widgetCode = `<iframe
-  src="${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}"
-  data-eddy-embed
-  width="100%"
-  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
-  title="${selectedRiverName} - River Conditions from Eddy"
-  loading="lazy"
-></iframe>
-${resizeScript}`;
+  const ctx: WidgetCtx = {
+    baseUrl, selectedRiver, selectedRiverName, theme,
+    serviceFilter, highlightSlugs, gaugeDays, resizeScript,
+  };
 
-  const eddyQuoteCode = `<iframe
-  src="${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}"
-  data-eddy-embed
-  width="100%"
-  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
-  title="${selectedRiverName} - Eddy's Take"
-  loading="lazy"
-></iframe>
-${resizeScript}`;
+  const active = WIDGETS.find(w => w.key === activeWidget) ?? WIDGETS[0];
+  const themeLabel = theme === 'dark' ? 'Dark' : 'Light';
+  const previewRoute = active.buildSrc(ctx).replace(baseUrl, '');
 
-  const plannerCode = `<iframe
-  src="${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}"
-  data-eddy-embed
-  width="100%"
-  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
-  title="Plan Your Float - Eddy"
-  loading="lazy"
-></iframe>
-${resizeScript}`;
+  const selectWidget = (key: string) => {
+    setActiveWidget(key);
+    setActiveTab('preview');
+    setShowReference(false);
+  };
 
-  const servicesParams = new URLSearchParams({ theme });
-  if (serviceFilter !== 'all') servicesParams.set('type', serviceFilter);
-  if (highlightSlugs.length > 0) servicesParams.set('highlight', highlightSlugs.join(','));
-  const servicesQueryString = servicesParams.toString();
+  const openReference = (anchor: 'params' | 'api') => {
+    setShowReference(true);
+    setTimeout(() => {
+      document.getElementById(`ref-${anchor}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
-  const servicesCode = `<iframe
-  src="${baseUrl}/embed/services/${selectedRiver}?${servicesQueryString}"
-  data-eddy-embed
-  width="100%"
-  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
-  title="${selectedRiverName} - Outfitters & Services from Eddy"
-  loading="lazy"
-></iframe>
-${resizeScript}`;
+  // Per-widget interactive controls, rendered atop the Preview and Code tabs so
+  // the preview and the generated snippet stay in sync from one piece of state.
+  const renderWidgetOptions = () => {
+    if (active.hasDays) {
+      return (
+        <div className="mb-5">
+          <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-2">Default chart period</label>
+          <div className="inline-flex rounded-md border-2 border-neutral-200 overflow-hidden">
+            {[7, 14, 30].map(d => (
+              <button
+                key={d}
+                onClick={() => setGaugeDays(d)}
+                className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                  gaugeDays === d ? 'bg-primary-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
 
-  const gaugeReportCode = `<iframe
-  src="${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}"
-  data-eddy-embed
-  width="100%"
-  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
-  title="${selectedRiverName} - Gauge Report from Eddy"
-  loading="lazy"
-></iframe>
-${resizeScript}`;
+    if (active.hasFilters) {
+      const visibleServices = servicesList
+        .filter(s => !highlightSlugs.includes(s.slug))
+        .filter(s =>
+          !highlightSearch ||
+          s.name.toLowerCase().includes(highlightSearch.toLowerCase()) ||
+          s.slug.toLowerCase().includes(highlightSearch.toLowerCase())
+        );
 
-  const badgeCode = `<iframe
-  src="${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}"
-  data-eddy-embed
-  width="280"
-  style="border:none; overflow:hidden; display:inline-block; vertical-align:middle;"
-  title="${selectedRiverName} - Condition Badge from Eddy"
-  loading="lazy"
-></iframe>
-${resizeScript}`;
+      return (
+        <div className="mb-5 bg-white border-2 border-neutral-200 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-neutral-800 mb-3">Filter by category</h4>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {SERVICE_CATEGORIES.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setServiceFilter(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
+                  serviceFilter === opt.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-600 mb-1">Show specific listings (optional)</label>
+            {highlightSlugs.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {highlightSlugs.map(slug => {
+                  const svc = servicesList.find(s => s.slug === slug);
+                  return (
+                    <span
+                      key={slug}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 border border-primary-200 text-primary-700 text-xs font-medium rounded-md"
+                    >
+                      {svc?.name || slug}
+                      <button
+                        onClick={() => setHighlightSlugs(prev => prev.filter(s => s !== slug))}
+                        className="hover:text-primary-900 transition-colors"
+                        aria-label={`Remove ${svc?.name || slug}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <div className="relative" ref={highlightRef}>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+                <input
+                  type="text"
+                  value={highlightSearch}
+                  onChange={e => { setHighlightSearch(e.target.value); setHighlightDropdownOpen(true); }}
+                  onFocus={() => setHighlightDropdownOpen(true)}
+                  placeholder="Search listings..."
+                  className="w-full max-w-xs pl-8 pr-3 py-1.5 border border-neutral-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+                />
+              </div>
+              {highlightDropdownOpen && (
+                <div className="absolute z-10 mt-1 w-full max-w-xs bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {visibleServices.map(s => (
+                    <button
+                      key={s.slug}
+                      onClick={() => {
+                        setHighlightSlugs(prev => [...prev, s.slug]);
+                        setHighlightSearch('');
+                        setHighlightDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary-50 transition-colors flex items-center justify-between"
+                    >
+                      <span className="truncate">{s.name}</span>
+                      <span className="text-[10px] text-neutral-400 ml-2 flex-shrink-0">
+                        {s.type === 'outfitter' ? 'Outfitter' : s.type === 'campground' ? 'Campground' : 'Cabin & Lodge'}
+                      </span>
+                    </button>
+                  ))}
+                  {visibleServices.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-neutral-400">No matching listings</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-neutral-400 mt-1">Only selected listings will be shown in the widget.</p>
+          </div>
+        </div>
+      );
+    }
 
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return null;
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 overflow-x-hidden">
-      {/* Header */}
-      <section
-        className="relative py-10 md:py-14 text-white"
-        style={{ background: 'linear-gradient(to bottom right, #0F2D35, #163F4A, #0F2D35)' }}
+    <div className="h-screen flex flex-col bg-neutral-50 overflow-x-hidden" style={{ color: '#2D2A24' }}>
+      {/* ===================== TOP BAR ===================== */}
+      <header
+        className="flex items-center gap-3.5 h-[60px] px-4 md:px-7 border-b-2 border-neutral-900 flex-none"
+        style={{ background: '#163F4A' }}
       >
-        <div className="max-w-6xl mx-auto px-4 flex items-center gap-6">
-          <Image
-            src={EDDY_CANOE_IMAGE}
-            alt="Eddy the Otter"
-            width={200}
-            height={200}
-            className="h-20 md:h-28 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)] hidden md:block"
-            priority
-          />
-          <div>
-            <h1
-              className="text-3xl md:text-4xl font-bold mb-2"
-              style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
-            >
-              Embed Widgets
-            </h1>
-            <p className="text-base text-white/80 max-w-xl">
-              Add live river conditions, trip planning, and outfitter directories
-              to your website. Free for outfitters, campgrounds, and tourism sites.
-            </p>
-          </div>
+        <Link href="/" className="flex items-center gap-3">
+          <Image src={EDDY_IMAGES.favicon} alt="Eddy" width={32} height={32} className="w-8 h-8 rounded-md" />
+          <span className="font-bold text-xl text-white" style={{ fontFamily: 'var(--font-display)' }}>Eddy</span>
+        </Link>
+        <span
+          className="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider text-primary-300 border-l border-primary-600 pl-3.5"
+          style={{ fontFamily: 'var(--font-mono)' }}
+        >
+          Embed widgets
+        </span>
+        <div className="ml-auto flex items-center gap-3 md:gap-5">
+          <button onClick={() => openReference('params')} className="hidden sm:inline text-sm font-medium text-primary-200 hover:text-white transition-colors">Docs</button>
+          <button onClick={() => openReference('api')} className="hidden sm:inline text-sm font-medium text-primary-200 hover:text-white transition-colors">API</button>
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="inline-flex items-center gap-2 text-white text-sm font-semibold px-4 py-2 rounded-md"
+            style={{ background: '#F07052', boxShadow: '2px 2px 0 #A33122' }}
+          >
+            Partner with Eddy
+          </button>
         </div>
-      </section>
+      </header>
 
-      {/* Main layout: sidebar + content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* Left sidebar nav */}
-          <nav className="hidden lg:block w-56 flex-shrink-0 sticky top-[4.5rem] self-start max-h-[calc(100vh-5rem)] overflow-y-auto">
-            <div className="space-y-6">
-              {NAV_SECTIONS.map(section => (
-                <div key={section.title}>
-                  <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
-                    {section.title}
-                  </h4>
-                  <ul className="space-y-1">
-                    {section.items.map(item => (
-                      <li key={item.id}>
-                        <button
-                          onClick={() => scrollTo(item.id)}
-                          className={`block w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${
-                            activeSection === item.id
-                              ? 'text-primary-700 bg-primary-50 font-semibold'
-                              : 'text-neutral-600 hover:text-primary-700 hover:bg-primary-50'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+      {/* ===================== BODY ===================== */}
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 lg:h-[calc(100vh-60px)] lg:overflow-hidden">
+
+        {/* =============== LEFT RAIL =============== */}
+        <aside className="w-full lg:w-[336px] lg:flex-none bg-secondary-50 border-b-2 lg:border-b-0 lg:border-r-2 border-neutral-900 p-6 lg:overflow-y-auto flex flex-col">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>1 &middot; Configure</div>
+
+          {/* River */}
+          <label className="block text-[13px] font-bold text-neutral-700 mb-2">River</label>
+          <div className="relative mb-5">
+            <select
+              value={selectedRiver}
+              onChange={e => setSelectedRiver(e.target.value)}
+              className="w-full appearance-none text-sm font-semibold text-primary-800 bg-white rounded-md border-2 border-primary-700 pl-3.5 pr-9 py-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-400"
+              style={{ boxShadow: '2px 2px 0 #C2BAAC' }}
+            >
+              {RIVER_OPTIONS.map(r => (
+                <option key={r.slug} value={r.slug}>{r.name}</option>
               ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 pointer-events-none" />
+          </div>
 
-              {/* Outfitter CTA in sidebar */}
-              <div className="border-t border-neutral-200 pt-4">
-                <p className="text-xs text-neutral-500 mb-2">Running an outfitter?</p>
+          {/* Theme */}
+          <label className="block text-[13px] font-bold text-neutral-700 mb-2">Theme</label>
+          <div className="flex rounded-md overflow-hidden border-2 border-primary-700 mb-7" style={{ boxShadow: '2px 2px 0 #C2BAAC' }}>
+            <button
+              onClick={() => setTheme('light')}
+              className={`flex-1 text-sm font-semibold py-2.5 transition-colors ${theme === 'light' ? 'bg-primary-800 text-white' : 'bg-white text-neutral-600'}`}
+            >
+              Light
+            </button>
+            <button
+              onClick={() => setTheme('dark')}
+              className={`flex-1 text-sm font-semibold py-2.5 transition-colors ${theme === 'dark' ? 'bg-primary-800 text-white' : 'bg-white text-neutral-600'}`}
+            >
+              Dark
+            </button>
+          </div>
+
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-3.5" style={{ fontFamily: 'var(--font-mono)' }}>2 &middot; Pick a widget</div>
+
+          <div className="flex flex-col gap-2.5">
+            {WIDGETS.map(w => {
+              const isOn = w.key === activeWidget && !showReference;
+              return (
                 <button
-                  onClick={() => setFeedbackOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg cursor-pointer"
-                  style={{ backgroundColor: '#F07052' }}
+                  key={w.key}
+                  onClick={() => selectWidget(w.key)}
+                  className="flex items-center gap-2.5 w-full text-left rounded-lg px-3.5 py-3 bg-white transition-all"
+                  style={{
+                    border: `2px solid ${isOn ? '#F07052' : '#DBD5CA'}`,
+                    boxShadow: `3px 3px 0 ${isOn ? '#E5573F' : '#C2BAAC'}`,
+                  }}
                 >
-                  Contact Us
+                  <span className="w-2 h-2 rounded-full flex-none" style={{ background: isOn ? '#4EB86B' : '#C2BAAC' }} />
+                  <span className={`text-sm ${isOn ? 'font-bold text-neutral-900' : 'font-semibold text-neutral-700'}`}>{w.title}</span>
+                  {w.badge && (
+                    <span className="ml-auto text-[9px] font-bold tracking-wide text-white px-1.5 py-0.5 rounded-full" style={{ background: w.badgeBg }}>{w.badge}</span>
+                  )}
                 </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-auto pt-6">
+            <div className="bg-primary-50 border-2 border-primary-200 rounded-lg px-3.5 py-3">
+              <div className="text-xs font-bold text-primary-700 mb-1">All widgets are free</div>
+              <div className="text-xs text-primary-600 leading-relaxed">
+                No account, no API key. Outfitters get co-branding via the{' '}
+                <span style={{ fontFamily: 'var(--font-mono)' }}>partner</span> param.
               </div>
             </div>
-          </nav>
+          </div>
+        </aside>
 
-          {/* Main content */}
-          <main className="flex-1 min-w-0 space-y-12">
+        {/* =============== RIGHT WORKSPACE =============== */}
+        <main className="flex-1 min-w-0 flex flex-col bg-neutral-50 lg:overflow-hidden">
 
-            {/* ===== CONFIGURATION ===== */}
-            <section id="configuration">
-              <h2 className="text-2xl font-bold text-neutral-900 mb-4">Configuration</h2>
-              <p className="text-sm text-neutral-600 mb-6">
-                Select your river and theme. All widget codes on this page will update automatically.
-              </p>
+          {showReference ? (
+            /* ============ REFERENCE VIEW (Docs / API) ============ */
+            <div className="flex-1 lg:overflow-y-auto px-5 md:px-9 py-7">
+              <div className="max-w-3xl">
+                <button
+                  onClick={() => setShowReference(false)}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 hover:text-primary-800 mb-6"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back to widgets
+                </button>
 
-              <div className="bg-white border border-neutral-200 rounded-xl p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-neutral-700 mb-2">River</label>
-                    <div className="relative">
-                      <select
-                        value={selectedRiver}
-                        onChange={(e) => setSelectedRiver(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-neutral-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
-                      >
-                        {RIVER_OPTIONS.map((r) => (
-                          <option key={r.slug} value={r.slug}>{r.name}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                {/* Parameters Reference */}
+                <section id="ref-params" className="scroll-mt-6 mb-10">
+                  <h2 className="text-2xl font-bold text-primary-800 mb-1" style={{ fontFamily: 'var(--font-display)' }}>Parameters Reference</h2>
+                  <p className="text-sm text-neutral-600 mb-4">
+                    All widgets accept URL query parameters to customize behavior. Add these to the{' '}
+                    <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">src</code> URL in the iframe.
+                  </p>
+                  <div className="bg-white border-2 border-neutral-200 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-neutral-100 bg-neutral-50">
+                      <h4 className="text-sm font-semibold text-neutral-800">All Widgets</h4>
+                    </div>
+                    <div className="px-4 py-2">
+                      <table className="w-full">
+                        <tbody>
+                          <ParamRow name="theme" values="light | dark" description="Widget color scheme. Defaults to light." />
+                          <ParamRow name="partner" values="string" description='Shows "via YourBusiness" in the widget footer.' />
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                      <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner</h4>
+                    </div>
+                    <div className="px-4 py-2">
+                      <table className="w-full">
+                        <tbody>
+                          <ParamRow name="river" values="slug" description="Pre-select a river (e.g. current, meramec)." />
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                      <h4 className="text-sm font-semibold text-neutral-800">Gauge Report</h4>
+                    </div>
+                    <div className="px-4 py-2">
+                      <table className="w-full">
+                        <tbody>
+                          <ParamRow name="days" values="7 | 14 | 30" description="Default chart period shown on load." />
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                      <h4 className="text-sm font-semibold text-neutral-800">Services Directory</h4>
+                    </div>
+                    <div className="px-4 py-2">
+                      <table className="w-full">
+                        <tbody>
+                          <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type." />
+                          <ParamRow name="highlight" values="slug,slug,..." description="Show only specific listings. Comma-separated slugs." />
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-neutral-700 mb-2">Theme</label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setTheme('light')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all flex-1 ${
-                          theme === 'light'
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                        }`}
-                      >
-                        <div className="w-3.5 h-3.5 rounded-full bg-white border border-neutral-300" />
-                        Light
-                      </button>
-                      <button
-                        onClick={() => setTheme('dark')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all flex-1 ${
-                          theme === 'dark'
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                        }`}
-                      >
-                        <div className="w-3.5 h-3.5 rounded-full bg-neutral-800 border border-neutral-600" />
-                        Dark
-                      </button>
-                    </div>
+                </section>
+
+                {/* API Access */}
+                <section id="ref-api" className="scroll-mt-6">
+                  <h2 className="text-2xl font-bold text-primary-800 mb-1" style={{ fontFamily: 'var(--font-display)' }}>API Access</h2>
+                  <p className="text-sm text-neutral-600 mb-4">Fetch data directly and build your own display.</p>
+                  <div className="space-y-3">
+                    <CodeBlock code={`GET ${baseUrl}/api/rivers`} label="Rivers — conditions, lengths, access point counts" />
+                    <CodeBlock code={`GET ${baseUrl}/api/rivers/{slug}/services`} label="Services — outfitters, campgrounds, lodging for a river" />
+                    <CodeBlock code={`GET ${baseUrl}/api/gauges`} label="Gauges — all gauge stations with latest readings and thresholds" />
                   </div>
+                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <h4 className="text-sm font-semibold text-amber-800 mb-1">Rate Limits</h4>
+                    <p className="text-xs text-amber-700">
+                      API endpoints are rate limited per IP. The rivers, gauges and services endpoints allow
+                      60 requests per minute; the plan endpoint allows 30. Exceeding the limit returns a{' '}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded">429</code> response with a{' '}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded">Retry-After</code> header.
+                      Embed widgets handle caching automatically.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* workspace header + tabs */}
+              <div className="bg-white border-b-2 border-neutral-200 px-5 md:px-9 pt-6 flex-none">
+                <div className="flex items-center gap-3 mb-1.5">
+                  <h1 className="text-2xl md:text-[28px] font-semibold text-primary-800 m-0" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>{active.title}</h1>
+                  {active.badge && (
+                    <span className="text-[10px] font-bold tracking-wide text-white px-2 py-1 rounded-full" style={{ background: active.badgeBg }}>{active.badge}</span>
+                  )}
                 </div>
-              </div>
-            </section>
-
-            {/* ===== INSTALLATION ===== */}
-            <section id="installation">
-              <h2 className="text-2xl font-bold text-neutral-900 mb-4">Installation</h2>
-              <p className="text-sm text-neutral-600 mb-4">
-                Copy any widget code below and paste it into your website. All widgets are free and update automatically.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[
-                  { name: 'WordPress', steps: 'Add a Custom HTML block, paste the code, and publish.' },
-                  { name: 'Squarespace', steps: 'Add a Code block (under "More"), paste, and publish.' },
-                  { name: 'Wix', steps: 'Add Elements \u2192 Embed Code \u2192 Embed HTML, paste the code.' },
-                  { name: 'Other', steps: 'Look for "Custom HTML" or "Embed Code" in your page editor.' },
-                ].map(platform => (
-                  <div key={platform.name} className="bg-white border border-neutral-200 rounded-xl p-4">
-                    <h3 className="font-semibold text-neutral-900 text-sm mb-1">{platform.name}</h3>
-                    <p className="text-xs text-neutral-500">{platform.steps}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== LIVE CONDITIONS ===== */}
-            <section id="live-conditions">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-neutral-900">Live Conditions Widget</h2>
-                <span className="px-2 py-0.5 bg-primary-600 text-white text-xs font-bold rounded-full">Recommended</span>
-              </div>
-              <p className="text-sm text-neutral-600 mb-4">
-                Gauge readings, weather, condition badges, and trend arrows. Updates automatically.
-              </p>
-
-              <WidgetPreview
-                src={`${baseUrl}/embed/widget/${selectedRiver}?theme=${theme}`}
-                height={480}
-                theme={theme}
-              />
-              <CodeBlock code={widgetCode} />
-              <CopyButton text={widgetCode} large />
-
-              <p className="text-xs text-neutral-500 mt-3">
-                Includes a 14-day trend chart for the primary gauge. The widget auto-resizes
-                to its content via the embed snippet&apos;s small resize listener &mdash;
-                no need to set <code className="bg-neutral-100 px-1 py-0.5 rounded">height</code>.
-                Add <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;partner=YourBusiness</code> for branding.
-              </p>
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== EDDY QUOTE ===== */}
-            <section id="eddy-quote">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-neutral-900">Eddy&apos;s Daily Quote</h2>
-              </div>
-              <p className="text-sm text-neutral-600 mb-4">
-                AI-generated condition summary with a clear float/no-float recommendation.
-                Updates throughout the day.
-              </p>
-
-              <WidgetPreview
-                src={`${baseUrl}/embed/eddy-quote/${selectedRiver}?theme=${theme}`}
-                height={300}
-                theme={theme}
-              />
-              <CodeBlock code={eddyQuoteCode} />
-              <CopyButton text={eddyQuoteCode} large />
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== FLOAT PLANNER ===== */}
-            <section id="float-planner">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-neutral-900">Float Trip Planner</h2>
-                <span className="px-2 py-0.5 text-white text-xs font-bold rounded-full" style={{ backgroundColor: '#F07052' }}>Best for Outfitters</span>
-              </div>
-              <p className="text-sm text-neutral-600 mb-4">
-                Visitors pick a river, put-in, and take-out. Shows distance, estimated float time,
-                conditions, and nearby outfitters with contact info.
-                The shuttle route between access points is shown on the full trip details page.
-              </p>
-
-              <WidgetPreview
-                src={`${baseUrl}/embed/planner?river=${selectedRiver}&theme=${theme}`}
-                height={420}
-                theme={theme}
-              />
-              <CodeBlock code={plannerCode} />
-              <CopyButton text={plannerCode} large />
-
-              <p className="text-xs text-neutral-500 mt-3">
-                Add <code className="bg-neutral-100 px-1 py-0.5 rounded">&amp;partner=YourBusiness</code> for
-                branding. The selected river is pre-selected but visitors can change it.
-              </p>
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== SERVICES DIRECTORY ===== */}
-            <section id="services-directory">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-neutral-900">Services Directory</h2>
-                <span className="px-2 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-full">New</span>
-              </div>
-              <p className="text-sm text-neutral-600 mb-4">
-                Outfitters, campgrounds (including NPS primitive campgrounds reservable through recreation.gov),
-                and lodging with click-to-call phone numbers, website links, reservation links, and Google Maps.
-              </p>
-
-              {/* Filter controls */}
-              <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-                <h4 className="text-sm font-semibold text-neutral-800 mb-3">Filter by Category</h4>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {([
-                    { value: 'all', label: 'All Services' },
-                    { value: 'outfitter', label: 'Outfitters' },
-                    { value: 'campground', label: 'Campgrounds' },
-                    { value: 'cabin_lodge', label: 'Cabins & Lodges' },
-                  ] as const).map(opt => (
+                <p className="text-[15px] text-neutral-600 leading-relaxed max-w-2xl mb-4">{active.desc}</p>
+                <div className="flex gap-1">
+                  {(['preview', 'code', 'install'] as WidgetTab[]).map(t => (
                     <button
-                      key={opt.value}
-                      onClick={() => setServiceFilter(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                        serviceFilter === opt.value
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
-                          : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                      key={t}
+                      onClick={() => setActiveTab(t)}
+                      className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-0.5 transition-colors capitalize ${
+                        activeTab === t ? 'text-primary-800 border-accent-500' : 'text-neutral-500 border-transparent hover:text-primary-700'
                       }`}
                     >
-                      {opt.label}
+                      {t}
                     </button>
                   ))}
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-600 mb-1">
-                    Show specific listings (optional)
-                  </label>
-                  {/* Selected chips */}
-                  {highlightSlugs.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {highlightSlugs.map(slug => {
-                        const svc = servicesList.find(s => s.slug === slug);
-                        return (
-                          <span
-                            key={slug}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 border border-primary-200 text-primary-700 text-xs font-medium rounded-md"
-                          >
-                            {svc?.name || slug}
-                            <button
-                              onClick={() => setHighlightSlugs(prev => prev.filter(s => s !== slug))}
-                              className="hover:text-primary-900 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        );
-                      })}
+              </div>
+
+              {/* workspace body */}
+              <div className="flex-1 lg:overflow-y-auto px-5 md:px-9 py-7">
+
+                {/* ============ PREVIEW TAB ============ */}
+                {activeTab === 'preview' && (
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-3.5">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500" style={{ fontFamily: 'var(--font-mono)' }}>Live preview &middot; {themeLabel}</div>
+                      <div className="text-xs text-neutral-400 truncate" style={{ fontFamily: 'var(--font-mono)' }}>{previewRoute}</div>
                     </div>
-                  )}
-                  {/* Searchable dropdown */}
-                  <div className="relative" ref={highlightRef}>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
-                      <input
-                        type="text"
-                        value={highlightSearch}
-                        onChange={e => { setHighlightSearch(e.target.value); setHighlightDropdownOpen(true); }}
-                        onFocus={() => setHighlightDropdownOpen(true)}
-                        placeholder="Search listings..."
-                        className="w-full max-w-xs pl-8 pr-3 py-1.5 border border-neutral-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
-                      />
-                    </div>
-                    {highlightDropdownOpen && (
-                      <div className="absolute z-10 mt-1 w-full max-w-xs bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {servicesList
-                          .filter(s => !highlightSlugs.includes(s.slug))
-                          .filter(s =>
-                            !highlightSearch ||
-                            s.name.toLowerCase().includes(highlightSearch.toLowerCase()) ||
-                            s.slug.toLowerCase().includes(highlightSearch.toLowerCase())
-                          )
-                          .map(s => (
-                            <button
-                              key={s.slug}
-                              onClick={() => {
-                                setHighlightSlugs(prev => [...prev, s.slug]);
-                                setHighlightSearch('');
-                                setHighlightDropdownOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary-50 transition-colors flex items-center justify-between"
-                            >
-                              <span className="truncate">{s.name}</span>
-                              <span className="text-[10px] text-neutral-400 ml-2 flex-shrink-0">{s.type === 'outfitter' ? 'Outfitter' : s.type === 'campground' ? 'Campground' : 'Cabin & Lodge'}</span>
-                            </button>
-                          ))}
-                        {servicesList.filter(s => !highlightSlugs.includes(s.slug)).filter(s => !highlightSearch || s.name.toLowerCase().includes(highlightSearch.toLowerCase()) || s.slug.toLowerCase().includes(highlightSearch.toLowerCase())).length === 0 && (
-                          <div className="px-3 py-2 text-xs text-neutral-400">No matching listings</div>
-                        )}
+                    {renderWidgetOptions()}
+                    {active.isBadge ? (
+                      <div
+                        className="rounded-xl border-2 border-dashed flex justify-center p-9"
+                        style={{ background: theme === 'dark' ? '#0F2D35' : '#EDEBE6', borderColor: theme === 'dark' ? '#2D5660' : '#C2BAAC' }}
+                      >
+                        <iframe
+                          src={active.buildSrc(ctx)}
+                          width="280"
+                          height="44"
+                          style={{ border: 'none', overflow: 'hidden' }}
+                          title="Badge preview"
+                        />
                       </div>
+                    ) : (
+                      <WidgetPreview src={active.buildSrc(ctx)} height={active.previewHeight} theme={theme} />
                     )}
+                    <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
+                      Placeholder preview — the production widget renders live USGS gauge data for the selected river and auto-resizes to its content.
+                    </p>
                   </div>
-                  <p className="text-xs text-neutral-400 mt-1">Only selected listings will be shown in the widget.</p>
-                </div>
-              </div>
+                )}
 
-              <WidgetPreview
-                src={`${baseUrl}/embed/services/${selectedRiver}?${servicesQueryString}`}
-                height={400}
-                theme={theme}
-              />
-              <CodeBlock code={servicesCode} />
-              <CopyButton text={servicesCode} large />
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== GAUGE REPORT ===== */}
-            <section id="gauge-report">
-              <h2 className="text-xl font-bold text-neutral-900 mb-1">Gauge Report</h2>
-              <p className="text-sm text-neutral-600 mb-4">
-                Shows a 7/14/30-day gauge height chart, current reading, and the AI-powered
-                &ldquo;Eddy Says&rdquo; condition report. Great for giving visitors a quick
-                visual sense of river conditions over time.
-              </p>
-
-              <WidgetPreview
-                src={`${baseUrl}/embed/gauge-report/${selectedRiver}?theme=${theme}`}
-                height={480}
-                theme={theme}
-              />
-
-              <CodeBlock code={gaugeReportCode} />
-              <CopyButton text={gaugeReportCode} large />
-
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold text-neutral-700 mb-2">Parameters</h4>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="bg-neutral-50 rounded-lg px-3 py-2">
-                    <code className="font-mono text-primary-600">theme</code>
-                    <p className="text-neutral-500 mt-0.5">light / dark</p>
+                {/* ============ CODE TAB ============ */}
+                {activeTab === 'code' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 max-w-5xl items-start">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-3" style={{ fontFamily: 'var(--font-mono)' }}>{'Copy & paste this'}</div>
+                      {renderWidgetOptions()}
+                      <CodeBlock code={active.buildCode(ctx)} label={`HTML · ${active.key} · ${themeLabel}`} />
+                      <div className="mt-3">
+                        <CopyButton text={active.buildCode(ctx)} large />
+                      </div>
+                      <div className="mt-3.5 bg-primary-50 border-2 border-primary-200 rounded-lg px-4 py-3 text-[13px] text-primary-700 leading-relaxed">
+                        The widget <strong>auto-resizes</strong> to its content — no need to set a{' '}
+                        <span style={{ fontFamily: 'var(--font-mono)' }}>height</span>. The included snippet handles it.
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-neutral-700 mb-3">Optional parameters</div>
+                      <div className="flex flex-col gap-2.5">
+                        {active.params.map(p => (
+                          <div key={p.name} className="bg-white border-2 border-neutral-200 rounded-md px-3 py-2.5">
+                            <code className="font-mono text-[13px] font-semibold text-primary-600">{p.name}</code>
+                            <span className="text-xs text-neutral-500 ml-1.5">{p.values}</span>
+                            {p.note && <div className="text-[11px] text-neutral-400 mt-1">{p.note}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-neutral-50 rounded-lg px-3 py-2">
-                    <code className="font-mono text-primary-600">days</code>
-                    <p className="text-neutral-500 mt-0.5">7 / 14 / 30 (default chart period)</p>
+                )}
+
+                {/* ============ INSTALL TAB ============ */}
+                {activeTab === 'install' && (
+                  <div className="max-w-4xl">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>Where do I paste it?</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {INSTALL_GUIDES.map(g => (
+                        <div key={g.name} className="bg-white border-2 border-neutral-200 rounded-lg p-4 md:p-5" style={{ boxShadow: '2px 2px 0 #C2BAAC' }}>
+                          <div className="text-[15px] font-bold text-neutral-900 mb-2">{g.name}</div>
+                          <div className="text-[13px] text-neutral-600 leading-relaxed">{g.steps}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* outfitter CTA */}
+                    <div
+                      className="mt-7 rounded-xl border-2 border-neutral-900 p-6 md:p-7 flex flex-col sm:flex-row items-center gap-5"
+                      style={{ background: 'linear-gradient(135deg,#163F4A,#0F2D35)', boxShadow: '6px 6px 0 #C2BAAC' }}
+                    >
+                      <Image src={EDDY_IMAGES.canoe} alt="Eddy the Otter" width={120} height={120} className="h-20 w-auto flex-none" />
+                      <div className="flex-1 text-center sm:text-left">
+                        <h3 className="text-xl md:text-[22px] font-bold text-white mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>Run an outfitter or campground?</h3>
+                        <p className="text-sm text-white/80 max-w-md leading-relaxed">Get a co-branded planner widget, a directory listing, and priority support — free for local businesses.</p>
+                      </div>
+                      <button
+                        onClick={() => setFeedbackOpen(true)}
+                        className="flex-none inline-flex items-center gap-2 text-white text-[15px] font-semibold px-5 py-3 rounded-lg"
+                        style={{ background: '#F07052', boxShadow: '3px 3px 0 #A33122' }}
+                      >
+                        Partner with Eddy &rarr;
+                      </button>
+                    </div>
                   </div>
-                  <div className="bg-neutral-50 rounded-lg px-3 py-2">
-                    <code className="font-mono text-primary-600">partner</code>
-                    <p className="text-neutral-500 mt-0.5">Your business name</p>
-                  </div>
-                </div>
+                )}
+
               </div>
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== CONDITION BADGE ===== */}
-            <section id="condition-badge">
-              <h2 className="text-xl font-bold text-neutral-900 mb-1">Condition Badge</h2>
-              <p className="text-sm text-neutral-600 mb-4">
-                Compact inline badge with river name and live condition dot.
-                Great for sidebars and blog posts.
-              </p>
-
-              <div className="mb-4">
-                <p className="text-xs text-neutral-400 mb-2 uppercase tracking-wide font-semibold">Live Preview</p>
-                <div className={`rounded-xl border-2 p-6 flex justify-center ${theme === 'dark' ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
-                  <iframe
-                    src={`${baseUrl}/embed/badge/${selectedRiver}?theme=${theme}`}
-                    width="280"
-                    height="44"
-                    style={{ border: 'none', overflow: 'hidden' }}
-                    title="Badge preview"
-                  />
-                </div>
-              </div>
-
-              <CodeBlock code={badgeCode} />
-              <CopyButton text={badgeCode} large />
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== PARAMETERS REFERENCE ===== */}
-            <section id="parameters">
-              <h2 className="text-xl font-bold text-neutral-900 mb-1">Parameters Reference</h2>
-              <p className="text-sm text-neutral-600 mb-4">
-                All widgets accept URL query parameters to customize behavior.
-                Add these to the <code className="bg-neutral-100 px-1 py-0.5 rounded text-xs">src</code> URL in the iframe.
-              </p>
-
-              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-neutral-100 bg-neutral-50">
-                  <h4 className="text-sm font-semibold text-neutral-800">All Widgets</h4>
-                </div>
-                <div className="px-4 py-2">
-                  <table className="w-full">
-                    <tbody>
-                      <ParamRow name="theme" values="light | dark" description="Widget color scheme. Defaults to light." />
-                      <ParamRow name="partner" values="string" description='Shows "via YourBusiness" in the widget footer.' />
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
-                  <h4 className="text-sm font-semibold text-neutral-800">Float Trip Planner</h4>
-                </div>
-                <div className="px-4 py-2">
-                  <table className="w-full">
-                    <tbody>
-                      <ParamRow name="river" values="slug" description="Pre-select a river (e.g. current, meramec)." />
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
-                  <h4 className="text-sm font-semibold text-neutral-800">Services Directory</h4>
-                </div>
-                <div className="px-4 py-2">
-                  <table className="w-full">
-                    <tbody>
-                      <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type. Use the filter buttons above to set this." />
-                      <ParamRow name="highlight" values="slug,slug,..." description="Show only specific listings. Comma-separated slugs." />
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-
-            <hr className="border-neutral-200" />
-
-            {/* ===== API ACCESS ===== */}
-            <section id="api">
-              <h2 className="text-xl font-bold text-neutral-900 mb-1">API Access</h2>
-              <p className="text-sm text-neutral-600 mb-4">
-                Fetch data directly and build your own display.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <CodeBlock code={`GET ${baseUrl}/api/rivers`} label="Rivers — conditions, lengths, access point counts" />
-                </div>
-                <div>
-                  <CodeBlock code={`GET ${baseUrl}/api/rivers/{slug}/services`} label="Services — outfitters, campgrounds, lodging for a river" />
-                </div>
-                <div>
-                  <CodeBlock code={`GET ${baseUrl}/api/gauges`} label="Gauges — all gauge stations with latest readings and thresholds" />
-                </div>
-              </div>
-
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-amber-800 mb-1">Rate Limits</h4>
-                <p className="text-xs text-amber-700">
-                  API endpoints are rate limited per IP. The rivers and gauges endpoints allow
-                  60 requests per minute. The services endpoint allows 60 requests per minute.
-                  The plan endpoint allows 30 requests per minute.
-                  Exceeding the limit returns a <code className="bg-amber-100 px-1 py-0.5 rounded">429</code> response
-                  with a <code className="bg-amber-100 px-1 py-0.5 rounded">Retry-After</code> header.
-                  Embed widgets handle caching automatically.
-                </p>
-              </div>
-            </section>
-
-            {/* CTA */}
-            <section className="bg-white border-2 border-primary-200 rounded-xl p-6 text-center">
-              <h3 className="font-bold text-neutral-900 mb-2">Running an Outfitter or Campground?</h3>
-              <p className="text-sm text-neutral-600 mb-4 max-w-md mx-auto">
-                We&apos;d love to partner with you. Get custom widgets, priority support,
-                and help driving visitors to your business.
-              </p>
-              <button
-                onClick={() => setFeedbackOpen(true)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors cursor-pointer"
-                style={{ backgroundColor: '#F07052' }}
-              >
-                Contact Us
-              </button>
-            </section>
-
-            <div className="text-center">
-              <Link
-                href="/"
-                className="text-primary-600 hover:text-primary-700 font-medium text-sm"
-              >
-                &larr; Back to Eddy
-              </Link>
-              <SiteFooter maxWidth="max-w-full" className="mt-16" />
-            </div>
-          </main>
-        </div>
+            </>
+          )}
+        </main>
       </div>
 
-      <FeedbackModal
-        isOpen={feedbackOpen}
-        onClose={() => setFeedbackOpen(false)}
-      />
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </div>
   );
 }

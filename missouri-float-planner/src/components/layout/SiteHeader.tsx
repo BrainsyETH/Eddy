@@ -52,15 +52,9 @@ export default function SiteHeader() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Hide header on embeddable widget pages
-  if (
-    pathname.startsWith('/embed/widget') ||
-    pathname.startsWith('/embed/planner') ||
-    pathname.startsWith('/embed/eddy-quote') ||
-    pathname.startsWith('/embed/services') ||
-    pathname.startsWith('/embed/badge') ||
-    pathname.startsWith('/embed/gauge-report')
-  ) {
+  // Hide header on the embed workbench and all embeddable widget pages —
+  // the workbench renders its own top bar and the widgets are chromeless.
+  if (pathname === '/embed' || pathname.startsWith('/embed/')) {
     return null;
   }
 
