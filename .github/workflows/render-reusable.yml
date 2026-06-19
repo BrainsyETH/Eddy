@@ -1,13 +1,14 @@
 # .github/workflows/render-reusable.yml
 # Containerized render core shared by render-clip.yml and render-social-video.yml.
-# Runs in the prebuilt eddy-remotion image (deps + Chrome + bundle baked), so a
-# render is just: write props -> remotion render from /app/build -> normalize
-# audio -> upload to Vercel Blob. No npm ci, no browser download, no bundling.
+# A preflight checks whether the prebuilt image exists; if so the fast container
+# job renders from the baked bundle, otherwise a runtime fallback job renders the
+# old way (checkout + npm ci + render via the entry point) — so a missing/broken
+# image degrades to "slow" instead of breaking every render. The fallback never
+# runs when the image is present, so it can't affect the hot path.
 #
-# The two callers diverge only in audio (clip keeps its own track; social muxes
-# the looped background-music.wav and validates it) and in post-render
-# persistence (Supabase insert vs. publish callback) — which stays in the thin
-# callers. Everything drift-prone (render flags, Blob upload) lives here, once.
+# Both jobs run the SAME scripts/render-core.sh (render + audio + upload): baked
+# into the image for the container, run from the checkout for the fallback — one
+# source of truth, no checkout (or git) needed inside the container.
 
 name: Render (reusable)
 
@@ -39,17 +40,41 @@ on:
         required: true
     outputs:
       clip_url:
-        description: 'Public Blob URL of the finished MP4'
-        value: ${{ jobs.render.outputs.clip_url }}
+        description: 'Public Blob URL of the finished MP4 (from whichever path ran)'
+        value: ${{ jobs.container-render.outputs.clip_url || jobs.runtime-render.outputs.clip_url }}
       audio_verified:
-        value: ${{ jobs.render.outputs.audio_verified }}
+        value: ${{ jobs.container-render.outputs.audio_verified || jobs.runtime-render.outputs.audio_verified }}
       audio_kib:
-        value: ${{ jobs.render.outputs.audio_kib }}
+        value: ${{ jobs.container-render.outputs.audio_kib || jobs.runtime-render.outputs.audio_kib }}
       total_silence_s:
-        value: ${{ jobs.render.outputs.total_silence_s }}
+        value: ${{ jobs.container-render.outputs.total_silence_s || jobs.runtime-render.outputs.total_silence_s }}
 
 jobs:
-  render:
+  # Pick the render path deterministically: is the prebuilt image available?
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      packages: read
+    outputs:
+      use_container: ${{ steps.check.outputs.use_container }}
+    steps:
+      - name: Check render image
+        id: check
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          if docker manifest inspect ghcr.io/brainsyeth/eddy-remotion:latest >/dev/null 2>&1; then
+            echo "use_container=true" >> "$GITHUB_OUTPUT"
+            echo "Render image present — fast container path."
+          else
+            echo "::warning::ghcr.io/brainsyeth/eddy-remotion:latest not found — using the slower runtime render. Build it via build-remotion-image.yml."
+            echo "use_container=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Fast path: render in the prebuilt image from the baked /app/build bundle.
+  container-render:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.use_container == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions:
@@ -62,136 +87,71 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     defaults:
       run:
-        # Everything is baked at /app (deps, /app/build bundle, /app/public).
         working-directory: /app
     outputs:
-      clip_url: ${{ steps.upload.outputs.clip_url }}
-      audio_verified: ${{ steps.audio.outputs.audio_verified }}
-      audio_kib: ${{ steps.audio.outputs.audio_kib }}
-      total_silence_s: ${{ steps.audio.outputs.total_silence_s }}
+      clip_url: ${{ steps.core.outputs.clip_url }}
+      audio_verified: ${{ steps.core.outputs.audio_verified }}
+      audio_kib: ${{ steps.core.outputs.audio_kib }}
+      total_silence_s: ${{ steps.core.outputs.total_silence_s }}
     steps:
       - name: Write input props
         env:
           INPUT_PROPS_JSON: ${{ inputs.input_props }}
-        run: |
-          printf '%s' "$INPUT_PROPS_JSON" > /tmp/props.json
-          echo "Props written ($(wc -c < /tmp/props.json) bytes)"
+        run: printf '%s' "$INPUT_PROPS_JSON" > /tmp/props.json
 
-      - name: Render from baked bundle
-        run: |
-          # Render against the prebuilt bundle (serve-url = /app/build); no
-          # entry-point/public-dir/bundling. CRF 23 is visually identical to 18
-          # on phones for short-form social and Meta re-encodes anyway.
-          npx remotion render /app/build "${{ inputs.composition_id }}" /tmp/out.mp4 \
-            --props=/tmp/props.json \
-            --codec=h264 \
-            --audio-codec=aac \
-            --enforce-audio-track \
-            --crf=23 \
-            --log=verbose
-          echo "Rendered: $(stat -c%s /tmp/out.mp4) bytes"
-
-      - name: Normalize audio
-        id: audio
-        run: |
-          set -euo pipefail
-          OUTFILE=/tmp/out.mp4
-
-          if [ "${{ inputs.audio_mode }}" = "social" ]; then
-            set -x
-            AUDIO_SRC="/app/public/audio/background-music.wav"
-
-            DURATION=$(npx remotion ffprobe -v error \
-              -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
-            echo "Video duration: ${DURATION}s"
-            if [ -z "$DURATION" ]; then
-              echo "::error::Could not read video duration"; exit 1
-            fi
-
-            # Re-encode audio to Meta-compatible specs (AAC 48kHz stereo, 192kb/s).
-            # Remotion ships a stripped ffmpeg without afade — rely on plain volume
-            # scaling. -stream_loop -1 guarantees coverage if the video outruns the
-            # source. Map video from input 1, audio from input 0.
-            npx remotion ffmpeg -y \
-              -stream_loop -1 -i "$AUDIO_SRC" \
-              -i "$OUTFILE" \
-              -c:v copy \
-              -c:a aac -b:a 192k -ar 48000 -ac 2 \
-              -t "$DURATION" \
-              -af "volume=0.9" \
-              -map 1:v:0 -map 0:a:0 \
-              -movflags +faststart \
-              "/tmp/normalized.mp4"
-            mv "/tmp/normalized.mp4" "$OUTFILE"
-            echo "Audio normalized: $(stat -c%s "$OUTFILE") bytes"
-
-            # Encoded audio size gate — floor at 64 kb/s, well below the 192 kb/s
-            # target but high enough to fail silent placeholders.
-            AUDIO_BPS=$(npx remotion ffprobe -v error \
-              -select_streams a:0 \
-              -show_entries stream=bit_rate \
-              -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
-            AUDIO_KIB=$(printf '%.0f' "$(echo "($AUDIO_BPS * $DURATION) / 8 / 1024" | bc -l)")
-            MIN_AUDIO_BPS=64000
-            echo "Audio bitrate: ${AUDIO_BPS} bps (~${AUDIO_KIB} KiB over ${DURATION}s, min ${MIN_AUDIO_BPS})"
-            if [ -z "$AUDIO_BPS" ] || [ "$AUDIO_BPS" -lt "$MIN_AUDIO_BPS" ]; then
-              echo "::error::Audio bitrate ${AUDIO_BPS:-0} bps is below ${MIN_AUDIO_BPS} bps floor — source track is likely silent or corrupt"
-              exit 1
-            fi
-
-            # Silence probe — Remotion's ffmpeg allowlist has silencedetect.
-            SILENCE_OUTPUT=$(npx remotion ffmpeg -hide_banner -nostats \
-              -i "$OUTFILE" -af "silencedetect=noise=-40dB:d=0.1" -vn -f null - 2>&1 || true)
-            TOTAL_SILENCE=$(echo "$SILENCE_OUTPUT" | awk '
-              /silence_duration:/ {
-                for (i=1; i<=NF; i++) if ($i == "silence_duration:") { sum += $(i+1); next }
-              }
-              END { printf "%.3f", (sum + 0) }')
-            echo "Total silence: ${TOTAL_SILENCE}s of ${DURATION}s"
-            MAX_SILENCE=$(echo "$DURATION * 0.8" | bc)
-            IS_SILENT=$(echo "$TOTAL_SILENCE > $MAX_SILENCE" | bc)
-            if [ "$IS_SILENT" = "1" ]; then
-              echo "::error::Audio is >80% silent (${TOTAL_SILENCE}s / ${DURATION}s)"
-              exit 1
-            fi
-
-            {
-              echo "audio_verified=true"
-              echo "audio_kib=${AUDIO_KIB}"
-              echo "total_silence_s=${TOTAL_SILENCE}"
-            } >> "$GITHUB_OUTPUT"
-            echo "Audio confirmed (${AUDIO_KIB}KiB, ${TOTAL_SILENCE}s silence)"
-          else
-            # clip: keep the clip's own audio, re-encode to Meta specs.
-            npx remotion ffmpeg -y -i "$OUTFILE" \
-              -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 \
-              -movflags +faststart /tmp/final.mp4
-            mv /tmp/final.mp4 "$OUTFILE"
-            echo "Normalized (clip audio): $(stat -c%s "$OUTFILE") bytes"
-            {
-              echo "audio_verified=true"
-              echo "audio_kib="
-              echo "total_silence_s="
-            } >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload to Vercel Blob
-        id: upload
+      - name: Render + audio + upload
+        id: core
         env:
+          COMPOSITION_ID: ${{ inputs.composition_id }}
+          OUTPUT_FILENAME: ${{ inputs.output_filename }}
+          BLOB_PREFIX: ${{ inputs.blob_prefix }}
+          AUDIO_MODE: ${{ inputs.audio_mode }}
+          RENDER_MODE: bundle
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: |
-          DATE_PREFIX=$(date -u +%Y-%m-%d)
-          BLOB_PATH="${{ inputs.blob_prefix }}/${DATE_PREFIX}/${{ inputs.output_filename }}.mp4"
-          RESPONSE=$(curl -s -X PUT \
-            "https://blob.vercel-storage.com/${BLOB_PATH}" \
-            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-            -H "x-content-type: video/mp4" \
-            -H "x-cache-control-max-age: 31536000" \
-            --data-binary "@/tmp/out.mp4")
-          CLIP_URL=$(echo "$RESPONSE" | jq -r '.url')
-          if [ "$CLIP_URL" = "null" ] || [ -z "$CLIP_URL" ]; then
-            echo "::error::Upload failed: $RESPONSE"; exit 1
-          fi
-          echo "clip_url=${CLIP_URL}" >> "$GITHUB_OUTPUT"
-          echo "Uploaded: ${CLIP_URL}"
+        run: bash scripts/render-core.sh
+
+  # ── Fallback: image unavailable → render on the host the old way (slower).
+  runtime-render:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.use_container != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: missouri-float-planner/remotion
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    outputs:
+      clip_url: ${{ steps.core.outputs.clip_url }}
+      audio_verified: ${{ steps.core.outputs.audio_verified }}
+      audio_kib: ${{ steps.core.outputs.audio_kib }}
+      total_silence_s: ${{ steps.core.outputs.total_silence_s }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/remotion/package-lock.json
+      - name: Install Remotion dependencies
+        run: npm ci
+
+      - name: Write input props
+        env:
+          INPUT_PROPS_JSON: ${{ inputs.input_props }}
+        run: printf '%s' "$INPUT_PROPS_JSON" > /tmp/props.json
+
+      - name: Render + audio + upload
+        id: core
+        env:
+          COMPOSITION_ID: ${{ inputs.composition_id }}
+          OUTPUT_FILENAME: ${{ inputs.output_filename }}
+          BLOB_PREFIX: ${{ inputs.blob_prefix }}
+          AUDIO_MODE: ${{ inputs.audio_mode }}
+          RENDER_MODE: entry
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: bash scripts/render-core.sh
