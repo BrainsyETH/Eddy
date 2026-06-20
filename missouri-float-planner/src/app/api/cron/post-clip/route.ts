@@ -46,22 +46,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'No approved clip available to post' });
   }
 
-  // Atomic claim: stamp posting_claimed_at only if it's unset or stale (>15 min).
-  // Concurrent runs serialize on the row, so the second sees a fresh stamp and
-  // its conditional update matches 0 rows — preventing a double-post.
-  const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-  const { data: claimed, error: claimError } = await supabase
-    .from('clip_library')
-    .update({ posting_claimed_at: new Date().toISOString() })
-    .eq('id', next.id)
-    .or(`posting_claimed_at.is.null,posting_claimed_at.lt.${staleBefore}`)
-    .select('id');
+  // Atomic claim via RPC: the conditional UPDATE runs inside Postgres, so it
+  // stays atomic (a concurrent run's update matches 0 rows) without a PostgREST
+  // `.or()` filter on an UPDATE — that request never executed server-side, so
+  // the cron used to 500 here and never posted. Returns true if we claimed it,
+  // false if a live claim (newer than the stale window) already holds it.
+  const { data: claimed, error: claimError } = await supabase.rpc('claim_clip_for_posting', {
+    p_clip_id: next.id,
+    p_stale_minutes: 15,
+  });
 
   if (claimError) {
     console.error(`${LOG} claim failed:`, claimError.message);
     return NextResponse.json({ error: claimError.message }, { status: 500 });
   }
-  if (!claimed || claimed.length === 0) {
+  if (!claimed) {
     console.log(`${LOG} clip ${next.id} already claimed by a concurrent run — skipping`);
     return NextResponse.json({ message: 'Clip already claimed by a concurrent run' });
   }
