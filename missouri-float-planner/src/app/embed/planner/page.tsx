@@ -139,7 +139,6 @@ export default function EmbedPlannerPage() {
         color: textPrimary,
         padding: '16px',
         boxSizing: 'border-box',
-        minHeight: '100%',
       }}
     >
       {/* Header */}
