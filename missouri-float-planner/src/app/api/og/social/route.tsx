@@ -147,7 +147,13 @@ function photoLayers(dataUri: string | null, size: { width: number; height: numb
   const coverScale = dims ? Math.max(size.width / dims.w, size.height / dims.h) : 1;
   const imgStyle = dims
     ? { width: Math.ceil(dims.w * coverScale), height: Math.ceil(dims.h * coverScale), flexShrink: 0 }
-    : { width: '100%', height: '100%', objectFit: 'cover' as const, flexShrink: 0 };
+    : { width: size.width, height: size.height, objectFit: 'cover' as const, flexShrink: 0 };
+  // These layers sit inside the card's PADDED root. The Satori build bundled in
+  // next/og 14 resolves a percentage width/height on an absolutely-positioned
+  // child against the parent's CONTENT box — so `width/height: 100%` here covered
+  // only `frame − padding` and left a teal gap on the right + bottom edges (one
+  // padding wide). Pin both layers to the full frame in explicit pixels so the
+  // photo + scrim always bleed edge-to-edge, regardless of the root's padding.
   return [
     <div
       key="bg"
@@ -155,8 +161,8 @@ function photoLayers(dataUri: string | null, size: { width: number; height: numb
         position: 'absolute',
         top: 0,
         left: 0,
-        width: '100%',
-        height: '100%',
+        width: size.width,
+        height: size.height,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -172,8 +178,8 @@ function photoLayers(dataUri: string | null, size: { width: number; height: numb
         position: 'absolute',
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
+        width: size.width,
+        height: size.height,
         background:
           'linear-gradient(160deg, rgba(13,42,44,0.84) 0%, rgba(26,61,64,0.7) 50%, rgba(13,42,44,0.92) 100%)',
       }}
