@@ -13,6 +13,9 @@
 #   YOUTUBE_COOKIES_FILE   Netscape cookies.txt — only needed if YouTube bot-blocks you
 #   VIDEOS_PER_CHANNEL     newest uploads to scan per channel (default 5)
 #   MAX_CLIPS              stop after this many clips when scanning (default 3)
+#   TIER1_HEATMAP_OPTIONAL=1  let known-river (Tier-1) videos produce a fallback
+#                          clip when they have no Most-Replayed heatmap (small
+#                          Ozark channels). Tier-2 stays gated. Default off.
 
 set -euo pipefail
 
