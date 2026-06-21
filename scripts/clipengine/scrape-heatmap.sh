@@ -5,6 +5,14 @@
 # Usage: ./scrape-heatmap.sh <youtube-url> [output-dir]
 # Output: heatmap-data.json in output-dir
 #
+# Env (optional):
+#   MAX_CLIP_SECS=60            cap on clip length
+#   TIER1_HEATMAP_OPTIONAL=1    opt-in: if a KNOWN Eddy river is detected but the
+#                               video has no Most-Replayed heatmap, emit ONE
+#                               deterministic fallback clip (source="fallback")
+#                               instead of skipping. Tier-2 (no river) still skips.
+#                               Default off → strict PR#740 gate. Unset to revert.
+#
 # Uses yt-dlp (-J) for metadata + heatmap so it shares the same auth (cookies)
 # and JS runtime as the downloader — HTML scraping gets bot-blocked on CI.
 
@@ -74,6 +82,12 @@ print(f"  Channel: {channel}")
 # clamped to [CLIP_MIN, CLIP_MAX]. CLIP_MAX overridable via MAX_CLIP_SECS.
 CLIP_MIN = 12
 CLIP_MAX = int(os.environ.get("MAX_CLIP_SECS", "60"))
+# Tier-1 bypass (opt-in, default OFF): when a KNOWN Eddy river is detected but the
+# video has no "most replayed" heatmap (almost always a smaller upload), synthesize
+# ONE deterministic fallback clip instead of skipping — so genuine Ozark-river
+# content from small channels isn't lost to the gate. Tier-2 (no river detected)
+# keeps the strict PR#740 gate untouched. Revert by unsetting the env var.
+TIER1_HEATMAP_OPTIONAL = os.environ.get("TIER1_HEATMAP_OPTIONAL", "0") == "1"
 peaks = []
 source = "none"
 
@@ -127,19 +141,11 @@ if hm:
     peaks.sort(key=lambda p: p["start_secs"])
     print(f"  Heatmap: {len(hm)} segments -> {len(peaks)} popular sections (lengths: {[p['duration_secs'] for p in peaks]}s)")
 
-if not peaks:
-    # No "most replayed" heatmap (or a flat curve with no standout section) means
-    # YouTube has no real engagement signal for this video — typically a low-view
-    # upload. Rather than guessing with evenly-spaced fixed-length clips, skip it:
-    # emit zero peaks so the runner moves on and we only ever clip moments viewers
-    # actually replayed. (Clip length stays heatmap-driven, never a fixed default.)
-    print("  ⏭️  No replay-engagement heatmap — skipping (clips require a real engagement peak)")
-    source = "none"
-
 # Detect which Eddy river this video is about (per-video, not per-channel — a
 # channel may cover many rivers). Match the river name in title + description;
 # if several appear, take the first mentioned. No match → river_slug stays empty
-# and the clip won't be posted.
+# and the clip won't be posted. Computed BEFORE the no-peaks decision below so the
+# Tier-1 bypass can tell a known-river video apart from a generic one.
 description = info.get("description") or ""
 RIVERS = {
     "big-piney": ["big piney"],
@@ -161,6 +167,40 @@ _hits.sort()
 river_slug = _hits[0][1] if _hits else ""
 print(f"  River: {river_slug or '(none detected — will not post)'}" +
       (f"  [also matched: {[h[1] for h in _hits[1:]]}]" if len(_hits) > 1 else ""))
+
+if not peaks:
+    if TIER1_HEATMAP_OPTIONAL and river_slug and duration > 0:
+        # Tier-1 bypass: a known Eddy river is named but YouTube has no "most
+        # replayed" heatmap. Synthesize ONE deterministic window rather than lose
+        # the river content: skip the intro by anchoring ~30% in, scale length to
+        # runtime within the same [CLIP_MIN, CLIP_MAX] policy, and tag score=0.0 so
+        # it's telemetry-distinguishable from a real engagement peak. (A content-
+        # aware audio-loudness pick is a future drop-in; the anchor is zero-cost.)
+        fb_dur = min(max(round(duration * 0.10), CLIP_MIN), CLIP_MAX)
+        fb_dur = min(fb_dur, duration)            # never exceed the source
+        fb_start = duration * 0.30                # anchor past the intro/title card
+        if fb_start + fb_dur > duration:          # keep the window inside the video
+            fb_start = max(0.0, duration - fb_dur)
+        fb_start, fb_dur = round(fb_start, 1), round(float(fb_dur), 1)
+        peaks.append({
+            "start_secs": fb_start,
+            "end_secs": round(fb_start + fb_dur, 1),
+            "duration_secs": fb_dur,
+            "score": 0.0,
+            "start_formatted": fmt(fb_start),
+            "end_formatted": fmt(fb_start + fb_dur),
+        })
+        source = "fallback"
+        print(f"  🪝 Tier-1 fallback ({river_slug}): no heatmap — single window "
+              f"{peaks[0]['start_formatted']} → {peaks[0]['end_formatted']} ({fb_dur}s)")
+    else:
+        # No "most replayed" heatmap (or a flat curve with no standout section)
+        # means YouTube has no real engagement signal — typically a low-view
+        # upload. Tier-2 (no known river), bypass off, or unknown duration: skip
+        # rather than guess, so we only ever clip moments viewers actually
+        # replayed. (Clip length stays heatmap-driven, never a fixed default.)
+        print("  ⏭️  No replay-engagement heatmap — skipping (clips require a real engagement peak)")
+        source = "none"
 
 result = {
     "video_id": video_id,
