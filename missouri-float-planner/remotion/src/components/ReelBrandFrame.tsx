@@ -12,13 +12,11 @@ import type { Caption } from "../lib/social-props";
 
 // Vertical geometry. Two layouts share this frame:
 //
-//  • BAND (landscape sources): the footage is a centered 16:9 band. Earlier this
-//    pinned the masthead to the top and the band+footer into the top ~55% of the
-//    1080×1920 canvas, leaving the bottom ~46% as a dead teal void (the content
-//    read as shoved up and off-center). The band is now CENTERED in the frame
-//    with the masthead bracketing it above and the credit/CTA below, so the
-//    composition is balanced and the masthead clears the Reels top chrome while
-//    the footer clears the bottom caption/handle row.
+//  • BAND (landscape sources): the sharp 16:9 clip is centered over a BLURRED,
+//    scaled, dimmed full-bleed copy of itself, so the frame is full and
+//    immersive instead of a flat teal void. Legibility scrims top + bottom seat
+//    the masthead and credit/CTA inside the Reels safe zone — clear of the top
+//    chrome, the bottom caption/handle row, and the 4:5 feed crop line.
 //
 //  • FULL-BLEED (vertical sources): the footage fills the frame behind scrims, so
 //    there's no void — the masthead sits high and the footer low over the
@@ -34,12 +32,13 @@ const FB_MASTHEAD_TOP = 96;
 const FB_CAPTION_TOP = 928;
 const FB_FOOTER_TOP = 1040;
 
-// Band (landscape source) positions — content centered in the frame so there's
-// no lopsided bottom void. Band centered at ~y=992; masthead above, footer below.
-const BAND_MASTHEAD_TOP = 300;
-const BAND_MEDIA_TOP = 688; // 688→1296, centered in the 1920 canvas
-const BAND_CAPTION_TOP = 1180; // over the lower band, above the footer
-const BAND_FOOTER_TOP = 1320; // below the band, clear of the bottom handle/caption
+// Band (landscape source) positions — the sharp 16:9 clip is centered over a
+// blurred full-bleed copy of itself, with masthead above and credit/CTA below,
+// all seated inside the Reels safe zone (top ~250, bottom ~420 of 1920).
+const BAND_MASTHEAD_TOP = 312; // below the top chrome + the 4:5 feed crop line
+const BAND_MEDIA_TOP = 656; // 656→1264, the 608-tall band centered in 1920
+const BAND_CAPTION_TOP = 1150; // over the lower band, above the footer
+const BAND_FOOTER_TOP = 1360; // below the band, clear of the bottom caption/UI
 
 interface ReelBrandFrameProps {
   /** Small uppercase series-style eyebrow above the title (coral). */
@@ -58,6 +57,13 @@ interface ReelBrandFrameProps {
    * being letterboxed into a small landscape band.
    */
   fullBleed?: boolean;
+  /**
+   * Full-bleed blurred copy of the media (e.g. a muted OffthreadVideo) drawn
+   * behind the centered landscape band so the frame fills instead of showing a
+   * dead teal void. Ignored for `fullBleed` sources (they fill the frame
+   * directly); omit it to fall back to a flat-teal band.
+   */
+  backdrop?: React.ReactNode;
   /** Current frame + fps, for staggered entrances. */
   frame: number;
   fps: number;
@@ -79,6 +85,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   cta = PLAN_CTA,
   captions,
   fullBleed = false,
+  backdrop,
   frame,
   fps,
   children,
@@ -124,9 +131,58 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
           />
         </>
       ) : (
-        <div style={{ position: "absolute", top: BAND_MEDIA_TOP, left: 0, width: MEDIA_W, height: MEDIA_H, overflow: "hidden" }}>
-          {children}
-        </div>
+        <>
+          {backdrop ? (
+            <>
+              {/* Blurred, scaled, dimmed full-bleed copy of the footage so the
+                  landscape clip fills the frame instead of a dead teal void. */}
+              <AbsoluteFill style={{ overflow: "hidden" }}>
+                <AbsoluteFill
+                  style={{ transform: "scale(1.18)", filter: "blur(44px) brightness(0.5) saturate(1.15)" }}
+                >
+                  {backdrop}
+                </AbsoluteFill>
+              </AbsoluteFill>
+              {/* Scrims seat the masthead + footer legibly in the safe zone. */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 600,
+                  background:
+                    "linear-gradient(to bottom, rgba(15,45,53,0.92) 0%, rgba(15,45,53,0.5) 55%, rgba(15,45,53,0) 100%)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 760,
+                  background:
+                    "linear-gradient(to top, rgba(15,45,53,0.94) 0%, rgba(15,45,53,0.5) 52%, rgba(15,45,53,0) 100%)",
+                }}
+              />
+            </>
+          ) : null}
+          {/* Sharp landscape clip — a clean 16:9 band centered over the backdrop. */}
+          <div
+            style={{
+              position: "absolute",
+              top: BAND_MEDIA_TOP,
+              left: 0,
+              width: MEDIA_W,
+              height: MEDIA_H,
+              overflow: "hidden",
+              boxShadow: "0 0 70px rgba(0,0,0,0.55)",
+            }}
+          >
+            {children}
+          </div>
+        </>
       )}
 
       {/* Masthead — mascot + eyebrow + river name */}
