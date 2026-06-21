@@ -92,7 +92,7 @@ async function _POST(request: Request) {
         while (continueLoop && iterations < MAX_TOOL_ITERATIONS) {
           iterations++;
           const response = await client.messages.create({
-            model: process.env.CHAT_MODEL || 'claude-sonnet-4-5-20250929',
+            model: process.env.CHAT_MODEL || 'claude-sonnet-4-6',
             max_tokens: 2048,
             system: [
               {

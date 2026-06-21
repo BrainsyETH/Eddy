@@ -5,7 +5,8 @@
 import { FacebookAdapter } from './facebook-adapter';
 import { InstagramAdapter } from './instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from './meta-client';
-import type { SocialPlatform } from './types';
+import { generateCaption } from './caption-generator';
+import type { SocialPlatform, HookStyle } from './types';
 
 export interface ClipRow {
   id: string;
@@ -50,18 +51,66 @@ export function buildClipCaption(riverName: string | null, creator: string | nul
   return { caption: lines.join('\n'), hashtags };
 }
 
+const HOOK_STYLES: HookStyle[] = ['question', 'stat', 'story', 'urgency'];
+
+// Compose the caption + hashtags for a clip. Prefers an AI-written caption
+// (knowledgeable-local tone, deduped against recent posts) when ANTHROPIC_API_KEY
+// is configured, and falls back to the deterministic buildClipCaption template
+// when the key is absent or the model returns nothing usable. The returned
+// caption has the hashtags appended inline (matching how the templated caption
+// is posted) and is guaranteed to carry the eddy.guide CTA.
+async function composeClipCaption(
+  riverName: string | null,
+  creator: string | null,
+): Promise<{ caption: string; hashtags: string[] }> {
+  const fallback = buildClipCaption(riverName, creator);
+  if (!process.env.ANTHROPIC_API_KEY) return fallback;
+
+  try {
+    const hasRiver = !!(riverName && riverName.trim());
+    const hookStyle = HOOK_STYLES[Math.floor(Math.random() * HOOK_STYLES.length)];
+    const generated = await generateCaption({
+      contentType: 'engagement',
+      hookStyle,
+      // Tier 2 (no known Eddy river) → frame it as general Ozark paddling.
+      riverName: hasRiver ? riverName! : 'Ozarks',
+      clipMetadata: { sourceCreator: creator || undefined },
+    });
+
+    let caption = (generated.caption || '').trim();
+    if (caption.length < 20) return fallback; // model returned nothing usable
+
+    // The prompt asks for an eddy.guide CTA; ensure one is present regardless.
+    if (!/eddy\.guide/i.test(caption)) {
+      caption += `\n\n${hasRiver ? 'Plan your float trip' : 'Find your next float'} at eddy.guide`;
+    }
+
+    // Post the hashtags inline, the same way the templated caption does. Skip if
+    // the model already wove tags into the body, to avoid duplicating them.
+    const hashtags = generated.hashtags.length ? generated.hashtags : fallback.hashtags;
+    if (!/#\w/.test(caption) && hashtags.length) {
+      caption += `\n\n${hashtags.join(' ')}`;
+    }
+
+    return { caption, hashtags };
+  } catch (err) {
+    console.error('[clip-poster] AI caption failed, using template:', err);
+    return fallback;
+  }
+}
+
 // Publish one approved clip to the given platforms. Records social_posts rows
 // and appends them to clip.used_in_posts. Caller ensures the clip is approved.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function publishClip(supabase: any, clip: ClipRow, platforms: SocialPlatform[]): Promise<ClipPostResult> {
-  // Tier 2 clips have no river_slug → riverName stays null and buildClipCaption
-  // produces the generic "Ozark paddling" caption.
+  // Tier 2 clips have no river_slug → riverName stays null and composeClipCaption
+  // produces the generic (no-river) caption.
   let riverName: string | null = null;
   if (clip.river_slug) {
     const { data: river } = await supabase.from('rivers').select('name').eq('slug', clip.river_slug).single();
     riverName = river?.name || clip.river_slug;
   }
-  const { caption, hashtags } = buildClipCaption(riverName, clip.source_creator);
+  const { caption, hashtags } = await composeClipCaption(riverName, clip.source_creator);
 
   const results: ClipPostResult['results'] = [];
   const postedRowIds: string[] = [];

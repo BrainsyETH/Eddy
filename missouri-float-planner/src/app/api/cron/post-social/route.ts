@@ -45,6 +45,28 @@ function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
   return null;
 }
 
+// Link a clip post back to its clip_library row by matching the rendered video
+// URL (social_posts has no clip_id). publishClip only records posts that publish
+// synchronously in used_in_posts; this covers a clip Reel that lands here on
+// retry (e.g. an IG container that outran the inline poll), so the admin clip
+// library reflects every platform a clip actually posted to.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function linkClipPost(supabase: any, videoUrl: string, postId: string) {
+  const { data } = await supabase
+    .from('clip_library')
+    .select('id, used_in_posts')
+    .eq('clip_url', videoUrl)
+    .limit(1);
+  const clip = data?.[0];
+  if (!clip) return;
+  const used: string[] = Array.isArray(clip.used_in_posts) ? clip.used_in_posts : [];
+  if (used.includes(postId)) return;
+  await supabase
+    .from('clip_library')
+    .update({ used_in_posts: [...used, postId], updated_at: new Date().toISOString() })
+    .eq('id', clip.id);
+}
+
 async function runSocialPosting(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -376,8 +398,16 @@ async function runSocialPosting(request: NextRequest) {
           updated_at: new Date().toISOString(),
         }).eq('id', post.id);
 
-        if (pubResult.success) { published++; console.log(`${LOG_PREFIX} Retry succeeded: ${post.id}`); }
-        else { failed++; }
+        if (pubResult.success) {
+          published++;
+          // A clip Reel that only succeeds on retry must be linked back to its
+          // clip, or it never shows as posted in the library (publishClip only
+          // links posts that published synchronously).
+          if (fullPost.post_type === 'river_highlight' && fullPost.video_url) {
+            await linkClipPost(supabase, fullPost.video_url, post.id);
+          }
+          console.log(`${LOG_PREFIX} Retry succeeded: ${post.id}`);
+        } else { failed++; }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', post.id);
