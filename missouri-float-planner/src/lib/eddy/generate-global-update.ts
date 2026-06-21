@@ -86,7 +86,7 @@ export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
 
   try {
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-6',
       max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
       system: GLOBAL_SYSTEM_PROMPT,
@@ -96,7 +96,7 @@ export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
     const quoteText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
 
     if (!quoteText) {
-      console.error('[EddyGlobal] Empty response from Haiku');
+      console.error('[EddyGlobal] Empty response from model');
       return null;
     }
 
