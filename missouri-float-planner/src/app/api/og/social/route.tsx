@@ -107,21 +107,65 @@ async function loadBackgroundDataUri(
   }
 }
 
+/** Intrinsic pixel size of a base64 PNG/JPEG data URI, read from its header, so
+ *  the cover layer can size the photo explicitly. Satori centers an overflowing
+ *  flex child reliably, but its object-fit/object-position centering does not —
+ *  which left portrait 2:3 backgrounds anchored to one edge. */
+function imageDims(dataUri: string): { w: number; h: number } | null {
+  const m = /^data:image\/(png|jpe?g);base64,(.+)$/.exec(dataUri);
+  if (!m) return null;
+  try {
+    const buf = Buffer.from(m[2], 'base64');
+    if (m[1] === 'png') {
+      if (buf.length < 24) return null;
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    }
+    // JPEG: walk segment markers to the Start-Of-Frame, which carries the size.
+    let off = 2;
+    while (off + 9 < buf.length) {
+      if (buf[off] !== 0xff) { off++; continue; }
+      const marker = buf[off + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        return { h: buf.readUInt16BE(off + 5), w: buf.readUInt16BE(off + 7) };
+      }
+      off += 2 + buf.readUInt16BE(off + 2);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Full-bleed photo + legibility scrim layers for a cover (empty when no photo,
  *  so the card's gradient shows through). Shared by Favorite / Section / Forecast
- *  so the three read as one photo-led series. */
+ *  so the three read as one photo-led series. The photo is scaled to COVER the
+ *  frame and centered in a flex/overflow-hidden box, so a portrait 2:3 (or any
+ *  off-aspect) background is cropped evenly instead of pinned to an edge. */
 function photoLayers(dataUri: string | null, size: { width: number; height: number }) {
   if (!dataUri) return [];
+  const dims = imageDims(dataUri);
+  const coverScale = dims ? Math.max(size.width / dims.w, size.height / dims.h) : 1;
+  const imgStyle = dims
+    ? { width: Math.ceil(dims.w * coverScale), height: Math.ceil(dims.h * coverScale), flexShrink: 0 }
+    : { width: '100%', height: '100%', objectFit: 'cover' as const, flexShrink: 0 };
   return [
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <div
       key="bg"
-      src={dataUri}
-      width={size.width}
-      height={size.height}
-      alt=""
-      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-    />,
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={dataUri} alt="" style={imgStyle} />
+    </div>,
     <div
       key="scrim"
       style={{
