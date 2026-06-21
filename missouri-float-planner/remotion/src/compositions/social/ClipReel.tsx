@@ -10,7 +10,9 @@ import type { ClipReelProps } from "../../lib/social-props";
  * …): mascot masthead, white river name, persistent watermark, canonical CTA,
  * and timed transcript captions over the footage. A clip has no live gauge
  * reading, so the frame uses the neutral brand accent. Vertical sources fill the
- * frame (full-bleed); landscape sources sit in the centered 16:9 band.
+ * frame (full-bleed); landscape sources play as a centered 16:9 band over a
+ * blurred full-bleed copy of themselves, so they fill the frame instead of
+ * sitting in a dead teal void.
  */
 export const ClipReel: React.FC<ClipReelProps> = ({
   videoUrl,
@@ -41,6 +43,15 @@ export const ClipReel: React.FC<ClipReelProps> = ({
       fullBleed={sourceOrientation === "portrait"}
       frame={frame}
       fps={fps}
+      backdrop={
+        sourceOrientation === "portrait" ? undefined : (
+          <OffthreadVideo
+            src={videoUrl}
+            muted
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )
+      }
     >
       <OffthreadVideo
         src={videoUrl}

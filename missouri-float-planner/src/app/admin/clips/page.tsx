@@ -48,6 +48,18 @@ interface ClipItem {
   content_type: string | null;
   tone: string | null;
   used_in_posts: string[];
+  post_state: 'unposted' | 'published' | 'posting' | 'failed' | 'orphaned';
+  posts: Array<{
+    id: string;
+    status?: string;
+    platform?: string;
+    platform_post_id?: string | null;
+    published_at?: string | null;
+    error_message?: string | null;
+    missing?: boolean;
+  }>;
+  last_posted_at: string | null;
+  posted_platforms: string[];
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +93,22 @@ const BRAND_BADGES: Record<string, { label: string; className: string }> = {
   review: { label: 'In Review', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   failed: { label: 'Failed', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
 };
+
+// Posting state derived from the clip's real social_posts (not brand status).
+const POST_BADGES: Record<string, { label: string; className: string }> = {
+  unposted: { label: 'Unposted', className: 'bg-neutral-600/20 text-neutral-400 border-neutral-500/30' },
+  published: { label: 'Posted', className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  posting: { label: 'Posting…', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  failed: { label: 'Post failed', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  orphaned: { label: 'Orphaned', className: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+};
+const POST_STATUS_CLASS: Record<string, string> = {
+  published: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  publishing: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  failed: 'bg-red-500/20 text-red-400 border-red-500/30',
+};
+const PLATFORM_ABBR: Record<string, string> = { instagram: 'IG', facebook: 'FB' };
+const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook' };
 
 // River options for the metadata editor (fix a null/wrong river_slug).
 const RIVER_OPTIONS: [string, string][] = [
@@ -203,19 +231,24 @@ export default function ClipsAdminPage() {
 
   // ─── Post an approved clip straight to FB/IG ───
   const [postingClip, setPostingClip] = useState<string | null>(null);
-  const postClip = async (clipId: string) => {
-    if (!confirm('Post this clip to Facebook and Instagram now?')) return;
-    setPostingClip(clipId);
+  const postClip = async (clip: ClipItem) => {
+    const already = clip.post_state === 'published';
+    const confirmMsg = already
+      ? `This clip was already posted${clip.last_posted_at ? ' on ' + new Date(clip.last_posted_at).toLocaleDateString() : ''}. Post it again anyway?`
+      : 'Post this clip to Facebook and Instagram now?';
+    if (!confirm(confirmMsg)) return;
+    setPostingClip(clip.id);
     try {
       const res = await adminFetch('/api/admin/clips/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clipId, platforms: ['instagram', 'facebook'] }),
+        body: JSON.stringify({ clipId: clip.id, platforms: ['instagram', 'facebook'] }),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
         const ok = (data.results || []).filter((r: { success: boolean }) => r.success).map((r: { platform: string }) => r.platform);
         alert(`Posted to: ${ok.join(', ') || 'none'}`);
+        fetchClips(); // refresh so the Posted column reflects the new post
       } else {
         const errs = (data.results || []).map((r: { platform: string; error?: string }) => `${r.platform}: ${r.error}`).join('\n');
         alert(`Post failed:\n${errs || data.error || 'Unknown error'}`);
@@ -430,6 +463,7 @@ export default function ClipsAdminPage() {
                         <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Duration</th>
                         <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Score</th>
                         <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Brand</th>
+                        <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Posted</th>
                         <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Added</th>
                         <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Actions</th>
                       </tr>
@@ -437,6 +471,7 @@ export default function ClipsAdminPage() {
                     <tbody>
                       {clips.map((clip) => {
                         const badge = BRAND_BADGES[clip.brand_check_status] || BRAND_BADGES.pending;
+                        const postBadge = POST_BADGES[clip.post_state] || POST_BADGES.unposted;
                         return (
                           <tr
                             key={clip.id}
@@ -486,6 +521,25 @@ export default function ClipsAdminPage() {
                                 {clip.brand_check_status === 'failed' && <AlertCircle className="w-3 h-3" />}
                                 {badge.label}
                               </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className={`inline-flex w-fit items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${postBadge.className}`}
+                                >
+                                  {clip.post_state === 'published' && <CheckCircle className="w-3 h-3" />}
+                                  {clip.post_state === 'failed' && <XCircle className="w-3 h-3" />}
+                                  {clip.post_state === 'orphaned' && <AlertCircle className="w-3 h-3" />}
+                                  {postBadge.label}
+                                </span>
+                                {clip.post_state === 'published' && clip.last_posted_at && (
+                                  <span className="text-[11px] text-neutral-500 whitespace-nowrap">
+                                    {new Date(clip.last_posted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {clip.posted_platforms.length > 0 &&
+                                      ` · ${clip.posted_platforms.map((p) => PLATFORM_ABBR[p] || p).join('/')}`}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-3 text-sm text-neutral-400 whitespace-nowrap">
                               {new Date(clip.created_at).toLocaleDateString('en-US', {
@@ -544,10 +598,18 @@ export default function ClipsAdminPage() {
                                 )}
                                 {clip.brand_check_status === 'approved' && (
                                   <button
-                                    onClick={() => postClip(clip.id)}
+                                    onClick={() => postClip(clip)}
                                     disabled={postingClip === clip.id}
-                                    className="p-1.5 text-neutral-400 hover:text-emerald-400 transition-colors disabled:opacity-40"
-                                    title="Post to Facebook & Instagram"
+                                    className={`p-1.5 transition-colors disabled:opacity-40 ${
+                                      clip.post_state === 'published'
+                                        ? 'text-emerald-500/50 hover:text-emerald-400'
+                                        : 'text-neutral-400 hover:text-emerald-400'
+                                    }`}
+                                    title={
+                                      clip.post_state === 'published'
+                                        ? 'Already posted — post again'
+                                        : 'Post to Facebook & Instagram'
+                                    }
                                   >
                                     <Send className="w-4 h-4" />
                                   </button>
@@ -999,11 +1061,48 @@ export default function ClipsAdminPage() {
                       <RefreshCw className="w-4 h-4" /> Re-run brand check
                     </button>
                   </div>
-                  {previewClip.used_in_posts?.length > 0 && (
-                    <p className="text-xs text-neutral-500">
-                      Used in {previewClip.used_in_posts.length} post{previewClip.used_in_posts.length !== 1 ? 's' : ''}.
-                    </p>
-                  )}
+                  <div className="pt-2 border-t border-neutral-700/50">
+                    <p className="text-xs text-neutral-500 uppercase font-medium mb-1.5">Posting</p>
+                    {!previewClip.posts || previewClip.posts.length === 0 ? (
+                      <p className="text-sm text-neutral-400">Not posted yet — in the backlog.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {previewClip.posts.map((p) => (
+                          <div key={p.id} className="text-sm">
+                            {p.missing ? (
+                              <span className="text-amber-400">
+                                ⚠ Orphaned — post {p.id.slice(0, 8)}… no longer exists
+                              </span>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-neutral-300">
+                                  {PLATFORM_LABEL[p.platform || ''] || p.platform}
+                                </span>
+                                <span className="flex items-center gap-2">
+                                  {p.published_at && (
+                                    <span className="text-xs text-neutral-500">
+                                      {new Date(p.published_at).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`px-2 py-0.5 text-xs rounded-full border ${
+                                      POST_STATUS_CLASS[p.status || ''] ||
+                                      'bg-neutral-700/40 text-neutral-300 border-neutral-600'
+                                    }`}
+                                  >
+                                    {p.status}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
+                            {p.status === 'failed' && p.error_message && (
+                              <p className="text-xs text-red-300/80 mt-0.5">{p.error_message}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Actions */}

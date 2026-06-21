@@ -7,6 +7,57 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
+// A social_posts row resolved from a clip's used_in_posts, or a tombstone for an
+// id that no longer exists (an orphaned reference).
+interface PostRef {
+  id: string;
+  status: string;
+  platform: string;
+  platform_post_id: string | null;
+  published_at: string | null;
+  error_message: string | null;
+}
+type ResolvedPost = PostRef | { id: string; missing: true };
+type PostState = 'unposted' | 'published' | 'posting' | 'failed' | 'orphaned';
+
+interface ClipRecord {
+  id: string;
+  used_in_posts: string[] | null;
+  [key: string]: unknown;
+}
+
+// Collapse a clip's resolved posts into one state + summary for the UI.
+function derivePostState(posts: ResolvedPost[]): {
+  post_state: PostState;
+  posts: ResolvedPost[];
+  last_posted_at: string | null;
+  posted_platforms: string[];
+} {
+  if (posts.length === 0) {
+    return { post_state: 'unposted', posts, last_posted_at: null, posted_platforms: [] };
+  }
+  const real = posts.filter((p): p is PostRef => !('missing' in p));
+  const published = real.filter((p) => p.status === 'published');
+  const posting = real.filter((p) => p.status === 'publishing' || p.status === 'posting');
+  const failed = real.filter((p) => p.status === 'failed');
+
+  let post_state: PostState;
+  if (published.length > 0) post_state = 'published';
+  else if (posting.length > 0) post_state = 'posting';
+  else if (failed.length > 0) post_state = 'failed';
+  else if (real.length === 0) post_state = 'orphaned'; // referenced posts all gone
+  else post_state = 'posting';
+
+  const publishedDates = published
+    .map((p) => p.published_at)
+    .filter((d): d is string => !!d)
+    .sort();
+  const last_posted_at = publishedDates.length ? publishedDates[publishedDates.length - 1] : null;
+  const posted_platforms = Array.from(new Set(published.map((p) => p.platform)));
+
+  return { post_state, posts, last_posted_at, posted_platforms };
+}
+
 export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request);
   if (authError) return authError;
@@ -36,7 +87,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ clips: data, total: count });
+  const clips = (data || []) as ClipRecord[];
+
+  // Resolve used_in_posts → real social_posts state so the library can show
+  // whether a clip actually posted (not just "approved"), surface failures, and
+  // flag orphaned references. The only clip→post link is used_in_posts;
+  // social_posts has no clip_id.
+  const postIds = Array.from(new Set(clips.flatMap((c) => c.used_in_posts || [])));
+
+  const postsById = new Map<string, PostRef>();
+  if (postIds.length > 0) {
+    const { data: posts } = await supabase
+      .from('social_posts')
+      .select('id, status, platform, platform_post_id, published_at, error_message')
+      .in('id', postIds);
+    for (const p of (posts || []) as PostRef[]) postsById.set(p.id, p);
+  }
+
+  const enriched = clips.map((c) => {
+    const ids = c.used_in_posts || [];
+    const resolved: ResolvedPost[] = ids.map((id) => postsById.get(id) || { id, missing: true });
+    return { ...c, ...derivePostState(resolved) };
+  });
+
+  return NextResponse.json({ clips: enriched, total: count });
 }
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'review', 'failed'];
