@@ -284,7 +284,7 @@ export function formatEddySaysCaption(
   const lines: string[] = [];
 
   // 0. Deterministic headline for the feed-preview fold — Eddy's voice leads.
-  lines.push(`🦦 Eddy says — ${riverName}`);
+  lines.push(`Eddy says — ${riverName}`);
   lines.push('');
 
   // 1. The read itself (the hero). Fall back to the summary if no quote.

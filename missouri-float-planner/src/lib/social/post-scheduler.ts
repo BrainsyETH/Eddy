@@ -347,7 +347,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               platform,
               riverSlug: update.river_slug,
               caption,
-              imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
+              imageUrl: `${baseUrl}/api/og/social?type=eddy_says&river=${update.river_slug}&platform=${platform}`,
               mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: update.id,

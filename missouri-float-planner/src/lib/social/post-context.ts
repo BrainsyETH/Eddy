@@ -361,7 +361,7 @@ export async function buildPostContext(
         summaryText: truncateForVideo(update.summary_text ?? null),
       },
       caption: (platform, custom) => formatEddySaysCaption(update, custom, platform),
-      imageUrl: (platform) => og('highlight', platform, `&river=${update.river_slug}`),
+      imageUrl: (platform) => og('eddy_says', platform, `&river=${update.river_slug}`),
     };
   }
 

@@ -185,7 +185,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     needs: 'river',
     media: ['video'],
     composition: 'social-gauge-portrait',
-    ogType: 'highlight',
+    ogType: 'eddy_says',
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
       conditionCode: data.conditionCode || 'unknown',

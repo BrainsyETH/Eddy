@@ -217,7 +217,6 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               textShadow: `0 0 24px ${condition.glow}`,
             }}
           >
-            <span style={{ fontSize: isPortrait ? 40 : 32 }}>🦦</span>
             {eyebrow}
           </div>
         )}
