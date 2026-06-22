@@ -30,7 +30,6 @@ import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers, findSection, type Section } from '@/lib/social/section-picker';
 import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/social/favorite-floats';
-import { canoeHours } from '@/lib/social/post-types';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
 
@@ -1245,7 +1244,6 @@ async function generateFavoriteImage(
   }
 
   const accent = BRAND_COLORS.bluewater;
-  const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
 
   // Real guide photography behind the card (matches the reel). Inlined as a data
   // URI because Satori can't lazy-load remote images; a dead/slow URL degrades
@@ -1310,32 +1308,53 @@ async function generateFavoriteImage(
           {fav.riverName}
         </span>
 
-        {/* Put-in only — "Starts at …" replaces the full route card */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: isPortrait ? 48 : 32 }}>
-          <div
-            style={{
-              display: 'flex',
-              width: isPortrait ? 20 : 16,
-              height: isPortrait ? 20 : 16,
-              borderRadius: '50%',
-              backgroundColor: BRAND_COLORS.accentCoral,
-              boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
-            Starts at {fav.putInName}
-          </span>
+        {/* Put-in → take-out */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: isPortrait ? 16 : 12,
+            marginBottom: isPortrait ? 48 : 32,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                width: isPortrait ? 20 : 16,
+                height: isPortrait ? 20 : 16,
+                borderRadius: '50%',
+                backgroundColor: BRAND_COLORS.accentCoral,
+                boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
+              Starts at {fav.putInName}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                width: isPortrait ? 20 : 16,
+                height: isPortrait ? 20 : 16,
+                borderRadius: '50%',
+                backgroundColor: accent,
+                boxShadow: `0 0 16px ${accent}`,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
+              Ends at {fav.takeOutName}
+            </span>
+          </div>
         </div>
 
-        {/* Two facts */}
+        {/* One fact — distance */}
         <div style={{ display: 'flex', gap: isPortrait ? 64 : 44 }}>
           <StatCell value={`${fav.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          {fav.difficulty ? (
-            <StatCell value={`Class ${fav.difficulty}`} label="Difficulty" color={accent} isPortrait={isPortrait} />
-          ) : (
-            <StatCell value={`${hours.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
-          )}
         </div>
 
         <span
