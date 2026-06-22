@@ -51,10 +51,10 @@ Store them with `set-secret.sh` (value read silently, straight into the keychain
 # SUPABASE_URL is already stored (FloatMe project)
 ```
 
-`load-secrets.sh` pulls them into the environment at runtime. With all three set,
-`run-local.sh` auto-publishes after each render; use `--no-publish` to render only.
-`publish-clip.sh` can also run standalone. An optional gitignored `.env` overrides
-the keychain per-run if present.
+`load-secrets.sh` pulls them into the environment at runtime. Branding is
+cloud-only (Remotion), so these creds + `gh` are **required**: `run-local.sh`
+hands each raw clip to `render-clip.yml`, which brands it and inserts
+`clip_library`. An optional gitignored `.env` overrides the keychain per-run.
 
 ## Requirements
 
@@ -62,10 +62,10 @@ the keychain per-run if present.
 cookies. If YouTube bot-blocks you, export a Netscape `cookies.txt` and point at
 it: `export YOUTUBE_COOKIES_FILE=/path/to/cookies.txt`.
 
-## Format (from `finalize-reel.sh`)
+## Format (Remotion `clip-reel` composition)
 
-- 1080×1920 vertical Reel.
-- Vertical source → passed through untouched.
-- Landscape source → dark-teal `#0F2D35` frame, video band centered, `eddy.guide`
-  watermark on top, transcript captions at the bottom.
-- Clip length defaults to 13s at the YouTube "Most Replayed" peak.
+- 1080×1920 vertical Reel, branded by `render-clip.yml` in the cloud — the same
+  composition production uses, so there's no local ffmpeg render to diverge from.
+- Dark-teal `#0F2D35` brand frame, `eddy.guide` masthead, transcript captions.
+- Clip length is heatmap-driven (12–60s) at the YouTube "Most Replayed" peak, or a
+  Tier-1 fallback window when a known river has no heatmap (`TIER1_HEATMAP_OPTIONAL`).

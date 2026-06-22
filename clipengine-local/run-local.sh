@@ -1,9 +1,12 @@
 #!/bin/bash
-# run-local.sh — Run the Eddy ClipEngine pipeline locally (no cloud upload).
+# run-local.sh — Run the Eddy ClipEngine pipeline locally (scan/scrape/extract on
+# this machine; branding happens in the cloud).
 #
-# Mirrors .github/workflows/youtube-clip-pipeline.yml but:
-#   • reads channels from clipengine-local/channels.json (not a GH secret)
-#   • writes finished Reels to clipengine-local/output/ (no Vercel Blob / Supabase)
+# Mirrors .github/workflows/youtube-clip-pipeline.yml: reads channels from
+#   clipengine-local/channels.json (not a GH secret), scrapes + extracts the clip
+#   locally, then hands the RAW clip to Remotion (render-clip.yml), which brands it
+#   and inserts clip_library. Branding is cloud-only — there is no local ffmpeg
+#   render, so this needs the Blob + Supabase creds and gh (see load-secrets.sh).
 #
 # Usage:
 #   ./run-local.sh                                  # scan all channels in channels.json
@@ -60,31 +63,31 @@ while [ $# -gt 0 ]; do
     --river)      SINGLE_RIVER="$2"; shift 2 ;;
     --peak)       PEAK_NUMBER="$2"; shift 2 ;;
     --instagram)  SINGLE_IG="$2"; shift 2 ;;
-    --no-publish) NO_PUBLISH=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
 
-# Load publishing secrets: optional .env override first, then the macOS keychain.
+# Load secrets: optional .env override first, then the macOS keychain.
 [ -f "$HERE/.env" ] && set -a && . "$HERE/.env" && set +a
 . "$HERE/load-secrets.sh"
 
-# Publish to the Eddy app pipeline only when creds exist and --no-publish wasn't passed.
-PUBLISH=0
-if [ "${NO_PUBLISH:-0}" != 1 ] && [ -n "${BLOB_READ_WRITE_TOKEN:-}" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_KEY:-}" ]; then
-  PUBLISH=1
+# Branding is cloud-only: every clip is branded by the Remotion clip-reel
+# composition (handoff-clip.sh → render-clip.yml), the exact path production uses,
+# so a local run can never produce the old divergent ffmpeg look. That handoff
+# uploads the raw clip to Blob, dedups against + inserts clip_library, and
+# dispatches the render via gh — so it needs the Blob + Supabase creds and gh.
+# Require them up front (the local ffmpeg finalize path was removed).
+MISSING=""
+[ -z "${BLOB_READ_WRITE_TOKEN:-}" ] && MISSING="$MISSING BLOB_READ_WRITE_TOKEN"
+[ -z "${SUPABASE_URL:-}" ]         && MISSING="$MISSING SUPABASE_URL"
+[ -z "${SUPABASE_KEY:-}" ]         && MISSING="$MISSING SUPABASE_KEY"
+command -v gh >/dev/null 2>&1      || MISSING="$MISSING gh"
+if [ -n "$MISSING" ]; then
+  echo "❌ Branding is cloud-only (Remotion); this run needs:$MISSING"
+  echo "   Store secrets with ./set-secret.sh <NAME> and install/auth gh, then retry."
+  exit 1
 fi
-echo "Publish mode: $([ "$PUBLISH" = 1 ] && echo 'ON → Blob + clip_library (app gates & posts)' || echo 'OFF → render to output/ only')"
-
-# Branding path: default to the cloud-Remotion handoff (the same on-brand
-# clip-reel composition the pipeline renders) whenever we can publish + dispatch,
-# so local runs don't quietly produce the divergent ffmpeg look. Falls back to
-# the local ffmpeg finalize when that's not possible. Force with REMOTION=1/0.
-USE_REMOTION="${REMOTION:-auto}"
-if [ "$USE_REMOTION" = auto ]; then
-  if [ "$PUBLISH" = 1 ] && command -v gh >/dev/null 2>&1; then USE_REMOTION=1; else USE_REMOTION=0; fi
-fi
-echo "Branding: $([ "$USE_REMOTION" = 1 ] && echo 'Remotion clip-reel (cloud handoff)' || echo 'local ffmpeg finalize (fallback)')"
+echo "Branding: Remotion clip-reel (cloud handoff) → Blob + clip_library (app gates & posts)"
 
 process_video() {
   local URL="$1" RIVER="$2" PEAK="$3" IG="${4:-}"
@@ -99,11 +102,9 @@ process_video() {
   if [ ! -f "$WORK/heatmap-data.json" ]; then
     echo "⚠️  No heatmap data, skipping"; rm -rf "$WORK"; return 1; fi
 
-  local VIDEO_ID PEAK_IDX PEAK_START PEAK_DURATION CHANNEL CREDIT
-  VIDEO_ID="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json'))['video_id'])")"
-  CHANNEL="$(python3 -c "import json;print(json.load(open('$WORK/heatmap-data.json')).get('channel','') or '')" 2>/dev/null || echo "")"
-  # On-screen + caption credit: IG @handle if known, else the YouTube channel name.
-  if [ -n "$IG" ]; then CREDIT="@${IG#@}"; else CREDIT="$CHANNEL"; fi
+  local PEAK_IDX PEAK_START PEAK_DURATION
+  # On-screen/caption credit (IG @handle else channel name) is derived inside
+  # handoff-clip.sh from the IG arg + heatmap-data.json — run-local doesn't here.
 
   # River is detected per-video by scrape-heatmap (a channel covers many rivers).
   # A passed-in --river overrides detection. No known river → Tier 2: still
@@ -119,39 +120,20 @@ process_video() {
   if [ -z "$PEAK_START" ]; then
     echo "⚠️  No peak at position $PEAK, skipping"; rm -rf "$WORK"; return 1; fi
 
-  local FINAL="$OUT/${VIDEO_ID}-peak${PEAK}.mp4"
-  if [ -f "$FINAL" ]; then
-    echo "⏭️  Already rendered: $FINAL — skipping"; rm -rf "$WORK"; return 1; fi
-
+  # Dedup happens in handoff-clip.sh, which checks clip_library before dispatching
+  # the render — there's no local output file to guard against anymore.
   echo "→ Extracting clip at ${PEAK_START}s for ${PEAK_DURATION}s..."
   bash "$CE/extract-clip.sh" "$URL" "$PEAK_START" "$PEAK_DURATION" "$WORK/raw-clip.mp4" --transcript || true
   if [ ! -f "$WORK/raw-clip.mp4" ]; then
     echo "⚠️  Extraction failed, skipping"; rm -rf "$WORK"; return 1; fi
 
-  # Cloud-Remotion branding path: upload the RAW clip and hand off — branding
-  # happens in Remotion only (no local finalize-reel), so it's never double-branded.
-  if [ "$USE_REMOTION" = 1 ]; then
-    echo "→ Handing off to cloud Remotion branding..."
-    bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" \
-      || echo "⚠️  handoff failed"
-    rm -rf "$WORK"; return 0
-  fi
-
-  echo "→ Finalizing to Reel format (credit: ${CREDIT:-none})..."
-  local VTT; VTT="$(find "$WORK" -name '*.vtt' -type f | head -1 || true)"
-  CREATOR_CREDIT="$CREDIT" bash "$CE/finalize-reel.sh" "$WORK/raw-clip.mp4" "$RIVER" "$FINAL" "${VTT:-}" "$PEAK_START"
-
-  if [ -f "$FINAL" ]; then
-    echo "✅ Done: $FINAL"
-    # Auto-publish into the Eddy app pipeline (Blob + clip_library, pending) when
-    # creds are present. River is already known (skipped above otherwise).
-    if [ "$PUBLISH" = 1 ]; then
-      bash "$HERE/publish-clip.sh" "$FINAL" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" || echo "⚠️  publish step failed (clip still saved locally)"
-    fi
-    rm -rf "$WORK"; return 0
-  else
-    echo "⚠️  Finalize failed"; rm -rf "$WORK"; return 1
-  fi
+  # Brand via cloud Remotion only: upload the RAW clip and hand off. render-clip.yml
+  # brands it (clip-reel composition) and inserts clip_library (pending). Branding
+  # lives in exactly one place — no local finalize, so it's never double-branded.
+  echo "→ Handing off to cloud Remotion branding..."
+  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" \
+    || echo "⚠️  handoff failed"
+  rm -rf "$WORK"; return 0
 }
 
 if [ -n "$SINGLE_URL" ]; then
@@ -207,5 +189,6 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════"
-echo "📁 Output: $OUT"
-ls -1 "$OUT"/*.mp4 2>/dev/null || echo "  (no clips produced)"
+echo "✅ Done — clips were branded by cloud Remotion and inserted into clip_library"
+echo "   (pending → brand-check → post-clip cron). Nothing is written locally;"
+echo "   check the admin Clip Library / Supabase for results."

@@ -1,6 +1,6 @@
 #!/bin/bash
 # load-secrets.sh — Load ClipEngine publishing secrets from the macOS keychain
-# into the environment. Sourced by run-local.sh and publish-clip.sh.
+# into the environment. Sourced by run-local.sh.
 #
 # Keychain service: eddy-clipengine
 # Accounts: SUPABASE_URL, SUPABASE_KEY, BLOB_READ_WRITE_TOKEN
