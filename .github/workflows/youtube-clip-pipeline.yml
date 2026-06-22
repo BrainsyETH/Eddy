@@ -78,6 +78,10 @@ jobs:
           PEAK_NUMBER: ${{ inputs.peak_number || '1' }}
           MAX_CLIPS: ${{ inputs.max_clips || '3' }}
           VIDEOS_PER_CHANNEL: ${{ inputs.videos_per_channel || '5' }}
+          # Let known-river (Tier-1) videos produce a fallback clip when they have
+          # no Most-Replayed heatmap (small Ozark channels). Tier-2 stays gated.
+          # See scripts/clipengine/scrape-heatmap.sh (PR #748). Set to "0" to revert.
+          TIER1_HEATMAP_OPTIONAL: "1"
           YOUTUBE_CHANNELS_JSON: ${{ secrets.YOUTUBE_CHANNELS_JSON }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
