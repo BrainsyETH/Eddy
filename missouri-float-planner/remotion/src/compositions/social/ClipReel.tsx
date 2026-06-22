@@ -18,6 +18,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   videoUrl,
   riverName,
   creatorCredit,
+  creatorAvatarUrl,
   captions,
   sourceOrientation,
 }) => {
@@ -39,6 +40,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
       title={hasRiver ? prettifyRiverName(riverName) : OZARK_PADDLING_LABEL}
       cta={hasRiver ? PLAN_CTA : GENERIC_CTA}
       creatorCredit={creatorCredit}
+      creatorAvatarUrl={creatorAvatarUrl}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}
       frame={frame}

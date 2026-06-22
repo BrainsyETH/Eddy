@@ -3,7 +3,6 @@ import {
   AbsoluteFill,
   Audio,
   Easing,
-  Img,
   useCurrentFrame,
   useVideoConfig,
   spring,
@@ -11,6 +10,7 @@ import {
   staticFile,
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
+import { SafeImg } from "../../components/SafeImg";
 import { Watermark } from "../../components/Watermark";
 import { BrandCTA } from "../../components/BrandCTA";
 import { ReelMasthead } from "../../components/ReelMasthead";
@@ -505,32 +505,3 @@ const EndpointRow: React.FC<{
   </div>
 );
 
-/**
- * Full-bleed image that degrades to nothing — the solid brand background shows
- * through — if the source fails to load. Favorites pass a real (public) section
- * photo URL; a dead or slow URL must never fail the daily posting render, so we
- * both pass Remotion's `onError` (which keeps the render from failing) and catch
- * any synchronous error as a belt-and-suspenders fallback.
- */
-class SafeImg extends React.Component<
-  { src: string; style?: React.CSSProperties },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch() {
-    // Swallow — the fallback (solid background) renders instead.
-  }
-  render() {
-    if (this.state.failed) return null;
-    return (
-      <Img
-        src={this.props.src}
-        onError={() => this.setState({ failed: true })}
-        style={this.props.style}
-      />
-    );
-  }
-}

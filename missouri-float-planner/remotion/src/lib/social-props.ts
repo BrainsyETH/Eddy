@@ -200,6 +200,9 @@ export type ClipReelProps = {
   riverName: string;
   /** Creator attribution shown bottom (channel name or @handle). */
   creatorCredit?: string;
+  /** Channel avatar/logo URL shown as a small circle beside the credit. A dead
+   *  or missing URL degrades to the text-only credit (see SafeImg). */
+  creatorAvatarUrl?: string;
   /** Clip length in seconds — drives composition duration. */
   durationSecs: number;
   /** Timed transcript captions rendered over the clip (optional). */

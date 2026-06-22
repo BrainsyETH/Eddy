@@ -202,10 +202,53 @@ if not peaks:
         print("  ⏭️  No replay-engagement heatmap — skipping (clips require a real engagement peak)")
         source = "none"
 
+# Channel avatar (logo) for the on-reel credit. Only fetched when we'll actually
+# produce a clip (peaks non-empty) so skipped low-view videos cost no extra call.
+# One lightweight playlist-items=0 query on the channel (fetches metadata, no
+# videos); cached per-channel within the run so a multi-video scan hits each
+# channel at most once. Shares the same cookies/auth as the metadata fetch above.
+# Best-effort: any failure → empty, and the credit stays text-only downstream.
+channel_avatar_url = ""
+if peaks:
+    channel_url = info.get("channel_url") or info.get("uploader_url") or ""
+    if channel_url:
+        import tempfile, hashlib
+        cache_dir = os.path.join(tempfile.gettempdir(), "eddy-channel-avatars")
+        os.makedirs(cache_dir, exist_ok=True)
+        key = info.get("channel_id") or hashlib.md5(channel_url.encode()).hexdigest()
+        cache_file = os.path.join(cache_dir, key + ".txt")
+        if os.path.exists(cache_file):
+            channel_avatar_url = open(cache_file).read().strip()
+        else:
+            ccmd = ["yt-dlp", "-J", "--no-warnings", "--playlist-items", "0", "--retries", "3"]
+            if cookies_file and os.path.exists(cookies_file):
+                ccmd += ["--cookies", cookies_file]
+            ccmd.append(channel_url)
+            try:
+                cproc = subprocess.run(ccmd, capture_output=True, text=True, timeout=60)
+                if cproc.returncode == 0 and cproc.stdout.strip():
+                    thumbs = [t for t in (json.loads(cproc.stdout).get("thumbnails") or []) if t.get("url")]
+                    # Prefer the dedicated (square) avatar; else the widest thumbnail.
+                    avatar = next((t for t in thumbs if (t.get("id") or "").startswith("avatar")), None)
+                    if not avatar and thumbs:
+                        avatar = max(thumbs, key=lambda t: t.get("width") or 0)
+                    channel_avatar_url = (avatar or {}).get("url", "")
+            except Exception as e:
+                print(f"  (avatar fetch skipped: {e})")
+            # Cache even an empty result so a channel without an avatar isn't re-hit.
+            try:
+                with open(cache_file, "w") as cf:
+                    cf.write(channel_avatar_url)
+            except Exception:
+                pass
+    if channel_avatar_url:
+        print(f"  Avatar: {channel_avatar_url[:70]}")
+
 result = {
     "video_id": video_id,
     "title": title,
     "channel": channel,
+    "channel_avatar_url": channel_avatar_url,
     "duration_secs": duration,
     "view_count": views,
     "source": source,

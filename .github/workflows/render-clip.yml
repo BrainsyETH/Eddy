@@ -19,6 +19,7 @@ on:
       river_slug:       { description: 'Detected river slug (empty = Tier 2, generic Ozark paddling)', required: false, type: string, default: '' }
       river_name:       { description: 'River display name for the frame (empty = generic)', required: false, type: string, default: '' }
       creator:          { description: 'Creator credit (channel or @handle)', required: false, type: string }
+      creator_avatar_url: { description: 'Channel avatar/logo URL shown beside the credit (empty = text-only)', required: false, type: string, default: '' }
       source_url:       { description: 'Original YouTube URL', required: false, type: string }
       youtube_channel:  { description: 'Source channel name', required: false, type: string }
       peak_number:      { description: 'Heatmap peak index', required: false, type: string, default: '1' }
@@ -66,6 +67,7 @@ jobs:
           VIDEO_URL: ${{ inputs.video_url }}
           RIVER_NAME: ${{ inputs.river_name }}
           CREATOR: ${{ inputs.creator }}
+          CREATOR_AVATAR_URL: ${{ inputs.creator_avatar_url }}
           DURATION_SECS: ${{ inputs.duration_secs }}
           CAPTIONS: ${{ inputs.captions }}
           SOURCE_ORIENTATION: ${{ inputs.source_orientation }}
@@ -76,6 +78,7 @@ jobs:
               "videoUrl": os.environ["VIDEO_URL"],
               "riverName": os.environ["RIVER_NAME"],
               "creatorCredit": os.environ.get("CREATOR", ""),
+              "creatorAvatarUrl": os.environ.get("CREATOR_AVATAR_URL", ""),
               "durationSecs": float(os.environ.get("DURATION_SECS") or 13),
               "captions": json.loads(os.environ.get("CAPTIONS") or "[]"),
               "sourceOrientation": os.environ.get("SOURCE_ORIENTATION") or "landscape",

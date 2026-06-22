@@ -127,6 +127,7 @@ jobs:
             # Extract peak info
             local VIDEO_ID=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d['video_id'])")
             local CHANNEL=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('channel','Unknown'))")
+            local CHANNEL_AVATAR=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('channel_avatar_url','') or '')")
 
             # River is detected per-video by scrape-heatmap (a channel covers many
             # rivers). A dispatch/channel river_slug overrides; otherwise use the
@@ -239,6 +240,7 @@ jobs:
               -f river_slug="$RIVER" \
               -f river_name="$RIVER_NAME" \
               -f creator="$CHANNEL" \
+              -f creator_avatar_url="$CHANNEL_AVATAR" \
               -f source_url="$URL" \
               -f youtube_channel="$CHANNEL" \
               -f peak_number="$PEAK" \

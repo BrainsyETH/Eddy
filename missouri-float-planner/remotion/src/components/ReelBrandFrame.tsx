@@ -4,6 +4,7 @@ import { EddyMascot } from "./EddyMascot";
 import { Watermark } from "./Watermark";
 import { BrandCTA } from "./BrandCTA";
 import { Captions } from "./Captions";
+import { SafeImg } from "./SafeImg";
 import { ENTRANCE } from "../lib/spring-presets";
 import { colors } from "../design-tokens/colors";
 import { fontFamilies } from "../design-tokens/fonts";
@@ -47,6 +48,9 @@ interface ReelBrandFrameProps {
   title: string;
   /** Optional attribution under the media (e.g. a channel name or "@handle"). */
   creatorCredit?: string;
+  /** Optional channel avatar/logo URL, drawn as a small circle before the
+   *  credit. A dead/missing URL degrades to the text-only credit (SafeImg). */
+  creatorAvatarUrl?: string;
   /** CTA copy; defaults to the canonical PLAN_CTA. */
   cta?: string;
   /** Timed transcript captions drawn over the lower media (optional). */
@@ -82,6 +86,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   eyebrow,
   title,
   creatorCredit,
+  creatorAvatarUrl,
   cta = PLAN_CTA,
   captions,
   fullBleed = false,
@@ -251,7 +256,43 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
         }}
       >
         {creatorCredit ? (
-          <div style={{ opacity: footerIn, color: colors.secondary[400], fontSize: 28 }}>🎥 Clip via {creatorCredit}</div>
+          creatorAvatarUrl ? (
+            // With a channel logo: a small circular avatar before the credit. If
+            // the remote image fails to load, SafeImg renders null and the row
+            // gracefully shows just the text (the circle border/bg still frames
+            // the gap). New layout only on this branch so the no-avatar case below
+            // stays byte-identical to its long-standing rendering.
+            <div
+              style={{
+                opacity: footerIn,
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                color: colors.secondary[400],
+                fontSize: 28,
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  border: `2px solid ${colors.secondary[400]}`,
+                  backgroundColor: colors.primary[800],
+                }}
+              >
+                <SafeImg
+                  src={creatorAvatarUrl}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+              <span>Clip via {creatorCredit}</span>
+            </div>
+          ) : (
+            <div style={{ opacity: footerIn, color: colors.secondary[400], fontSize: 28 }}>🎥 Clip via {creatorCredit}</div>
+          )
         ) : null}
         <BrandCTA color={NEUTRAL_ACCENT} opacity={footerIn} text={cta} />
       </div>

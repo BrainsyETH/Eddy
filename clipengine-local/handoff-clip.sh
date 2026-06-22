@@ -19,6 +19,7 @@ command -v gh >/dev/null || { echo "❌ handoff: gh CLI required to dispatch the
 read_json() { python3 -c "import json;d=json.load(open('$HEATMAP'));print($1)" 2>/dev/null || echo ""; }
 VIDEO_ID=$(read_json "d['video_id']")
 CHANNEL=$(read_json "d.get('channel','')")
+CHANNEL_AVATAR=$(read_json "d.get('channel_avatar_url','')")
 IDX=$((PEAK - 1))
 START=$(read_json "d.get('peaks',[])[$IDX]['start_secs'] if len(d.get('peaks',[]))>$IDX else 0")
 DUR=$(read_json "d.get('peaks',[])[$IDX].get('duration_secs',13) if len(d.get('peaks',[]))>$IDX else 13")
@@ -70,6 +71,7 @@ gh workflow run render-clip.yml --ref main \
   -f river_slug="$RIVER" \
   -f river_name="$RIVER_NAME" \
   -f creator="$CREDIT" \
+  -f creator_avatar_url="$CHANNEL_AVATAR" \
   -f source_url="$SRC_URL" \
   -f youtube_channel="$CHANNEL" \
   -f peak_number="$PEAK" \
