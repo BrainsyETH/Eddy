@@ -355,7 +355,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             style={{
               fontSize: quoteForward ? (isPortrait ? 46 : 34) : isPortrait ? 32 : 24,
               color: quoteForward ? "#fff" : "rgba(255,255,255,0.9)",
-              lineHeight: 1.4,
+              lineHeight: quoteForward ? 1.4 : 1.5,
               fontStyle: "italic",
               fontWeight: quoteForward ? 500 : 400,
               textShadow: quoteForward ? `0 0 30px ${condition.glow}` : undefined,
