@@ -38,6 +38,13 @@ export const DEFAULT_WEEKLY_TREND: WeeklyReelConfig = {
   media: 'video',
 };
 
+export const DEFAULT_EDDY_SAYS: WeeklyReelConfig = {
+  enabled: false,
+  day_of_week: 2, // Tuesday — a midweek dose of Eddy's local read
+  time_cst: '11:00',
+  media: 'video',
+};
+
 // Matches the 00092 migration default — Mon/Wed/Fri = video, rest = image.
 // Users can edit this matrix from the admin UI; the scheduler reads from
 // config, not this constant.
@@ -66,6 +73,10 @@ export const DEFAULT_MEDIA_SCHEDULE: MediaSchedule = {
     mon: null, tue: null, wed: null, thu: null,
     fri: null, sat: null, sun: 'video',
   },
+  eddy_says: {
+    mon: null, tue: 'video', wed: null, thu: null,
+    fri: null, sat: null, sun: null,
+  },
 };
 
 const DEFAULT_CONFIG = {
@@ -85,6 +96,7 @@ const DEFAULT_CONFIG = {
   section_guide: DEFAULT_SECTION_GUIDE,
   favorite_float: DEFAULT_FAVORITE_FLOAT,
   weekly_trend: DEFAULT_WEEKLY_TREND,
+  eddy_says: DEFAULT_EDDY_SAYS,
   river_schedules: {
     'meramec': { mon: '07:00', tue: '07:00', wed: '07:00', thu: '07:00', fri: '07:00', sat: '09:00', sun: '09:00' },
     'current': { mon: '07:30', tue: '07:30', wed: '07:30', thu: '07:30', fri: '07:30', sat: '09:30', sun: '09:30' },
@@ -154,6 +166,7 @@ export async function getOrCreateConfig(
       section_guide: { ...DEFAULT_MEDIA_SCHEDULE.section_guide, ...(config.media_schedule.section_guide || {}) },
       favorite_float: { ...DEFAULT_MEDIA_SCHEDULE.favorite_float, ...(config.media_schedule.favorite_float || {}) },
       weekly_trend: { ...DEFAULT_MEDIA_SCHEDULE.weekly_trend, ...(config.media_schedule.weekly_trend || {}) },
+      eddy_says: { ...DEFAULT_MEDIA_SCHEDULE.eddy_says, ...(config.media_schedule.eddy_says || {}) },
     };
   }
   if (!config.weekly_forecast) {
@@ -175,6 +188,11 @@ export async function getOrCreateConfig(
     config.weekly_trend = { ...DEFAULT_WEEKLY_TREND };
   } else {
     config.weekly_trend = { ...DEFAULT_WEEKLY_TREND, ...config.weekly_trend };
+  }
+  if (!config.eddy_says) {
+    config.eddy_says = { ...DEFAULT_EDDY_SAYS };
+  } else {
+    config.eddy_says = { ...DEFAULT_EDDY_SAYS, ...config.eddy_says };
   }
 
   // Multiple rows — self-heal

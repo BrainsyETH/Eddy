@@ -7,12 +7,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
+  formatEddySaysCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
   formatFavoriteFloatCaption,
   formatWeeklyTrendCaption,
 } from './content-formatter';
-import { pickSectionForRivers } from './section-picker';
+import { pickSectionForRivers, dayIndex } from './section-picker';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { overlayLiveConditions } from './live-conditions';
@@ -311,6 +312,48 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
               eddyUpdateId: null,
             });
           }
+        }
+      }
+    }
+  }
+
+  // --- Eddy Says (media_schedule.eddy_says drives day/media) ---
+  // Per-river quote spotlight; rotates deterministically by day among rivers
+  // with a fresh quote so the same read isn't reposted day after day.
+  {
+    const todayMedia = config.media_schedule?.eddy_says?.[todayKey] ?? null;
+    if (todayMedia && config.eddy_says) {
+      const { time_cst } = config.eddy_says;
+      const timeMatches = skipTimeCheck || isDueNow(time_cst);
+      const alreadyPosted = await hasPostedToday('eddy_says', null, supabase);
+
+      if (!timeMatches) {
+        console.log(`${LOG_PREFIX} Eddy Says: not near ${time_cst} CST — skipping`);
+      } else if (alreadyPosted) {
+        console.log(`${LOG_PREFIX} Eddy Says: already posted today — skipping`);
+      } else {
+        const withQuote = updates
+          .filter((u) => (u.quote_text || '').trim().length > 0)
+          .sort((a, b) => a.river_slug.localeCompare(b.river_slug));
+        if (withQuote.length === 0) {
+          console.log(`${LOG_PREFIX} Eddy Says: no fresh river quotes — skipping`);
+        } else {
+          const update = withQuote[dayIndex() % withQuote.length];
+          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          for (const platform of platforms) {
+            const { caption, hashtags } = formatEddySaysCaption(update, customContent, platform);
+            posts.push({
+              postType: 'eddy_says',
+              platform,
+              riverSlug: update.river_slug,
+              caption,
+              imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
+              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
+              hashtags,
+              eddyUpdateId: update.id,
+            });
+          }
+          console.log(`${LOG_PREFIX} Scheduling Eddy Says for ${update.river_slug} (${todayKey})`);
         }
       }
     }
