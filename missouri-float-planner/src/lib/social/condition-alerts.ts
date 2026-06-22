@@ -12,14 +12,21 @@ import type { SocialPlatform, PlatformAdapter } from './types';
 
 const LOG_PREFIX = '[ConditionAlert]';
 
-// Condition-change alerts are SAFETY WARNINGS. They fire only when a river
-// crosses from a floatable state (flowing) into elevated / dangerous water
-// (high or dangerous). Anything else — a river becoming floatable, a flood
-// warning lifting, good→low, etc. — is routine news, not a warning, and is
-// left to the scheduled reel rotation.
+// Condition-change alerts are SAFETY WARNINGS. They fire when a river crosses
+// from any non-elevated state (flowing/good/low/too_low) INTO elevated water
+// (high or dangerous), and on escalation into 'dangerous' from anything (e.g.
+// high→dangerous). Crossing only happens once because the gauge cron rewrites
+// last_condition_code each step — so a gradual rise (flowing→good→high) still
+// alerts on the good→high step. We skip alerts from 'unknown' (a first-ever
+// reading) to avoid spurious warnings on gauge initialization. Anything that
+// isn't a move into elevated water is routine news, left to the reel rotation.
+const ELEVATED = new Set(['high', 'dangerous']);
+
 function isNotableTransition(oldCondition: string, newCondition: string): boolean {
-  if (oldCondition !== 'flowing') return false;
-  return newCondition === 'high' || newCondition === 'dangerous';
+  if (oldCondition === 'unknown') return false;     // don't alert on a first-ever reading
+  if (!ELEVATED.has(newCondition)) return false;    // only warn when crossing INTO elevated water
+  if (newCondition === 'high') return !ELEVATED.has(oldCondition); // safe → high
+  return oldCondition !== 'dangerous';              // → dangerous from anything (incl. high→dangerous)
 }
 
 function getAdapter(platform: SocialPlatform): PlatformAdapter | null {

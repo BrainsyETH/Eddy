@@ -7,7 +7,7 @@ import type { SocialConfig, VideoFeatures, MediaSchedule, WeeklyReelConfig } fro
 const LOG_PREFIX = '[SocialConfig]';
 
 export const DEFAULT_VIDEO_FEATURES: VideoFeatures = {
-  condition_alerts_as_video: false,
+  condition_alerts_as_video: true,
 };
 
 export const DEFAULT_WEEKLY_FORECAST: WeeklyReelConfig = {
