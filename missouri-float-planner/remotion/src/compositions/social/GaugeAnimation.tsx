@@ -46,6 +46,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   dateLabel,
   warningMode,
   previousCondition,
+  eyebrow,
+  quoteForward,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -198,6 +200,27 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </div>
         )}
 
+        {/* Eyebrow (e.g. "Eddy Says") — quote-forward / Eddy Says reel only */}
+        {eyebrow && (
+          <div
+            style={{
+              opacity: nameEntrance,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              fontFamily: "'Fredoka', system-ui, sans-serif",
+              fontSize: isPortrait ? 30 : 24,
+              fontWeight: 600,
+              letterSpacing: 3,
+              textTransform: "uppercase",
+              color: condition.solid,
+              textShadow: `0 0 24px ${condition.glow}`,
+            }}
+          >
+            {eyebrow}
+          </div>
+        )}
+
         {/* River Name */}
         <div
           style={{
@@ -251,7 +274,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </div>
         )}
 
-        {/* Gauge + Eddy side by side */}
+        {/* Gauge + Eddy side by side. Quote-forward (Eddy Says) drops the big
+            gauge bar so the quote can be the hero — Eddy alone paddles in. */}
         <div
           style={{
             display: "flex",
@@ -260,20 +284,22 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
             justifyContent: "center",
           }}
         >
-          <GaugeBar
-            currentHeight={gaugeHeightFt}
-            optimalMin={optimalMin}
-            optimalMax={optimalMax}
-            conditionColor={condition.solid}
-            conditionGlow={condition.glow}
-            delay={30}
-            width={isPortrait ? 100 : 85}
-            height={isPortrait ? 420 : 300}
-          />
+          {!quoteForward && (
+            <GaugeBar
+              currentHeight={gaugeHeightFt}
+              optimalMin={optimalMin}
+              optimalMax={optimalMax}
+              conditionColor={condition.solid}
+              conditionGlow={condition.glow}
+              delay={30}
+              width={isPortrait ? 100 : 85}
+              height={isPortrait ? 420 : 300}
+            />
+          )}
           <div style={{ marginBottom: 12 }}>
             <EddyMascot
               variant={getOtterVariant(conditionCode)}
-              size={isPortrait ? 220 : 170}
+              size={isPortrait ? (quoteForward ? 180 : 220) : 170}
               delay={30}
             />
           </div>
@@ -317,7 +343,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </span>
         </div>
 
-        {/* Quote teaser */}
+        {/* Quote — a teaser by default; the centered hero in quote-forward mode */}
         <div
           style={{
             maxWidth: isPortrait ? 920 : 800,
@@ -327,10 +353,12 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         >
           <span
             style={{
-              fontSize: isPortrait ? 32 : 24,
-              color: "rgba(255,255,255,0.9)",
-              lineHeight: 1.5,
+              fontSize: quoteForward ? (isPortrait ? 46 : 34) : isPortrait ? 32 : 24,
+              color: quoteForward ? "#fff" : "rgba(255,255,255,0.9)",
+              lineHeight: 1.4,
               fontStyle: "italic",
+              fontWeight: quoteForward ? 500 : 400,
+              textShadow: quoteForward ? `0 0 30px ${condition.glow}` : undefined,
             }}
           >
             &ldquo;{quoteText}&rdquo;

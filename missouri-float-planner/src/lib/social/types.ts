@@ -5,6 +5,7 @@ export type SocialPlatform = 'instagram' | 'facebook';
 export type PostType =
   | 'daily_digest'
   | 'river_highlight'
+  | 'eddy_says'
   | 'manual'
   | 'condition_change'
   | 'weekly_forecast'
@@ -61,6 +62,8 @@ export interface MediaSchedule {
   /** Evergreen Favorite Float (from the river-guide blogs). */
   favorite_float?: DayMediaMap;
   weekly_trend?: DayMediaMap;
+  /** "Eddy Says" quote reel — per-river, rotating daily. */
+  eddy_says?: DayMediaMap;
 }
 
 /** Weekly reel: fires once per week on a specific weekday. */
@@ -95,6 +98,7 @@ export interface SocialConfig {
   section_guide: WeeklyReelConfig;
   favorite_float: WeeklyReelConfig;
   weekly_trend: WeeklyReelConfig;
+  eddy_says: WeeklyReelConfig;
   updated_at: string;
 }
 

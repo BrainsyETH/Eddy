@@ -18,6 +18,7 @@ import type { WeatherChip } from '@/lib/weather/openweather';
 export type PostKind =
   | 'daily_digest'
   | 'river_highlight'
+  | 'eddy_says'
   | 'weekly_forecast'
   | 'section_guide'
   | 'favorite_float'
@@ -173,6 +174,32 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       format: FORMAT,
     }),
     outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
+  },
+
+  // "Eddy Says" — reuses the river-highlight reel (social-gauge-portrait) in
+  // quote-forward mode: Eddy's local read on a river is the hero instead of the
+  // live gauge instrument. Per-river, rotating daily.
+  eddy_says: {
+    id: 'eddy_says',
+    label: 'Eddy Says',
+    needs: 'river',
+    media: ['video'],
+    composition: 'social-gauge-portrait',
+    ogType: 'eddy_says',
+    renderProps: (data) => ({
+      riverName: data.riverName || 'Unknown River',
+      conditionCode: data.conditionCode || 'unknown',
+      gaugeHeightFt: data.gaugeHeightFt ?? 0,
+      optimalMin: data.optimalMin ?? 1.5,
+      optimalMax: data.optimalMax ?? 4.0,
+      // Lead with Eddy's full read (summary as fallback) — this post IS the quote.
+      quoteText: data.quoteText || data.summaryText || '',
+      dateLabel: data.dateLabel || defaultDate(),
+      eyebrow: 'Eddy Says',
+      quoteForward: true,
+      format: FORMAT,
+    }),
+    outputFilename: (data) => `eddy-says-${slugify(data.riverName || 'river')}`,
   },
 
   daily_digest: {

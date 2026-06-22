@@ -29,12 +29,13 @@ const FPS = 30;
 // and the put-in (accent) / take-out (condition) markers.
 const SPRING_COLOR = "#7dd3fc";
 
-// Evergreen "favorite" accent — a calm brand water-teal used instead of a live
-// condition color when the post isn't tied to today's gauge (Favorite Floats).
+// Evergreen "favorite" accent — a warm editorial gold, deliberately OFF the
+// cool live-condition palette so "Eddy's Favorite Float" reads as a curated,
+// timeless postcard rather than today's gauge snapshot (Float of the Day).
 const EVERGREEN_STYLE = {
-  solid: colors.primary[300],
-  bg: "rgba(114,181,196,0.12)",
-  glow: "rgba(114,181,196,0.45)",
+  solid: "#e0b057",
+  bg: "rgba(224,176,87,0.12)",
+  glow: "rgba(224,176,87,0.45)",
   label: "Favorite",
 };
 
@@ -188,7 +189,9 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
     const p = Math.min(0.97, Math.max(0.03, frac));
     return { p, point: along(route, p).point };
   });
-  const boatPulse = 1 + 0.25 * Math.sin(frame / 5);
+  // Float of the Day pulses the leading "boat" — a live-instrument tell. Evergreen
+  // favorites draw with a calm, steady marker so they don't read as live.
+  const boatPulse = evergreen ? 1 : 1 + 0.25 * Math.sin(frame / 5);
 
   // The payoff (float time + distance) lands first — front-loaded into the first
   // second for retention — while the route keeps drawing as live "proof" beneath

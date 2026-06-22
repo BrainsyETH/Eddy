@@ -64,6 +64,13 @@ export type GaugeAnimationProps = {
   /** The condition the river was previously in. Only used when
    *  warningMode=true to render the transition arrow. */
   previousCondition?: ConditionCode;
+  /** Optional eyebrow label above the river name (e.g. "Eddy Says"). Absent →
+   *  no eyebrow (the default river-highlight layout). */
+  eyebrow?: string;
+  /** Quote-forward mode: the quote becomes the centered hero (larger, no big
+   *  gauge bar) — used by the "Eddy Says" reel, which reuses this composition to
+   *  spotlight Eddy's local read instead of the live gauge instrument. */
+  quoteForward?: boolean;
   format: "square" | "portrait";
 }
 

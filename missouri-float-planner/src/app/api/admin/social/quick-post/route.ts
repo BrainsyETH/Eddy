@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { type, riverSlug, contentId, platforms } = body as {
-    type: 'digest' | 'highlight' | 'tip' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend';
+    type: 'digest' | 'highlight' | 'eddy_says' | 'tip' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend';
     riverSlug?: string;
     contentId?: string;
     platforms: string[];

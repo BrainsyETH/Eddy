@@ -14,7 +14,7 @@
 import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
-import { pickSectionForRivers } from './section-picker';
+import { pickSectionForRivers, dayIndex } from './section-picker';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
@@ -22,6 +22,7 @@ import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
+  formatEddySaysCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
   formatFavoriteFloatCaption,
@@ -195,11 +196,13 @@ export async function buildPostContext(
       `&putInMile=${section.putInMile}` +
       `&takeOutMile=${section.takeOutMile}` +
       `&condition=${conditionCode}`;
-    const sectionBg = await bgUrl(supabase, section.riverSlug);
     return {
       postType,
       riverSlug: section.riverSlug,
-      renderData: { ...section, conditionCode, dateLabel: longDate(), photoUrl: sectionBg || undefined },
+      // No photoUrl: Float of the Day renders on the solid live background with a
+      // condition-colored route + pulsing boat (a live instrument), deliberately
+      // distinct from Eddy's Favorite Float, which keeps its editorial photo backdrop.
+      renderData: { ...section, conditionCode, dateLabel: longDate() },
       caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
       // route is video-only; reuse the section thumbnail as the cover.
       imageUrl: (platform) => og('section', platform, coverParams),
@@ -298,6 +301,67 @@ export async function buildPostContext(
       },
       caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
       imageUrl: (platform) => og('highlight', platform, `&river=${update.river_slug}`),
+    };
+  }
+
+  if (postType === 'eddy_says') {
+    // Per-river quote spotlight. A specific river (quick-post) is honored; the
+    // scheduled path rotates deterministically by day among rivers that have a
+    // fresh quote, so the same read isn't reposted day after day.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let update: any;
+    if (opts.eddyUpdateId || opts.riverSlug) {
+      let query = supabase
+        .from('eddy_updates')
+        .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+        .is('section_slug', null);
+      query = opts.eddyUpdateId
+        ? query.eq('id', opts.eddyUpdateId)
+        : query.eq('river_slug', opts.riverSlug).gt('expires_at', nowIso)
+            .order('generated_at', { ascending: false }).limit(1);
+      const { data: rawUpdate } = await query.maybeSingle();
+      if (!rawUpdate) return null;
+      [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+    } else {
+      const fresh = await freshRivers();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const withQuote = (fresh as any[])
+        .filter((u) => (u.quote_text || '').trim().length > 0)
+        .sort((a, b) => a.river_slug.localeCompare(b.river_slug));
+      if (withQuote.length === 0) return null;
+      update = withQuote[dayIndex() % withQuote.length];
+    }
+    if (!update) return null;
+
+    // Optimal band keeps the shared gauge props valid (the bar is hidden in
+    // quote-forward mode, but the composition still expects the fields).
+    let optimalMin = 1.5;
+    let optimalMax = 4.0;
+    const { data: gauge } = await supabase
+      .from('river_gauges')
+      .select('level_optimal_min, level_optimal_max')
+      .eq('river_id', update.river_slug)
+      .eq('is_primary', true)
+      .maybeSingle();
+    if (gauge) {
+      optimalMin = gauge.level_optimal_min ?? optimalMin;
+      optimalMax = gauge.level_optimal_max ?? optimalMax;
+    }
+
+    return {
+      postType,
+      riverSlug: update.river_slug,
+      renderData: {
+        riverName: titleize(update.river_slug),
+        conditionCode: update.condition_code,
+        gaugeHeightFt: update.gauge_height_ft,
+        optimalMin,
+        optimalMax,
+        quoteText: truncateForVideo(update.quote_text ?? null),
+        summaryText: truncateForVideo(update.summary_text ?? null),
+      },
+      caption: (platform, custom) => formatEddySaysCaption(update, custom, platform),
+      imageUrl: (platform) => og('eddy_says', platform, `&river=${update.river_slug}`),
     };
   }
 

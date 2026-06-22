@@ -238,6 +238,7 @@ export function getCompositionForPost(
   postType:
     | 'daily_digest'
     | 'river_highlight'
+    | 'eddy_says'
     | 'weekly_forecast'
     | 'section_guide'
     | 'favorite_float'

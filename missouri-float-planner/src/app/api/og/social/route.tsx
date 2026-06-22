@@ -3,6 +3,7 @@
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
 //   ?type=highlight&river=slug         — single river highlight thumbnail
+//   ?type=eddy_says&river=slug         — dedicated quote cover (Eddy's read is the hero)
 //   ?type=tip&id=uuid                  — custom content snippet thumbnail
 //   ?type=forecast                     — weekly forecast: top 3 floatable rivers
 //   ?type=section                      — section guide: float of the week
@@ -30,7 +31,6 @@ import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers, findSection, type Section } from '@/lib/social/section-picker';
 import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/social/favorite-floats';
-import { canoeHours } from '@/lib/social/post-types';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
 
@@ -206,6 +206,10 @@ export async function GET(request: NextRequest) {
 
     if (type === 'highlight' && riverSlug) {
       return await generateHighlightImage(riverSlug, size);
+    }
+
+    if (type === 'eddy_says' && riverSlug) {
+      return await generateEddySaysImage(riverSlug, size);
     }
 
     if (type === 'tip' && contentId) {
@@ -714,6 +718,216 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
             />
           </div>
         )}
+
+        {/* Bottom gradient bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 6,
+            background: `linear-gradient(90deg, ${gradientStart} 0%, ${BRAND_COLORS.accentCoral} 50%, ${gradientEnd} 100%)`,
+          }}
+        />
+      </div>
+    ),
+    {
+      ...size,
+      fonts,
+      headers: CACHE_HEADERS,
+    }
+  );
+}
+
+// "Eddy Says" — a dedicated quote cover. Where generateHighlightImage leads with
+// the summary and makes the gauge/condition the focus, this makes Eddy's quote the
+// hero, over the river's AI background art. The visible block is vertically centered
+// so it survives Facebook's worst-case 1.91:1 center-crop of the 1080x1080 square.
+async function generateEddySaysImage(riverSlug: string, size: { width: number; height: number }) {
+  const supabase = createAdminClient();
+  const fonts = loadFredokaFont();
+
+  const { data: rawUpdate } = await supabase
+    .from('eddy_updates')
+    .select('river_slug, condition_code, gauge_height_ft, summary_text, quote_text')
+    .eq('river_slug', riverSlug)
+    .is('section_slug', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!rawUpdate) {
+    return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
+  }
+
+  // Overlay live gauge data so the condition chip matches reality.
+  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+
+  const RIVER_DISPLAY: Record<string, string> = {
+    meramec: 'Meramec River',
+    current: 'Current River',
+    'eleven-point': 'Eleven Point River',
+    'jacks-fork': 'Jacks Fork River',
+    niangua: 'Niangua River',
+    'big-piney': 'Big Piney River',
+    huzzah: 'Huzzah Creek',
+    courtois: 'Courtois Creek',
+  };
+
+  const riverName = RIVER_DISPLAY[riverSlug] || riverSlug;
+  const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
+  const statusStyles = getStatusStyles(conditionCode);
+  const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
+  const conditionLabel = CONDITION_LABELS[conditionCode as keyof typeof CONDITION_LABELS] || 'Unknown';
+  const quote = update.quote_text || update.summary_text || '';
+  const isPortrait = size.height > size.width;
+
+  // Facebook center-crop safe zone: a 1.91:1 crop of the 1080x1080 square keeps
+  // only the central ~566px tall band. We vertically center the hero block and
+  // keep the quote short enough (square) that the eyebrow + quote stay inside it.
+  const SIDE_PAD = isPortrait ? 80 : 88;
+  // Square gets a shorter teaser so the centered block stays inside Facebook's
+  // worst-case 1.91:1 center-crop band; portrait has the full height for the read.
+  const quoteText = truncate(quote, isPortrait ? 380 : 200);
+
+  // Background: the river's cached AI art (same family the reel/covers use), with
+  // a legibility scrim. Absent → the solid brand gradient below shows through.
+  const bgDataUri = await loadBackgroundDataUri(supabase, riverSlug);
+  const layers = photoLayers(bgDataUri, size);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: 'linear-gradient(160deg, #0d2a2c 0%, #1A3D40 60%, #0d2a2c 100%)',
+          padding: `0 ${SIDE_PAD}px`,
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {layers}
+
+        {/* Centered hero block — eyebrow + river + condition + quote */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            maxWidth: size.width - SIDE_PAD * 2,
+          }}
+        >
+          {/* Eyebrow */}
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: isPortrait ? 40 : 34,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              textTransform: 'uppercase',
+              letterSpacing: 4,
+              marginBottom: 14,
+            }}
+          >
+            Eddy Says
+          </span>
+
+          {/* River name */}
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: isPortrait ? 84 : 64,
+              fontWeight: 600,
+              color: 'white',
+              lineHeight: 1,
+              letterSpacing: -1,
+              marginBottom: 24,
+            }}
+          >
+            {riverName}
+          </span>
+
+          {/* Condition chip */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              alignSelf: 'flex-start',
+              backgroundColor: statusStyles.bg,
+              border: `2px solid ${statusStyles.border}`,
+              borderRadius: 100,
+              padding: isPortrait ? '12px 28px' : '10px 24px',
+              marginBottom: isPortrait ? 40 : 32,
+            }}
+          >
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                backgroundColor: statusStyles.solid,
+              }}
+            />
+            <span style={{ fontSize: isPortrait ? 32 : 28, fontWeight: 700, color: statusStyles.text }}>
+              {conditionLabel}
+              {update.gauge_height_ft !== null ? ` · ${update.gauge_height_ft.toFixed(1)} ft` : ''}
+            </span>
+          </div>
+
+          {/* Quote — the hero */}
+          {quoteText && (
+            <span
+              style={{
+                fontSize: isPortrait ? 56 : 46,
+                fontStyle: 'italic',
+                color: 'rgba(255,255,255,0.95)',
+                lineHeight: 1.34,
+              }}
+            >
+              &ldquo;{quoteText}&rdquo;
+            </span>
+          )}
+        </div>
+
+        {/* CTA — portrait (Instagram Stories) only; sits below the safe band */}
+        {isPortrait && (
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: 38,
+              fontWeight: 600,
+              color: BRAND_COLORS.accentCoral,
+              opacity: 0.85,
+              position: 'absolute',
+              bottom: 120,
+              left: SIDE_PAD,
+            }}
+          >
+            Plan your float at eddy.guide
+          </span>
+        )}
+
+        {/* Footer — decorative; may fall outside the square center-crop */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 28,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.4)',
+            position: 'absolute',
+            bottom: isPortrait ? 72 : 56,
+            left: SIDE_PAD,
+          }}
+        >
+          eddy.guide
+        </span>
 
         {/* Bottom gradient bar */}
         <div
@@ -1245,7 +1459,6 @@ async function generateFavoriteImage(
   }
 
   const accent = BRAND_COLORS.bluewater;
-  const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
 
   // Real guide photography behind the card (matches the reel). Inlined as a data
   // URI because Satori can't lazy-load remote images; a dead/slow URL degrades
@@ -1310,32 +1523,53 @@ async function generateFavoriteImage(
           {fav.riverName}
         </span>
 
-        {/* Put-in only — "Starts at …" replaces the full route card */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: isPortrait ? 48 : 32 }}>
-          <div
-            style={{
-              display: 'flex',
-              width: isPortrait ? 20 : 16,
-              height: isPortrait ? 20 : 16,
-              borderRadius: '50%',
-              backgroundColor: BRAND_COLORS.accentCoral,
-              boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
-            Starts at {fav.putInName}
-          </span>
+        {/* Put-in → take-out */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: isPortrait ? 16 : 12,
+            marginBottom: isPortrait ? 48 : 32,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                width: isPortrait ? 20 : 16,
+                height: isPortrait ? 20 : 16,
+                borderRadius: '50%',
+                backgroundColor: BRAND_COLORS.accentCoral,
+                boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
+              Starts at {fav.putInName}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                width: isPortrait ? 20 : 16,
+                height: isPortrait ? 20 : 16,
+                borderRadius: '50%',
+                backgroundColor: accent,
+                boxShadow: `0 0 16px ${accent}`,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
+              Ends at {fav.takeOutName}
+            </span>
+          </div>
         </div>
 
-        {/* Two facts */}
+        {/* One fact — distance */}
         <div style={{ display: 'flex', gap: isPortrait ? 64 : 44 }}>
           <StatCell value={`${fav.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          {fav.difficulty ? (
-            <StatCell value={`Class ${fav.difficulty}`} label="Difficulty" color={accent} isPortrait={isPortrait} />
-          ) : (
-            <StatCell value={`${hours.toFixed(1)} hrs`} label="Canoe" isPortrait={isPortrait} />
-          )}
         </div>
 
         <span
