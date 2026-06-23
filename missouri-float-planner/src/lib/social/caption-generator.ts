@@ -97,6 +97,7 @@ REQUIREMENTS:
 - Tone: Sound like a knowledgeable local who paddles every weekend — NOT a tourism board
 - DO NOT use marketing buzzwords like "unlock", "discover", "hidden gem", "adventure awaits"
 - Be specific about the river, conditions, and what's actually happening
+- When "CLIP SHOWS" is provided, anchor the caption in what the footage actually depicts (the craft, water, and scenery described). Do NOT invent visual details that aren't listed, and do not claim the footage shows current conditions
 - 2-3 relevant keywords woven naturally
 - Minimal emojis (0-2 max)
 - End with a call to action pointing to eddy.guide

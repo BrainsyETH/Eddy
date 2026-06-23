@@ -8,12 +8,21 @@ import { hasMetaCredentials, hasInstagramCredentials } from './meta-client';
 import { generateCaption } from './caption-generator';
 import type { SocialPlatform, HookStyle } from './types';
 
+/** Subset of the brand_check_result JSONB (written by brand-check-clip.yml) we read here. */
+export interface BrandCheckResult {
+  /** 1-2 sentence description of the footage, captured by the Claude vision pass. */
+  scene_description?: string | null;
+  scene_tags?: string[] | null;
+  [key: string]: unknown;
+}
+
 export interface ClipRow {
   id: string;
   clip_url: string | null;
   river_slug: string | null;
   source_creator: string | null;
   brand_check_status: string;
+  brand_check_result: BrandCheckResult | null;
   used_in_posts: string[] | null;
 }
 
@@ -62,6 +71,7 @@ const HOOK_STYLES: HookStyle[] = ['question', 'stat', 'story', 'urgency'];
 async function composeClipCaption(
   riverName: string | null,
   creator: string | null,
+  sceneDescription: string | null,
 ): Promise<{ caption: string; hashtags: string[] }> {
   const fallback = buildClipCaption(riverName, creator);
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
@@ -74,7 +84,13 @@ async function composeClipCaption(
       hookStyle,
       // Tier 2 (no known Eddy river) → frame it as general Ozark paddling.
       riverName: hasRiver ? riverName! : 'Ozarks',
-      clipMetadata: { sourceCreator: creator || undefined },
+      // scene_description (from the brand-check vision pass) grounds the caption
+      // in what the footage actually shows, not just the river name. Null for
+      // backlog clips checked before this field existed → caption stays river-only.
+      clipMetadata: {
+        sourceCreator: creator || undefined,
+        description: sceneDescription || undefined,
+      },
     });
 
     let caption = (generated.caption || '').trim();
@@ -110,7 +126,8 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     const { data: river } = await supabase.from('rivers').select('name').eq('slug', clip.river_slug).single();
     riverName = river?.name || clip.river_slug;
   }
-  const { caption, hashtags } = await composeClipCaption(riverName, clip.source_creator);
+  const sceneDescription = clip.brand_check_result?.scene_description?.trim() || null;
+  const { caption, hashtags } = await composeClipCaption(riverName, clip.source_creator, sceneDescription);
 
   const results: ClipPostResult['results'] = [];
   const postedRowIds: string[] = [];
