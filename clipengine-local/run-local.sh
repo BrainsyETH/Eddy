@@ -14,7 +14,9 @@
 #
 # Env (optional):
 #   YOUTUBE_COOKIES_FILE   Netscape cookies.txt — only needed if YouTube bot-blocks you
-#   VIDEOS_PER_CHANNEL     newest uploads to scan per channel (default 5)
+#   VIDEOS_PER_CHANNEL     newest uploads to scan per channel (default 15); already-processed
+#                          videos are pre-filtered via Supabase so the scan advances into
+#                          backlog naturally without re-scraping known videos
 #   MAX_CLIPS              stop after this many clips when scanning (default 3)
 #   TIER1_HEATMAP_OPTIONAL=1  let known-river (Tier-1) videos produce a fallback
 #                          clip when they have no Most-Replayed heatmap (small
@@ -54,7 +56,7 @@ fi
 PEAK_NUMBER=1
 SINGLE_URL=""
 SINGLE_RIVER=""
-VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
+VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-15}"
 MAX_CLIPS="${MAX_CLIPS:-3}"
 
 while [ $# -gt 0 ]; do
@@ -141,6 +143,21 @@ if [ -n "$SINGLE_URL" ]; then
 else
   CHANNELS="$HERE/channels.json"
   [ -f "$CHANNELS" ] || { echo "No channels.json at $CHANNELS"; exit 1; }
+
+  # Pre-fetch all already-processed video IDs from Supabase so we can skip them
+  # before the expensive heatmap scrape (the cloud pipeline does per-video dedup;
+  # we do one batch fetch here instead). Falls back to empty set on error.
+  KNOWN_VIDS=""
+  if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_KEY:-}" ]; then
+    KNOWN_VIDS="$(curl -sf "${SUPABASE_URL}/rest/v1/clip_library?select=youtube_video_id&limit=2000" \
+      -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" \
+      -H "Accept: application/json" 2>/dev/null \
+      | python3 -c "import json,sys; [print(r['youtube_video_id']) for r in json.loads(sys.stdin.read())]" \
+      2>/dev/null || echo "")"
+    KNOWN_COUNT="$(echo "$KNOWN_VIDS" | grep -c . 2>/dev/null || echo 0)"
+    echo "  (skipping $KNOWN_COUNT already-processed videos)"
+  fi
+
   echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL each, up to $MAX_CLIPS clips)"
   COUNT=0
   while IFS='|' read -r CH_URL CH_RIVER CH_IG; do
@@ -164,6 +181,9 @@ else
       [ -z "$LINE" ] && continue
       [ "$COUNT" -ge "$MAX_CLIPS" ] && { echo "  Reached MAX_CLIPS=$MAX_CLIPS"; break 2; }
       VID="${LINE%%|||*}"; VTITLE="${LINE#*|||}"
+      if [ -n "$KNOWN_VIDS" ] && echo "$KNOWN_VIDS" | grep -qx "$VID"; then
+        continue  # already in clip_library — skip before heatmap scrape
+      fi
       VRIVER="$(bash "$CE/detect-river.sh" "$VTITLE")"
       if [ -n "$VRIVER" ]; then
         echo "    🎯 $VRIVER ← ${VTITLE:0:64}"
