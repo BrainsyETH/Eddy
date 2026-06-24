@@ -2,7 +2,9 @@
 # ClipEngine: Brand safety review of clips using Claude vision.
 #
 # Extracts frames, sends to Claude Sonnet for brand safety evaluation.
-# Updates clip_library with the verdict (PUBLISH / REVIEW / REJECT).
+# Updates clip_library with the verdict (PUBLISH / REVIEW / REJECT) and a
+# scene_description / scene_tags captured from the same frames, which the
+# clip caption generator later uses to ground captions in the actual footage.
 
 name: Brand Check Clip
 
@@ -109,10 +111,19 @@ jobs:
               "2. VISUAL QUALITY: Good resolution, not blurry, properly lit, visually engaging\n"
               "3. BRAND ALIGNMENT: Content relates to rivers, floating, kayaking, canoeing, nature, fishing, or outdoor recreation in Missouri\n"
               "4. OVERLAY ISSUES: No obstructive watermarks, logos, or text that would conflict with Eddy branding\n\n"
+              "Also DESCRIBE what the clip shows, for use in writing a social caption. "
+              "Base it ONLY on what is visible in these frames: the watercraft (kayak, "
+              "canoe, raft, tube, or none), the water character (calm, riffles, rapids, "
+              "clear, muddy), the scenery (bluffs, gravel bars, tree cover, sky), and any "
+              "notable action. Be concrete, factual, and present tense. No marketing "
+              "language, no invented details, and do NOT name the river (it may be unknown).\n\n"
               'Respond with a JSON object:\n'
               '{"verdict": "PUBLISH" | "REVIEW" | "REJECT", "confidence": 0.0-1.0, '
               '"brand_safe": true/false, "visual_quality": "good" | "acceptable" | "poor", '
-              '"brand_aligned": true/false, "overlay_issues": true/false, "reasoning": "Brief explanation"}\n\n'
+              '"brand_aligned": true/false, "overlay_issues": true/false, '
+              '"scene_description": "1-2 sentences describing what is visible in the clip", '
+              '"scene_tags": ["3 to 6 short lowercase tags, e.g. kayak, riffles, bluff, clear-water"], '
+              '"reasoning": "Brief explanation of the verdict"}\n\n'
               "PUBLISH = safe to post automatically\n"
               "REVIEW = human should review before posting\n"
               "REJECT = do not post"
@@ -121,8 +132,8 @@ jobs:
           content = frames + [{"type": "text", "text": prompt_text}]
 
           body = json.dumps({
-              "model": "claude-sonnet-4-5-20250929",
-              "max_tokens": 300,
+              "model": "claude-sonnet-4-6",
+              "max_tokens": 500,
               "messages": [{"role": "user", "content": content}],
           }).encode()
 
