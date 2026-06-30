@@ -4,8 +4,12 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// Use untyped client to avoid strict type issues
-// In production, regenerate types after running migrations
+// NOTE: This client is intentionally untyped. Passing <Database> from
+// src/types/database.ts currently produces ~700 type errors because the
+// generated types are stale relative to the 153 applied migrations. Typing
+// this client is tracked as a dedicated task: regenerate database.ts from the
+// live schema (`supabase gen types`), then re-introduce the generic and clean
+// up the resulting call-site mismatches incrementally.
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

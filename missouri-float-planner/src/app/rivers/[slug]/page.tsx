@@ -5,6 +5,7 @@
 // shared links keep working.
 
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
@@ -164,18 +165,8 @@ export default async function RiverGuidePage({ params }: Props) {
   ]);
 
   if (riverResult.error || !riverResult.data) {
-    return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-            <span className="text-3xl">:/</span>
-          </div>
-          <h1 className="text-2xl font-bold text-neutral-900 mb-2">River Not Found</h1>
-          <p className="text-neutral-600 mb-4">We don&apos;t have a guide for that river yet.</p>
-          <Link href="/rivers" className="text-primary-600 hover:underline">Browse all rivers</Link>
-        </div>
-      </div>
-    );
+    // Render the dedicated not-found boundary with a proper HTTP 404 status.
+    notFound();
   }
 
   const river = riverResult.data;

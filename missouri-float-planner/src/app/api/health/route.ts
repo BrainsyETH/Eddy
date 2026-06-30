@@ -1,21 +1,30 @@
 // src/app/api/health/route.ts
-// Health check endpoint for debugging production issues
+// Public health check endpoint — must not disclose configuration details.
+// Detailed env diagnostics are gated behind the cron/admin bearer token.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
-  const envCheck = {
-    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    hasMapboxToken: !!process.env.MAPBOX_ACCESS_TOKEN,
-    nodeEnv: process.env.NODE_ENV,
-    vercelEnv: process.env.VERCEL_ENV,
-  };
+export async function GET(request: NextRequest) {
+  // Detailed env diagnostics only for an authenticated operator (cron/admin secret).
+  const authHeader = request.headers.get('authorization');
+  const secret = process.env.CRON_SECRET || process.env.ADMIN_API_SECRET || process.env.ADMIN_PASSWORD;
+  const isAuthed = !!secret && authHeader === `Bearer ${secret}`;
 
-  return NextResponse.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: envCheck,
-  });
+  if (isAuthed) {
+    return NextResponse.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: {
+        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        hasMapboxToken: !!process.env.MAPBOX_ACCESS_TOKEN,
+        nodeEnv: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL_ENV,
+      },
+    });
+  }
+
+  // Unauthenticated callers get a bare liveness signal only.
+  return NextResponse.json({ status: 'ok' });
 }

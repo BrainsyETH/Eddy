@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,10 @@ const VALID_TYPES = ['hazard', 'water_level', 'debris', 'river_visual'] as const
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 report submissions per IP per 15 minutes
+    const rateLimitResult = rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const body = await request.json();
 
     const {
@@ -123,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     console.error('Error creating report:', lastError?.message, lastError?.details, lastError?.code);
     return NextResponse.json(
-      { error: `Failed to submit report: ${lastError?.message || 'Unknown error'}` },
+      { error: 'Failed to submit report. Please try again.' },
       { status: 500 }
     );
   } catch (error) {

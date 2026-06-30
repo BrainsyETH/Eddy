@@ -1,0 +1,45 @@
+# .github/workflows/app-ci.yml
+# CI gate for the Next.js app: lint + typecheck on every PR and push to main.
+# Keeps the codebase compiling and lint-clean so regressions fail in CI rather
+# than at deploy time.
+
+name: App CI
+
+on:
+  pull_request:
+    paths:
+      - 'missouri-float-planner/**'
+      - '.github/workflows/app-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'missouri-float-planner/**'
+      - '.github/workflows/app-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
