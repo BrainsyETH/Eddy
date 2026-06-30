@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { HazardsResponse } from '@/types/api';
+import type { HazardsResponse, HazardType, HazardSeverity } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -49,18 +49,18 @@ async function _GET(
 
     const formattedHazards = (hazards || []).map((h) => ({
       id: h.id,
-      riverId: h.river_id,
+      riverId: h.river_id ?? '',
       name: h.name,
-      type: h.type,
-      riverMile: parseFloat(h.river_mile_downstream),
+      type: h.type as HazardType,
+      riverMile: h.river_mile_downstream ?? 0,
       description: h.description,
-      severity: h.severity,
-      portageRequired: h.portage_required,
-      portageSide: h.portage_side,
+      severity: h.severity as HazardSeverity,
+      portageRequired: h.portage_required ?? false,
+      portageSide: h.portage_side as 'left' | 'right' | 'either' | null,
       seasonalNotes: h.seasonal_notes,
       coordinates: {
-        lng: h.location?.coordinates?.[0] || 0,
-        lat: h.location?.coordinates?.[1] || 0,
+        lng: (h.location as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
+        lat: (h.location as { coordinates?: number[] } | null)?.coordinates?.[1] || 0,
       },
     }));
 

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type {
   AccessPointDetail,
+  AccessPointType,
   AccessPointDetailResponse,
   NearbyAccessPoint,
   AccessPointGaugeStatus,
@@ -60,11 +61,11 @@ async function _GET(
 
     // Extract coordinates
     const lng =
-      ap.location_orig?.coordinates?.[0] ||
-      ap.location_snap?.coordinates?.[0];
+      (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] ||
+      (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0];
     const lat =
-      ap.location_orig?.coordinates?.[1] ||
-      ap.location_snap?.coordinates?.[1];
+      (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[1] ||
+      (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[1];
 
     if (!lng || !lat) {
       return NextResponse.json(
@@ -81,9 +82,7 @@ async function _GET(
       .eq('approved', true)
       .order('river_mile_downstream', { ascending: true });
 
-    const currentMile = ap.river_mile_downstream
-      ? parseFloat(ap.river_mile_downstream)
-      : 0;
+    const currentMile = ap.river_mile_downstream ?? 0;
 
     const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
@@ -93,13 +92,13 @@ async function _GET(
         .filter(
           (p) =>
             p.id !== ap.id &&
-            p.river_mile_downstream &&
-            parseFloat(p.river_mile_downstream) < currentMile
+            p.river_mile_downstream != null &&
+            p.river_mile_downstream < currentMile
         )
         .sort(
           (a, b) =>
-            parseFloat(b.river_mile_downstream!) -
-            parseFloat(a.river_mile_downstream!)
+            (b.river_mile_downstream ?? 0) -
+            (a.river_mile_downstream ?? 0)
         )[0];
 
       // Find downstream (higher river mile = further from headwaters)
@@ -107,17 +106,17 @@ async function _GET(
         .filter(
           (p) =>
             p.id !== ap.id &&
-            p.river_mile_downstream &&
-            parseFloat(p.river_mile_downstream) > currentMile
+            p.river_mile_downstream != null &&
+            p.river_mile_downstream > currentMile
         )
         .sort(
           (a, b) =>
-            parseFloat(a.river_mile_downstream!) -
-            parseFloat(b.river_mile_downstream!)
+            (a.river_mile_downstream ?? 0) -
+            (b.river_mile_downstream ?? 0)
         )[0];
 
       if (upstream) {
-        const distance = currentMile - parseFloat(upstream.river_mile_downstream!);
+        const distance = currentMile - (upstream.river_mile_downstream ?? 0);
         nearbyAccessPoints.push({
           id: upstream.id,
           name: upstream.name,
@@ -125,12 +124,12 @@ async function _GET(
           direction: 'upstream',
           distanceMiles: Math.round(distance * 10) / 10,
           estimatedFloatTime: estimateFloatTime(distance),
-          riverMile: parseFloat(upstream.river_mile_downstream!),
+          riverMile: upstream.river_mile_downstream ?? 0,
         });
       }
 
       if (downstream) {
-        const distance = parseFloat(downstream.river_mile_downstream!) - currentMile;
+        const distance = (downstream.river_mile_downstream ?? 0) - currentMile;
         nearbyAccessPoints.push({
           id: downstream.id,
           name: downstream.name,
@@ -138,7 +137,7 @@ async function _GET(
           direction: 'downstream',
           distanceMiles: Math.round(distance * 10) / 10,
           estimatedFloatTime: estimateFloatTime(distance),
-          riverMile: parseFloat(downstream.river_mile_downstream!),
+          riverMile: downstream.river_mile_downstream ?? 0,
         });
       }
     }
@@ -155,20 +154,20 @@ async function _GET(
     // Format the access point detail
     const accessPoint: AccessPointDetail = {
       id: ap.id,
-      riverId: ap.river_id,
+      riverId: ap.river_id ?? '',
       name: ap.name,
       slug: ap.slug,
       riverMile: currentMile,
-      type: ap.type,
-      types: ap.types || (ap.type ? [ap.type] : []),
-      isPublic: ap.is_public,
+      type: ap.type as AccessPointType,
+      types: (ap.types || (ap.type ? [ap.type] : [])) as AccessPointType[],
+      isPublic: ap.is_public ?? false,
       ownership: ap.ownership,
       description: ap.description,
       amenities: ap.amenities || [],
       parkingInfo: ap.parking_info,
       roadAccess: ap.road_access,
       facilities: ap.facilities,
-      feeRequired: ap.fee_required,
+      feeRequired: ap.fee_required ?? false,
       feeNotes: ap.fee_notes,
       directionsOverride: ap.directions_override,
       imageUrls: ap.image_urls || [],
@@ -180,9 +179,9 @@ async function _GET(
       managingAgency: ap.managing_agency as ManagingAgency | null,
       officialSiteUrl: ap.official_site_url,
       localTips: ap.local_tips,
-      nearbyServices: (ap.nearby_services as NearbyService[]) || [],
-      drivingLat: ap.driving_lat ? parseFloat(ap.driving_lat) : null,
-      drivingLng: ap.driving_lng ? parseFloat(ap.driving_lng) : null,
+      nearbyServices: (ap.nearby_services as unknown as NearbyService[]) || [],
+      drivingLat: ap.driving_lat,
+      drivingLng: ap.driving_lng,
       river: {
         id: river.id,
         name: river.name,

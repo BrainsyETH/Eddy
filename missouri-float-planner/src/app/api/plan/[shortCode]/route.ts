@@ -41,10 +41,10 @@ export async function GET(
 
     // Recalculate plan with current data
     const planUrl = new URL('/api/plan', request.nextUrl.origin);
-    planUrl.searchParams.set('riverId', savedPlan.river_id);
-    planUrl.searchParams.set('startId', savedPlan.start_access_id);
-    planUrl.searchParams.set('endId', savedPlan.end_access_id);
-    planUrl.searchParams.set('vesselTypeId', savedPlan.vessel_type_id);
+    planUrl.searchParams.set('riverId', savedPlan.river_id ?? '');
+    planUrl.searchParams.set('startId', savedPlan.start_access_id ?? '');
+    planUrl.searchParams.set('endId', savedPlan.end_access_id ?? '');
+    planUrl.searchParams.set('vesselTypeId', savedPlan.vessel_type_id ?? '');
 
     const planResponse = await fetch(planUrl.toString());
 

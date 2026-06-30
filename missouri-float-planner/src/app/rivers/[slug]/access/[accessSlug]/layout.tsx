@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         url: pageUrl,
         siteName: 'Eddy',
-        ...(ap.image_urls?.length > 0 && {
+        ...(ap.image_urls && ap.image_urls.length > 0 && {
           images: [{ url: ap.image_urls[0] }],
         }),
       },
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card: 'summary_large_image',
         title: `${ap.name} | ${river.name}`,
         description,
-        ...(ap.image_urls?.length > 0 && {
+        ...(ap.image_urls && ap.image_urls.length > 0 && {
           images: [ap.image_urls[0]],
         }),
       },
@@ -98,8 +98,8 @@ export default async function AccessPointLayout({ params, children }: Props) {
         .single();
 
       if (ap) {
-        const lng = ap.location_snap?.coordinates?.[0] || ap.location_orig?.coordinates?.[0];
-        const lat = ap.location_snap?.coordinates?.[1] || ap.location_orig?.coordinates?.[1];
+        const lng = (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0];
+        const lat = (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[1] || (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[1];
 
         placeJsonLd = {
           '@context': 'https://schema.org',

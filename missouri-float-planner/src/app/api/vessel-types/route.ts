@@ -33,9 +33,9 @@ async function _GET() {
       description: vt.description || '',
       icon: vt.icon || '',
       speeds: {
-        lowWater: parseFloat(vt.speed_low_water),
-        normal: parseFloat(vt.speed_normal),
-        highWater: parseFloat(vt.speed_high_water),
+        lowWater: vt.speed_low_water ?? 0,
+        normal: vt.speed_normal ?? 0,
+        highWater: vt.speed_high_water ?? 0,
       },
     }));
 
