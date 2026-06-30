@@ -1204,6 +1204,8 @@ function MobileBottomSheet({
                     e.stopPropagation();
                     setIsExpanded(false);
                   }}
+                  aria-label="Collapse float plan"
+                  aria-expanded={true}
                   className="p-1"
                 >
                   <ChevronDown size={20} className="text-neutral-900" />
@@ -1215,11 +1217,21 @@ function MobileBottomSheet({
       ) : (
         /* Collapsed: single compact row with drag pill + text + mileage + chevron */
         <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={false}
+          aria-label="Expand float plan"
           className="flex flex-col items-center cursor-grab active:cursor-grabbing touch-none"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onClick={() => setIsExpanded(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsExpanded(true);
+            }
+          }}
         >
           <div className="w-10 h-1 rounded-full bg-white/30 mt-2.5 mb-2" />
           <div className="flex items-center justify-between w-full px-4 pb-2">

@@ -28,11 +28,28 @@ function formatGeneratedAge(isoString: string | null): string | null {
 }
 
 export default function EddySaysReport() {
-  const { riverGroups, isLoading: groupsLoading } = useRiverGroups();
-  const { data: eddyUpdates, isLoading: updatesLoading } = useEddyUpdates();
+  const { riverGroups, isLoading: groupsLoading, error: groupsError } = useRiverGroups();
+  const { data: eddyUpdates, isLoading: updatesLoading, error: updatesError } = useEddyUpdates();
   const [showFull, setShowFull] = useState(false);
 
   const globalUpdate = eddyUpdates?.global ?? null;
+
+  // Only surface an error when there's genuinely nothing to show — a live
+  // global update or real river data still renders even if the other call failed.
+  if ((updatesError || groupsError) && !globalUpdate && riverGroups.length === 0) {
+    return (
+      <div className="h-full min-h-[240px] rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+        <div className="h-full bg-white rounded-[13px] p-5 md:p-6 flex flex-col items-center justify-center text-center">
+          <h2 className="text-base font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+            What&apos;s Eddy say about Ozark rivers today?
+          </h2>
+          <p className="text-sm text-neutral-500">
+            Couldn&apos;t load the latest conditions. Please try again shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (updatesLoading || groupsLoading) {
     return (

@@ -24,6 +24,7 @@ import { MapHintBanner, RouteStatsBadge, MapLegend } from '@/components/plan/Map
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useRiver, useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
@@ -75,6 +76,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
+  const visualFormRef = useFocusTrap<HTMLDivElement>(showVisualSubmitForm, () => setShowVisualSubmitForm(false));
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   const floatPlanCardRef = useRef<HTMLDivElement>(null);
@@ -728,8 +730,19 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       />
 
       {showVisualSubmitForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowVisualSubmitForm(false)}>
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowVisualSubmitForm(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Submit a river photo"
+        >
+          <div
+            ref={visualFormRef}
+            tabIndex={-1}
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <RiverVisualSubmitForm
               riverId={river.id}
               accessPoints={accessPoints}
@@ -844,6 +857,7 @@ function MobileRiverSwitcher({
   onChange: (slug: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const sheetRef = useFocusTrap<HTMLDivElement>(open, () => setOpen(false));
 
   // Lock body scroll while sheet is open
   useEffect(() => {
@@ -878,6 +892,8 @@ function MobileRiverSwitcher({
           aria-label="Choose a river"
         >
           <div
+            ref={sheetRef}
+            tabIndex={-1}
             className="w-full max-h-[75vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom"
             onClick={(e) => e.stopPropagation()}
           >
