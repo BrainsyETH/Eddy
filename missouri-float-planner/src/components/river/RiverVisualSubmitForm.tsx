@@ -189,7 +189,7 @@ export default function RiverVisualSubmitForm({
           <Camera className="w-4 h-4 text-neutral-500" />
           <h3 className="text-sm font-semibold text-neutral-800">Show us what the river looks like</h3>
         </div>
-        <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
+        <button onClick={onClose} aria-label="Close" className="text-neutral-400 hover:text-neutral-600">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -218,6 +218,7 @@ export default function RiverVisualSubmitForm({
               <button
                 type="button"
                 onClick={clearImage}
+                aria-label="Remove photo"
                 className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
               >
                 <X className="w-4 h-4" />

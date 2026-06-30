@@ -124,8 +124,9 @@ export async function GET() {
       headers: { 'Cache-Control': 's-maxage=900, stale-while-revalidate=3600' },
     });
   } catch (e) {
+    console.error('[usgs/mo-statewide] Error:', e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { error: 'Failed to load statewide data' },
       { status: 500 },
     );
   }

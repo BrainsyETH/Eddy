@@ -4,13 +4,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { isValidUUID } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 const VALID_TYPES = ['hazard', 'water_level', 'debris', 'river_visual'] as const;
+const MAX_DESCRIPTION_LEN = 2000;
+const MAX_SUBMITTER_NAME_LEN = 100;
+const MAX_IMAGE_URL_LEN = 1000;
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 report submissions per IP per 15 minutes
+    const rateLimitResult = rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const body = await request.json();
 
     const {
@@ -43,7 +52,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // River visual requires an image
+    // All referenced IDs must be well-formed UUIDs. Catching these here returns a
+    // clean 400 instead of leaking a Postgres FK-violation through the 500 path.
+    if (!isValidUUID(String(riverId))) {
+      return NextResponse.json({ error: 'Invalid riverId' }, { status: 400 });
+    }
+    for (const [field, value] of Object.entries({ hazardId, accessPointId, gaugeStationId })) {
+      if (value != null && !isValidUUID(String(value))) {
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
+      }
+    }
+
+    // Coordinates must be real numbers within Missouri bounds (with buffer).
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
+        !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return NextResponse.json(
+        { error: 'Coordinates must be numbers' },
+        { status: 400 }
+      );
+    }
+    if (latitude < 35 || latitude > 41 || longitude < -97 || longitude > -88) {
+      return NextResponse.json(
+        { error: 'Coordinates must be within Missouri' },
+        { status: 400 }
+      );
+    }
+
+    // All report types require a description, capped to a sane length.
+    if (!description || typeof description !== 'string' || description.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Description is required' },
+        { status: 400 }
+      );
+    }
+    if (description.length > MAX_DESCRIPTION_LEN) {
+      return NextResponse.json(
+        { error: `Description is too long (max ${MAX_DESCRIPTION_LEN} characters)` },
+        { status: 400 }
+      );
+    }
+
+    // submitterName is optional but must be a short string when present.
+    if (submitterName != null && (typeof submitterName !== 'string' || submitterName.length > MAX_SUBMITTER_NAME_LEN)) {
+      return NextResponse.json(
+        { error: `Name is too long (max ${MAX_SUBMITTER_NAME_LEN} characters)` },
+        { status: 400 }
+      );
+    }
+
+    // imageUrl, when present, must be a bounded https URL.
+    if (imageUrl != null) {
+      if (typeof imageUrl !== 'string' || imageUrl.length > MAX_IMAGE_URL_LEN || !/^https:\/\//i.test(imageUrl)) {
+        return NextResponse.json(
+          { error: 'imageUrl must be an https URL' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // River visual requires an image.
     if (type === 'river_visual' && !imageUrl) {
       return NextResponse.json(
         { error: 'River visual reports require an image' },
@@ -51,20 +118,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // All report types require a description
-    if (!description || typeof description !== 'string' || description.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Description is required' },
-        { status: 400 }
-      );
+    // Gauge readings, when present, must be finite numbers in a sane range.
+    const inRange = (v: unknown, min: number, max: number) =>
+      typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+    if (gaugeHeightFt != null && !inRange(gaugeHeightFt, -100, 100)) {
+      return NextResponse.json({ error: 'Invalid gaugeHeightFt' }, { status: 400 });
     }
-
-    // Basic coordinate validation (Missouri bounds with buffer)
-    if (latitude < 35 || latitude > 41 || longitude < -97 || longitude > -88) {
-      return NextResponse.json(
-        { error: 'Coordinates must be within Missouri' },
-        { status: 400 }
-      );
+    if (dischargeCfs != null && !inRange(dischargeCfs, 0, 1_000_000)) {
+      return NextResponse.json({ error: 'Invalid dischargeCfs' }, { status: 400 });
     }
 
     const supabase = createAdminClient();
@@ -123,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     console.error('Error creating report:', lastError?.message, lastError?.details, lastError?.code);
     return NextResponse.json(
-      { error: `Failed to submit report: ${lastError?.message || 'Unknown error'}` },
+      { error: 'Failed to submit report. Please try again.' },
       { status: 500 }
     );
   } catch (error) {

@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { X, Flag, Send, CheckCircle } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { FeedbackType, FeedbackContext } from '@/types/api';
 
 const FEEDBACK_TYPES: { value: FeedbackType; label: string; description: string }[] = [
@@ -95,6 +96,8 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
     onClose();
   };
 
+  const dialogRef = useFocusTrap<HTMLDivElement>(isOpen, handleClose);
+
   if (!isOpen) return null;
 
   // Format context display
@@ -108,8 +111,20 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
   ) : null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="presentation">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      role="presentation"
+      onClick={handleClose}
+    >
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-modal-title"
+      >
         <div className="flex items-center justify-between p-4 border-b border-bluff-200">
           <div className="flex items-center gap-2">
             <Flag size={20} className="text-accent-500" aria-hidden="true" />

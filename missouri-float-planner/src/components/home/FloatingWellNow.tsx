@@ -25,7 +25,17 @@ function formatLevel(river: RiverGroup): string | null {
 }
 
 export default function FloatingWellNow() {
-  const { riverGroups, isLoading } = useRiverGroups();
+  const { riverGroups, isLoading, error } = useRiverGroups();
+
+  // Distinguish a failed fetch from a genuinely-empty result: showing the
+  // "no rivers reading clean" copy on an outage would be misleading.
+  if (error) {
+    return (
+      <p className="text-sm text-neutral-500 py-8 text-center">
+        Couldn&apos;t load live conditions right now. Please try again shortly.
+      </p>
+    );
+  }
 
   if (isLoading) {
     return (

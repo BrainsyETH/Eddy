@@ -11,8 +11,9 @@ export async function GET() {
       headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=3600' },
     });
   } catch (e) {
+    console.error('[usgs/mo-dataset] Error:', e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { error: 'Failed to load dataset' },
       { status: 500 },
     );
   }

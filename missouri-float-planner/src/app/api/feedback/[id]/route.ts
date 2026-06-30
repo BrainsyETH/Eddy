@@ -2,7 +2,8 @@
 // PATCH /api/feedback/[id] - Update feedback status (admin only)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import type { UpdateFeedbackRequest } from '@/types/api';
 
 // Force dynamic rendering
@@ -13,21 +14,17 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Admin-only: enforce the shared-secret bearer token (same model as /api/admin/*).
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
+
     const body = await request.json() as UpdateFeedbackRequest;
 
-    const supabase = await createClient();
-
-    // Check admin status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: isAdmin, error: authError } = await (supabase.rpc as any)('is_admin');
-
-    if (authError || !isAdmin) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    // Service-role client: RLS hides feedback rows from the anon client.
+    const supabase = createAdminClient();
 
     // Validate status if provided
     const validStatuses = ['pending', 'reviewed', 'resolved', 'dismissed'];

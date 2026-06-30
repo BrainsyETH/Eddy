@@ -56,7 +56,7 @@ export default function FeedbackAdminPage() {
       }
       params.set('limit', '100');
 
-      const response = await fetch(`/api/feedback?${params.toString()}`);
+      const response = await adminFetch(`/api/feedback?${params.toString()}`);
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to fetch feedback');

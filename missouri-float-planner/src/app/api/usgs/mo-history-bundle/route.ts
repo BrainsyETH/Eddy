@@ -143,8 +143,9 @@ export async function GET() {
       headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' },
     });
   } catch (e) {
+    console.error('[usgs/mo-history-bundle] Error:', e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { error: 'Failed to load history' },
       { status: 500 },
     );
   }

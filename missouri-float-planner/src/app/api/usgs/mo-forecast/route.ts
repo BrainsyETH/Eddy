@@ -136,8 +136,9 @@ export async function GET() {
       headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=7200' },
     });
   } catch (e) {
+    console.error('[usgs/mo-forecast] Error:', e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { error: 'Failed to load forecast' },
       { status: 500 },
     );
   }

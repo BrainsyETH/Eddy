@@ -40,8 +40,9 @@ function validateAdminToken(token: string): boolean {
   const secret = getAdminSecret();
   if (!secret) return false;
 
-  // Support legacy tokens (plain secret match) for backward compatibility
-  if (token === secret) return true;
+  // NOTE: the legacy "raw secret as bearer token" path was removed — it never
+  // expired and let the shared password be replayed indefinitely. Clients must
+  // now present a time-limited HMAC token from POST /api/admin/login.
 
   // Validate time-limited token format: <expiry>.<signature>
   const dotIndex = token.indexOf('.');
