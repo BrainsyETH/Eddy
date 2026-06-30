@@ -39,15 +39,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Don't trust the client-supplied MIME type — verify the actual file
+    // signature (magic bytes) matches one of the allowed image formats.
+    if (!hasAllowedImageSignature(buffer)) {
+      return NextResponse.json(
+        { error: 'File content is not a valid JPEG, PNG, WebP, or GIF image' },
+        { status: 400 }
+      );
+    }
+
     const supabase = createAdminClient();
 
     // Generate unique filename under community-visuals folder
     const timestamp = Date.now();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `community-visuals/${timestamp}-${sanitizedName}`;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
@@ -79,4 +88,29 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Checks the file's leading bytes against known image magic numbers.
+ * Guards against a forged Content-Type by inspecting the actual bytes.
+ */
+function hasAllowedImageSignature(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) return true;
+
+  // GIF: "GIF87a" or "GIF89a"
+  if (buf.toString('ascii', 0, 6) === 'GIF87a' || buf.toString('ascii', 0, 6) === 'GIF89a') return true;
+
+  // WebP: "RIFF" .... "WEBP"
+  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return true;
+
+  return false;
 }

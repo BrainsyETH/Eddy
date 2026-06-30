@@ -4,6 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminAuth } from '@/lib/admin-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { CreateFeedbackRequest, FeedbackResponse, Feedback, FeedbackListResponse } from '@/types/api';
 
@@ -116,18 +118,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    // Admin-only: enforce the shared-secret bearer token (same model as /api/admin/*).
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
 
-    // Check admin status using the is_admin function
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: isAdmin, error: authError } = await (supabase.rpc as any)('is_admin');
-
-    if (authError || !isAdmin) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    // Service-role client: RLS hides feedback rows from the anon client.
+    const supabase = createAdminClient();
 
     // Get query params
     const { searchParams } = new URL(request.url);

@@ -122,13 +122,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate it looks like a Google Maps URL
-    const isGoogleMapsUrl = url.includes('google.com/maps') ||
-      url.includes('maps.google.com') ||
-      url.includes('goo.gl/maps') ||
-      url.includes('maps.app.goo.gl');
+    // Parse and validate against an exact hostname allowlist. Substring checks
+    // like url.includes('goo.gl') are SSRF-prone (e.g. http://internal/goo.gl),
+    // so we only trust the parsed URL's hostname.
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    }
 
-    if (!isGoogleMapsUrl) {
+    if (parsed.protocol !== 'https:') {
+      return NextResponse.json({ error: 'URL must use https' }, { status: 400 });
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    const FULL_MAPS_HOSTS = new Set([
+      'www.google.com', 'google.com', 'maps.google.com',
+    ]);
+    const SHORTLINK_HOSTS = new Set([
+      'goo.gl', 'maps.app.goo.gl',
+    ]);
+
+    const isFullMapsUrl = FULL_MAPS_HOSTS.has(host) && parsed.pathname.startsWith('/maps');
+    const isShortlink = SHORTLINK_HOSTS.has(host);
+
+    if (!isFullMapsUrl && !isShortlink) {
       return NextResponse.json(
         { error: 'URL must be a Google Maps link' },
         { status: 400 }
@@ -138,8 +157,8 @@ export async function POST(request: NextRequest) {
     let expandedUrl = url;
     let finalUrl = url;
 
-    // If it's a shortened URL, follow redirects to get the full URL
-    if (url.includes('goo.gl') || url.includes('maps.app.goo.gl')) {
+    // If it's a shortened URL on an allowlisted host, follow redirects to expand it.
+    if (isShortlink) {
       try {
         // Follow redirects to get the expanded URL
         const response = await fetch(url, {
