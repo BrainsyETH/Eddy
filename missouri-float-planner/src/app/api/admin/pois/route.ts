@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         npsUrl: poi.nps_url,
         latitude: poi.latitude,
         longitude: poi.longitude,
-        riverMile: poi.river_mile,
+        riverMile: poi.river_mile != null ? parseFloat(String(poi.river_mile)) : null,
         images: typeof poi.images === 'string' ? JSON.parse(poi.images) : (poi.images || []),
         amenities: poi.amenities || [],
         active: poi.active,

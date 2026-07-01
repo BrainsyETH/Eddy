@@ -14,6 +14,7 @@
 // anyway. Only the condition code + current height move.
 
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { toNum } from '@/lib/utils/num';
 
 export interface LiveCondition {
   condition_code: string;
@@ -112,8 +113,8 @@ export async function buildLiveConditionsMap(
     const live = computeCondition(heightFt, thresholds, dischargeCfs);
     result.set(slug, {
       condition_code: live.code,
-      gauge_height_ft: heightFt,
-      discharge_cfs: dischargeCfs,
+      gauge_height_ft: toNum(heightFt),
+      discharge_cfs: toNum(dischargeCfs),
     });
   });
 
@@ -163,7 +164,7 @@ export async function overlayLiveConditions<
     const next: T = {
       ...u,
       condition_code: live.condition_code,
-      gauge_height_ft: live.gauge_height_ft ?? u.gauge_height_ft,
+      gauge_height_ft: live.gauge_height_ft ?? toNum(u.gauge_height_ft),
     };
     if (conditionChanged && clearProseOnConditionChange) {
       if ('quote_text' in next) (next as { quote_text?: string }).quote_text = '';

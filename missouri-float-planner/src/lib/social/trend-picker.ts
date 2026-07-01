@@ -2,6 +2,8 @@
 // Pick the "most notable" river for the weekly trend reel — largest
 // absolute 7-day gauge delta — and return its sparkline data.
 
+import { toNum } from '@/lib/utils/num';
+
 export interface TrendSeriesPoint {
   /** Hours offset from now (negative = past). */
   hoursAgo: number;
@@ -96,7 +98,9 @@ export async function pickNotableTrend(
   const candidates: Candidate[] = [];
   for (const [slug, stationId] of Array.from(stationBySlug.entries())) {
     const series = readingsByStation.get(stationId) || [];
-    const valid = series.filter((r) => r.gauge_height_ft !== null) as Array<Reading & { gauge_height_ft: number }>;
+    const valid = series
+      .map((r) => ({ ...r, gauge_height_ft: toNum(r.gauge_height_ft) }))
+      .filter((r) => r.gauge_height_ft !== null) as Array<Reading & { gauge_height_ft: number }>;
     if (valid.length < 4) continue; // Not enough signal.
 
     const first = valid[0].gauge_height_ft;

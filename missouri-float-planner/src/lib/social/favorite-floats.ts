@@ -16,6 +16,7 @@
 
 import type { GuideData } from '@/types/blog';
 import { dayIndex, springsForRun, type Section } from './section-picker';
+import { toNum } from '@/lib/utils/num';
 
 /** A curated favorite float: the route geometry RouteDraw needs + editorial copy. */
 export interface FavoriteFloat extends Section {
@@ -141,14 +142,18 @@ async function loadFavoritePool(
       if (!section.from_slug || !section.to_slug) continue;
       const a = apByKey.get(`${riverId}::${section.from_slug}`);
       const b = apByKey.get(`${riverId}::${section.to_slug}`);
-      if (!a || !b || a.river_mile_downstream == null || b.river_mile_downstream == null) continue;
+      if (!a || !b) continue;
+      const aMile = toNum(a.river_mile_downstream);
+      const bMile = toNum(b.river_mile_downstream);
+      if (aMile == null || bMile == null) continue;
 
       // Put-in is upstream (smaller downstream mile); keep geometry correct even
       // if a guide lists the endpoints out of order.
-      const [putIn, takeOut] =
-        a.river_mile_downstream <= b.river_mile_downstream ? [a, b] : [b, a];
-      const putInMile = putIn.river_mile_downstream as number;
-      const takeOutMile = takeOut.river_mile_downstream as number;
+      const putInFirst = aMile <= bMile;
+      const putIn = putInFirst ? a : b;
+      const takeOut = putInFirst ? b : a;
+      const putInMile = putInFirst ? aMile : bMile;
+      const takeOutMile = putInFirst ? bMile : aMile;
       const distanceMi = Math.round((takeOutMile - putInMile) * 10) / 10;
       if (distanceMi < 0.5) continue;
 

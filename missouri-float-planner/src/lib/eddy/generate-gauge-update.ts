@@ -15,6 +15,7 @@ import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { parseEddyResponse } from '@/lib/eddy/generate-update';
+import { toNum } from '@/lib/utils/num';
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const STALE_READING_MS = 2 * 60 * 60 * 1000;
@@ -137,7 +138,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
         if (latest) {
           primaryBySlug.set(slug, {
             row: entry.row,
-            reading: { gaugeHeightFt: latest.gauge_height_ft, dischargeCfs: latest.discharge_cfs },
+            reading: { gaugeHeightFt: toNum(latest.gauge_height_ft), dischargeCfs: toNum(latest.discharge_cfs) },
           });
         }
       }
@@ -197,7 +198,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       gaugeName: station.name,
       riverSlug: river.slug,
       riverName: river.name,
-      distanceFromSectionMiles: row.distance_from_section_miles,
+      distanceFromSectionMiles: toNum(row.distance_from_section_miles),
       thresholds,
       primary,
     });
@@ -223,8 +224,8 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
     .limit(1)
     .maybeSingle();
 
-  let gaugeHeightFt = dbReading?.gauge_height_ft ?? null;
-  let dischargeCfs = dbReading?.discharge_cfs ?? null;
+  let gaugeHeightFt = toNum(dbReading?.gauge_height_ft);
+  let dischargeCfs = toNum(dbReading?.discharge_cfs);
   let readingTimestamp = dbReading?.reading_timestamp ?? null;
 
   const ageMs = readingTimestamp ? Date.now() - new Date(readingTimestamp).getTime() : Infinity;

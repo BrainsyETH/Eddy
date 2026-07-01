@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
+import { toNum } from '@/lib/utils/num';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +53,7 @@ export async function GET(
         npsUrl: poi.nps_url,
         latitude: poi.latitude,
         longitude: poi.longitude,
-        riverMile: poi.river_mile,
+        riverMile: toNum(poi.river_mile),
         images: typeof poi.images === 'string' ? JSON.parse(poi.images) : (poi.images || []),
         amenities: poi.amenities || [],
         active: poi.active,
@@ -178,7 +179,7 @@ export async function PUT(
         source: updated.source,
         latitude: updated.latitude,
         longitude: updated.longitude,
-        riverMile: updated.river_mile,
+        riverMile: toNum(updated.river_mile),
         images: typeof updated.images === 'string' ? JSON.parse(updated.images) : (updated.images || []),
         amenities: updated.amenities || [],
         active: updated.active,

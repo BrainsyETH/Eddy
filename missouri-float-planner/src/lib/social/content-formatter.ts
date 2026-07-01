@@ -7,6 +7,7 @@ import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { canoeHours } from './post-types';
 import type { ConditionCode } from '@/types/api';
 import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
+import { toNum } from '@/lib/utils/num';
 
 // ---------------------------------------------------------------------------
 // Canonical link builder — river pages live at /rivers/<slug>. Building bare
@@ -152,8 +153,9 @@ function pickTemplate(templates: string[], seed: string): string {
   return templates[idx];
 }
 
-function formatGauge(ft: number | null): string {
-  return ft !== null ? ft.toFixed(1) : '?';
+function formatGauge(ft: number | string | null): string {
+  const n = toNum(ft);
+  return n != null ? n.toFixed(1) : '?';
 }
 
 function interpolate(
@@ -610,8 +612,9 @@ export function formatDailyDigestCaption(
     const riverName = RIVER_NAMES[update.river_slug] || update.river_slug;
     const shortLabel = SHORT_CONDITION_LABELS[update.condition_code] || '?';
     const emoji = CONDITION_EMOJI[update.condition_code] || '';
-    const gauge = update.gauge_height_ft !== null
-      ? ` (${update.gauge_height_ft.toFixed(1)} ft)`
+    const gaugeNum = toNum(update.gauge_height_ft);
+    const gauge = gaugeNum !== null
+      ? ` (${gaugeNum.toFixed(1)} ft)`
       : '';
     lines.push(`${emoji} ${riverName} \u2014 ${shortLabel}${gauge}`);
   }

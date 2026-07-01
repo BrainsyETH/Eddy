@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
+import { toNum } from '@/lib/utils/num';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
 
 export const dynamic = 'force-dynamic';
@@ -91,8 +92,8 @@ async function _GET(
         quoteText: overlaid.quote_text ?? '',
         summaryText: overlaid.summary_text ?? null,
         conditionCode: overlaid.condition_code,
-        gaugeHeightFt: overlaid.gauge_height_ft,
-        dischargeCfs: data.discharge_cfs,
+        gaugeHeightFt: toNum(overlaid.gauge_height_ft),
+        dischargeCfs: toNum(data.discharge_cfs),
         sectionSlug: data.section_slug,
         sourcesUsed: data.sources_used || [],
         generatedAt: data.generated_at,

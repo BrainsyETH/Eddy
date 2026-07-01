@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchHistoricalReadings, type HistoricalData } from '@/lib/usgs/gauges';
+import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
@@ -44,8 +45,8 @@ async function fetchHistoryFromDb(siteId: string, days: number): Promise<Histori
     .filter((r) => r.gauge_height_ft !== null || r.discharge_cfs !== null)
     .map((r) => ({
       timestamp: r.reading_timestamp as string,
-      gaugeHeightFt: r.gauge_height_ft as number | null,
-      dischargeCfs: r.discharge_cfs as number | null,
+      gaugeHeightFt: toNum(r.gauge_height_ft),
+      dischargeCfs: toNum(r.discharge_cfs),
     }));
 
   if (readings.length === 0) return null;

@@ -8,6 +8,7 @@ import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { publishConditionChangeAlert } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver } from '@/lib/eddy/regenerate';
+import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -148,7 +149,7 @@ async function runUpdate(request: NextRequest) {
             highFrequencyFlagsSet++;
             console.log(
               `High-frequency polling enabled for ${reading.siteId}: ` +
-              `rate=${rateInfo.rate_ft_per_hour?.toFixed(2)} ft/hr`
+              `rate=${toNum(rateInfo.rate_ft_per_hour)?.toFixed(2)} ft/hr`
             );
 
             // Rapid change detected — regenerate Eddy report for affected rivers
@@ -184,7 +185,7 @@ async function runUpdate(request: NextRequest) {
             highFrequencyFlagsCleared++;
             console.log(
               `High-frequency polling disabled for ${reading.siteId}: ` +
-              `rate=${rateInfo.rate_ft_per_hour?.toFixed(2)} ft/hr`
+              `rate=${toNum(rateInfo.rate_ft_per_hour)?.toFixed(2)} ft/hr`
             );
           }
         }

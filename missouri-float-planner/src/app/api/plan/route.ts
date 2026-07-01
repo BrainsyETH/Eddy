@@ -15,6 +15,7 @@ import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+import { toNum } from '@/lib/utils/num';
 
 // Helper to compute condition from gauge height and DB thresholds (snake_case)
 function computeConditionFromReading(
@@ -583,8 +584,8 @@ async function _GET(request: NextRequest) {
       condition: {
         label: condition?.condition_label || 'Unknown Conditions',
         code: conditionCode,
-        gaugeHeightFt: condition?.gauge_height_ft,
-        dischargeCfs: condition?.discharge_cfs,
+        gaugeHeightFt: toNum(condition?.gauge_height_ft),
+        dischargeCfs: toNum(condition?.discharge_cfs),
         readingTimestamp: condition?.reading_timestamp,
         readingAgeHours: condition?.reading_age_hours,
         accuracyWarning: condition?.accuracy_warning || false,
