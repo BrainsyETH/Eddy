@@ -763,6 +763,7 @@ export type Database = {
           gauge_height_ft: number | null
           gauge_station_id: string | null
           id: string
+          qualifiers: string[] | null
           reading_timestamp: string
         }
         Insert: {
@@ -771,6 +772,7 @@ export type Database = {
           gauge_height_ft?: number | null
           gauge_station_id?: string | null
           id?: string
+          qualifiers?: string[] | null
           reading_timestamp: string
         }
         Update: {
@@ -779,6 +781,7 @@ export type Database = {
           gauge_height_ft?: number | null
           gauge_station_id?: string | null
           id?: string
+          qualifiers?: string[] | null
           reading_timestamp?: string
         }
         Relationships: [

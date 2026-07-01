@@ -109,6 +109,7 @@ async function runUpdate(request: NextRequest) {
             reading_timestamp: reading.readingTimestamp,
             gauge_height_ft: reading.gaugeHeightFt,
             discharge_cfs: reading.dischargeCfs,
+            qualifiers: reading.qualifiers?.length ? reading.qualifiers : null,
             fetched_at: new Date().toISOString(),
           },
           {

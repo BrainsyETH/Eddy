@@ -56,6 +56,37 @@ export interface GaugeReading {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   readingTimestamp: string | null;
+  /** USGS qualifier codes on the reading, e.g. ['P'] provisional, ['e'] estimated. */
+  qualifiers: string[];
+}
+
+/** Qualifier codes that mean the value itself is suspect (not just unapproved). */
+const SUSPECT_QUALIFIERS = new Set(['e', 'Ice', 'Eqp', 'Bkw', 'Mnt', 'ZFl', '***', 'Dis', 'Rat', 'Ssn']);
+
+export interface QualifierStatus {
+  /** Provisional (unapproved) — normal for real-time data; footnote only. */
+  provisional: boolean;
+  /** Value is suspect (estimated / ice / equipment) — surface loudly. */
+  suspect: boolean;
+  /** Short human note, or null when the reading is clean/approved. */
+  note: string | null;
+}
+
+/** Classifies USGS qualifier codes into a user-facing status. */
+export function classifyQualifiers(qualifiers: string[] | null | undefined): QualifierStatus {
+  const codes = qualifiers ?? [];
+  const suspect = codes.some((c) => SUSPECT_QUALIFIERS.has(c));
+  const provisional = codes.includes('P');
+  let note: string | null = null;
+  if (suspect) {
+    if (codes.includes('Ice')) note = 'Ice-affected reading — may be inaccurate';
+    else if (codes.includes('e')) note = 'Estimated reading — may be inaccurate';
+    else if (codes.includes('Eqp')) note = 'Sensor malfunction — reading suspect';
+    else note = 'Reading flagged by USGS — may be inaccurate';
+  } else if (provisional) {
+    note = 'Provisional USGS data';
+  }
+  return { provisional, suspect, note };
 }
 
 /**
@@ -111,6 +142,7 @@ export async function fetchGaugeReadings(
           gaugeHeightFt: null,
           dischargeCfs: null,
           readingTimestamp: null,
+          qualifiers: [],
         });
       }
 
@@ -120,6 +152,14 @@ export async function fetchGaugeReadings(
 
       if (!latestValue) continue;
 
+      // Preserve USGS qualifier codes (P provisional, e estimated, Ice, Eqp, ...).
+      const mergeQualifiers = () => {
+        const list = (reading.qualifiers ??= []);
+        for (const q of latestValue.qualifiers ?? []) {
+          if (q && !list.includes(q)) list.push(q);
+        }
+      };
+
       if (variableCode === '00065') {
         // Gauge height in feet
         const height = parseFloat(latestValue.value);
@@ -128,6 +168,7 @@ export async function fetchGaugeReadings(
         if (!isNaN(height) && height > -100 && height < 500) {
           reading.gaugeHeightFt = height;
           reading.readingTimestamp = latestValue.dateTime;
+          mergeQualifiers();
         } else if (!isNaN(height)) {
           console.warn(`Invalid gauge height ${height} for site ${siteId}, treating as unavailable`);
         }
@@ -138,6 +179,7 @@ export async function fetchGaugeReadings(
         // Valid discharge is typically between 0 and 1,000,000 cfs
         if (!isNaN(discharge) && discharge >= 0 && discharge < 1000000) {
           reading.dischargeCfs = discharge;
+          mergeQualifiers();
           // Use discharge timestamp if gauge height timestamp not available
           if (!reading.readingTimestamp) {
             reading.readingTimestamp = latestValue.dateTime;
