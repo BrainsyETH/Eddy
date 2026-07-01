@@ -6,6 +6,7 @@ import { FacebookAdapter } from './facebook-adapter';
 import { InstagramAdapter } from './instagram-adapter';
 import { hasMetaCredentials, hasInstagramCredentials } from './meta-client';
 import { formatConditionChangeCaption, getRiverName } from './content-formatter';
+import { warningCopy } from '@shared/condition-copy';
 import { getOrCreateConfig } from './config-helpers';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform, PlatformAdapter } from './types';
@@ -132,7 +133,9 @@ export async function publishConditionChangeAlert(params: {
       platform,
     });
 
-    const imageUrl = `${baseUrl}/api/og/social?type=warning&river=${riverSlug}&from=${oldCondition}&platform=${platform}`;
+    // Pin the cover to THIS event (to + ft) so the OG image can't re-derive a
+    // different live condition/reading than the caption + reel report.
+    const imageUrl = `${baseUrl}/api/og/social?type=warning&river=${riverSlug}&from=${oldCondition}&to=${newCondition}${gaugeHeightFt != null ? `&ft=${gaugeHeightFt}` : ''}&platform=${platform}`;
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -237,7 +240,9 @@ async function publishAsVideo(params: {
       platform,
     });
 
-    const imageUrl = `${baseUrl}/api/og/social?type=warning&river=${riverSlug}&from=${oldCondition}&platform=${platform}`;
+    // Pin the cover to THIS event (to + ft) so the OG image can't re-derive a
+    // different live condition/reading than the caption + reel report.
+    const imageUrl = `${baseUrl}/api/og/social?type=warning&river=${riverSlug}&from=${oldCondition}&to=${newCondition}${gaugeHeightFt != null ? `&ft=${gaugeHeightFt}` : ''}&platform=${platform}`;
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -267,26 +272,27 @@ async function publishAsVideo(params: {
     return { published: 0, skipped: true, reason: 'no_credentials' };
   }
 
-  // Pull optimal range for the river to drive the gauge bar
+  // Pull thresholds for the river to drive the gauge bar — including the high +
+  // dangerous levels so the reel can shade the danger zone (not just optimal).
   let optimalMin = 1.5;
   let optimalMax = 4.0;
+  let levelHigh: number | undefined;
+  let levelDangerous: number | undefined;
   const { data: gauge } = await supabase
     .from('river_gauges')
-    .select('level_optimal_min, level_optimal_max')
+    .select('level_optimal_min, level_optimal_max, level_high, level_dangerous')
     .eq('river_id', riverSlug)
     .eq('is_primary', true)
     .maybeSingle();
   if (gauge) {
     optimalMin = gauge.level_optimal_min ?? optimalMin;
     optimalMax = gauge.level_optimal_max ?? optimalMax;
+    levelHigh = gauge.level_high ?? undefined;
+    levelDangerous = gauge.level_dangerous ?? undefined;
   }
 
-  // Warning-specific quote — terse, action-oriented, under the 120-char
-  // video teaser truncation threshold.
-  const quoteText =
-    newCondition === 'dangerous'
-      ? `${riverName} is now dangerous. Do not float — wait for levels to drop.`
-      : `${riverName} has risen into high water. Experienced paddlers only.`;
+  // Warning quote — canonical copy shared with the caption + OG cover.
+  const quoteText = warningCopy(newCondition, riverName).quote;
   const dateLabel = new Date().toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
@@ -304,6 +310,8 @@ async function publishAsVideo(params: {
       gaugeHeightFt: gaugeHeightFt ?? 0,
       optimalMin,
       optimalMax,
+      levelHigh,
+      levelDangerous,
       quoteText,
       dateLabel,
       format: 'portrait',

@@ -14,6 +14,10 @@ interface GaugeBarProps {
   optimalMin: number;
   /** Top of optimal range */
   optimalMax: number;
+  /** High-water threshold — shades an orange "high" zone above it (optional). */
+  levelHigh?: number;
+  /** Dangerous/flood threshold — shades a red "flood" zone above it (optional). */
+  levelDangerous?: number;
   /** Max value for the gauge scale (auto-calculated if omitted) */
   maxHeight?: number;
   /** Condition accent color */
@@ -38,6 +42,8 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   currentHeight,
   optimalMin,
   optimalMax,
+  levelHigh,
+  levelDangerous,
   maxHeight: maxHeightProp,
   conditionColor,
   conditionGlow = "transparent",
@@ -48,8 +54,15 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  // Include the dangerous threshold in the scale so its zone is always visible,
+  // even when the current reading sits below it.
   const maxHeight =
-    maxHeightProp ?? Math.max(currentHeight * 1.3, optimalMax * 1.2, 5);
+    maxHeightProp ??
+    Math.max(currentHeight * 1.3, optimalMax * 1.2, (levelDangerous ?? 0) * 1.08, 5);
+
+  const highFraction = levelHigh != null ? Math.min(1, levelHigh / maxHeight) : null;
+  const dangerFraction =
+    levelDangerous != null ? Math.min(1, levelDangerous / maxHeight) : null;
 
   const fillProgress = spring({
     frame: frame - delay,
@@ -119,6 +132,42 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         }}
       />
 
+      {/* High-water zone (orange tint from the high threshold up to flood) */}
+      {highFraction != null && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: `${highFraction * 100}%`,
+            height: `${((dangerFraction ?? 1) - highFraction) * 100}%`,
+            width: "100%",
+            backgroundColor: "rgba(249,115,22,0.16)",
+            borderTop: "2px solid rgba(249,115,22,0.85)",
+          }}
+        />
+      )}
+
+      {/* Dangerous / flood zone (red tint from the flood threshold to the top) */}
+      {dangerFraction != null && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: `${dangerFraction * 100}%`,
+            height: `${(1 - dangerFraction) * 100}%`,
+            width: "100%",
+            backgroundColor: "rgba(239,68,68,0.22)",
+            borderTop: "2px solid rgba(239,68,68,0.95)",
+          }}
+        />
+      )}
+
+      {/* Threshold labels (right side) */}
+      {highFraction != null && (
+        <ThresholdLabel fraction={highFraction} text="high" color="rgba(249,115,22,0.9)" />
+      )}
+      {dangerFraction != null && (
+        <ThresholdLabel fraction={dangerFraction} text="flood" color="rgba(239,68,68,0.95)" />
+      )}
+
       {/* Current reading label */}
       <div
         style={{
@@ -161,3 +210,30 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
     </div>
   );
 };
+
+/** Small label pinned to a threshold fraction, INSIDE the bar (the parent clips
+ *  overflow, so an outside-right callout would be hidden) and right-aligned with
+ *  a shadow so it stays legible over the animated fill. */
+const ThresholdLabel: React.FC<{ fraction: number; text: string; color: string }> = ({
+  fraction,
+  text,
+  color,
+}) => (
+  <div
+    style={{
+      position: "absolute",
+      right: 6,
+      bottom: `${fraction * 100}%`,
+      transform: "translateY(50%)",
+      color,
+      fontSize: 11,
+      fontWeight: 700,
+      fontFamily: "'Geist Sans', system-ui, sans-serif",
+      whiteSpace: "nowrap",
+      letterSpacing: 0.5,
+      textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+    }}
+  >
+    {text}
+  </div>
+);

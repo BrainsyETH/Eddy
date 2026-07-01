@@ -2,6 +2,29 @@
 // Brand colors and status utilities for OG images
 
 import type { ConditionCode, StatusStyle } from './types';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
+
+/** #RRGGBB → rgba() with the given alpha. */
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/** Lighten a #RRGGBB toward white by `amt` (0..1) for gradient endpoints. */
+function lighten(hex: string, amt: number): string {
+  const h = hex.replace('#', '');
+  const ch = (i: number) =>
+    Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) + 255 * amt));
+  const to = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${to(ch(0))}${to(ch(2))}${to(ch(4))}`;
+}
+
+function def(status: ConditionCode) {
+  return CONDITION_SYSTEM[status as keyof typeof CONDITION_SYSTEM] ?? CONDITION_SYSTEM.unknown;
+}
 
 export const BRAND_COLORS = {
   // Brand core
@@ -19,82 +42,28 @@ export const BRAND_COLORS = {
   sandbar: '#F4F1DE',
 } as const;
 
-export const STATUS_COLORS: Record<ConditionCode, string> = {
-  too_low: '#78716c',
-  low: '#eab308',
-  good: '#84cc16',
-  flowing: '#059669',
-  high: '#f97316',
-  dangerous: '#ef4444',
-  unknown: '#9ca3af',
-};
+// Condition colors are derived from the CANONICAL condition system
+// (shared/condition-system.ts) so OG covers can never drift from the app + reel.
+// Previously this hardcoded flowing as #059669 (emerald-600) while the canonical
+// "Eddy green" is #10b981 (emerald-500) — a visible mismatch between cover and reel.
+export const STATUS_COLORS: Record<ConditionCode, string> = Object.fromEntries(
+  (Object.keys(CONDITION_SYSTEM) as ConditionCode[]).map((code) => [code, def(code).solid]),
+) as Record<ConditionCode, string>;
 
 export function getStatusStyles(status: ConditionCode): StatusStyle {
-  const styles: Record<ConditionCode, StatusStyle> = {
-    too_low: {
-      solid: '#78716c',
-      text: '#78716c',
-      bg: 'rgba(120,113,108,0.15)',
-      border: 'rgba(120,113,108,0.3)',
-      label: 'Too Low',
-    },
-    low: {
-      solid: '#eab308',
-      text: '#eab308',
-      bg: 'rgba(234,179,8,0.15)',
-      border: 'rgba(234,179,8,0.3)',
-      label: 'Low',
-    },
-    good: {
-      solid: '#84cc16',
-      text: '#84cc16',
-      bg: 'rgba(132,204,22,0.15)',
-      border: 'rgba(132,204,22,0.3)',
-      label: 'Good',
-    },
-    flowing: {
-      solid: '#059669',
-      text: '#059669',
-      bg: 'rgba(5,150,105,0.2)',
-      border: 'rgba(5,150,105,0.35)',
-      label: 'Flowing',
-    },
-    high: {
-      solid: '#f97316',
-      text: '#f97316',
-      bg: 'rgba(249,115,22,0.2)',
-      border: 'rgba(249,115,22,0.3)',
-      label: 'High',
-    },
-    dangerous: {
-      solid: '#ef4444',
-      text: '#ef4444',
-      bg: 'rgba(239,68,68,0.15)',
-      border: 'rgba(239,68,68,0.25)',
-      label: 'Flood',
-    },
-    unknown: {
-      solid: '#9ca3af',
-      text: '#9ca3af',
-      bg: 'rgba(156,163,175,0.15)',
-      border: 'rgba(156,163,175,0.3)',
-      label: 'N/A',
-    },
+  const d = def(status);
+  return {
+    solid: d.solid,
+    text: d.solid,
+    bg: d.bg,
+    border: hexToRgba(d.solid, 0.3),
+    label: d.label,
   };
-  return styles[status];
 }
 
 export function getStatusGradient(status: ConditionCode): [string, string] {
-  const gradients: Record<ConditionCode, [string, string]> = {
-    too_low: ['#78716c', '#a8a29e'],
-    low: ['#eab308', '#fbbf24'],
-    good: ['#84cc16', '#a3e635'],
-    flowing: ['#059669', '#10b981'],
-    high: ['#f97316', '#fb923c'],
-    dangerous: ['#ef4444', '#f87171'],
-    unknown: ['#9ca3af', '#b8bfc7'],
-  };
-  return gradients[status];
+  const solid = def(status).solid;
+  return [solid, lighten(solid, 0.18)];
 }
 
 // Background gradient for cards

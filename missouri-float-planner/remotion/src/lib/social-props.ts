@@ -14,6 +14,10 @@ import {
 
 export type ConditionCode = SharedConditionCode;
 
+// Re-export the canonical warning copy so compositions can import it from this
+// same module (avoids a deep relative path into ../../../../shared).
+export { warningCopy, type WarningCopy } from "../../../shared/condition-copy";
+
 export type ConditionStyle = {
   solid: string;
   bg: string;
@@ -51,6 +55,10 @@ export type GaugeAnimationProps = {
   gaugeHeightFt: number;
   optimalMin: number;
   optimalMax: number;
+  /** High-water threshold — draws the orange high zone on the gauge bar (warning reels). */
+  levelHigh?: number;
+  /** Dangerous/flood threshold — draws the red danger zone on the gauge bar (warning reels). */
+  levelDangerous?: number;
   quoteText: string;
   /** Optional date label rendered under the river name to match the
    *  OG thumbnail's timestamp. Format free — callers typically use

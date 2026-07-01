@@ -33,6 +33,7 @@ import { pickSectionForRivers, findSection, type Section } from '@/lib/social/se
 import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/social/favorite-floats';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
+import { warningCopy } from '@shared/condition-copy';
 
 export const revalidate = 300;
 
@@ -250,7 +251,9 @@ export async function GET(request: NextRequest) {
 
     if (type === 'warning' && riverSlug) {
       const fromCondition = searchParams.get('from') || undefined;
-      return await generateWarningImage(riverSlug, fromCondition, size);
+      const toCondition = searchParams.get('to') || undefined;
+      const pinnedFt = numParam(searchParams.get('ft'));
+      return await generateWarningImage(riverSlug, fromCondition, size, toCondition, pinnedFt);
     }
 
     return await generateDigestImage(size);
@@ -2021,6 +2024,8 @@ async function generateWarningImage(
   riverSlug: string,
   fromCondition: string | undefined,
   size: { width: number; height: number },
+  toCondition?: string,
+  pinnedFt?: number | null,
 ) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
@@ -2036,14 +2041,6 @@ async function generateWarningImage(
     .limit(1)
     .maybeSingle();
 
-  if (!rawUpdate) {
-    return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
-  }
-
-  // Overlay live conditions: a warning image must always reflect the current
-  // gauge — the whole point of the warning is "right now".
-  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-
   const RIVER_DISPLAY: Record<string, string> = {
     meramec: 'Meramec River',
     current: 'Current River',
@@ -2055,16 +2052,27 @@ async function generateWarningImage(
     courtois: 'Courtois Creek',
   };
   const riverName = RIVER_DISPLAY[riverSlug] || riverSlug;
-  const newCondition = (update.condition_code || 'high') as ConditionCode;
+
+  // Prefer the PINNED event (baked into the URL by the alert as &to=&ft=) so the
+  // cover always agrees with the caption + reel — a re-fetched "live" value can
+  // move between dispatch and Meta's crawl of the cover. Legacy param-less URLs
+  // fall back to the live overlay ("right now").
+  let newCondition: ConditionCode;
+  let gaugeFt: number | null;
+  if (toCondition) {
+    newCondition = toCondition as ConditionCode;
+    gaugeFt = pinnedFt ?? rawUpdate?.gauge_height_ft ?? null;
+  } else {
+    if (!rawUpdate) {
+      return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
+    }
+    const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+    newCondition = (update.condition_code || 'high') as ConditionCode;
+    gaugeFt = update.gauge_height_ft;
+  }
+
   const styles = getStatusStyles(newCondition);
-  const severityLabel =
-    newCondition === 'dangerous' ? 'DANGEROUS' :
-    newCondition === 'high' ? 'HIGH WATER' :
-    'CAUTION';
-  const actionCta =
-    newCondition === 'dangerous'
-      ? 'Do not float until levels drop'
-      : 'Experienced paddlers only';
+  const { severityLabel, cta: actionCta } = warningCopy(newCondition, riverName);
   const photoDataUri = await loadBackgroundDataUri(supabase, 'danger');
 
   return new ImageResponse(
@@ -2170,7 +2178,7 @@ async function generateWarningImage(
         )}
 
         {/* Current gauge reading */}
-        {update.gauge_height_ft !== null && (
+        {gaugeFt !== null && (
           <div
             style={{
               display: 'flex',
@@ -2189,7 +2197,7 @@ async function generateWarningImage(
                 textShadow: `0 0 30px ${styles.solid}`,
               }}
             >
-              {update.gauge_height_ft.toFixed(1)}
+              {gaugeFt.toFixed(1)}
             </span>
             <span
               style={{

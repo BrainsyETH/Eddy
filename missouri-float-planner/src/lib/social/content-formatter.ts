@@ -4,6 +4,7 @@
 
 import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { warningCopy } from '@shared/condition-copy';
 import { canoeHours } from './post-types';
 import type { ConditionCode } from '@/types/api';
 import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
@@ -648,11 +649,8 @@ export function formatConditionChangeCaption(params: {
   platform: SocialPlatform;
 }): { caption: string; hashtags: string[] } {
   const riverName = RIVER_SHORT_NAMES[params.riverSlug] || params.riverSlug;
-  const newShort = SHORT_CONDITION_LABELS[params.newCondition] || params.newCondition;
-  const severity =
-    params.newCondition === 'dangerous' ? 'DANGEROUS' :
-    params.newCondition === 'high' ? 'HIGH WATER' :
-    newShort.toUpperCase();
+  // Severity label shared with the OG cover + reel (shared/condition-copy.ts).
+  const severity = warningCopy(params.newCondition, riverName).severityLabel;
   const gaugeText = params.gaugeHeightFt !== null
     ? ` · ${params.gaugeHeightFt.toFixed(1)} ft`
     : '';

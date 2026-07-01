@@ -16,6 +16,7 @@ import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
   CONDITION_COLORS,
   getOtterVariant,
+  warningCopy,
   type GaugeAnimationProps,
 } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
@@ -42,6 +43,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   gaugeHeightFt,
   optimalMin,
   optimalMax,
+  levelHigh,
+  levelDangerous,
   quoteText,
   dateLabel,
   warningMode,
@@ -58,15 +61,9 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
     : null;
   const isPortrait = format === "portrait";
 
-  // Warning headline copy — swapped by severity
-  const warningLabel =
-    conditionCode === 'dangerous' ? 'DANGEROUS' :
-    conditionCode === 'high' ? 'HIGH WATER' :
-    'CAUTION';
-  const warningCta =
-    conditionCode === 'dangerous'
-      ? 'DO NOT FLOAT — Wait for levels to drop'
-      : 'Use extreme caution — Experienced paddlers only';
+  // Warning headline + CTA — canonical copy shared with the caption + OG cover
+  // (shared/condition-copy.ts) so all three surfaces read identically.
+  const { severityLabel: warningLabel, cta: warningCta } = warningCopy(conditionCode, riverName);
 
   // Pulsing warning chrome (warning mode only)
   const warningPulse = 0.75 + 0.25 * Math.sin(frame / 10);
@@ -289,6 +286,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               currentHeight={gaugeHeightFt}
               optimalMin={optimalMin}
               optimalMax={optimalMax}
+              levelHigh={levelHigh}
+              levelDangerous={levelDangerous}
               conditionColor={condition.solid}
               conditionGlow={condition.glow}
               delay={30}
