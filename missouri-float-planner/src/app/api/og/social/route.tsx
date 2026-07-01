@@ -2084,7 +2084,10 @@ async function generateWarningImage(
   const { severityLabel, cta: actionCta } = isRecovery
     ? recoveryCopy(newCondition, riverName)
     : warningCopy(newCondition, riverName);
-  const photoDataUri = await loadBackgroundDataUri(supabase, 'danger');
+  // Warning covers use the generic 'danger' art; recovery ("all clear") covers
+  // use the river's own calm art — mirrors the reel's background selection in
+  // condition-alerts.ts so the cover/reel pair reads as one piece.
+  const photoDataUri = await loadBackgroundDataUri(supabase, isRecovery ? riverSlug : 'danger');
 
   // Series-identity mascot, bottom-right (matches the reel + other covers).
   let otterImage: string | null = null;
