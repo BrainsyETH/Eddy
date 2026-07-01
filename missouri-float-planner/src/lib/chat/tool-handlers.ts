@@ -4,6 +4,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
+import { toNum } from '@/lib/utils/num';
 import { fetchWeather, fetchForecast, getCityForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime } from '@/lib/calculations/floatTime';
@@ -542,8 +543,8 @@ async function handleGetEddyReport(input: Record<string, unknown>) {
   return {
     riverSlug: update.river_slug,
     conditionCode: update.condition_code,
-    gaugeHeightFt: update.gauge_height_ft,
-    dischargeCfs: update.discharge_cfs,
+    gaugeHeightFt: toNum(update.gauge_height_ft),
+    dischargeCfs: toNum(update.discharge_cfs),
     summary: update.summary_text,
     fullReport: update.quote_text,
     sourcesUsed: update.sources_used,

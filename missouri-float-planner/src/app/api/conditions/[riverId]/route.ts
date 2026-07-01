@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { toNum } from '@/lib/utils/num';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
@@ -201,11 +202,11 @@ async function _GET(
         isPrimary: gauge.is_primary ?? false,
         gaugeHeightFt:
           readingTimestamp === dbTimestamp
-            ? latestReading?.gauge_height_ft ?? null
+            ? toNum(latestReading?.gauge_height_ft)
             : usgsReading?.gaugeHeightFt ?? null,
         dischargeCfs:
           readingTimestamp === dbTimestamp
-            ? latestReading?.discharge_cfs ?? null
+            ? toNum(latestReading?.discharge_cfs)
             : usgsReading?.dischargeCfs ?? null,
         readingTimestamp,
         readingAgeHours,
@@ -380,8 +381,8 @@ async function _GET(
           finalCondition = {
             label: condition.condition_label || 'Unknown Conditions',
             code: mapConditionCode(condition.condition_code || 'unknown'),
-            gaugeHeightFt: condition.gauge_height_ft,
-            dischargeCfs: condition.discharge_cfs,
+            gaugeHeightFt: toNum(condition.gauge_height_ft),
+            dischargeCfs: toNum(condition.discharge_cfs),
             readingTimestamp: condition.reading_timestamp,
             readingAgeHours: condition.reading_age_hours,
             accuracyWarning: condition.accuracy_warning || false,
@@ -395,8 +396,8 @@ async function _GET(
         finalCondition = {
           label: condition.condition_label || 'Unknown Conditions',
           code: mapConditionCode(condition.condition_code || 'unknown'),
-          gaugeHeightFt: condition.gauge_height_ft,
-          dischargeCfs: condition.discharge_cfs,
+          gaugeHeightFt: toNum(condition.gauge_height_ft),
+          dischargeCfs: toNum(condition.discharge_cfs),
           readingTimestamp: condition.reading_timestamp,
           readingAgeHours: condition.reading_age_hours,
           accuracyWarning: condition.accuracy_warning || false,
@@ -410,8 +411,8 @@ async function _GET(
       finalCondition = {
         label: condition.condition_label || 'Unknown Conditions',
         code: mapConditionCode(condition.condition_code || 'unknown'),
-        gaugeHeightFt: condition.gauge_height_ft,
-        dischargeCfs: condition.discharge_cfs,
+        gaugeHeightFt: toNum(condition.gauge_height_ft),
+        dischargeCfs: toNum(condition.discharge_cfs),
         readingTimestamp: condition.reading_timestamp,
         readingAgeHours: condition.reading_age_hours,
         accuracyWarning: condition.accuracy_warning || false,

@@ -7,6 +7,7 @@ import type { ConditionCode } from '@/types/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { toNum } from '@/lib/utils/num';
 
 export interface GaugeConditionResult {
   riverId: string;
@@ -81,8 +82,8 @@ export async function getGaugeConditions(riverSlug: string): Promise<GaugeCondit
     .limit(1)
     .maybeSingle();
 
-  let gaugeHeightFt = dbReading?.gauge_height_ft ?? null;
-  let dischargeCfs = dbReading?.discharge_cfs ?? null;
+  let gaugeHeightFt = toNum(dbReading?.gauge_height_ft);
+  let dischargeCfs = toNum(dbReading?.discharge_cfs);
   let readingTimestamp = dbReading?.reading_timestamp ?? null;
 
   // If DB reading is stale (>2 hours), try live USGS

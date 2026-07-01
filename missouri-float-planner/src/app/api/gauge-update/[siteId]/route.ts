@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { toNum } from '@/lib/utils/num';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,8 +54,8 @@ export async function GET(
         quoteText: data.quote_text,
         summaryText: data.summary_text,
         conditionCode: data.condition_code,
-        gaugeHeightFt: data.gauge_height_ft,
-        dischargeCfs: data.discharge_cfs,
+        gaugeHeightFt: toNum(data.gauge_height_ft),
+        dischargeCfs: toNum(data.discharge_cfs),
         riverSlug: data.river_slug,
         sourcesUsed: data.sources_used || [],
         modelUsed: data.model_used,

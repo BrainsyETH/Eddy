@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
+import { toNum } from '@/lib/utils/num';
 
 export const dynamic = 'force-dynamic';
 
@@ -212,8 +213,8 @@ async function _GET(request: NextRequest) {
       for (const reading of readings) {
         if (!latestReadings.has(reading.gauge_station_id)) {
           latestReadings.set(reading.gauge_station_id, {
-            gaugeHeightFt: reading.gauge_height_ft,
-            dischargeCfs: reading.discharge_cfs,
+            gaugeHeightFt: toNum(reading.gauge_height_ft),
+            dischargeCfs: toNum(reading.discharge_cfs),
             readingTimestamp: reading.reading_timestamp,
           });
         }
