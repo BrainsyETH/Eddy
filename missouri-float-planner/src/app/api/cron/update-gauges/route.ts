@@ -302,9 +302,18 @@ async function runUpdate(request: NextRequest) {
 
       try {
         if (unique.length >= STORM_THRESHOLD) {
-          await publishStormDigest(
+          const digest = await publishStormDigest(
             unique.map((c) => ({ riverSlug: c.riverSlug, newCondition: c.newCondition })),
           );
+          // A second wave inside the digest's 2h cooldown still deserves
+          // per-river warnings — otherwise a dangerous crossing goes silent.
+          // (Individual alerts carry their own 4h per-river cooldown, so
+          // rivers already covered by the earlier digest won't double-post.)
+          if (digest.skipped && digest.reason === 'cooldown') {
+            for (const c of unique) {
+              await publishConditionChangeAlert(c);
+            }
+          }
         } else {
           for (const c of unique) {
             await publishConditionChangeAlert(c);
