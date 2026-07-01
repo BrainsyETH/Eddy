@@ -9,7 +9,9 @@ import Link from 'next/link';
 import { ArrowLeft, MapPin, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
-import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { GaugeStation } from '@/app/api/gauges/route';
 import type { ConditionCode } from '@/types/api';
@@ -199,9 +201,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Eddy Says display — use live condition for visual indicators
   const eddyConditionCode = condition.code;
-  const bgClass = BG_BY_CONDITION[eddyConditionCode] ?? BG_BY_CONDITION.unknown;
-  const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
-  const label = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;
+  const surface = conditionChip(eddyConditionCode);
+  const surfaceStyle = { backgroundColor: surface.background, borderColor: surface.borderColor };
 
   const buildStaticText = () => {
     const blurb = CONDITION_CARD_BLURBS[condition.code] || CONDITION_CARD_BLURBS.unknown;
@@ -273,9 +274,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm ${condition.tailwindColor}`}>
-              {condition.label}
-            </span>
+            <ConditionBadge code={condition.code} label={condition.label} size="md" />
             {primaryRiver && (
               <span className="flex items-center gap-1 text-sm text-neutral-500">
                 <MapPin className="w-3.5 h-3.5" />
@@ -403,7 +402,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         </div>
 
         {/* Eddy Says Section */}
-        <div className={`border rounded-xl overflow-hidden mb-8 ${bgClass}`}>
+        <div className="border rounded-xl overflow-hidden mb-8" style={surfaceStyle}>
           <div className="flex items-start gap-4 px-4 py-4 sm:px-6 sm:py-5">
             {/* Eddy avatar */}
             <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 relative">
@@ -420,15 +419,13 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-sm font-bold tracking-wide uppercase opacity-60">Eddy Says&hellip;</span>
-                <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
-                  {label.text}
-                </span>
+                <ConditionBadge code={eddyConditionCode} size="sm" uppercase />
               </div>
 
               {eddyLoading && !eddyUpdate ? (
                 <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
               ) : (
-                <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
+                <p className="text-sm sm:text-base leading-relaxed font-medium" style={{ color: surface.color }}>
                   &ldquo;{eddyDisplayText}&rdquo;
                 </p>
               )}
@@ -437,7 +434,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               {eddyUpdate?.summaryText && (
                 <button
                   onClick={() => setEddyShowFull(!eddyShowFull)}
-                  className={`flex items-center gap-1 text-xs font-semibold transition-colors mt-1.5 ${textClass} opacity-60 hover:opacity-100`}
+                  className="flex items-center gap-1 text-xs font-semibold transition-colors mt-1.5 opacity-60 hover:opacity-100"
+                  style={{ color: surface.color }}
                 >
                   {eddyShowFull ? (
                     <>Show less <ChevronUp className="w-3 h-3" /></>

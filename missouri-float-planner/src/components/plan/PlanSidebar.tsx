@@ -9,7 +9,8 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Camera, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
-import { getEddyImageForCondition, LABEL_BY_CONDITION } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
@@ -66,7 +67,6 @@ export default function PlanSidebar({
   const { data: vesselTypes } = useVesselTypes();
   const canoeVessel = vesselTypes?.find((v) => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find((v) => v.slug === 'raft');
-  const conditionBadge = LABEL_BY_CONDITION[conditionCode] ?? LABEL_BY_CONDITION.unknown;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -175,9 +175,7 @@ export default function PlanSidebar({
               </div>
               <span className="text-neutral-300 text-lg">|</span>
               <div className="text-center">
-                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${conditionBadge.className}`}>
-                  {conditionBadge.text}
-                </span>
+                <ConditionBadge code={conditionCode} size="sm" />
                 <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">Condition</p>
               </div>
             </div>

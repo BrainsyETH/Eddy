@@ -9,7 +9,9 @@ import Image from 'next/image';
 import { ArrowRight, Share2 } from 'lucide-react';
 
 import { useRiverGroups } from '@/hooks/useRiverGroups';
-import { CONDITION_COLORS, BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { RiverGroup } from '@/lib/river-groups';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
@@ -115,7 +117,7 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
   const unitLabel = isCfsPrimary ? 'cfs' : 'ft';
   const displayUnit = isCfsPrimary ? 'cfs' as const : 'ft' as const;
   const latestValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;
-  const conditionColor = CONDITION_COLORS[condition.code] || CONDITION_COLORS.unknown;
+  const surface = conditionChip(condition.code);
 
   const chartThresholds = {
     levelTooLow: primaryThreshold.levelTooLow,
@@ -143,12 +145,7 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
             </h3>
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-            <span
-              className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white"
-              style={{ backgroundColor: conditionColor }}
-            >
-              {condition.label}
-            </span>
+            <ConditionBadge code={condition.code} size="sm" />
             {primaryValue !== null && (
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-bold text-neutral-900 tabular-nums leading-none">
@@ -175,7 +172,7 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
 
       {/* Eddy Says blurb */}
       <div className="px-5 sm:px-6 pt-1">
-        <div className={`border rounded-lg overflow-hidden ${BG_BY_CONDITION[condition.code] ?? BG_BY_CONDITION.unknown}`}>
+        <div className="border rounded-lg overflow-hidden" style={{ backgroundColor: surface.background, borderColor: surface.borderColor }}>
           <div className="flex items-start gap-2 px-3 py-2">
             <div className="flex-shrink-0 w-7 h-7 relative">
               <Image
@@ -188,12 +185,10 @@ function FeaturedCard({ river }: { river: RiverGroup }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-[9px] font-bold tracking-wide uppercase opacity-60">Eddy says</span>
-                <span className={`text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded-full ${(LABEL_BY_CONDITION[condition.code] ?? LABEL_BY_CONDITION.unknown).className}`}>
-                  {(LABEL_BY_CONDITION[condition.code] ?? LABEL_BY_CONDITION.unknown).text}
-                </span>
+                <span className="text-[11px] font-bold tracking-wide uppercase opacity-60">Eddy says</span>
+                <ConditionBadge code={condition.code} size="sm" uppercase />
               </div>
-              <p className={`text-[11px] leading-relaxed font-medium line-clamp-2 ${TEXT_BY_CONDITION[condition.code] ?? TEXT_BY_CONDITION.unknown}`}>
+              <p className="text-xs leading-relaxed font-medium line-clamp-2" style={{ color: surface.color }}>
                 &ldquo;{eddyText || CONDITION_CARD_BLURBS[condition.code] || CONDITION_CARD_BLURBS.unknown}&rdquo;
               </p>
             </div>

@@ -25,7 +25,9 @@ interface EddyQuoteProps {
   embedded?: boolean;
 }
 
-import { getEddyImageForCondition, BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 
 function formatReadingAge(hours: number): string {
   if (hours < 1) {
@@ -120,9 +122,9 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   const eddyImage = getEddyImageForCondition(displayConditionCode);
   const notes = RIVER_NOTES[riverSlug];
 
-  const bgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
-  const textClass = TEXT_BY_CONDITION[displayConditionCode] ?? TEXT_BY_CONDITION.unknown;
-  const label = LABEL_BY_CONDITION[displayConditionCode] ?? LABEL_BY_CONDITION.unknown;
+  // Tinted "Eddy Says" surface derived from the canonical condition system.
+  const surface = conditionChip(displayConditionCode);
+  const surfaceStyle = { backgroundColor: surface.background, borderColor: surface.borderColor };
 
   // Age display: AI update shows generation time, static shows gauge reading age
   const ageDisplay = useAi
@@ -134,7 +136,10 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   // Show a brief loading state until AI fetch resolves to prevent content flash
   if (!aiLoaded) {
     return (
-      <div className={embedded ? 'px-3 py-4' : `border rounded-xl overflow-hidden ${bgClass} px-3 py-4`}>
+      <div
+        className={embedded ? 'px-3 py-4' : 'border rounded-xl overflow-hidden px-3 py-4'}
+        style={embedded ? undefined : surfaceStyle}
+      >
         <div className="flex items-center justify-center gap-2">
           <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-xs text-neutral-400">Loading river report…</span>
@@ -144,7 +149,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   }
 
   return (
-    <div className={embedded ? '' : `border rounded-xl overflow-hidden ${bgClass}`}>
+    <div className={embedded ? '' : 'border rounded-xl overflow-hidden'} style={embedded ? undefined : surfaceStyle}>
       <div className="flex items-start gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {/* Eddy avatar */}
         <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 relative">
@@ -161,16 +166,14 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold tracking-wide uppercase opacity-60">Eddy says</span>
-            <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
-              {label.text}
-            </span>
+            <ConditionBadge code={displayConditionCode} size="sm" uppercase />
             {ageDisplay && (
               <span className="text-[10px] text-neutral-500 ml-auto whitespace-nowrap">
                 {ageDisplay}
               </span>
             )}
           </div>
-          <p className={`text-sm sm:text-base leading-relaxed font-medium ${textClass}`}>
+          <p className="text-sm sm:text-base leading-relaxed font-medium" style={{ color: surface.color }}>
             &ldquo;{displayText}&rdquo;
           </p>
 
@@ -179,7 +182,8 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             {hasSummary && (
               <button
                 onClick={() => setShowFull(!showFull)}
-                className={`flex items-center gap-1 text-xs font-semibold transition-colors ${textClass} opacity-60 hover:opacity-100`}
+                className="flex items-center gap-1 text-xs font-semibold transition-colors opacity-60 hover:opacity-100"
+                style={{ color: surface.color }}
               >
                 {showFull ? (
                   <>Show less <ChevronUp className="w-3 h-3" /></>
@@ -200,8 +204,9 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               className={`flex items-center gap-1.5 text-xs font-semibold transition-all ml-auto rounded-md px-2 py-1 ${
                 shareStatus === 'copied'
                   ? 'bg-emerald-100 text-emerald-700'
-                  : `${textClass} opacity-50 hover:opacity-100 hover:bg-black/5`
+                  : 'opacity-50 hover:opacity-100 hover:bg-black/5'
               }`}
+              style={shareStatus === 'copied' ? undefined : { color: surface.color }}
               title="Share this report"
             >
               {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}

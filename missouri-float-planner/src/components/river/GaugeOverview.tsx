@@ -7,9 +7,11 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import { computeCondition, getConditionTailwindColor, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { conditionColor } from '@shared/condition-system';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import type { ConditionCode } from '@/types/api';
 import { ExternalLink, ArrowRight } from 'lucide-react';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 
 interface GaugeOverviewProps {
   gauges: GaugeStation[] | undefined;
@@ -113,17 +115,13 @@ export default function GaugeOverview({
   let badge = null;
   if (minCondition && maxCondition) {
     if (minIndex === maxIndex) {
-      badge = (
-        <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${minCondition.color}`}>
-          {minCondition.label}
-        </span>
-      );
+      badge = <ConditionBadge code={minCondition.code} label={minCondition.label} size="sm" showDot={false} />;
     } else {
       badge = (
-        <span className="flex items-center gap-1 text-xs font-bold">
-          <span className={`px-1.5 py-0.5 rounded text-white ${minCondition.color}`}>{minCondition.label}</span>
+        <span className="flex items-center gap-1">
+          <ConditionBadge code={minCondition.code} label={minCondition.label} size="sm" showDot={false} />
           <span className="text-neutral-500">→</span>
-          <span className={`px-1.5 py-0.5 rounded text-white ${maxCondition.color}`}>{maxCondition.label}</span>
+          <ConditionBadge code={maxCondition.code} label={maxCondition.label} size="sm" showDot={false} />
         </span>
       );
     }
@@ -182,9 +180,7 @@ export default function GaugeOverview({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold text-white ${condition.color}`}>
-                    {condition.label}
-                  </span>
+                  <ConditionBadge code={condition.code} label={condition.label} size="sm" showDot={false} />
                   <a
                     href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
                     target="_blank"
@@ -235,17 +231,10 @@ export default function GaugeOverview({
       {/* Legend */}
       <div className="mt-4 pt-3 border-t border-neutral-200">
         <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 text-xs">
-          {[
-            { color: 'bg-neutral-400', label: 'Too Low' },
-            { color: 'bg-yellow-500', label: 'Low' },
-            { color: 'bg-lime-500', label: 'Good' },
-            { color: 'bg-emerald-600', label: 'Flowing' },
-            { color: 'bg-orange-500', label: 'High' },
-            { color: 'bg-red-600', label: 'Flood' },
-          ].map(({ color, label }) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${color}`} />
-              <span className="text-neutral-600">{label}</span>
+          {CONDITION_ORDER.map((code) => (
+            <div key={code} className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: conditionColor(code) }} />
+              <span className="text-neutral-600">{getConditionShortLabel(code)}</span>
             </div>
           ))}
         </div>

@@ -271,7 +271,7 @@ export default function ThresholdTable({
                   onClick={() => setSelectedZone(selectedZone === zone.key ? null : zone.key)}
                   title={`${zone.label}: ${fmt(zone.min)} – ${fmt(zone.max)} ${unitLabel}`}
                 >
-                  <span className="text-[10px] sm:text-xs font-bold text-white truncate px-1 select-none">
+                  <span className="text-[10px] sm:text-xs font-bold truncate px-1 select-none" style={{ color: '#1A1814' }}>
                     {zone.label}
                   </span>
                 </button>

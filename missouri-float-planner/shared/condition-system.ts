@@ -39,6 +39,14 @@ export interface ConditionDef {
   bg: string;
   /** Glow used on dark video backgrounds (rgba) to read as a live instrument. */
   glow: string;
+  /**
+   * Accessible dark "ink" for text/icons on the light `bg` tint (and on white).
+   * Chosen to clear WCAG 2.2 AA (>=4.5:1). NEVER print white text on the light
+   * condition fills — use tint + ink. IDENTICAL in app and video.
+   */
+  ink: string;
+  /** Border hex for tinted chips/badges (a mid tint of the same hue). */
+  chipBorder: string;
   /** Short label for compact displays, e.g. "Flowing". */
   label: string;
   /** Long label with guidance, e.g. "Flowing - Ideal Conditions". */
@@ -62,6 +70,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#ef4444", // red-500
     bg: "rgba(239,68,68,0.15)",
     glow: "rgba(239,68,68,0.6)",
+    ink: "#991B1B", // red-800
+    chipBorder: "#FCA5A5", // red-300
     label: "Flood",
     longLabel: "Flood - Do Not Float",
     description:
@@ -76,6 +86,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#10b981", // emerald-500
     bg: "rgba(16,185,129,0.15)",
     glow: "rgba(16,185,129,0.5)",
+    ink: "#065F46", // emerald-800
+    chipBorder: "#6EE7B7", // emerald-300
     label: "Flowing",
     longLabel: "Flowing - Ideal Conditions",
     description:
@@ -88,6 +100,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#84cc16", // lime-500
     bg: "rgba(132,204,22,0.15)",
     glow: "rgba(132,204,22,0.4)",
+    ink: "#3F6212", // lime-800
+    chipBorder: "#BEF264", // lime-300
     label: "Good",
     longLabel: "Good - Floatable",
     description: "Floatable conditions. Some shallow spots possible.",
@@ -99,6 +113,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#f97316", // orange-500
     bg: "rgba(249,115,22,0.2)",
     glow: "rgba(249,115,22,0.4)",
+    ink: "#9A3412", // orange-800
+    chipBorder: "#FDBA74", // orange-300
     label: "High",
     longLabel: "High Water - Use Caution",
     description:
@@ -111,6 +127,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#eab308", // yellow-500
     bg: "rgba(234,179,8,0.15)",
     glow: "rgba(234,179,8,0.3)",
+    ink: "#854D0E", // yellow-800
+    chipBorder: "#FCD34D", // yellow-300
     label: "Low",
     longLabel: "Low - Scraping Likely",
     description:
@@ -123,6 +141,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#78716c", // stone-500
     bg: "rgba(120,113,108,0.15)",
     glow: "rgba(120,113,108,0.2)",
+    ink: "#44403C", // stone-700
+    chipBorder: "#D6D3D1", // stone-300
     label: "Too Low",
     longLabel: "Too Low - Not Recommended",
     description:
@@ -135,6 +155,8 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     solid: "#9ca3af", // gray-400
     bg: "rgba(156,163,175,0.15)",
     glow: "transparent",
+    ink: "#374151", // gray-700
+    chipBorder: "#D1D5DB", // gray-300
     label: "Unknown",
     longLabel: "Unknown",
     description: "No gauge data available.",
@@ -163,6 +185,37 @@ export function conditionColor(code: string): string {
 export function conditionOtterMood(code: string): OtterMood {
   return (CONDITION_SYSTEM[code as ConditionCode] ?? CONDITION_SYSTEM.unknown)
     .otter;
+}
+
+/** Resolve a (possibly unknown) code to its canonical definition. */
+export function conditionDef(code: string): ConditionDef {
+  return CONDITION_SYSTEM[code as ConditionCode] ?? CONDITION_SYSTEM.unknown;
+}
+
+/**
+ * Accessible chip/badge styling for a condition — tint background + dark ink +
+ * mid-tint border. This is the ONLY approved way to render a condition pill:
+ * it guarantees WCAG AA contrast (no white-on-light-fill) and a single learnable
+ * hue per level. Returns plain CSS values so it works in React inline styles,
+ * embeds (no Tailwind), and Remotion alike.
+ */
+export function conditionChip(code: string): {
+  background: string;
+  color: string;
+  borderColor: string;
+  solid: string;
+  label: string;
+  longLabel: string;
+} {
+  const def = conditionDef(code);
+  return {
+    background: def.bg,
+    color: def.ink,
+    borderColor: def.chipBorder,
+    solid: def.solid,
+    label: def.label,
+    longLabel: def.longLabel,
+  };
 }
 
 /**

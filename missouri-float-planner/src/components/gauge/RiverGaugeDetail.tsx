@@ -11,7 +11,9 @@ import Link from 'next/link';
 import { ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
-import { TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
@@ -291,8 +293,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     : eddyUpdate;
   const activeEddyLoading = onSecondaryTabWithUpdate ? gaugeUpdateLoading : eddyLoading;
   const eddyConditionCode: ConditionCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
-  const textClass = TEXT_BY_CONDITION[eddyConditionCode] ?? TEXT_BY_CONDITION.unknown;
-  const labelInfo = LABEL_BY_CONDITION[eddyConditionCode] ?? LABEL_BY_CONDITION.unknown;
+  const surface = conditionChip(eddyConditionCode);
 
   const buildStaticText = () => {
     const sourceGauge = onSecondaryTabWithUpdate ? activeGauge : primaryGauge;
@@ -522,9 +523,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className="text-sm font-bold tracking-wide uppercase text-neutral-500">Eddy Says&hellip;</span>
-                  <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${labelInfo.className}`}>
-                    {labelInfo.text}
-                  </span>
+                  <ConditionBadge code={eddyConditionCode} size="sm" uppercase />
                   {activeEddyUpdate?.generatedAt && (
                     <span className="text-[10px] text-neutral-400">
                       &middot; {(() => {
@@ -551,16 +550,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
                 ) : activeEddyUpdate?.summaryText ? (
                   <>
-                    <div className={`rounded-lg px-3.5 py-2.5 mt-1 ${
-                      eddyConditionCode === 'flowing' ? 'bg-emerald-200/50' :
-                      eddyConditionCode === 'good' ? 'bg-lime-200/50' :
-                      eddyConditionCode === 'low' ? 'bg-amber-200/50' :
-                      eddyConditionCode === 'too_low' ? 'bg-stone-300/40' :
-                      eddyConditionCode === 'high' ? 'bg-orange-200/50' :
-                      eddyConditionCode === 'dangerous' ? 'bg-red-200/50' :
-                      'bg-neutral-200/50'
-                    }`}>
-                      <p className={`text-sm sm:text-base leading-relaxed font-semibold ${textClass}`}>
+                    <div className="rounded-lg px-3.5 py-2.5 mt-1" style={{ backgroundColor: surface.background }}>
+                      <p className="text-sm sm:text-base leading-relaxed font-semibold" style={{ color: surface.color }}>
                         &ldquo;{activeEddyUpdate.summaryText}&rdquo;
                       </p>
                     </div>

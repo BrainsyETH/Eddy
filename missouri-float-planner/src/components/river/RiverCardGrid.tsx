@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, Droplets, ArrowRight } from 'lucide-react';
 import RiverFilters, { type FilterType } from './RiverFilters';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 
 interface RiverCardData {
   id: string;
@@ -84,12 +85,7 @@ export default function RiverCardGrid({ rivers }: RiverCardGridProps) {
                       </h2>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span
-                        className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white"
-                        style={{ backgroundColor: river.conditionColor }}
-                      >
-                        {river.conditionLabel}
-                      </span>
+                      <ConditionBadge code={river.conditionCode ?? 'unknown'} label={river.conditionLabel} size="sm" />
                       {river.region && (
                         <span className="text-xs text-neutral-500">{river.region}</span>
                       )}
