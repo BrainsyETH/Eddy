@@ -77,7 +77,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
   const visualFormRef = useFocusTrap<HTMLDivElement>(showVisualSubmitForm, () => setShowVisualSubmitForm(false));
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'saving'>('idle');
 
   const floatPlanCardRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
@@ -251,23 +251,48 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   }, [river?.name]);
 
   const handleShare = useCallback(async () => {
-    if (!riverSlug || !selectedPutIn || !selectedTakeOut) return;
+    if (!riverSlug || !selectedPutIn || !selectedTakeOut || !river) return;
 
+    // Fallback: a query-string planner link, used if saving the plan fails.
     const params = new URLSearchParams();
     params.set('river', riverSlug);
     params.set('putIn', selectedPutIn);
     params.set('takeOut', selectedTakeOut);
     if (selectedVesselTypeId) params.set('vessel', selectedVesselTypeId);
+    const fallbackUrl = `${window.location.origin}/plan?${params.toString()}`;
 
-    const shareUrl = `${window.location.origin}/plan?${params.toString()}`;
+    // Persist the plan for a branded short-code link that snapshots conditions
+    // at save time (the /plan/[shortCode] landing page + OG card). Fall back to
+    // the query-string URL if the save fails so sharing always works.
+    let shareUrl = fallbackUrl;
+    setShareStatus('saving');
+    try {
+      const res = await fetch('/api/plan/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          riverId: river.id,
+          startId: selectedPutIn,
+          endId: selectedTakeOut,
+          vesselTypeId: selectedVesselTypeId,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.url) shareUrl = data.url;
+      }
+    } catch {
+      // keep fallbackUrl
+    }
+
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
-
     if (isMobile && navigator.share) {
       try {
         await navigator.share({
-          title: `Float Plan - ${river?.name}`,
+          title: `Float Plan - ${river.name}`,
           url: shareUrl,
         });
+        setShareStatus('idle');
         return;
       } catch {
         // fall through to clipboard
@@ -279,9 +304,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000);
     } catch {
+      setShareStatus('idle');
       window.prompt('Copy this link:', shareUrl);
     }
-  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river?.name]);
+  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river]);
 
   const handleDownloadImage = useCallback(async () => {
     if (!selectedPutIn || !selectedTakeOut || !river || !plan || !captureRef.current) return;
@@ -500,6 +526,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             onShare={handleShare}
             onDownloadImage={handleDownloadImage}
             shareStatus={shareStatus}
+            selectedVesselTypeId={selectedVesselTypeId}
+            onVesselChange={setSelectedVesselTypeId}
             onReportIssue={handleReportAccessPointIssue}
             onSubmitPhoto={() => setShowVisualSubmitForm(true)}
             pointsAlongRoute={pointsAlongRoute}

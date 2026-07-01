@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { SavePlanRequest, SavePlanResponse } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -10,6 +11,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 20 plan saves per IP per 15 minutes (public write to float_plans).
+    const rateLimitResult = rateLimit(`plan-save:${getClientIp(request)}`, 20, 15 * 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
+
     const body = await request.json() as SavePlanRequest;
 
     const { riverId, startId, endId, vesselTypeId } = body;

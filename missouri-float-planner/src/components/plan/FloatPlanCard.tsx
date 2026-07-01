@@ -173,7 +173,7 @@ interface FloatPlanCardProps {
   onClearTakeOut: () => void;
   onShare: () => void;
   onDownloadImage: () => void;
-  shareStatus?: 'idle' | 'copied';
+  shareStatus?: 'idle' | 'copied' | 'saving';
   riverSlug: string;
   riverName?: string;
   vesselTypeId: string | null;
@@ -1099,7 +1099,7 @@ function MobileBottomSheet({
   onVesselChange: (id: string) => void;
   onShare: () => void;
   onDownloadImage: () => void;
-  shareStatus?: 'idle' | 'copied';
+  shareStatus?: 'idle' | 'copied' | 'saving';
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }) {
@@ -1618,14 +1618,17 @@ export default function FloatPlanCard({
             <div className="flex gap-3">
               <button
                 onClick={onShare}
+                disabled={shareStatus === 'saving'}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                   shareStatus === 'copied'
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                }`}
+                } ${shareStatus === 'saving' ? 'opacity-70 cursor-wait' : ''}`}
               >
-                {shareStatus === 'copied' ? <Check size={16} /> : <Share2 size={16} />}
-                {shareStatus === 'copied' ? 'Copied!' : 'Share Link'}
+                {shareStatus === 'saving'
+                  ? <span className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                  : shareStatus === 'copied' ? <Check size={16} /> : <Share2 size={16} />}
+                {shareStatus === 'saving' ? 'Saving…' : shareStatus === 'copied' ? 'Copied!' : 'Share Link'}
               </button>
               <button
                 onClick={onDownloadImage}
