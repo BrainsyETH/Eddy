@@ -122,8 +122,14 @@ export default function RootLayout({
       >
         <Providers>
           <AnalyticsListener />
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-md focus:bg-white focus:text-primary-800 focus:shadow-lg focus:outline focus:outline-2 focus:outline-primary-500"
+          >
+            Skip to main content
+          </a>
           <SiteHeader />
-          {children}
+          <main id="main-content">{children}</main>
         </Providers>
       </body>
     </html>

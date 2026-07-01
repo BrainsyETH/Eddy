@@ -7,6 +7,8 @@
 import { useState, useEffect } from 'react';
 import { MousePointerClick, X, MapPin, Info } from 'lucide-react';
 import type { FloatPlan, AccessPoint } from '@/types/api';
+import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
+import { CONDITION_SHORT_LABELS } from '@/constants';
 
 const PUT_IN_COLOR = '#478559';
 const TAKE_OUT_COLOR = '#f95d9b';
@@ -141,6 +143,20 @@ export function MapLegend({ className = '' }: MapLegendProps) {
             <LegendRow color={TAKE_OUT_COLOR} label="Take-out" />
             <LegendRow color={NEUTRAL_COLOR} label="Other access" />
           </ul>
+          <div className="mt-2 pt-2 border-t border-neutral-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Conditions
+            </span>
+            <ul className="space-y-1.5 mt-1.5">
+              {CONDITION_ORDER.map((code) => (
+                <ConditionRow
+                  key={code}
+                  color={conditionColor(code)}
+                  label={CONDITION_SHORT_LABELS[code]}
+                />
+              ))}
+            </ul>
+          </div>
         </div>
       ) : (
         <button
@@ -166,6 +182,20 @@ function LegendRow({ color, label }: { color: string; label: string }) {
       >
         <MapPin className="w-2.5 h-2.5 text-white" strokeWidth={3} />
       </span>
+      <span className="text-xs text-neutral-700">{label}</span>
+    </li>
+  );
+}
+
+// Gauge condition swatch — plain color dot (no pin) mirroring the gauge markers.
+function ConditionRow({ color, label }: { color: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span
+        className="inline-flex w-4 h-4 rounded-full border border-white shadow-sm"
+        style={{ backgroundColor: color }}
+        aria-hidden="true"
+      />
       <span className="text-xs text-neutral-700">{label}</span>
     </li>
   );

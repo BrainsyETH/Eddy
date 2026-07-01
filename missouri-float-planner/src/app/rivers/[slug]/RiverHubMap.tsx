@@ -8,6 +8,7 @@
 import dynamic from 'next/dynamic';
 import { useRiver } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
+import { useHazards } from '@/hooks/useHazards';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -19,18 +20,21 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ),
 });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
+const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 const RouteLayer = dynamic(() => import('@/components/map/RouteLayer'), { ssr: false });
 
 export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
   const { data: river } = useRiver(riverSlug);
   const { data: accessPoints = [] } = useAccessPoints(riverSlug);
+  const { data: hazards = [] } = useHazards(riverSlug);
 
   return (
     <div className="relative h-[360px] md:h-[440px] rounded-xl overflow-hidden border border-neutral-200">
       {river ? (
-        <MapContainer initialBounds={river.bounds} showLegend={true}>
+        <MapContainer initialBounds={river.bounds} showLegend={true} cooperativeGestures={true}>
           {river.geometry && <RouteLayer routeGeometry={river.geometry} />}
           <AccessPointMarkers accessPoints={accessPoints} />
+          <HazardMarkers hazards={hazards} />
         </MapContainer>
       ) : (
         <div className="w-full h-full bg-ozark-900 flex items-center justify-center">

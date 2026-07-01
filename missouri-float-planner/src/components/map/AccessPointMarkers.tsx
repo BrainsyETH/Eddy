@@ -90,20 +90,19 @@ export default function AccessPointMarkers({
       // Use larger base size on touch devices for better tap targets
       const isTouchDevice = !supportsHoverRef.current;
       const baseSize = isTouchDevice ? 30 : 26;
+
+      // Outer element is a transparent ≥44px hit area (touch target); the visible
+      // circle lives in an inner child so its size is unchanged.
       const el = document.createElement('div');
       el.className = 'access-point-marker';
       el.style.cssText = `
-        background: linear-gradient(135deg, ${bgColor} 0%, ${adjustColor(bgColor, -20)} 100%);
-        width: ${baseSize * scale}px;
-        height: ${baseSize * scale}px;
-        border-radius: 50%;
-        border: 2px solid ${borderColor};
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-        cursor: ${onMarkerClick ? 'pointer' : 'default'};
+        width: 44px;
+        height: 44px;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: box-shadow 0.2s ease, border-width 0.2s ease;
+        background: transparent;
+        cursor: ${onMarkerClick ? 'pointer' : 'default'};
         z-index: ${zIndex};
         pointer-events: auto;
         box-sizing: border-box;
@@ -111,10 +110,29 @@ export default function AccessPointMarkers({
         -webkit-tap-highlight-color: transparent;
       `;
 
+      // Inner element is the visible colored/gradient circle
+      const circle = document.createElement('div');
+      circle.className = 'access-point-marker-circle';
+      circle.style.cssText = `
+        background: linear-gradient(135deg, ${bgColor} 0%, ${adjustColor(bgColor, -20)} 100%);
+        width: ${baseSize * scale}px;
+        height: ${baseSize * scale}px;
+        border-radius: 50%;
+        border: 2px solid ${borderColor};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: box-shadow 0.2s ease, border-width 0.2s ease;
+        box-sizing: border-box;
+        pointer-events: none;
+      `;
+      el.appendChild(circle);
+
       // Render lucide icon using React
       const iconSize = (isTouchDevice ? 14 : 13) * scale;
       let IconComponent: LucideIcon;
-      
+
       if (iconType === 'putin') {
         IconComponent = Flag;
       } else if (iconType === 'takeout') {
@@ -122,9 +140,9 @@ export default function AccessPointMarkers({
       } else {
         IconComponent = MapPin;
       }
-      
-      // Create React root and render icon
-      const root = createRoot(el);
+
+      // Create React root and render icon into the visible circle
+      const root = createRoot(circle);
       root.render(
         React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
       );
@@ -137,14 +155,14 @@ export default function AccessPointMarkers({
           : isTakeOut
           ? 'rgba(249, 93, 155, 0.4)' // sky-warm
           : 'rgba(57, 160, 202, 0.3)'; // river-water
-        el.style.boxShadow = `0 4px 14px rgba(0,0,0,0.35), 0 0 12px ${glowColor}`;
-        el.style.borderWidth = '3px';
-        el.style.opacity = '1';
+        circle.style.boxShadow = `0 4px 14px rgba(0,0,0,0.35), 0 0 12px ${glowColor}`;
+        circle.style.borderWidth = '3px';
+        circle.style.opacity = '1';
       });
       el.addEventListener('mouseleave', () => {
-        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
-        el.style.borderWidth = '2px';
-        el.style.opacity = '1';
+        circle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
+        circle.style.borderWidth = '2px';
+        circle.style.opacity = '1';
       });
 
       // Create popup with flat, nature-inspired styling

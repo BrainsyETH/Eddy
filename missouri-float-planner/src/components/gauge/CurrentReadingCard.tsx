@@ -71,13 +71,14 @@ export default function CurrentReadingCard({
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }} aria-label="Current gauge reading">
-      {/* Condition status strip */}
+      {/* Condition status strip — bold solid band for at-a-glance color, with
+          near-black ink (clears WCAG AA on every condition solid; white does not). */}
       {conditionColor && conditionLabel && (
         <div
           className="px-4 py-2.5 flex items-center justify-center gap-2"
           style={{ backgroundColor: conditionColor }}
         >
-          <span className="text-[11px] font-bold tracking-wide uppercase text-white">
+          <span className="text-xs font-bold tracking-wide uppercase" style={{ color: '#1A1814' }}>
             {conditionLabel}
           </span>
         </div>

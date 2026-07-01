@@ -130,33 +130,13 @@ export function getEddyImageForCondition(code: string): string {
   return EDDY_IMAGES[conditionOtterMood(code)];
 }
 
-// Condition-themed background classes for Eddy Says cards and detail views
-export const BG_BY_CONDITION: Record<string, string> = {
-  flowing: 'bg-gradient-to-r from-emerald-100 to-teal-50 border-emerald-300',
-  good: 'bg-gradient-to-r from-lime-100 to-emerald-50 border-lime-300',
-  low: 'bg-gradient-to-r from-amber-100 to-yellow-50 border-amber-300',
-  too_low: 'bg-gradient-to-r from-stone-200 to-stone-100 border-stone-400',
-  high: 'bg-gradient-to-r from-orange-100 to-red-50 border-orange-300',
-  dangerous: 'bg-gradient-to-r from-red-200 to-red-100 border-red-400',
-  unknown: 'bg-gradient-to-r from-neutral-100 to-slate-50 border-neutral-300',
-};
-
-export const TEXT_BY_CONDITION: Record<string, string> = {
-  flowing: 'text-emerald-900', good: 'text-emerald-900',
-  low: 'text-amber-900', too_low: 'text-stone-800',
-  high: 'text-red-900', dangerous: 'text-red-900',
-  unknown: 'text-neutral-700',
-};
-
-export const LABEL_BY_CONDITION: Record<string, { text: string; className: string }> = {
-  flowing: { text: 'Flowing', className: 'bg-emerald-100 text-emerald-700' },
-  good: { text: 'Good', className: 'bg-emerald-100 text-emerald-700' },
-  low: { text: 'Low', className: 'bg-amber-100 text-amber-700' },
-  too_low: { text: 'Too Low', className: 'bg-stone-200 text-stone-700' },
-  high: { text: 'High', className: 'bg-red-100 text-red-700' },
-  dangerous: { text: 'Flood', className: 'bg-red-200 text-red-800' },
-  unknown: { text: 'Unknown', className: 'bg-neutral-100 text-neutral-600' },
-};
+// NOTE: Condition badge/surface styling is NOT defined here. The former
+// BG_BY_CONDITION / TEXT_BY_CONDITION / LABEL_BY_CONDITION maps drifted out of
+// sync with the canonical taxonomy (they painted "high" red, colliding with
+// "dangerous", and paired white text with light fills). They are removed. Use:
+//   - <ConditionBadge code={code} /> for condition pills, and
+//   - conditionChip(code) from '@shared/condition-system' for tinted surfaces.
+// Both derive from CONDITION_SYSTEM, so high stays orange and contrast stays AA.
 
 // Default threshold descriptions for the condition thresholds table
 export const DEFAULT_THRESHOLD_DESCRIPTIONS: Record<string, string> = {

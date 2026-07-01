@@ -70,7 +70,7 @@ export default async function RiversPage() {
 
         {/* Data attribution */}
         <div className="mt-8 bg-primary-50 border border-primary-200 rounded-xl p-6">
-          <h3 className="text-base font-bold text-neutral-900 mb-2">About This Data</h3>
+          <h2 className="text-base font-bold text-neutral-900 mb-2">About This Data</h2>
           <p className="text-sm text-neutral-700">
             All condition data is provided by the <strong>United States Geological Survey (USGS)</strong> through
             their Water Services API. Readings are updated hourly and typically lag real-time conditions by

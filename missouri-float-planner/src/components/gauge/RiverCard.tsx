@@ -10,7 +10,9 @@ import { Droplets, ArrowRight, ChevronDown, ChevronUp, Camera } from 'lucide-rea
 
 import type { RiverGroup } from '@/lib/river-groups';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
-import { BG_BY_CONDITION, TEXT_BY_CONDITION, LABEL_BY_CONDITION, getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS, RIVER_NOTES } from '@/data/eddy-quotes';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 
@@ -70,9 +72,8 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
 
   // Always use live condition so card badge matches the current gauge reading
   const displayConditionCode = condition.code;
-  const eddyBgClass = BG_BY_CONDITION[displayConditionCode] ?? BG_BY_CONDITION.unknown;
-  const textClass = TEXT_BY_CONDITION[displayConditionCode] ?? TEXT_BY_CONDITION.unknown;
-  const label = LABEL_BY_CONDITION[displayConditionCode] ?? LABEL_BY_CONDITION.unknown;
+  const surface = conditionChip(displayConditionCode);
+  const surfaceStyle = { backgroundColor: surface.background, borderColor: surface.borderColor };
 
   const displayText = eddyUpdate?.summaryText && !showFull
     ? eddyUpdate.summaryText
@@ -112,9 +113,7 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
                 {primaryGauge.name}
               </p>
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold text-white ${condition.tailwindColor}`}>
-                  {condition.label}
-                </span>
+                <ConditionBadge code={condition.code} size="sm" />
                 <span className="text-xs text-neutral-500">
                   {allGauges.length} gauge{allGauges.length !== 1 ? 's' : ''}
                 </span>
@@ -150,7 +149,7 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
 
       {/* Eddy Says blurb */}
       <div className="px-4 pb-4 pt-1 sm:px-5">
-        <div className={`border rounded-lg overflow-hidden ${eddyBgClass}`}>
+        <div className="border rounded-lg overflow-hidden" style={surfaceStyle}>
           <div className="flex items-start gap-2.5 px-3 py-2.5">
             <div className="flex-shrink-0 w-9 h-9 relative">
               <Image
@@ -164,14 +163,12 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-[10px] font-bold tracking-wide uppercase opacity-60">Eddy says</span>
-                <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${label.className}`}>
-                  {label.text}
-                </span>
+                <ConditionBadge code={displayConditionCode} size="sm" uppercase />
               </div>
               {eddyLoading && !eddyUpdate ? (
                 <p className="text-xs text-neutral-500 italic">Loading...</p>
               ) : (
-                <p className={`text-xs leading-relaxed font-medium ${showFull ? '' : 'line-clamp-2'} ${textClass}`}>
+                <p className={`text-xs leading-relaxed font-medium ${showFull ? '' : 'line-clamp-2'}`} style={{ color: surface.color }}>
                   &ldquo;{displayText}&rdquo;
                 </p>
               )}
@@ -180,7 +177,8 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowFull(!showFull); }}
                   aria-expanded={showFull}
                   aria-label={showFull ? 'Show less' : 'Show more details'}
-                  className={`flex items-center gap-1 text-[10px] font-semibold transition-colors mt-0.5 ${textClass} opacity-60 hover:opacity-100`}
+                  className="flex items-center gap-1 text-[10px] font-semibold transition-colors mt-0.5 opacity-60 hover:opacity-100"
+                  style={{ color: surface.color }}
                 >
                   {showFull ? <>Less <ChevronUp className="w-2.5 h-2.5" aria-hidden="true" /></> : <>More <ChevronDown className="w-2.5 h-2.5" aria-hidden="true" /></>}
                 </button>
