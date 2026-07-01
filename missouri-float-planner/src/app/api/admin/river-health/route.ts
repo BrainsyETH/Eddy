@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { toNum } from '@/lib/utils/num';
 
 export const dynamic = 'force-dynamic';
 
@@ -183,7 +184,7 @@ export async function GET(request: NextRequest) {
         name: river.name,
         slug: river.slug,
         active: river.active,
-        lengthMiles: river.length_miles,
+        lengthMiles: toNum(river.length_miles),
         geometryStartsAtHeadwaters: river.geometry_starts_at_headwaters,
         directionVerified: river.direction_verified,
         coordinateCount,

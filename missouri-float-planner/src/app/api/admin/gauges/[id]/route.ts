@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { toNum } from '@/lib/utils/num';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -58,8 +59,8 @@ export async function GET(
       .maybeSingle();
     if (readingRow) {
       latestReading = {
-        gaugeHeightFt: readingRow.gauge_height_ft as number | null,
-        dischargeCfs: readingRow.discharge_cfs as number | null,
+        gaugeHeightFt: toNum(readingRow.gauge_height_ft),
+        dischargeCfs: toNum(readingRow.discharge_cfs),
         readingTimestamp: readingRow.reading_timestamp as string | null,
       };
     }

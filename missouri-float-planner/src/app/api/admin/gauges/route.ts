@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { toNum } from '@/lib/utils/num';
 import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -44,8 +45,8 @@ export async function GET(request: NextRequest) {
           const gid = row.gauge_station_id as string;
           if (!latestReadings.has(gid)) {
             latestReadings.set(gid, {
-              gaugeHeightFt: row.gauge_height_ft as number | null,
-              dischargeCfs: row.discharge_cfs as number | null,
+              gaugeHeightFt: toNum(row.gauge_height_ft),
+              dischargeCfs: toNum(row.discharge_cfs),
               readingTimestamp: row.reading_timestamp as string | null,
             });
           }
