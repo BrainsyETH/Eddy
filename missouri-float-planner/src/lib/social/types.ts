@@ -8,6 +8,8 @@ export type PostType =
   | 'eddy_says'
   | 'manual'
   | 'condition_change'
+  | 'condition_recovery'
+  | 'storm_digest'
   | 'weekly_forecast'
   | 'section_guide'
   | 'favorite_float'
