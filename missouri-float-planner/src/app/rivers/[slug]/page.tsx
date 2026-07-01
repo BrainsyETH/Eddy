@@ -374,7 +374,7 @@ export default async function RiverGuidePage({ params }: Props) {
               Live report
             </h2>
             <p className="text-sm text-neutral-600 mb-5">
-              Real-time USGS gauge readings. Pick a gauge near your put-in.
+              USGS gauge readings, updated hourly. Pick a gauge near your put-in.
             </p>
             <RiverGaugeDetail riverSlug={slug} />
           </section>

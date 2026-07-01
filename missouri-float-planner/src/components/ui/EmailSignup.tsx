@@ -18,7 +18,11 @@ export default function EmailSignup({ className = '', variant = 'dark', source =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErrorMsg('Please enter a valid email address.');
+      setStatus('error');
+      return;
+    }
     setStatus('submitting');
     setErrorMsg('');
 

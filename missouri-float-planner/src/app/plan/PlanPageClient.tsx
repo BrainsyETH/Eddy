@@ -434,7 +434,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     : null;
 
   useEffect(() => {
-    if (selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
+    // Only auto-scroll on mobile, where floatPlanCardRef targets the visible
+    // bottom sheet. On desktop the ref points at a hidden (lg:hidden) node, and
+    // yanking the viewport while the user reads the map is unwanted.
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    if (isMobile && selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
       const t = setTimeout(() => {
         floatPlanCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);

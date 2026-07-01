@@ -3,7 +3,7 @@
 // src/components/ui/FeedbackModal.tsx
 // Modal for submitting feedback and data issue reports
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { X, Flag, Send, CheckCircle } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { FeedbackType, FeedbackContext } from '@/types/api';
@@ -29,19 +29,20 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<'email' | 'message' | null>(null);
   const [success, setSuccess] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldError(null);
 
     if (!userEmail.trim()) {
       setError('Email is required');
-      return;
-    }
-
-    if (!message.trim()) {
-      setError('Please provide details about your feedback');
+      setFieldError('email');
+      emailRef.current?.focus();
       return;
     }
 
@@ -49,6 +50,15 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(userEmail.trim())) {
       setError('Please enter a valid email address');
+      setFieldError('email');
+      emailRef.current?.focus();
+      return;
+    }
+
+    if (!message.trim()) {
+      setError('Please provide details about your feedback');
+      setFieldError('message');
+      messageRef.current?.focus();
       return;
     }
 
@@ -149,7 +159,9 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            {error && (
+            {/* Top banner is only for non-field errors (e.g. network/submit
+                failures); field-specific errors render inline at the field. */}
+            {error && !fieldError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
                 {error}
               </div>
@@ -195,16 +207,24 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
                 Email <span className="text-red-500">*</span>
               </label>
               <input
+                ref={emailRef}
                 type="email"
                 value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
+                onChange={(e) => { setUserEmail(e.target.value); if (fieldError === 'email') setFieldError(null); }}
                 placeholder="you@example.com"
-                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-river-500 focus:border-transparent"
+                aria-invalid={fieldError === 'email'}
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                  fieldError === 'email'
+                    ? 'border-red-400 focus:ring-red-500'
+                    : 'border-bluff-300 focus:ring-river-500'
+                }`}
                 required
               />
-              <p className="text-xs text-bluff-500 mt-1">
-                In case we need to follow up
-              </p>
+              {fieldError === 'email' ? (
+                <p className="text-xs text-red-600 mt-1" role="alert">{error}</p>
+              ) : (
+                <p className="text-xs text-bluff-500 mt-1">In case we need to follow up</p>
+              )}
             </div>
 
             <div>
@@ -212,13 +232,22 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
                 Details <span className="text-red-500">*</span>
               </label>
               <textarea
+                ref={messageRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => { setMessage(e.target.value); if (fieldError === 'message') setFieldError(null); }}
                 placeholder="Please describe the issue or your feedback..."
                 rows={4}
-                className="w-full px-3 py-2 border border-bluff-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-river-500 focus:border-transparent resize-none"
+                aria-invalid={fieldError === 'message'}
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none ${
+                  fieldError === 'message'
+                    ? 'border-red-400 focus:ring-red-500'
+                    : 'border-bluff-300 focus:ring-river-500'
+                }`}
                 required
               />
+              {fieldError === 'message' && (
+                <p className="text-xs text-red-600 mt-1" role="alert">{error}</p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
