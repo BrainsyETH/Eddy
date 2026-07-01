@@ -29,19 +29,28 @@ export default function RiverFilters({ onFilterChange }: RiverFiltersProps) {
 
   return (
     <div className="flex flex-wrap gap-2 mb-4">
-      {FILTERS.map((f) => (
-        <button
-          key={f.value}
-          onClick={() => handleClick(f.value)}
-          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
-            active === f.value
-              ? 'bg-primary-600 text-white border-primary-600'
-              : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary-300 hover:text-primary-700'
-          }`}
-        >
-          {f.label}
-        </button>
-      ))}
+      {FILTERS.map((f) => {
+        const isActive = active === f.value;
+        return (
+          <button
+            key={f.value}
+            onClick={() => handleClick(f.value)}
+            aria-pressed={isActive}
+            aria-label={
+              f.value === 'all'
+                ? 'Show all rivers'
+                : `Filter rivers by ${f.label} condition`
+            }
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+              isActive
+                ? 'bg-primary-600 text-white border-primary-600'
+                : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary-300 hover:text-primary-700'
+            }`}
+          >
+            {f.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

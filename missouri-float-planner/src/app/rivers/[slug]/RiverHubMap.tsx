@@ -28,7 +28,7 @@ export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
   return (
     <div className="relative h-[360px] md:h-[440px] rounded-xl overflow-hidden border border-neutral-200">
       {river ? (
-        <MapContainer initialBounds={river.bounds} showLegend={true}>
+        <MapContainer initialBounds={river.bounds} showLegend={true} cooperativeGestures={true}>
           {river.geometry && <RouteLayer routeGeometry={river.geometry} />}
           <AccessPointMarkers accessPoints={accessPoints} />
         </MapContainer>

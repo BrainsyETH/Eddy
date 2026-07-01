@@ -76,9 +76,28 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
         ? `0 4px 16px rgba(0,0,0,0.35), 0 0 12px rgba(13, 148, 136, 0.5)`
         : '0 2px 8px rgba(0,0,0,0.25)';
 
+      // Outer element is a transparent ≥44px hit area (touch target); the visible
+      // circle lives in an inner child so its size is unchanged.
       const el = document.createElement('div');
       el.className = 'poi-marker';
       el.style.cssText = `
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        cursor: pointer;
+        pointer-events: auto;
+        box-sizing: border-box;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      `;
+
+      // Inner element is the visible colored/gradient circle
+      const circle = document.createElement('div');
+      circle.className = 'poi-marker-circle';
+      circle.style.cssText = `
         background: linear-gradient(135deg, ${POI_COLOR} 0%, ${POI_COLOR_DARK} 100%);
         width: ${markerSize}px;
         height: ${markerSize}px;
@@ -86,19 +105,17 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
         border: ${border};
         box-shadow: ${shadow};
         opacity: ${opacity};
-        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         transition: box-shadow 0.2s ease, opacity 0.3s ease;
-        pointer-events: auto;
         box-sizing: border-box;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
+        pointer-events: none;
       `;
+      el.appendChild(circle);
 
       const iconSize = isTouchDevice ? 14 : 12;
-      const root = createRoot(el);
+      const root = createRoot(circle);
       root.render(
         React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
       );
@@ -106,10 +123,10 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
 
       // Hover effect
       el.addEventListener('mouseenter', () => {
-        el.style.boxShadow = `0 4px 16px rgba(0,0,0,0.35), 0 0 16px rgba(13, 148, 136, 0.4)`;
+        circle.style.boxShadow = `0 4px 16px rgba(0,0,0,0.35), 0 0 16px rgba(13, 148, 136, 0.4)`;
       });
       el.addEventListener('mouseleave', () => {
-        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
+        circle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
       });
 
       // Type label

@@ -8,6 +8,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Droplets, Maximize2, Minimize2 } from 'lucide-react';
+import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
+import { CONDITION_SHORT_LABELS } from '@/constants';
 
 // Available map styles (all free, no API key required)
 // Natural (liberty) is first and default
@@ -64,6 +66,7 @@ interface MapContainerProps {
   showGauges?: boolean;
   onGaugeToggle?: (enabled: boolean) => void;
   showLegend?: boolean;
+  cooperativeGestures?: boolean;
 }
 
 // RainViewer API types
@@ -85,6 +88,7 @@ export default function MapContainer({
   showGauges = false,
   onGaugeToggle,
   showLegend = false,
+  cooperativeGestures = false,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -291,6 +295,7 @@ export default function MapContainer({
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: mapStyleUrl,
+      cooperativeGestures: cooperativeGestures,
       attributionControl: false,
       center: initialBounds
         ? [
@@ -355,7 +360,7 @@ export default function MapContainer({
         map.current = null;
       }
     };
-  }, [initialBounds]);
+  }, [initialBounds, cooperativeGestures]);
 
   useEffect(() => {
     if (!map.current || !initialBounds) return;
@@ -391,8 +396,8 @@ export default function MapContainer({
 
       {/* Map Controls - right side, below MapLibre navigation controls */}
       <div className="absolute top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 z-10">
-        {/* Style Picker - hidden on mobile unless expanded */}
-        <div className={`relative ${showStylePicker ? 'z-50' : ''} ${isExpanded ? '' : 'hidden md:block'}`}>
+        {/* Style Picker - always visible (including mobile) */}
+        <div className={`relative ${showStylePicker ? 'z-50' : ''}`}>
           <button
             onClick={() => setShowStylePicker(!showStylePicker)}
             className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
@@ -423,10 +428,10 @@ export default function MapContainer({
           )}
         </div>
 
-        {/* Weather Overlay Toggle - hidden on mobile unless expanded */}
+        {/* Weather Overlay Toggle - always visible (including mobile) */}
         <button
           onClick={toggleWeather}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${isExpanded ? '' : 'hidden md:block'} ${
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
             weatherEnabled
               ? 'bg-river-water text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
@@ -449,10 +454,10 @@ export default function MapContainer({
           </svg>
         </button>
 
-        {/* Gauge Stations Toggle - hidden on mobile unless expanded */}
+        {/* Gauge Stations Toggle - always visible (including mobile) */}
         <button
           onClick={toggleGauges}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${isExpanded ? '' : 'hidden md:block'} ${
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
             gaugesEnabled
               ? 'bg-blue-500 text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
@@ -515,7 +520,20 @@ export default function MapContainer({
               <LegendItem color="#c7b8a6" label="Access point" />
               <LegendItem color="#22c55e" label="Route (downstream)" />
               <LegendItem color="#ef4444" label="Route (upstream)" />
-              {gaugesEnabled && <LegendItem color="#3b82f6" label="Gauge station" />}
+              <div className="mt-1 pt-1.5 border-t border-neutral-700">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                  Conditions
+                </span>
+                <div className="flex flex-col gap-1.5 mt-1.5">
+                  {CONDITION_ORDER.map((code) => (
+                    <LegendItem
+                      key={code}
+                      color={conditionColor(code)}
+                      label={CONDITION_SHORT_LABELS[code]}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

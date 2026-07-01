@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import React from 'react';
 import maplibregl from 'maplibre-gl';
-import { Droplets } from 'lucide-react';
+import { Droplets, AlertTriangle } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
@@ -99,46 +99,74 @@ export default function GaugeStationMarkers({
 
       // Highlight if it's for the selected river or is the nearest gauge
       const isHighlighted = isForSelectedRiver || isNearest;
-      const bgColor = isHighlighted ? '#3b82f6' : '#1e40af'; // Brighter blue if highlighted
+      // Marker fill encodes the condition (never hardcode condition hex).
+      const bgColor = condition.color;
       const scale = isHighlighted ? 1.2 : 1;
       const zIndex = isHighlighted ? 10 : 1;
+      // Highlighted markers keep a brighter/white ring; others get a white ring
+      // for contrast against the map. Glow uses the condition color.
+      const ringColor = isHighlighted ? '#ffffff' : 'rgba(255,255,255,0.9)';
+      const glowRgba = hexToRgba(condition.color, isHighlighted ? 0.55 : 0);
+      const baseShadow = `0 4px 12px rgba(0,0,0,0.3), 0 0 ${isHighlighted ? '12px' : '0'} ${glowRgba}`;
+      // Shape redundancy at the dangerous end: color must not be the only signal.
+      const isSevere = condition.code === 'dangerous' || condition.code === 'high';
 
-      // Create custom marker element
+      // Outer element is a ≥44px transparent hit area (touch target). The visible
+      // colored circle lives in an inner child so the visible size is unchanged.
       const el = document.createElement('div');
       el.className = 'gauge-station-marker';
       el.style.cssText = `
+        width: 44px;
+        height: 44px;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        pointer-events: auto;
+        z-index: ${zIndex};
+        box-sizing: border-box;
+      `;
+
+      // Inner colored circle (the visible marker).
+      const circle = document.createElement('div');
+      circle.className = 'gauge-station-marker-circle';
+      circle.style.cssText = `
         background: linear-gradient(135deg, ${bgColor} 0%, ${adjustColor(bgColor, -30)} 100%);
         width: ${28 * scale}px;
         height: ${28 * scale}px;
         border-radius: 50%;
-        border: 2px solid ${isHighlighted ? '#60a5fa' : '#3b82f6'};
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 ${isHighlighted ? '12px' : '0'} rgba(59, 130, 246, ${isHighlighted ? '0.5' : '0'});
-        cursor: pointer;
+        border: 2px solid ${ringColor};
+        box-shadow: ${baseShadow};
         display: flex;
         align-items: center;
         justify-content: center;
         transition: box-shadow 0.2s ease, border-width 0.2s ease;
-        z-index: ${zIndex};
-        pointer-events: auto;
         box-sizing: border-box;
       `;
+      el.appendChild(circle);
 
-      // Render water droplet icon
+      // Render condition icon: AlertTriangle for the dangerous end (high/dangerous),
+      // Droplets otherwise. Near-black ink stays legible on light yellow/lime fills.
       const iconSize = 14 * scale;
-      const root = createRoot(el);
+      const root = createRoot(circle);
       root.render(
-        React.createElement(Droplets, { size: iconSize, color: 'white', strokeWidth: 2.5 })
+        React.createElement(isSevere ? AlertTriangle : Droplets, {
+          size: iconSize,
+          color: '#1A1814',
+          strokeWidth: 2.5,
+        })
       );
       rootsRef.current.push(root);
 
       // Hover effect
       el.addEventListener('mouseenter', () => {
-        el.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4), 0 0 20px rgba(59, 130, 246, 0.5)';
-        el.style.borderWidth = '3px';
+        circle.style.boxShadow = `0 6px 20px rgba(0,0,0,0.4), 0 0 20px ${hexToRgba(condition.color, 0.55)}`;
+        circle.style.borderWidth = '3px';
       });
       el.addEventListener('mouseleave', () => {
-        el.style.boxShadow = `0 4px 12px rgba(0,0,0,0.3), 0 0 ${isHighlighted ? '12px' : '0'} rgba(59, 130, 246, ${isHighlighted ? '0.5' : '0'})`;
-        el.style.borderWidth = '2px';
+        circle.style.boxShadow = baseShadow;
+        circle.style.borderWidth = '2px';
       });
 
       // Build threshold ranges HTML
@@ -153,28 +181,28 @@ export default function GaugeStationMarkers({
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
               ${t.levelOptimalMin !== null && t.levelOptimalMax !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #059669;"></span>
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.flowing};"></span>
                   <span style="color: #a3a3a3;">Flowing:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ft</span>
               ` : ''}
               ${t.levelLow !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #84cc16;"></span>
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.good};"></span>
                   <span style="color: #a3a3a3;">Good:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelLow} ft</span>
               ` : ''}
               ${t.levelHigh !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #f97316;"></span>
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.high};"></span>
                   <span style="color: #a3a3a3;">High:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelHigh} ft</span>
               ` : ''}
               ${t.levelDangerous !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.dangerous};"></span>
                   <span style="color: #a3a3a3;">Dangerous:</span>
                 </div>
                 <span style="color: #ffffff; text-align: right;">${t.levelDangerous}+ ft</span>
@@ -302,6 +330,15 @@ export default function GaugeStationMarkers({
   }, [map, gauges, selectedRiverId, nearestGaugeId]);
 
   return null;
+}
+
+// Helper to convert a hex color to an rgba() string with the given alpha.
+function hexToRgba(color: string, alpha: number): string {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 // Helper to darken/lighten colors
