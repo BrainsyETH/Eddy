@@ -82,7 +82,7 @@ async function _GET(
       .eq('approved', true)
       .order('river_mile_downstream', { ascending: true });
 
-    const currentMile = ap.river_mile_downstream ?? 0;
+    const currentMile = ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : 0;
 
     const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
@@ -93,12 +93,12 @@ async function _GET(
           (p) =>
             p.id !== ap.id &&
             p.river_mile_downstream != null &&
-            p.river_mile_downstream < currentMile
+            parseFloat(String(p.river_mile_downstream)) < currentMile
         )
         .sort(
           (a, b) =>
-            (b.river_mile_downstream ?? 0) -
-            (a.river_mile_downstream ?? 0)
+            (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0) -
+            (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0)
         )[0];
 
       // Find downstream (higher river mile = further from headwaters)
@@ -107,16 +107,16 @@ async function _GET(
           (p) =>
             p.id !== ap.id &&
             p.river_mile_downstream != null &&
-            p.river_mile_downstream > currentMile
+            parseFloat(String(p.river_mile_downstream)) > currentMile
         )
         .sort(
           (a, b) =>
-            (a.river_mile_downstream ?? 0) -
-            (b.river_mile_downstream ?? 0)
+            (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0) -
+            (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0)
         )[0];
 
       if (upstream) {
-        const distance = currentMile - (upstream.river_mile_downstream ?? 0);
+        const distance = currentMile - (upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0);
         nearbyAccessPoints.push({
           id: upstream.id,
           name: upstream.name,
@@ -124,12 +124,12 @@ async function _GET(
           direction: 'upstream',
           distanceMiles: Math.round(distance * 10) / 10,
           estimatedFloatTime: estimateFloatTime(distance),
-          riverMile: upstream.river_mile_downstream ?? 0,
+          riverMile: upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0,
         });
       }
 
       if (downstream) {
-        const distance = (downstream.river_mile_downstream ?? 0) - currentMile;
+        const distance = (downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0) - currentMile;
         nearbyAccessPoints.push({
           id: downstream.id,
           name: downstream.name,
@@ -137,7 +137,7 @@ async function _GET(
           direction: 'downstream',
           distanceMiles: Math.round(distance * 10) / 10,
           estimatedFloatTime: estimateFloatTime(distance),
-          riverMile: downstream.river_mile_downstream ?? 0,
+          riverMile: downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0,
         });
       }
     }
@@ -180,8 +180,8 @@ async function _GET(
       officialSiteUrl: ap.official_site_url,
       localTips: ap.local_tips,
       nearbyServices: (ap.nearby_services as unknown as NearbyService[]) || [],
-      drivingLat: ap.driving_lat,
-      drivingLng: ap.driving_lng,
+      drivingLat: ap.driving_lat != null ? parseFloat(String(ap.driving_lat)) : null,
+      drivingLng: ap.driving_lng != null ? parseFloat(String(ap.driving_lng)) : null,
       river: {
         id: river.id,
         name: river.name,

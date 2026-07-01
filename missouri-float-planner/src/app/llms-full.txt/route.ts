@@ -114,7 +114,7 @@ export async function GET() {
     parts.push(`- Slug: ${river.slug}`);
     parts.push(`- URL: ${BASE_URL}/rivers/${river.slug}`);
     parts.push(`- API: ${BASE_URL}/api/rivers/${river.slug}`);
-    if (river.length_miles) parts.push(`- Length: ${river.length_miles.toFixed(1)} miles`);
+    if (river.length_miles) parts.push(`- Length: ${parseFloat(String(river.length_miles)).toFixed(1)} miles`);
     if (river.difficulty_rating) parts.push(`- Difficulty: ${river.difficulty_rating}`);
     if (river.region) parts.push(`- Region: ${river.region}`);
     const apCount = apCountByRiver[river.id] || 0;

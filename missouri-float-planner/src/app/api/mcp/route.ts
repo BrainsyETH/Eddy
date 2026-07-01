@@ -44,7 +44,7 @@ function createMcpServer() {
         id: r.id,
         name: r.name,
         slug: r.slug,
-        lengthMiles: r.length_miles ? r.length_miles : null,
+        lengthMiles: r.length_miles != null ? parseFloat(String(r.length_miles)) : null,
         description: r.description,
         difficultyRating: r.difficulty_rating,
         region: r.region,
@@ -79,7 +79,7 @@ function createMcpServer() {
             id: river.id,
             name: river.name,
             slug: river.slug,
-            lengthMiles: river.length_miles ? river.length_miles : null,
+            lengthMiles: river.length_miles != null ? parseFloat(String(river.length_miles)) : null,
             description: river.description,
             difficultyRating: river.difficulty_rating,
             region: river.region,
@@ -204,7 +204,7 @@ function createMcpServer() {
           id: ap.id,
           name: ap.name,
           slug: ap.slug,
-          riverMile: ap.river_mile_downstream ? ap.river_mile_downstream : null,
+          riverMile: ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : null,
           type: ap.type,
           types: ap.types || [],
           isPublic: ap.is_public,
@@ -249,7 +249,7 @@ function createMcpServer() {
         id: h.id,
         name: h.name,
         type: h.type,
-        riverMile: h.river_mile_downstream ? h.river_mile_downstream : null,
+        riverMile: h.river_mile_downstream != null ? parseFloat(String(h.river_mile_downstream)) : null,
         description: h.description,
         severity: h.severity,
         portageRequired: h.portage_required,
@@ -289,8 +289,8 @@ function createMcpServer() {
         return { content: [{ type: 'text', text: 'One or both access points not found.' }], isError: true };
       }
 
-      const startMile = start.river_mile_downstream ?? 0;
-      const endMile = end.river_mile_downstream ?? 0;
+      const startMile = start.river_mile_downstream != null ? parseFloat(String(start.river_mile_downstream)) : 0;
+      const endMile = end.river_mile_downstream != null ? parseFloat(String(end.river_mile_downstream)) : 0;
       const distance = Math.abs(endMile - startMile);
 
       // Get hazards along route

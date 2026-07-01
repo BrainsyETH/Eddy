@@ -333,9 +333,9 @@ async function _GET(request: NextRequest) {
       const calcResult = calculateFloatTime(
         distanceMiles,
         {
-          speedLowWater: vesselType.speed_low_water ?? 0,
-          speedNormal: vesselType.speed_normal ?? 0,
-          speedHighWater: vesselType.speed_high_water ?? 0,
+          speedLowWater: vesselType.speed_low_water != null ? parseFloat(String(vesselType.speed_low_water)) : 0,
+          speedNormal: vesselType.speed_normal != null ? parseFloat(String(vesselType.speed_normal)) : 0,
+          speedHighWater: vesselType.speed_high_water != null ? parseFloat(String(vesselType.speed_high_water)) : 0,
         },
         conditionCode
       );
@@ -367,16 +367,16 @@ async function _GET(request: NextRequest) {
         if (geocoded) {
           [putInLng, putInLat] = geocoded;
         } else if (putIn.driving_lat && putIn.driving_lng) {
-          putInLng = putIn.driving_lng;
-          putInLat = putIn.driving_lat;
+          putInLng = parseFloat(String(putIn.driving_lng));
+          putInLat = parseFloat(String(putIn.driving_lat));
         } else {
           const coords = (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates || (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates;
           if (!coords) throw new Error('Missing put-in coordinates');
           [putInLng, putInLat] = coords;
         }
       } else if (putIn.driving_lat && putIn.driving_lng) {
-        putInLng = putIn.driving_lng;
-        putInLat = putIn.driving_lat;
+        putInLng = parseFloat(String(putIn.driving_lng));
+        putInLat = parseFloat(String(putIn.driving_lat));
       } else {
         const coords = (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates || (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates;
         if (!coords) throw new Error('Missing put-in coordinates');
@@ -391,16 +391,16 @@ async function _GET(request: NextRequest) {
         if (geocoded) {
           [takeOutLng, takeOutLat] = geocoded;
         } else if (takeOut.driving_lat && takeOut.driving_lng) {
-          takeOutLng = takeOut.driving_lng;
-          takeOutLat = takeOut.driving_lat;
+          takeOutLng = parseFloat(String(takeOut.driving_lng));
+          takeOutLat = parseFloat(String(takeOut.driving_lat));
         } else {
           const coords = (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates || (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates;
           if (!coords) throw new Error('Missing take-out coordinates');
           [takeOutLng, takeOutLat] = coords;
         }
       } else if (takeOut.driving_lat && takeOut.driving_lng) {
-        takeOutLng = takeOut.driving_lng;
-        takeOutLat = takeOut.driving_lat;
+        takeOutLng = parseFloat(String(takeOut.driving_lng));
+        takeOutLat = parseFloat(String(takeOut.driving_lat));
       } else {
         const coords = (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates || (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates;
         if (!coords) throw new Error('Missing take-out coordinates');
@@ -559,9 +559,9 @@ async function _GET(request: NextRequest) {
         description: vesselType.description || '',
         icon: vesselType.icon || '',
         speeds: {
-          lowWater: vesselType.speed_low_water ?? 0,
-          normal: vesselType.speed_normal ?? 0,
-          highWater: vesselType.speed_high_water ?? 0,
+          lowWater: vesselType.speed_low_water != null ? parseFloat(String(vesselType.speed_low_water)) : 0,
+          normal: vesselType.speed_normal != null ? parseFloat(String(vesselType.speed_normal)) : 0,
+          highWater: vesselType.speed_high_water != null ? parseFloat(String(vesselType.speed_high_water)) : 0,
         },
       },
       distance: {
@@ -604,7 +604,7 @@ async function _GET(request: NextRequest) {
         riverId: h.river_id ?? '',
         name: h.name,
         type: h.type as HazardType,
-        riverMile: h.river_mile_downstream ?? 0,
+        riverMile: h.river_mile_downstream != null ? parseFloat(String(h.river_mile_downstream)) : 0,
         description: h.description,
         severity: h.severity as HazardSeverity,
         portageRequired: h.portage_required ?? false,

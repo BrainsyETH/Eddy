@@ -85,7 +85,7 @@ async function _GET(
         id: river.id,
         name: river.name,
         slug: river.slug,
-        lengthMiles: river.length_miles ?? 0,
+        lengthMiles: river.length_miles != null ? parseFloat(String(river.length_miles)) : 0,
         description: river.description,
         difficultyRating: river.difficulty_rating,
         region: river.region,

@@ -76,8 +76,8 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const putInName = putInResult.data?.name || 'Start';
     const takeOutName = takeOutResult.data?.name || 'End';
 
-    const distanceMiles = savedPlan.distance_miles
-      ? savedPlan.distance_miles.toFixed(1)
+    const distanceMiles = savedPlan.distance_miles != null
+      ? parseFloat(String(savedPlan.distance_miles)).toFixed(1)
       : '';
     const floatTimeFormatted = savedPlan.estimated_float_minutes
       ? formatMinutes(savedPlan.estimated_float_minutes)
