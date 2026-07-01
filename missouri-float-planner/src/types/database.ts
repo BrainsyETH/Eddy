@@ -763,6 +763,7 @@ export type Database = {
           gauge_height_ft: number | null
           gauge_station_id: string | null
           id: string
+          qualifiers: string[] | null
           reading_timestamp: string
         }
         Insert: {
@@ -771,6 +772,7 @@ export type Database = {
           gauge_height_ft?: number | null
           gauge_station_id?: string | null
           id?: string
+          qualifiers?: string[] | null
           reading_timestamp: string
         }
         Update: {
@@ -779,6 +781,7 @@ export type Database = {
           gauge_height_ft?: number | null
           gauge_station_id?: string | null
           id?: string
+          qualifiers?: string[] | null
           reading_timestamp?: string
         }
         Relationships: [
@@ -802,6 +805,7 @@ export type Database = {
         Row: {
           active: boolean | null
           created_at: string | null
+          drainage_area_sqmi: number | null
           high_frequency_flag: boolean | null
           id: string
           location: unknown
@@ -814,6 +818,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           created_at?: string | null
+          drainage_area_sqmi?: number | null
           high_frequency_flag?: boolean | null
           id?: string
           location: unknown
@@ -826,6 +831,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           created_at?: string | null
+          drainage_area_sqmi?: number | null
           high_frequency_flag?: boolean | null
           id?: string
           location?: unknown

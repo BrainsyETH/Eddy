@@ -108,9 +108,11 @@ export default function RiverHeader({ river, condition }: RiverHeaderProps) {
                   </div>
                 )}
               </div>
-              {condition.readingAgeHours !== null && condition.readingAgeHours < 24 && (
-                <p className="text-xs mt-2" style={{ color: '#4EB86B' }}>
-                  Updated {Math.round(condition.readingAgeHours)}h ago
+              {condition.readingAgeHours !== null && (
+                <p className="text-xs mt-2" style={{ color: condition.readingAgeHours > 24 ? '#F59E0B' : '#4EB86B' }}>
+                  Updated {condition.readingAgeHours < 24
+                    ? `${Math.round(condition.readingAgeHours)}h`
+                    : `${Math.round(condition.readingAgeHours / 24)}d`} ago
                 </p>
               )}
             </div>
@@ -146,9 +148,11 @@ export default function RiverHeader({ river, condition }: RiverHeaderProps) {
                   <span className="text-xs text-white/50">cfs</span>
                 </div>
               )}
-              {condition.readingAgeHours !== null && condition.readingAgeHours < 24 && (
-                <span className="ml-auto text-[10px]" style={{ color: '#4EB86B' }}>
-                  {Math.round(condition.readingAgeHours)}h ago
+              {condition.readingAgeHours !== null && (
+                <span className="ml-auto text-[10px]" style={{ color: condition.readingAgeHours > 24 ? '#F59E0B' : '#4EB86B' }}>
+                  {condition.readingAgeHours < 24
+                    ? `${Math.round(condition.readingAgeHours)}h`
+                    : `${Math.round(condition.readingAgeHours / 24)}d`} ago
                 </span>
               )}
             </div>

@@ -298,11 +298,13 @@ export interface FloatPlan {
     formatted: string;
     speedMph: number;
     isEstimate?: boolean;  // true if calculated, false if from known segment data
-    timeRange?: {          // min/max range from segment data
+    /** 'trip' includes typical stops; 'moving' is paddling-only. */
+    basis?: 'trip' | 'moving';
+    timeRange?: {          // honest min/max range (asymmetric, skewed long)
       min: number;
       max: number;
     };
-  } | null;
+  } | null;  // null when conditions are dangerous — we do not estimate a time
   driveBack: {
     minutes: number;
     miles: number;

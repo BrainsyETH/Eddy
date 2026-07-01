@@ -12,7 +12,7 @@
 
 import type { MediaType } from './types';
 import type { ConditionCode } from '@/types/api';
-import { calculateFloatTime, type VesselSpeeds } from '@/lib/calculations/floatTime';
+import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import type { WeatherChip } from '@/lib/weather/openweather';
 
 export type PostKind =
@@ -115,16 +115,12 @@ function defaultDate(): string {
 const isoDay = () => new Date().toISOString().slice(0, 10);
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
 
-// Canonical canoe speed profile for float-time estimates in social graphics.
-// calculateFloatTime scales these by condition (high water faster, low slower),
-// which is what makes the "today vs usual" delta meaningful.
-const DEFAULT_CANOE_SPEEDS: VesselSpeeds = {
-  speedLowWater: 2.0,
-  speedNormal: 2.5,
-  speedHighWater: 3.5,
-};
-
-/** Estimated canoe float time (hours, 1 decimal) for a distance at a condition. */
+/**
+ * Estimated canoe float time (hours, 1 decimal) for a distance at a condition.
+ * Returns 0 for dangerous water (no time is quoted) — callers must treat 0 as
+ * "not floatable" and suppress the stat rather than printing "0 hours".
+ * Uses the shared DEFAULT_CANOE_SPEEDS so social matches the planner.
+ */
 export function canoeHours(distanceMi: number, conditionCode: ConditionCode): number {
   const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode);
   return result ? Math.round((result.minutes / 60) * 10) / 10 : 0;

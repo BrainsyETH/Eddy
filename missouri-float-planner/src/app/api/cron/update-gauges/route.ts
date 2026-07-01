@@ -38,8 +38,11 @@ async function runUpdate(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Check if this is a high-frequency poll (triggered every 15 minutes)
-  const isHighFrequencyPoll = request.headers.get('x-high-frequency') === 'true';
+  // Check if this is a high-frequency poll (triggered every 15 minutes). Accept
+  // either the header (manual/test) or a query param (Vercel cron can't set headers).
+  const isHighFrequencyPoll =
+    request.headers.get('x-high-frequency') === 'true' ||
+    new URL(request.url).searchParams.get('highFrequency') === '1';
 
   try {
     // Get gauge stations based on poll type
@@ -90,6 +93,7 @@ async function runUpdate(request: NextRequest) {
     let highFrequencyFlagsSet = 0;
     let highFrequencyFlagsCleared = 0;
     let conditionChanges = 0;
+    let flatlined = 0;
 
     // Rivers that crossed INTO elevated water this pass. Collected and decided
     // after the loop: >= STORM_THRESHOLD → one storm digest; otherwise individual
@@ -120,6 +124,7 @@ async function runUpdate(request: NextRequest) {
             reading_timestamp: reading.readingTimestamp,
             gauge_height_ft: reading.gaugeHeightFt,
             discharge_cfs: reading.dischargeCfs,
+            qualifiers: reading.qualifiers?.length ? reading.qualifiers : null,
             fetched_at: new Date().toISOString(),
           },
           {
@@ -134,6 +139,33 @@ async function runUpdate(request: NextRequest) {
       }
 
       updated++;
+
+      // Stuck-sensor / flatline detection: a sensor emitting the identical value across
+      // many readings while timestamps advance is likely frozen, not genuinely steady.
+      // (A truly stable spring-fed river still jitters at the 0.01 ft / 1 cfs level.)
+      try {
+        const { data: recent } = await supabase
+          .from('gauge_readings')
+          .select('gauge_height_ft, discharge_cfs')
+          .eq('gauge_station_id', station.id)
+          .order('reading_timestamp', { ascending: false })
+          .limit(8);
+        if (recent && recent.length >= 6) {
+          const heights = recent.map(r => r.gauge_height_ft).filter((v): v is number => v !== null);
+          const flows = recent.map(r => r.discharge_cfs).filter((v): v is number => v !== null);
+          const flatHeight = heights.length >= 6 && new Set(heights).size === 1;
+          const flatFlow = flows.length >= 6 && new Set(flows).size === 1;
+          if (flatHeight || flatFlow) {
+            flatlined++;
+            console.warn(
+              `[update-gauges] Possible stuck sensor at ${reading.siteId}: ` +
+              `${recent.length} identical recent readings (height=${flatHeight}, flow=${flatFlow})`
+            );
+          }
+        }
+      } catch (flatErr) {
+        console.warn(`[update-gauges] Flatline check failed for ${reading.siteId}:`, flatErr);
+      }
 
       // Calculate rate of change using database function
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -322,6 +354,7 @@ async function runUpdate(request: NextRequest) {
       highFrequencyFlagsSet,
       highFrequencyFlagsCleared,
       conditionChanges,
+      flatlined,
       executionTime,
       stationsProcessed: stations.length,
     });

@@ -114,6 +114,43 @@ export function computeCondition(
   };
 }
 
+/** Raw river_gauges row shape (snake_case) as returned by Supabase. */
+export interface DbThresholdRow {
+  level_too_low: number | null;
+  level_low: number | null;
+  level_optimal_min: number | null;
+  level_optimal_max: number | null;
+  level_high: number | null;
+  level_dangerous: number | null;
+  threshold_unit?: string | null;
+}
+
+/**
+ * Compute condition from a raw river_gauges DB row plus a live reading.
+ *
+ * SINGLE SOURCE OF TRUTH for the app-side (non-RPC) fallback path — shared by
+ * /api/plan and /api/conditions so they can never disagree. ALWAYS threads
+ * `threshold_unit` and `dischargeCfs` through, so stage (ft) and discharge (cfs)
+ * thresholds are never conflated (the F7 bug: the plan endpoint used to compare
+ * gauge height in feet against CFS thresholds).
+ */
+export function computeConditionFromDbRow(
+  gaugeHeightFt: number | null,
+  row: DbThresholdRow,
+  dischargeCfs?: number | null
+): ConditionResult {
+  const thresholds: ConditionThresholds = {
+    levelTooLow: row.level_too_low,
+    levelLow: row.level_low,
+    levelOptimalMin: row.level_optimal_min,
+    levelOptimalMax: row.level_optimal_max,
+    levelHigh: row.level_high,
+    levelDangerous: row.level_dangerous,
+    thresholdUnit: (row.threshold_unit as 'ft' | 'cfs') || undefined,
+  };
+  return computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
+}
+
 /**
  * Helper to get Tailwind color class for a condition code
  * Used by components that need Tailwind classes instead of hex colors
