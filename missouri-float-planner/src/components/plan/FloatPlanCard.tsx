@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
@@ -171,6 +171,8 @@ function formatServiceType(type: string): string {
 interface FloatPlanCardProps {
   plan: FloatPlan | null;
   isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   putInPoint: AccessPoint | null;
   takeOutPoint: AccessPoint | null;
   onClearPutIn: () => void;
@@ -1470,6 +1472,8 @@ function MobileBottomSheet({
 export default function FloatPlanCard({
   plan,
   isLoading,
+  isError = false,
+  onRetry,
   putInPoint,
   takeOutPoint,
   onClearPutIn,
@@ -1532,6 +1536,32 @@ export default function FloatPlanCard({
             {isPutIn ? ctaCard : pointCard}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Both points selected but the plan calculation failed (commonly a dropped
+  // rural connection) - show a compact, recoverable error instead of nothing.
+  if (hasBothPoints && !displayPlan && isError) {
+    return (
+      <div
+        role="alert"
+        className="bg-white rounded-2xl border-2 border-red-200 shadow-lg overflow-hidden p-4 flex items-center gap-3"
+      >
+        <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-red-800">Couldn&apos;t calculate your float plan</p>
+          <p className="text-xs text-red-600">Check your connection and try again.</p>
+        </div>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors flex-shrink-0"
+          >
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            Try again
+          </button>
+        )}
       </div>
     );
   }

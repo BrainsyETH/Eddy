@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Camera, BookOpen, ChevronDown } from 'lucide-react';
+import { Camera, BookOpen, ChevronDown, AlertTriangle, RefreshCw } from 'lucide-react';
 import AccessPointStrip from '@/components/river/AccessPointStrip';
 import ForecastCard from '@/components/river/ForecastCard';
 import NearbyServices from '@/components/river/NearbyServices';
@@ -24,6 +24,7 @@ import { MapHintBanner, RouteStatsBadge, MapLegend } from '@/components/plan/Map
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
+import OfflineBanner from '@/components/ui/OfflineBanner';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useRiver, useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
@@ -32,6 +33,7 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useGaugeStations, findNearestGauge } from '@/hooks/useGaugeStations';
 import { usePOIs } from '@/hooks/usePOIs';
+import { useHazards } from '@/hooks/useHazards';
 import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from '@/types/api';
@@ -50,6 +52,7 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
+const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 
 // Roughly the bounding box covering all Missouri Ozark float rivers we plan
 // — used as the default map view when no river is selected yet.
@@ -95,6 +98,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const { data: vesselTypes } = useVesselTypes();
   const { data: allGaugeStations } = useGaugeStations();
   const { data: pois } = usePOIs(riverSlug);
+  const { data: hazards } = useHazards(riverSlug);
   useWeather(riverSlug);
   const { data: nearbyServices } = useNearbyServices(riverSlug);
 
@@ -195,7 +199,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
         vesselTypeId: selectedVesselTypeId || undefined,
       }
     : null;
-  const { data: plan, isLoading: planLoading } = useFloatPlan(planParams);
+  const {
+    data: plan,
+    isLoading: planLoading,
+    isError: planIsError,
+    refetch: refetchPlan,
+  } = useFloatPlan(planParams);
+  // Show the plan error state only once both endpoints are chosen (a null
+  // planParams simply means the user hasn't finished selecting yet).
+  const planHasError = !!(selectedPutIn && selectedTakeOut && planIsError);
 
   const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
   const nearestGauge = gaugeStations && gaugeStations.length > 0
@@ -512,6 +524,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <OfflineBanner />
       {/* ─── DESKTOP: Split-panel layout ─── */}
       <div className="hidden lg:flex overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
         <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col min-h-0">
@@ -569,6 +582,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
+            {/* Safety-critical: hazards render always, never gated behind toggles */}
+            <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
 
           <WeatherBug riverSlug={riverSlug} riverId={river.id} />
@@ -576,6 +591,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
           {(putInPoint && takeOutPoint) && (
             <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} />
+          )}
+          {planHasError && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
+              <PlanErrorBanner onRetry={() => refetchPlan()} />
+            </div>
           )}
           <MapLegend />
 
@@ -650,6 +670,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
+            {/* Safety-critical: hazards render always, never gated behind toggles */}
+            <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
 
           <WeatherBug riverSlug={riverSlug} riverId={river.id} />
@@ -677,10 +699,18 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           )}
         </div>
 
+        {planHasError && (
+          <div className="px-4 py-3">
+            <PlanErrorBanner onRetry={() => refetchPlan()} />
+          </div>
+        )}
+
         {putInPoint && takeOutPoint && plan && (
           <FloatPlanCard
             plan={plan}
             isLoading={planLoading}
+            isError={planHasError}
+            onRetry={() => refetchPlan()}
             putInPoint={putInPoint}
             takeOutPoint={takeOutPoint}
             onClearPutIn={() => setSelectedPutIn(null)}
@@ -979,6 +1009,31 @@ function MobileRiverSwitcher({
         </div>
       )}
     </>
+  );
+}
+
+// Inline "couldn't calculate the float plan" state with a retry action. Shown
+// when the plan query errors (commonly a dropped rural connection) so the
+// failure is visible and recoverable instead of silent.
+function PlanErrorBanner({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-3 bg-red-50 border-2 border-red-200 rounded-xl shadow-lg px-4 py-2.5"
+    >
+      <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-red-800">Couldn&apos;t calculate your float plan</p>
+        <p className="text-xs text-red-600">Check your connection and try again.</p>
+      </div>
+      <button
+        onClick={onRetry}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors flex-shrink-0"
+      >
+        <RefreshCw className="w-4 h-4" aria-hidden="true" />
+        Try again
+      </button>
+    </div>
   );
 }
 
