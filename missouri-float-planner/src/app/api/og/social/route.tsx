@@ -33,6 +33,9 @@ import { pickSectionForRivers, findSection, type Section } from '@/lib/social/se
 import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/social/favorite-floats';
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
+import { warningCopy, recoveryCopy } from '@shared/condition-copy';
+import { RIVER_DISPLAY_LONG, RIVER_DISPLAY_SHORT } from '@/lib/social/river-display';
+import { trendMeta } from '@shared/trend-meta';
 
 export const revalidate = 300;
 
@@ -245,15 +248,27 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'trend') {
-      return await generateTrendImage(size);
+      return await generateTrendImage(size, searchParams.get('river'));
+    }
+
+    if (type === 'storm') {
+      return await generateStormImage(size, searchParams.get('rivers'));
+    }
+
+    if (type === 'storm') {
+      return await generateStormImage(size, searchParams.get('rivers'));
     }
 
     if (type === 'warning' && riverSlug) {
       const fromCondition = searchParams.get('from') || undefined;
-      return await generateWarningImage(riverSlug, fromCondition, size);
+      const toCondition = searchParams.get('to') || undefined;
+      const pinnedFt = numParam(searchParams.get('ft'));
+      const kind = searchParams.get('kind') || undefined;
+      const rise = searchParams.get('rise') || undefined;
+      return await generateWarningImage(riverSlug, fromCondition, size, toCondition, pinnedFt, kind, rise);
     }
 
-    return await generateDigestImage(size);
+    return await generateDigestImage(size, searchParams.get('rivers'));
   } catch (err) {
     console.error('[OG/Social] Image generation failed:', err);
     return new ImageResponse(
@@ -286,19 +301,56 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function generateDigestImage(size: { width: number; height: number }) {
+/** Parse the digest's pinned `rivers` param — comma-separated `slug:condition:ft`
+ *  triples (ft may be empty), e.g. `current:flowing:3.2,meramec:good:`. Malformed
+ *  triples (no slug or no condition) are dropped. Returns [] when nothing usable,
+ *  so the caller can fall back to the live map. */
+function parsePinnedDigestRivers(
+  raw: string | null,
+): Array<[string, { condition_code: string; gauge_height_ft: number | null }]> {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((triple) => {
+      const [slug, condition, ft] = triple.split(':');
+      const s = (slug || '').trim();
+      const c = (condition || '').trim();
+      if (s === '' || c === '') return null;
+      const ftNum = Number((ft || '').trim());
+      return {
+        slug: s,
+        condition_code: c,
+        gauge_height_ft: (ft || '').trim() !== '' && Number.isFinite(ftNum) ? ftNum : null,
+      };
+    })
+    .filter((r): r is { slug: string; condition_code: string; gauge_height_ft: number | null } => r !== null)
+    .map((r) => [r.slug, { condition_code: r.condition_code, gauge_height_ft: r.gauge_height_ft }]);
+}
+
+async function generateDigestImage(
+  size: { width: number; height: number },
+  pinned?: string | null,
+) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
   const isPortrait = size.height > size.width;
 
-  // Pull live gauge-derived conditions so the digest never lags behind the
-  // hourly gauge feed. (eddy_updates.condition_code is frozen daily.)
-  const liveMap = await buildLiveConditionsMap(supabase);
-  const rivers: Array<[string, { condition_code: string; gauge_height_ft: number | null }]> =
-    Array.from(liveMap.entries()).map(([slug, live]) => [
+  // Preferred path: the caller baked a pinned river list into the URL so the
+  // cover matches the reel's pinned data exactly (no live drift). Absent/empty
+  // → fall back to the live gauge-derived conditions below.
+  const pinnedRivers = parsePinnedDigestRivers(pinned ?? null);
+  let rivers: Array<[string, { condition_code: string; gauge_height_ft: number | null }]>;
+  if (pinnedRivers.length > 0) {
+    rivers = pinnedRivers;
+  } else {
+    // Pull live gauge-derived conditions so the digest never lags behind the
+    // hourly gauge feed. (eddy_updates.condition_code is frozen daily.)
+    const liveMap = await buildLiveConditionsMap(supabase);
+    rivers = Array.from(liveMap.entries()).map(([slug, live]) => [
       slug,
       { condition_code: live.condition_code, gauge_height_ft: live.gauge_height_ft },
     ]);
+  }
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -312,17 +364,6 @@ async function generateDigestImage(size: { width: number; height: number }) {
   } catch {
     // Skip otter if fetch fails
   }
-
-  const RIVER_DISPLAY: Record<string, string> = {
-    meramec: 'Meramec',
-    current: 'Current',
-    'eleven-point': 'Eleven Point',
-    'jacks-fork': 'Jacks Fork',
-    niangua: 'Niangua',
-    'big-piney': 'Big Piney',
-    huzzah: 'Huzzah',
-    courtois: 'Courtois',
-  };
 
   return new ImageResponse(
     (
@@ -373,7 +414,7 @@ async function generateDigestImage(size: { width: number; height: number }) {
         >
           {rivers.map(([slug, data]) => {
             const statusStyles = getStatusStyles(data.condition_code as ConditionCode);
-            const name = RIVER_DISPLAY[slug] || slug;
+            const name = RIVER_DISPLAY_SHORT[slug] || slug;
             return (
               <div
                 key={slug}
@@ -503,18 +544,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   // (otherwise we'd render "sweet spot" copy next to a "High Water" badge).
   const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
-  const RIVER_DISPLAY: Record<string, string> = {
-    meramec: 'Meramec River',
-    current: 'Current River',
-    'eleven-point': 'Eleven Point River',
-    'jacks-fork': 'Jacks Fork River',
-    niangua: 'Niangua River',
-    'big-piney': 'Big Piney River',
-    huzzah: 'Huzzah Creek',
-    courtois: 'Courtois Creek',
-  };
-
-  const riverName = RIVER_DISPLAY[riverSlug] || riverSlug;
+  const riverName = RIVER_DISPLAY_LONG[riverSlug] || riverSlug;
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
   const statusStyles = getStatusStyles(conditionCode);
   const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
@@ -765,18 +795,7 @@ async function generateEddySaysImage(riverSlug: string, size: { width: number; h
   // Overlay live gauge data so the condition chip matches reality.
   const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
-  const RIVER_DISPLAY: Record<string, string> = {
-    meramec: 'Meramec River',
-    current: 'Current River',
-    'eleven-point': 'Eleven Point River',
-    'jacks-fork': 'Jacks Fork River',
-    niangua: 'Niangua River',
-    'big-piney': 'Big Piney River',
-    huzzah: 'Huzzah Creek',
-    courtois: 'Courtois Creek',
-  };
-
-  const riverName = RIVER_DISPLAY[riverSlug] || riverSlug;
+  const riverName = RIVER_DISPLAY_LONG[riverSlug] || riverSlug;
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
   const statusStyles = getStatusStyles(conditionCode);
   const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
@@ -1133,20 +1152,9 @@ async function generateForecastImage(size: { width: number; height: number }) {
   const usingFallback = dry.length === 0;
   const top = (usingFallback ? floatable : dry).slice(0, 3);
 
-  const RIVER_DISPLAY: Record<string, string> = {
-    meramec: 'Meramec',
-    current: 'Current',
-    'eleven-point': 'Eleven Point',
-    'jacks-fork': 'Jacks Fork',
-    niangua: 'Niangua',
-    'big-piney': 'Big Piney',
-    huzzah: 'Huzzah',
-    courtois: 'Courtois',
-  };
-
   // Cover features only the single best bet (best condition, rain-free if any).
   const best = top[0] || null;
-  const bestName = best ? (RIVER_DISPLAY[best.river_slug] || best.river_slug) : '';
+  const bestName = best ? (RIVER_DISPLAY_SHORT[best.river_slug] || best.river_slug) : '';
   const bestStyles = best ? getStatusStyles(best.condition_code as ConditionCode) : null;
   const bestCondLabel = best
     ? (CONDITION_LABELS[best.condition_code as keyof typeof CONDITION_LABELS] || bestStyles!.label)
@@ -1765,7 +1773,10 @@ function StatCell({
 // ---------------------------------------------------------------------------
 // 7-Day Trend thumbnail
 // ---------------------------------------------------------------------------
-async function generateTrendImage(size: { width: number; height: number }) {
+async function generateTrendImage(
+  size: { width: number; height: number },
+  pinnedRiver?: string | null,
+) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
   const isPortrait = size.height > size.width;
@@ -1780,18 +1791,19 @@ async function generateTrendImage(size: { width: number; height: number }) {
   type Row = { river_slug: string; condition_code: string; weather?: WeatherSummary | null };
   const rows = (updates || []) as Row[];
   const slugs = Array.from(new Set(rows.map((u) => u.river_slug)));
-  const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
+  // Pinned path: the caller baked the exact river into the URL so the cover
+  // matches the reel it accompanies (no live re-pick). pickNotableTrend already
+  // supports restrictTo, so pin by restricting the candidate set to that one
+  // slug — it then builds the identical trend object from that river's 7-day
+  // history. Absent → keep the current "most notable across all rivers" pick.
+  const restrictTo = pinnedRiver ? [pinnedRiver] : slugs;
+  const trend = await pickNotableTrend(supabase, { restrictTo });
   if (!trend) {
     return NextResponse.json({ error: 'No notable trend' }, { status: 404 });
   }
   const wx = ogWeatherLabel(weatherChip(rows.find((u) => u.river_slug === trend.riverSlug)?.weather ?? null));
 
-  const meta =
-    trend.direction === 'rising'
-      ? { arrow: '▲', label: 'Rising', color: '#10b981' }
-      : trend.direction === 'falling'
-      ? { arrow: '▼', label: 'Falling', color: '#f97316' }
-      : { arrow: '—', label: 'Steady', color: '#84cc16' };
+  const meta = trendMeta(trend.direction);
   const deltaSign = trend.deltaFt > 0 ? '+' : trend.deltaFt < 0 ? '−' : '';
   const deltaAbs = Math.abs(trend.deltaFt).toFixed(1);
 
@@ -2021,6 +2033,10 @@ async function generateWarningImage(
   riverSlug: string,
   fromCondition: string | undefined,
   size: { width: number; height: number },
+  toCondition?: string,
+  pinnedFt?: number | null,
+  kind?: string,
+  riseText?: string,
 ) {
   const supabase = createAdminClient();
   const fonts = loadFredokaFont();
@@ -2036,36 +2052,79 @@ async function generateWarningImage(
     .limit(1)
     .maybeSingle();
 
-  if (!rawUpdate) {
-    return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
+  const riverName = RIVER_DISPLAY_LONG[riverSlug] || riverSlug;
+
+  // Prefer the PINNED event (baked into the URL by the alert as &to=&ft=) so the
+  // cover always agrees with the caption + reel — a re-fetched "live" value can
+  // move between dispatch and Meta's crawl of the cover. Legacy param-less URLs
+  // fall back to the live overlay ("right now").
+  let newCondition: ConditionCode;
+  let gaugeFt: number | null;
+  if (toCondition) {
+    newCondition = toCondition as ConditionCode;
+    gaugeFt = pinnedFt ?? rawUpdate?.gauge_height_ft ?? null;
+  } else {
+    if (!rawUpdate) {
+      return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
+    }
+    const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+    newCondition = (update.condition_code || 'high') as ConditionCode;
+    gaugeFt = update.gauge_height_ft;
   }
 
-  // Overlay live conditions: a warning image must always reflect the current
-  // gauge — the whole point of the warning is "right now".
-  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-
-  const RIVER_DISPLAY: Record<string, string> = {
-    meramec: 'Meramec River',
-    current: 'Current River',
-    'eleven-point': 'Eleven Point River',
-    'jacks-fork': 'Jacks Fork River',
-    niangua: 'Niangua River',
-    'big-piney': 'Big Piney River',
-    huzzah: 'Huzzah Creek',
-    courtois: 'Courtois Creek',
-  };
-  const riverName = RIVER_DISPLAY[riverSlug] || riverSlug;
-  const newCondition = (update.condition_code || 'high') as ConditionCode;
+  const isRecovery = kind === 'recovery';
   const styles = getStatusStyles(newCondition);
-  const severityLabel =
-    newCondition === 'dangerous' ? 'DANGEROUS' :
-    newCondition === 'high' ? 'HIGH WATER' :
-    'CAUTION';
-  const actionCta =
-    newCondition === 'dangerous'
-      ? 'Do not float until levels drop'
-      : 'Experienced paddlers only';
-  const photoDataUri = await loadBackgroundDataUri(supabase, 'danger');
+  const { severityLabel, cta: actionCta } = isRecovery
+    ? recoveryCopy(newCondition, riverName)
+    : warningCopy(newCondition, riverName);
+  // Warning covers use the generic 'danger' art; recovery ("all clear") covers
+  // use the river's own calm art — mirrors the reel's background selection in
+  // condition-alerts.ts so the cover/reel pair reads as one piece.
+  const photoDataUri = await loadBackgroundDataUri(supabase, isRecovery ? riverSlug : 'danger');
+
+  // Series-identity mascot, bottom-right (matches the reel + other covers).
+  let otterImage: string | null = null;
+  try {
+    otterImage = await loadConditionOtter(newCondition);
+  } catch {
+    otterImage = null;
+  }
+
+  // Recovery is an all-clear: swap the red-tinted frame for a calmer teal-green.
+  const eyebrowIcon = isRecovery ? '✅' : '⚠️';
+  const rootGradient = isRecovery
+    ? 'linear-gradient(160deg, #0d2a24 0%, #12403a 55%, #0d2a2c 100%)'
+    : 'linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)';
+
+  // Rate-of-rise/fall pill (e.g. "▲ up 2.4 ft in 6h"). Direction inferred from
+  // the phrase; colored by the cover's accent (recovery teal vs warning red).
+  const riseArrow = riseText
+    ? /down/i.test(riseText)
+      ? '▼'
+      : '▲'
+    : '';
+
+  // Series-identity mascot, bottom-right (matches the reel + other covers).
+  let otterImage: string | null = null;
+  try {
+    otterImage = await loadConditionOtter(newCondition);
+  } catch {
+    otterImage = null;
+  }
+
+  // Recovery is an all-clear: swap the red-tinted frame for a calmer teal-green.
+  const eyebrowIcon = isRecovery ? '✅' : '⚠️';
+  const rootGradient = isRecovery
+    ? 'linear-gradient(160deg, #0d2a24 0%, #12403a 55%, #0d2a2c 100%)'
+    : 'linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)';
+
+  // Rate-of-rise/fall pill (e.g. "▲ up 2.4 ft in 6h"). Direction inferred from
+  // the phrase; colored by the cover's accent (recovery teal vs warning red).
+  const riseArrow = riseText
+    ? /down/i.test(riseText)
+      ? '▼'
+      : '▲'
+    : '';
 
   return new ImageResponse(
     (
@@ -2076,7 +2135,7 @@ async function generateWarningImage(
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)`,
+          background: rootGradient,
           padding: isPortrait ? '120px 72px' : '72px 64px',
           justifyContent: 'center',
           position: 'relative',
@@ -2099,7 +2158,7 @@ async function generateWarningImage(
             marginBottom: isPortrait ? 40 : 28,
           }}
         >
-          <span style={{ fontSize: isPortrait ? 56 : 40 }}>⚠️</span>
+          <span style={{ fontSize: isPortrait ? 56 : 40 }}>{eyebrowIcon}</span>
           <span
             style={{
               fontFamily: 'Fredoka',
@@ -2170,7 +2229,7 @@ async function generateWarningImage(
         )}
 
         {/* Current gauge reading */}
-        {update.gauge_height_ft !== null && (
+        {gaugeFt !== null && (
           <div
             style={{
               display: 'flex',
@@ -2189,7 +2248,7 @@ async function generateWarningImage(
                 textShadow: `0 0 30px ${styles.solid}`,
               }}
             >
-              {update.gauge_height_ft.toFixed(1)}
+              {gaugeFt.toFixed(1)}
             </span>
             <span
               style={{
@@ -2200,6 +2259,33 @@ async function generateWarningImage(
               }}
             >
               ft right now
+            </span>
+          </div>
+        )}
+
+        {/* Rate-of-rise/fall pill */}
+        {riseText && (
+          <div
+            style={{
+              display: 'flex',
+              alignSelf: 'flex-start',
+              alignItems: 'center',
+              backgroundColor: `${styles.solid}22`,
+              border: `2px solid ${styles.solid}`,
+              borderRadius: 999,
+              padding: isPortrait ? '12px 26px' : '10px 20px',
+              marginBottom: isPortrait ? 40 : 28,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'Fredoka',
+                fontSize: isPortrait ? 38 : 30,
+                fontWeight: 700,
+                color: styles.solid,
+              }}
+            >
+              {riseArrow} {riseText}
             </span>
           </div>
         )}
@@ -2220,6 +2306,28 @@ async function generateWarningImage(
         >
           {actionCta}
         </span>
+
+        {/* Otter — series identity, absolute bottom-right (matches the reel) */}
+        {otterImage && (
+          <div
+            style={{
+              display: 'flex',
+              position: 'absolute',
+              bottom: isPortrait ? 48 : 40,
+              right: isPortrait ? 48 : 40,
+              opacity: 0.9,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={otterImage}
+              width={isPortrait ? 340 : 240}
+              height={isPortrait ? 340 : 240}
+              alt=""
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        )}
 
         <span
           style={{
@@ -2242,6 +2350,176 @@ async function generateWarningImage(
             right: 0,
             height: 8,
             background: `linear-gradient(90deg, ${styles.solid}, ${BRAND_COLORS.accentCoral}, ${styles.solid})`,
+          }}
+        />
+      </div>
+    ),
+    { ...size, fonts, headers: CACHE_HEADERS }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Storm-digest cover — fired when several rivers rise at once (batch alert).
+// A compact list of the affected rivers, each with its live condition pill,
+// over the same red-tinted danger frame as the single-river warning cover.
+// `riversParam` is a comma-separated list of `slug:condition` pairs, e.g.
+//   current:dangerous,meramec:high,niangua:high
+// ---------------------------------------------------------------------------
+async function generateStormImage(
+  size: { width: number; height: number },
+  riversParam: string | null,
+) {
+  const fonts = loadFredokaFont();
+  const isPortrait = size.height > size.width;
+
+  // Parse `slug:condition` pairs; keep up to 5 so the list stays legible.
+  const rivers = (riversParam || '')
+    .split(',')
+    .map((pair) => {
+      const [slug, condition] = pair.split(':');
+      return { slug: (slug || '').trim(), condition: (condition || '').trim() };
+    })
+    .filter((r) => r.slug !== '')
+    .slice(0, 5);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          fontFamily: 'system-ui, sans-serif',
+          background: `linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)`,
+          padding: isPortrait ? '120px 72px' : '72px 64px',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {/* Rising eyebrow banner */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            backgroundColor: 'rgba(239,68,68,0.16)',
+            border: `3px solid ${BRAND_COLORS.accentCoral}`,
+            borderRadius: 999,
+            padding: isPortrait ? '18px 42px' : '14px 32px',
+            boxShadow: `0 0 40px ${BRAND_COLORS.accentCoral}`,
+            alignSelf: 'flex-start',
+            marginBottom: isPortrait ? 40 : 28,
+          }}
+        >
+          <span style={{ fontSize: isPortrait ? 56 : 40 }}>⚠️</span>
+          <span
+            style={{
+              fontFamily: 'Fredoka',
+              fontSize: isPortrait ? 56 : 42,
+              fontWeight: 700,
+              letterSpacing: 5,
+              color: BRAND_COLORS.accentCoral,
+            }}
+          >
+            RIVERS RISING
+          </span>
+        </div>
+
+        {/* Headline */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 84 : 64,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 1.0,
+            letterSpacing: -2,
+            marginBottom: isPortrait ? 48 : 32,
+          }}
+        >
+          Multiple Ozark rivers are rising
+        </span>
+
+        {/* River list — name + condition pill */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: isPortrait ? 24 : 18,
+          }}
+        >
+          {rivers.map((r) => {
+            const styles = getStatusStyles(r.condition as ConditionCode);
+            const name = RIVER_DISPLAY_LONG[r.slug] || r.slug;
+            return (
+              <div
+                key={r.slug}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 24,
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderLeft: `5px solid ${styles.solid}`,
+                  borderRadius: 16,
+                  padding: isPortrait ? '22px 32px' : '18px 28px',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'Fredoka',
+                    fontSize: isPortrait ? 48 : 38,
+                    fontWeight: 700,
+                    color: '#fff',
+                  }}
+                >
+                  {name}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'Fredoka',
+                    fontSize: isPortrait ? 36 : 28,
+                    fontWeight: 700,
+                    color: styles.solid,
+                    backgroundColor: styles.bg,
+                    border: `2px solid ${styles.border}`,
+                    borderRadius: 999,
+                    padding: isPortrait ? '10px 26px' : '8px 20px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {styles.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <span
+          style={{
+            fontFamily: 'Fredoka',
+            fontSize: isPortrait ? 32 : 26,
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            position: 'absolute',
+            bottom: isPortrait ? 120 : 48,
+            left: isPortrait ? 72 : 64,
+          }}
+        >
+          eddy.guide
+        </span>
+
+        {/* Bottom gradient bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 8,
+            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, #ef4444, ${BRAND_COLORS.accentCoral})`,
           }}
         />
       </div>
