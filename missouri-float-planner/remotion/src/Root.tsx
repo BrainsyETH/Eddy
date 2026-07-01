@@ -413,6 +413,12 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
+        calculateMetadata={({ props: _props }: { props: SectionGuideProps }) => ({
+          // ~12s default. The internal CTA timing scales off durationInFrames
+          // (ctaStart = durationInFrames - 70), matching the gauge reel, so this
+          // stays the single place to retune pacing.
+          durationInFrames: 360,
+        })}
         defaultProps={{
           riverName: "Current River",
           conditionCode: "high",
@@ -436,6 +442,11 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
+        calculateMetadata={({ props: _props }: { props: RouteDrawProps }) => ({
+          // ~12s default. The route draws over frames 45-205 and the CTA scales
+          // off durationInFrames, so this is the single place to retune pacing.
+          durationInFrames: 360,
+        })}
         defaultProps={{
           riverName: "Current River",
           conditionCode: "high",
@@ -459,6 +470,11 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
+        calculateMetadata={({ props: _props }: { props: TrendReelProps }) => ({
+          // ~12s default. The sparkline reveals over frames 40-120 and the CTA
+          // scales off durationInFrames, so this is the single place to retune.
+          durationInFrames: 360,
+        })}
         defaultProps={{
           riverName: "Current River",
           conditionCode: "flowing",

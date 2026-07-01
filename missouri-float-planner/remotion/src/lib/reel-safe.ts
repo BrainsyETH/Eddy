@@ -20,21 +20,21 @@ export const REEL_SAFE = {
 } as const;
 
 /**
- * Global opacity envelope: fade-in over `fadeInFrames`, hold, fade-out
- * over `fadeOutFrames`. Wrap a composition's root AbsoluteFill with this
- * so Reels auto-loop cleanly — end state matches start state (both
- * faded to transparent).
+ * Global opacity envelope for a looping reel. Opens at FULL brightness from
+ * frame 0 so the first frame (the grid thumbnail / first autoplay frame the
+ * scroller sees) is branded content, NOT a fade-from-black — then dips gently
+ * toward the end so the loop seam isn't a hard cut. (We deliberately do NOT
+ * fade in: "own the first second" beats a symmetric black breath.)
  */
 export function reelLoopOpacity(
   frame: number,
   durationInFrames: number,
-  fadeInFrames = 15,
-  fadeOutFrames = 12,
+  fadeOutFrames = 14,
 ): number {
   return interpolate(
     frame,
-    [0, fadeInFrames, durationInFrames - fadeOutFrames, durationInFrames],
-    [0, 1, 1, 0],
+    [0, durationInFrames - fadeOutFrames, durationInFrames],
+    [1, 1, 0.35],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 }
