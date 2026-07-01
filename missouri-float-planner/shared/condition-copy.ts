@@ -18,6 +18,39 @@ export interface WarningCopy {
   quote: string;
 }
 
+/** Growth CTA appended as a secondary line on alert reels + captions. */
+export const FOLLOW_CTA = 'Follow for live Ozark river alerts';
+
+/**
+ * Human "rate of rise/fall" phrase for an alert — e.g. "up 2.4 ft in 6h".
+ * Returns null when the change over the window is negligible (<0.1 ft), so we
+ * never print a misleading "up 0.0 ft". `deltaFt` is (now − thenValue).
+ */
+export function formatRise(deltaFt: number | null | undefined, hours: number): string | null {
+  if (deltaFt == null || !Number.isFinite(deltaFt) || Math.abs(deltaFt) < 0.1) return null;
+  const dir = deltaFt > 0 ? 'up' : 'down';
+  return `${dir} ${Math.abs(deltaFt).toFixed(1)} ft in ${Math.round(hours)}h`;
+}
+
+/**
+ * Copy for the "all-clear" post when a river drops back OUT of elevated water
+ * into a floatable state (dangerous/high → flowing/good/low). Closes the loop
+ * the warning caption promises ("wait for the all-clear").
+ */
+export function recoveryCopy(code: string, riverName: string): WarningCopy {
+  const floatable =
+    code === 'flowing'
+      ? 'running clear'
+      : code === 'good'
+        ? 'floatable again'
+        : 'dropping back';
+  return {
+    severityLabel: 'ALL CLEAR',
+    cta: 'Back to floatable — still check the gauge before you go',
+    quote: `${riverName} has dropped back to floatable levels — ${floatable}. Always confirm the live gauge before you launch.`,
+  };
+}
+
 /**
  * Warning copy for a condition. `code` is the NEW (elevated) condition the river
  * crossed into; `riverName` is the display name (e.g. "Current River").

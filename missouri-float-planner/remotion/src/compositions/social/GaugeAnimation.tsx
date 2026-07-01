@@ -2,6 +2,7 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Img,
   useCurrentFrame,
   useVideoConfig,
   spring,
@@ -17,25 +18,33 @@ import {
   CONDITION_COLORS,
   getOtterVariant,
   warningCopy,
+  recoveryCopy,
   type GaugeAnimationProps,
 } from "../../lib/social-props";
 import { colors } from "../../design-tokens/colors";
 
 const FPS = 30;
 
+// Legibility scrims used when a full-bleed backgroundUrl is supplied.
+const WARNING_SCRIM =
+  "linear-gradient(160deg, rgba(42,13,13,0.82), rgba(13,42,44,0.8) 60%, rgba(13,42,44,0.92))";
+const NEUTRAL_SCRIM =
+  "linear-gradient(160deg, rgba(13,42,44,0.86), rgba(26,61,64,0.78), rgba(13,42,44,0.94))";
+
 /**
  * Single-river gauge highlight animation.
- * 12 seconds (360 frames @ 30fps). 1080x1920 portrait.
+ * Default highlight: 12 seconds (360 frames @ 30fps). 1080x1920 portrait.
+ * Alert / recovery reels run tighter (240 frames / 8s) via Root's
+ * calculateMetadata; the internal timeline below scales off durationInFrames.
  *
- * Timeline:
- *   0-20:    Background fade in
- *   0-30:    River name entrance
- *  15-45:    Date fades in
- *  30-60:    Gauge fills, Eddy bounces in, condition badge slides in (parallel)
- *  60-80:    Quote fades in (no typewriter — readable at 2.67s)
- *  80-290:   Quote held at full opacity (~7s of reading time)
- * 290-310:   "Full report below ▼" CTA fades in
- * 330-360:   Loop-out handled by reelLoopOpacity wrapper
+ * Timeline (default 360f; alert 240f is proportionally tighter):
+ *   frame 0:  branded background + severity eyebrow already visible
+ *   0-30:     River name entrance
+ *  15-45:     Date fades in
+ *  30-60:     Gauge fills, Eddy bounces in, condition badge slides in (parallel)
+ *  40-60:     Quote fades in and holds
+ *  ~D-70:     CTA fades in (D = durationInFrames)
+ *  D-12→D:    Loop-out handled by reelLoopOpacity wrapper
  */
 export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   riverName,
@@ -51,6 +60,10 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   previousCondition,
   eyebrow,
   quoteForward,
+  backgroundUrl,
+  riseText,
+  recovery,
+  followCta,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -61,22 +74,33 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
     : null;
   const isPortrait = format === "portrait";
 
-  // Warning headline + CTA — canonical copy shared with the caption + OG cover
-  // (shared/condition-copy.ts) so all three surfaces read identically.
-  const { severityLabel: warningLabel, cta: warningCta } = warningCopy(conditionCode, riverName);
+  // Recovery is mutually exclusive with warningMode; if both are set, warning
+  // wins (the more urgent framing). `alertMode` = either elevated-water reel.
+  const isRecovery = !!recovery && !warningMode;
+  const alertMode = !!warningMode || isRecovery;
 
-  // Pulsing warning chrome (warning mode only)
-  const warningPulse = 0.75 + 0.25 * Math.sin(frame / 10);
+  // Canonical copy shared with the caption + OG cover (shared/condition-copy.ts)
+  // so all three surfaces read identically. Recovery uses the "ALL CLEAR" copy.
+  const { severityLabel, cta: alertCta } = isRecovery
+    ? recoveryCopy(conditionCode, riverName)
+    : warningCopy(conditionCode, riverName);
+
+  // Pulsing chrome — warning only. Recovery is calm (no pulse → steady 1).
+  const warningPulse = warningMode ? 0.75 + 0.25 * Math.sin(frame / 10) : 1;
 
   // Global fade for seamless Reels auto-loop (portrait only; square/
   // landscape previews in Studio keep constant opacity).
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
 
-  // ─── Animations ──────────────────────────────────────────
+  // ─── Proportional timeline ───────────────────────────────
+  // The CTA enters ~70 frames before the end and the quote fades in early, so
+  // the same choreography works for both the 12s default and the tighter 8s
+  // alert reel.
+  const ctaStart = Math.max(60, durationInFrames - 70);
 
-  const bgOpacity = interpolate(frame, [0, 20], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  // Background chrome (glow + accent bar) is now fully opaque from frame 0 — no
+  // fade-from-black — so the first autoplay frame / grid thumbnail is branded.
+  const bgOpacity = 1;
 
   const nameEntrance = spring({ frame, fps, config: ENTRANCE });
   const nameY = interpolate(nameEntrance, [0, 1], [40, 0]);
@@ -89,21 +113,22 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const badgeEntrance = spring({ frame: frame - 45, fps, config: SNAPPY });
   const badgeX = interpolate(badgeEntrance, [0, 1], [60, 0]);
 
-  // Quote: fade in over frames 60-80 (2.0s-2.67s) and hold. Replaces the old
+  // Quote: fade in over frames 40-60 (~1.3s-2.0s) and hold. Replaces the old
   // typewriter which burned 2s of unreadable partial text before the viewer
   // could read anything.
-  const quoteOpacity = interpolate(frame, [60, 80], [0, 1], {
+  const quoteOpacity = interpolate(frame, [40, 60], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // "Full report below ▼" CTA
+  // CTA — enters ~70 frames before the end so it lands late on both the 12s
+  // default and the tighter 8s alert reel.
   const ctaEntrance = spring({
-    frame: frame - 290,
+    frame: frame - ctaStart,
     fps,
     config: { damping: 12, mass: 0.5, stiffness: 100 },
   });
-  const arrowBounce = frame > 290 ? Math.sin((frame - 290) / 8) * 4 : 0;
+  const arrowBounce = frame > ctaStart ? Math.sin((frame - ctaStart) / 8) * 4 : 0;
 
   const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
 
@@ -120,7 +145,22 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         }
       />
 
-      {/* Fade-in overlay */}
+      {/* Full-bleed background image + legibility scrim (backgroundUrl only).
+          Renders from frame 0 so the grid thumbnail / first autoplay frame is
+          branded, not black. Absent → the solid brand background above shows. */}
+      {backgroundUrl && (
+        <AbsoluteFill>
+          <Img
+            src={backgroundUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          <AbsoluteFill
+            style={{ background: warningMode ? WARNING_SCRIM : NEUTRAL_SCRIM }}
+          />
+        </AbsoluteFill>
+      )}
+
+      {/* Ambient chrome layer (glow + accent bar) — visible from frame 0 */}
       <AbsoluteFill style={{ opacity: bgOpacity }}>
         {/* Ambient condition glow */}
         <div
@@ -166,11 +206,14 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           gap: isPortrait ? 28 : 20,
         }}
       >
-        {/* Warning eyebrow (warningMode only) — pulsing WARNING banner */}
-        {warningMode && (
+        {/* Severity eyebrow (warning OR recovery). Rendered from frame 0 (no
+            entrance dependency) so the thumbnail / first autoplay frame is
+            branded. Warning pulses + shows ⚠️; recovery is calm + shows ✓ in
+            the condition's own green/teal color. */}
+        {alertMode && (
           <div
             style={{
-              opacity: nameEntrance * warningPulse,
+              opacity: warningPulse,
               display: "flex",
               alignItems: "center",
               gap: 16,
@@ -182,7 +225,9 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               marginBottom: 8,
             }}
           >
-            <span style={{ fontSize: isPortrait ? 40 : 30 }}>⚠️</span>
+            <span style={{ fontSize: isPortrait ? 40 : 30 }}>
+              {isRecovery ? "✅" : "⚠️"}
+            </span>
             <span
               style={{
                 fontFamily: "'Fredoka', system-ui, sans-serif",
@@ -192,7 +237,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 color: condition.solid,
               }}
             >
-              {warningLabel}
+              {severityLabel}
             </span>
           </div>
         )}
@@ -234,8 +279,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           {riverName}
         </div>
 
-        {/* Transition arrow (warningMode only) — old → new */}
-        {warningMode && previous && (
+        {/* Transition arrow (warning or recovery) — old → new */}
+        {alertMode && previous && (
           <div
             style={{
               opacity: dateEntrance,
@@ -271,34 +316,82 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </div>
         )}
 
-        {/* Gauge + Eddy side by side. Quote-forward (Eddy Says) drops the big
-            gauge bar so the quote can be the hero — Eddy alone paddles in. */}
+        {/* Gauge + Eddy. In alert/recovery mode the bar is the HERO — enlarged
+            and centered, the focal instrument — with Eddy shrunk to a small
+            companion. Quote-forward (Eddy Says) drops the big gauge bar so the
+            quote can be the hero. Otherwise the normal side-by-side layout. */}
         <div
           style={{
             display: "flex",
-            alignItems: "flex-end",
-            gap: isPortrait ? 36 : 32,
+            alignItems: alertMode ? "flex-start" : "flex-end",
+            gap: isPortrait ? (alertMode ? 24 : 36) : 32,
             justifyContent: "center",
           }}
         >
           {!quoteForward && (
-            <GaugeBar
-              currentHeight={gaugeHeightFt}
-              optimalMin={optimalMin}
-              optimalMax={optimalMax}
-              levelHigh={levelHigh}
-              levelDangerous={levelDangerous}
-              conditionColor={condition.solid}
-              conditionGlow={condition.glow}
-              delay={30}
-              width={isPortrait ? 100 : 85}
-              height={isPortrait ? 420 : 300}
-            />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <GaugeBar
+                currentHeight={gaugeHeightFt}
+                optimalMin={optimalMin}
+                optimalMax={optimalMax}
+                levelHigh={levelHigh}
+                levelDangerous={levelDangerous}
+                conditionColor={condition.solid}
+                conditionGlow={condition.glow}
+                delay={30}
+                emphasis={alertMode}
+                width={alertMode ? (isPortrait ? 140 : 110) : isPortrait ? 100 : 85}
+                height={alertMode ? (isPortrait ? 560 : 380) : isPortrait ? 420 : 300}
+              />
+
+              {/* Rise pill — the urgency signal, right under the gauge reading.
+                  Orange/red in warning, teal/green (condition color) in recovery. */}
+              {alertMode && riseText && (
+                <div
+                  style={{
+                    opacity: warningPulse,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    backgroundColor: condition.bg,
+                    border: `2px solid ${condition.solid}`,
+                    borderRadius: 999,
+                    padding: isPortrait ? "10px 24px" : "8px 18px",
+                    fontFamily: "'Fredoka', system-ui, sans-serif",
+                    fontSize: isPortrait ? 34 : 26,
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    color: condition.solid,
+                    boxShadow: `0 0 24px ${condition.glow}`,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {riseText}
+                </div>
+              )}
+            </div>
           )}
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: alertMode ? 0 : 12 }}>
             <EddyMascot
               variant={getOtterVariant(conditionCode)}
-              size={isPortrait ? (quoteForward ? 180 : 220) : 170}
+              size={
+                isPortrait
+                  ? alertMode
+                    ? 130
+                    : quoteForward
+                      ? 180
+                      : 220
+                  : alertMode
+                    ? 120
+                    : 170
+              }
               delay={30}
             />
           </div>
@@ -364,7 +457,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </span>
         </div>
 
-        {/* CTA — warning text in warningMode, "Full report below ▼" otherwise */}
+        {/* CTA — alert/recovery copy in those modes, "Full report below ▼"
+            otherwise. Optional smaller followCta line beneath (lower emphasis). */}
         <div
           style={{
             opacity: ctaEntrance,
@@ -377,18 +471,18 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           <span
             style={{
               fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: warningMode ? (isPortrait ? 28 : 22) : 24,
-              fontWeight: warningMode ? 700 : 400,
+              fontSize: alertMode ? (isPortrait ? 28 : 22) : 24,
+              fontWeight: alertMode ? 700 : 400,
               color: condition.solid,
-              letterSpacing: warningMode ? 1 : 0.5,
+              letterSpacing: alertMode ? 1 : 0.5,
               textAlign: "center",
               maxWidth: isPortrait ? 900 : 700,
-              textShadow: warningMode ? `0 0 24px ${condition.glow}` : undefined,
+              textShadow: alertMode ? `0 0 24px ${condition.glow}` : undefined,
             }}
           >
-            {warningMode ? warningCta : 'Full report below'}
+            {alertMode ? alertCta : 'Full report below'}
           </span>
-          {!warningMode && (
+          {!alertMode && (
             <span
               style={{
                 fontSize: 28,
@@ -398,6 +492,21 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               }}
             >
               ▼
+            </span>
+          )}
+          {followCta && (
+            <span
+              style={{
+                fontFamily: "'Fredoka', system-ui, sans-serif",
+                fontSize: isPortrait ? 22 : 18,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.6)",
+                letterSpacing: 0.5,
+                textAlign: "center",
+                marginTop: 2,
+              }}
+            >
+              {followCta}
             </span>
           )}
         </div>

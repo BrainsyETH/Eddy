@@ -30,6 +30,9 @@ interface GaugeBarProps {
   width?: number;
   /** Bar height */
   height?: number;
+  /** Hero emphasis — scales up the current-reading label and threshold labels
+   *  so the bar reads as the focal instrument at large (alert/recovery) sizes. */
+  emphasis?: boolean;
 }
 
 const TICK_MARKS = [0.2, 0.4, 0.6, 0.8];
@@ -50,6 +53,7 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   delay = 30,
   width = 85,
   height = 420,
+  emphasis = false,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -162,10 +166,20 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
 
       {/* Threshold labels (right side) */}
       {highFraction != null && (
-        <ThresholdLabel fraction={highFraction} text="high" color="rgba(249,115,22,0.9)" />
+        <ThresholdLabel
+          fraction={highFraction}
+          text="high"
+          color="rgba(249,115,22,0.9)"
+          emphasis={emphasis}
+        />
       )}
       {dangerFraction != null && (
-        <ThresholdLabel fraction={dangerFraction} text="flood" color="rgba(239,68,68,0.95)" />
+        <ThresholdLabel
+          fraction={dangerFraction}
+          text="flood"
+          color="rgba(239,68,68,0.95)"
+          emphasis={emphasis}
+        />
       )}
 
       {/* Current reading label */}
@@ -177,10 +191,10 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
           transform: "translate(-50%, 50%)",
           backgroundColor: conditionColor,
           color: "#fff",
-          padding: "6px 12px",
-          borderRadius: 10,
+          padding: emphasis ? "10px 20px" : "6px 12px",
+          borderRadius: emphasis ? 14 : 10,
           fontFamily: "'Geist Mono', monospace",
-          fontSize: 18,
+          fontSize: emphasis ? 30 : 18,
           fontWeight: 700,
           whiteSpace: "nowrap",
           opacity: fillProgress,
@@ -214,19 +228,20 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
 /** Small label pinned to a threshold fraction, INSIDE the bar (the parent clips
  *  overflow, so an outside-right callout would be hidden) and right-aligned with
  *  a shadow so it stays legible over the animated fill. */
-const ThresholdLabel: React.FC<{ fraction: number; text: string; color: string }> = ({
-  fraction,
-  text,
-  color,
-}) => (
+const ThresholdLabel: React.FC<{
+  fraction: number;
+  text: string;
+  color: string;
+  emphasis?: boolean;
+}> = ({ fraction, text, color, emphasis = false }) => (
   <div
     style={{
       position: "absolute",
-      right: 6,
+      right: emphasis ? 10 : 6,
       bottom: `${fraction * 100}%`,
       transform: "translateY(50%)",
       color,
-      fontSize: 11,
+      fontSize: emphasis ? 18 : 11,
       fontWeight: 700,
       fontFamily: "'Geist Sans', system-ui, sans-serif",
       whiteSpace: "nowrap",
