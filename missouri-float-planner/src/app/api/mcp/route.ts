@@ -44,7 +44,7 @@ function createMcpServer() {
         id: r.id,
         name: r.name,
         slug: r.slug,
-        lengthMiles: r.length_miles ? parseFloat(r.length_miles) : null,
+        lengthMiles: r.length_miles ? r.length_miles : null,
         description: r.description,
         difficultyRating: r.difficulty_rating,
         region: r.region,
@@ -79,7 +79,7 @@ function createMcpServer() {
             id: river.id,
             name: river.name,
             slug: river.slug,
-            lengthMiles: river.length_miles ? parseFloat(river.length_miles) : null,
+            lengthMiles: river.length_miles ? river.length_miles : null,
             description: river.description,
             difficultyRating: river.difficulty_rating,
             region: river.region,
@@ -196,13 +196,15 @@ function createMcpServer() {
         .order('river_mile_downstream');
 
       const formatted = (accessPoints || []).map((ap) => {
-        const lng = ap.location_snap?.coordinates?.[0] || ap.location_orig?.coordinates?.[0];
-        const lat = ap.location_snap?.coordinates?.[1] || ap.location_orig?.coordinates?.[1];
+        const snap = ap.location_snap as { coordinates?: number[] } | null;
+        const orig = ap.location_orig as { coordinates?: number[] } | null;
+        const lng = snap?.coordinates?.[0] || orig?.coordinates?.[0];
+        const lat = snap?.coordinates?.[1] || orig?.coordinates?.[1];
         return {
           id: ap.id,
           name: ap.name,
           slug: ap.slug,
-          riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : null,
+          riverMile: ap.river_mile_downstream ? ap.river_mile_downstream : null,
           type: ap.type,
           types: ap.types || [],
           isPublic: ap.is_public,
@@ -247,15 +249,18 @@ function createMcpServer() {
         id: h.id,
         name: h.name,
         type: h.type,
-        riverMile: h.river_mile_downstream ? parseFloat(h.river_mile_downstream) : null,
+        riverMile: h.river_mile_downstream ? h.river_mile_downstream : null,
         description: h.description,
         severity: h.severity,
         portageRequired: h.portage_required,
         portageSide: h.portage_side,
         seasonalNotes: h.seasonal_notes,
-        coordinates: h.location?.coordinates
-          ? { lat: h.location.coordinates[1], lng: h.location.coordinates[0] }
-          : null,
+        coordinates: (() => {
+          const loc = h.location as { coordinates?: number[] } | null;
+          return loc?.coordinates
+            ? { lat: loc.coordinates[1], lng: loc.coordinates[0] }
+            : null;
+        })(),
       }));
 
       return { content: [{ type: 'text', text: JSON.stringify(formatted, null, 2) }] };
@@ -284,8 +289,8 @@ function createMcpServer() {
         return { content: [{ type: 'text', text: 'One or both access points not found.' }], isError: true };
       }
 
-      const startMile = parseFloat(start.river_mile_downstream || '0');
-      const endMile = parseFloat(end.river_mile_downstream || '0');
+      const startMile = start.river_mile_downstream ?? 0;
+      const endMile = end.river_mile_downstream ?? 0;
       const distance = Math.abs(endMile - startMile);
 
       // Get hazards along route
@@ -361,9 +366,12 @@ function createMcpServer() {
             id: gauge.id,
             usgsSiteId: gauge.usgs_site_id,
             name: gauge.name,
-            coordinates: gauge.location?.coordinates
-              ? { lat: gauge.location.coordinates[1], lng: gauge.location.coordinates[0] }
-              : null,
+            coordinates: (() => {
+              const loc = gauge.location as { coordinates?: number[] } | null;
+              return loc?.coordinates
+                ? { lat: loc.coordinates[1], lng: loc.coordinates[0] }
+                : null;
+            })(),
             latestReading: reading
               ? {
                   gaugeHeightFt: reading.gauge_height_ft,

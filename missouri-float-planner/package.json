@@ -11,6 +11,7 @@
     "db:import-gauges": "tsx scripts/fetch-gauge-stations.ts",
     "db:snap-access-points": "tsx scripts/snap-access-points.ts",
     "db:migrate": "tsx scripts/run-migrations.ts",
+    "db:gen-types": "npx supabase gen types typescript --project-id ilefwfpvphadsbptiaur --schema public > src/types/database.ts",
     "db:import-mile-markers": "tsx scripts/import-mile-markers.ts",
     "db:correct-miles": "tsx scripts/correct-access-point-miles.ts",
     "db:verify-directions": "tsx scripts/verify-river-directions.ts",

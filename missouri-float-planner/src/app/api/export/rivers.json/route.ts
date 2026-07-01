@@ -58,13 +58,15 @@ export async function GET() {
       const riverAccessPoints = (accessPoints || [])
         .filter((ap) => ap.river_id === river.id)
         .map((ap) => {
-          const lng = ap.location_snap?.coordinates?.[0] || ap.location_orig?.coordinates?.[0];
-          const lat = ap.location_snap?.coordinates?.[1] || ap.location_orig?.coordinates?.[1];
+          const snap = ap.location_snap as { coordinates?: number[] } | null;
+          const orig = ap.location_orig as { coordinates?: number[] } | null;
+          const lng = snap?.coordinates?.[0] || orig?.coordinates?.[0];
+          const lat = snap?.coordinates?.[1] || orig?.coordinates?.[1];
           return {
             id: ap.id,
             name: ap.name,
             slug: ap.slug,
-            riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : null,
+            riverMile: ap.river_mile_downstream ? ap.river_mile_downstream : null,
             type: ap.type,
             types: ap.types || [],
             isPublic: ap.is_public,
@@ -89,15 +91,18 @@ export async function GET() {
           id: h.id,
           name: h.name,
           type: h.type,
-          riverMile: h.river_mile_downstream ? parseFloat(h.river_mile_downstream) : null,
+          riverMile: h.river_mile_downstream ? h.river_mile_downstream : null,
           description: h.description,
           severity: h.severity,
           portageRequired: h.portage_required,
           portageSide: h.portage_side,
           seasonalNotes: h.seasonal_notes,
-          coordinates: h.location?.coordinates
-            ? { lat: h.location.coordinates[1], lng: h.location.coordinates[0] }
-            : null,
+          coordinates: (() => {
+            const loc = h.location as { coordinates?: number[] } | null;
+            return loc?.coordinates
+              ? { lat: loc.coordinates[1], lng: loc.coordinates[0] }
+              : null;
+          })(),
         }));
 
       const riverPois = (pois || [])
@@ -120,7 +125,7 @@ export async function GET() {
         id: river.id,
         name: river.name,
         slug: river.slug,
-        lengthMiles: river.length_miles ? parseFloat(river.length_miles) : null,
+        lengthMiles: river.length_miles ? river.length_miles : null,
         description: river.description,
         difficultyRating: river.difficulty_rating,
         region: river.region,
@@ -141,9 +146,12 @@ export async function GET() {
         id: g.id,
         usgsSiteId: g.usgs_site_id,
         name: g.name,
-        coordinates: g.location?.coordinates
-          ? { lat: g.location.coordinates[1], lng: g.location.coordinates[0] }
-          : null,
+        coordinates: (() => {
+          const loc = g.location as { coordinates?: number[] } | null;
+          return loc?.coordinates
+            ? { lat: loc.coordinates[1], lng: loc.coordinates[0] }
+            : null;
+        })(),
       })),
       vesselTypes: (vesselTypes || []).map((v) => ({
         id: v.id,
@@ -152,9 +160,9 @@ export async function GET() {
         description: v.description,
         icon: v.icon,
         speeds: {
-          lowWater: v.speed_low_water ? parseFloat(v.speed_low_water) : null,
-          normal: v.speed_normal ? parseFloat(v.speed_normal) : null,
-          highWater: v.speed_high_water ? parseFloat(v.speed_high_water) : null,
+          lowWater: v.speed_low_water ? v.speed_low_water : null,
+          normal: v.speed_normal ? v.speed_normal : null,
+          highWater: v.speed_high_water ? v.speed_high_water : null,
         },
       })),
     };

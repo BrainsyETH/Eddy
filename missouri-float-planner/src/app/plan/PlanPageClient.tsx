@@ -35,7 +35,8 @@ import { usePOIs } from '@/hooks/usePOIs';
 import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from '@/types/api';
-import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import Image from 'next/image';
+import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -77,7 +78,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
   const visualFormRef = useFocusTrap<HTMLDivElement>(showVisualSubmitForm, () => setShowVisualSubmitForm(false));
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'saving'>('idle');
 
   const floatPlanCardRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
@@ -251,23 +252,48 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   }, [river?.name]);
 
   const handleShare = useCallback(async () => {
-    if (!riverSlug || !selectedPutIn || !selectedTakeOut) return;
+    if (!riverSlug || !selectedPutIn || !selectedTakeOut || !river) return;
 
+    // Fallback: a query-string planner link, used if saving the plan fails.
     const params = new URLSearchParams();
     params.set('river', riverSlug);
     params.set('putIn', selectedPutIn);
     params.set('takeOut', selectedTakeOut);
     if (selectedVesselTypeId) params.set('vessel', selectedVesselTypeId);
+    const fallbackUrl = `${window.location.origin}/plan?${params.toString()}`;
 
-    const shareUrl = `${window.location.origin}/plan?${params.toString()}`;
+    // Persist the plan for a branded short-code link that snapshots conditions
+    // at save time (the /plan/[shortCode] landing page + OG card). Fall back to
+    // the query-string URL if the save fails so sharing always works.
+    let shareUrl = fallbackUrl;
+    setShareStatus('saving');
+    try {
+      const res = await fetch('/api/plan/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          riverId: river.id,
+          startId: selectedPutIn,
+          endId: selectedTakeOut,
+          vesselTypeId: selectedVesselTypeId,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.url) shareUrl = data.url;
+      }
+    } catch {
+      // keep fallbackUrl
+    }
+
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
-
     if (isMobile && navigator.share) {
       try {
         await navigator.share({
-          title: `Float Plan - ${river?.name}`,
+          title: `Float Plan - ${river.name}`,
           url: shareUrl,
         });
+        setShareStatus('idle');
         return;
       } catch {
         // fall through to clipboard
@@ -279,9 +305,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000);
     } catch {
+      setShareStatus('idle');
       window.prompt('Copy this link:', shareUrl);
     }
-  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river?.name]);
+  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river]);
 
   const handleDownloadImage = useCallback(async () => {
     if (!selectedPutIn || !selectedTakeOut || !river || !plan || !captureRef.current) return;
@@ -407,7 +434,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     : null;
 
   useEffect(() => {
-    if (selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
+    // Only auto-scroll on mobile, where floatPlanCardRef targets the visible
+    // bottom sheet. On desktop the ref points at a hidden (lg:hidden) node, and
+    // yanking the viewport while the user reads the map is unwanted.
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    if (isMobile && selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
       const t = setTimeout(() => {
         floatPlanCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
@@ -457,9 +488,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-            <span className="text-3xl">:/</span>
-          </div>
+          <Image
+            src={EDDY_IMAGES.flag}
+            alt="Eddy the otter"
+            width={72}
+            height={72}
+            className="mx-auto mb-4 object-contain"
+          />
           <h2 className="text-xl font-bold text-neutral-900 mb-2">River Not Found</h2>
           <p className="text-neutral-600 mb-4">
             We couldn&apos;t find that river. Try picking another.
@@ -500,6 +535,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             onShare={handleShare}
             onDownloadImage={handleDownloadImage}
             shareStatus={shareStatus}
+            selectedVesselTypeId={selectedVesselTypeId}
+            onVesselChange={setSelectedVesselTypeId}
             onReportIssue={handleReportAccessPointIssue}
             onSubmitPhoto={() => setShowVisualSubmitForm(true)}
             pointsAlongRoute={pointsAlongRoute}

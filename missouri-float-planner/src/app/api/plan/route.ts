@@ -165,7 +165,8 @@ async function _GET(request: NextRequest) {
 
     // Get put-in coordinates for segment-aware gauge selection (fallback)
     // Use location_orig first — location_snap is snapped to simplified seed geometry
-    const putInCoords = putIn.location_orig?.coordinates || putIn.location_snap?.coordinates;
+    const putInCoords = (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates
+      || (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates;
 
     // Get river condition using position-based gauge selection
     // Logic: Use gauge at or upstream of put-in mile
@@ -332,9 +333,9 @@ async function _GET(request: NextRequest) {
       const calcResult = calculateFloatTime(
         distanceMiles,
         {
-          speedLowWater: parseFloat(vesselType.speed_low_water),
-          speedNormal: parseFloat(vesselType.speed_normal),
-          speedHighWater: parseFloat(vesselType.speed_high_water),
+          speedLowWater: vesselType.speed_low_water ?? 0,
+          speedNormal: vesselType.speed_normal ?? 0,
+          speedHighWater: vesselType.speed_high_water ?? 0,
         },
         conditionCode
       );
@@ -366,18 +367,18 @@ async function _GET(request: NextRequest) {
         if (geocoded) {
           [putInLng, putInLat] = geocoded;
         } else if (putIn.driving_lat && putIn.driving_lng) {
-          putInLng = parseFloat(putIn.driving_lng);
-          putInLat = parseFloat(putIn.driving_lat);
+          putInLng = putIn.driving_lng;
+          putInLat = putIn.driving_lat;
         } else {
-          const coords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+          const coords = (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates || (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates;
           if (!coords) throw new Error('Missing put-in coordinates');
           [putInLng, putInLat] = coords;
         }
       } else if (putIn.driving_lat && putIn.driving_lng) {
-        putInLng = parseFloat(putIn.driving_lng);
-        putInLat = parseFloat(putIn.driving_lat);
+        putInLng = putIn.driving_lng;
+        putInLat = putIn.driving_lat;
       } else {
-        const coords = putIn.location_snap?.coordinates || putIn.location_orig?.coordinates;
+        const coords = (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates || (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates;
         if (!coords) throw new Error('Missing put-in coordinates');
         [putInLng, putInLat] = coords;
       }
@@ -390,18 +391,18 @@ async function _GET(request: NextRequest) {
         if (geocoded) {
           [takeOutLng, takeOutLat] = geocoded;
         } else if (takeOut.driving_lat && takeOut.driving_lng) {
-          takeOutLng = parseFloat(takeOut.driving_lng);
-          takeOutLat = parseFloat(takeOut.driving_lat);
+          takeOutLng = takeOut.driving_lng;
+          takeOutLat = takeOut.driving_lat;
         } else {
-          const coords = takeOut.location_snap?.coordinates || takeOut.location_orig?.coordinates;
+          const coords = (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates || (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates;
           if (!coords) throw new Error('Missing take-out coordinates');
           [takeOutLng, takeOutLat] = coords;
         }
       } else if (takeOut.driving_lat && takeOut.driving_lng) {
-        takeOutLng = parseFloat(takeOut.driving_lng);
-        takeOutLat = parseFloat(takeOut.driving_lat);
+        takeOutLng = takeOut.driving_lng;
+        takeOutLat = takeOut.driving_lat;
       } else {
-        const coords = takeOut.location_snap?.coordinates || takeOut.location_orig?.coordinates;
+        const coords = (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates || (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates;
         if (!coords) throw new Error('Missing take-out coordinates');
         [takeOutLng, takeOutLat] = coords;
       }
@@ -505,50 +506,50 @@ async function _GET(request: NextRequest) {
       },
       putIn: {
         id: putIn.id,
-        riverId: putIn.river_id,
+        riverId: putIn.river_id ?? '',
         name: putIn.name,
         slug: putIn.slug,
         riverMile: parseFloat(segmentData.start_river_mile),
         type: putIn.type as AccessPointType,
         types: (putIn.types || (putIn.type ? [putIn.type] : [])) as AccessPointType[],
-        isPublic: putIn.is_public,
+        isPublic: putIn.is_public ?? false,
         ownership: putIn.ownership,
         description: putIn.description,
         amenities: putIn.amenities || [],
         parkingInfo: putIn.parking_info,
         roadAccess: putIn.road_access,
         facilities: putIn.facilities,
-        feeRequired: putIn.fee_required,
+        feeRequired: putIn.fee_required ?? false,
         feeNotes: putIn.fee_notes,
         directionsOverride: putIn.directions_override || null,
         imageUrls: putIn.image_urls || [],
         coordinates: {
-          lng: putIn.location_orig?.coordinates?.[0] || putIn.location_snap?.coordinates?.[0] || 0,
-          lat: putIn.location_orig?.coordinates?.[1] || putIn.location_snap?.coordinates?.[1] || 0,
+          lng: (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] || (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
+          lat: (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates?.[1] || (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates?.[1] || 0,
         },
       },
       takeOut: {
         id: takeOut.id,
-        riverId: takeOut.river_id,
+        riverId: takeOut.river_id ?? '',
         name: takeOut.name,
         slug: takeOut.slug,
         riverMile: parseFloat(segmentData.end_river_mile),
         type: takeOut.type as AccessPointType,
         types: (takeOut.types || (takeOut.type ? [takeOut.type] : [])) as AccessPointType[],
-        isPublic: takeOut.is_public,
+        isPublic: takeOut.is_public ?? false,
         ownership: takeOut.ownership,
         description: takeOut.description,
         amenities: takeOut.amenities || [],
         parkingInfo: takeOut.parking_info,
         roadAccess: takeOut.road_access,
         facilities: takeOut.facilities,
-        feeRequired: takeOut.fee_required,
+        feeRequired: takeOut.fee_required ?? false,
         feeNotes: takeOut.fee_notes,
         directionsOverride: takeOut.directions_override || null,
         imageUrls: takeOut.image_urls || [],
         coordinates: {
-          lng: takeOut.location_orig?.coordinates?.[0] || takeOut.location_snap?.coordinates?.[0] || 0,
-          lat: takeOut.location_orig?.coordinates?.[1] || takeOut.location_snap?.coordinates?.[1] || 0,
+          lng: (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] || (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
+          lat: (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates?.[1] || (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates?.[1] || 0,
         },
       },
       vessel: {
@@ -558,9 +559,9 @@ async function _GET(request: NextRequest) {
         description: vesselType.description || '',
         icon: vesselType.icon || '',
         speeds: {
-          lowWater: parseFloat(vesselType.speed_low_water),
-          normal: parseFloat(vesselType.speed_normal),
-          highWater: parseFloat(vesselType.speed_high_water),
+          lowWater: vesselType.speed_low_water ?? 0,
+          normal: vesselType.speed_normal ?? 0,
+          highWater: vesselType.speed_high_water ?? 0,
         },
       },
       distance: {
@@ -600,18 +601,18 @@ async function _GET(request: NextRequest) {
       },
       hazards: (hazards || []).map(h => ({
         id: h.id,
-        riverId: h.river_id,
+        riverId: h.river_id ?? '',
         name: h.name,
         type: h.type as HazardType,
-        riverMile: parseFloat(h.river_mile_downstream),
+        riverMile: h.river_mile_downstream ?? 0,
         description: h.description,
         severity: h.severity as HazardSeverity,
-        portageRequired: h.portage_required,
+        portageRequired: h.portage_required ?? false,
         portageSide: h.portage_side as 'left' | 'right' | 'either' | null,
         seasonalNotes: h.seasonal_notes,
         coordinates: {
-          lng: h.location?.coordinates?.[0] || 0,
-          lat: h.location?.coordinates?.[1] || 0,
+          lng: (h.location as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
+          lat: (h.location as { coordinates?: number[] } | null)?.coordinates?.[1] || 0,
         },
       })),
       route: {

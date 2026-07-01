@@ -153,8 +153,10 @@ export default function RiverVisualSubmitForm({
         throw new Error(data.error || 'Failed to submit');
       }
 
+      // Show the success confirmation; notify the parent when the user dismisses
+      // it (below) rather than immediately — otherwise the host unmounts this
+      // component and the "Photo Submitted!" screen is never seen.
       setSuccess(true);
-      onSubmitted?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -173,7 +175,7 @@ export default function RiverVisualSubmitForm({
           it will appear in the gallery for others to see.
         </p>
         <button
-          onClick={onClose}
+          onClick={() => { onSubmitted?.(); onClose(); }}
           className="mt-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-700 transition-colors"
         >
           Close

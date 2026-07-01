@@ -33,7 +33,8 @@ async function _GET(
     }
 
     // Get geometry as GeoJSON using PostGIS function
-    const { data: geomData, error: geomError } = await supabase.rpc('get_river_geometry_json', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: geomData, error: geomError } = await (supabase.rpc as any)('get_river_geometry_json', {
       p_slug: slug,
     });
 
@@ -84,7 +85,7 @@ async function _GET(
         id: river.id,
         name: river.name,
         slug: river.slug,
-        lengthMiles: parseFloat(river.length_miles),
+        lengthMiles: river.length_miles ?? 0,
         description: river.description,
         difficultyRating: river.difficulty_rating,
         region: river.region,

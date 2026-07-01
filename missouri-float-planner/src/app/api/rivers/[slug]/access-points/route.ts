@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { AccessPointsResponse, NPSCampgroundInfo } from '@/types/api';
+import type { AccessPointsResponse, NPSCampgroundInfo, AccessPointType, NearbyService } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -119,11 +119,11 @@ async function _GET(
         // The snap coordinates are currently snapped to simplified seed geometry
         // TODO: Revert to snap-first when NHD river data is imported
         const lng =
-          ap.location_orig?.coordinates?.[0] ||
-          ap.location_snap?.coordinates?.[0];
+          (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] ||
+          (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0];
         const lat =
-          ap.location_orig?.coordinates?.[1] ||
-          ap.location_snap?.coordinates?.[1];
+          (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[1] ||
+          (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[1];
 
         // Skip points with missing or invalid coordinates
         if (lng === undefined || lat === undefined || lng === null || lat === null) {
@@ -141,20 +141,20 @@ async function _GET(
 
         return {
           id: ap.id,
-          riverId: ap.river_id,
+          riverId: ap.river_id ?? '',
           name: ap.name,
           slug: ap.slug,
-          riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : 0,
-          type: ap.type,
-          types: ap.types || (ap.type ? [ap.type] : []),
-          isPublic: ap.is_public,
+          riverMile: ap.river_mile_downstream ?? 0,
+          type: ap.type as AccessPointType,
+          types: (ap.types || (ap.type ? [ap.type] : [])) as AccessPointType[],
+          isPublic: ap.is_public ?? false,
           ownership: ap.ownership,
           description: ap.description,
           amenities: ap.amenities || [],
           parkingInfo: ap.parking_info,
           roadAccess: ap.road_access,
           facilities: ap.facilities,
-          feeRequired: ap.fee_required,
+          feeRequired: ap.fee_required ?? false,
           feeNotes: ap.fee_notes,
           directionsOverride: ap.directions_override,
           imageUrls: ap.image_urls || [],
@@ -166,7 +166,7 @@ async function _GET(
           managingAgency: ap.managing_agency || null,
           officialSiteUrl: ap.official_site_url || null,
           localTips: ap.local_tips || null,
-          nearbyServices: ap.nearby_services || [],
+          nearbyServices: (ap.nearby_services as unknown as NearbyService[]) || [],
           // NPS campground data
           npsCampground: ap.nps_campground_id
             ? npsMap.get(ap.nps_campground_id) || null

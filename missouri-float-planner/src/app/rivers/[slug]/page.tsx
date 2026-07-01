@@ -94,7 +94,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     };
     const conditionText = conditionLabels[conditionCode] || '';
 
-    const lengthMiles = river.length_miles ? parseFloat(river.length_miles).toFixed(1) : '';
+    const lengthMiles = river.length_miles ? river.length_miles.toFixed(1) : '';
     const title = conditionText ? `${river.name} — ${conditionText}` : river.name;
     const ogTitle = `${river.name} | Float Trip Guide`;
 
@@ -207,7 +207,7 @@ export default async function RiverGuidePage({ params }: Props) {
     }
   }
 
-  const lengthMiles = river.length_miles ? parseFloat(river.length_miles) : null;
+  const lengthMiles = river.length_miles ?? null;
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -374,7 +374,7 @@ export default async function RiverGuidePage({ params }: Props) {
               Live report
             </h2>
             <p className="text-sm text-neutral-600 mb-5">
-              Real-time USGS gauge readings. Pick a gauge near your put-in.
+              USGS gauge readings, updated hourly. Pick a gauge near your put-in.
             </p>
             <RiverGaugeDetail riverSlug={slug} />
           </section>
@@ -424,7 +424,7 @@ export default async function RiverGuidePage({ params }: Props) {
                     className="flex items-center gap-4 px-4 py-3.5 bg-white border border-neutral-200 rounded-xl hover:bg-primary-50 hover:border-primary-300 transition-colors no-underline"
                   >
                     <div className="w-12 flex-shrink-0 text-sm font-mono font-medium text-primary-600">
-                      {ap.river_mile_downstream != null ? `mi ${parseFloat(ap.river_mile_downstream).toFixed(0)}` : '—'}
+                      {ap.river_mile_downstream != null ? `mi ${ap.river_mile_downstream.toFixed(0)}` : '—'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-neutral-900 text-sm truncate">{ap.name}</div>

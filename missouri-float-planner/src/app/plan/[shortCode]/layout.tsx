@@ -67,9 +67,9 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
 
     // Fetch river and access points in parallel
     const [riverResult, putInResult, takeOutResult] = await Promise.all([
-      supabase.from('rivers').select('name, slug, region').eq('id', savedPlan.river_id).single(),
-      supabase.from('access_points').select('name').eq('id', savedPlan.start_access_id).single(),
-      supabase.from('access_points').select('name').eq('id', savedPlan.end_access_id).single(),
+      supabase.from('rivers').select('name, slug, region').eq('id', savedPlan.river_id ?? '').single(),
+      supabase.from('access_points').select('name').eq('id', savedPlan.start_access_id ?? '').single(),
+      supabase.from('access_points').select('name').eq('id', savedPlan.end_access_id ?? '').single(),
     ]);
 
     const riverName = riverResult.data?.name || 'River';
@@ -77,7 +77,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const takeOutName = takeOutResult.data?.name || 'End';
 
     const distanceMiles = savedPlan.distance_miles
-      ? parseFloat(savedPlan.distance_miles).toFixed(1)
+      ? savedPlan.distance_miles.toFixed(1)
       : '';
     const floatTimeFormatted = savedPlan.estimated_float_minutes
       ? formatMinutes(savedPlan.estimated_float_minutes)

@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
-import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
+import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
   handleNavClick,
@@ -58,7 +58,11 @@ function getEddyImageForCondition(code: ConditionCode): string {
   }
 }
 
-// Condition display config
+// Condition display config. Labels come from the canonical condition system
+// (CONDITION_SHORT_LABELS → shared/condition-system.ts) so this card can never
+// drift from the rest of the app; only the solid-badge color treatment (which is
+// specific to this component) is defined locally. Hues match the canonical
+// palette (too_low = stone, unknown = neutral/gray).
 const CONDITION_CONFIG: Record<ConditionCode, {
   label: string;
   emoji: string;
@@ -67,49 +71,49 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   borderClass: string;
 }> = {
   flowing: {
-    label: 'Flowing',
+    label: CONDITION_SHORT_LABELS.flowing,
     emoji: '✓',
     bgClass: 'bg-emerald-500',
     textClass: 'text-white',
     borderClass: 'border-emerald-400',
   },
   good: {
-    label: 'Good',
+    label: CONDITION_SHORT_LABELS.good,
     emoji: '✓',
     bgClass: 'bg-lime-500',
     textClass: 'text-white',
     borderClass: 'border-lime-400',
   },
   low: {
-    label: 'Low',
+    label: CONDITION_SHORT_LABELS.low,
     emoji: '↓',
     bgClass: 'bg-yellow-500',
     textClass: 'text-neutral-900',
     borderClass: 'border-yellow-400',
   },
   too_low: {
-    label: 'Too Low',
+    label: CONDITION_SHORT_LABELS.too_low,
     emoji: '⚠',
-    bgClass: 'bg-neutral-400',
+    bgClass: 'bg-stone-500',
     textClass: 'text-white',
-    borderClass: 'border-neutral-300',
+    borderClass: 'border-stone-400',
   },
   high: {
-    label: 'High',
+    label: CONDITION_SHORT_LABELS.high,
     emoji: '⚡',
     bgClass: 'bg-orange-500',
     textClass: 'text-white',
     borderClass: 'border-orange-400',
   },
   dangerous: {
-    label: 'Flood',
+    label: CONDITION_SHORT_LABELS.dangerous,
     emoji: '🚫',
     bgClass: 'bg-red-600',
     textClass: 'text-white',
     borderClass: 'border-red-400',
   },
   unknown: {
-    label: 'Unknown',
+    label: CONDITION_SHORT_LABELS.unknown,
     emoji: '?',
     bgClass: 'bg-neutral-500',
     textClass: 'text-white',
@@ -173,7 +177,7 @@ interface FloatPlanCardProps {
   onClearTakeOut: () => void;
   onShare: () => void;
   onDownloadImage: () => void;
-  shareStatus?: 'idle' | 'copied';
+  shareStatus?: 'idle' | 'copied' | 'saving';
   riverSlug: string;
   riverName?: string;
   vesselTypeId: string | null;
@@ -1099,7 +1103,7 @@ function MobileBottomSheet({
   onVesselChange: (id: string) => void;
   onShare: () => void;
   onDownloadImage: () => void;
-  shareStatus?: 'idle' | 'copied';
+  shareStatus?: 'idle' | 'copied' | 'saving';
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }) {
@@ -1618,14 +1622,17 @@ export default function FloatPlanCard({
             <div className="flex gap-3">
               <button
                 onClick={onShare}
+                disabled={shareStatus === 'saving'}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                   shareStatus === 'copied'
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                }`}
+                } ${shareStatus === 'saving' ? 'opacity-70 cursor-wait' : ''}`}
               >
-                {shareStatus === 'copied' ? <Check size={16} /> : <Share2 size={16} />}
-                {shareStatus === 'copied' ? 'Copied!' : 'Share Link'}
+                {shareStatus === 'saving'
+                  ? <span className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                  : shareStatus === 'copied' ? <Check size={16} /> : <Share2 size={16} />}
+                {shareStatus === 'saving' ? 'Saving…' : shareStatus === 'copied' ? 'Copied!' : 'Share Link'}
               </button>
               <button
                 onClick={onDownloadImage}

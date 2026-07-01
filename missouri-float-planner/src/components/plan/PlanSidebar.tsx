@@ -7,9 +7,10 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Camera, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
-import { getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition, LABEL_BY_CONDITION } from '@/constants';
+import { useVesselTypes } from '@/hooks/useVesselTypes';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -29,7 +30,9 @@ interface PlanSidebarProps {
   onClearTakeOut: () => void;
   onShare: () => void;
   onDownloadImage: () => void;
-  shareStatus: 'idle' | 'copied';
+  shareStatus: 'idle' | 'copied' | 'saving';
+  selectedVesselTypeId: string | null;
+  onVesselChange: (id: string) => void;
   onReportIssue?: (point: AccessPoint) => void;
   onSubmitPhoto?: () => void;
   pointsAlongRoute?: RouteItem[];
@@ -49,12 +52,21 @@ export default function PlanSidebar({
   onShare,
   onDownloadImage,
   shareStatus,
+  selectedVesselTypeId,
+  onVesselChange,
   onReportIssue,
   onSubmitPhoto,
   pointsAlongRoute = [],
 }: PlanSidebarProps) {
   const [showEddySays, setShowEddySays] = useState(false);
   const hasBothPoints = putInPoint && takeOutPoint;
+
+  // Vessel toggle (canoe vs. raft) — the same control the mobile FloatPlanCard
+  // shows. Float time depends on vessel, so desktop users need it too.
+  const { data: vesselTypes } = useVesselTypes();
+  const canoeVessel = vesselTypes?.find((v) => v.slug === 'canoe');
+  const raftVessel = vesselTypes?.find((v) => v.slug === 'raft');
+  const conditionBadge = LABEL_BY_CONDITION[conditionCode] ?? LABEL_BY_CONDITION.unknown;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -132,8 +144,73 @@ export default function PlanSidebar({
           </div>
         )}
 
-        {/* Upstream warning — distance, float time, and vessel choice all
-            live elsewhere now (map badge / mobile FloatPlanCard). */}
+        {/* Route stats — distance, estimated float time, and condition. The
+            single most important answer ("how long is this float?") lives here
+            on desktop, not only in the transient map badge. */}
+        {hasBothPoints && plan && (
+          <div className="bg-neutral-50 rounded-xl p-3">
+            <div className="flex items-baseline justify-center gap-3">
+              <div className="text-center">
+                <p className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{plan.distance.formatted}</p>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
+              </div>
+              <span className="text-neutral-300 text-lg">|</span>
+              <div className="text-center">
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-6">
+                    <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <p className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{plan.floatTime?.formatted || '--'}</p>
+                )}
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 inline-flex items-center gap-0.5">
+                  Est. Time
+                  <span className="relative group/tip inline-flex">
+                    <Info className="w-3 h-3 text-neutral-400 cursor-help" />
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity z-50 normal-case tracking-normal">
+                      Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
+                    </span>
+                  </span>
+                </p>
+              </div>
+              <span className="text-neutral-300 text-lg">|</span>
+              <div className="text-center">
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${conditionBadge.className}`}>
+                  {conditionBadge.text}
+                </span>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">Condition</p>
+              </div>
+            </div>
+
+            {/* Vessel toggle */}
+            {canoeVessel && raftVessel && (
+              <div className="flex justify-center mt-3">
+                <div className="inline-flex items-center rounded-lg p-0.5 border border-neutral-200 bg-white">
+                  <button
+                    onClick={() => onVesselChange(canoeVessel.id)}
+                    disabled={isLoading}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} ${
+                      selectedVesselTypeId === canoeVessel.id ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
+                    }`}
+                  >
+                    🛶 Canoe
+                  </button>
+                  <button
+                    onClick={() => onVesselChange(raftVessel.id)}
+                    disabled={isLoading}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} ${
+                      selectedVesselTypeId === raftVessel.id ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
+                    }`}
+                  >
+                    🚣 Raft
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Upstream warning */}
         {hasBothPoints && plan && plan.putIn.riverMile > plan.takeOut.riverMile && (
           <div className="flex items-center gap-1.5 px-2.5 py-2 bg-red-50 border border-red-200 rounded-md text-[11px] text-red-700 font-medium">
             <span>⚠</span> Upstream — paddling against current
@@ -230,14 +307,17 @@ export default function PlanSidebar({
           <div className="flex gap-2">
             <button
               onClick={onShare}
+              disabled={shareStatus === 'saving'}
               className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                 shareStatus === 'copied'
                   ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
                   : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
-              }`}
+              } ${shareStatus === 'saving' ? 'opacity-70 cursor-wait' : ''}`}
             >
-              {shareStatus === 'copied' ? <Check size={13} /> : <Share2 size={13} />}
-              {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+              {shareStatus === 'saving'
+                ? <span className="w-3 h-3 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                : shareStatus === 'copied' ? <Check size={13} /> : <Share2 size={13} />}
+              {shareStatus === 'saving' ? 'Saving…' : shareStatus === 'copied' ? 'Copied!' : 'Share'}
             </button>
             <button
               onClick={onDownloadImage}

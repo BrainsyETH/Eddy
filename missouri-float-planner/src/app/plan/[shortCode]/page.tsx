@@ -7,8 +7,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import Image from 'next/image';
+import { Check } from 'lucide-react';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { EDDY_IMAGES } from '@/constants';
 import type { FloatPlan } from '@/types/api';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -29,6 +32,7 @@ export default function SharedPlanPage() {
   const [plan, setPlan] = useState<FloatPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchPlan() {
@@ -70,7 +74,8 @@ export default function SharedPlanPage() {
 
     try {
       await navigator.clipboard.writeText(shareUrl);
-      alert('Link copied to clipboard!');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       window.prompt('Copy this link:', shareUrl);
     }
@@ -91,11 +96,18 @@ export default function SharedPlanPage() {
     return (
       <div className="min-h-[60vh] bg-neutral-50 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-            <span className="text-3xl">:/</span>
-          </div>
+          <Image
+            src={EDDY_IMAGES.flag}
+            alt="Eddy the otter"
+            width={80}
+            height={80}
+            className="mx-auto mb-4 object-contain"
+          />
           <h1 className="text-2xl font-bold text-neutral-900 mb-3">Plan Not Found</h1>
           <p className="text-neutral-600 mb-6">{error}</p>
+          <Link href="/plan" className="inline-block px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors no-underline">
+            Plan a new float
+          </Link>
         </div>
       </div>
     );
@@ -109,6 +121,17 @@ export default function SharedPlanPage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
+      {/* Non-blocking "copied" toast (replaces a blocking alert()) */}
+      {copied && (
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-900 text-white text-sm font-medium shadow-lg"
+        >
+          <Check size={16} className="text-emerald-400" />
+          Link copied to clipboard
+        </div>
+      )}
+
       {/* Plan title bar */}
       <div className="flex-shrink-0 px-4 py-3 bg-white border-b-2 border-neutral-200">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">

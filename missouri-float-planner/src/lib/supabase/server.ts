@@ -3,13 +3,8 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import type { Database } from '@/types/database';
 
-// NOTE: This client is intentionally untyped. Passing <Database> from
-// src/types/database.ts currently produces ~700 type errors because the
-// generated types are stale relative to the 153 applied migrations. Typing
-// this client is tracked as a dedicated task: regenerate database.ts from the
-// live schema (`supabase gen types`), then re-introduce the generic and clean
-// up the resulting call-site mismatches incrementally.
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,7 +15,7 @@ export async function createClient() {
 
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     supabaseUrl,
     supabaseAnonKey,
     {

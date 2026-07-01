@@ -55,12 +55,14 @@ function AccessPointCard({
   let labelText = '';
 
   if (isPutIn) {
-    borderClass = 'border-green-500 border-2';
-    bgClass = 'bg-green-50';
+    // Brand tokens: support (green) = put-in, matching the route line elsewhere.
+    borderClass = 'border-support-500 border-2';
+    bgClass = 'bg-support-50';
     labelText = 'PUT-IN';
   } else if (isTakeOut) {
-    borderClass = 'border-red-500 border-2';
-    bgClass = 'bg-red-50';
+    // accent (coral) = take-out, matching the route line elsewhere.
+    borderClass = 'border-accent-500 border-2';
+    bgClass = 'bg-accent-50';
     labelText = 'TAKE-OUT';
   }
 
@@ -618,7 +620,7 @@ export default function AccessPointStrip({
             height={120}
             className="w-8 h-8 object-contain"
           />
-          <span className="text-[10px] font-bold text-neutral-600 whitespace-nowrap leading-tight text-center">Plan Your<br/>Float</span>
+          <span className="text-[10px] font-bold text-neutral-600 whitespace-nowrap leading-tight text-center">Tap to<br/>Plan</span>
         </div>
 
         {/* Scrollable cards area */}

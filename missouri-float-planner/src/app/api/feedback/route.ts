@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     // Insert feedback
-    const { data, error: insertError } = await supabase
-      .from('feedback')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error: insertError } = await (supabase.from as any)('feedback')
       .insert({
         feedback_type: feedbackType,
         user_name: userName?.trim() || null,
