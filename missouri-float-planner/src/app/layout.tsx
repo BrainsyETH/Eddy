@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import { Fredoka } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
+import OfflineBanner from "@/components/ui/OfflineBanner";
 import AnalyticsListener from "@/components/AnalyticsListener";
 import { SOCIAL_SAME_AS } from "@/constants/social";
 
@@ -128,6 +129,7 @@ export default function RootLayout({
           >
             Skip to main content
           </a>
+          <OfflineBanner />
           <SiteHeader />
           <main id="main-content">{children}</main>
         </Providers>

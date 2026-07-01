@@ -3,7 +3,7 @@
 // src/components/ui/FeedbackModal.tsx
 // Modal for submitting feedback and data issue reports
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Flag, Send, CheckCircle } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { FeedbackType, FeedbackContext } from '@/types/api';
@@ -107,6 +107,14 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
   };
 
   const dialogRef = useFocusTrap<HTMLDivElement>(isOpen, handleClose);
+
+  // Lock background scroll while the modal is open (restore on close/unmount).
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

@@ -199,6 +199,13 @@ function Lightbox({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, visuals.length, onClose, onNavigate]);
 
+  // Lock background scroll while the lightbox is open (restore on unmount).
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"

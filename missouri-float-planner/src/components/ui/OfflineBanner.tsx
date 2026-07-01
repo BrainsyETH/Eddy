@@ -28,9 +28,11 @@ export default function OfflineBanner() {
   if (!isOffline) return null;
 
   return (
+    // Normal document flow (rendered above the sticky site header in the root
+    // layout) so it pushes the header down when offline instead of covering it.
     <div
       role="status"
-      className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-amber-950 text-xs sm:text-sm font-medium px-4 py-1.5 flex items-center justify-center gap-2 shadow-md"
+      className="w-full bg-amber-500 text-amber-950 text-xs sm:text-sm font-medium px-4 py-1.5 flex items-center justify-center gap-2 shadow-md"
     >
       <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
       <span>You&apos;re offline — showing last-loaded data. Conditions may be out of date.</span>

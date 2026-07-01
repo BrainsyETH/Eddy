@@ -95,8 +95,9 @@ export default function AccessPointDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      {/* Sticky Header Bar - z-40 to stay below main site header menu (z-50) */}
-      <div className="sticky top-0 z-40 bg-white border-b border-neutral-200">
+      {/* Sticky sub-header — pinned at top-14 so it sits BELOW the 56px site
+          header (sticky top-0 z-50) instead of being occluded behind it. */}
+      <div className="sticky top-14 z-40 bg-white border-b border-neutral-200">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
           <Breadcrumbs
             items={[

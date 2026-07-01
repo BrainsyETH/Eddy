@@ -13,19 +13,7 @@ import type { ConditionCode } from '@/types/api';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import RiverCard from '@/components/gauge/RiverCard';
-
-// Pill background color for active condition filter
-const getComputedPillColor = (code: ConditionCode): string => {
-  switch (code) {
-    case 'too_low': return '#737373';
-    case 'low': return '#eab308';
-    case 'good': return '#84cc16';
-    case 'flowing': return '#10b981';
-    case 'high': return '#f97316';
-    case 'dangerous': return '#ef4444';
-    default: return '#737373';
-  }
-};
+import { conditionColor } from '@shared/condition-system';
 
 export default function RiverReportsGrid() {
   const searchParams = useSearchParams();
@@ -178,7 +166,7 @@ export default function RiverReportsGrid() {
                     ? 'text-white shadow-sm'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
-                style={isActive ? { backgroundColor: getComputedPillColor(stat.key) } : undefined}
+                style={isActive ? { backgroundColor: conditionColor(stat.key) } : undefined}
               >
                 {!isActive && <span className={`w-2 h-2 rounded-full ${stat.dot}`} />}
                 {stat.label}
