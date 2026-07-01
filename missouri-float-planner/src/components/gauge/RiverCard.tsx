@@ -15,6 +15,7 @@ import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS, RIVER_NOTES } from '@/data/eddy-quotes';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
+import GaugeTrendContext from '@/components/gauge/GaugeTrendContext';
 
 interface RiverCardProps {
   riverGroup: RiverGroup;
@@ -132,6 +133,11 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Plain-language trend + how today compares to the recent window */}
+        <div className="px-4 sm:px-5 pb-1">
+          <GaugeTrendContext siteId={primaryGauge.usgsSiteId} currentValue={latestValue} unit={displayUnit} />
         </div>
 
         {/* 14-Day Chart with threshold lines */}
