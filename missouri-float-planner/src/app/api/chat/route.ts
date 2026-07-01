@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { EDDY_TOOLS } from '@/lib/chat/tools';
 import { executeToolCall } from '@/lib/chat/tool-handlers';
-import { STATIC_SYSTEM_PROMPT, buildDynamicContext } from '@/lib/chat/system-prompt';
+import { getStaticSystemPrompt, buildDynamicContext } from '@/lib/chat/system-prompt';
 import { TOOL_LABELS } from '@/lib/chat/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
@@ -60,7 +60,10 @@ async function _POST(request: Request) {
   const recentMessages = body.messages.slice(-10);
 
   const client = new Anthropic({ apiKey: anthropicKey });
-  const dynamicContext = buildDynamicContext(body.riverSlug);
+  const [staticSystemPrompt, dynamicContext] = await Promise.all([
+    getStaticSystemPrompt(),
+    buildDynamicContext(body.riverSlug),
+  ]);
 
   // Track for logging
   const startTime = Date.now();
@@ -97,7 +100,7 @@ async function _POST(request: Request) {
             system: [
               {
                 type: 'text',
-                text: STATIC_SYSTEM_PROMPT,
+                text: staticSystemPrompt,
                 cache_control: { type: 'ephemeral' },
               },
               {

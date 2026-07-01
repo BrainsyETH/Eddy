@@ -15,8 +15,12 @@ export interface WeatherData {
   rain3hInches: number;
 }
 
-// Map river slugs to nearby cities for weather lookup
-const RIVER_CITY_MAP: Record<string, { city: string; lat: number; lon: number }> = {
+/**
+ * @deprecated Fallback only — the source of truth is rivers.weather_city /
+ * weather_lat / weather_lon (seeded by migration 00142). Do not add rivers
+ * here; use getWeatherPointForRiver().
+ */
+const LEGACY_RIVER_CITY_MAP: Record<string, { city: string; lat: number; lon: number }> = {
   'current': { city: 'Van Buren', lat: 36.9956, lon: -91.0146 },
   'meramec': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
   'eleven-point': { city: 'Alton', lat: 36.6942, lon: -91.3993 },
@@ -27,8 +31,25 @@ const RIVER_CITY_MAP: Record<string, { city: string; lat: number; lon: number }>
   'courtois': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
 };
 
-export function getCityForRiver(riverSlug: string): { city: string; lat: number; lon: number } | null {
-  return RIVER_CITY_MAP[riverSlug] || null;
+/**
+ * Weather reference point for a river, from rivers.weather_* columns with the
+ * legacy hardcoded map as fallback.
+ */
+export async function getWeatherPointForRiver(
+  riverSlug: string
+): Promise<{ city: string; lat: number; lon: number } | null> {
+  try {
+    // Lazy import avoids pulling the admin client into client bundles that
+    // only use the formatting helpers in this module.
+    const { getRiverContext } = await import('@/lib/rivers/context');
+    const ctx = await getRiverContext(riverSlug);
+    if (ctx?.weatherLat != null && ctx?.weatherLon != null) {
+      return { city: ctx.weatherCity || ctx.name, lat: ctx.weatherLat, lon: ctx.weatherLon };
+    }
+  } catch (e) {
+    console.warn(`[Weather] River context lookup failed for ${riverSlug}:`, e);
+  }
+  return LEGACY_RIVER_CITY_MAP[riverSlug] || null;
 }
 
 export async function fetchWeather(

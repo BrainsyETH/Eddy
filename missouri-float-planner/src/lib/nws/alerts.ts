@@ -28,11 +28,14 @@ const RIVER_ALERT_EVENTS = [
 ];
 
 /**
- * Fetches active NWS alerts for Missouri that are relevant to river conditions.
- * Uses the free weather.gov API (no API key needed).
+ * Fetches active NWS alerts relevant to river conditions for one state.
+ * Uses the free weather.gov API (no API key needed). NWS covers US states and
+ * territories only — non-US regions will need a different alert provider.
+ *
+ * @param stateCode Two-letter state/territory code (from rivers.state)
  */
-export async function fetchNWSAlerts(): Promise<NWSAlert[]> {
-  const url = 'https://api.weather.gov/alerts/active?area=MO';
+export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert[]> {
+  const url = `https://api.weather.gov/alerts/active?area=${encodeURIComponent(stateCode)}`;
 
   const response = await fetch(url, {
     headers: {
@@ -80,12 +83,16 @@ export async function fetchNWSAlerts(): Promise<NWSAlert[]> {
 
 /**
  * Filters alerts to those mentioning specific river names or nearby counties.
+ * Search terms come from rivers.alert_search_terms (per-river data); the
+ * legacy hardcoded map remains as a fallback for rows that predate the
+ * migration.
  */
 export function filterAlertsForRiver(
   alerts: NWSAlert[],
-  riverSlug: string
+  riverSlug: string,
+  searchTerms?: string[] | null
 ): NWSAlert[] {
-  const riverTerms = RIVER_SEARCH_TERMS[riverSlug];
+  const riverTerms = searchTerms?.length ? searchTerms : LEGACY_RIVER_SEARCH_TERMS[riverSlug];
   if (!riverTerms) return alerts; // Return all if no specific terms
 
   return alerts.filter((alert) => {
@@ -94,8 +101,11 @@ export function filterAlertsForRiver(
   });
 }
 
-// Map river slugs to search terms for filtering NWS alerts
-const RIVER_SEARCH_TERMS: Record<string, string[]> = {
+/**
+ * @deprecated Fallback only — the source of truth is rivers.alert_search_terms
+ * (seeded by migration 00142). Do not add rivers here.
+ */
+const LEGACY_RIVER_SEARCH_TERMS: Record<string, string[]> = {
   current: ['current river', 'shannon county', 'dent county', 'carter county', 'van buren', 'eminence'],
   meramec: ['meramec', 'crawford county', 'franklin county', 'sullivan', 'steelville'],
   'eleven-point': ['eleven point', 'oregon county', 'alton'],

@@ -20,7 +20,7 @@ import { overlayLiveConditions } from './live-conditions';
 
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
-import { getCentralDay, getCentralMinutes } from './central-time';
+import { getLocalDay, getLocalMinutes } from './local-time';
 import type {
   SocialCustomContent,
   SocialPlatform,
@@ -29,6 +29,11 @@ import type {
 } from './types';
 
 const LOG_PREFIX = '[SocialScheduler]';
+
+// Scheduling zone for the current run — set from social_config.timezone when
+// the scheduler loads its config (defaults to Central for legacy configs).
+// Times stored in *_time_cst fields are interpreted in this zone.
+let schedulerZone = 'America/Chicago';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 type DayKey = (typeof DAY_KEYS)[number];
@@ -85,6 +90,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     diag.skipped_reasons.push(`config_error: ${configError}`);
     return { posts: [], diagnostics: diag };
   }
+
+  schedulerZone = (config as { timezone?: string }).timezone || 'America/Chicago';
 
   diag.posting_enabled = config.posting_enabled;
   diag.digest_enabled = config.digest_enabled;
@@ -170,8 +177,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const posts: ScheduledPost[] = [];
   const baseUrl = 'https://eddy.guide';
 
-  // Pre-compute Central Time day-of-week for video/schedule decisions
-  const cstDay = getCentralDay();
+  // Pre-compute scheduling-zone day-of-week for video/schedule decisions
+  const cstDay = getLocalDay(schedulerZone);
   const todayKey = DAY_KEYS[cstDay];
 
   // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
@@ -543,7 +550,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 // delays the on-time tick. hasPostedToday() dedups, so the wider window can
 // never double-post — it only ever catches an otherwise-missed run.
 function isDueNow(scheduledTimeCst: string, windowMinutes: number = 35): boolean {
-  const nowCstMinutes = getCentralMinutes();
+  const nowCstMinutes = getLocalMinutes(schedulerZone);
 
   const [schedH, schedM] = scheduledTimeCst.split(':').map(Number);
   if (isNaN(schedH) || isNaN(schedM)) return false;

@@ -10,18 +10,34 @@ export interface VesselSpeeds {
 }
 
 /**
+ * Per-river degradation multipliers applied to the low-water vessel speed
+ * (river_characteristics.speed_curve). The defaults are the Ozark-calibrated
+ * values; rivers with different low-water behavior (bedrock, flatwater, dam
+ * tailwater) should carry calibrated overrides in the database.
+ */
+export interface SpeedCurve {
+  low?: number;
+  too_low?: number;
+}
+
+const DEFAULT_SPEED_CURVE: Required<SpeedCurve> = { low: 0.75, too_low: 0.5 };
+
+/**
  * Calculates float time in minutes based on distance, vessel speeds, and water conditions
- * 
+ *
  * @param distanceMiles Distance in miles
  * @param speeds Vessel speed configuration
  * @param conditionCode Current water condition code
+ * @param speedCurve Optional per-river low-water multipliers
  * @returns Float time in minutes, or null if conditions are dangerous
  */
 export function calculateFloatTime(
   distanceMiles: number,
   speeds: VesselSpeeds,
-  conditionCode: ConditionCode
+  conditionCode: ConditionCode,
+  speedCurve?: SpeedCurve | null
 ): { minutes: number; speedMph: number } | null {
+  const curve = { ...DEFAULT_SPEED_CURVE, ...(speedCurve ?? {}) };
   let speedMph: number;
 
   switch (conditionCode) {
@@ -43,13 +59,13 @@ export function calculateFloatTime(
       break;
 
     case 'low':
-      // Very low water slows down significantly — matches DB calculate_float_time()
-      speedMph = speeds.speedLowWater * 0.75;
+      // Very low water slows down significantly — default matches DB calculate_float_time()
+      speedMph = speeds.speedLowWater * curve.low;
       break;
 
     case 'too_low':
-      // Too low water is very slow — matches DB calculate_float_time()
-      speedMph = speeds.speedLowWater * 0.5;
+      // Too low water is very slow — default matches DB calculate_float_time()
+      speedMph = speeds.speedLowWater * curve.too_low;
       break;
 
     case 'unknown':

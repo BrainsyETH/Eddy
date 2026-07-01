@@ -2,7 +2,7 @@
 // Server-side weather API to keep API key secure
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchWeather, getCityForRiver } from '@/lib/weather/openweather';
+import { fetchWeather, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
 
 async function _GET(
@@ -11,7 +11,7 @@ async function _GET(
 ) {
   const { riverSlug } = await params;
 
-  const cityData = getCityForRiver(riverSlug);
+  const cityData = await getWeatherPointForRiver(riverSlug);
   if (!cityData) {
     return NextResponse.json(
       { error: 'City not found for river' },

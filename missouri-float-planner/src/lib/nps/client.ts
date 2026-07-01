@@ -8,7 +8,9 @@ import type {
 } from '@/types/nps';
 
 const NPS_API_BASE = 'https://developer.nps.gov/api/v1';
-const PARK_CODE = 'ozar';
+
+/** Fallback when no river carries a park_code (pre-migration data). */
+export const DEFAULT_PARK_CODE = 'ozar';
 
 function getApiKey(): string {
   const key = process.env.NPS_API_KEY;
@@ -48,23 +50,28 @@ async function fetchNPS<T>(endpoint: string, params: Record<string, string> = {}
 }
 
 /**
- * Fetch all campgrounds for ONSR (park code: ozar)
+ * Fetch all campgrounds for one NPS unit (park code from rivers.park_code,
+ * e.g. 'ozar' = Ozark NSR, 'buff' = Buffalo National River).
  */
-export async function fetchNPSCampgrounds(): Promise<NPSCampgroundRaw[]> {
+export async function fetchNPSCampgrounds(
+  parkCode: string = DEFAULT_PARK_CODE
+): Promise<NPSCampgroundRaw[]> {
   const response = await fetchNPS<NPSCampgroundRaw>('campgrounds', {
-    parkCode: PARK_CODE,
-    limit: '50', // ONSR has 23 campgrounds
+    parkCode,
+    limit: '50',
   });
   return response.data;
 }
 
 /**
- * Fetch all places/POIs for ONSR (park code: ozar)
+ * Fetch all places/POIs for one NPS unit.
  */
-export async function fetchNPSPlaces(): Promise<NPSPlaceRaw[]> {
+export async function fetchNPSPlaces(
+  parkCode: string = DEFAULT_PARK_CODE
+): Promise<NPSPlaceRaw[]> {
   const response = await fetchNPS<NPSPlaceRaw>('places', {
-    parkCode: PARK_CODE,
-    limit: '50', // ONSR has 13 places
+    parkCode,
+    limit: '50',
   });
   return response.data;
 }

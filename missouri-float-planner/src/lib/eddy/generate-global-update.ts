@@ -4,13 +4,15 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getActiveRiverContexts, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
+import { getLocalDateStrings } from '@/lib/social/local-time';
 
 export interface GlobalUpdate {
   quoteText: string;
   sourcesUsed: string[];
 }
 
-const GLOBAL_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozarks float trip planning app. You are writing a brief overall summary of conditions across all Ozarks rivers.
+const GLOBAL_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip planning app. You are writing a brief overall summary of conditions across all covered rivers.
 
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter giving a quick morning briefing.
 
@@ -62,15 +64,19 @@ export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
     return null;
   }
 
-  // Build the prompt with per-river summaries
+  // Build the prompt with per-river summaries. Region label and timezone
+  // come from the active rivers rather than assuming the Missouri Ozarks.
+  const contexts = await getActiveRiverContexts().catch(() => []);
+  const regions = Array.from(new Set(contexts.map((c) => c.region ?? '').filter(Boolean)));
+  const regionLabel = regions.length > 0 ? regions.join(' and ') : 'Ozarks';
+  const timezone = contexts[0]?.timezone ?? DEFAULT_TIMEZONE;
+
   const lines: string[] = [];
 
-  const now = new Date();
-  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
-  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' });
+  const { dayOfWeek, dateStr } = getLocalDateStrings(timezone);
   lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
   lines.push('');
-  lines.push('Generate a brief overall Ozarks river conditions summary based on these per-river updates:');
+  lines.push(`Generate a brief overall ${regionLabel} river conditions summary based on these per-river updates:`);
   lines.push('');
 
   for (const update of recentUpdates) {

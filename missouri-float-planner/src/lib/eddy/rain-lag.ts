@@ -1,7 +1,10 @@
 // src/lib/eddy/rain-lag.ts
 // Static per-river rain-to-river response times and recovery rates.
-// Used by buildPrompt() to give the AI model context about how quickly
-// each river responds to rainfall and recovers from high water.
+//
+// @deprecated Fallback only — the source of truth is the
+// river_characteristics table (rain_lag_hours / rain_lag_note /
+// drop_rate_note, seeded by migration 00142). Do not add rivers here;
+// generate-update.ts reads the DB first and only falls back to this map.
 
 export interface RainLagInfo {
   /** Typical hours from local rain to gauge response */

@@ -5,7 +5,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { toNum } from '@/lib/utils/num';
-import { fetchWeather, fetchForecast, getCityForRiver } from '@/lib/weather/openweather';
+import { fetchWeather, fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime } from '@/lib/calculations/floatTime';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
@@ -349,7 +349,10 @@ async function handleGetRiverHazards(input: Record<string, unknown>) {
 async function handleGetWeather(input: Record<string, unknown>) {
   const riverSlug = normalizeSlug(input.river_slug as string);
 
-  const cityInfo = getCityForRiver(riverSlug);
+  const { getRiverContext } = await import('@/lib/rivers/context');
+  const riverCtx = await getRiverContext(riverSlug);
+
+  const cityInfo = await getWeatherPointForRiver(riverSlug);
   if (!cityInfo) {
     return { error: `No weather location configured for ${riverSlug}` };
   }
@@ -363,10 +366,10 @@ async function handleGetWeather(input: Record<string, unknown>) {
   const [weather, forecast, allAlerts] = await Promise.all([
     fetchWeather(cityInfo.lat, cityInfo.lon, apiKey).catch(() => null),
     fetchForecast(cityInfo.lat, cityInfo.lon, apiKey).catch(() => null),
-    fetchNWSAlerts().catch(() => []),
+    fetchNWSAlerts(riverCtx?.state ?? 'MO').catch(() => []),
   ]);
 
-  const alerts = filterAlertsForRiver(allAlerts, riverSlug);
+  const alerts = filterAlertsForRiver(allAlerts, riverSlug, riverCtx?.alertSearchTerms);
 
   return {
     location: cityInfo.city,

@@ -330,7 +330,10 @@ async function _GET(request: NextRequest) {
         // Will be added to warnings array below
       }
     } else {
-      // Fall back to calculation-based estimate
+      // Fall back to calculation-based estimate, using this river's calibrated
+      // low-water speed curve when one exists (river_characteristics.speed_curve)
+      const { getRiverContext } = await import('@/lib/rivers/context');
+      const riverCtx = await getRiverContext(river.slug).catch(() => null);
       const calcResult = calculateFloatTime(
         distanceMiles,
         {
@@ -338,7 +341,8 @@ async function _GET(request: NextRequest) {
           speedNormal: vesselType.speed_normal != null ? parseFloat(String(vesselType.speed_normal)) : 0,
           speedHighWater: vesselType.speed_high_water != null ? parseFloat(String(vesselType.speed_high_water)) : 0,
         },
-        conditionCode
+        conditionCode,
+        riverCtx?.characteristics?.speedCurve
       );
 
       if (calcResult) {

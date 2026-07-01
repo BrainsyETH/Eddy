@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGaugeReadings } from '@/lib/usgs/gauges';
+import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { publishConditionChangeAlert, isElevatedCrossing, publishStormDigest } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver } from '@/lib/eddy/regenerate';
@@ -45,7 +45,7 @@ async function runUpdate(request: NextRequest) {
     // Get gauge stations based on poll type
     let stationsQuery = supabase
       .from('gauge_stations')
-      .select('id, usgs_site_id, high_frequency_flag')
+      .select('id, usgs_site_id, provider, site_id_external, high_frequency_flag')
       .eq('active', true);
 
     // For high-frequency polls, only fetch gauges with the flag set
@@ -64,11 +64,23 @@ async function runUpdate(request: NextRequest) {
     }
 
     // Type assertion for stations
-    const stations = stationsData as Array<{ 
-      id: string; 
-      usgs_site_id: string; 
+    const rawStations = stationsData as Array<{
+      id: string;
+      usgs_site_id: string | null;
+      provider: string | null;
+      site_id_external: string | null;
       high_frequency_flag: boolean;
     }>;
+
+    // Normalize: provider defaults to usgs; site id prefers the generic
+    // column, falling back to the legacy USGS column.
+    const stations = rawStations
+      .map((s) => ({
+        ...s,
+        provider: s.provider || 'usgs',
+        siteId: s.site_id_external || s.usgs_site_id || '',
+      }))
+      .filter((s) => s.siteId);
 
     if (stations.length === 0) {
       return NextResponse.json({
@@ -80,9 +92,30 @@ async function runUpdate(request: NextRequest) {
       });
     }
 
-    // Fetch readings from USGS (skip cache to ensure fresh data)
-    const siteIds = stations.map(s => s.usgs_site_id);
-    const readings = await fetchGaugeReadings(siteIds, { skipCache: true });
+    // Fetch readings per flow provider (skip cache to ensure fresh data).
+    // Stations are grouped by provider so a failing source can't take down
+    // the others.
+    const byProvider = new Map<string, typeof stations>();
+    for (const station of stations) {
+      const group = byProvider.get(station.provider) || [];
+      group.push(station);
+      byProvider.set(station.provider, group);
+    }
+
+    const readings: GaugeReading[] = [];
+    for (const [providerId, group] of Array.from(byProvider.entries())) {
+      const provider = getFlowProvider(providerId);
+      if (!provider) continue;
+      try {
+        const providerReadings = await provider.fetchLatest(
+          group.map((s) => s.siteId),
+          { skipCache: true }
+        );
+        readings.push(...providerReadings);
+      } catch (providerErr) {
+        console.error(`[Cron] Provider "${providerId}" fetch failed:`, providerErr);
+      }
+    }
 
     // Update database and calculate rate of change
     let updated = 0;
@@ -103,7 +136,7 @@ async function runUpdate(request: NextRequest) {
     }> = [];
 
     for (const reading of readings) {
-      const station = stations.find(s => s.usgs_site_id === reading.siteId);
+      const station = stations.find(s => s.siteId === reading.siteId);
       if (!station) continue;
 
       if (!reading.readingTimestamp) {

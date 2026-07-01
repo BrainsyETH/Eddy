@@ -808,8 +808,10 @@ export type Database = {
           name: string
           notes: string | null
           nws_lid: string | null
+          provider: string
+          site_id_external: string | null
           threshold_descriptions: Json | null
-          usgs_site_id: string
+          usgs_site_id: string | null
         }
         Insert: {
           active?: boolean | null
@@ -820,8 +822,10 @@ export type Database = {
           name: string
           notes?: string | null
           nws_lid?: string | null
+          provider?: string
+          site_id_external?: string | null
           threshold_descriptions?: Json | null
-          usgs_site_id: string
+          usgs_site_id?: string | null
         }
         Update: {
           active?: boolean | null
@@ -832,8 +836,10 @@ export type Database = {
           name?: string
           notes?: string | null
           nws_lid?: string | null
+          provider?: string
+          site_id_external?: string | null
           threshold_descriptions?: Json | null
-          usgs_site_id?: string
+          usgs_site_id?: string | null
         }
         Relationships: []
       }
@@ -1336,6 +1342,56 @@ export type Database = {
           },
         ]
       }
+      river_characteristics: {
+        Row: {
+          drop_rate_note: string | null
+          is_spring_fed: boolean | null
+          low_water_meaning: string | null
+          primary_hazards: string[] | null
+          rain_lag_hours: number | null
+          rain_lag_note: string | null
+          river_id: string
+          river_note: string | null
+          rising_water_hazards: string | null
+          speed_curve: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          drop_rate_note?: string | null
+          is_spring_fed?: boolean | null
+          low_water_meaning?: string | null
+          primary_hazards?: string[] | null
+          rain_lag_hours?: number | null
+          rain_lag_note?: string | null
+          river_id: string
+          river_note?: string | null
+          rising_water_hazards?: string | null
+          speed_curve?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          drop_rate_note?: string | null
+          is_spring_fed?: boolean | null
+          low_water_meaning?: string | null
+          primary_hazards?: string[] | null
+          rain_lag_hours?: number | null
+          rain_lag_note?: string | null
+          river_id?: string
+          river_note?: string | null
+          rising_water_hazards?: string | null
+          speed_curve?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "river_characteristics_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: true
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       river_gauges: {
         Row: {
           accuracy_warning_threshold_miles: number | null
@@ -1633,6 +1689,8 @@ export type Database = {
       rivers: {
         Row: {
           active: boolean | null
+          alert_search_terms: string[] | null
+          country: string
           created_at: string | null
           description: string | null
           difficulty_rating: string | null
@@ -1646,12 +1704,21 @@ export type Database = {
           length_miles: number | null
           name: string
           nhd_feature_id: string | null
+          park_code: string | null
           region: string | null
+          river_type: string
           slug: string
+          state: string
+          timezone: string
           updated_at: string | null
+          weather_city: string | null
+          weather_lat: number | null
+          weather_lon: number | null
         }
         Insert: {
           active?: boolean | null
+          alert_search_terms?: string[] | null
+          country?: string
           created_at?: string | null
           description?: string | null
           difficulty_rating?: string | null
@@ -1665,12 +1732,21 @@ export type Database = {
           length_miles?: number | null
           name: string
           nhd_feature_id?: string | null
+          park_code?: string | null
           region?: string | null
+          river_type?: string
           slug: string
+          state?: string
+          timezone?: string
           updated_at?: string | null
+          weather_city?: string | null
+          weather_lat?: number | null
+          weather_lon?: number | null
         }
         Update: {
           active?: boolean | null
+          alert_search_terms?: string[] | null
+          country?: string
           created_at?: string | null
           description?: string | null
           difficulty_rating?: string | null
@@ -1684,9 +1760,16 @@ export type Database = {
           length_miles?: number | null
           name?: string
           nhd_feature_id?: string | null
+          park_code?: string | null
           region?: string | null
+          river_type?: string
           slug?: string
+          state?: string
+          timezone?: string
           updated_at?: string | null
+          weather_city?: string | null
+          weather_lat?: number | null
+          weather_lon?: number | null
         }
         Relationships: []
       }
@@ -1746,6 +1829,7 @@ export type Database = {
           posting_frequency_hours: number
           river_schedules: Json
           section_guide: Json
+          timezone: string
           updated_at: string
           video_features: Json
           weekly_forecast: Json
@@ -1767,6 +1851,7 @@ export type Database = {
           posting_frequency_hours?: number
           river_schedules?: Json
           section_guide?: Json
+          timezone?: string
           updated_at?: string
           video_features?: Json
           weekly_forecast?: Json
@@ -1788,6 +1873,7 @@ export type Database = {
           posting_frequency_hours?: number
           river_schedules?: Json
           section_guide?: Json
+          timezone?: string
           updated_at?: string
           video_features?: Json
           weekly_forecast?: Json

@@ -1,15 +1,80 @@
 // src/lib/chat/system-prompt.ts
 // Builds the system prompt for Eddy chat.
-// Static block is cached by Anthropic (cache_control: ephemeral).
+// The "static" block is stable between deployments and river-roster changes,
+// so Anthropic prompt caching (cache_control: ephemeral) still applies; it is
+// now assembled from the rivers table instead of a hardcoded 9-river list.
 // Dynamic block changes per request (river context, knowledge, date).
 
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
+import {
+  getActiveRiverContexts,
+  getRiverContext,
+  DEFAULT_TIMEZONE,
+  type RiverContext,
+} from '@/lib/rivers/context';
+import { getLocalDateStrings } from '@/lib/social/local-time';
 
 /**
- * Static system prompt — cached across requests via Anthropic prompt caching.
- * This is ~2.5K tokens and stays identical for every request.
+ * Pronunciation/nickname aliases for the river-name → slug map. Editorial by
+ * nature; rivers without an entry get "Name → slug" generated from the DB.
  */
-export const STATIC_SYSTEM_PROMPT = `You are Eddy, an expert Missouri Ozark float trip guide built into eddy.guide. You talk like a local who's floated every creek in the Ozarks. Casual, direct, opinionated when it helps, always honest. Not a tourism brochure, not a robot.
+const RIVER_ALIASES: Record<string, string> = {
+  huzzah: 'Huzzah / Huzzah Creek',
+  courtois: 'Courtois / "coat-a-way" / Courtois Creek',
+  current: 'Current / Current River',
+  'jacks-fork': "Jacks Fork / Jack's Fork",
+  'eleven-point': 'Eleven Point / 11 Point',
+  meramec: 'Meramec / Merimac / Meremec',
+  'big-piney': 'Big Piney',
+  gasconade: 'Gasconade',
+  niangua: 'Niangua / Niangua River',
+};
+
+function buildPersona(contexts: RiverContext[]): string {
+  const regions = Array.from(new Set(contexts.map((c) => c.region ?? '').filter(Boolean)));
+  const regionLabel = regions.length > 0 ? regions.join(' and ') : 'Ozarks';
+  return `You are Eddy, an expert float trip guide for ${regionLabel} rivers, built into eddy.guide. You talk like a local who's floated every creek in the region. Casual, direct, opinionated when it helps, always honest. Not a tourism brochure, not a robot.`;
+}
+
+function buildSlugMap(contexts: RiverContext[]): string {
+  const lines = contexts.map((c) => {
+    const label = RIVER_ALIASES[c.slug] ?? c.name;
+    return `- ${label} → ${c.slug}`;
+  });
+  return lines.join('\n');
+}
+
+function buildStrategy(contexts: RiverContext[]): string {
+  const bySlug = new Map(contexts.map((c) => [c.slug, c]));
+  const springFed = contexts.filter((c) => c.characteristics?.isSpringFed === true).map((c) => c.name);
+  const quickResponding = contexts
+    .filter((c) => c.characteristics?.isSpringFed === false && (c.characteristics?.rainLagHours ?? 99) <= 4)
+    .map((c) => c.name);
+
+  const lines: string[] = ['Strategy for which rivers to check:'];
+  if (springFed.length > 0) {
+    lines.push(`- Dry weather: check spring-fed rivers first (${springFed.join(', ')})`);
+  }
+  if (quickResponding.length > 0) {
+    lines.push(`- Rainy: quick-responding smaller streams (${quickResponding.join(', ')}) may be at ideal levels`);
+  }
+  // Editorial picks — only mentioned while those rivers are on the roster.
+  if (bySlug.has('current') || bySlug.has('meramec')) {
+    lines.push('- Beginners/families: easier sections of Current or Meramec');
+  }
+  if (bySlug.has('eleven-point') || bySlug.has('gasconade')) {
+    lines.push('- Quiet experience: Eleven Point or upper Gasconade');
+  }
+  if (bySlug.has('huzzah')) {
+    lines.push('- Party float: Huzzah on a Saturday in July (for better or worse)');
+  }
+  return lines.join('\n');
+}
+
+function buildStaticPrompt(contexts: RiverContext[]): string {
+  const riverCount = contexts.length;
+
+  return `${buildPersona(contexts)}
 
 CORE RULES:
 - ALWAYS check river conditions via tools before recommending floating. Never guess at water levels.
@@ -20,20 +85,12 @@ CORE RULES:
 - Never narrate tool usage. Don't say "Let me check" or "I'll search for that." Call tools silently, then respond with the answer.
 
 RIVER NAME → SLUG MAP (use these slugs when calling tools):
-- Huzzah / Huzzah Creek → huzzah
-- Courtois / "coat-a-way" / Courtois Creek → courtois
-- Current / Current River → current
-- Jacks Fork / Jack's Fork → jacks-fork
-- Eleven Point / 11 Point → eleven-point
-- Meramec / Merimac / Meremec → meramec
-- Big Piney → big-piney
-- Gasconade → gasconade
-- Niangua / Niangua River → niangua
+${buildSlugMap(contexts)}
 
 TOOL PRIORITY:
 1. Always check your database tools first (conditions, access points, services)
 2. Use weather tool for forecast and alerts
-3. Use web_search for anything your database doesn't cover: burn bans, local events, campsite reservations, restaurants, fishing regulations, news about river closures, shuttle service hours, or rivers outside your 9 covered rivers
+3. Use web_search for anything your database doesn't cover: burn bans, local events, campsite reservations, restaurants, fishing regulations, news about river closures, shuttle service hours, or rivers outside your ${riverCount} covered rivers
 4. Use your general knowledge for geology, safety tips, ecology, and camping advice
 5. If web_search doesn't find it either, say so honestly. Don't guess
 
@@ -65,24 +122,69 @@ When you check multiple rivers, the UI displays a compact comparison card showin
 - If relevant, add 1 sentence about the runner-up.
 - Only mention other rivers if there's a safety concern (high/dangerous).
 - Total text for multi-river: 2-4 sentences max. The cards handle the data, you handle the opinion.
-Strategy for which rivers to check:
-- Dry weather: check spring-fed rivers first (Current, Jacks Fork, Eleven Point)
-- Rainy: smaller creeks (Huzzah, Courtois) may be at ideal levels
-- Beginners/families: easier sections of Current or Meramec
-- Quiet experience: Eleven Point or upper Gasconade
-- Party float: Huzzah on a Saturday in July (for better or worse)`;
+${buildStrategy(contexts)}`;
+}
+
+/**
+ * Fallback when the rivers table is unreachable — the pre-migration prompt
+ * roster (kept so chat degrades gracefully rather than losing the slug map).
+ */
+const FALLBACK_CONTEXTS: Array<Pick<RiverContext, 'slug' | 'name'>> = [
+  { slug: 'huzzah', name: 'Huzzah Creek' },
+  { slug: 'courtois', name: 'Courtois Creek' },
+  { slug: 'current', name: 'Current River' },
+  { slug: 'jacks-fork', name: 'Jacks Fork' },
+  { slug: 'eleven-point', name: 'Eleven Point' },
+  { slug: 'meramec', name: 'Meramec' },
+  { slug: 'big-piney', name: 'Big Piney' },
+  { slug: 'gasconade', name: 'Gasconade' },
+  { slug: 'niangua', name: 'Niangua' },
+];
+
+/**
+ * Static system prompt, assembled from the active river roster. Stable across
+ * requests (river contexts are cached for 5 minutes), so Anthropic prompt
+ * caching keeps working.
+ */
+export async function getStaticSystemPrompt(): Promise<string> {
+  let contexts: RiverContext[] = [];
+  try {
+    contexts = await getActiveRiverContexts();
+  } catch (e) {
+    console.error('[ChatPrompt] Failed to load river contexts:', e);
+  }
+  if (contexts.length === 0) {
+    // Degrade to the legacy roster with no characteristics-driven strategy.
+    contexts = FALLBACK_CONTEXTS.map((c) => ({
+      id: c.slug,
+      slug: c.slug,
+      name: c.name,
+      region: 'Ozarks',
+      state: 'MO',
+      country: 'US',
+      timezone: DEFAULT_TIMEZONE,
+      riverType: 'spring_fed_float',
+      parkCode: null,
+      weatherCity: null,
+      weatherLat: null,
+      weatherLon: null,
+      alertSearchTerms: null,
+      characteristics: null,
+    }));
+  }
+  return buildStaticPrompt(contexts);
+}
 
 /**
  * Builds the dynamic context block — changes per request.
  * NOT cached. Includes river context, local knowledge, and date.
  */
-export function buildDynamicContext(riverSlug?: string): string {
+export async function buildDynamicContext(riverSlug?: string): Promise<string> {
   const parts: string[] = [];
 
-  // Date context
-  const now = new Date();
-  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
-  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' });
+  // Date context in the river's local timezone (falls back to Central)
+  const riverCtx = riverSlug ? await getRiverContext(riverSlug).catch(() => null) : null;
+  const { dayOfWeek, dateStr } = getLocalDateStrings(riverCtx?.timezone ?? DEFAULT_TIMEZONE);
   parts.push(`Current date: ${dayOfWeek}, ${dateStr}`);
 
   // River context from URL
