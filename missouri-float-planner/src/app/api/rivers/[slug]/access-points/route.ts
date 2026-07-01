@@ -144,7 +144,7 @@ async function _GET(
           riverId: ap.river_id ?? '',
           name: ap.name,
           slug: ap.slug,
-          riverMile: ap.river_mile_downstream ?? 0,
+          riverMile: ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : 0,
           type: ap.type as AccessPointType,
           types: (ap.types || (ap.type ? [ap.type] : [])) as AccessPointType[],
           isPublic: ap.is_public ?? false,

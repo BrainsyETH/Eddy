@@ -52,7 +52,7 @@ async function _GET(
       riverId: h.river_id ?? '',
       name: h.name,
       type: h.type as HazardType,
-      riverMile: h.river_mile_downstream ?? 0,
+      riverMile: h.river_mile_downstream != null ? parseFloat(String(h.river_mile_downstream)) : 0,
       description: h.description,
       severity: h.severity as HazardSeverity,
       portageRequired: h.portage_required ?? false,

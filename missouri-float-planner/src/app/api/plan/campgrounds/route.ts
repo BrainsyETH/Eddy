@@ -65,8 +65,8 @@ async function _GET(request: NextRequest) {
       );
     }
 
-    const startMile = putIn.river_mile_downstream ?? 0;
-    const endMile = takeOut.river_mile_downstream ?? 0;
+    const startMile = putIn.river_mile_downstream != null ? parseFloat(String(putIn.river_mile_downstream)) : 0;
+    const endMile = takeOut.river_mile_downstream != null ? parseFloat(String(takeOut.river_mile_downstream)) : 0;
     const totalDistance = Math.abs(endMile - startMile);
 
     // Call database function to get campgrounds along route

@@ -210,7 +210,7 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
                 ref={emailRef}
                 type="email"
                 value={userEmail}
-                onChange={(e) => { setUserEmail(e.target.value); if (fieldError === 'email') setFieldError(null); }}
+                onChange={(e) => { setUserEmail(e.target.value); if (fieldError === 'email') { setFieldError(null); setError(null); } }}
                 placeholder="you@example.com"
                 aria-invalid={fieldError === 'email'}
                 className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
@@ -234,7 +234,7 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
               <textarea
                 ref={messageRef}
                 value={message}
-                onChange={(e) => { setMessage(e.target.value); if (fieldError === 'message') setFieldError(null); }}
+                onChange={(e) => { setMessage(e.target.value); if (fieldError === 'message') { setFieldError(null); setError(null); } }}
                 placeholder="Please describe the issue or your feedback..."
                 rows={4}
                 aria-invalid={fieldError === 'message'}
