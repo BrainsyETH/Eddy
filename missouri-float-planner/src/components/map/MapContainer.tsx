@@ -234,13 +234,22 @@ export default function MapContainer({
   const toggleExpanded = useCallback(() => {
     setIsExpanded(prev => {
       const next = !prev;
-      // Lock/unlock body scroll when expanding
-      document.body.style.overflow = next ? 'hidden' : '';
       // Resize map after layout change
       setTimeout(() => map.current?.resize(), 50);
       return next;
     });
   }, []);
+
+  // Lock body scroll while the map is expanded fullscreen. Doing this in an
+  // effect (not the click handler) guarantees the previous overflow is always
+  // restored on collapse OR unmount — otherwise navigating away while expanded
+  // would leave the whole app unscrollable.
+  useEffect(() => {
+    if (!isExpanded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isExpanded]);
 
   // Close expanded map on Escape key
   useEffect(() => {

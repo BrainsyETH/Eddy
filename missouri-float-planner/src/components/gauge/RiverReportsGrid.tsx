@@ -13,19 +13,7 @@ import type { ConditionCode } from '@/types/api';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import RiverCard from '@/components/gauge/RiverCard';
-
-// Pill background color for active condition filter
-const getComputedPillColor = (code: ConditionCode): string => {
-  switch (code) {
-    case 'too_low': return '#737373';
-    case 'low': return '#eab308';
-    case 'good': return '#84cc16';
-    case 'flowing': return '#10b981';
-    case 'high': return '#f97316';
-    case 'dangerous': return '#ef4444';
-    default: return '#737373';
-  }
-};
+import { conditionColor } from '@shared/condition-system';
 
 export default function RiverReportsGrid() {
   const searchParams = useSearchParams();
@@ -175,14 +163,16 @@ export default function RiverReportsGrid() {
                 onClick={() => setSelectedCondition(isActive ? 'all' : stat.key)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                   isActive
-                    ? 'text-white shadow-sm'
+                    ? 'shadow-sm'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
-                style={isActive ? { backgroundColor: getComputedPillColor(stat.key) } : undefined}
+                // Near-black ink on the solid condition fill — white text is
+                // illegible on the light conditions (low/good/flowing).
+                style={isActive ? { backgroundColor: conditionColor(stat.key), color: '#1A1814' } : undefined}
               >
                 {!isActive && <span className={`w-2 h-2 rounded-full ${stat.dot}`} />}
                 {stat.label}
-                <span className={`tabular-nums ${isActive ? 'text-white/80' : 'text-neutral-500'}`}>{stat.count}</span>
+                <span className={`tabular-nums ${isActive ? 'text-black/60' : 'text-neutral-500'}`}>{stat.count}</span>
               </button>
             );
           })}

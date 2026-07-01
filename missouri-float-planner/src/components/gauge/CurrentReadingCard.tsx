@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
+import { computeTrend, computePercentile } from '@/lib/gauge-trend';
 
 interface CurrentReadingCardProps {
   siteId: string;
@@ -25,34 +26,14 @@ export default function CurrentReadingCard({
   conditionCode,
   waterTempF,
 }: CurrentReadingCardProps) {
-  const { data: history } = useGaugeHistory(siteId, 7);
-
-  // Calculate trend from historical data
-  const trend = (() => {
-    if (!history?.readings || history.readings.length < 2) return null;
-    const readings = history.readings;
-    const latest = readings[readings.length - 1];
-    // Compare to reading ~6 hours ago
-    const sixHoursAgo = new Date(latest.timestamp).getTime() - 6 * 60 * 60 * 1000;
-    const compareReading = readings.reduce((closest: typeof readings[0] | null, r: typeof readings[0]) => {
-      if (!closest) return r;
-      const diff = Math.abs(new Date(r.timestamp).getTime() - sixHoursAgo);
-      const closestDiff = Math.abs(new Date(closest.timestamp).getTime() - sixHoursAgo);
-      return diff < closestDiff ? r : closest;
-    }, null);
-
-    if (!compareReading || !latest) return null;
-
-    const isFt = thresholdUnit === 'ft';
-    const currentVal = isFt ? latest.gaugeHeightFt : latest.dischargeCfs;
-    const compareVal = isFt ? compareReading.gaugeHeightFt : compareReading.dischargeCfs;
-
-    if (currentVal === null || compareVal === null) return null;
-    const delta = currentVal - compareVal;
-    return { delta, direction: delta > 0.01 ? 'up' : delta < -0.01 ? 'down' : 'stable' as const };
-  })();
+  const { data: history } = useGaugeHistory(siteId, 14);
 
   const isCfsPrimary = thresholdUnit === 'cfs';
+
+  // Plain-language trend (last ~6h) + how today compares to the recent window.
+  const trend = computeTrend(history?.readings, thresholdUnit, 6);
+  const primaryReadingValue = isCfsPrimary ? dischargeCfs : gaugeHeightFt;
+  const percentile = computePercentile(history?.readings, primaryReadingValue, thresholdUnit, 14);
 
   const formatFt = (val: number) => val.toFixed(2);
   const formatCfs = (val: number) => val.toLocaleString();
@@ -60,10 +41,6 @@ export default function CurrentReadingCard({
   // Condition strip — solid color background with short label
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown : null;
   const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
-
-  const trendLabel = trend
-    ? trend.direction === 'up' ? 'Rising' : trend.direction === 'down' ? 'Falling' : 'Steady'
-    : null;
 
   const trendDelta = trend
     ? `${trend.delta > 0 ? '+' : ''}${isCfsPrimary ? Math.round(trend.delta) : trend.delta.toFixed(2)} ${isCfsPrimary ? 'cfs' : 'ft'}`
@@ -133,28 +110,32 @@ export default function CurrentReadingCard({
         </div>
       )}
 
-      {/* Trend indicator — full width */}
-      {trend && (
-        <div className="px-4 pb-4 pt-1 flex items-center justify-between">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${
-            trend.direction === 'up' ? 'bg-white/10 text-emerald-300' :
-            trend.direction === 'down' ? 'bg-white/10 text-blue-300' :
-            'bg-white/10 text-white/50'
-          }`}>
-            {trend.direction === 'up' ? (
-              <TrendingUp className="w-3.5 h-3.5" />
-            ) : trend.direction === 'down' ? (
-              <TrendingDown className="w-3.5 h-3.5" />
-            ) : (
-              <Minus className="w-3.5 h-3.5" />
-            )}
-            <span className="text-sm font-semibold tabular-nums">
-              {trendDelta}
+      {/* Trend + how today compares to the recent window */}
+      {(trend || percentile) && (
+        <div className="px-4 pb-4 pt-1 flex items-center justify-between gap-2">
+          {trend ? (
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${
+              trend.direction === 'rising' ? 'bg-white/10 text-orange-300' :
+              trend.direction === 'falling' ? 'bg-white/10 text-blue-300' :
+              'bg-white/10 text-white/60'
+            }`}>
+              {trend.direction === 'rising' ? (
+                <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : trend.direction === 'falling' ? (
+                <TrendingDown className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : (
+                <Minus className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
+              <span className="text-sm font-semibold">{trend.label}</span>
+              {trendDelta && <span className="text-xs text-white/50 tabular-nums">{trendDelta}</span>}
+            </div>
+          ) : <span />}
+          {percentile && (
+            <span className="text-[10px] text-white/50 text-right leading-tight" title={percentile.descriptor}>
+              {percentile.label}
+              <span className="block text-white/30">last {percentile.windowDays}d</span>
             </span>
-          </div>
-          <span className="text-[10px] text-white/40">
-            {trendLabel} over 6h
-          </span>
+          )}
         </div>
       )}
     </div>

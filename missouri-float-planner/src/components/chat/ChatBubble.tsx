@@ -27,10 +27,12 @@ export default function ChatBubble() {
     ? pathname.split('/')[2] || undefined
     : undefined;
 
-  // Detect the float plan bottom sheet by observing fixed elements at bottom
+  // Detect the float plan bottom sheet via a stable data-attribute hook
+  // (data-plan-sheet on FloatPlanCard's sheet root) rather than a literal
+  // class string, so restyling the sheet can't silently break FAB positioning.
   useEffect(() => {
     const check = () => {
-      const sheet = document.querySelector('.fixed.bottom-0.z-50.rounded-t-3xl');
+      const sheet = document.querySelector('[data-plan-sheet]');
       if (sheet) {
         setBottomSheetVisible(true);
         const height = sheet.getBoundingClientRect().height;
