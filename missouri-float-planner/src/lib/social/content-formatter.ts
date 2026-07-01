@@ -4,6 +4,7 @@
 
 import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { warningCopy, recoveryCopy, FOLLOW_CTA } from '@shared/condition-copy';
 import { canoeHours } from './post-types';
 import type { ConditionCode } from '@/types/api';
 import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
@@ -646,43 +647,78 @@ export function formatConditionChangeCaption(params: {
   newCondition: string;
   gaugeHeightFt: number | null;
   platform: SocialPlatform;
+  /** 'warning' (crossed into elevated) or 'recovery' (all-clear). Default warning. */
+  kind?: 'warning' | 'recovery';
+  /** Plain-language rate, e.g. "up 2.4 ft in 6h". */
+  riseText?: string | null;
 }): { caption: string; hashtags: string[] } {
   const riverName = RIVER_SHORT_NAMES[params.riverSlug] || params.riverSlug;
-  const newShort = SHORT_CONDITION_LABELS[params.newCondition] || params.newCondition;
-  const severity =
-    params.newCondition === 'dangerous' ? 'DANGEROUS' :
-    params.newCondition === 'high' ? 'HIGH WATER' :
-    newShort.toUpperCase();
-  const gaugeText = params.gaugeHeightFt !== null
-    ? ` · ${params.gaugeHeightFt.toFixed(1)} ft`
-    : '';
+  const isRecovery = params.kind === 'recovery';
+  // Severity label shared with the OG cover + reel (shared/condition-copy.ts).
+  const copy = isRecovery
+    ? recoveryCopy(params.newCondition, riverName)
+    : warningCopy(params.newCondition, riverName);
+  const gaugeText = params.gaugeHeightFt !== null ? ` · ${params.gaugeHeightFt.toFixed(1)} ft` : '';
+  const riseSuffix = params.riseText ? ` · ${params.riseText}` : '';
 
   const lines: string[] = [];
 
-  // 0. Warning headline — the first ~125 chars IG shows before "more".
-  // Warning-first so the feed preview reads as a safety alert, not news.
-  lines.push(`⚠️ ${severity} — ${riverName}${gaugeText}`);
-  lines.push('');
-
-  // 1. What changed + what to do
-  if (params.newCondition === 'dangerous') {
-    lines.push(
-      `${riverName} has crossed into dangerous water. Rising levels bring strainers, submerged hazards, and fast current that can overwhelm even experienced paddlers.`,
-    );
+  if (isRecovery) {
+    // All-clear headline — the loop the warning caption promised to close.
+    lines.push(`✅ ${copy.severityLabel} — ${riverName}${gaugeText}${riseSuffix}`);
     lines.push('');
-    lines.push('DO NOT FLOAT until levels drop. Check back in 24–48 hours or wait for the all-clear.');
-  } else if (params.newCondition === 'high') {
-    lines.push(
-      `${riverName} has risen into high water. Stronger current, faster travel, and more hazards than normal — floatable only for experienced paddlers in appropriate boats.`,
-    );
+    lines.push(`${riverName} has dropped back to floatable levels — the worst of the high water has passed.`);
     lines.push('');
-    lines.push('Beginners and families should wait it out. If you go: PFDs on everyone, scout access points, plan a shorter float.');
+    lines.push('Still confirm the live gauge before you launch. Levels can bounce, and debris can linger for a day or two after a big rise.');
+  } else {
+    // Warning headline — the first ~125 chars IG shows before "more".
+    // Warning-first so the feed preview reads as a safety alert, not news.
+    lines.push(`⚠️ ${copy.severityLabel} — ${riverName}${gaugeText}${riseSuffix}`);
+    lines.push('');
+    if (params.newCondition === 'dangerous') {
+      lines.push(
+        `${riverName} has crossed into dangerous water. Rising levels bring strainers, submerged hazards, and fast current that can overwhelm even experienced paddlers.`,
+      );
+      lines.push('');
+      lines.push('DO NOT FLOAT until levels drop. Check back in 24–48 hours or wait for the all-clear.');
+    } else if (params.newCondition === 'high') {
+      lines.push(
+        `${riverName} has risen into high water. Stronger current, faster travel, and more hazards than normal — floatable only for experienced paddlers in appropriate boats.`,
+      );
+      lines.push('');
+      lines.push('Beginners and families should wait it out. If you go: PFDs on everyone, scout access points, plan a shorter float.');
+    }
   }
   lines.push('');
 
-  // 2. Live-conditions CTA — the core value
+  // CTA — live conditions (core value) + the growth follow CTA.
   lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug)}`);
-  lines.push(`Share this alert with anyone planning to float ${riverName} this week.`);
+  lines.push(`${FOLLOW_CTA} 🦦`);
+
+  return { caption: lines.join('\n'), hashtags: [] };
+}
+
+/**
+ * Storm-digest caption — one post covering several rivers that crossed into
+ * elevated water in the same pass (see publishStormDigest). More shareable and
+ * far less spammy than a barrage of single-river warnings.
+ */
+export function formatStormDigestCaption(
+  changes: Array<{ riverSlug: string; newCondition: string }>,
+): { caption: string; hashtags: string[] } {
+  const names = changes.map((c) => RIVER_SHORT_NAMES[c.riverSlug] || c.riverSlug);
+  const shown = names.slice(0, 5).join(', ');
+  const more = names.length > 5 ? ' and more' : '';
+
+  const lines: string[] = [];
+  lines.push(`⚠️ RIVERS RISING — ${changes.length} Ozark rivers`);
+  lines.push('');
+  lines.push(`After recent rain, water is coming up fast across the Ozarks: ${shown}${more}.`);
+  lines.push('');
+  lines.push('Check your river before you load the boats — high and dangerous water moves quick and hides debris.');
+  lines.push('');
+  lines.push('Live gauges for every river → https://eddy.guide/rivers');
+  lines.push(`${FOLLOW_CTA} 🦦`);
 
   return { caption: lines.join('\n'), hashtags: [] };
 }

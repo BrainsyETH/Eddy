@@ -14,6 +14,14 @@ import {
 
 export type ConditionCode = SharedConditionCode;
 
+// Re-export the canonical warning copy so compositions can import it from this
+// same module (avoids a deep relative path into ../../../../shared).
+export { warningCopy, type WarningCopy } from "../../../shared/condition-copy";
+
+// Recovery ("all-clear") copy — SAME {severityLabel, cta, quote} shape as
+// warningCopy. Re-exported here so the reel can import it alongside warningCopy.
+export { recoveryCopy } from "../../../shared/condition-copy";
+
 export type ConditionStyle = {
   solid: string;
   bg: string;
@@ -51,6 +59,10 @@ export type GaugeAnimationProps = {
   gaugeHeightFt: number;
   optimalMin: number;
   optimalMax: number;
+  /** High-water threshold — draws the orange high zone on the gauge bar (warning reels). */
+  levelHigh?: number;
+  /** Dangerous/flood threshold — draws the red danger zone on the gauge bar (warning reels). */
+  levelDangerous?: number;
   quoteText: string;
   /** Optional date label rendered under the river name to match the
    *  OG thumbnail's timestamp. Format free — callers typically use
@@ -71,6 +83,20 @@ export type GaugeAnimationProps = {
    *  gauge bar) — used by the "Eddy Says" reel, which reuses this composition to
    *  spotlight Eddy's local read instead of the live gauge instrument. */
   quoteForward?: boolean;
+  /** Full-bleed background image (public URL). When set, it renders behind
+   *  everything under a legibility scrim (red-leaning in warningMode, neutral
+   *  teal otherwise). Absent → the solid brand background. */
+  backgroundUrl?: string;
+  /** Human rate-of-change phrase (e.g. "▲ up 2.4 ft in 6h") shown as an urgency
+   *  pill near the gauge reading in warning/recovery mode. Absent → no pill. */
+  riseText?: string;
+  /** Recovery ("all-clear") mode — mutually exclusive with warningMode. Uses
+   *  recoveryCopy() + the condition's own calm (green/teal) color and positive
+   *  framing instead of the red/orange alarmed warning chrome. */
+  recovery?: boolean;
+  /** Optional smaller secondary CTA line beneath the main CTA (growth prompt,
+   *  e.g. "Follow for live Ozark river alerts"). Absent → not rendered. */
+  followCta?: string;
   format: "square" | "portrait";
 }
 

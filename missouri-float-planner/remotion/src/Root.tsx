@@ -338,6 +338,11 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
+        calculateMetadata={({ props }: { props: GaugeAnimationProps }) => ({
+          // Alert/recovery reels run tighter (8s); the default highlight keeps
+          // its ~12s pacing. The internal timeline scales off durationInFrames.
+          durationInFrames: props.warningMode || props.recovery ? 240 : 360,
+        })}
         defaultProps={{
           riverName: "Current River",
           conditionCode: "flowing",
