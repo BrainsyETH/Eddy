@@ -14,6 +14,7 @@ import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
 import {
   CONDITION_COLORS,
+  DIRECTION_META,
   formatWeatherChipLabel,
   getOtterVariant,
   type TrendReelProps,
@@ -24,12 +25,6 @@ const FPS = 30;
 const CHART_WIDTH = 900;
 const CHART_HEIGHT = 320;
 const CHART_PADDING = 40;
-
-const DIRECTION_META = {
-  rising: { arrow: "▲", label: "Rising", color: "#10b981" },
-  falling: { arrow: "▼", label: "Falling", color: "#f97316" },
-  flat: { arrow: "—", label: "Steady", color: "#84cc16" },
-} as const;
 
 /**
  * 7-Day Trend reel — shows a sparkline of the last week's gauge readings for
@@ -49,6 +44,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   series,
   weather,
   dateLabel,
+  followCta,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -59,7 +55,10 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
   const meta = DIRECTION_META[direction];
 
-  const titleEntrance = spring({ frame, fps, config: ENTRANCE });
+  // CTA enters ~70 frames before the end so it lands late regardless of the
+  // duration Root's calculateMetadata chooses (360 default, tighter otherwise).
+  const ctaStart = Math.max(60, durationInFrames - 70);
+
   const riverEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
   const dateEntrance = spring({ frame: frame - 20, fps, config: ENTRANCE });
   const chartEntrance = spring({ frame: frame - 30, fps, config: SNAPPY });
@@ -75,7 +74,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   });
   const deltaScale = interpolate(deltaEntrance, [0, 1], [0.85, 1]);
   const ctaEntrance = spring({
-    frame: frame - 290,
+    frame: frame - ctaStart,
     fps,
     config: { damping: 12, mass: 0.5, stiffness: 100 },
   });
@@ -161,10 +160,10 @@ export const TrendReel: React.FC<TrendReelProps> = ({
           gap: 18,
         }}
       >
-        {/* Title */}
+        {/* Title — rendered at full opacity from frame 0 (no entrance fade) so
+            the first autoplay frame / grid thumbnail is branded, not empty. */}
         <div
           style={{
-            opacity: titleEntrance,
             fontFamily: "'Fredoka', system-ui, sans-serif",
             fontSize: isPortrait ? 42 : 32,
             fontWeight: 500,
@@ -361,17 +360,39 @@ export const TrendReel: React.FC<TrendReelProps> = ({
             size={isPortrait ? 130 : 100}
             delay={120}
           />
-          <span
+          {/* CTA + optional smaller followCta line beneath (lower emphasis). */}
+          <div
             style={{
               opacity: ctaEntrance,
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: isPortrait ? 28 : 22,
-              color: meta.color,
-              letterSpacing: 0.5,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
             }}
           >
-            Full 7-day chart at eddy.guide
-          </span>
+            <span
+              style={{
+                fontFamily: "'Fredoka', system-ui, sans-serif",
+                fontSize: isPortrait ? 28 : 22,
+                color: meta.color,
+                letterSpacing: 0.5,
+              }}
+            >
+              Full 7-day chart at eddy.guide
+            </span>
+            {followCta && (
+              <span
+                style={{
+                  fontFamily: "'Fredoka', system-ui, sans-serif",
+                  fontSize: isPortrait ? 22 : 18,
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.6)",
+                  letterSpacing: 0.5,
+                }}
+              >
+                {followCta}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

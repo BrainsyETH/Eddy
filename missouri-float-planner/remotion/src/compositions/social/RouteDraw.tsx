@@ -25,10 +25,6 @@ import { colors } from "../../design-tokens/colors";
 
 const FPS = 30;
 
-// Springs read as cool inflows — a distinct sky tone from the condition color
-// and the put-in (accent) / take-out (condition) markers.
-const SPRING_COLOR = "#7dd3fc";
-
 // Evergreen "favorite" accent — a warm editorial gold, deliberately OFF the
 // cool live-condition palette so "Eddy's Favorite Float" reads as a curated,
 // timeless postcard rather than today's gauge snapshot (Float of the Day).
@@ -117,8 +113,8 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   distanceMi,
   hoursToday,
   hoursTypical,
-  springs = [],
   dateLabel,
+  followCta,
   format,
   label = "Float of the Day",
   tagline,
@@ -167,7 +163,6 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
 
   // ─── Animations ──────────────────────────────────────────
   const bgOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
-  const titleEntrance = spring({ frame, fps, config: ENTRANCE });
   const riverEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
   const dateEntrance = spring({ frame: frame - 20, fps, config: ENTRANCE });
 
@@ -180,15 +175,6 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
   const { point: boat, drawn } = along(route, drawProgress);
   const drawComplete = drawProgress >= 0.999;
 
-  // Springs placed by mile fraction along the route; each fades in as the drawn
-  // line passes it. Clamp slightly off the ends so they don't sit under the
-  // put-in / take-out markers.
-  const mileSpan = takeOutMile - putInMile;
-  const springDots = springs.map((s) => {
-    const frac = mileSpan > 0 ? (s.mile - putInMile) / mileSpan : 0;
-    const p = Math.min(0.97, Math.max(0.03, frac));
-    return { p, point: along(route, p).point };
-  });
   // Float of the Day pulses the leading "boat" — a live-instrument tell. Evergreen
   // favorites draw with a calm, steady marker so they don't read as live.
   const boatPulse = evergreen ? 1 : 1 + 0.25 * Math.sin(frame / 5);
@@ -201,7 +187,11 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const ctaEntrance = spring({ frame: frame - 120, fps, config: { damping: 12, mass: 0.5, stiffness: 100 } });
+  // CTA enters ~70 frames before the end so it lands late regardless of the
+  // duration Root's calculateMetadata chooses (360 default, tighter otherwise);
+  // clamped so it never fires before the route/stamp choreography (frame 120).
+  const ctaStart = Math.min(120, Math.max(60, durationInFrames - 70));
+  const ctaEntrance = spring({ frame: frame - ctaStart, fps, config: { damping: 12, mass: 0.5, stiffness: 100 } });
 
   const labelFont = "'Geist Sans', system-ui, sans-serif";
   const displayFont = "'Fredoka', system-ui, sans-serif";
@@ -291,21 +281,6 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           <circle cx={putIn[0]} cy={putIn[1]} r={14} fill={colors.accent[400]} filter="url(#routeGlow)" />
           <circle cx={putIn[0]} cy={putIn[1]} r={6} fill="#fff" />
 
-          {/* Springs along the run — fade in as the line passes each one */}
-          {springDots.map((s, i) => {
-            const op = interpolate(drawProgress, [s.p, Math.min(1, s.p + 0.04)], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            });
-            return (
-              <g key={i} opacity={op}>
-                <circle cx={s.point[0]} cy={s.point[1]} r={12} fill={SPRING_COLOR} opacity={0.25} filter="url(#routeGlow)" />
-                <circle cx={s.point[0]} cy={s.point[1]} r={6.5} fill={SPRING_COLOR} filter="url(#routeGlow)" />
-                <circle cx={s.point[0]} cy={s.point[1]} r={2.5} fill="#fff" />
-              </g>
-            );
-          })}
-
           {/* Leading "boat" dot rides the draw edge */}
           {!drawComplete && (
             <>
@@ -361,7 +336,9 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
         }}
       >
         {/* Favorites relabel the eyebrow + show the guide's section name as the
-            tagline ("why"); otherwise the date. */}
+            tagline ("why"); otherwise the date. The eyebrow renders at full
+            opacity from frame 0 (no entrance fade) so the first autoplay frame /
+            grid thumbnail is branded, not empty. */}
         <ReelMasthead
           eyebrow={label}
           title={riverName}
@@ -369,7 +346,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           subtitleItalic={!!tagline}
           glow={condition.glow}
           isPortrait={isPortrait}
-          eyebrowOpacity={titleEntrance}
+          eyebrowOpacity={1}
           titleOpacity={riverEntrance}
           subtitleOpacity={dateEntrance}
         />
@@ -432,7 +409,23 @@ export const RouteDraw: React.FC<RouteDrawProps> = ({
           </div>
         </div>
 
+        {/* CTA + optional smaller followCta line beneath (lower emphasis). */}
         <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} style={{ marginTop: 4 }} />
+        {followCta && (
+          <span
+            style={{
+              opacity: ctaEntrance,
+              fontFamily: displayFont,
+              fontSize: isPortrait ? 22 : 18,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.6)",
+              letterSpacing: 0.5,
+              textAlign: "center",
+            }}
+          >
+            {followCta}
+          </span>
+        )}
       </div>
 
       {/* Eddy paddles in to the right of the take-out, tucked just beside the

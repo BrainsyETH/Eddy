@@ -292,6 +292,8 @@ const POST_TYPE_LABELS: Record<string, string> = {
   weekly_trend: 'Weekly Trend',
   route_draw: 'Float of the Day', // legacy rows
   condition_change: 'Alert',
+  condition_recovery: 'All Clear',
+  storm_digest: 'Storm Digest',
   manual: 'Tip',
 };
 

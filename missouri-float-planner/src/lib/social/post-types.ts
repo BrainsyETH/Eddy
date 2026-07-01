@@ -14,6 +14,7 @@ import type { MediaType } from './types';
 import type { ConditionCode } from '@/types/api';
 import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import type { WeatherChip } from '@/lib/weather/openweather';
+import { FOLLOW_CTA } from '@shared/condition-copy';
 
 export type PostKind =
   | 'daily_digest'
@@ -62,7 +63,6 @@ export interface RenderData {
   takeOutMile?: number;
   distanceMi?: number;
   hoursCanoe?: number;
-  springs?: Array<{ name: string; mile: number; side: string | null }>;
   // Favorite Float (evergreen, editorial) extras
   /** Guide section's catchy name, shown under the river name (replaces the date). */
   tagline?: string;
@@ -80,6 +80,10 @@ export interface RenderData {
   deltaFt?: number;
   direction?: 'rising' | 'falling' | 'flat';
   series?: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
+  /** Full-bleed AI background art URL (matches the reel's OG cover). */
+  backgroundUrl?: string;
+  /** Growth CTA line rendered under the reel's main CTA. */
+  followCta?: string;
 }
 
 export interface PostTypeDef {
@@ -141,7 +145,7 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     // Float time at TODAY's flow vs the normal "flowing" baseline.
     hoursToday: canoeHours(distanceMi, code),
     hoursTypical: canoeHours(distanceMi, 'flowing'),
-    springs: data.springs ?? [],
+    followCta: FOLLOW_CTA,
     dateLabel: data.dateLabel || defaultDate(),
     // Background art behind the route (RouteDraw composites it with a scrim).
     // Favorite + Float-of-the-Day pass the river's cached AI background here so
@@ -167,6 +171,8 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       optimalMax: data.optimalMax ?? 4.0,
       quoteText: data.quoteText || data.summaryText || '',
       dateLabel: data.dateLabel || defaultDate(),
+      backgroundUrl: data.backgroundUrl,
+      followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
     outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
@@ -193,6 +199,8 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       dateLabel: data.dateLabel || defaultDate(),
       eyebrow: 'Eddy Says',
       quoteForward: true,
+      backgroundUrl: data.backgroundUrl,
+      followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
     outputFilename: (data) => `eddy-says-${slugify(data.riverName || 'river')}`,
@@ -209,6 +217,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       rivers: data.rivers || [],
       dateLabel: data.dateLabel || defaultDate(),
       globalQuote: data.globalQuote || undefined,
+      followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
     outputFilename: () => `digest-${isoDay()}`,
@@ -227,6 +236,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       title: data.title || 'Weekend Forecast',
       rainNote: data.rainNote ?? false,
       // No global quote on forecast — the top-3 list IS the message.
+      followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
     outputFilename: () => `forecast-${isoDay()}`,
@@ -291,6 +301,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       series: data.series || [],
       weather: data.weather ?? null,
       dateLabel: data.dateLabel || 'This Week',
+      followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
     outputFilename: () => `trend-${isoDay()}`,

@@ -63,9 +63,11 @@ const TitleSlide: React.FC<{
         }}
       >
         <EddyMascot variant="canoe" size={isPortrait ? 200 : 160} delay={5} />
+        {/* Title — rendered at full opacity from frame 0 (no entrance fade;
+            the slide-up Y-translate is kept) so the first autoplay frame / grid
+            thumbnail is branded, not empty. */}
         <div
           style={{
-            opacity: titleEntrance,
             transform: `translateY(${titleY}px)`,
             fontFamily: "'Fredoka', system-ui, sans-serif",
             fontSize: isPortrait ? 88 : 48,
@@ -113,7 +115,7 @@ const TitleSlide: React.FC<{
 };
 
 /** CTA slide — "Plan your float" with energetic Eddy */
-const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
+const CTASlide: React.FC<{ isPortrait: boolean; followCta?: string }> = ({ isPortrait, followCta }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -193,6 +195,23 @@ const CTASlide: React.FC<{ isPortrait: boolean }> = ({ isPortrait }) => {
         >
           eddy.guide
         </div>
+        {/* Optional smaller followCta line beneath the main CTA (lower emphasis). */}
+        {followCta && (
+          <div
+            style={{
+              opacity: entrance,
+              fontFamily: "'Fredoka', system-ui, sans-serif",
+              fontSize: isPortrait ? 22 : 18,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.6)",
+              letterSpacing: 0.5,
+              textAlign: "center",
+              marginTop: 2,
+            }}
+          >
+            {followCta}
+          </div>
+        )}
       </div>
     </AbsoluteFill>
   );
@@ -312,6 +331,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   globalQuote,
   title = 'River Report',
   rainNote,
+  followCta,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -366,7 +386,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
         </Series.Sequence>
 
         <Series.Sequence durationInFrames={ctaFrames}>
-          <CTASlide isPortrait={isPortrait} />
+          <CTASlide isPortrait={isPortrait} followCta={followCta} />
         </Series.Sequence>
       </Series>
       <Watermark format={isPortrait ? "portrait" : "landscape"} />

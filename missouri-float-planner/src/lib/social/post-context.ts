@@ -129,12 +129,18 @@ export async function buildPostContext(
       conditionCode: u.condition_code,
       gaugeHeightFt: u.gauge_height_ft,
     }));
+    // Pin the exact rivers/conditions into the cover URL so Meta's crawl-time
+    // render matches this post instead of re-picking whatever is live then.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pinned = (deduped as any[])
+      .map((u) => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`)
+      .join(',');
     return {
       postType,
       riverSlug: null,
       renderData: { rivers, dateLabel: longDate(), globalQuote: globalSummary || undefined },
       caption: (platform, custom) => formatDailyDigestCaption(deduped, globalSummary, custom, platform),
-      imageUrl: (platform) => og('digest', platform),
+      imageUrl: (platform) => og('digest', platform, `&rivers=${encodeURIComponent(pinned)}`),
     };
   }
 
@@ -255,7 +261,8 @@ export async function buildPostContext(
       renderData: { ...trend, conditionCode, weather, dateLabel: 'This Week' },
       caption: (platform, custom) =>
         formatWeeklyTrendCaption({ ...trend, weather: latest?.weather ?? null }, custom, platform),
-      imageUrl: (platform) => og('trend', platform),
+      // Pin the river so Meta's crawl-time render is THIS trend, not a re-pick.
+      imageUrl: (platform) => og('trend', platform, `&river=${trend.riverSlug}`),
     };
   }
 
@@ -287,6 +294,10 @@ export async function buildPostContext(
       optimalMax = gauge.level_optimal_max ?? optimalMax;
     }
 
+    // Same cached AI art the cover uses, so the reel's full-bleed background
+    // matches its thumbnail (null → the reel's solid brand background).
+    const backgroundUrl = (await bgUrl(supabase, update.river_slug)) ?? undefined;
+
     return {
       postType,
       riverSlug: update.river_slug,
@@ -298,6 +309,7 @@ export async function buildPostContext(
         optimalMax,
         quoteText: truncateForVideo(update.quote_text ?? null),
         summaryText: truncateForVideo(update.summary_text ?? null),
+        backgroundUrl,
       },
       caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
       imageUrl: (platform) => og('highlight', platform, `&river=${update.river_slug}`),
@@ -348,6 +360,10 @@ export async function buildPostContext(
       optimalMax = gauge.level_optimal_max ?? optimalMax;
     }
 
+    // Same cached AI art the cover uses, composited behind the quote so the reel
+    // matches its thumbnail (null → the reel's solid brand background).
+    const backgroundUrl = (await bgUrl(supabase, update.river_slug)) ?? undefined;
+
     return {
       postType,
       riverSlug: update.river_slug,
@@ -359,6 +375,7 @@ export async function buildPostContext(
         optimalMax,
         quoteText: truncateForVideo(update.quote_text ?? null),
         summaryText: truncateForVideo(update.summary_text ?? null),
+        backgroundUrl,
       },
       caption: (platform, custom) => formatEddySaysCaption(update, custom, platform),
       imageUrl: (platform) => og('eddy_says', platform, `&river=${update.river_slug}`),

@@ -12,6 +12,11 @@ import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
+// The elevated-crossing alerts (storm digest / individual warnings) are AWAITED
+// before the response so serverless doesn't kill them mid-publish; Meta Graph
+// calls add seconds each, so give the cron real headroom beyond the 10-15s
+// default (60s is within both Hobby and Pro limits).
+export const maxDuration = 60;
 
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
@@ -105,6 +110,20 @@ async function runUpdate(request: NextRequest) {
       newCondition: string;
       gaugeHeightFt: number | null;
     }> = [];
+
+    // Condition transitions collected during the loop and published AFTER it
+    // (awaited, so serverless can't kill a publish mid-flight). Elevated
+    // crossings get the storm-vs-single decision; everything else (recoveries
+    // etc.) publishes individually.
+    const STORM_THRESHOLD = 3;
+    type Transition = {
+      riverSlug: string;
+      oldCondition: string;
+      newCondition: string;
+      gaugeHeightFt: number | null;
+    };
+    const elevatedCrossings: Transition[] = [];
+    const otherTransitions: Transition[] = [];
 
     for (const reading of readings) {
       const station = stations.find(s => s.usgs_site_id === reading.siteId);
@@ -281,24 +300,19 @@ async function runUpdate(request: NextRequest) {
 
               conditionChanges++;
 
-              // Defer elevated crossings for the storm-vs-single decision after
-              // the loop; publish everything else (recoveries, etc.) immediately.
+              // Defer ALL transitions to the post-loop publish (awaited): the
+              // elevated ones get the storm-vs-single decision; the rest
+              // (recoveries etc.) publish individually.
+              const transition: Transition = {
+                riverSlug,
+                oldCondition: oldCode,
+                newCondition: newCondition.code,
+                gaugeHeightFt: reading.gaugeHeightFt,
+              };
               if (isElevatedCrossing(oldCode, newCondition.code)) {
-                elevatedCrossings.push({
-                  riverSlug,
-                  oldCondition: oldCode,
-                  newCondition: newCondition.code,
-                  gaugeHeightFt: reading.gaugeHeightFt,
-                });
+                elevatedCrossings.push(transition);
               } else {
-                publishConditionChangeAlert({
-                  riverSlug,
-                  oldCondition: oldCode,
-                  newCondition: newCondition.code,
-                  gaugeHeightFt: reading.gaugeHeightFt,
-                }).catch((err) => {
-                  console.error(`Condition alert publish error for ${riverSlug}:`, err);
-                });
+                otherTransitions.push(transition);
               }
 
               // Regenerate Eddy report for this river (async, throttled internally)
@@ -313,13 +327,14 @@ async function runUpdate(request: NextRequest) {
       }
     }
 
-    // ── Storm-vs-single alert decision ──────────────────────────────
-    // Dedupe by river (a river can have multiple gauges), keeping the most
-    // severe crossing. >= STORM_THRESHOLD rivers → one shareable storm digest;
-    // otherwise publish the individual warnings. Awaited so posts complete
-    // before the serverless function returns.
+    // ── Post-loop alert publishing (awaited) ────────────────────────
+    // Elevated crossings: dedupe by river (a river can have multiple gauges),
+    // keeping the most severe crossing. >= STORM_THRESHOLD rivers → one
+    // shareable storm digest; otherwise individual warnings. Other transitions
+    // (recoveries etc.) publish individually — publishConditionChangeAlert
+    // classifies and no-ops the non-notable ones.
     if (elevatedCrossings.length > 0) {
-      const bySlug = new Map<string, (typeof elevatedCrossings)[number]>();
+      const bySlug = new Map<string, Transition>();
       for (const c of elevatedCrossings) {
         const prev = bySlug.get(c.riverSlug);
         if (!prev || (c.newCondition === 'dangerous' && prev.newCondition !== 'dangerous')) {
@@ -330,9 +345,18 @@ async function runUpdate(request: NextRequest) {
 
       try {
         if (unique.length >= STORM_THRESHOLD) {
-          await publishStormDigest(
+          const digest = await publishStormDigest(
             unique.map((c) => ({ riverSlug: c.riverSlug, newCondition: c.newCondition })),
           );
+          // A second wave inside the digest's 2h cooldown still deserves
+          // per-river warnings — otherwise a dangerous crossing goes silent.
+          // (Individual alerts carry their own 4h per-river cooldown, so
+          // rivers already covered by the earlier digest won't double-post.)
+          if (digest.skipped && digest.reason === 'cooldown') {
+            for (const c of unique) {
+              await publishConditionChangeAlert(c);
+            }
+          }
         } else {
           for (const c of unique) {
             await publishConditionChangeAlert(c);
@@ -340,6 +364,13 @@ async function runUpdate(request: NextRequest) {
         }
       } catch (alertErr) {
         console.error('Elevated-crossing alert error:', alertErr);
+      }
+    }
+    for (const t of otherTransitions) {
+      try {
+        await publishConditionChangeAlert(t);
+      } catch (alertErr) {
+        console.error(`Condition alert publish error for ${t.riverSlug}:`, alertErr);
       }
     }
 

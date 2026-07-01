@@ -22,6 +22,11 @@ export { warningCopy, type WarningCopy } from "../../../shared/condition-copy";
 // warningCopy. Re-exported here so the reel can import it alongside warningCopy.
 export { recoveryCopy } from "../../../shared/condition-copy";
 
+// Canonical trend-direction styling ({rising|falling|flat}: {arrow, label,
+// color}), shared with the app's OG cover. Re-exported here so TrendReel can
+// import it from this module instead of duplicating the table.
+export { DIRECTION_META, trendMeta, type TrendDirection, type TrendMeta } from "../../../shared/trend-meta";
+
 export type ConditionStyle = {
   solid: string;
   bg: string;
@@ -143,13 +148,10 @@ export type DigestReelProps = {
   /** Weekend Forecast only: true when every floatable river has rain coming, so
    *  these are "best available" picks rather than dry ones. Renders a note. */
   rainNote?: boolean;
+  /** Optional smaller secondary CTA line beneath the main CTA (growth prompt,
+   *  e.g. "Follow for daily Ozark river reports"). Absent → not rendered. */
+  followCta?: string;
   format: "square" | "portrait";
-}
-
-export type BrandedLoopProps = {
-  riverName: string;
-  conditionCode: ConditionCode;
-  summaryText: string;
 }
 
 export type SectionGuideProps = {
@@ -165,10 +167,10 @@ export type SectionGuideProps = {
   /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
    *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
   hoursTypical: number;
-  /** Springs on the run (between put-in and take-out), drawn as dots on the
-   *  RouteDraw route at their mile fraction. */
-  springs?: Array<{ name: string; mile: number; side: string | null }>;
   dateLabel?: string;
+  /** Optional smaller secondary CTA line beneath the main CTA (growth prompt,
+   *  e.g. "Follow for a new float every day"). Absent → not rendered. */
+  followCta?: string;
   format: "square" | "portrait";
 }
 
@@ -209,6 +211,9 @@ export type TrendReelProps = {
   /** Forecast chip shown under the river name. */
   weather?: WeatherChipProps | null;
   dateLabel?: string;
+  /** Optional smaller secondary CTA line beneath the main CTA (growth prompt,
+   *  e.g. "Follow for live Ozark river trends"). Absent → not rendered. */
+  followCta?: string;
   format: "square" | "portrait";
 }
 
