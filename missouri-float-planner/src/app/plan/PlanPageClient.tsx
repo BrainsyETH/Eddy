@@ -24,6 +24,7 @@ import { MapHintBanner, RouteStatsBadge, MapLegend } from '@/components/plan/Map
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
+import OfflineBanner from '@/components/ui/OfflineBanner';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useRiver, useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
@@ -523,6 +524,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <OfflineBanner />
       {/* ─── DESKTOP: Split-panel layout ─── */}
       <div className="hidden lg:flex overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
         <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col min-h-0">
