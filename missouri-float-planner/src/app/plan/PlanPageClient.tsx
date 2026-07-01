@@ -35,7 +35,8 @@ import { usePOIs } from '@/hooks/usePOIs';
 import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from '@/types/api';
-import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import Image from 'next/image';
+import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -483,9 +484,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-            <span className="text-3xl">:/</span>
-          </div>
+          <Image
+            src={EDDY_IMAGES.flag}
+            alt="Eddy the otter"
+            width={72}
+            height={72}
+            className="mx-auto mb-4 object-contain"
+          />
           <h2 className="text-xl font-bold text-neutral-900 mb-2">River Not Found</h2>
           <p className="text-neutral-600 mb-4">
             We couldn&apos;t find that river. Try picking another.

@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
-import { POI_TYPES, ACCESS_POINT_TYPE_ORDER } from '@/constants';
+import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
   handleNavClick,
@@ -58,7 +58,11 @@ function getEddyImageForCondition(code: ConditionCode): string {
   }
 }
 
-// Condition display config
+// Condition display config. Labels come from the canonical condition system
+// (CONDITION_SHORT_LABELS → shared/condition-system.ts) so this card can never
+// drift from the rest of the app; only the solid-badge color treatment (which is
+// specific to this component) is defined locally. Hues match the canonical
+// palette (too_low = stone, unknown = neutral/gray).
 const CONDITION_CONFIG: Record<ConditionCode, {
   label: string;
   emoji: string;
@@ -67,49 +71,49 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   borderClass: string;
 }> = {
   flowing: {
-    label: 'Flowing',
+    label: CONDITION_SHORT_LABELS.flowing,
     emoji: '✓',
     bgClass: 'bg-emerald-500',
     textClass: 'text-white',
     borderClass: 'border-emerald-400',
   },
   good: {
-    label: 'Good',
+    label: CONDITION_SHORT_LABELS.good,
     emoji: '✓',
     bgClass: 'bg-lime-500',
     textClass: 'text-white',
     borderClass: 'border-lime-400',
   },
   low: {
-    label: 'Low',
+    label: CONDITION_SHORT_LABELS.low,
     emoji: '↓',
     bgClass: 'bg-yellow-500',
     textClass: 'text-neutral-900',
     borderClass: 'border-yellow-400',
   },
   too_low: {
-    label: 'Too Low',
+    label: CONDITION_SHORT_LABELS.too_low,
     emoji: '⚠',
-    bgClass: 'bg-neutral-400',
+    bgClass: 'bg-stone-500',
     textClass: 'text-white',
-    borderClass: 'border-neutral-300',
+    borderClass: 'border-stone-400',
   },
   high: {
-    label: 'High',
+    label: CONDITION_SHORT_LABELS.high,
     emoji: '⚡',
     bgClass: 'bg-orange-500',
     textClass: 'text-white',
     borderClass: 'border-orange-400',
   },
   dangerous: {
-    label: 'Flood',
+    label: CONDITION_SHORT_LABELS.dangerous,
     emoji: '🚫',
     bgClass: 'bg-red-600',
     textClass: 'text-white',
     borderClass: 'border-red-400',
   },
   unknown: {
-    label: 'Unknown',
+    label: CONDITION_SHORT_LABELS.unknown,
     emoji: '?',
     bgClass: 'bg-neutral-500',
     textClass: 'text-white',
