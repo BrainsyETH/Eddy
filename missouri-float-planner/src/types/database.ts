@@ -805,6 +805,7 @@ export type Database = {
         Row: {
           active: boolean | null
           created_at: string | null
+          drainage_area_sqmi: number | null
           high_frequency_flag: boolean | null
           id: string
           location: unknown
@@ -817,6 +818,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           created_at?: string | null
+          drainage_area_sqmi?: number | null
           high_frequency_flag?: boolean | null
           id?: string
           location: unknown
@@ -829,6 +831,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           created_at?: string | null
+          drainage_area_sqmi?: number | null
           high_frequency_flag?: boolean | null
           id?: string
           location?: unknown
