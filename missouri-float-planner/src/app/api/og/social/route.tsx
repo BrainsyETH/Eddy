@@ -255,6 +255,10 @@ export async function GET(request: NextRequest) {
       return await generateStormImage(size, searchParams.get('rivers'));
     }
 
+    if (type === 'storm') {
+      return await generateStormImage(size, searchParams.get('rivers'));
+    }
+
     if (type === 'warning' && riverSlug) {
       const fromCondition = searchParams.get('from') || undefined;
       const toCondition = searchParams.get('to') || undefined;
@@ -2077,6 +2081,28 @@ async function generateWarningImage(
   // use the river's own calm art — mirrors the reel's background selection in
   // condition-alerts.ts so the cover/reel pair reads as one piece.
   const photoDataUri = await loadBackgroundDataUri(supabase, isRecovery ? riverSlug : 'danger');
+
+  // Series-identity mascot, bottom-right (matches the reel + other covers).
+  let otterImage: string | null = null;
+  try {
+    otterImage = await loadConditionOtter(newCondition);
+  } catch {
+    otterImage = null;
+  }
+
+  // Recovery is an all-clear: swap the red-tinted frame for a calmer teal-green.
+  const eyebrowIcon = isRecovery ? '✅' : '⚠️';
+  const rootGradient = isRecovery
+    ? 'linear-gradient(160deg, #0d2a24 0%, #12403a 55%, #0d2a2c 100%)'
+    : 'linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)';
+
+  // Rate-of-rise/fall pill (e.g. "▲ up 2.4 ft in 6h"). Direction inferred from
+  // the phrase; colored by the cover's accent (recovery teal vs warning red).
+  const riseArrow = riseText
+    ? /down/i.test(riseText)
+      ? '▼'
+      : '▲'
+    : '';
 
   // Series-identity mascot, bottom-right (matches the reel + other covers).
   let otterImage: string | null = null;

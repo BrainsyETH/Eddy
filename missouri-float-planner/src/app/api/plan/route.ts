@@ -4,41 +4,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
-import { calculateFloatTime, formatFloatTime, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
+import { calculateFloatTime, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { computeConditionFromDbRow } from '@/lib/conditions';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
 
-// Helper to compute condition from gauge height and DB thresholds (snake_case)
-function computeConditionFromReading(
-  gaugeHeightFt: number | null,
-  thresholds: {
-    level_too_low: number | null;
-    level_low: number | null;
-    level_optimal_min: number | null;
-    level_optimal_max: number | null;
-    level_high: number | null;
-    level_dangerous: number | null;
-  }
-): { label: string; code: ConditionCode } {
-  const t: ConditionThresholds = {
-    levelTooLow: thresholds.level_too_low,
-    levelLow: thresholds.level_low,
-    levelOptimalMin: thresholds.level_optimal_min,
-    levelOptimalMax: thresholds.level_optimal_max,
-    levelHigh: thresholds.level_high,
-    levelDangerous: thresholds.level_dangerous,
-  };
-  const result = computeCondition(gaugeHeightFt, t);
-  return { label: result.label, code: result.code };
+// Reading age beyond which we surface an accuracy warning (mirrors the DB RPC).
+const STALE_READING_HOURS = 6;
+
+// Published float times in float_segments assume NORMAL flow. Never serve them raw:
+// scale by the current condition so low water doesn't advertise a normal-flow time
+// (the stranded-after-dark failure mode). Mirrors the calculator's band multipliers;
+// superseded by the flow-factor model once per-segment calibration lands.
+function scaleKnownTimeForCondition(minutes: number, code: ConditionCode): number {
+  const factor =
+    code === 'too_low' ? 2.0 :
+    code === 'low' ? 1.33 :
+    code === 'high' ? 0.85 :
+    1.0; // good / flowing / unknown → published normal-flow time
+  return Math.round(minutes * factor);
 }
 
 // Force dynamic rendering (uses cookies and searchParams)
@@ -204,6 +196,7 @@ async function _GET(request: NextRequest) {
               level_optimal_max,
               level_high,
               level_dangerous,
+              threshold_unit,
               gauge_stations!inner (usgs_site_id)
             `)
             .eq('river_id', riverId)
@@ -212,18 +205,17 @@ async function _GET(request: NextRequest) {
             .maybeSingle();
 
           if (gaugeThresholds) {
-            const computed = computeConditionFromReading(usgsReading.gaugeHeightFt, {
-              level_too_low: gaugeThresholds.level_too_low,
-              level_low: gaugeThresholds.level_low,
-              level_optimal_min: gaugeThresholds.level_optimal_min,
-              level_optimal_max: gaugeThresholds.level_optimal_max,
-              level_high: gaugeThresholds.level_high,
-              level_dangerous: gaugeThresholds.level_dangerous,
-            });
+            // Thread threshold_unit + discharge so stage/CFS are never conflated (F7).
+            const computed = computeConditionFromDbRow(
+              usgsReading.gaugeHeightFt,
+              gaugeThresholds,
+              usgsReading.dischargeCfs
+            );
 
             const readingAgeHours = usgsReading.readingTimestamp
               ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
               : null;
+            const stale = readingAgeHours != null && readingAgeHours > STALE_READING_HOURS;
 
             // Update condition with live USGS data
             condition = {
@@ -234,6 +226,8 @@ async function _GET(request: NextRequest) {
               discharge_cfs: usgsReading.dischargeCfs,
               reading_timestamp: usgsReading.readingTimestamp,
               reading_age_hours: readingAgeHours,
+              accuracy_warning: stale,
+              accuracy_warning_reason: stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
             };
             conditionCode = computed.code;
           }
@@ -249,6 +243,7 @@ async function _GET(request: NextRequest) {
             level_optimal_max,
             level_high,
             level_dangerous,
+            threshold_unit,
             gauge_stations (
               id,
               name,
@@ -271,18 +266,16 @@ async function _GET(request: NextRequest) {
             const usgsReading = usgsReadings.find(r => r.siteId === usgsSiteId);
 
             if (usgsReading && usgsReading.gaugeHeightFt !== null) {
-              const computed = computeConditionFromReading(usgsReading.gaugeHeightFt, {
-                level_too_low: primaryGauge.level_too_low,
-                level_low: primaryGauge.level_low,
-                level_optimal_min: primaryGauge.level_optimal_min,
-                level_optimal_max: primaryGauge.level_optimal_max,
-                level_high: primaryGauge.level_high,
-                level_dangerous: primaryGauge.level_dangerous,
-              });
+              const computed = computeConditionFromDbRow(
+                usgsReading.gaugeHeightFt,
+                primaryGauge,
+                usgsReading.dischargeCfs
+              );
 
               const readingAgeHours = usgsReading.readingTimestamp
                 ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
                 : null;
+              const stale = readingAgeHours != null && readingAgeHours > STALE_READING_HOURS;
 
               condition = {
                 condition_label: computed.label,
@@ -293,8 +286,8 @@ async function _GET(request: NextRequest) {
                 reading_age_hours: readingAgeHours,
                 gauge_name: gaugeStation?.name,
                 gauge_usgs_id: usgsSiteId,
-                accuracy_warning: false,
-                accuracy_warning_reason: null,
+                accuracy_warning: stale,
+                accuracy_warning_reason: stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
               };
               conditionCode = computed.code;
             }
@@ -302,6 +295,23 @@ async function _GET(request: NextRequest) {
         }
       }
     }
+
+    // Fetch daily discharge statistics once. Used as the reference flow (Q_ref) for
+    // the flow-dependent speed model, and reused for the supplementary percentile below.
+    let dailyStats: Awaited<ReturnType<typeof fetchDailyStatistics>> = null;
+    if (condition?.gauge_usgs_id) {
+      try {
+        dailyStats = await fetchDailyStatistics(condition.gauge_usgs_id);
+      } catch (statsError) {
+        console.warn('Failed to fetch statistics for plan:', statsError);
+      }
+    }
+    const refCfs = dailyStats?.p50 ?? null;
+    const dischargeCfs = toNum(condition?.discharge_cfs);
+
+    const speedLowWater = vesselType.speed_low_water != null ? parseFloat(String(vesselType.speed_low_water)) : 0;
+    const speedNormal = vesselType.speed_normal != null ? parseFloat(String(vesselType.speed_normal)) : 0;
+    const speedHighWater = vesselType.speed_high_water != null ? parseFloat(String(vesselType.speed_high_water)) : 0;
 
     // Try to get known float time from float_segments table first
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,34 +321,37 @@ async function _GET(request: NextRequest) {
       p_vessel_type: vesselType.slug,
     });
 
-    let floatTimeResult: { minutes: number; speedMph: number; isEstimate: boolean; timeRange?: { min: number; max: number } } | null = null;
+    let floatTimeResult: {
+      minutes: number;
+      speedMph: number;
+      isEstimate: boolean;
+      basis: 'trip' | 'moving';
+      timeRange?: { min: number; max: number };
+    } | null = null;
 
-    if (segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
-      // Use known segment time
+    // Dangerous water gets NO float time (neither known nor estimated).
+    const isDangerous = conditionCode === 'dangerous';
+
+    if (!isDangerous && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
+      // Known, published (trip-basis) times — scale by current flow, never serve raw.
       const st = segmentTime[0];
+      const avg = scaleKnownTimeForCondition(st.time_avg_minutes, conditionCode);
+      const rMin = st.time_min_minutes ? scaleKnownTimeForCondition(st.time_min_minutes, conditionCode) : undefined;
+      const rMax = st.time_max_minutes ? scaleKnownTimeForCondition(st.time_max_minutes, conditionCode) : undefined;
       floatTimeResult = {
-        minutes: st.time_avg_minutes,
-        speedMph: distanceMiles / (st.time_avg_minutes / 60),
+        minutes: avg,
+        speedMph: avg > 0 ? distanceMiles / (avg / 60) : 0,
         isEstimate: false,
-        timeRange: st.time_min_minutes && st.time_max_minutes
-          ? { min: st.time_min_minutes, max: st.time_max_minutes }
-          : undefined,
+        basis: 'trip',
+        timeRange: rMin != null && rMax != null ? { min: rMin, max: rMax } : undefined,
       };
-
-      // Add warning if floating upstream (reverse direction)
-      if (st.is_reverse) {
-        // Will be added to warnings array below
-      }
-    } else {
-      // Fall back to calculation-based estimate
+    } else if (!isDangerous) {
+      // Flow-dependent estimate (falls back to the condition-band step if no discharge).
       const calcResult = calculateFloatTime(
         distanceMiles,
-        {
-          speedLowWater: vesselType.speed_low_water != null ? parseFloat(String(vesselType.speed_low_water)) : 0,
-          speedNormal: vesselType.speed_normal != null ? parseFloat(String(vesselType.speed_normal)) : 0,
-          speedHighWater: vesselType.speed_high_water != null ? parseFloat(String(vesselType.speed_high_water)) : 0,
-        },
-        conditionCode
+        { speedLowWater, speedNormal, speedHighWater },
+        conditionCode,
+        { dischargeCfs, refCfs, basis: 'trip' }
       );
 
       if (calcResult) {
@@ -346,6 +359,8 @@ async function _GET(request: NextRequest) {
           minutes: calcResult.minutes,
           speedMph: calcResult.speedMph,
           isEstimate: true,
+          basis: calcResult.basis,
+          timeRange: { min: calcResult.minMinutes, max: calcResult.maxMinutes },
         };
       }
     }
@@ -478,20 +493,12 @@ async function _GET(request: NextRequest) {
     const flowRating: FlowRating = conditionCodeToFlowRating(conditionCode);
     const flowDescription = FLOW_DESCRIPTIONS[flowRating];
 
-    // Optionally fetch percentile stats as supplementary info
+    // Supplementary percentile info — reuse the stats fetched above for Q_ref.
     let percentile: number | null = null;
     let medianDischargeCfs: number | null = null;
-
-    if (condition?.gauge_usgs_id && condition?.discharge_cfs !== null) {
-      try {
-        const stats = await fetchDailyStatistics(condition.gauge_usgs_id);
-        if (stats) {
-          percentile = calculateDischargePercentile(condition.discharge_cfs, stats);
-          medianDischargeCfs = stats.p50;
-        }
-      } catch (statsError) {
-        console.warn('Failed to fetch statistics for plan:', statsError);
-      }
+    if (dailyStats && condition?.discharge_cfs != null) {
+      percentile = calculateDischargePercentile(condition.discharge_cfs, dailyStats);
+      medianDischargeCfs = dailyStats.p50;
     }
 
     // Build plan response
@@ -573,10 +580,11 @@ async function _GET(request: NextRequest) {
         ? {
             minutes: floatTimeResult.minutes,
             formatted: floatTimeResult.timeRange
-              ? `${formatFloatTime(floatTimeResult.timeRange.min)} - ${formatFloatTime(floatTimeResult.timeRange.max)}`
+              ? formatFloatTimeRange(floatTimeResult.timeRange.min, floatTimeResult.timeRange.max)
               : formatFloatTime(floatTimeResult.minutes),
             speedMph: floatTimeResult.speedMph,
             isEstimate: floatTimeResult.isEstimate,
+            basis: floatTimeResult.basis,
             timeRange: floatTimeResult.timeRange,
           }
         : null,

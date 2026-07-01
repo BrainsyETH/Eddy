@@ -363,6 +363,8 @@ async function _GET(
           const readingAgeHours = usgsReading.readingTimestamp
             ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
             : null;
+          // A live fallback reading can itself be stale — don't hardcode "no warning".
+          const stale = readingAgeHours != null && readingAgeHours > 6;
 
           finalCondition = {
             label: computed.label,
@@ -371,8 +373,8 @@ async function _GET(
             dischargeCfs: usgsReading.dischargeCfs,
             readingTimestamp: usgsReading.readingTimestamp,
             readingAgeHours,
-            accuracyWarning: false,
-            accuracyWarningReason: null,
+            accuracyWarning: stale,
+            accuracyWarningReason: stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
             gaugeName: selectedGaugeName || condition.gauge_name,
             gaugeUsgsId: usgsSiteId,
           };
