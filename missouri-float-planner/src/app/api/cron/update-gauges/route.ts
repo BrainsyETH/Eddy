@@ -100,31 +100,6 @@ async function runUpdate(request: NextRequest) {
     let conditionChanges = 0;
     let flatlined = 0;
 
-    // Rivers that crossed INTO elevated water this pass. Collected and decided
-    // after the loop: >= STORM_THRESHOLD → one storm digest; otherwise individual
-    // warnings. (Recoveries / other transitions publish immediately in-loop.)
-    const STORM_THRESHOLD = 3;
-    const elevatedCrossings: Array<{
-      riverSlug: string;
-      oldCondition: string;
-      newCondition: string;
-      gaugeHeightFt: number | null;
-    }> = [];
-
-    // Condition transitions collected during the loop and published AFTER it
-    // (awaited, so serverless can't kill a publish mid-flight). Elevated
-    // crossings get the storm-vs-single decision; everything else (recoveries
-    // etc.) publishes individually.
-    const STORM_THRESHOLD = 3;
-    type Transition = {
-      riverSlug: string;
-      oldCondition: string;
-      newCondition: string;
-      gaugeHeightFt: number | null;
-    };
-    const elevatedCrossings: Transition[] = [];
-    const otherTransitions: Transition[] = [];
-
     for (const reading of readings) {
       const station = stations.find(s => s.usgs_site_id === reading.siteId);
       if (!station) continue;

@@ -8,10 +8,26 @@
  *   npx tsx scripts/fetch-drainage-areas.ts --write    # apply
  */
 
-import { loadEnvConfig } from '@next/env';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
-loadEnvConfig(process.cwd());
+// Load env from process.env, falling back to .env.local (no external deps so this
+// runs under `npx tsx` even if @next/env isn't installed).
+function loadEnv() {
+  const need = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+  if (need.every((k) => process.env[k])) return;
+  try {
+    const txt = readFileSync(join(process.cwd(), '.env.local'), 'utf8');
+    for (const line of txt.split('\n')) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    }
+  } catch {
+    /* no .env.local — rely on exported env vars */
+  }
+}
+loadEnv();
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

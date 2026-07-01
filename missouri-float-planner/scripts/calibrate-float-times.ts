@@ -16,12 +16,27 @@
  * distance_miles against get_float_segment and flag divergences > 10%.
  */
 
-import { loadEnvConfig } from '@next/env';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '../src/lib/calculations/floatTime';
 import type { ConditionCode } from '../src/types/api';
 
-loadEnvConfig(process.cwd());
+// Load env from process.env, falling back to .env.local (no external deps).
+function loadEnv() {
+  const need = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+  if (need.every((k) => process.env[k])) return;
+  try {
+    const txt = readFileSync(join(process.cwd(), '.env.local'), 'utf8');
+    for (const line of txt.split('\n')) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    }
+  } catch {
+    /* no .env.local — rely on exported env vars */
+  }
+}
+loadEnv();
 
 // Published ground-truth set (canoe). Times are TRIP times at NORMAL flow.
 // Sources: floatmissouri.org, NPS Ozark National Scenic Riverways float estimates.
