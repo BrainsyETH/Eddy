@@ -4,6 +4,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mapConditionCode } from '@/lib/conditions';
+import { riverPath } from '@/lib/navigation/river-path';
 import type { RiverListItem } from '@/types/api';
 
 export async function getRivers(): Promise<RiverListItem[]> {
@@ -19,6 +20,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
       id,
       name,
       slug,
+      state,
       length_miles,
       description,
       difficulty_rating,
@@ -35,6 +37,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         id,
         name,
         slug,
+        state,
         length_miles,
         description,
         difficulty_rating,
@@ -74,6 +77,8 @@ export async function getRivers(): Promise<RiverListItem[]> {
         id: river.id,
         name: river.name,
         slug: river.slug,
+        state: river.state || 'MO',
+        path: riverPath(river.state || 'MO', river.slug),
         lengthMiles: parseFloat(river.length_miles),
         description: river.description,
         difficultyRating: river.difficulty_rating,

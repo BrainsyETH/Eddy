@@ -18,6 +18,10 @@ export interface RiverWithDetails extends River {
 
 export interface RiverListItem extends River {
   accessPointCount: number;
+  /** rivers.state code, e.g. 'MO' */
+  state: string;
+  /** Canonical page path, e.g. /rivers/missouri/current */
+  path: string;
   currentCondition: {
     label: string;
     code: ConditionCode;

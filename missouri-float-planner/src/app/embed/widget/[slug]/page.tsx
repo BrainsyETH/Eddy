@@ -34,6 +34,8 @@ interface GaugeStation {
   dischargeCfs: number | null;
   readingTimestamp: string | null;
   readingAgeHours: number | null;
+  readingSuspect?: boolean;
+  qualifierNote?: string | null;
   thresholds: GaugeThreshold[] | null;
 }
 
@@ -48,6 +50,8 @@ interface GaugeWithCondition {
   conditionLabel: string;
   conditionColor: string;
   readingAgeHours: number | null;
+  readingSuspect: boolean;
+  qualifierNote: string | null;
 }
 
 interface WeatherData {
@@ -191,6 +195,8 @@ export default function EmbedWidgetPage() {
                 conditionLabel: getConditionShortLabel(result.code),
                 conditionColor: CONDITION_COLORS[result.code] || '#9ca3af',
                 readingAgeHours: gauge.readingAgeHours,
+                readingSuspect: gauge.readingSuspect ?? false,
+                qualifierNote: gauge.qualifierNote ?? null,
               });
 
               // Initialize trends as null - will fetch history below
@@ -311,7 +317,7 @@ export default function EmbedWidgetPage() {
   if (!river) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180, background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
-        River not found
+        River conditions temporarily unavailable
       </div>
     );
   }
@@ -320,6 +326,8 @@ export default function EmbedWidgetPage() {
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionHelper = conditionCode ? CONDITION_HELPERS[conditionCode] : CONDITION_HELPERS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const riverHref = `${origin}${river.path || `/rivers/${river.slug}`}`;
+  const suspectGauge = gauges.find(g => g.readingSuspect && g.qualifierNote);
 
   return (
     <div
@@ -353,7 +361,7 @@ export default function EmbedWidgetPage() {
         </div>
         {/* Overall condition pill - clickable for more info (#9) */}
         <a
-          href={`${origin}/rivers/${river.slug}`}
+          href={riverHref}
           target="_blank"
           rel="noopener noreferrer"
           style={{ textDecoration: 'none', flexShrink: 0 }}
@@ -552,6 +560,28 @@ export default function EmbedWidgetPage() {
         );
       })()}
 
+      {/* Suspect-reading warning (ice-affected / estimated / sensor issues) */}
+      {suspectGauge && (
+        <div
+          role="note"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 10,
+            fontWeight: 500,
+            color: '#b45309',
+            background: isDark ? 'rgba(180, 83, 9, 0.15)' : '#fffbeb',
+            border: `1px solid ${isDark ? 'rgba(180, 83, 9, 0.35)' : '#fde68a'}`,
+            borderRadius: 6,
+            padding: '4px 8px',
+          }}
+        >
+          <span aria-hidden="true">⚠</span>
+          <span>{suspectGauge.qualifierNote}</span>
+        </div>
+      )}
+
       {/* 14-day trend chart for primary gauge */}
       {chartData && chartData.readings.length > 1 && (() => {
         const W = 540;
@@ -678,7 +708,7 @@ export default function EmbedWidgetPage() {
       >
         <div style={{ display: 'flex', gap: 12 }}>
           <a
-            href={`${origin}/rivers/${river.slug}`}
+            href={riverHref}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
@@ -694,7 +724,7 @@ export default function EmbedWidgetPage() {
             Water levels &rarr;
           </a>
           <a
-            href={`${origin}/rivers/${river.slug}#services`}
+            href={`${origin}/plan?river=${river.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
