@@ -38,6 +38,7 @@ export async function fetchNwpsFloodStages(lid: string): Promise<NwpsFloodStages
   const url = `${NWPS_BASE}/${encodeURIComponent(lid)}`;
   try {
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(10_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 86400 }, // stages change rarely; cache a day
     });
@@ -85,7 +86,7 @@ export async function fetchNwpsLidMap(): Promise<Record<string, string>> {
   const url = `${NWPS_BASE}?${params.toString()}`;
   const map: Record<string, string> = {};
   try {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { Accept: 'application/json' } });
     if (!res.ok) {
       console.warn(`[NWPS] gauge list: HTTP ${res.status}`);
       return map;

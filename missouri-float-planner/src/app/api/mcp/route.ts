@@ -438,22 +438,21 @@ function createMcpServer() {
       }
 
       try {
-        const res = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=imperial&appid=${apiKey}`
-        );
-        const weather = await res.json();
+        // Shared OpenWeather client — rides the module's 10-minute fetch
+        // cache instead of an uncached raw call per MCP request.
+        const { fetchWeather } = await import('@/lib/weather/openweather');
+        const weather = await fetchWeather(lat, lon, apiKey);
 
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
               river: river.name,
-              temperature: weather.main?.temp,
-              feelsLike: weather.main?.feels_like,
-              humidity: weather.main?.humidity,
-              conditions: weather.weather?.[0]?.description,
-              windSpeedMph: weather.wind?.speed,
-              windDirection: weather.wind?.deg,
+              temperature: weather.temp,
+              humidity: weather.humidity,
+              conditions: weather.condition,
+              windSpeedMph: weather.windSpeed,
+              windDirection: weather.windDirection,
             }, null, 2),
           }],
         };

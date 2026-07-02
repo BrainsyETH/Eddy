@@ -38,6 +38,7 @@ export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert
   const url = `https://api.weather.gov/alerts/active?area=${encodeURIComponent(stateCode)}`;
 
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(10_000),
     headers: {
       'User-Agent': '(Eddy Float Planner, contact@eddyfloat.com)',
       Accept: 'application/geo+json',

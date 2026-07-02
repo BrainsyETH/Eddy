@@ -3,6 +3,7 @@
 // Caches results for 30 minutes to minimize API calls
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchWeather, getWindDirection } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
 
@@ -38,7 +39,7 @@ async function _GET(request: NextRequest) {
   // Check cache
   const cached = weatherCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return NextResponse.json(cached.data);
+    return NextResponse.json(cached.data, { headers: cdnCacheHeaders(600, 1800) });
   }
 
   try {
@@ -57,7 +58,7 @@ async function _GET(request: NextRequest) {
     // Cache the result
     weatherCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, { headers: cdnCacheHeaders(600, 1800) });
   } catch (error) {
     console.error('Weather fetch error:', error);
     return NextResponse.json(

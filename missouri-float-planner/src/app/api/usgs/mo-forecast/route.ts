@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
 
 /**
  * NWS AHPS forecast peaks for every primary gauge that carries an
@@ -67,7 +66,7 @@ function parseForecastDatums(xml: string): MoForecastDatum[] {
 }
 
 async function fetchForecast(lid: string): Promise<MoForecastDatum[]> {
-  const res = await fetch(ahpsUrl(lid), { next: { revalidate: 3600 } });
+  const res = await fetch(ahpsUrl(lid), { signal: AbortSignal.timeout(10_000), next: { revalidate: 3600 } });
   if (!res.ok) return [];
   const xml = await res.text();
   return parseForecastDatums(xml);

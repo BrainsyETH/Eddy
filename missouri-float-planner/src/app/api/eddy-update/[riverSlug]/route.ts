@@ -3,6 +3,7 @@
 // Optionally filtered by section via ?section=upper-current
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
@@ -61,7 +62,7 @@ async function _GET(
 
     if (!data) {
       // No AI update available — frontend will fall back to static quote
-      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null });
+      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: cdnCacheHeaders(300, 1800) });
     }
 
     // Overlay live gauge-derived condition + height so the river page's
@@ -83,7 +84,7 @@ async function _GET(
     if (!proseAvailable) {
       // Live condition has diverged from the AI snapshot — surface no prose
       // so the client falls back to the static quote.
-      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null });
+      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: cdnCacheHeaders(300, 1800) });
     }
 
     return NextResponse.json<EddyUpdateResponse>({
@@ -98,7 +99,7 @@ async function _GET(
         sourcesUsed: data.sources_used || [],
         generatedAt: data.generated_at,
       },
-    });
+    }, { headers: cdnCacheHeaders(300, 1800) });
   } catch (error) {
     console.error('[EddyUpdate] Unexpected error:', error);
     return NextResponse.json<EddyUpdateResponse>(

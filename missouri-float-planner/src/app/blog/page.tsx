@@ -10,7 +10,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 60; // Revalidate every 60 seconds
 
 interface BlogPost {
   slug: string;
