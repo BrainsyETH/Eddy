@@ -17,7 +17,7 @@ export interface WeatherData {
 
 /**
  * @deprecated Fallback only — the source of truth is rivers.weather_city /
- * weather_lat / weather_lon (seeded by migration 00142). Do not add rivers
+ * weather_lat / weather_lon (seeded by migration 00145). Do not add rivers
  * here; use getWeatherPointForRiver().
  */
 const LEGACY_RIVER_CITY_MAP: Record<string, { city: string; lat: number; lon: number }> = {

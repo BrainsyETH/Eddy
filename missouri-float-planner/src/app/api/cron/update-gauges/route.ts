@@ -12,6 +12,11 @@ import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
+// The elevated-crossing alerts (storm digest / individual warnings) are AWAITED
+// before the response so serverless doesn't kill them mid-publish; Meta Graph
+// calls add seconds each, so give the cron real headroom beyond the 10-15s
+// default (60s is within both Hobby and Pro limits).
+export const maxDuration = 60;
 
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
@@ -38,8 +43,11 @@ async function runUpdate(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Check if this is a high-frequency poll (triggered every 15 minutes)
-  const isHighFrequencyPoll = request.headers.get('x-high-frequency') === 'true';
+  // Check if this is a high-frequency poll (triggered every 15 minutes). Accept
+  // either the header (manual/test) or a query param (Vercel cron can't set headers).
+  const isHighFrequencyPoll =
+    request.headers.get('x-high-frequency') === 'true' ||
+    new URL(request.url).searchParams.get('highFrequency') === '1';
 
   try {
     // Get gauge stations based on poll type
@@ -123,17 +131,20 @@ async function runUpdate(request: NextRequest) {
     let highFrequencyFlagsSet = 0;
     let highFrequencyFlagsCleared = 0;
     let conditionChanges = 0;
+    let flatlined = 0;
 
-    // Rivers that crossed INTO elevated water this pass. Collected and decided
-    // after the loop: >= STORM_THRESHOLD → one storm digest; otherwise individual
-    // warnings. (Recoveries / other transitions publish immediately in-loop.)
-    const STORM_THRESHOLD = 3;
-    const elevatedCrossings: Array<{
+    // Condition transitions collected during the loop and published after it
+    // (elevated ones get the storm-vs-single decision; the rest publish
+    // individually). Restores declarations dropped in a bad merge upstream.
+    type Transition = {
       riverSlug: string;
       oldCondition: string;
       newCondition: string;
       gaugeHeightFt: number | null;
-    }> = [];
+    };
+    const STORM_THRESHOLD = 3;
+    const elevatedCrossings: Transition[] = [];
+    const otherTransitions: Transition[] = [];
 
     for (const reading of readings) {
       const station = stations.find(s => s.siteId === reading.siteId);
@@ -153,6 +164,7 @@ async function runUpdate(request: NextRequest) {
             reading_timestamp: reading.readingTimestamp,
             gauge_height_ft: reading.gaugeHeightFt,
             discharge_cfs: reading.dischargeCfs,
+            qualifiers: reading.qualifiers?.length ? reading.qualifiers : null,
             fetched_at: new Date().toISOString(),
           },
           {
@@ -167,6 +179,33 @@ async function runUpdate(request: NextRequest) {
       }
 
       updated++;
+
+      // Stuck-sensor / flatline detection: a sensor emitting the identical value across
+      // many readings while timestamps advance is likely frozen, not genuinely steady.
+      // (A truly stable spring-fed river still jitters at the 0.01 ft / 1 cfs level.)
+      try {
+        const { data: recent } = await supabase
+          .from('gauge_readings')
+          .select('gauge_height_ft, discharge_cfs')
+          .eq('gauge_station_id', station.id)
+          .order('reading_timestamp', { ascending: false })
+          .limit(8);
+        if (recent && recent.length >= 6) {
+          const heights = recent.map(r => r.gauge_height_ft).filter((v): v is number => v !== null);
+          const flows = recent.map(r => r.discharge_cfs).filter((v): v is number => v !== null);
+          const flatHeight = heights.length >= 6 && new Set(heights).size === 1;
+          const flatFlow = flows.length >= 6 && new Set(flows).size === 1;
+          if (flatHeight || flatFlow) {
+            flatlined++;
+            console.warn(
+              `[update-gauges] Possible stuck sensor at ${reading.siteId}: ` +
+              `${recent.length} identical recent readings (height=${flatHeight}, flow=${flatFlow})`
+            );
+          }
+        }
+      } catch (flatErr) {
+        console.warn(`[update-gauges] Flatline check failed for ${reading.siteId}:`, flatErr);
+      }
 
       // Calculate rate of change using database function
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,24 +321,19 @@ async function runUpdate(request: NextRequest) {
 
               conditionChanges++;
 
-              // Defer elevated crossings for the storm-vs-single decision after
-              // the loop; publish everything else (recoveries, etc.) immediately.
+              // Defer ALL transitions to the post-loop publish (awaited): the
+              // elevated ones get the storm-vs-single decision; the rest
+              // (recoveries etc.) publish individually.
+              const transition: Transition = {
+                riverSlug,
+                oldCondition: oldCode,
+                newCondition: newCondition.code,
+                gaugeHeightFt: reading.gaugeHeightFt,
+              };
               if (isElevatedCrossing(oldCode, newCondition.code)) {
-                elevatedCrossings.push({
-                  riverSlug,
-                  oldCondition: oldCode,
-                  newCondition: newCondition.code,
-                  gaugeHeightFt: reading.gaugeHeightFt,
-                });
+                elevatedCrossings.push(transition);
               } else {
-                publishConditionChangeAlert({
-                  riverSlug,
-                  oldCondition: oldCode,
-                  newCondition: newCondition.code,
-                  gaugeHeightFt: reading.gaugeHeightFt,
-                }).catch((err) => {
-                  console.error(`Condition alert publish error for ${riverSlug}:`, err);
-                });
+                otherTransitions.push(transition);
               }
 
               // Regenerate Eddy report for this river (async, throttled internally)
@@ -314,13 +348,14 @@ async function runUpdate(request: NextRequest) {
       }
     }
 
-    // ── Storm-vs-single alert decision ──────────────────────────────
-    // Dedupe by river (a river can have multiple gauges), keeping the most
-    // severe crossing. >= STORM_THRESHOLD rivers → one shareable storm digest;
-    // otherwise publish the individual warnings. Awaited so posts complete
-    // before the serverless function returns.
+    // ── Post-loop alert publishing (awaited) ────────────────────────
+    // Elevated crossings: dedupe by river (a river can have multiple gauges),
+    // keeping the most severe crossing. >= STORM_THRESHOLD rivers → one
+    // shareable storm digest; otherwise individual warnings. Other transitions
+    // (recoveries etc.) publish individually — publishConditionChangeAlert
+    // classifies and no-ops the non-notable ones.
     if (elevatedCrossings.length > 0) {
-      const bySlug = new Map<string, (typeof elevatedCrossings)[number]>();
+      const bySlug = new Map<string, Transition>();
       for (const c of elevatedCrossings) {
         const prev = bySlug.get(c.riverSlug);
         if (!prev || (c.newCondition === 'dangerous' && prev.newCondition !== 'dangerous')) {
@@ -331,9 +366,18 @@ async function runUpdate(request: NextRequest) {
 
       try {
         if (unique.length >= STORM_THRESHOLD) {
-          await publishStormDigest(
+          const digest = await publishStormDigest(
             unique.map((c) => ({ riverSlug: c.riverSlug, newCondition: c.newCondition })),
           );
+          // A second wave inside the digest's 2h cooldown still deserves
+          // per-river warnings — otherwise a dangerous crossing goes silent.
+          // (Individual alerts carry their own 4h per-river cooldown, so
+          // rivers already covered by the earlier digest won't double-post.)
+          if (digest.skipped && digest.reason === 'cooldown') {
+            for (const c of unique) {
+              await publishConditionChangeAlert(c);
+            }
+          }
         } else {
           for (const c of unique) {
             await publishConditionChangeAlert(c);
@@ -341,6 +385,13 @@ async function runUpdate(request: NextRequest) {
         }
       } catch (alertErr) {
         console.error('Elevated-crossing alert error:', alertErr);
+      }
+    }
+    for (const t of otherTransitions) {
+      try {
+        await publishConditionChangeAlert(t);
+      } catch (alertErr) {
+        console.error(`Condition alert publish error for ${t.riverSlug}:`, alertErr);
       }
     }
 
@@ -355,6 +406,7 @@ async function runUpdate(request: NextRequest) {
       highFrequencyFlagsSet,
       highFrequencyFlagsCleared,
       conditionChanges,
+      flatlined,
       executionTime,
       stationsProcessed: stations.length,
     });

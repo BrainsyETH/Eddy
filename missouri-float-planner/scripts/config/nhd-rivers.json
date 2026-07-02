@@ -1,5 +1,5 @@
 {
-  "$comment": "River configs for scripts/import-nhd-rivers.ts. Adding a river = adding an entry here (or passing a different config file: npx tsx scripts/import-nhd-rivers.ts path/to/config.json). Find nhdFeatureId on the USGS National Map (NHD Permanent Identifier). state/timezone/riverType feed the multi-region columns from migration 00142.",
+  "$comment": "River configs for scripts/import-nhd-rivers.ts. Adding a river = adding an entry here (or passing a different config file: npx tsx scripts/import-nhd-rivers.ts path/to/config.json). Find nhdFeatureId on the USGS National Map (NHD Permanent Identifier). state/timezone/riverType feed the multi-region columns from migration 00145.",
   "rivers": [
     {
       "name": "Meramec River",

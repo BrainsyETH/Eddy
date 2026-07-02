@@ -9,6 +9,9 @@ import { canoeHours } from './post-types';
 import type { ConditionCode } from '@/types/api';
 import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
 import { toNum } from '@/lib/utils/num';
+// Long display names ("Current River", "Huzzah Creek") — shared with the OG
+// covers + reels via river-display so a rename can't drift across surfaces.
+import { RIVER_DISPLAY_LONG as RIVER_NAMES } from './river-display';
 
 // ---------------------------------------------------------------------------
 // Canonical link builder — river pages live at /rivers/<slug>. Building bare
@@ -20,20 +23,10 @@ function riverUrl(slug: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// River display names
+// River display names — long forms ("Current River") come from the shared
+// river-display map (imported as RIVER_NAMES above). Short casual forms
+// ("the Current") stay local; they're prose-specific to captions.
 // ---------------------------------------------------------------------------
-const RIVER_NAMES: Record<string, string> = {
-  meramec: 'Meramec River',
-  current: 'Current River',
-  'eleven-point': 'Eleven Point River',
-  'jacks-fork': 'Jacks Fork River',
-  niangua: 'Niangua River',
-  'big-piney': 'Big Piney River',
-  huzzah: 'Huzzah Creek',
-  courtois: 'Courtois Creek',
-};
-
-// Short names for casual hooks
 const RIVER_SHORT_NAMES: Record<string, string> = {
   meramec: 'the Meramec',
   current: 'the Current',

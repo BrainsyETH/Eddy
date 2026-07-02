@@ -1,4 +1,4 @@
--- 00143_river_sections_validation_bounds.sql
+-- 00146_river_sections_validation_bounds.sql
 -- Phase 0 scaling infrastructure (see docs/MULTI_STATE_SCALING_PLAN.md):
 --   F10: river_sections moves the hardcoded RIVER_SECTIONS array
 --        (src/data/river-sections.ts) into data — adding a river or section

@@ -18,6 +18,35 @@ export type { GaugeReading, DailyStatistics, HistoricalData, HistoricalReading }
 
 const usgs = () => getFlowProvider('usgs')!;
 
+/** Qualifier codes that mean the value itself is suspect (not just unapproved). */
+const SUSPECT_QUALIFIERS = new Set(['e', 'Ice', 'Eqp', 'Bkw', 'Mnt', 'ZFl', '***', 'Dis', 'Rat', 'Ssn']);
+
+export interface QualifierStatus {
+  /** Provisional (unapproved) — normal for real-time data; footnote only. */
+  provisional: boolean;
+  /** Value is suspect (estimated / ice / equipment) — surface loudly. */
+  suspect: boolean;
+  /** Short human note, or null when the reading is clean/approved. */
+  note: string | null;
+}
+
+/** Classifies USGS qualifier codes into a user-facing status. */
+export function classifyQualifiers(qualifiers: string[] | null | undefined): QualifierStatus {
+  const codes = qualifiers ?? [];
+  const suspect = codes.some((c) => SUSPECT_QUALIFIERS.has(c));
+  const provisional = codes.includes('P');
+  let note: string | null = null;
+  if (suspect) {
+    if (codes.includes('Ice')) note = 'Ice-affected reading — may be inaccurate';
+    else if (codes.includes('e')) note = 'Estimated reading — may be inaccurate';
+    else if (codes.includes('Eqp')) note = 'Sensor malfunction — reading suspect';
+    else note = 'Reading flagged by USGS — may be inaccurate';
+  } else if (provisional) {
+    note = 'Provisional USGS data';
+  }
+  return { provisional, suspect, note };
+}
+
 /**
  * Fetches current gauge readings for USGS sites.
  *

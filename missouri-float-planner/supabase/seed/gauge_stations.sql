@@ -294,18 +294,21 @@ INSERT INTO river_gauges (
     level_high,
     level_dangerous
 )
-SELECT 
+-- NPS/outfitter local knowledge: Lower Current at Van Buren optimal 3.0–4.0 ft,
+-- river closes at 5.0 ft. Kept in sync with migration 00051 so a fresh `db reset`
+-- (seeds run AFTER migrations) can't silently loosen the closure threshold to 12 ft.
+SELECT
     r.id,
     gs.id,
     true,
     0.0,
     'ft',
     2.0,
-    2.8,
-    3.5,
-    6.0,
-    8.0,
-    12.0
+    2.5,
+    3.0,
+    4.0,
+    4.5,
+    5.0
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'current' AND gs.usgs_site_id = '07067000'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET

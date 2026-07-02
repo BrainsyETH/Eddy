@@ -103,7 +103,7 @@ export function filterAlertsForRiver(
 
 /**
  * @deprecated Fallback only — the source of truth is rivers.alert_search_terms
- * (seeded by migration 00142). Do not add rivers here.
+ * (seeded by migration 00145). Do not add rivers here.
  */
 const LEGACY_RIVER_SEARCH_TERMS: Record<string, string[]> = {
   current: ['current river', 'shannon county', 'dent county', 'carter county', 'van buren', 'eminence'],

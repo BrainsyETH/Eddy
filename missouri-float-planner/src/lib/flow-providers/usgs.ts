@@ -88,6 +88,30 @@ function parseOgcValue(raw: number | string | null | undefined): number {
   return typeof raw === 'number' ? raw : parseFloat(raw);
 }
 
+/**
+ * Normalizes modern-API qualifier metadata to legacy USGS qualifier codes so
+ * classifyQualifiers() works identically for both API generations.
+ */
+function ogcQualifiers(props: NonNullable<OgcFeature['properties']>): string[] {
+  const codes: string[] = [];
+  const raw = props.qualifier;
+  if (Array.isArray(raw)) {
+    for (const q of raw) if (q) codes.push(String(q));
+  } else if (raw) {
+    codes.push(String(raw));
+  }
+  if (props.approval_status && /provisional/i.test(props.approval_status) && !codes.includes('P')) {
+    codes.push('P');
+  }
+  return codes;
+}
+
+function mergeQualifierCodes(target: string[], source: string[]): void {
+  for (const q of source) {
+    if (q && !target.includes(q)) target.push(q);
+  }
+}
+
 /** Folds OGC features (one per site × parameter) into per-site readings. */
 function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
   const readings = new Map<string, GaugeReading>();
@@ -106,6 +130,7 @@ function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
         gaugeHeightFt: null,
         dischargeCfs: null,
         readingTimestamp: null,
+        qualifiers: [],
       });
     }
     const reading = readings.get(siteId)!;
@@ -115,6 +140,7 @@ function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
       if (validHeight(value)) {
         reading.gaugeHeightFt = value;
         reading.readingTimestamp = props.time;
+        mergeQualifierCodes(reading.qualifiers, ogcQualifiers(props));
       } else if (!isNaN(value)) {
         console.warn(`[USGS] Invalid gauge height ${value} for site ${siteId}, treating as unavailable`);
       }
@@ -122,6 +148,7 @@ function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
       if (validDischarge(value)) {
         reading.dischargeCfs = value;
         if (!reading.readingTimestamp) reading.readingTimestamp = props.time;
+        mergeQualifierCodes(reading.qualifiers, ogcQualifiers(props));
       } else if (!isNaN(value)) {
         console.warn(`[USGS] Invalid discharge ${value} for site ${siteId}, treating as unavailable`);
       }
@@ -258,6 +285,7 @@ async function fetchLatestLegacy(
         gaugeHeightFt: null,
         dischargeCfs: null,
         readingTimestamp: null,
+        qualifiers: [],
       });
     }
     const reading = readings.get(siteId)!;
@@ -270,6 +298,7 @@ async function fetchLatestLegacy(
       if (validHeight(num)) {
         reading.gaugeHeightFt = num;
         reading.readingTimestamp = latestValue.dateTime;
+        mergeQualifierCodes(reading.qualifiers, latestValue.qualifiers ?? []);
       } else if (!isNaN(num)) {
         console.warn(`[USGS] Invalid gauge height ${num} for site ${siteId}, treating as unavailable`);
       }
@@ -277,6 +306,7 @@ async function fetchLatestLegacy(
       if (validDischarge(num)) {
         reading.dischargeCfs = num;
         if (!reading.readingTimestamp) reading.readingTimestamp = latestValue.dateTime;
+        mergeQualifierCodes(reading.qualifiers, latestValue.qualifiers ?? []);
       } else if (!isNaN(num)) {
         console.warn(`[USGS] Invalid discharge ${num} for site ${siteId}, treating as unavailable`);
       }

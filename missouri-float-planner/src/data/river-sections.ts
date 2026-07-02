@@ -4,7 +4,7 @@
 // Others are treated as a single unit (section_slug = null).
 //
 // @deprecated Fallback only — the source of truth is the river_sections table
-// (seeded by migration 00143) read via src/lib/eddy/update-targets.ts. Do not
+// (seeded by migration 00146) read via src/lib/eddy/update-targets.ts. Do not
 // add rivers or sections here.
 
 export interface RiverSection {

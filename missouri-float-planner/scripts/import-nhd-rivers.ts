@@ -10,7 +10,7 @@
  *
  * River configs live in scripts/config/nhd-rivers.json (default) — adding a
  * river means adding a JSON entry, not editing this script. Each entry may
- * carry state/timezone/riverType for the multi-region columns (00142).
+ * carry state/timezone/riverType for the multi-region columns (00145).
  *
  * Prerequisites:
  *   - Environment variables set in .env.local

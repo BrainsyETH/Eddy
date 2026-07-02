@@ -75,7 +75,7 @@ export interface GeoBounds {
 
 /**
  * Validates coordinates fall inside the given bounds. Region bounds come from
- * get_active_rivers_bounds() (migration 00143) so imports/admin tooling can
+ * get_active_rivers_bounds() (migration 00146) so imports/admin tooling can
  * sanity-check coordinates per region instead of assuming Missouri.
  */
 export function isValidCoord(lat: number, lng: number, bounds: GeoBounds): boolean {

@@ -8,7 +8,7 @@ import type { ConditionCode } from '@/types/api';
 
 /**
  * @deprecated Fallback only — the source of truth is
- * river_characteristics.river_note (seeded by migration 00142). Do not add
+ * river_characteristics.river_note (seeded by migration 00145). Do not add
  * rivers here; callers read the DB first and fall back to this map.
  */
 export const RIVER_NOTES: Record<string, string> = {

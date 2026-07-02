@@ -2,7 +2,7 @@
 // DB-driven Eddy update targets: one whole-river target per active river,
 // plus one per row in river_sections. Replaces the hardcoded RIVER_SECTIONS
 // array in src/data/river-sections.ts (kept as a fallback for environments
-// that predate migration 00143).
+// that predate migration 00146).
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {

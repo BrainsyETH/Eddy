@@ -55,6 +55,7 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
   hoursToday,
   hoursTypical,
   dateLabel,
+  followCta,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -62,6 +63,10 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
   const isPortrait = format === "portrait";
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
+
+  // CTA enters ~70 frames before the end so it lands late regardless of the
+  // duration Root's calculateMetadata chooses (360 default, tighter otherwise).
+  const ctaStart = Math.max(60, durationInFrames - 70);
 
   // Float-time hero: how today's flow changes the trip vs a normal day. This is
   // the non-obvious, decision-grade number — "3.5 hrs today, not the usual 4.5".
@@ -82,7 +87,6 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
     ? `~${hoursToday.toFixed(1)} hrs today`
     : `~${hoursToday.toFixed(1)} hrs`;
 
-  const titleEntrance = spring({ frame, fps, config: ENTRANCE });
   const riverEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
   const dateEntrance = spring({ frame: frame - 20, fps, config: ENTRANCE });
   const routeEntrance = spring({ frame: frame - 30, fps, config: SNAPPY });
@@ -90,7 +94,7 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
   const statsEntrance = spring({ frame: frame - 50, fps, config: SNAPPY });
   const statsScale = interpolate(statsEntrance, [0, 1], [0.85, 1]);
   const ctaEntrance = spring({
-    frame: frame - 290,
+    frame: frame - ctaStart,
     fps,
     config: { damping: 12, mass: 0.5, stiffness: 100 },
   });
@@ -136,14 +140,16 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
           gap: 22,
         }}
       >
-        {/* Masthead — eyebrow + river name + date */}
+        {/* Masthead — eyebrow + river name + date. The eyebrow renders at full
+            opacity from frame 0 (no entrance fade) so the first autoplay frame /
+            grid thumbnail is branded, not empty. */}
         <ReelMasthead
           eyebrow="Float of the Day"
           title={riverName}
           subtitle={dateLabel}
           glow={condition.glow}
           isPortrait={isPortrait}
-          eyebrowOpacity={titleEntrance}
+          eyebrowOpacity={1}
           titleOpacity={riverEntrance}
           subtitleOpacity={dateEntrance}
         />
@@ -272,8 +278,25 @@ export const SectionGuide: React.FC<SectionGuideProps> = ({
           />
         </div>
 
-        {/* CTA */}
-        <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} />
+        {/* CTA + optional smaller followCta line beneath (lower emphasis). */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} />
+          {followCta && (
+            <span
+              style={{
+                opacity: ctaEntrance,
+                fontFamily: "'Fredoka', system-ui, sans-serif",
+                fontSize: isPortrait ? 22 : 18,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.6)",
+                letterSpacing: 0.5,
+                textAlign: "center",
+              }}
+            >
+              {followCta}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}

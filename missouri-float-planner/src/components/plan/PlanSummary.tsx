@@ -413,8 +413,13 @@ export default function PlanSummary({
                 ) : displayPlan.floatTime ? (
                   <>
                     <p className="text-lg font-bold text-primary-700">{displayPlan.floatTime.formatted}</p>
-                    <p className="text-[10px] text-neutral-500">{displayPlan.floatTime.speedMph} mph avg</p>
+                    <p className="text-[10px] text-neutral-500">
+                      {displayPlan.floatTime.speedMph} mph avg
+                      {displayPlan.floatTime.basis === 'trip' ? ' · incl. stops' : ''}
+                    </p>
                   </>
+                ) : displayPlan.condition?.code === 'dangerous' ? (
+                  <p className="text-lg font-bold text-red-600">Do not float</p>
                 ) : (
                   <p className="text-lg font-bold text-primary-700">--</p>
                 )}

@@ -16,6 +16,12 @@ export interface GaugeReading {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   readingTimestamp: string | null;
+  /**
+   * Provider qualifier codes on the reading, normalized to USGS conventions
+   * ('P' provisional, 'e' estimated, 'Ice', 'Eqp', ...). The modern USGS API's
+   * approval_status of "Provisional" maps to 'P'.
+   */
+  qualifiers: string[];
 }
 
 /** Historical day-of-year discharge percentiles for a site. */

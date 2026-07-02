@@ -3,7 +3,7 @@
 //
 // @deprecated Fallback only — the source of truth is the
 // river_characteristics table (rain_lag_hours / rain_lag_note /
-// drop_rate_note, seeded by migration 00142). Do not add rivers here;
+// drop_rate_note, seeded by migration 00145). Do not add rivers here;
 // generate-update.ts reads the DB first and only falls back to this map.
 
 export interface RainLagInfo {

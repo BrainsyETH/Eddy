@@ -1,6 +1,6 @@
 // src/lib/geo/region-bounds.ts
 // Map viewport bounds computed from active river geometry via the
-// get_active_rivers_bounds() function (migration 00143), replacing the
+// get_active_rivers_bounds() function (migration 00146), replacing the
 // hardcoded MISSOURI_BOUNDS constant for anything region-aware. The constant
 // remains the fallback when the RPC is unavailable.
 
@@ -41,7 +41,7 @@ export async function getRegionBounds(stateCode?: string): Promise<GeoBounds> {
       return bounds;
     }
     if (error) {
-      console.warn('[RegionBounds] RPC failed (pre-00143 DB?):', error.message);
+      console.warn('[RegionBounds] RPC failed (pre-00146 DB?):', error.message);
     }
   } catch (e) {
     console.warn('[RegionBounds] Failed to compute bounds:', e);

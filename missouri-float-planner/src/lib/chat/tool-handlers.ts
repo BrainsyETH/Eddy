@@ -7,7 +7,7 @@ import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { toNum } from '@/lib/utils/num';
 import { fetchWeather, fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
-import { calculateFloatTime } from '@/lib/calculations/floatTime';
+import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
 // Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
@@ -240,16 +240,19 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   const gauge = await getGaugeConditions(riverSlug);
   const currentCondition = gauge?.conditionCode ?? 'flowing';
 
-  // Calculate float time using default canoe speeds and actual condition
-  const floatTime = calculateFloatTime(distanceMiles, {
-    speedLowWater: 2.0,
-    speedNormal: 2.5,
-    speedHighWater: 3.5,
-  }, currentCondition);
+  // Calculate float time using shared default canoe speeds and actual condition.
+  // Returns null for dangerous water — we do not quote a time next to "do not float".
+  const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition);
 
   const estimatedHours = floatTime
-    ? { low: Math.round((floatTime.minutes * 0.8) / 6) / 10, high: Math.round((floatTime.minutes * 1.3) / 6) / 10 }
-    : { low: distanceMiles / 3, high: distanceMiles / 1.5 };
+    ? {
+        low: Math.round((floatTime.minMinutes / 60) * 10) / 10,
+        high: Math.round((floatTime.maxMinutes / 60) * 10) / 10,
+      }
+    : null;
+  const floatTimeNote = floatTime
+    ? null
+    : 'Conditions are dangerous — no float time is provided; do not float.';
 
   // Build Google Maps shuttle directions URL (take-out → put-in)
   // Uses directions_override if available, otherwise lat/lng coordinates
@@ -293,6 +296,8 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     endPoint: endAp.name,
     distanceMiles: Math.round(distanceMiles * 10) / 10,
     estimatedHours,
+    conditionCode: currentCondition,
+    floatTimeNote,
     shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,
     hazards: (hazards || []).map(h => ({

@@ -3,7 +3,7 @@
 //
 // This replaces the hardcoded Missouri maps that used to live in code
 // (RIVER_CITY_MAP, RIVER_SEARCH_TERMS, RIVER_NOTES, RAIN_LAG) and carries the
-// multi-region fields added in migration 00142 (state, timezone, river_type,
+// multi-region fields added in migration 00145 (state, timezone, river_type,
 // park_code). Reads are served from a short in-memory cache because callers
 // (chat requests, cron update generation) hit the same rows repeatedly.
 

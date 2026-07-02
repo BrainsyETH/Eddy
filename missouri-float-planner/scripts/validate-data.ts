@@ -2,7 +2,7 @@
 /**
  * Data validation suite — the automated QA gate for river data.
  *
- * Runs the SQL checks in validate_river_data() (migration 00143):
+ * Runs the SQL checks in validate_river_data() (migration 00146):
  *   threshold ordering, gauge coverage/liveness, required multi-region
  *   fields, provider site ids, access-point snap distance, mileage sanity
  * plus filesystem checks the database can't see:
@@ -80,7 +80,7 @@ async function main() {
   // 1. SQL checks
   const { data: sqlFindings, error } = await supabase.rpc('validate_river_data');
   if (error) {
-    console.error('validate_river_data() RPC failed (has migration 00143 run?):', error.message);
+    console.error('validate_river_data() RPC failed (has migration 00146 run?):', error.message);
     process.exit(1);
   }
 
