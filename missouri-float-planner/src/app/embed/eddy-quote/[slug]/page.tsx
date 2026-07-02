@@ -22,6 +22,7 @@ interface EddyUpdate {
 interface RiverBasic {
   name: string;
   slug: string;
+  path?: string;
   currentCondition?: { code: ConditionCode; label: string } | null;
 }
 
@@ -209,7 +210,7 @@ export default function EddyQuoteEmbedPage() {
   if (!river) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 140, background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
-        River not found
+        River conditions temporarily unavailable
       </div>
     );
   }
@@ -314,7 +315,7 @@ export default function EddyQuoteEmbedPage() {
         }}
       >
         <a
-          href={`${origin}/rivers/${river.slug}`}
+          href={`${origin}${river.path || `/rivers/${river.slug}`}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}

@@ -145,19 +145,10 @@ async function runUpdate(request: NextRequest) {
     let highFrequencyFlagsCleared = 0;
     let conditionChanges = 0;
     let flatlined = 0;
-    const elevatedCrossings: Transition[] = [];
-    const otherTransitions: Transition[] = [];
 
     // Condition transitions collected during the loop and published after it
     // (elevated ones get the storm-vs-single decision; the rest publish
-    // individually). Restores declarations dropped in a bad merge upstream.
-    type Transition = {
-      riverSlug: string;
-      oldCondition: string;
-      newCondition: string;
-      gaugeHeightFt: number | null;
-    };
-    const STORM_THRESHOLD = 3;
+    // individually).
     const elevatedCrossings: Transition[] = [];
     const otherTransitions: Transition[] = [];
 
