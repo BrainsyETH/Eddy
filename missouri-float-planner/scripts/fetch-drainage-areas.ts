@@ -12,16 +12,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
-// Load env from process.env, falling back to .env.local (no external deps so this
-// runs under `npx tsx` even if @next/env isn't installed).
+// Load env from .env.local (authoritative for this script — overrides the shell so a
+// stale placeholder export can't win), falling back to process.env. No external deps.
 function loadEnv() {
-  const need = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
-  if (need.every((k) => process.env[k])) return;
   try {
     const txt = readFileSync(join(process.cwd(), '.env.local'), 'utf8');
-    for (const line of txt.split('\n')) {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    for (const raw of txt.split('\n')) {
+      const line = raw.replace(/\r$/, '');
+      const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+      if (!m) continue;
+      let val = m[2].trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      process.env[m[1]] = val;
     }
   } catch {
     /* no .env.local — rely on exported env vars */
@@ -32,7 +36,10 @@ loadEnv();
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing Supabase credentials in environment');
+  if (!url || !key) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (checked .env.local + shell env)');
+  }
+  console.error(`[env] url=${url}  key=${key.slice(0, 6)}…(${key.length} chars)`);
   return createClient(url, key);
 }
 
