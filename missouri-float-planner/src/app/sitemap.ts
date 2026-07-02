@@ -3,6 +3,7 @@
 
 import { MetadataRoute } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -13,7 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [riversResult, blogResult, accessPointsResult] = await Promise.all([
     supabase
       .from('rivers')
-      .select('slug, updated_at')
+      .select('slug, state, updated_at')
       .order('name', { ascending: true }),
     supabase
       .from('blog_posts')
@@ -23,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .order('published_at', { ascending: false }),
     supabase
       .from('access_points')
-      .select('slug, river_id, rivers!inner(slug)')
+      .select('slug, river_id, rivers!inner(slug, state)')
       .eq('approved', true)
       .order('name', { ascending: true }),
   ]);
@@ -46,9 +47,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/api/openapi.json`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
   ];
 
-  // Dynamic river pages
+  // State index pages (one per distinct state with rivers)
+  const stateCodes = Array.from(new Set((riversResult.data || []).map((r) => r.state).filter(Boolean)));
+  const statePages: MetadataRoute.Sitemap = stateCodes.map((code) => ({
+    url: `${BASE_URL}${statePath(code)}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.7,
+  }));
+
+  // Dynamic river pages (canonical /rivers/<state>/<slug>)
   const riverPages: MetadataRoute.Sitemap = (riversResult.data || []).map((river) => ({
-    url: `${BASE_URL}/rivers/${river.slug}`,
+    url: `${BASE_URL}${riverPath(river.state, river.slug)}`,
     lastModified: river.updated_at ? new Date(river.updated_at) : new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.8,
@@ -62,15 +72,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  // Dynamic access point pages
+  // Dynamic access point pages (canonical /rivers/<state>/<slug>/access/<accessSlug>)
   const accessPointPages: MetadataRoute.Sitemap = (accessPointsResult.data || [])
     .filter((ap: Record<string, unknown>) => ap.rivers && typeof ap.rivers === 'object')
-    .map((ap: Record<string, unknown>) => ({
-      url: `${BASE_URL}/rivers/${(ap.rivers as Record<string, string>).slug}/access/${ap.slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.5,
-    }));
+    .map((ap: Record<string, unknown>) => {
+      const river = ap.rivers as Record<string, string>;
+      return {
+        url: `${BASE_URL}${riverAccessPath(river.state, river.slug, ap.slug as string)}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.5,
+      };
+    });
 
-  return [...staticPages, ...riverPages, ...blogPages, ...accessPointPages];
+  return [...staticPages, ...statePages, ...riverPages, ...blogPages, ...accessPointPages];
 }

@@ -45,6 +45,19 @@ const nextConfig = {
         destination: '/plan?river=:slug',
         permanent: true,
       },
+      // Same for canonical /rivers/<state>/<slug> share URLs.
+      {
+        source: '/rivers/:state/:slug',
+        has: [{ type: 'query', key: 'putIn' }],
+        destination: '/plan?river=:slug',
+        permanent: true,
+      },
+      {
+        source: '/rivers/:state/:slug',
+        has: [{ type: 'query', key: 'takeOut' }],
+        destination: '/plan?river=:slug',
+        permanent: true,
+      },
     ];
   },
   async headers() {

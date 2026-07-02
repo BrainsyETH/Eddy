@@ -1,87 +1,49 @@
 #!/usr/bin/env npx tsx
 /**
  * NHD River Import Script
- * 
+ *
  * Downloads and processes river geometry from the National Hydrography Dataset (NHD)
  * via the USGS Web Feature Service (WFS) and imports it into Supabase.
- * 
+ *
  * Usage:
- *   npx tsx scripts/import-nhd-rivers.ts
- * 
+ *   npx tsx scripts/import-nhd-rivers.ts [path/to/config.json]
+ *
+ * River configs live in scripts/config/nhd-rivers.json (default) — adding a
+ * river means adding a JSON entry, not editing this script. Each entry may
+ * carry state/timezone/riverType for the multi-region columns (00142).
+ *
  * Prerequisites:
  *   - Environment variables set in .env.local
  *   - Supabase database with PostGIS enabled and tables created
  */
 
 import { createClient } from '@supabase/supabase-js';
+import * as fs from 'fs';
+import * as path from 'path';
 
-// River configurations for Missouri's floatable rivers
-const MISSOURI_RIVERS = [
-  {
-    name: 'Meramec River',
-    slug: 'meramec',
-    nhdFeatureId: '9908874', // NHD Permanent Identifier
-    description: 'Popular float stream in east-central Missouri, known for scenic bluffs and easy access.',
-    difficultyRating: 'Class I',
-    region: 'Ozarks',
-  },
-  {
-    name: 'Current River',
-    slug: 'current',
-    nhdFeatureId: '9949108',
-    description: 'One of the first National Scenic Riverways, featuring crystal-clear spring-fed waters.',
-    difficultyRating: 'Class I-II',
-    region: 'Ozarks',
-  },
-  {
-    name: 'Eleven Point River',
-    slug: 'eleven-point',
-    nhdFeatureId: '9949356',
-    description: 'Wild and scenic river with remote float sections and abundant wildlife.',
-    difficultyRating: 'Class I-II',
-    region: 'Ozarks',
-  },
-  {
-    name: 'Jacks Fork River',
-    slug: 'jacks-fork',
-    nhdFeatureId: '9949094',
-    description: 'Major tributary of the Current River, part of the Ozark National Scenic Riverways.',
-    difficultyRating: 'Class I-II',
-    region: 'Ozarks',
-  },
-  {
-    name: 'Niangua River',
-    slug: 'niangua',
-    nhdFeatureId: '9897586',
-    description: 'Popular central Missouri float stream with moderate flow and scenic beauty.',
-    difficultyRating: 'Class I',
-    region: 'Central Missouri',
-  },
-  {
-    name: 'Big Piney River',
-    slug: 'big-piney',
-    nhdFeatureId: '9897784',
-    description: 'Clear Ozark stream with excellent smallmouth bass fishing.',
-    difficultyRating: 'Class I-II',
-    region: 'Ozarks',
-  },
-  {
-    name: 'Huzzah Creek',
-    slug: 'huzzah',
-    nhdFeatureId: '9908912',
-    description: 'Tributary of the Meramec, popular for shorter float trips.',
-    difficultyRating: 'Class I',
-    region: 'Ozarks',
-  },
-  {
-    name: 'Courtois Creek',
-    slug: 'courtois',
-    nhdFeatureId: '9908934',
-    description: 'Beautiful Meramec tributary with clear water and gravel bars.',
-    difficultyRating: 'Class I',
-    region: 'Ozarks',
-  },
-];
+interface RiverConfig {
+  name: string;
+  slug: string;
+  nhdFeatureId: string;
+  description: string;
+  difficultyRating: string;
+  region: string;
+  state?: string;
+  timezone?: string;
+  riverType?: string;
+}
+
+function loadRiverConfigs(): RiverConfig[] {
+  const configPath = process.argv[2]
+    ? path.resolve(process.argv[2])
+    : path.join(__dirname, 'config', 'nhd-rivers.json');
+  const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  if (!Array.isArray(raw.rivers)) {
+    throw new Error(`Config ${configPath} has no "rivers" array`);
+  }
+  console.log(`Loaded ${raw.rivers.length} river configs from ${configPath}`);
+  return raw.rivers as RiverConfig[];
+}
 
 interface NHDFeature {
   type: 'Feature';
@@ -218,7 +180,7 @@ async function importRivers() {
   const supabase = getSupabaseClient();
   const results: { name: string; status: 'success' | 'skipped' | 'error'; message: string }[] = [];
 
-  for (const river of MISSOURI_RIVERS) {
+  for (const river of loadRiverConfigs()) {
     console.log(`\n📍 Processing: ${river.name}`);
 
     // Check if river already exists
@@ -266,6 +228,9 @@ async function importRivers() {
       difficulty_rating: river.difficultyRating,
       region: river.region,
       nhd_feature_id: river.nhdFeatureId,
+      ...(river.state ? { state: river.state } : {}),
+      ...(river.timezone ? { timezone: river.timezone } : {}),
+      ...(river.riverType ? { river_type: river.riverType } : {}),
     });
 
     if (error) {

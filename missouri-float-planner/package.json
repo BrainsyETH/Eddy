@@ -15,6 +15,7 @@
     "db:import-mile-markers": "tsx scripts/import-mile-markers.ts",
     "db:correct-miles": "tsx scripts/correct-access-point-miles.ts",
     "db:verify-directions": "tsx scripts/verify-river-directions.ts",
+    "db:validate": "tsx scripts/validate-data.ts",
     "db:import-access-points": "tsx scripts/import-access-points-csv.ts",
     "db:import-services": "tsx scripts/import-services-csv.ts",
     "db:fix-gauges": "tsx scripts/fix-gauge-associations.ts",

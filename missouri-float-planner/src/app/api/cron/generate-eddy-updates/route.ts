@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getUpdateTargets, type UpdateTarget } from '@/data/river-sections';
+import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate } from '@/lib/eddy/generate-update';
 import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
 
@@ -79,7 +79,7 @@ async function runGeneration(request: NextRequest) {
   const activeSlugs = new Set((activeRivers || []).map((r: { slug: string }) => r.slug));
 
   // Get all update targets (rivers + sections) and filter to active only
-  const allTargets = getUpdateTargets();
+  const allTargets = await getUpdateTargetsFromDb();
   const targets = allTargets.filter((t) => activeSlugs.has(t.riverSlug));
 
   if (targets.length === 0) {

@@ -1,11 +1,16 @@
-// src/app/rivers/[slug]/page.tsx
-// Server-rendered river guide page. Acts as the SEO landing surface for each
-// river. Heavy planning UI (map, sidebar, share/save) lives at /plan?river=<slug>
-// — when this page is hit with putIn/takeOut params we redirect there so old
-// shared links keep working.
+// src/app/rivers/[state]/[slug]/page.tsx
+// Server-rendered river guide page at the canonical /rivers/[state]/[slug]
+// URL (e.g. /rivers/missouri/current). Legacy /rivers/[slug] URLs 301 here
+// via app/rivers/[state]/page.tsx; a wrong-state URL 301s to the canonical
+// state. Acts as the SEO landing surface for each river. Heavy planning UI
+// (map, sidebar, share/save) lives at /plan?river=<slug> — when this page is
+// hit with putIn/takeOut params we redirect there so old shared links keep
+// working.
 
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { stateSlug, stateName } from '@/lib/navigation/states';
+import { riverPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
@@ -21,7 +26,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 interface Props {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ state: string; slug: string }>;
   searchParams: Promise<{ putIn?: string; takeOut?: string; vessel?: string }>;
 }
 
@@ -40,7 +45,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     const supabase = await createClient();
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id, name, slug, length_miles, description, difficulty_rating, region')
+      .select('id, name, slug, state, length_miles, description, difficulty_rating, region')
       .eq('slug', slug)
       .single();
 
@@ -107,7 +112,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       ? descParts.slice(0, 1).join('') + ' ' + descParts.slice(1).join(', ') + '.'
       : descParts.join(', ') + '.';
     const description = `${descMeta} Access points, river guide, and live conditions for ${river.name}. Plan your float on Eddy.`;
-    const pageUrl = `${BASE_URL}/rivers/${slug}`;
+    const pageUrl = `${BASE_URL}${riverPath(river.state, slug)}`;
 
     return {
       title,
@@ -141,8 +146,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function RiverGuidePage({ params }: Props) {
   const resolvedParams = await params;
   const slug = resolvedParams?.slug;
+  const stateSegment = resolvedParams?.state;
 
-  // Note: /rivers/<slug>?putIn=…&takeOut=… is 308'd to /plan via
+  // Note: /rivers/<state>/<slug>?putIn=…&takeOut=… is 308'd to /plan via
   // next.config.mjs redirects() before we reach this handler.
 
   const supabase = await createClient();
@@ -150,7 +156,7 @@ export default async function RiverGuidePage({ params }: Props) {
   const [riverResult, guideResult] = await Promise.all([
     supabase
       .from('rivers')
-      .select('id, name, slug, description, length_miles, difficulty_rating, region, geom')
+      .select('id, name, slug, state, description, length_miles, difficulty_rating, region, geom')
       .eq('slug', slug)
       .single(),
     supabase
@@ -170,6 +176,12 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   const river = riverResult.data;
+
+  // Wrong-state URLs (e.g. /rivers/arkansas/current for a Missouri river)
+  // 301 to the canonical state segment.
+  if (stateSegment !== stateSlug(river.state)) {
+    permanentRedirect(riverPath(river.state, river.slug));
+  }
 
   // Fetch access points + current condition in parallel (need river.id first)
   const [{ data: accessPoints }, condRowsResult] = await Promise.all([
@@ -215,7 +227,8 @@ export default async function RiverGuidePage({ params }: Props) {
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
       { '@type': 'ListItem', position: 2, name: 'Rivers', item: `${BASE_URL}/rivers` },
-      { '@type': 'ListItem', position: 3, name: river.name, item: `${BASE_URL}/rivers/${slug}` },
+      { '@type': 'ListItem', position: 3, name: stateName(river.state), item: `${BASE_URL}${statePath(river.state)}` },
+      { '@type': 'ListItem', position: 4, name: river.name, item: `${BASE_URL}${riverPath(river.state, slug)}` },
     ],
   };
 
@@ -234,7 +247,7 @@ export default async function RiverGuidePage({ params }: Props) {
     touristType: ['Float trip', 'Canoeing', 'Kayaking', 'Tubing'],
     isAccessibleForFree: true,
     publicAccess: true,
-    url: `${BASE_URL}/rivers/${slug}`,
+    url: `${BASE_URL}${riverPath(river.state, slug)}`,
     ...(centroid && {
       geo: {
         '@type': 'GeoCoordinates',

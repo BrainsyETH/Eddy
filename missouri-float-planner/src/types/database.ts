@@ -1342,6 +1342,44 @@ export type Database = {
           },
         ]
       }
+      river_sections: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          river_id: string
+          section_slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          river_id: string
+          section_slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          river_id?: string
+          section_slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "river_sections_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       river_characteristics: {
         Row: {
           drop_rate_note: string | null
