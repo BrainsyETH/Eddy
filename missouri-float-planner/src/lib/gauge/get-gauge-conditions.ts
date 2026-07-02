@@ -5,7 +5,7 @@
 
 import type { ConditionCode } from '@/types/api';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGaugeReadings } from '@/lib/usgs/gauges';
+import { fetchGaugeReadings, classifyQualifiers } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { toNum } from '@/lib/utils/num';
 
@@ -24,6 +24,8 @@ export interface GaugeConditionResult {
   optimalRange: string;
   closureLevel: number | null;
   thresholds: ConditionThresholds;
+  /** USGS qualifier note (e.g. "Estimated reading — may be inaccurate"), null when clean. */
+  qualifierNote: string | null;
 }
 
 /**
@@ -76,7 +78,7 @@ export async function getGaugeConditions(riverSlug: string): Promise<GaugeCondit
   // Try DB reading first, fall back to live USGS
   const { data: dbReading } = await supabase
     .from('gauge_readings')
-    .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+    .select('gauge_height_ft, discharge_cfs, reading_timestamp, qualifiers')
     .eq('gauge_station_id', station.id)
     .order('reading_timestamp', { ascending: false })
     .limit(1)
@@ -85,6 +87,7 @@ export async function getGaugeConditions(riverSlug: string): Promise<GaugeCondit
   let gaugeHeightFt = toNum(dbReading?.gauge_height_ft);
   let dischargeCfs = toNum(dbReading?.discharge_cfs);
   let readingTimestamp = dbReading?.reading_timestamp ?? null;
+  let qualifiers: string[] | null = dbReading?.qualifiers ?? null;
 
   // If DB reading is stale (>2 hours), try live USGS
   const ageMs = readingTimestamp ? Date.now() - new Date(readingTimestamp).getTime() : Infinity;
@@ -102,6 +105,7 @@ export async function getGaugeConditions(riverSlug: string): Promise<GaugeCondit
         if (live.readingTimestamp) {
           readingTimestamp = live.readingTimestamp;
         }
+        qualifiers = live.qualifiers?.length ? live.qualifiers : qualifiers;
       }
     } catch (e) {
       console.warn(`[GaugeConditions] Live USGS fetch failed for ${station.usgs_site_id}:`, e);
@@ -144,5 +148,11 @@ export async function getGaugeConditions(riverSlug: string): Promise<GaugeCondit
     optimalRange,
     closureLevel: gaugeLink.level_dangerous ?? null,
     thresholds,
+    // Only the "suspect" qualifiers (estimated/ice/equipment) get a note —
+    // 'P' (provisional) is normal for all USGS real-time data.
+    qualifierNote: (() => {
+      const q = classifyQualifiers(qualifiers);
+      return q.suspect ? q.note : null;
+    })(),
   };
 }

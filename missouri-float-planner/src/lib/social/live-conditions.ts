@@ -20,7 +20,18 @@ export interface LiveCondition {
   condition_code: string;
   gauge_height_ft: number | null;
   discharge_cfs: number | null;
+  /** Age of the underlying reading in hours (null = no timestamp available). */
+  reading_age_hours: number | null;
+  /** True when the "live" reading is itself stale (> STALE_READING_HOURS). */
+  stale: boolean;
 }
+
+/**
+ * A reading older than this isn't "live" — the overlay must not present it
+ * (or AI prose written about it) as current. Matches the 6 h accuracy-warning
+ * threshold used by the condition RPCs and the plan endpoint.
+ */
+export const STALE_READING_HOURS = 6;
 
 interface RiverGaugeRow {
   rivers: { slug: string } | null;
@@ -38,6 +49,7 @@ interface ReadingRow {
   gauge_station_id: string;
   gauge_height_ft: number | null;
   discharge_cfs: number | null;
+  reading_timestamp: string | null;
 }
 
 /**
@@ -92,7 +104,7 @@ export async function buildLiveConditionsMap(
 
   const { data: readings, error: rError } = await supabase
     .from('gauge_readings')
-    .select('gauge_station_id, gauge_height_ft, discharge_cfs')
+    .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
     .in('gauge_station_id', stationIds)
     .order('reading_timestamp', { ascending: false });
 
@@ -110,11 +122,16 @@ export async function buildLiveConditionsMap(
     const reading = readingByStation.get(stationId);
     const heightFt = reading?.gauge_height_ft ?? null;
     const dischargeCfs = reading?.discharge_cfs ?? null;
+    const ageHours = reading?.reading_timestamp
+      ? (Date.now() - new Date(reading.reading_timestamp).getTime()) / (1000 * 60 * 60)
+      : null;
     const live = computeCondition(heightFt, thresholds, dischargeCfs);
     result.set(slug, {
       condition_code: live.code,
       gauge_height_ft: toNum(heightFt),
       discharge_cfs: toNum(dischargeCfs),
+      reading_age_hours: ageHours,
+      stale: ageHours == null || ageHours > STALE_READING_HOURS,
     });
   });
 
@@ -166,7 +183,10 @@ export async function overlayLiveConditions<
       condition_code: live.condition_code,
       gauge_height_ft: live.gauge_height_ft ?? toNum(u.gauge_height_ft),
     };
-    if (conditionChanged && clearProseOnConditionChange) {
+    // Blank the AI prose when (a) the condition bucket moved, OR (b) the
+    // "live" reading is itself stale — day-old specifics ("holding steady at
+    // 2.8 ft") must not be narrated as current when the gauge went quiet.
+    if ((conditionChanged || live.stale) && clearProseOnConditionChange) {
       if ('quote_text' in next) (next as { quote_text?: string }).quote_text = '';
       if ('summary_text' in next) (next as { summary_text?: string | null }).summary_text = null;
     }

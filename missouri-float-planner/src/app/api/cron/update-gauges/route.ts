@@ -21,6 +21,19 @@ export const maxDuration = 60;
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
 
+// When >= this many rivers cross into elevated water in one cron pass, publish a
+// single storm digest instead of a barrage of individual warnings.
+const STORM_THRESHOLD = 3;
+
+// A condition-code transition detected during this cron pass, deferred to the
+// post-loop publish. Shape matches publishConditionChangeAlert's params.
+type Transition = {
+  riverSlug: string;
+  oldCondition: string;
+  newCondition: string;
+  gaugeHeightFt: number | null;
+};
+
 async function runUpdate(request: NextRequest) {
   // Verify cron secret — always required, including in development.
   const authHeader = request.headers.get('authorization');
@@ -99,6 +112,8 @@ async function runUpdate(request: NextRequest) {
     let highFrequencyFlagsCleared = 0;
     let conditionChanges = 0;
     let flatlined = 0;
+    const elevatedCrossings: Transition[] = [];
+    const otherTransitions: Transition[] = [];
 
     for (const reading of readings) {
       const station = stations.find(s => s.usgs_site_id === reading.siteId);
