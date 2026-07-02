@@ -2,7 +2,7 @@
 // GET /api/weather/[riverSlug]/forecast - Fetch 5-day weather forecast
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getCityForRiver, fetchForecast } from '@/lib/weather/openweather';
+import { getWeatherPointForRiver, fetchForecast } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ async function _GET(
   try {
     const { riverSlug } = await params;
 
-    const location = getCityForRiver(riverSlug);
+    const location = await getWeatherPointForRiver(riverSlug);
     if (!location) {
       return NextResponse.json(
         { error: 'Unknown river' },

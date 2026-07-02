@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { syncNPSData } from '@/lib/nps/sync';
+import { getActiveParkCodes } from '@/lib/rivers/context';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -33,8 +34,11 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient();
     const startTime = Date.now();
 
-    // Run full NPS sync
-    const result = await syncNPSData(supabase);
+    // Run full NPS sync for every park unit that manages an active river
+    // (rivers.park_code — e.g. 'ozar' for Current/Jacks Fork).
+    const parkCodesFromDb = await getActiveParkCodes();
+    const parkCodes = parkCodesFromDb.length > 0 ? parkCodesFromDb : ['ozar'];
+    const result = await syncNPSData(supabase, parkCodes);
 
     // Link NPS campgrounds to Jacks Fork access points (e.g. Blue Spring)
     // so "NPS Campground Info" appears without running a separate SQL script.
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Log the sync run
     await supabase.from('nps_sync_log').insert({
       sync_type: 'full',
-      park_code: 'ozar',
+      park_code: parkCodes.join(','),
       campgrounds_synced: result.campgroundsSynced,
       campgrounds_matched: result.campgroundsMatched,
       places_synced: result.placesSynced,

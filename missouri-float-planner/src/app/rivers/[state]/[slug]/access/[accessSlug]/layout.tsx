@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 interface Props {
-  params: Promise<{ slug: string; accessSlug: string }>;
+  params: Promise<{ state: string; slug: string; accessSlug: string }>;
   children: React.ReactNode;
 }
 
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const { data: river } = await supabase
       .from('rivers')
-      .select('id, name')
+      .select('id, name, state')
       .eq('slug', riverSlug)
       .single();
 
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const description = ap.description
       || `${ap.name} is a ${ap.is_public ? 'public' : 'private'} ${ap.type?.replace('_', ' ') || 'access point'} on the ${river.name}. Plan your float trip on Eddy.`;
 
-    const pageUrl = `${BASE_URL}/rivers/${riverSlug}/access/${accessSlug}`;
+    const pageUrl = `${BASE_URL}${riverAccessPath(river.state, riverSlug, accessSlug)}`;
 
     return {
       title,
@@ -84,7 +85,7 @@ export default async function AccessPointLayout({ params, children }: Props) {
 
     const { data: river } = await supabase
       .from('rivers')
-      .select('id, name')
+      .select('id, name, state')
       .eq('slug', riverSlug)
       .single();
 
@@ -123,7 +124,7 @@ export default async function AccessPointLayout({ params, children }: Props) {
           containedInPlace: {
             '@type': 'TouristAttraction',
             name: river.name,
-            url: `${BASE_URL}/rivers/${riverSlug}`,
+            url: `${BASE_URL}${riverPath(river.state, riverSlug)}`,
           },
         };
       }

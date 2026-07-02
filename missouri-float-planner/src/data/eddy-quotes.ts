@@ -6,6 +6,11 @@ import type { ConditionCode } from '@/types/api';
 
 // --- River-specific local color (notes only — thresholds come from the DB) ---
 
+/**
+ * @deprecated Fallback only — the source of truth is
+ * river_characteristics.river_note (seeded by migration 00145). Do not add
+ * rivers here; callers read the DB first and fall back to this map.
+ */
 export const RIVER_NOTES: Record<string, string> = {
   current: 'Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.',
   'eleven-point': 'Remote and scenic. Peak season is mid-June through September. Prone to fast rises after rain.',

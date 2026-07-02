@@ -7,12 +7,14 @@ import type { ConditionCode } from '@/types/api';
 import { RIVER_NOTES } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
-import { fetchWeather, fetchForecast, getCityForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
+import { fetchWeather, fetchForecast, getWeatherPointForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
 import { fetchPrecipitationFromWeather, buildWeatherSummary, type PrecipitationSummary, type WeatherSummary } from '@/lib/weather/openweather';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
 import { buildGaugeTrajectory, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
+import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext, type RiverType } from '@/lib/rivers/context';
+import { getLocalDateStrings } from '@/lib/social/local-time';
 
 
 export interface GaugeContext {
@@ -48,6 +50,9 @@ export async function generateEddyUpdate(
 ): Promise<GeneratedUpdate | null> {
   const sourcesUsed: string[] = [];
 
+  // --- 0. Load river context (region, timezone, hydrology semantics) ---
+  const riverCtx = await getRiverContext(target.riverSlug);
+
   // --- 1. Fetch gauge data ---
   const gaugeResult = await getGaugeConditions(target.riverSlug);
   const gaugeContext: GaugeContext | null = gaugeResult ? {
@@ -59,7 +64,7 @@ export async function generateEddyUpdate(
     readingTimestamp: gaugeResult.readingTimestamp,
     optimalRange: gaugeResult.optimalRange,
     closureLevel: gaugeResult.closureLevel,
-    notes: RIVER_NOTES[target.riverSlug] ?? null,
+    notes: riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug] ?? null,
   } : null;
   if (gaugeContext) sourcesUsed.push('USGS gauge');
 
@@ -67,7 +72,7 @@ export async function generateEddyUpdate(
   let weather: WeatherData | null = null;
   let forecast: ForecastData | null = null;
   let precipitation: PrecipitationSummary | null = null;
-  const cityInfo = getCityForRiver(target.riverSlug);
+  const cityInfo = await getWeatherPointForRiver(target.riverSlug);
   const apiKey = process.env.OPENWEATHER_API_KEY;
   if (cityInfo && apiKey) {
     try {
@@ -83,11 +88,11 @@ export async function generateEddyUpdate(
     }
   }
 
-  // --- 3. Fetch NWS alerts ---
+  // --- 3. Fetch NWS alerts (state from river data; NWS is US-only) ---
   let alerts: NWSAlert[] = [];
   try {
-    const allAlerts = await fetchNWSAlerts();
-    alerts = filterAlertsForRiver(allAlerts, target.riverSlug);
+    const allAlerts = await fetchNWSAlerts(riverCtx?.state ?? 'MO');
+    alerts = filterAlertsForRiver(allAlerts, target.riverSlug, riverCtx?.alertSearchTerms);
     if (alerts.length > 0) sourcesUsed.push('NWS alerts');
   } catch (e) {
     console.warn('[EddyGen] NWS alert fetch failed:', e);
@@ -104,11 +109,19 @@ export async function generateEddyUpdate(
     if (trajectory) sourcesUsed.push('gauge trajectory');
   }
 
-  // --- 6. Load rain-lag info ---
-  const rainLag = RAIN_LAG[target.riverSlug] ?? null;
+  // --- 6. Load rain-lag info (river_characteristics first, legacy map fallback) ---
+  const rc = riverCtx?.characteristics;
+  const rainLag: RainLagInfo | null =
+    rc?.rainLagHours != null
+      ? {
+          hours: rc.rainLagHours,
+          note: rc.rainLagNote ?? '',
+          dropRateFtPerDay: rc.dropRateNote ?? '',
+        }
+      : RAIN_LAG[target.riverSlug] ?? null;
 
   // --- 7. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag);
+  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);
 
   // --- 8. Call Claude Sonnet ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -124,7 +137,7 @@ export async function generateEddyUpdate(
       model: 'claude-sonnet-4-6',
       max_tokens: 700,
       messages: [{ role: 'user', content: prompt }],
-      system: EDDY_SYSTEM_PROMPT,
+      system: buildEddySystemPrompt(riverCtx),
     });
 
     const textBlock = message.content.find((block) => block.type === 'text');
@@ -221,7 +234,58 @@ export function parseEddyResponse(rawText: string): {
 // System prompt
 // ---------------------------------------------------------------------------
 
-const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozarks float trip planning app. You provide condition updates for Missouri rivers.
+// Condition semantics per hydrological archetype (rivers.river_type).
+// The spring_fed_float text matches the original Ozark-calibrated prompt.
+// SAFETY: never reuse one type's wording for another — "low" and "rising"
+// mean physically different things on different river types. New types must
+// be reviewed against local ground truth before any river of that type
+// goes live.
+const RIVER_TYPE_GUIDANCE: Record<RiverType, { lowWater: string; risingWater: string }> = {
+  spring_fed_float: {
+    lowWater:
+      'The river IS floatable. Low water means scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Frame this as practical information, not a reason to stay home. Mention that lighter craft (kayaks, canoes) handle low water better than rafts. Do NOT say "too low to run," "wait for rain," or recommend against floating when the condition code is "low." That language is reserved for "too_low" only.',
+    risingWater:
+      'Explain what rising water means for hazards — stronger current, more debris, undercut banks, strainers harder to avoid. Rising water after dry conditions could mean incoming flooding upstream.',
+  },
+  dam_tailwater: {
+    lowWater:
+      'Low flow on a dam-controlled river usually reflects the release schedule, not drought. Note that levels can change quickly and substantially when releases start, independent of local weather. Do not connect flow changes to rain unless the data explicitly supports it.',
+    risingWater:
+      'Rising water on a dam-controlled river can be a scheduled release arriving as a fast-moving rise, with strong current and rapidly changing depth. Warn paddlers to check the release schedule and never anchor or wade mid-channel during a rise.',
+  },
+  rain_flashy: {
+    lowWater:
+      'Low water on this river reflects how quickly it drains after rain. Frame low conditions honestly and note that a single storm can change conditions within hours.',
+    risingWater:
+      'This river rises fast. Rising water here deserves strong caution: flash rises, powerful current, and debris. If heavy rain is upstream, conditions can become dangerous before the gauge fully shows it.',
+  },
+  snowmelt: {
+    lowWater:
+      'Low flow typically means the melt has tapered. Note cold water temperatures remain a hazard even at low flows.',
+    risingWater:
+      'Rising water on a snowmelt river often follows warm days with a diurnal pattern (afternoon/evening peaks) and means cold, powerful current. Emphasize cold-water risk and rapid daily swings.',
+  },
+  flatwater: {
+    lowWater:
+      'Low water mainly affects paddling speed and exposed banks rather than runnability. Wind is usually the bigger factor on flatwater — weigh it accordingly.',
+    risingWater:
+      'Rising water increases current and debris. On big flatwater rivers, note that wakes, wind against current, and floating debris are the practical hazards.',
+  },
+};
+
+function buildEddySystemPrompt(riverCtx: RiverContext | null): string {
+  const riverType: RiverType = riverCtx?.riverType ?? 'spring_fed_float';
+  const guidance = RIVER_TYPE_GUIDANCE[riverType] ?? RIVER_TYPE_GUIDANCE.spring_fed_float;
+  // Per-river overrides beat the type default (both are curated data).
+  const lowWater = riverCtx?.characteristics?.lowWaterMeaning
+    ? `The river IS floatable unless the code is "too_low". On this river, low water means: ${riverCtx.characteristics.lowWaterMeaning} Do NOT recommend against floating when the condition code is "low"; that language is reserved for "too_low" only.`
+    : guidance.lowWater;
+  const risingWater = riverCtx?.characteristics?.risingWaterHazards
+    ? `Explain what rising water means for hazards on this river: ${riverCtx.characteristics.risingWaterHazards}`
+    : guidance.risingWater;
+  const regionLabel = riverCtx?.region || 'Ozarks';
+
+  return `You are Eddy, an AI otter mascot for a float trip planning app. You provide condition updates for rivers in the ${regionLabel} region.
 
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
@@ -249,7 +313,7 @@ CONDITION ASSESSMENT:
 - If there are active NWS flood alerts, lead with safety first.
 - Cite the actual gauge reading and what it means for floating.
 - For high water: use "use caution" language rather than "experienced paddlers only." High water deserves a clear warning but not a blanket restriction unless conditions are solidly high or approaching dangerous.
-- For "low" conditions: The river IS floatable. Low water means scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Frame this as practical information, not a reason to stay home. Mention that lighter craft (kayaks, canoes) handle low water better than rafts. Do NOT say "too low to run," "wait for rain," or recommend against floating when the condition code is "low." That language is reserved for "too_low" only.
+- For "low" conditions: ${lowWater}
 - For "too_low" conditions: This is the only condition where you should actively recommend waiting or pivoting. The river is genuinely not floatable at this level.
 
 ALTERNATIVES:
@@ -266,7 +330,7 @@ TREND-AWARE TONE:
 
 WATER TRENDS:
 - Lead with the water trend: is the river rising, falling, or stable? What does that mean for someone floating today vs this weekend?
-- If rising: explain what rising water means for hazards — stronger current, more debris, undercut banks, strainers harder to avoid. Rising water after dry conditions could mean incoming flooding upstream.
+- If rising: ${risingWater}
 - If falling: explain that conditions are improving. Note how quickly this river typically drops if rain-lag data is provided. Falling water after a flood event means things are getting better.
 - If stable: note that conditions are predictable and reference how long the gauge has held steady.
 - Do NOT classify the river as "spring-fed" or "rain-fed" in your output. Use behavioral descriptors instead (e.g., "this river responds quickly to rain" or "spring inputs keep the base flow steady").
@@ -310,6 +374,7 @@ STYLE:
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself.
 - Your entire output must be ONLY the [SUMMARY] and [FULL] blocks. Nothing else.`;
+}
 
 // ---------------------------------------------------------------------------
 // Prompt assembly
@@ -325,14 +390,14 @@ function buildPrompt(
   trajectory: GaugeTrajectory | null = null,
   precipitation: PrecipitationSummary | null = null,
   rainLag: RainLagInfo | null = null,
+  riverCtx: RiverContext | null = null,
 ): string {
-  const riverNotes = RIVER_NOTES[target.riverSlug];
+  const riverNotes = riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug];
   const lines: string[] = [];
 
-  // Date context so the model can reference day of week, season, etc.
-  const now = new Date();
-  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
-  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' });
+  // Date context in the river's local timezone so day-of-week and "this
+  // weekend" references are right for the river, not for Missouri.
+  const { dayOfWeek, dateStr } = getLocalDateStrings(riverCtx?.timezone ?? DEFAULT_TIMEZONE);
   lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
   lines.push('');
 
@@ -342,6 +407,17 @@ function buildPrompt(
   }
   if (target.sectionDescription) {
     lines.push(`Section context: ${target.sectionDescription}`);
+  }
+
+  // River character (from rivers.river_type + river_characteristics)
+  if (riverCtx) {
+    lines.push('');
+    lines.push('[RIVER CHARACTER]');
+    lines.push(`Type: ${riverCtx.riverType.replace(/_/g, ' ')}`);
+    const hazards = riverCtx.characteristics?.primaryHazards;
+    if (hazards && hazards.length > 0) {
+      lines.push(`Primary hazards: ${hazards.map((h) => h.replace(/_/g, ' ')).join(', ')}`);
+    }
   }
 
   lines.push('');

@@ -15,9 +15,16 @@ interface SyncResult {
 }
 
 /**
- * Full NPS data sync: campgrounds + places
+ * Full NPS data sync: campgrounds + places.
+ *
+ * @param parkCodes NPS unit codes to sync — normally the distinct
+ *   rivers.park_code values (see getActiveParkCodes). Defaults to ONSR for
+ *   pre-migration callers.
  */
-export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult> {
+export async function syncNPSData(
+  supabase: SupabaseClient,
+  parkCodes: string[] = ['ozar']
+): Promise<SyncResult> {
   const result: SyncResult = {
     campgroundsSynced: 0,
     campgroundsMatched: 0,
@@ -27,21 +34,23 @@ export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult>
     errorDetails: [],
   };
 
-  // 1. Sync campgrounds
-  try {
-    const campgrounds = await fetchNPSCampgrounds();
-    for (const cg of campgrounds) {
-      try {
-        await upsertCampground(supabase, cg);
-        result.campgroundsSynced++;
-      } catch (err) {
-        result.errors++;
-        result.errorDetails.push(`Campground ${cg.name}: ${err instanceof Error ? err.message : String(err)}`);
+  // 1. Sync campgrounds (per park unit)
+  for (const parkCode of parkCodes) {
+    try {
+      const campgrounds = await fetchNPSCampgrounds(parkCode);
+      for (const cg of campgrounds) {
+        try {
+          await upsertCampground(supabase, cg);
+          result.campgroundsSynced++;
+        } catch (err) {
+          result.errors++;
+          result.errorDetails.push(`Campground ${cg.name}: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
+    } catch (err) {
+      result.errors++;
+      result.errorDetails.push(`Campground fetch (${parkCode}): ${err instanceof Error ? err.message : String(err)}`);
     }
-  } catch (err) {
-    result.errors++;
-    result.errorDetails.push(`Campground fetch: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 2. Match campgrounds to access points using geographic proximity + name
@@ -52,25 +61,32 @@ export async function syncNPSData(supabase: SupabaseClient): Promise<SyncResult>
     result.errorDetails.push(`Campground matching: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // 3. Sync places as POIs
-  try {
-    const places = await fetchNPSPlaces();
-    for (const place of places) {
-      try {
-        const created = await upsertPlace(supabase, place);
-        result.placesSynced++;
-        if (created) result.poisCreated++;
-      } catch (err) {
-        result.errors++;
-        result.errorDetails.push(`Place ${place.title}: ${err instanceof Error ? err.message : String(err)}`);
+  // 3. Sync places as POIs (per park unit)
+  for (const parkCode of parkCodes) {
+    try {
+      const places = await fetchNPSPlaces(parkCode);
+      for (const place of places) {
+        try {
+          const created = await upsertPlace(supabase, place);
+          result.placesSynced++;
+          if (created) result.poisCreated++;
+        } catch (err) {
+          result.errors++;
+          result.errorDetails.push(`Place ${place.title}: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
+    } catch (err) {
+      result.errors++;
+      result.errorDetails.push(`Places fetch (${parkCode}): ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
 
-    // 4. Assign rivers to POIs that don't have one
+  // 4. Assign rivers to POIs that don't have one
+  try {
     await assignRiversToPOIs(supabase);
   } catch (err) {
     result.errors++;
-    result.errorDetails.push(`Places fetch: ${err instanceof Error ? err.message : String(err)}`);
+    result.errorDetails.push(`POI river assignment: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return result;

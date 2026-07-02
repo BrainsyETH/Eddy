@@ -10,6 +10,8 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
+import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
+import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
@@ -256,8 +258,9 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
     console.warn(`[GaugeUpdates] Trajectory failed for ${target.usgsSiteId}:`, e);
   }
 
-  // 4. Build prompt + call Haiku.
-  const prompt = buildGaugePrompt(target, gaugeHeightFt, dischargeCfs, conditionCode, readingTimestamp, trajectory);
+  // 4. Build prompt + call Haiku (dates in the river's local timezone).
+  const riverCtx = await getRiverContext(target.riverSlug);
+  const prompt = buildGaugePrompt(target, gaugeHeightFt, dischargeCfs, conditionCode, readingTimestamp, trajectory, riverCtx?.timezone);
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
@@ -307,7 +310,7 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-const GAUGE_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a Missouri Ozarks float trip planning app. You write short, useful updates for SECONDARY river gauges, the ones up- or down-stream of the river's primary gauge.
+const GAUGE_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip planning app. You write short, useful updates for SECONDARY river gauges, the ones up- or down-stream of the river's primary gauge.
 
 VOICE: Friendly, local-outfitter tone. Tight, no fluff. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
@@ -339,12 +342,11 @@ function buildGaugePrompt(
   conditionCode: ConditionCode,
   readingTimestamp: string | null,
   trajectory: GaugeTrajectory | null,
+  timezone?: string | null,
 ): string {
   const lines: string[] = [];
 
-  const now = new Date();
-  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
-  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' });
+  const { dayOfWeek, dateStr } = getLocalDateStrings(timezone ?? DEFAULT_TIMEZONE);
   lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
   lines.push('');
   lines.push(`Generate a secondary-gauge update for: ${target.gaugeName} on the ${target.riverName}.`);

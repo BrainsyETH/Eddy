@@ -3,7 +3,7 @@
 // Called from the gauge update cron when significant condition changes are detected.
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getUpdateTargets } from '@/data/river-sections';
+import { getUpdateTargetsFromDb } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate } from '@/lib/eddy/generate-update';
 
 /** How long to wait before allowing another event-driven regen for the same river */
@@ -71,7 +71,7 @@ export async function regenerateEddyForRiver(
   }
 
   // --- Find update targets for this river ---
-  const allTargets = getUpdateTargets();
+  const allTargets = await getUpdateTargetsFromDb();
   const riverTargets = allTargets.filter((t) => t.riverSlug === riverSlug);
 
   if (riverTargets.length === 0) {

@@ -29,8 +29,10 @@ const DETAIL_ICONS = {
 
 export default function AccessPointDetailPage() {
   const params = useParams();
+  const stateSegment = params.state as string;
   const riverSlug = params.slug as string;
   const accessSlug = params.accessSlug as string;
+  const riverHref = `/rivers/${stateSegment}/${riverSlug}`;
 
   const { data, isLoading, error } = useAccessPointDetail(riverSlug, accessSlug);
   const [copied, setCopied] = useState(false);
@@ -80,7 +82,7 @@ export default function AccessPointDetailPage() {
             The access point you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Link
-            href={`/rivers/${riverSlug}`}
+            href={riverHref}
             className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -102,7 +104,7 @@ export default function AccessPointDetailPage() {
           <Breadcrumbs
             items={[
               { label: 'Rivers', href: '/rivers' },
-              { label: accessPoint.river.name, href: `/rivers/${riverSlug}` },
+              { label: accessPoint.river.name, href: riverHref },
               { label: accessPoint.name },
             ]}
           />

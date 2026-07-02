@@ -66,16 +66,32 @@ export function pointToCoordinates(point: GeoJSON.Point): Coordinates {
 // Re-export MISSOURI_BOUNDS from constants for backwards compatibility
 export { MISSOURI_BOUNDS } from '@/constants';
 
+export interface GeoBounds {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+}
+
 /**
- * Validates coordinates are within Missouri bounds
+ * Validates coordinates fall inside the given bounds. Region bounds come from
+ * get_active_rivers_bounds() (migration 00146) so imports/admin tooling can
+ * sanity-check coordinates per region instead of assuming Missouri.
+ */
+export function isValidCoord(lat: number, lng: number, bounds: GeoBounds): boolean {
+  return (
+    lat >= bounds.minLat &&
+    lat <= bounds.maxLat &&
+    lng >= bounds.minLng &&
+    lng <= bounds.maxLng
+  );
+}
+
+/**
+ * @deprecated Use isValidCoord(lat, lng, bounds) with region bounds instead.
  */
 export function isValidMissouriCoord(lat: number, lng: number): boolean {
-  return (
-    lat >= MISSOURI_BOUNDS.minLat &&
-    lat <= MISSOURI_BOUNDS.maxLat &&
-    lng >= MISSOURI_BOUNDS.minLng &&
-    lng <= MISSOURI_BOUNDS.maxLng
-  );
+  return isValidCoord(lat, lng, MISSOURI_BOUNDS);
 }
 
 /**

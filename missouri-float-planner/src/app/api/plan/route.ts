@@ -436,12 +436,16 @@ async function _GET(request: NextRequest) {
         timeRange: rMin != null && rMax != null ? { min: rMin, max: rMax } : undefined,
       };
     } else if (!isDangerous) {
-      // Flow-dependent estimate (falls back to the condition-band step if no discharge).
+      // Flow-dependent estimate (falls back to the condition-band step if no
+      // discharge), using this river's calibrated low-water speed curve when
+      // one exists (river_characteristics.speed_curve).
+      const { getRiverContext } = await import('@/lib/rivers/context');
+      const riverCtx = await getRiverContext(river.slug).catch(() => null);
       const calcResult = calculateFloatTime(
         distanceMiles,
         { speedLowWater, speedNormal, speedHighWater },
         conditionCode,
-        { dischargeCfs, refCfs, basis: 'trip' }
+        { dischargeCfs, refCfs, basis: 'trip', speedCurve: riverCtx?.characteristics?.speedCurve }
       );
 
       if (calcResult) {

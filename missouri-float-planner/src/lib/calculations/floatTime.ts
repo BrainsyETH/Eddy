@@ -20,6 +20,19 @@ export interface VesselSpeeds {
 }
 
 /**
+ * Per-river degradation multipliers applied to the low-water vessel speed
+ * (river_characteristics.speed_curve). The defaults are the Ozark-calibrated
+ * values; rivers with different low-water behavior (bedrock, flatwater, dam
+ * tailwater) should carry calibrated overrides in the database.
+ */
+export interface SpeedCurve {
+  low?: number;
+  too_low?: number;
+}
+
+const DEFAULT_SPEED_CURVE: Required<SpeedCurve> = { low: 0.75, too_low: 0.5 };
+
+/**
  * Shared default canoe speeds (matches the seeded 'canoe' vessel_type). Use this
  * instead of re-hardcoding {2.0, 2.5, 3.5} in chat/social so every surface agrees.
  */
@@ -53,6 +66,8 @@ export interface FloatTimeOptions {
   refCfs?: number | null;
   /** 'trip' (default) folds in stop time; 'moving' reports paddling-only. */
   basis?: TimeBasis;
+  /** Per-river low-water multipliers (river_characteristics.speed_curve). */
+  speedCurve?: SpeedCurve | null;
 }
 
 // --- Model constants (tune to calibration residuals; see scripts/calibrate-float-times.ts) ---
@@ -92,7 +107,12 @@ export function effectiveSpeedFromFlow(
 }
 
 /** Legacy condition-band → speed step. Used only when no discharge is available. */
-function bandSpeed(speeds: VesselSpeeds, conditionCode: ConditionCode): number {
+function bandSpeed(
+  speeds: VesselSpeeds,
+  conditionCode: ConditionCode,
+  speedCurve?: SpeedCurve | null
+): number {
+  const curve = { ...DEFAULT_SPEED_CURVE, ...(speedCurve ?? {}) };
   switch (conditionCode) {
     case 'high':
       return speeds.speedHighWater;
@@ -101,9 +121,9 @@ function bandSpeed(speeds: VesselSpeeds, conditionCode: ConditionCode): number {
     case 'good':
       return speeds.speedLowWater;
     case 'low':
-      return speeds.speedLowWater * 0.75;
+      return speeds.speedLowWater * curve.low;
     case 'too_low':
-      return speeds.speedLowWater * 0.5;
+      return speeds.speedLowWater * curve.too_low;
     case 'unknown':
     default:
       return speeds.speedNormal;
@@ -145,7 +165,7 @@ export function calculateFloatTime(
       Math.max(speeds.speedLowWater * 0.5, flowSpeed)
     );
   } else {
-    speedMph = bandSpeed(speeds, conditionCode);
+    speedMph = bandSpeed(speeds, conditionCode, options?.speedCurve);
   }
 
   if (!(speedMph > 0) || !(distanceMiles > 0)) {
