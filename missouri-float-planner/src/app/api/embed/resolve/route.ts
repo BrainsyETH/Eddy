@@ -13,11 +13,8 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest): Promise<Response> {
   try {
     // 10 requests per IP per minute — onboarding is a handful of calls, ever.
-    // Explicit return annotation + cast: some TS 5.x versions fail to narrow
-    // `NextResponse | null` in Next's generated route type check (build-only
-    // failure on Vercel), so keep null out of the inferred union entirely.
-    const rateLimitResult = rateLimit(`embed-resolve:${getClientIp(request)}`, 10, 60 * 1000);
-    if (rateLimitResult) return rateLimitResult as Response;
+    const rateLimitResult = await rateLimit(`embed-resolve:${getClientIp(request)}`, 10, 60 * 1000);
+    if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json().catch(() => null);
     const address = typeof body?.address === 'string' ? body.address.trim().slice(0, 300) : undefined;
