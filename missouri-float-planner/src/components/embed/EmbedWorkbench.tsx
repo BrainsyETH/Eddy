@@ -18,7 +18,9 @@ import { EDDY_IMAGES } from '@/constants';
 // from a preview/staging deploy still points at the live site (not the preview).
 const EMBED_BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
-const RIVER_OPTIONS = [
+// Static fallback shown until /api/rivers loads (and if it fails). The live
+// list is DB-driven so new rivers/states appear here without a code change.
+const FALLBACK_RIVER_OPTIONS = [
   { slug: 'meramec', name: 'Meramec River' },
   { slug: 'current', name: 'Current River' },
   { slug: 'eleven-point', name: 'Eleven Point River' },
@@ -327,6 +329,7 @@ function ParamRow({ name, values, description }: { name: string; values: string;
 }
 
 export default function EmbedWorkbench() {
+  const [riverOptions, setRiverOptions] = useState(FALLBACK_RIVER_OPTIONS);
   const [selectedRiver, setSelectedRiver] = useState('current');
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [activeWidget, setActiveWidget] = useState('current');
@@ -351,8 +354,10 @@ export default function EmbedWorkbench() {
     const sp = new URLSearchParams(window.location.search);
     const w = sp.get('widget');
     if (w && WIDGETS.some(x => x.key === w)) setActiveWidget(w);
+    // Accept any slug-shaped value: the live river list loads async, so a
+    // shared link to a river outside the static fallback must still hydrate.
     const r = sp.get('river');
-    if (r && RIVER_OPTIONS.some(x => x.slug === r)) setSelectedRiver(r);
+    if (r && /^[a-z0-9-]+$/.test(r)) setSelectedRiver(r);
     const t = sp.get('theme');
     if (t === 'light' || t === 'dark') setTheme(t);
     const tab = sp.get('tab');
@@ -380,6 +385,21 @@ export default function EmbedWorkbench() {
     const qs = sp.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
   }, [hydrated, activeWidget, selectedRiver, theme, activeTab, serviceFilter, gaugeDays, showReference]);
+
+  // Load the live river list (DB-driven) so new rivers show up without a deploy.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/rivers')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data?.rivers?.length) return;
+        setRiverOptions(
+          data.rivers.map((r: { slug: string; name: string }) => ({ slug: r.slug, name: r.name }))
+        );
+      })
+      .catch(() => {}); // keep the static fallback
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch the services list for the selected river (powers the highlight picker).
   useEffect(() => {
@@ -422,7 +442,7 @@ export default function EmbedWorkbench() {
   }, [showReference, refAnchor]);
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : EMBED_BASE;
-  const selectedRiverName = RIVER_OPTIONS.find(r => r.slug === selectedRiver)?.name || '';
+  const selectedRiverName = riverOptions.find(r => r.slug === selectedRiver)?.name || selectedRiver;
 
   // Tiny self-resize listener appended to every snippet. Installs once on the
   // host page; matches iframes by event.source so multiple Eddy widgets coexist.
@@ -631,9 +651,12 @@ export default function EmbedWorkbench() {
               className="w-full appearance-none text-sm font-semibold text-primary-800 bg-white rounded-md border-2 border-primary-700 pl-3.5 pr-9 py-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-400"
               style={{ boxShadow: '2px 2px 0 #C2BAAC' }}
             >
-              {RIVER_OPTIONS.map(r => (
+              {riverOptions.map(r => (
                 <option key={r.slug} value={r.slug}>{r.name}</option>
               ))}
+              {!riverOptions.some(r => r.slug === selectedRiver) && (
+                <option value={selectedRiver}>{selectedRiver}</option>
+              )}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 pointer-events-none" />
           </div>

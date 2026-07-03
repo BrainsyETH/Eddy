@@ -14,6 +14,7 @@ const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_
 interface RiverBasic {
   name: string;
   slug: string;
+  path?: string;
   currentCondition?: { code: string; label: string } | null;
 }
 
@@ -48,7 +49,22 @@ export default function EmbedBadgePage() {
   }
 
   if (!river) {
-    return <div style={{ height: 36, background: bg }} />;
+    return (
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 36,
+        padding: '0 14px',
+        background: bg,
+        color: isDark ? '#888' : '#777',
+        border: `1.5px solid ${border}`,
+        borderRadius: 8,
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontSize: 12,
+      }}>
+        River conditions temporarily unavailable
+      </div>
+    );
   }
 
   const conditionCode = river.currentCondition?.code || 'unknown';
@@ -58,7 +74,7 @@ export default function EmbedBadgePage() {
   return (
     <div style={{ background: 'transparent', padding: 0 }}>
       <a
-        href={`${origin}/rivers/${river.slug}`}
+        href={`${origin}${river.path || `/rivers/${river.slug}`}`}
         target="_blank"
         rel="noopener noreferrer"
         style={{

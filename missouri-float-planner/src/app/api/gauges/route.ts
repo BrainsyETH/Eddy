@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGaugeReadings } from '@/lib/usgs/gauges';
+import { classifyQualifiers, fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
@@ -126,6 +126,10 @@ export interface GaugeStation {
   dischargeCfs: number | null;
   readingTimestamp: string | null;
   readingAgeHours: number | null;
+  /** True when USGS qualifier codes flag the reading as suspect (ice, estimated, sensor issues). */
+  readingSuspect: boolean;
+  /** Human-readable qualifier note ("Ice-affected reading — may be inaccurate"), or null when clean. */
+  qualifierNote: string | null;
   // Threshold descriptions (from gauge_stations table)
   thresholdDescriptions: ThresholdDescriptions | null;
   // Thresholds (from primary river association if exists)
@@ -195,7 +199,7 @@ async function _GET(request: NextRequest) {
 
     const { data: readings, error: readingsError } = await supabase
       .from('gauge_readings')
-      .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
+      .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp, qualifiers')
       .in('gauge_station_id', gaugeIds)
       .order('reading_timestamp', { ascending: false });
 
@@ -208,6 +212,7 @@ async function _GET(request: NextRequest) {
       gaugeHeightFt: number | null;
       dischargeCfs: number | null;
       readingTimestamp: string | null;
+      qualifiers: string[] | null;
     }>();
 
     if (readings && readings.length > 0) {
@@ -217,6 +222,7 @@ async function _GET(request: NextRequest) {
             gaugeHeightFt: toNum(reading.gauge_height_ft),
             dischargeCfs: toNum(reading.discharge_cfs),
             readingTimestamp: reading.reading_timestamp,
+            qualifiers: reading.qualifiers ?? null,
           });
         }
       }
@@ -270,6 +276,7 @@ async function _GET(request: NextRequest) {
                 gaugeHeightFt: usgsReading.gaugeHeightFt,
                 dischargeCfs: usgsReading.dischargeCfs,
                 readingTimestamp: usgsReading.readingTimestamp,
+                qualifiers: usgsReading.qualifiers ?? null,
               });
             }
           }
@@ -421,6 +428,8 @@ async function _GET(request: NextRequest) {
         readingAgeHours = (now - readingTime) / (1000 * 60 * 60);
       }
 
+      const qual = classifyQualifiers(reading?.qualifiers);
+
       return {
         id: station.id,
         usgsSiteId: station.usgs_site_id,
@@ -431,6 +440,8 @@ async function _GET(request: NextRequest) {
         dischargeCfs: reading?.dischargeCfs ?? null,
         readingTimestamp: reading?.readingTimestamp ?? null,
         readingAgeHours,
+        readingSuspect: qual.suspect,
+        qualifierNote: qual.suspect ? qual.note : null,
         thresholdDescriptions: mapThresholdDescriptionKeys(station.threshold_descriptions),
         thresholds,
       };

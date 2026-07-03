@@ -75,6 +75,7 @@ interface ServiceItem {
 interface RiverBasic {
   name: string;
   slug: string;
+  path?: string;
 }
 
 export default function EmbedServicesPage() {
@@ -162,7 +163,7 @@ export default function EmbedServicesPage() {
   if (!river) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180, background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
-        River not found
+        River services temporarily unavailable
       </div>
     );
   }
@@ -415,7 +416,7 @@ export default function EmbedServicesPage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <a
-            href={`${origin}/rivers/${river.slug}`}
+            href={`${origin}${river.path || `/rivers/${river.slug}`}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
