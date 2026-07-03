@@ -2,6 +2,7 @@
 // API endpoint to fetch all gauge stations with their readings and thresholds
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { classifyQualifiers, fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -161,7 +162,7 @@ export interface GaugesResponse {
 async function _GET(request: NextRequest) {
   try {
     // Rate limit: 60 requests per IP per minute
-    const rateLimitResult = rateLimit(`gauges:${getClientIp(request)}`, 60, 60 * 1000);
+    const rateLimitResult = await rateLimit(`gauges:${getClientIp(request)}`, 60, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const supabase = createAdminClient();
@@ -449,7 +450,7 @@ async function _GET(request: NextRequest) {
     // Only include gauges that have at least one active river association
     const activeGauges = gauges.filter(g => g.thresholds && g.thresholds.length > 0);
 
-    return NextResponse.json({ gauges: activeGauges });
+    return NextResponse.json({ gauges: activeGauges }, { headers: cdnCacheHeaders(300, 600) });
   } catch (error) {
     console.error('Error in gauges API:', error);
     return NextResponse.json(

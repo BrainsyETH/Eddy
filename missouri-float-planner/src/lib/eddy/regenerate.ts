@@ -12,8 +12,14 @@ const COOLDOWN_HOURS = 2;
 /** Maximum event-driven regenerations per river per day */
 const MAX_DAILY_REGENS = 3;
 
-/** TTL for event-driven updates (shorter than scheduled) */
-const EVENT_TTL_HOURS = 3;
+/**
+ * TTL for event-driven updates. Matches the scheduled TTL: a shorter TTL used
+ * to leave a gap where the event report expired mid-day and prose fell back
+ * to the static blurb until the next morning run. Staleness protection comes
+ * from overlayLiveConditions (drops prose whose condition code diverges from
+ * live), not from a short expiry.
+ */
+const EVENT_TTL_HOURS = 25;
 
 export type TriggerReason = 'condition_change' | 'rapid_change';
 

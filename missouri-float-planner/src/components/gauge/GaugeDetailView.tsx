@@ -13,7 +13,7 @@ import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
-import type { GaugeStation } from '@/app/api/gauges/route';
+import { useGaugeStations } from '@/hooks/useGaugeStations';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
@@ -27,8 +27,6 @@ interface GaugeDetailViewProps {
 }
 
 export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
-  const [gauge, setGauge] = useState<GaugeStation | null>(null);
-  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
@@ -38,23 +36,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const [eddyLoading, setEddyLoading] = useState(false);
   const [eddyShowFull, setEddyShowFull] = useState(false);
 
-  // Fetch gauge data
-  useEffect(() => {
-    async function fetchGauge() {
-      try {
-        const res = await fetch('/api/gauges');
-        if (!res.ok) return;
-        const data = await res.json();
-        const match = data.gauges?.find((g: GaugeStation) => g.usgsSiteId === siteId);
-        if (match) setGauge(match);
-      } catch {
-        // silently fail
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchGauge();
-  }, [siteId]);
+  // Gauge data via the shared React Query cache — deduped with every other
+  // consumer of /api/gauges instead of a one-off raw fetch of the full list.
+  const { data: allGauges, isLoading: loading } = useGaugeStations();
+  const gauge = allGauges?.find((g) => g.usgsSiteId === siteId) ?? null;
 
   const primaryRiver = gauge?.thresholds?.find(t => t.isPrimary) || gauge?.thresholds?.[0];
   const riverSlug = primaryRiver?.riverSlug || null;

@@ -470,6 +470,7 @@ export type Database = {
           expires_at: string | null
           fetched_at: string | null
           id: string
+          route_geometry: Json | null
           route_summary: string | null
           start_access_id: string | null
         }
@@ -480,6 +481,7 @@ export type Database = {
           expires_at?: string | null
           fetched_at?: string | null
           id?: string
+          route_geometry?: Json | null
           route_summary?: string | null
           start_access_id?: string | null
         }
@@ -490,6 +492,7 @@ export type Database = {
           expires_at?: string | null
           fetched_at?: string | null
           id?: string
+          route_geometry?: Json | null
           route_summary?: string | null
           start_access_id?: string | null
         }

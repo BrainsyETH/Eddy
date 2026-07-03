@@ -2,6 +2,7 @@
 // GET /api/rivers/[slug]/visuals - Fetch approved river visuals matching current conditions
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { type ConditionThresholds } from '@/lib/conditions';
 import { mapConditionCode } from '@/lib/conditions';
@@ -162,7 +163,7 @@ export async function GET(
       currentDischargeCfs,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error fetching river visuals:', error);
     return NextResponse.json(

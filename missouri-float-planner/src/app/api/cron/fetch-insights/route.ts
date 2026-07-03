@@ -7,10 +7,13 @@ import { fetchAllPendingInsights } from '@/lib/social/insights-fetcher';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret
+  // Verify cron secret (required — never run unauthenticated)
   const auth = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && auth !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'Cron secret not configured' }, { status: 500 });
+  }
+  if (auth !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -2,6 +2,7 @@
 // Weather forecast API route - fetches 5-day forecast for given coordinates
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchForecast } from '@/lib/weather/openweather';
 
 // Simple in-memory cache
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   const cached = forecastCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return NextResponse.json(cached.data);
+    return NextResponse.json(cached.data, { headers: cdnCacheHeaders(1800, 3600) });
   }
 
   try {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     forecastCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, { headers: cdnCacheHeaders(1800, 3600) });
   } catch (error) {
     console.error('Forecast fetch error:', error);
     return NextResponse.json(

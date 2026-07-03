@@ -2,6 +2,7 @@
 // Returns the latest non-expired per-gauge Haiku update for a USGS site.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 
@@ -45,7 +46,7 @@ export async function GET(
     }
 
     if (!data) {
-      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null });
+      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { headers: cdnCacheHeaders(300, 1800) });
     }
 
     return NextResponse.json<GaugeUpdateResponse>({
@@ -61,7 +62,7 @@ export async function GET(
         modelUsed: data.model_used,
         generatedAt: data.generated_at,
       },
-    });
+    }, { headers: cdnCacheHeaders(300, 1800) });
   } catch (error) {
     console.error('[GaugeUpdate] Unexpected error:', error);
     return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500 });
