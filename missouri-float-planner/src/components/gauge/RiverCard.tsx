@@ -3,13 +3,13 @@
 // src/components/gauge/RiverCard.tsx
 // Dashboard card representing one river with 14-day chart, Eddy Says, and condition
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Droplets, ArrowRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import type { RiverGroup } from '@/lib/river-groups';
-import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
+import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
@@ -24,33 +24,13 @@ interface RiverCardProps {
 export default function RiverCard({ riverGroup }: RiverCardProps) {
   const { riverName, riverSlug, condition, primaryGauge, primaryThreshold, allGauges } = riverGroup;
 
-  const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
-  const [eddyLoading, setEddyLoading] = useState(false);
   const [showFull, setShowFull] = useState(false);
 
-  // Fetch Eddy update
-  useEffect(() => {
-    if (!riverSlug) return;
-    let cancelled = false;
-    setEddyLoading(true);
-
-    async function fetchEddy() {
-      try {
-        const res = await fetch(`/api/eddy-update/${riverSlug}`);
-        if (!res.ok) return;
-        const data: EddyUpdateResponse = await res.json();
-        if (!cancelled) {
-          setEddyUpdate(data.available ? data.update : null);
-        }
-      } catch {
-        // silently fail
-      } finally {
-        if (!cancelled) setEddyLoading(false);
-      }
-    }
-    fetchEddy();
-    return () => { cancelled = true; };
-  }, [riverSlug]);
+  // Eddy update comes from the batched /api/eddy-updates call — one request
+  // shared by every card on the grid (and the home page) via React Query,
+  // instead of a per-card /api/eddy-update/[slug] fetch.
+  const { data: eddyUpdates, isLoading: eddyLoading } = useEddyUpdates();
+  const eddyUpdate = riverSlug ? eddyUpdates?.[riverSlug] ?? null : null;
 
   // Build static fallback text
   const buildStaticText = () => {

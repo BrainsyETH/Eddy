@@ -2,6 +2,7 @@
 // GET /api/rivers/[slug]/access-points - Get access points for a river
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import type { AccessPointsResponse, NPSCampgroundInfo, AccessPointType, NearbyService } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
@@ -179,7 +180,7 @@ async function _GET(
       accessPoints: formattedPoints,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error in access points endpoint:', error);
     return NextResponse.json(

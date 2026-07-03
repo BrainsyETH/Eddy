@@ -2,6 +2,7 @@
 // GET /api/conditions/[riverId] - Get current river conditions
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import {
@@ -470,7 +471,7 @@ async function _GET(
       gauges: gaugeSummaries,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 600) });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Conditions API] Unexpected error:', {

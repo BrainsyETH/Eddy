@@ -2,6 +2,7 @@
 // GET /api/vessel-types - Get available vessel types
 
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import type { VesselTypesResponse } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
@@ -43,7 +44,7 @@ async function _GET() {
       vesselTypes: formattedTypes,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(3600, 86400) });
   } catch (error) {
     console.error('Error in vessel types endpoint:', error);
     return NextResponse.json(

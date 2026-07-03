@@ -7,7 +7,6 @@ import {
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
 
 export interface MoHistoryBundleEntry {
   river_id: string;

@@ -54,6 +54,12 @@ NEXT_PUBLIC_MAP_STYLE_URL=https://api.maptiler.com/maps/streets/style.json?key=Y
 # Cron Security
 CRON_SECRET=your_random_secret
 
+# Rate limiting (optional but recommended in production)
+# When set, API rate limits are enforced globally in Upstash Redis instead of
+# per-serverless-instance memory. Create a free Redis database at upstash.com.
+UPSTASH_REDIS_REST_URL=https://YOUR_DB.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
+
 # App URL
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```

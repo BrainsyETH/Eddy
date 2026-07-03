@@ -8,7 +8,6 @@ import {
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 900;
 
 export interface MoStatewideGauge {
   site_no: string;

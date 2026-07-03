@@ -2,6 +2,7 @@
 // GET /api/rivers/[slug]/services - Get nearby services directory for a river
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
@@ -15,7 +16,7 @@ async function _GET(
 ) {
   try {
     // Rate limit: 60 requests per IP per minute
-    const rateLimitResult = rateLimit(`services:${getClientIp(request)}`, 60, 60 * 1000);
+    const rateLimitResult = await rateLimit(`services:${getClientIp(request)}`, 60, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const { slug } = await params;
@@ -198,7 +199,7 @@ async function _GET(
       }
     }
 
-    return NextResponse.json({ services: [...services, ...npsCampgrounds] });
+    return NextResponse.json({ services: [...services, ...npsCampgrounds] }, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error in services endpoint:', error);
     return NextResponse.json(

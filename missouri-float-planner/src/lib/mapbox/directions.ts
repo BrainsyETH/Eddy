@@ -66,6 +66,7 @@ export async function geocodeAddress(address: string): Promise<[number, number] 
 
   try {
     const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(10_000),
       next: { revalidate: CACHE_NORMAL }, // Cache for 30 days
     });
 
@@ -128,6 +129,7 @@ export async function getDriveTime(
 
   try {
     const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(10_000),
       next: { revalidate: revalidateTime },
     });
 

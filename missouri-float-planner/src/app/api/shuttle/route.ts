@@ -18,7 +18,7 @@ function extractCoords(ap: Record<string, unknown>): [number, number] | null {
 
 async function _GET(request: NextRequest) {
   try {
-    const rateLimitResult = rateLimit(`shuttle:${getClientIp(request)}`, 30, 60 * 1000);
+    const rateLimitResult = await rateLimit(`shuttle:${getClientIp(request)}`, 30, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const { searchParams } = request.nextUrl;
@@ -40,9 +40,10 @@ async function _GET(request: NextRequest) {
       .select('drive_miles, drive_minutes, route_summary')
       .eq('start_access_id', takeOutId)
       .eq('end_access_id', putInId)
-      .single();
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
 
-    if (cached) {
+    if (cached && cached.drive_minutes != null) {
       return NextResponse.json({
         available: true,
         miles: Number(cached.drive_miles),
@@ -103,6 +104,7 @@ async function _GET(request: NextRequest) {
         drive_miles: result.miles,
         drive_minutes: result.minutes,
         route_summary: result.routeSummary,
+        route_geometry: result.geometry,
         fetched_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       }, {

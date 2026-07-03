@@ -34,6 +34,7 @@ async function fetchNPS<T>(endpoint: string, params: Record<string, string> = {}
   }
 
   const response = await fetch(url.toString(), {
+    signal: AbortSignal.timeout(15_000),
     headers: {
       'Accept': 'application/json',
     },

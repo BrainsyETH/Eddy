@@ -2,6 +2,7 @@
 // GET /api/blog - List published blog posts for public consumption
 
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 
@@ -38,7 +39,7 @@ async function _GET() {
       publishedAt: post.published_at,
     }));
 
-    return NextResponse.json({ posts: formatted });
+    return NextResponse.json({ posts: formatted }, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error in public blog posts endpoint:', error);
     return NextResponse.json(

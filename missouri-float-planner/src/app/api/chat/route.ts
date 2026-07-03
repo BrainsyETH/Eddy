@@ -28,7 +28,7 @@ async function _POST(request: Request) {
 
   // Rate limit: 30 messages per hour per IP
   const ip = getClientIp(request);
-  const rateLimitResult = rateLimit(`chat:${ip}`, 30, 60 * 60 * 1000);
+  const rateLimitResult = await rateLimit(`chat:${ip}`, 30, 60 * 60 * 1000);
   if (rateLimitResult) return rateLimitResult;
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
