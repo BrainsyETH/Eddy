@@ -12,11 +12,14 @@ export const dynamic = 'force-dynamic';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     // 5 creates per IP per minute — one business creates one card.
+    // Explicit return annotation + cast: some TS 5.x versions fail to narrow
+    // `NextResponse | null` in Next's generated route type check (build-only
+    // failure on Vercel), so keep null out of the inferred union entirely.
     const rateLimitResult = rateLimit(`embed-create:${getClientIp(request)}`, 5, 60 * 1000);
-    if (rateLimitResult) return rateLimitResult;
+    if (rateLimitResult) return rateLimitResult as Response;
 
     const body = await request.json().catch(() => null);
     const lat = typeof body?.lat === 'number' && Number.isFinite(body.lat) ? body.lat : null;
