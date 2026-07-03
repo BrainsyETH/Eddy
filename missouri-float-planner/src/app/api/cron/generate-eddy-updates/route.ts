@@ -1,6 +1,7 @@
 // src/app/api/cron/generate-eddy-updates/route.ts
 // Cron job: generates AI-powered Eddy condition updates for all active rivers.
-// Runs once daily at 6 AM Central (11 AM UTC) via Vercel Cron.
+// Runs once daily at 6:10 AM Central (11:10 UTC) via Vercel Cron — offset 10
+// minutes after the hourly gauge sync so reports use the freshest readings.
 // Uses concurrent processing (max 3 parallel) for faster execution.
 
 import { NextRequest, NextResponse } from 'next/server';
