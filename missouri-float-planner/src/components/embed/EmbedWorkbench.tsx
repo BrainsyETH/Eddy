@@ -68,12 +68,28 @@ interface WidgetCtx {
   highlightSlugs: string[];
   gaugeDays: number;
   resizeScript: string;
+  cardEmbedId: string | null; // set once the location-pinned card is created
 }
 
 interface WidgetParam {
   name: string;
   values: string;
   note?: string;
+}
+
+// Shape returned by POST /api/embed/resolve (see src/lib/embed/cards.ts)
+interface CardResolveResult {
+  lat: number;
+  lng: number;
+  rivers: { riverId: string; slug: string; name: string; state: string; distanceMiles: number }[];
+  accessPoints: {
+    accessPointId: string;
+    name: string;
+    riverId: string;
+    riverSlug: string;
+    riverName: string;
+    distanceMiles: number;
+  }[];
 }
 
 interface WidgetDef {
@@ -89,6 +105,7 @@ interface WidgetDef {
   hasFilters?: boolean;
   hasDays?: boolean;
   isBadge?: boolean;
+  hasCardSetup?: boolean; // location-pinned card: onboarding form instead of river picker
 }
 
 // Standard responsive iframe snippet (auto-resizes, no hardcoded height).
@@ -126,6 +143,23 @@ function servicesQuery(c: WidgetCtx) {
 }
 
 const WIDGETS: WidgetDef[] = [
+  {
+    key: 'card',
+    title: 'Floatable From Here',
+    badge: 'NEW',
+    badgeBg: '#F07052',
+    desc: 'Pin your business location once. The card answers "is the water floatable from here right now?", shows how far your nearest launch is with real drive time, and puts YOUR booking button front and center.',
+    previewHeight: 300,
+    buildSrc: (c) => (c.cardEmbedId ? `${c.baseUrl}/embed/card/${c.cardEmbedId}?theme=${c.theme}` : ''),
+    buildCode: (c) =>
+      c.cardEmbedId
+        ? standardIframe(`${c.embedBase}/embed/card/${c.cardEmbedId}?theme=${c.theme}`, 'Floatable From Here - Live River Conditions', c.resizeScript)
+        : '<!-- Enter your business address on the Preview tab to generate your card\'s embed code. -->',
+    params: [
+      { name: 'theme', values: 'light | dark', note: 'Card color scheme.' },
+    ],
+    hasCardSetup: true,
+  },
   {
     key: 'current',
     title: 'Live Conditions',
@@ -348,6 +382,83 @@ export default function EmbedWorkbench() {
   const highlightRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WidgetTab, HTMLButtonElement | null>>>({});
 
+  // --- "Floatable From Here" card onboarding state ---
+  const [cardForm, setCardForm] = useState({
+    address: '',
+    businessName: '',
+    logoUrl: '',
+    accentColor: '#2D7889',
+    ctaUrl: '',
+    ctaLabel: 'Book your trip',
+  });
+  const [cardResolve, setCardResolve] = useState<CardResolveResult | null>(null);
+  const [cardAccessPointId, setCardAccessPointId] = useState('');
+  const [cardBusy, setCardBusy] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardEmbedId, setCardEmbedId] = useState<string | null>(null);
+
+  const resolveCardLocation = async () => {
+    if (!cardForm.address.trim() || cardBusy) return;
+    setCardBusy(true);
+    setCardError(null);
+    setCardResolve(null);
+    setCardEmbedId(null);
+    try {
+      const res = await fetch('/api/embed/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: cardForm.address.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.accessPoints?.length) {
+        setCardError(data?.error || 'Could not find a float river near that address.');
+        return;
+      }
+      setCardResolve(data as CardResolveResult);
+      setCardAccessPointId((data as CardResolveResult).accessPoints[0].accessPointId);
+    } catch {
+      setCardError('Something went wrong looking up that address. Try again.');
+    } finally {
+      setCardBusy(false);
+    }
+  };
+
+  const createCard = async () => {
+    if (!cardResolve || !cardAccessPointId || cardBusy) return;
+    const launch = cardResolve.accessPoints.find(a => a.accessPointId === cardAccessPointId);
+    if (!launch) return;
+    setCardBusy(true);
+    setCardError(null);
+    try {
+      const res = await fetch('/api/embed/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: cardResolve.lat,
+          lng: cardResolve.lng,
+          address: cardForm.address.trim(),
+          businessName: cardForm.businessName.trim() || undefined,
+          riverId: launch.riverId,
+          accessPointId: launch.accessPointId,
+          logoUrl: cardForm.logoUrl.trim() || undefined,
+          accentColor: cardForm.accentColor,
+          ctaUrl: cardForm.ctaUrl.trim() || undefined,
+          ctaLabel: cardForm.ctaLabel.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.card?.embedId) {
+        setCardError(data?.error || 'Could not create your card. Try again.');
+        return;
+      }
+      setCardEmbedId(data.card.embedId);
+    } catch {
+      setCardError('Something went wrong creating your card. Try again.');
+    } finally {
+      setCardBusy(false);
+    }
+  };
+
   // Hydrate state from the URL once on mount so a shared/bookmarked config
   // (and a refresh) restores the same widget, river, theme and tab.
   useEffect(() => {
@@ -450,7 +561,7 @@ export default function EmbedWorkbench() {
 
   const ctx: WidgetCtx = {
     baseUrl, embedBase: EMBED_BASE, selectedRiver, selectedRiverName, theme,
-    serviceFilter, highlightSlugs, gaugeDays, resizeScript,
+    serviceFilter, highlightSlugs, gaugeDays, resizeScript, cardEmbedId,
   };
 
   const active = WIDGETS.find(w => w.key === activeWidget) ?? WIDGETS[0];
@@ -480,6 +591,131 @@ export default function EmbedWorkbench() {
   // Per-widget interactive controls, rendered atop the Preview and Code tabs so
   // the preview and the generated snippet stay in sync from one piece of state.
   const renderWidgetOptions = () => {
+    if (active.hasCardSetup) {
+      const inputCls = 'w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400';
+      const labelCls = 'block text-xs font-semibold text-neutral-600 mb-1';
+      return (
+        <div className="mb-5 bg-white border-2 border-neutral-200 rounded-lg p-4">
+          {cardEmbedId ? (
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-neutral-800 mb-1">Your card is live</h4>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Card ID <code className="bg-neutral-100 px-1 py-0.5 rounded">{cardEmbedId}</code> — the preview below is
+                  your card. Grab the snippet from the Code tab. Save this page&apos;s URL to find it again.
+                </p>
+              </div>
+              <button
+                onClick={() => { setCardEmbedId(null); setCardResolve(null); setCardError(null); }}
+                className="flex-none text-xs font-semibold text-neutral-500 hover:text-primary-700 border-2 border-neutral-200 rounded-md px-3 py-1.5"
+              >
+                Start over
+              </button>
+            </div>
+          ) : (
+            <>
+              <h4 className="text-sm font-semibold text-neutral-800 mb-1">Set up your card</h4>
+              <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
+                Enter your business address once. We find your nearest float river and launch point,
+                and compute the real drive time from your door.
+              </p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={cardForm.address}
+                  onChange={e => setCardForm(f => ({ ...f, address: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') resolveCardLocation(); }}
+                  placeholder="123 River Rd, Steelville, MO"
+                  aria-label="Business address"
+                  className={inputCls}
+                />
+                <button
+                  onClick={resolveCardLocation}
+                  disabled={cardBusy || !cardForm.address.trim()}
+                  className="flex-none text-sm font-semibold text-white px-4 py-2 rounded-md disabled:opacity-50"
+                  style={{ background: '#2D7889' }}
+                >
+                  {cardBusy && !cardResolve ? 'Looking…' : 'Find my river'}
+                </button>
+              </div>
+
+              {cardError && (
+                <p className="text-xs font-medium text-red-600 mb-3" role="alert">{cardError}</p>
+              )}
+
+              {cardResolve && (
+                <>
+                  <div className="bg-primary-50 border border-primary-200 rounded-md px-3 py-2 mb-3 text-xs text-primary-700 leading-relaxed">
+                    Nearest river: <strong>{cardResolve.rivers[0]?.name}</strong>
+                    {' '}({cardResolve.rivers[0]?.distanceMiles} mi away)
+                    {cardResolve.rivers[1] && (
+                      <> &middot; also nearby: {cardResolve.rivers[1].name} ({cardResolve.rivers[1].distanceMiles} mi)</>
+                    )}
+                    {' — '}confirm your launch below; picking a launch on a different river switches the card to that river.
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div className="sm:col-span-2">
+                      <label className={labelCls} htmlFor="card-launch">Your launch (nearest access points)</label>
+                      <select
+                        id="card-launch"
+                        value={cardAccessPointId}
+                        onChange={e => setCardAccessPointId(e.target.value)}
+                        className={inputCls}
+                      >
+                        {cardResolve.accessPoints.map(a => (
+                          <option key={a.accessPointId} value={a.accessPointId}>
+                            {a.name} — {a.riverName} · {a.distanceMiles} mi
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls} htmlFor="card-business">Business name</label>
+                      <input id="card-business" type="text" value={cardForm.businessName}
+                        onChange={e => setCardForm(f => ({ ...f, businessName: e.target.value }))}
+                        placeholder="Pine Valley Cabins" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls} htmlFor="card-logo">Logo URL (optional)</label>
+                      <input id="card-logo" type="url" value={cardForm.logoUrl}
+                        onChange={e => setCardForm(f => ({ ...f, logoUrl: e.target.value }))}
+                        placeholder="https://yoursite.com/logo.png" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls} htmlFor="card-cta-url">Booking link (your site)</label>
+                      <input id="card-cta-url" type="url" value={cardForm.ctaUrl}
+                        onChange={e => setCardForm(f => ({ ...f, ctaUrl: e.target.value }))}
+                        placeholder="https://yoursite.com/book" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls} htmlFor="card-cta-label">Button text</label>
+                      <input id="card-cta-label" type="text" value={cardForm.ctaLabel}
+                        onChange={e => setCardForm(f => ({ ...f, ctaLabel: e.target.value }))}
+                        placeholder="Book your trip" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls} htmlFor="card-accent">Accent color</label>
+                      <input id="card-accent" type="color" value={cardForm.accentColor}
+                        onChange={e => setCardForm(f => ({ ...f, accentColor: e.target.value }))}
+                        className="h-9 w-16 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" />
+                    </div>
+                  </div>
+                  <button
+                    onClick={createCard}
+                    disabled={cardBusy || !cardAccessPointId}
+                    className="text-sm font-semibold text-white px-5 py-2.5 rounded-md disabled:opacity-50"
+                    style={{ background: '#F07052', boxShadow: '2px 2px 0 #A33122' }}
+                  >
+                    {cardBusy ? 'Creating…' : 'Create my card'}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
     if (active.hasDays) {
       return (
         <div className="mb-5">
@@ -641,25 +877,33 @@ export default function EmbedWorkbench() {
         <aside className="w-full lg:w-[336px] lg:flex-none bg-secondary-50 border-b-2 lg:border-b-0 lg:border-r-2 border-neutral-900 p-6 lg:overflow-y-auto flex flex-col">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>1 &middot; Configure</div>
 
-          {/* River */}
-          <label htmlFor="embed-river" className="block text-[13px] font-bold text-neutral-700 mb-2">River</label>
-          <div className="relative mb-5">
-            <select
-              id="embed-river"
-              value={selectedRiver}
-              onChange={e => setSelectedRiver(e.target.value)}
-              className="w-full appearance-none text-sm font-semibold text-primary-800 bg-white rounded-md border-2 border-primary-700 pl-3.5 pr-9 py-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-400"
-              style={{ boxShadow: '2px 2px 0 #C2BAAC' }}
-            >
-              {riverOptions.map(r => (
-                <option key={r.slug} value={r.slug}>{r.name}</option>
-              ))}
-              {!riverOptions.some(r => r.slug === selectedRiver) && (
-                <option value={selectedRiver}>{selectedRiver}</option>
-              )}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 pointer-events-none" />
-          </div>
+          {/* River (the location-pinned card resolves its river from your address instead) */}
+          {!active.hasCardSetup ? (
+            <>
+              <label htmlFor="embed-river" className="block text-[13px] font-bold text-neutral-700 mb-2">River</label>
+              <div className="relative mb-5">
+                <select
+                  id="embed-river"
+                  value={selectedRiver}
+                  onChange={e => setSelectedRiver(e.target.value)}
+                  className="w-full appearance-none text-sm font-semibold text-primary-800 bg-white rounded-md border-2 border-primary-700 pl-3.5 pr-9 py-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-400"
+                  style={{ boxShadow: '2px 2px 0 #C2BAAC' }}
+                >
+                  {riverOptions.map(r => (
+                    <option key={r.slug} value={r.slug}>{r.name}</option>
+                  ))}
+                  {!riverOptions.some(r => r.slug === selectedRiver) && (
+                    <option value={selectedRiver}>{selectedRiver}</option>
+                  )}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 pointer-events-none" />
+              </div>
+            </>
+          ) : (
+            <div className="mb-5 text-[13px] text-neutral-500 bg-white border-2 border-neutral-200 rounded-md px-3.5 py-2.5">
+              <span className="font-bold text-neutral-700">River:</span> resolved from your business address in the setup form.
+            </div>
+          )}
 
           {/* Theme */}
           <span className="block text-[13px] font-bold text-neutral-700 mb-2">Theme</span>
@@ -861,15 +1105,26 @@ export default function EmbedWorkbench() {
                       <div className="text-xs text-neutral-400 truncate" style={{ fontFamily: 'var(--font-mono)' }}>{previewRoute}</div>
                     </div>
                     {renderWidgetOptions()}
-                    <WidgetPreview
-                      src={active.buildSrc(ctx)}
-                      height={active.previewHeight}
-                      theme={theme}
-                      maxWidth={active.isBadge ? 320 : 540}
-                    />
-                    <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
-                      Placeholder preview — the production widget renders live USGS gauge data for the selected river and auto-resizes to its content.
-                    </p>
+                    {active.buildSrc(ctx) ? (
+                      <>
+                        <WidgetPreview
+                          src={active.buildSrc(ctx)}
+                          height={active.previewHeight}
+                          theme={theme}
+                          maxWidth={active.isBadge ? 320 : 540}
+                        />
+                        <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
+                          Placeholder preview — the production widget renders live USGS gauge data for the selected river and auto-resizes to its content.
+                        </p>
+                      </>
+                    ) : (
+                      <div
+                        className="flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 bg-white text-sm text-neutral-400"
+                        style={{ height: active.previewHeight, maxWidth: 540 }}
+                      >
+                        Enter your address above to generate your card
+                      </div>
+                    )}
                   </div>
                 )}
 
