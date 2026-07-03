@@ -40,6 +40,7 @@ interface RiverBasic {
   id: string;
   name: string;
   slug: string;
+  path?: string;
   currentCondition?: { code: string } | null;
 }
 
@@ -65,6 +66,8 @@ interface GaugeEntry {
   name: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  readingSuspect?: boolean;
+  qualifierNote?: string | null;
   thresholds?: GaugeThreshold[] | null;
 }
 
@@ -88,6 +91,7 @@ export default function EmbedGaugeReportPage() {
   const [primarySiteId, setPrimarySiteId] = useState<string | null>(null);
   const [chartThresholds, setChartThresholds] = useState<ChartThresholds | null>(null);
   const [chartUnit, setChartUnit] = useState<'ft' | 'cfs'>('ft');
+  const [qualifierNote, setQualifierNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Fetch river + eddy update + find primary gauge
@@ -124,6 +128,7 @@ export default function EmbedGaugeReportPage() {
             const primary = gauge.thresholds?.find((t) => t.riverId === riverId && t.isPrimary);
             if (primary) {
               setPrimarySiteId(gauge.usgsSiteId);
+              if (gauge.readingSuspect && gauge.qualifierNote) setQualifierNote(gauge.qualifierNote);
               const useCfs = primary.thresholdUnit === 'cfs';
               setChartUnit(useCfs ? 'cfs' : 'ft');
               if (useCfs) {
@@ -148,6 +153,7 @@ export default function EmbedGaugeReportPage() {
           }
           if (fallbackGauge) {
             setPrimarySiteId(fallbackGauge.usgsSiteId);
+            if (fallbackGauge.readingSuspect && fallbackGauge.qualifierNote) setQualifierNote(fallbackGauge.qualifierNote);
             const useCfs = fallbackThreshold?.thresholdUnit === 'cfs';
             setChartUnit(useCfs ? 'cfs' : 'ft');
             if (useCfs) {
@@ -218,7 +224,7 @@ export default function EmbedGaugeReportPage() {
   if (!river) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, background: bg, color: textSecondary, fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
-        River not found
+        River conditions temporarily unavailable
       </div>
     );
   }
@@ -250,6 +256,28 @@ export default function EmbedGaugeReportPage() {
           <span style={{ fontSize: 16, fontWeight: 600, color: textSecondary }}>No reading</span>
         )}
       </div>
+
+      {/* Suspect-reading warning (ice-affected / estimated / sensor issues) */}
+      {qualifierNote && (
+        <div
+          role="note"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 10,
+            fontWeight: 500,
+            color: '#b45309',
+            background: isDark ? 'rgba(180, 83, 9, 0.15)' : '#fffbeb',
+            border: `1px solid ${isDark ? 'rgba(180, 83, 9, 0.35)' : '#fde68a'}`,
+            borderRadius: 6,
+            padding: '4px 8px',
+          }}
+        >
+          <span aria-hidden="true">⚠</span>
+          <span>{qualifierNote}</span>
+        </div>
+      )}
 
       {/* Chart */}
       {(() => {
@@ -393,7 +421,7 @@ export default function EmbedGaugeReportPage() {
       {/* Footer */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: partner ? 'space-between' : 'space-between', borderTop: `1px solid ${borderColor}`, paddingTop: 8, marginTop: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a href={`${origin}/rivers/${river.slug}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
+          <a href={`${origin}${river.path || `/rivers/${river.slug}`}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
             Full river guide &rarr;
           </a>
           {partner && (

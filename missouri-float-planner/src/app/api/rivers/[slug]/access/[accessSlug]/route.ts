@@ -2,6 +2,7 @@
 // GET /api/rivers/[slug]/access/[accessSlug] - Get access point detail
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type {
@@ -196,7 +197,7 @@ async function _GET(
       gaugeStatus,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error in access point detail endpoint:', error);
     return NextResponse.json(

@@ -9,6 +9,7 @@
 // used as a fallback when the DB has too little history (e.g. a new station).
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchHistoricalReadings, type HistoricalData } from '@/lib/usgs/gauges';
 import { toNum } from '@/lib/utils/num';
@@ -113,7 +114,7 @@ async function _GET(
         minHeight: historicalData.minHeight,
         maxHeight: historicalData.maxHeight,
       },
-    });
+    }, { headers: cdnCacheHeaders(900, 3600) });
   } catch (error) {
     console.error('Error fetching historical gauge data:', error);
     return NextResponse.json(

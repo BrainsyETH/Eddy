@@ -2,12 +2,14 @@
 // GET /api/conditions/[riverId] - Get current river conditions
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
   calculateDischargePercentile,
+  classifyQualifiers,
 } from '@/lib/usgs/gauges';
 import { computeCondition, mapConditionCode, type ConditionThresholds } from '@/lib/conditions';
 import {
@@ -365,6 +367,7 @@ async function _GET(
             : null;
           // A live fallback reading can itself be stale — don't hardcode "no warning".
           const stale = readingAgeHours != null && readingAgeHours > 6;
+          const qual = classifyQualifiers(usgsReading.qualifiers);
 
           finalCondition = {
             label: computed.label,
@@ -373,8 +376,10 @@ async function _GET(
             dischargeCfs: usgsReading.dischargeCfs,
             readingTimestamp: usgsReading.readingTimestamp,
             readingAgeHours,
-            accuracyWarning: stale,
-            accuracyWarningReason: stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
+            accuracyWarning: stale || qual.suspect,
+            accuracyWarningReason: qual.suspect
+              ? qual.note
+              : stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
             gaugeName: selectedGaugeName || condition.gauge_name,
             gaugeUsgsId: usgsSiteId,
           };
@@ -466,7 +471,7 @@ async function _GET(
       gauges: gaugeSummaries,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 600) });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Conditions API] Unexpected error:', {

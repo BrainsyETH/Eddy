@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { calculateFloatTime, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
 import {
@@ -11,6 +12,7 @@ import {
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
 import { computeConditionFromDbRow } from '@/lib/conditions';
+import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
@@ -40,7 +42,7 @@ async function _GET(request: NextRequest) {
   try {
     // Rate limit: 30 plan calculations per IP per minute
     // Each request can trigger multiple external API calls (USGS, Mapbox)
-    const rateLimitResult = rateLimit(`plan:${getClientIp(request)}`, 30, 60 * 1000);
+    const rateLimitResult = await rateLimit(`plan:${getClientIp(request)}`, 30, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const searchParams = request.nextUrl.searchParams;
@@ -216,6 +218,7 @@ async function _GET(request: NextRequest) {
               ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
               : null;
             const stale = readingAgeHours != null && readingAgeHours > STALE_READING_HOURS;
+            const qual = classifyQualifiers(usgsReading.qualifiers);
 
             // Update condition with live USGS data
             condition = {
@@ -226,8 +229,10 @@ async function _GET(request: NextRequest) {
               discharge_cfs: usgsReading.dischargeCfs,
               reading_timestamp: usgsReading.readingTimestamp,
               reading_age_hours: readingAgeHours,
-              accuracy_warning: stale,
-              accuracy_warning_reason: stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
+              accuracy_warning: stale || qual.suspect,
+              accuracy_warning_reason: qual.suspect
+                ? qual.note
+                : stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
             };
             conditionCode = computed.code;
           }
@@ -276,6 +281,7 @@ async function _GET(request: NextRequest) {
                 ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
                 : null;
               const stale = readingAgeHours != null && readingAgeHours > STALE_READING_HOURS;
+              const qual = classifyQualifiers(usgsReading.qualifiers);
 
               condition = {
                 condition_label: computed.label,
@@ -286,14 +292,99 @@ async function _GET(request: NextRequest) {
                 reading_age_hours: readingAgeHours,
                 gauge_name: gaugeStation?.name,
                 gauge_usgs_id: usgsSiteId,
-                accuracy_warning: stale,
-                accuracy_warning_reason: stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
+                accuracy_warning: stale || qual.suspect,
+                accuracy_warning_reason: qual.suspect
+                  ? qual.note
+                  : stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
               };
               conditionCode = computed.code;
             }
           }
         }
       }
+    }
+
+    // --- Within-span multi-gauge check (gauge-to-segment representativeness) ---
+    // The anchor gauge sits at/upstream of the put-in, but a long float can pass
+    // other gauges reading very different water (tributaries and big springs add
+    // flow between gauges). If another gauge INSIDE the float span classifies
+    // worse than the anchor (high/dangerous), the trip passes through that water:
+    // escalate the condition. A too-low in-span gauge gets a scraping warning.
+    const spanWarnings: string[] = [];
+    try {
+      const spanMinMile = Math.min(parseFloat(segmentData.start_river_mile), parseFloat(segmentData.end_river_mile));
+      const spanMaxMile = Math.max(parseFloat(segmentData.start_river_mile), parseFloat(segmentData.end_river_mile));
+
+      const { data: riverGaugeRows } = await supabase
+        .from('river_gauges')
+        .select(`
+          level_too_low, level_low, level_optimal_min, level_optimal_max,
+          level_high, level_dangerous, threshold_unit, river_mile,
+          gauge_stations!inner (id, name, usgs_site_id, active)
+        `)
+        .eq('river_id', riverId)
+        .not('river_mile', 'is', null);
+
+      const inSpanGauges = (riverGaugeRows || [])
+        .map((g) => ({
+          row: g,
+          mile: toNum(g.river_mile),
+          station: Array.isArray(g.gauge_stations) ? g.gauge_stations[0] : g.gauge_stations,
+        }))
+        .filter(({ mile, station }) =>
+          mile != null && mile >= spanMinMile && mile <= spanMaxMile &&
+          station?.active &&
+          station?.usgs_site_id !== condition?.gauge_usgs_id
+        );
+
+      if (inSpanGauges.length > 0) {
+        const latestReadings = await Promise.all(
+          inSpanGauges.map(({ station }) =>
+            supabase
+              .from('gauge_readings')
+              .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+              .eq('gauge_station_id', station.id)
+              .order('reading_timestamp', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          )
+        );
+
+        const SEVERITY_RANK: Record<string, number> = { high: 1, dangerous: 2 };
+        for (let i = 0; i < inSpanGauges.length; i++) {
+          const { row, station, mile } = inSpanGauges[i];
+          const reading = latestReadings[i]?.data;
+          if (!reading) continue;
+          const ageHours = reading.reading_timestamp
+            ? (Date.now() - new Date(reading.reading_timestamp).getTime()) / (1000 * 60 * 60)
+            : Infinity;
+          if (ageHours > 12) continue; // never escalate off stale data
+
+          const spanCondition = computeConditionFromDbRow(
+            toNum(reading.gauge_height_ft),
+            row,
+            toNum(reading.discharge_cfs)
+          );
+
+          if ((SEVERITY_RANK[spanCondition.code] ?? 0) > (SEVERITY_RANK[conditionCode] ?? 0)) {
+            conditionCode = spanCondition.code as ConditionCode;
+            condition = {
+              ...condition,
+              condition_code: spanCondition.code,
+              condition_label: spanCondition.label,
+            };
+            spanWarnings.push(
+              `${station.name} (mile ${mile}) reads "${spanCondition.label}" within this float — conditions reflect the worst gauge on your route`
+            );
+          } else if (spanCondition.code === 'too_low' && conditionCode !== 'too_low' && conditionCode !== 'unknown') {
+            spanWarnings.push(
+              `${station.name} (mile ${mile}) reads very low — expect dragging on that stretch`
+            );
+          }
+        }
+      }
+    } catch (spanError) {
+      console.warn('Span gauge check failed (non-fatal):', spanError);
     }
 
     // Fetch daily discharge statistics once. Used as the reference flow (Q_ref) for
@@ -369,7 +460,9 @@ async function _GET(request: NextRequest) {
       }
     }
 
-    // Get shuttle drive time using Mapbox Directions API
+    // Get shuttle drive time. Check drive_time_cache first (shared with
+    // /api/shuttle — both model the shuttle drive take-out → put-in) so we
+    // only pay for a Mapbox Directions call on cache miss.
     // Priority: directions_override (geocoded) > driving_lat/lng > location_snap > location_orig
     let driveBack: {
       minutes: number;
@@ -379,6 +472,41 @@ async function _GET(request: NextRequest) {
       routeGeometry: GeoJSON.LineString | null;
     };
     try {
+      // Cache writes need the service role (RLS restricts writes to admins).
+      const adminSupabase = createAdminClient();
+
+      // During high/dangerous water, roads and low bridges can close, so only
+      // trust cache entries fetched within the last hour (mirrors the 1h
+      // fetch revalidate that getDriveTime uses for those conditions).
+      const isVolatileConditions = conditionCode === 'high' || conditionCode === 'dangerous';
+      const { data: cachedDrive } = await adminSupabase
+        .from('drive_time_cache')
+        .select('drive_miles, drive_minutes, route_summary, route_geometry, fetched_at, expires_at')
+        .eq('start_access_id', endId)
+        .eq('end_access_id', startId)
+        .maybeSingle();
+
+      const cacheAgeMs = cachedDrive?.fetched_at
+        ? Date.now() - new Date(cachedDrive.fetched_at).getTime()
+        : Infinity;
+      const cacheExpired = !cachedDrive?.expires_at
+        || new Date(cachedDrive.expires_at).getTime() < Date.now();
+      const cacheFresh = Boolean(
+        cachedDrive
+        && cachedDrive.drive_minutes != null
+        && !cacheExpired
+        && (!isVolatileConditions || cacheAgeMs < 60 * 60 * 1000)
+      );
+
+      if (cacheFresh && cachedDrive) {
+        driveBack = {
+          minutes: Number(cachedDrive.drive_minutes),
+          miles: Number(cachedDrive.drive_miles ?? 0),
+          formatted: formatDriveTime(Number(cachedDrive.drive_minutes)),
+          routeSummary: cachedDrive.route_summary ?? null,
+          routeGeometry: (cachedDrive.route_geometry as GeoJSON.LineString | null) ?? null,
+        };
+      } else {
       // Get put-in driving coordinates
       // Priority: directions_override (geocode) > driving_lat/lng > location_snap > location_orig
       let putInLng: number, putInLat: number;
@@ -443,6 +571,27 @@ async function _GET(request: NextRequest) {
         routeSummary: driveResult.routeSummary,
         routeGeometry: driveResult.geometry,
       };
+
+      // Write back so /api/shuttle and future plan requests skip Mapbox.
+      // Non-fatal on error (e.g. route_geometry column not yet migrated).
+      const { error: cacheWriteError } = await adminSupabase
+        .from('drive_time_cache')
+        .upsert({
+          start_access_id: endId,
+          end_access_id: startId,
+          drive_miles: driveResult.miles,
+          drive_minutes: driveResult.minutes,
+          route_summary: driveResult.routeSummary,
+          route_geometry: driveResult.geometry,
+          fetched_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        }, {
+          onConflict: 'start_access_id,end_access_id',
+        });
+      if (cacheWriteError) {
+        console.warn('drive_time_cache write failed:', cacheWriteError.message);
+      }
+      }
     } catch (error) {
       console.error('Error calculating drive time:', error);
       driveBack = {
@@ -471,6 +620,7 @@ async function _GET(request: NextRequest) {
 
     // Build warnings array
     const warnings: string[] = [];
+    warnings.push(...spanWarnings);
     if (condition?.accuracy_warning) {
       warnings.push(condition.accuracy_warning_reason || 'Gauge reading may be inaccurate');
     }

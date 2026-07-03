@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { fetchNwpsFloodStages, USGS_TO_NWS_LID } from '../src/lib/nws/flood-stages';
+import { fetchNwpsFloodStages, fetchNwpsLidMap, USGS_TO_NWS_LID } from '../src/lib/nws/flood-stages';
 import { fetchDailyStatistics } from '../src/lib/usgs/gauges';
 
 // Load env from .env.local (authoritative — overrides the shell), else process.env.
@@ -59,16 +59,30 @@ async function main() {
   const write = process.argv.includes('--write');
   const supabase = getSupabase();
 
+  // Only the FLOAT gauges (linked via river_gauges) — flood stages are for the
+  // condition taxonomy, not the ~250-gauge statewide map layer.
+  const { data: floatLinks, error: linkError } = await supabase
+    .from('river_gauges')
+    .select('gauge_station_id');
+  if (linkError || !floatLinks) throw new Error(`Failed to load river_gauges: ${linkError?.message}`);
+  const floatStationIds = Array.from(new Set(floatLinks.map((l) => l.gauge_station_id)));
+
   const { data: gauges, error } = await supabase
     .from('gauge_stations')
     .select('id, name, usgs_site_id, nws_lid, active')
-    .eq('active', true);
+    .eq('active', true)
+    .in('id', floatStationIds);
   if (error || !gauges) throw new Error(`Failed to load gauges: ${error?.message}`);
 
-  console.log(`\nNWS flood-stage backfill (${write ? 'WRITE' : 'dry-run'}) — ${gauges.length} gauges\n`);
+  // Auto-discover LIDs from NWPS's own gauge list (indexed by usgsId); the hand
+  // map is only a fallback if the bbox query fails.
+  const lidMap = await fetchNwpsLidMap();
+  const lidSource = Object.keys(lidMap).length > 0 ? 'nwps-bbox' : 'fallback-map';
+  console.log(`\nNWS flood-stage backfill (${write ? 'WRITE' : 'dry-run'}) — ${gauges.length} float gauges, LIDs via ${lidSource} (${Object.keys(lidMap).length} discovered)\n`);
 
   for (const g of gauges) {
-    const lid: string | null = g.nws_lid || USGS_TO_NWS_LID[g.usgs_site_id] || null;
+    const lid: string | null =
+      lidMap[g.usgs_site_id] || g.nws_lid || USGS_TO_NWS_LID[g.usgs_site_id] || null;
     let floodStageFt: number | null = null;
     let actionStageFt: number | null = null;
     let source: 'nws_ahps' | 'usgs' | null = null;

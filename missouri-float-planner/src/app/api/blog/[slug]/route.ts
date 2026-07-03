@@ -2,6 +2,7 @@
 // GET /api/blog/[slug] - Get single published blog post by slug
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 
@@ -52,7 +53,7 @@ async function _GET(
       publishedAt: data.published_at,
     };
 
-    return NextResponse.json({ post: formatted });
+    return NextResponse.json({ post: formatted }, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error in get blog post endpoint:', error);
     return NextResponse.json(

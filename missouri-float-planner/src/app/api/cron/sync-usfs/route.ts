@@ -10,7 +10,7 @@ import { syncUSFSData } from '@/lib/usfs/sync';
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
+async function runSync(request: NextRequest) {
   try {
     // Verify cron secret
     const authHeader = request.headers.get('authorization');
@@ -76,4 +76,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Vercel Cron invokes routes via GET; POST kept for manual triggering.
+export async function GET(request: NextRequest) {
+  return runSync(request);
+}
+
+export async function POST(request: NextRequest) {
+  return runSync(request);
 }

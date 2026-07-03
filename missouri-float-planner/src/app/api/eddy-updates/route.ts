@@ -6,6 +6,7 @@
 // live condition), mirroring the per-river /api/eddy-update/[riverSlug] route.
 
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
@@ -87,7 +88,7 @@ async function _GET() {
       };
     }
 
-    return NextResponse.json<EddyUpdatesResponse>({ updates });
+    return NextResponse.json<EddyUpdatesResponse>({ updates }, { headers: cdnCacheHeaders(300, 1800) });
   } catch (error) {
     console.error('[EddyUpdates] Unexpected error:', error);
     return NextResponse.json<EddyUpdatesResponse>({ updates: {} }, { status: 500 });

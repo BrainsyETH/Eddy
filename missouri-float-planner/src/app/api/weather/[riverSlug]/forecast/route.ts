@@ -36,7 +36,7 @@ async function _GET(
       river: riverSlug,
       location: location.city,
       forecast: forecast.days,
-    });
+    }, { headers: cdnCacheHeaders(1800, 3600) });
   } catch (error) {
     console.error('Error fetching weather forecast:', error);
     return NextResponse.json(

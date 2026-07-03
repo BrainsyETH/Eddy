@@ -297,7 +297,7 @@ export default function EmbedPlannerPage() {
       {/* Submit */}
       {canSubmit ? (
         <a
-          href={`${origin}/rivers/${selectedRiver}?putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
+          href={`${origin}/plan?river=${selectedRiver}&putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{

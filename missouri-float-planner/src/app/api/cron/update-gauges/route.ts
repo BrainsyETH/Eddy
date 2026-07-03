@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { publishConditionChangeAlert, isElevatedCrossing, publishStormDigest } from '@/lib/social/condition-alerts';
-import { regenerateEddyForRiver } from '@/lib/eddy/regenerate';
+import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
 import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (cron endpoint)
@@ -20,6 +20,24 @@ export const maxDuration = 60;
 
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
+
+// When >= this many rivers cross into elevated water in one cron pass, publish a
+// single storm digest instead of a barrage of individual warnings.
+const STORM_THRESHOLD = 3;
+
+// Cap on awaited event-driven Eddy regenerations per cron pass. Each river can
+// mean several sequential Sonnet calls (one per section), so this keeps the
+// pass inside maxDuration even on a storm morning when many rivers flip.
+const MAX_AWAITED_REGENS = 3;
+
+// A condition-code transition detected during this cron pass, deferred to the
+// post-loop publish. Shape matches publishConditionChangeAlert's params.
+type Transition = {
+  riverSlug: string;
+  oldCondition: string;
+  newCondition: string;
+  gaugeHeightFt: number | null;
+};
 
 async function runUpdate(request: NextRequest) {
   // Verify cron secret — always required, including in development.
@@ -132,6 +150,22 @@ async function runUpdate(request: NextRequest) {
     let highFrequencyFlagsCleared = 0;
     let conditionChanges = 0;
     let flatlined = 0;
+    // Condition transitions collected during the loop and published after it
+    // (elevated ones get the storm-vs-single decision; the rest publish
+    // individually).
+    const elevatedCrossings: Transition[] = [];
+    const otherTransitions: Transition[] = [];
+
+    // Eddy regenerations queued during the loop and AWAITED after it — a
+    // fire-and-forget promise gets killed when the serverless runtime freezes
+    // after the response is sent, silently dropping the regeneration.
+    // condition_change outranks rapid_change for the same river.
+    const pendingEddyRegens = new Map<string, TriggerReason>();
+    const queueEddyRegen = (slug: string, reason: TriggerReason) => {
+      if (reason === 'condition_change' || !pendingEddyRegens.has(slug)) {
+        pendingEddyRegens.set(slug, reason);
+      }
+    };
 
     // Condition transitions collected during the loop and published after it
     // (elevated ones get the storm-vs-single decision; the rest publish
@@ -235,7 +269,8 @@ async function runUpdate(request: NextRequest) {
               `rate=${toNum(rateInfo.rate_ft_per_hour)?.toFixed(2)} ft/hr`
             );
 
-            // Rapid change detected — regenerate Eddy report for affected rivers
+            // Rapid change detected — queue Eddy regeneration for affected
+            // rivers (awaited after the loop)
             try {
               const { data: affectedRivers } = await supabase
                 .from('river_gauges')
@@ -247,9 +282,7 @@ async function runUpdate(request: NextRequest) {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const riverSlug = (rawRg as any).rivers?.slug;
                   if (riverSlug) {
-                    regenerateEddyForRiver(riverSlug, 'rapid_change').catch((err) => {
-                      console.error(`Eddy regen error for ${riverSlug} (rapid):`, err);
-                    });
+                    queueEddyRegen(riverSlug, 'rapid_change');
                   }
                 }
               }
@@ -336,10 +369,9 @@ async function runUpdate(request: NextRequest) {
                 otherTransitions.push(transition);
               }
 
-              // Regenerate Eddy report for this river (async, throttled internally)
-              regenerateEddyForRiver(riverSlug, 'condition_change').catch((err) => {
-                console.error(`Eddy regen error for ${riverSlug}:`, err);
-              });
+              // Queue Eddy regeneration for this river (awaited after the
+              // loop; throttled inside regenerateEddyForRiver)
+              queueEddyRegen(riverSlug, 'condition_change');
             }
           }
         }
@@ -395,8 +427,40 @@ async function runUpdate(request: NextRequest) {
       }
     }
 
+    // ── Event-driven Eddy regeneration (awaited) ────────────────────
+    // condition_change regens run first; capped so a storm morning with many
+    // flips can't blow past maxDuration. Skipped rivers keep their morning
+    // report and the live-condition overlay suppresses any stale prose.
+    let eddyRegensGenerated = 0;
+    let eddyRegensSkipped = 0;
+    if (pendingEddyRegens.size > 0) {
+      const prioritized = Array.from(pendingEddyRegens.entries()).sort(
+        ([, a], [, b]) => Number(b === 'condition_change') - Number(a === 'condition_change'),
+      );
+      const toRun = prioritized.slice(0, MAX_AWAITED_REGENS);
+      eddyRegensSkipped = prioritized.length - toRun.length;
+      if (eddyRegensSkipped > 0) {
+        console.warn(
+          `[update-gauges] Skipping ${eddyRegensSkipped} Eddy regen(s) this pass (cap ${MAX_AWAITED_REGENS}): ` +
+          prioritized.slice(MAX_AWAITED_REGENS).map(([slug]) => slug).join(', ')
+        );
+      }
+
+      const regenResults = await Promise.allSettled(
+        toRun.map(([slug, reason]) => regenerateEddyForRiver(slug, reason)),
+      );
+      for (let i = 0; i < regenResults.length; i++) {
+        const r = regenResults[i];
+        if (r.status === 'fulfilled') {
+          eddyRegensGenerated += r.value;
+        } else {
+          console.error(`Eddy regen error for ${toRun[i][0]}:`, r.reason);
+        }
+      }
+    }
+
     const executionTime = new Date().toISOString();
-    
+
     return NextResponse.json({
       message: 'Gauge update complete',
       updated,
@@ -407,6 +471,8 @@ async function runUpdate(request: NextRequest) {
       highFrequencyFlagsCleared,
       conditionChanges,
       flatlined,
+      eddyRegensGenerated,
+      eddyRegensSkipped,
       executionTime,
       stationsProcessed: stations.length,
     });

@@ -29,7 +29,7 @@ async function _GET(
 
   try {
     const weather = await fetchWeather(cityData.lat, cityData.lon, apiKey);
-    return NextResponse.json(weather);
+    return NextResponse.json(weather, { headers: cdnCacheHeaders(600, 1800) });
   } catch (error) {
     console.error('Weather API error:', error);
     return NextResponse.json(

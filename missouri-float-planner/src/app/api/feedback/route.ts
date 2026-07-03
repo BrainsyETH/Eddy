@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 10 feedback submissions per IP per 15 minutes
-    const rateLimitResult = rateLimit(`feedback:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`feedback:${getClientIp(request)}`, 10, 15 * 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json() as CreateFeedbackRequest;

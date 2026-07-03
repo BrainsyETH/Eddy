@@ -15,7 +15,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 10 uploads per IP per 15 minutes (service-role write to Storage)
-    const rateLimitResult = rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const formData = await request.formData();

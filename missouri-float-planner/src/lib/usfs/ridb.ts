@@ -37,6 +37,7 @@ async function fetchRIDB<T>(
   }
 
   const response = await fetch(url.toString(), {
+    signal: AbortSignal.timeout(15_000),
     headers: { Accept: 'application/json' },
     cache: 'no-store',
   });
@@ -132,6 +133,7 @@ export async function fetchFacility(facilityId: string): Promise<RIDBFacility | 
     url.searchParams.set('apikey', apiKey);
 
     const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(15_000),
       headers: { Accept: 'application/json' },
       cache: 'no-store',
     });

@@ -38,6 +38,7 @@ export async function fetchNwpsFloodStages(lid: string): Promise<NwpsFloodStages
   const url = `${NWPS_BASE}/${encodeURIComponent(lid)}`;
   try {
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(10_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 86400 }, // stages change rarely; cache a day
     });
@@ -67,19 +68,49 @@ export async function fetchNwpsFloodStages(lid: string): Promise<NwpsFloodStages
 }
 
 /**
- * Known USGS-site → NWS-LID mapping for the current gauge set. gauge_stations.nws_lid
- * should be backfilled from this (and extended); NWPS/USGS cross-reference confirms it.
- * Only high-confidence LIDs are listed — leave a gauge out rather than guess a LID.
+ * Auto-discover the USGS-site → NWS-LID mapping from NWPS itself: query all NWPS
+ * gauges in a Missouri bounding box and index them by the `usgsId` each record
+ * carries. This replaces hand-guessed LIDs entirely — every mapping comes from
+ * NWPS's own cross-reference, so it can't be wrong the way a guessed LID can.
+ * Returns an empty map on error (callers fall back to USGS_TO_NWS_LID).
+ */
+export async function fetchNwpsLidMap(): Promise<Record<string, string>> {
+  // Missouri bbox with margin (covers all Ozark float-river gauges).
+  const params = new URLSearchParams({
+    'bbox.xmin': '-95.9',
+    'bbox.ymin': '35.8',
+    'bbox.xmax': '-89.0',
+    'bbox.ymax': '40.7',
+    srid: 'EPSG_4326',
+  });
+  const url = `${NWPS_BASE}?${params.toString()}`;
+  const map: Record<string, string> = {};
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { Accept: 'application/json' } });
+    if (!res.ok) {
+      console.warn(`[NWPS] gauge list: HTTP ${res.status}`);
+      return map;
+    }
+    const data = (await res.json()) as { gauges?: Array<Record<string, unknown>> };
+    for (const g of data.gauges ?? []) {
+      const lid = typeof g.lid === 'string' ? g.lid : null;
+      const usgs =
+        (typeof g.usgsId === 'string' && g.usgsId) ||
+        (typeof (g as { usgs_id?: string }).usgs_id === 'string' && (g as { usgs_id?: string }).usgs_id) ||
+        null;
+      if (lid && usgs) map[usgs] = lid;
+    }
+  } catch (e) {
+    console.error('[NWPS] gauge list fetch failed', e);
+  }
+  return map;
+}
+
+/**
+ * Fallback USGS-site → NWS-LID mapping, used only if auto-discovery fails.
+ * Only Van Buren is independently confirmed; the per-gauge cross-check in the
+ * backfill script rejects any entry whose NWPS record reports a different USGS id.
  */
 export const USGS_TO_NWS_LID: Record<string, string> = {
-  '07067000': 'VBNM7', // Current River at Van Buren
-  '07064533': 'AKRM7', // Current River above Akers (verify)
-  '07068000': 'DONM7', // Current River at Doniphan
-  '07071500': 'BRDM7', // Eleven Point near Bardley (verify)
-  '07018500': 'SULM7', // Meramec near Sullivan (verify)
-  '07019000': 'EURM7', // Meramec near Eureka (verify)
-  '07017200': 'SVLM7', // Huzzah Creek near Steelville (verify)
-  '07065495': 'ASGM7', // Jacks Fork at Alley Spring (verify)
-  '06923250': 'WDYM7', // Niangua at Windyville (verify)
-  '06930000': 'BPYM7', // Big Piney near Big Piney (verify)
+  '07067000': 'VBNM7', // Current River at Van Buren (confirmed)
 };

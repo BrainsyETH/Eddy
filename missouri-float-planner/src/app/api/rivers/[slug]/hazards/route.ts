@@ -2,6 +2,7 @@
 // GET /api/rivers/[slug]/hazards - Get hazards for a river
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import type { HazardsResponse, HazardType, HazardSeverity } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
@@ -68,7 +69,7 @@ async function _GET(
       hazards: formattedHazards,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error in hazards endpoint:', error);
     return NextResponse.json(
