@@ -18,9 +18,9 @@ export default function NearbyAccessPoints({
 }: NearbyAccessPointsProps) {
   return (
     <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden p-4">
-      <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+      <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">
         Nearby on {riverName}
-      </h3>
+      </h2>
 
       <div className="space-y-2">
         {accessPoints.map((ap) => (

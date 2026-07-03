@@ -29,6 +29,9 @@ export default function GuideTOC({ items, riverSlug, riverName }: Props) {
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY - 80;
     window.scrollTo({ top, behavior: 'smooth' });
+    // Move keyboard focus along with the visual jump
+    el.setAttribute('tabindex', '-1');
+    el.focus({ preventScroll: true });
   };
 
   return (

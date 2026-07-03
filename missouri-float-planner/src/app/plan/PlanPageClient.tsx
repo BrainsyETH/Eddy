@@ -49,6 +49,7 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ),
 });
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
+const RouteLayer = dynamic(() => import('@/components/map/RouteLayer'), { ssr: false });
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
 const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
@@ -582,6 +583,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
+            {/* Selected float route line between put-in and take-out */}
+            <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
@@ -637,8 +640,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               <Camera className="w-4 h-4" />
             </button>
             <span
-              className="px-2 py-0.5 rounded text-[10px] font-bold text-white"
-              style={{ backgroundColor: CONDITION_COLORS[condition?.code ?? 'unknown'] || CONDITION_COLORS.unknown }}
+              className="px-2 py-0.5 rounded text-[10px] font-bold"
+              // Near-black ink on the solid condition fill — white text is
+              // illegible on the light conditions (low/good/flowing).
+              style={{ backgroundColor: CONDITION_COLORS[condition?.code ?? 'unknown'] || CONDITION_COLORS.unknown, color: '#1A1814' }}
             >
               {CONDITION_LABELS[(condition?.code ?? 'unknown') as ConditionCode] || 'Unknown'}
             </span>
@@ -670,6 +675,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
+            {/* Selected float route line between put-in and take-out */}
+            <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>

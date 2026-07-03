@@ -301,7 +301,13 @@ export default function FlowTrendChart({
           }}
           onTouchEnd={() => setTooltip(null)}
         >
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="w-full h-full"
+              role="img"
+              aria-label={`${chartLabel} trend chart${currentDisplay !== null && currentDisplay !== undefined ? `, currently ${formatVal(currentDisplay)} ${unitLabel}` : ''}`}
+            >
           <defs>
             <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />

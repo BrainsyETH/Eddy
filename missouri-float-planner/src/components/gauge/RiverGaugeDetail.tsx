@@ -227,7 +227,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   // Reading age
   const ageText = useMemo(() => {
-    if (!activeGauge?.readingAgeHours) return null;
+    if (activeGauge?.readingAgeHours == null) return null;
     if (activeGauge.readingAgeHours < 1) {
       const mins = Math.round(activeGauge.readingAgeHours * 60);
       return mins < 2 ? 'Just now' : `${mins}m ago`;
@@ -436,6 +436,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                     <button
                       onClick={() => handleUnitToggle('ft')}
+                      aria-pressed={effectiveUnit === 'ft'}
+                      title="Gauge height in feet"
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         effectiveUnit === 'ft'
                           ? 'bg-primary-500 text-white'
@@ -446,6 +448,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     </button>
                     <button
                       onClick={() => handleUnitToggle('cfs')}
+                      aria-pressed={effectiveUnit === 'cfs'}
+                      title="Flow in cubic feet per second"
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         effectiveUnit === 'cfs'
                           ? 'bg-primary-500 text-white'
@@ -462,6 +466,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     <button
                       key={opt.days}
                       onClick={() => setDateRange(opt.days)}
+                      aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
                           ? 'bg-primary-500 text-white'

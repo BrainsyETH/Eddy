@@ -242,6 +242,7 @@ function ServiceCard({ item, accent }: { item: DirectoryItem; accent: string }) 
               href={item.reservationUrl}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`Reserve at ${item.name}`}
               style={{
                 fontSize: 12,
                 fontWeight: 700,
@@ -263,7 +264,7 @@ function ServiceCard({ item, accent }: { item: DirectoryItem; accent: string }) 
             </a>
           )}
           {item.website && (
-            <a href={item.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}>
+            <a href={item.website} target="_blank" rel="noopener noreferrer" aria-label={`${item.name} website`} style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}>
               Website
             </a>
           )}
@@ -271,6 +272,7 @@ function ServiceCard({ item, accent }: { item: DirectoryItem; accent: string }) 
             href={mapUrl(item.name, item.city, item.state)}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={`Map to ${item.name}`}
             style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}
           >
             Map

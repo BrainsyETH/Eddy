@@ -50,6 +50,7 @@ export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: Gauge
             key={gauge.siteId}
             onClick={() => onTabChange(gauge.siteId)}
             title={gauge.name}
+            aria-pressed={isActive}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               isActive
                 ? 'bg-primary-500 text-white shadow-sm'

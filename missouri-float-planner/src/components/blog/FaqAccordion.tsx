@@ -34,6 +34,7 @@ export default function FaqAccordion({ items }: Props) {
             <button
               onClick={() => setOpen(isOpen ? -1 : i)}
               aria-expanded={isOpen}
+              aria-controls={`faq-panel-${i}`}
               style={{
                 width: '100%',
                 padding: '16px 20px',
@@ -72,6 +73,8 @@ export default function FaqAccordion({ items }: Props) {
             </button>
             {isOpen && (
               <div
+                id={`faq-panel-${i}`}
+                role="region"
                 style={{
                   padding: '14px 20px 18px',
                   fontSize: 15,

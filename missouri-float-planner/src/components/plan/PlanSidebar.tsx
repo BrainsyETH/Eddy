@@ -307,6 +307,17 @@ export default function PlanSidebar({
       {/* Footer — share buttons (sticky at bottom) */}
       {hasBothPoints && plan && (
         <div className="flex-shrink-0 px-4 py-3 border-t border-neutral-100 bg-white">
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => {
+                onClearPutIn();
+                onClearTakeOut();
+              }}
+              className="text-xs text-neutral-400 hover:text-neutral-600 underline underline-offset-2 transition-colors"
+            >
+              Clear route &amp; start over
+            </button>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={onShare}

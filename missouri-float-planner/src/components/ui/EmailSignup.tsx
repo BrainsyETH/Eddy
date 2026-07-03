@@ -51,7 +51,7 @@ export default function EmailSignup({ className = '', variant = 'dark', source =
 
   if (status === 'success') {
     return (
-      <div className={`text-center py-3 ${className}`}>
+      <div role="status" className={`text-center py-3 ${className}`}>
         <p className={`text-sm font-medium ${isDark ? 'text-primary-100' : 'text-neutral-700'}`}>
           You&apos;re signed up! Watch for Eddy&apos;s weekly river report in your inbox.
         </p>
