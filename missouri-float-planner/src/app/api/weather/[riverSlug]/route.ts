@@ -2,7 +2,6 @@
 // Server-side weather API to keep API key secure
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchWeather, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
 

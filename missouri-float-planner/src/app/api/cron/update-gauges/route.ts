@@ -167,6 +167,19 @@ async function runUpdate(request: NextRequest) {
       }
     };
 
+    // Condition transitions collected during the loop and published after it
+    // (elevated ones get the storm-vs-single decision; the rest publish
+    // individually). Restores declarations dropped in a bad merge upstream.
+    type Transition = {
+      riverSlug: string;
+      oldCondition: string;
+      newCondition: string;
+      gaugeHeightFt: number | null;
+    };
+    const STORM_THRESHOLD = 3;
+    const elevatedCrossings: Transition[] = [];
+    const otherTransitions: Transition[] = [];
+
     for (const reading of readings) {
       const station = stations.find(s => s.siteId === reading.siteId);
       if (!station) continue;

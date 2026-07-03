@@ -170,8 +170,8 @@ async function fetchLatestModern(
   url.searchParams.set('limit', String(Math.max(siteIds.length * 2, 10)));
 
   const fetchOptions: RequestInit = options?.skipCache
-    ? { cache: 'no-store', headers: modernHeaders(), signal: AbortSignal.timeout(15_000) }
-    : { next: { revalidate: 3600 }, headers: modernHeaders(), signal: AbortSignal.timeout(15_000) };
+    ? { cache: 'no-store', headers: modernHeaders() }
+    : { next: { revalidate: 3600 }, headers: modernHeaders() };
 
   const response = await fetch(url.toString(), fetchOptions);
   if (!response.ok) {
@@ -195,7 +195,6 @@ async function fetchHistoryModern(siteId: string, days: number): Promise<Histori
   const response = await fetch(url.toString(), {
     next: { revalidate: 3600 },
     headers: modernHeaders(),
-    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     throw new Error(`USGS modern history error: ${response.status} ${response.statusText}`);
@@ -263,8 +262,8 @@ async function fetchLatestLegacy(
   url.searchParams.set('siteStatus', 'all');
 
   const fetchOptions: RequestInit = options?.skipCache
-    ? { cache: 'no-store', signal: AbortSignal.timeout(15_000) }
-    : { next: { revalidate: 3600 }, signal: AbortSignal.timeout(15_000) };
+    ? { cache: 'no-store' }
+    : { next: { revalidate: 3600 } };
 
   const response = await fetch(url.toString(), fetchOptions);
   if (!response.ok) {
@@ -325,7 +324,7 @@ async function fetchHistoryLegacy(siteId: string, days: number): Promise<Histori
   url.searchParams.set('period', `P${days}D`);
   url.searchParams.set('siteStatus', 'all');
 
-  const response = await fetch(url.toString(), { next: { revalidate: 3600 }, signal: AbortSignal.timeout(15_000) });
+  const response = await fetch(url.toString(), { next: { revalidate: 3600 } });
   if (!response.ok) {
     throw new Error(`USGS legacy history error: ${response.status} ${response.statusText}`);
   }
@@ -409,7 +408,6 @@ async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<
 
   const response = await fetch(url.toString(), {
     next: { revalidate: 86400 }, // Stats change rarely
-    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     console.error(`USGS Statistics API error: ${response.status} ${response.statusText}`);
