@@ -2,6 +2,7 @@
 // GET /api/weather/[riverSlug]/forecast - Fetch 5-day weather forecast
 
 import { NextRequest, NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { getWeatherPointForRiver, fetchForecast } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
 

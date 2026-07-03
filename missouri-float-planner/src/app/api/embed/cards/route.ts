@@ -15,7 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function POST(request: NextRequest) {
   try {
     // 5 creates per IP per minute — one business creates one card.
-    const rateLimitResult = rateLimit(`embed-create:${getClientIp(request)}`, 5, 60 * 1000);
+    const rateLimitResult = await rateLimit(`embed-create:${getClientIp(request)}`, 5, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json().catch(() => null);

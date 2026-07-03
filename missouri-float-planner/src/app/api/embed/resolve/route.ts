@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     // 10 requests per IP per minute — onboarding is a handful of calls, ever.
-    const rateLimitResult = rateLimit(`embed-resolve:${getClientIp(request)}`, 10, 60 * 1000);
+    const rateLimitResult = await rateLimit(`embed-resolve:${getClientIp(request)}`, 10, 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json().catch(() => null);
