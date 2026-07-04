@@ -34,6 +34,7 @@ import {
 } from './projection';
 import { usePrefersReducedMotion } from './fx';
 import FlowLayer, { type FlowRiver } from './FlowLayer';
+import Stars from './Stars';
 
 type BasemapRiver = {
   type: 'Feature';
@@ -699,6 +700,8 @@ export default function MOMap(props: MOMapProps) {
         }
       }}
     >
+    {/* Distant sky — static, screen-fixed, behind the landmass. */}
+    <Stars />
     <svg
       ref={svgRef}
       viewBox={viewBoxAttr}
@@ -1000,6 +1003,7 @@ export default function MOMap(props: MOMapProps) {
           One dash period = 22 viewBox units (14 dash + 8 gap). */}
       <style>{`
         .mosw-ctx:hover { opacity: 1 !important; }
+        @keyframes mosw-breathe { 0%, 100% { opacity: 0.82; } 50% { opacity: 1; } }
       `}</style>
 
       {/* Access points */}
