@@ -25,6 +25,7 @@ import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useRiver, useRivers } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useConditions } from '@/hooks/useConditions';
@@ -99,8 +100,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const { data: allGaugeStations } = useGaugeStations();
   const { data: pois } = usePOIs(riverSlug);
   const { data: hazards } = useHazards(riverSlug);
-  useWeather(riverSlug);
+  const { data: weather } = useWeather(riverSlug);
   const { data: nearbyServices } = useNearbyServices(riverSlug);
+
+  // lg breakpoint gate so only ONE MapLibre instance ever mounts. Rendering
+  // both layouts and hiding one with CSS still initializes two WebGL maps —
+  // a real cost on the rural connections this app targets. null = hydration
+  // render (viewport unknown): render both wrappers exactly like the old
+  // CSS-hidden markup so server and client HTML agree, then drop one.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const gaugeStations = useMemo(
     () => allGaugeStations?.filter(g => g.thresholds?.some(t => t.riverId === river?.id)),
@@ -461,7 +469,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   // ─── No river selected: show the map with a prominent river picker ───
   if (!riverSlug) {
     return (
-      <div className="relative bg-neutral-100" style={{ height: 'calc(100vh - 3.5rem)' }}>
+      <div className="relative bg-neutral-100 plan-viewport-h">
         <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false} />
 
         {/* Prominent river selector floating on the map */}
@@ -527,7 +535,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       {/* OfflineBanner is rendered once globally in the root layout (above the
           header); no second copy here. */}
       {/* ─── DESKTOP: Split-panel layout ─── */}
-      <div className="hidden lg:flex overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
+      {isDesktop !== false && (
+      <div className="hidden lg:flex overflow-hidden plan-viewport-h">
         <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col min-h-0">
           <div className="p-3 border-b border-neutral-200 bg-white">
             <RiverSwitcher
@@ -620,8 +629,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           )}
         </div>
       </div>
+      )}
 
       {/* ─── MOBILE: Full-screen map + bottom sheet ─── */}
+      {isDesktop !== true && (
       <div className="lg:hidden">
         <div className="px-4 py-2 bg-white border-b border-neutral-200 flex items-center justify-between gap-2">
           <MobileRiverSwitcher
@@ -639,6 +650,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             >
               <Camera className="w-4 h-4" />
             </button>
+            {/* Temp lives here on mobile (not a floating WeatherBug) so the
+                map's top edge stays clear for the hint/stats overlays. */}
+            {typeof weather?.temp === 'number' && (
+              <span className="text-xs font-semibold text-neutral-600 tabular-nums">
+                {weather.temp}°
+              </span>
+            )}
             <span
               className="px-2 py-0.5 rounded text-[10px] font-bold"
               // Near-black ink on the solid condition fill — white text is
@@ -650,7 +668,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           </div>
         </div>
 
-        <div className="relative" style={{ height: `calc(100vh - 3.5rem - 2.5rem - ${putInPoint && takeOutPoint ? '80px' : '0px'})` }}>
+        <div className={`relative ${putInPoint && takeOutPoint ? 'plan-map-h--sheet' : 'plan-map-h'}`}>
           <MapContainer
             initialBounds={river.bounds}
             showLegend={false}
@@ -681,14 +699,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
 
-          <WeatherBug riverSlug={riverSlug} riverId={river.id} />
-
           <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
           {(putInPoint && takeOutPoint) && (
             <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} />
           )}
 
-          {accessPoints && accessPoints.length > 0 && (
+          {/* Access point picker strip — only while picking. Once both
+              endpoints are chosen the bottom sheet carries all the detail and
+              the strip would just stack a third band of UI over the map. */}
+          {accessPoints && accessPoints.length > 0 && !(putInPoint && takeOutPoint) && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
@@ -735,6 +754,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           />
         )}
       </div>
+      )}
 
       {/* ─── Below-fold info ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
@@ -968,7 +988,7 @@ function MobileRiverSwitcher({
           <div
             ref={sheetRef}
             tabIndex={-1}
-            className="w-full max-h-[75vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom"
+            className="w-full max-h-[75vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom pb-safe"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-neutral-100">
