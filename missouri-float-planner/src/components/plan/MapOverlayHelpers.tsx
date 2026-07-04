@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { MousePointerClick, X, MapPin, Info } from 'lucide-react';
 import type { FloatPlan, AccessPoint } from '@/types/api';
+import { formatFloatTimeCompact, formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
 import { CONDITION_SHORT_LABELS } from '@/constants';
 
@@ -80,9 +81,17 @@ interface RouteStatsBadgeProps {
 // Floating "Distance · Float time" badge that keeps key route stats visible
 // while the user is zooming or panning the map. Anchored top-center so it
 // doesn't collide with MapLibre's NavigationControl (top-right) or the
-// WeatherBug (top-left).
+// WeatherBug (top-left). Single-line compact format: the verbose
+// "~4 hours 30 minutes – ~7 hours 15 minutes" string wraps to three lines on
+// a phone and buries a third of the map.
 export function RouteStatsBadge({ plan, isLoading = false, className = '' }: RouteStatsBadgeProps) {
   if (!plan && !isLoading) return null;
+
+  const timeLabel = plan?.floatTime
+    ? plan.floatTime.timeRange
+      ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
+      : `~${formatFloatTimeCompact(plan.floatTime.minutes)}`
+    : '—';
 
   return (
     <div
@@ -90,7 +99,7 @@ export function RouteStatsBadge({ plan, isLoading = false, className = '' }: Rou
       role="status"
       aria-live="polite"
     >
-      <div className="flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200">
+      <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-sm rounded-full shadow-lg border border-neutral-200 whitespace-nowrap">
         {isLoading || !plan ? (
           <div className="flex items-center gap-2 text-neutral-500">
             <span className="w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
@@ -98,17 +107,9 @@ export function RouteStatsBadge({ plan, isLoading = false, className = '' }: Rou
           </div>
         ) : (
           <>
-            <div className="flex flex-col items-center leading-tight">
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-neutral-400">Distance</span>
-              <span className="text-sm font-bold text-neutral-900">{plan.distance.formatted}</span>
-            </div>
-            <div className="w-px h-6 bg-neutral-200" aria-hidden="true" />
-            <div className="flex flex-col items-center leading-tight">
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-neutral-400">Float time</span>
-              <span className="text-sm font-bold text-neutral-900">
-                {plan.floatTime?.formatted || '—'}
-              </span>
-            </div>
+            <span className="text-sm font-bold text-neutral-900">{plan.distance.miles} mi</span>
+            <span className="text-neutral-300" aria-hidden="true">·</span>
+            <span className="text-sm font-semibold text-neutral-700">{timeLabel}</span>
           </>
         )}
       </div>

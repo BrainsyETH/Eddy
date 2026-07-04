@@ -611,8 +611,9 @@ export default function AccessPointStrip({
     <div className="relative">
       {/* Branding + scrollable cards row */}
       <div className="flex items-center">
-        {/* Plan Your Float branding */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1 pl-2 pr-2">
+        {/* Plan Your Float branding — desktop only; on a phone this column
+            steals ~60px of card width from an already tight strip */}
+        <div className="hidden lg:flex flex-shrink-0 flex-col items-center gap-1 pl-2 pr-2">
           <Image
             src={EDDY_CANOE_IMAGE}
             alt="Eddy the Otter in a canoe"
