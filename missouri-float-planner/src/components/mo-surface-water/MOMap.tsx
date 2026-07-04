@@ -90,6 +90,8 @@ interface MOMapProps {
   showAccessPoints: boolean;
   showPOIs: boolean;
   showGauges: boolean;
+  /** Baked hillshade relief layer. Defaults on; toggled from the HUD. */
+  showTerrain?: boolean;
   /** True when the right rail is pinned open — the zoom cluster slides
    *  left so it never hides underneath the rail. */
   railOpen?: boolean;
@@ -163,7 +165,6 @@ export default function MOMap(props: MOMapProps) {
     [project],
   );
   // Projected anchor for the Ozark highland tint (southern plateau).
-  const ozarkTint = useMemo(() => project(-92.0, 37.05), [project]);
   // Kilometres represented by one viewBox unit — drives the scale bar.
   const kmPerUnit = useMemo(() => {
     const [x0] = project(-92, 38);
@@ -322,7 +323,23 @@ export default function MOMap(props: MOMapProps) {
   // never re-project (paths are memoized on `project`); only the viewBox
   // attribute changes per frame, so the browser handles zoom natively.
   const HOME_VIEW = useMemo(() => ({ x: 0, y: 0, w: W, h: H }), []);
-  const [view, setView] = useState(HOME_VIEW);
+  // High-altitude framing for the cinematic entry — the widest the clamp
+  // allows, biased slightly up so the state "rises" into place.
+  const ENTRY_VIEW = useMemo(() => {
+    const w = W * 1.4;
+    const h = w * (H / W);
+    return { x: (W - w) / 2, y: (H - h) / 2 - H * 0.06, w, h };
+  }, []);
+  const entryEligible =
+    !reducedMotion &&
+    typeof window !== 'undefined' &&
+    window.sessionStorage?.getItem('mosw-entry-played') !== '1';
+  const [view, setView] = useState(entryEligible ? ENTRY_VIEW : HOME_VIEW);
+  // 'flying' → camera en route (interaction blocked, layers fading up);
+  // 'done' → composed end state. Reduced motion starts at 'done'.
+  const [entryPhase, setEntryPhase] = useState<'flying' | 'done'>(
+    entryEligible ? 'flying' : 'done',
+  );
   const dragRef = useRef<
     | {
         pointerId: number;
@@ -352,6 +369,70 @@ export default function MOMap(props: MOMapProps) {
       return { x: ccx - nw / 2, y: ccy - nh / 2, w: nw, h: nh };
     },
     [],
+  );
+
+  // ─── Cinematic entry ───────────────────────────────────────────────────
+  // One-shot fly-down from high altitude to the home framing. Pure
+  // viewBox interpolation (no layout work per frame). Skippable via any
+  // pointer/key/wheel input; never replays within a session; reduced
+  // motion never enters 'flying' at all (static composed state instead).
+  useEffect(() => {
+    if (entryPhase !== 'flying') return;
+    let raf = 0;
+    let finished = false;
+    const D = 2100;
+    const t0 = performance.now();
+    const ease = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      cancelAnimationFrame(raf);
+      setView({ x: 0, y: 0, w: W, h: H });
+      setEntryPhase('done');
+      try { window.sessionStorage.setItem('mosw-entry-played', '1'); } catch { /* private mode */ }
+    };
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / D);
+      const e = ease(p);
+      setView({
+        x: ENTRY_VIEW.x * (1 - e),
+        y: ENTRY_VIEW.y * (1 - e),
+        w: ENTRY_VIEW.w + (W - ENTRY_VIEW.w) * e,
+        h: ENTRY_VIEW.h + (H - ENTRY_VIEW.h) * e,
+      });
+      if (p >= 1) finish();
+      else raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    window.addEventListener('pointerdown', finish);
+    window.addEventListener('keydown', finish);
+    window.addEventListener('wheel', finish);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointerdown', finish);
+      window.removeEventListener('keydown', finish);
+      window.removeEventListener('wheel', finish);
+    };
+  }, [entryPhase, ENTRY_VIEW]);
+
+  // Layer reveal during the flight: flips one frame after mount so CSS
+  // transitions (with per-layer delays) carry terrain → basemap → rivers
+  // → markers up in sequence while the camera descends.
+  const [lit, setLit] = useState(!entryEligible);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setLit(true)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const fadeIn = useCallback(
+    (delayMs: number, durMs = 1100): React.CSSProperties =>
+      reducedMotion
+        ? {}
+        : {
+            opacity: lit ? 1 : 0,
+            transition: `opacity ${durMs}ms cubic-bezier(0.4,0,0.2,1) ${delayMs}ms`,
+          },
+    [lit, reducedMotion],
   );
 
   // Wheel zoom is attached natively (not via React's `onWheel` prop)
@@ -509,7 +590,18 @@ export default function MOMap(props: MOMapProps) {
       viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       className="absolute inset-0 h-full w-full"
-      style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+      style={{
+        cursor: dragging ? 'grabbing' : 'grab',
+        touchAction: 'none',
+        // Deep-space canvas behind the landmass. CSS background is
+        // viewport-fixed, so it correctly does NOT zoom with the map —
+        // distant sky shouldn't parallax with a camera move.
+        background:
+          'radial-gradient(120% 105% at 62% 18%, #0C2833 0%, #071A22 44%, #030A0F 100%)',
+        // Interactions wait for the fly-in; skip is on window, so a tap
+        // still fast-forwards.
+        pointerEvents: entryPhase === 'flying' ? 'none' : undefined,
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -541,15 +633,6 @@ export default function MOMap(props: MOMapProps) {
           <stop offset="60%" stopColor="#EADFC2" />
           <stop offset="100%" stopColor="#D4C394" />
         </radialGradient>
-        {/* Muted highland tint — anchored over the southern Ozark Plateau
-            where the float rivers live, fading to nothing toward the
-            glaciated plains in the north. Adds regional depth and fills the
-            otherwise-blank canvas without inventing data. */}
-        <radialGradient id="mo-ozark" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#6F8A5E" stopOpacity="0.22" />
-          <stop offset="55%" stopColor="#7D9468" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="#7D9468" stopOpacity="0" />
-        </radialGradient>
         {/* Soft drop shadow so the parchment silhouette lifts off the dark
             teal backdrop. Cast by a dark copy of the state path drawn just
             behind the parchment fill. */}
@@ -572,9 +655,6 @@ export default function MOMap(props: MOMapProps) {
         </clipPath>
       </defs>
 
-      {/* Backdrop (matches Eddy primary-900) */}
-      <rect width={W} height={H} fill="#0F2D35" />
-
       {/* Shadow caster — a dark copy of the state, blurred via the filter.
           The parchment group paints over its fill, leaving only the soft
           halo around MO's edges. */}
@@ -586,22 +666,34 @@ export default function MOMap(props: MOMapProps) {
       <g clipPath="url(#mo-clip)">
         <rect width={W} height={H} fill="url(#mo-bg)" />
         <rect width={W} height={H} fill="url(#mo-grain)" />
-        {/* Ozark highland tint (objectBoundingBox gradient on an ellipse over
-            the southern plateau). */}
-        <ellipse
-          cx={ozarkTint[0]}
-          cy={ozarkTint[1]}
-          rx={560}
-          ry={430}
-          fill="url(#mo-ozark)"
-        />
+
+        {/* Real terrain relief — hillshade baked at build time from SRTM
+            (AWS terrarium tiles) in this exact projection, so the Ozark
+            plateau, river valleys, and the Bootheel drop-off read as
+            actual landforms. Relief lives in the alpha channel (shadow
+            ink + sun highlights over transparent flats), so it composites
+            plainly on the parchment. One static ~390 KB raster; zero
+            runtime tile fetches. See scripts/build-mo-hillshade.ts. */}
+        {props.showTerrain !== false && (
+          <g style={fadeIn(350, 1400)} pointerEvents="none">
+            <image
+              href="/mo-hillshade.png"
+              x={0}
+              y={0}
+              width={W}
+              height={H}
+              preserveAspectRatio="none"
+              opacity={0.75}
+            />
+          </g>
+        )}
 
         {/* NHD basemap — lakes (filled polygons) under named perennial
             rivers (thin uniform blue). Renders inside the state clip so it
             never bleeds across MO's borders. Curated rivers, gauges, etc.
             paint OUTSIDE this group on top of the basemap. Kept low-contrast
             so the colored curated reaches read as the foreground. */}
-        <g pointerEvents="none">
+        <g pointerEvents="none" style={fadeIn(650, 1200)}>
           {basemapLakePaths.map((l) => (
             <path
               key={`lake-${l.name}`}
@@ -649,7 +741,7 @@ export default function MOMap(props: MOMapProps) {
       </text>
 
       {/* Cities */}
-      <g>
+      <g style={fadeIn(1300, 900)}>
         {visibleCities.map((c) => {
           const [cx, cy] = project(c.lon, c.lat);
           const cityR = (c.type === 'metro' ? 4 : 2.8) * kStable;
@@ -691,7 +783,7 @@ export default function MOMap(props: MOMapProps) {
           inside MO's borders — Eleven Point's lower NHD reach legitimately
           continues into Arkansas, but on a Missouri-focused map we clip
           it the same way the basemap is clipped. */}
-      <g clipPath="url(#mo-clip)">
+      <g clipPath="url(#mo-clip)" style={fadeIn(950, 1100)}>
       {orderedRivers.map((r) => {
         const d = riverPaths[r.id];
         if (!d) return null;
@@ -825,7 +917,7 @@ export default function MOMap(props: MOMapProps) {
           first child so clicks register reliably even when the visible
           dot is only a few pixels across. */}
       {props.showGauges && (
-      <g>
+      <g style={fadeIn(1450, 800)}>
         {props.gauges.map((g) => {
           const r = props.rivers.find((x) => x.id === g.river_id);
           const gauge = r?.gauges?.find((x) => x.site_id === g.site_no);

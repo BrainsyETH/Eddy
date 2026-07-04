@@ -42,6 +42,8 @@ export default function DataDock({
   gaugeCount,
   showGauges,
   setShowGauges,
+  showTerrain,
+  setShowTerrain,
   onHoverRiver,
   onFocusRiver,
   open,
@@ -58,6 +60,8 @@ export default function DataDock({
   gaugeCount: number;
   showGauges: boolean;
   setShowGauges: (v: boolean) => void;
+  showTerrain: boolean;
+  setShowTerrain: (v: boolean) => void;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   /** Mobile drawer state; ignored on md+ where the dock is always shown. */
@@ -250,22 +254,52 @@ export default function DataDock({
           <div className="mt-2" style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
-          <button
-            type="button"
-            onClick={() => setShowGauges(!showGauges)}
-            className="mt-2.5 w-full rounded-md border px-2.5 py-1.5 text-left font-bold uppercase transition-colors duration-150"
-            style={{
-              fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em',
-              borderColor: showGauges ? 'rgba(114,181,196,0.5)' : 'rgba(242,234,216,0.18)',
-              background: showGauges ? 'rgba(45,120,137,0.28)' : 'transparent',
-              color: showGauges ? '#A3D1DB' : PARCH_DIM,
-            }}
-          >
-            ◎ Gauge markers · {showGauges ? 'on' : 'off'}
-          </button>
+          <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+            <LayerToggle
+              label="Gauges"
+              glyph="◎"
+              on={showGauges}
+              onToggle={() => setShowGauges(!showGauges)}
+            />
+            <LayerToggle
+              label="Terrain"
+              glyph="▲"
+              on={showTerrain}
+              onToggle={() => setShowTerrain(!showTerrain)}
+            />
+          </div>
         </div>
       </aside>
     </>
+  );
+}
+
+function LayerToggle({
+  label,
+  glyph,
+  on,
+  onToggle,
+}: {
+  label: string;
+  glyph: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      className="rounded-md border px-2 py-1.5 text-left font-bold uppercase transition-colors duration-150"
+      style={{
+        fontFamily: MONO, fontSize: 9, letterSpacing: '0.12em',
+        borderColor: on ? 'rgba(114,181,196,0.5)' : 'rgba(242,234,216,0.18)',
+        background: on ? 'rgba(45,120,137,0.28)' : 'transparent',
+        color: on ? '#A3D1DB' : PARCH_DIM,
+      }}
+    >
+      {glyph} {label} · {on ? 'on' : 'off'}
+    </button>
   );
 }
 

@@ -72,6 +72,7 @@ export default function MOSurfaceWaterApp() {
   const showAccessPoints = false;
   const showPOIs = false;
   const [showGauges, setShowGauges] = useState(true);
+  const [showTerrain, setShowTerrain] = useState(true);
 
   // Initial fetches
   useEffect(() => {
@@ -370,6 +371,8 @@ export default function MOSurfaceWaterApp() {
         gaugeCount={gauges.length}
         showGauges={showGauges}
         setShowGauges={setShowGauges}
+        showTerrain={showTerrain}
+        setShowTerrain={setShowTerrain}
         onHoverRiver={setHoveredRiverId}
         onFocusRiver={setFocusedRiverId}
         open={dockOpen}
@@ -396,6 +399,7 @@ export default function MOSurfaceWaterApp() {
           showAccessPoints={showAccessPoints}
           showPOIs={showPOIs}
           showGauges={showGauges}
+          showTerrain={showTerrain}
           railOpen={railOpen}
           onHoverRiver={setHoveredRiverId}
           onFocusRiver={setFocusedRiverId}
