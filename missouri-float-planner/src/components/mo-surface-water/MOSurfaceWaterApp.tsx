@@ -258,6 +258,27 @@ export default function MOSurfaceWaterApp() {
 
   const floatableCount = rivers.filter((r) => FLOATABLE.has(verdictByRiver[r.slug])).length;
 
+  // Mission-control telemetry for the dock: how much of the network is
+  // talking, how much water is moving through the curated rivers, and
+  // whether the next 72h forecast crosses any warning stage.
+  const telemetry = useMemo(() => {
+    const reporting = gauges.filter(
+      (g) => g.dischargeCfs != null || g.gaugeHeightFt != null,
+    ).length;
+    let totalCfs = 0;
+    let risk72h = 0;
+    for (const r of rivers) {
+      const primary = (r.gauges ?? []).find((g) => g.is_primary);
+      if (!primary) continue;
+      const live = gauges.find((g) => g.site_no === primary.site_id && g.is_primary);
+      if (live?.dischargeCfs != null) totalCfs += live.dischargeCfs;
+      const fc = forecastBySite[primary.site_id];
+      const warnStage = primary.action_stage_ft ?? primary.flood_stage_ft;
+      if (fc?.peakFt != null && warnStage != null && fc.peakFt >= warnStage) risk72h++;
+    }
+    return { reporting, totalCfs: Math.round(totalCfs), risk72h };
+  }, [rivers, gauges, forecastBySite]);
+
   // ─── Right-rail selectors ─────────────────────────────────────────────
   const focusedRiver = rivers.find((r) => r.id === focusedRiverId) ?? null;
   const hoveredRiver = rivers.find((r) => r.id === hoveredRiverId) ?? null;
@@ -386,6 +407,7 @@ export default function MOSurfaceWaterApp() {
         dayOffset={dayOffset}
         generatedAt={statewide?.generatedAt ?? dataset?.generated_at ?? null}
         gaugeCount={gauges.length}
+        telemetry={telemetry}
         showGauges={showGauges}
         setShowGauges={setShowGauges}
         showTerrain={showTerrain}

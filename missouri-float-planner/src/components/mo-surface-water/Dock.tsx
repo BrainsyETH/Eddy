@@ -40,6 +40,7 @@ export default function DataDock({
   dayOffset,
   generatedAt,
   gaugeCount,
+  telemetry,
   showGauges,
   setShowGauges,
   showTerrain,
@@ -64,6 +65,8 @@ export default function DataDock({
   dayOffset: number;
   generatedAt: string | null;
   gaugeCount: number;
+  /** Statewide observatory aggregates (see MOSurfaceWaterApp). */
+  telemetry: { reporting: number; totalCfs: number; risk72h: number };
   showGauges: boolean;
   setShowGauges: (v: boolean) => void;
   showTerrain: boolean;
@@ -212,6 +215,51 @@ export default function DataDock({
               <VerdictMini key={code} code={code} n={counts[code]} active={mounted} />
             ))}
           </div>
+
+          {/* Condition share — same story as the tiles, read as proportion */}
+          <div
+            className="mt-2 flex h-2 w-full overflow-hidden rounded-sm"
+            role="img"
+            aria-label={CONDITION_ORDER.filter((c) => counts[c] > 0)
+              .map((c) => `${counts[c]} ${STAGE_VERDICTS[c].label}`)
+              .join(', ') || 'No condition data yet'}
+            style={{ background: 'rgba(242,234,216,0.06)' }}
+          >
+            {CONDITION_ORDER.map((code) =>
+              counts[code] > 0 ? (
+                <div
+                  key={code}
+                  style={{
+                    width: `${(counts[code] / Math.max(1, rivers.length)) * 100}%`,
+                    background: STAGE_VERDICTS[code].color,
+                    transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)',
+                  }}
+                />
+              ) : null,
+            )}
+          </div>
+
+          {/* ── Telemetry ── */}
+          <div
+            className="mt-3 grid grid-cols-3 gap-1.5 border-t-2 pt-2.5"
+            style={{ borderColor: 'rgba(242,234,216,0.14)' }}
+          >
+            <TelemetryCell label="Gauges live" value={telemetry.reporting} active={mounted} />
+            <TelemetryCell
+              label="Curated flow"
+              value={telemetry.totalCfs}
+              active={mounted}
+              format={(n) => (n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString())}
+              unit="cfs"
+            />
+            <TelemetryCell
+              label="72h flood risk"
+              value={telemetry.risk72h}
+              active={mounted}
+              urgent={telemetry.risk72h > 0}
+              unit={telemetry.risk72h === 1 ? 'river' : 'rivers'}
+            />
+          </div>
           {scrubbed && (
             <div
               className="mt-2 rounded-sm border px-2 py-1"
@@ -301,6 +349,46 @@ export default function DataDock({
         </div>
       </aside>
     </>
+  );
+}
+
+function TelemetryCell({
+  label,
+  value,
+  active,
+  format,
+  unit,
+  urgent,
+}: {
+  label: string;
+  value: number;
+  active: boolean;
+  format?: (n: number) => string;
+  unit?: string;
+  urgent?: boolean;
+}) {
+  const n = useCountUp(value, active, 900);
+  return (
+    <div
+      className="rounded-md border px-1.5 py-1.5"
+      style={{
+        borderColor: urgent ? 'rgba(239,68,68,0.55)' : 'rgba(242,234,216,0.1)',
+        background: urgent ? 'rgba(239,68,68,0.1)' : 'rgba(242,234,216,0.03)',
+      }}
+    >
+      <div className="font-bold" style={{ fontFamily: MONO, fontSize: 15, lineHeight: 1, color: urgent ? '#ef4444' : PARCH }}>
+        {format ? format(n) : n.toLocaleString()}
+        {unit && (
+          <span style={{ fontSize: 8.5, marginLeft: 3, color: PARCH_DIM, fontWeight: 500 }}>{unit}</span>
+        )}
+      </div>
+      <div
+        className="mt-1 uppercase"
+        style={{ fontFamily: MONO, fontSize: 7, letterSpacing: '0.12em', color: PARCH_DIM }}
+      >
+        {label}
+      </div>
+    </div>
   );
 }
 
