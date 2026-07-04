@@ -381,6 +381,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               gaugeHeightFt={gauge.gaugeHeightFt}
               dischargeCfs={gauge.dischargeCfs}
               thresholdUnit={primaryRiver?.thresholdUnit || 'ft'}
+              readingAgeHours={gauge.readingAgeHours}
             />
             <GaugeWeather
               lat={gauge.coordinates.lat}

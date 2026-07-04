@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import type { RelatedRiver } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { riverPath } from '@/lib/navigation/river-path';
 
 interface Props {
   rivers: RelatedRiver[];
@@ -26,7 +27,7 @@ export default async function RelatedRiversStrip({ rivers }: Props) {
   const supabase = createAdminClient();
 
   const [{ data: riverRows }, { data: guideRows }] = await Promise.all([
-    supabase.from('rivers').select('slug, name').in('slug', slugs),
+    supabase.from('rivers').select('slug, name, state').in('slug', slugs),
     supabase
       .from('blog_posts')
       .select('slug, river_slug')
@@ -35,9 +36,9 @@ export default async function RelatedRiversStrip({ rivers }: Props) {
       .in('river_slug', slugs),
   ]);
 
-  const nameBySlug = new Map(
-    ((riverRows ?? []) as { slug: string; name: string }[]).map((r) => [r.slug, r.name]),
-  );
+  const riverRowList = (riverRows ?? []) as { slug: string; name: string; state: string }[];
+  const nameBySlug = new Map(riverRowList.map((r) => [r.slug, r.name]));
+  const stateBySlug = new Map(riverRowList.map((r) => [r.slug, r.state]));
   const guideBySlug = new Map(
     ((guideRows ?? []) as { slug: string; river_slug: string }[]).map((g) => [g.river_slug, g.slug]),
   );
@@ -48,10 +49,13 @@ export default async function RelatedRiversStrip({ rivers }: Props) {
       const name = nameBySlug.get(r.slug);
       if (!name) return null;
       const guideSlug = guideBySlug.get(r.slug);
+      const state = stateBySlug.get(r.slug);
       return {
         slug: r.slug,
         label: `${name} Guide`,
-        href: guideSlug ? `/blog/${guideSlug}` : `/rivers/${r.slug}`,
+        href: guideSlug
+          ? `/blog/${guideSlug}`
+          : state ? riverPath(state, r.slug) : `/rivers/${r.slug}`,
       };
     })
     .filter((x): x is ResolvedRelated => x !== null);

@@ -712,9 +712,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           </div>
         )}
 
-        {putInPoint && takeOutPoint && plan && (
+        {putInPoint && takeOutPoint && (
           <FloatPlanCard
-            plan={plan}
+            plan={plan ?? null}
             isLoading={planLoading}
             isError={planHasError}
             onRetry={() => refetchPlan()}

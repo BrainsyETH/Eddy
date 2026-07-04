@@ -260,6 +260,14 @@ export default async function BlogPostPage({
                 </span>
               </>
             )}
+            {post.published_at && (
+              <>
+                <span>•</span>
+                <time dateTime={post.published_at}>
+                  {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </time>
+              </>
+            )}
           </div>
 
           <div className="mb-4">

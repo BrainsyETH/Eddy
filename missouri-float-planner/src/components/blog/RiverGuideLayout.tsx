@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { riverPath } from '@/lib/navigation/river-path';
 import { npsHeroImage } from '@/lib/services/npsCampground';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
@@ -87,6 +88,18 @@ interface ApInfo {
 // (for planner deep links) plus any photo we can show on the float card — the
 // access point's own image first, then its linked NPS campground's photo. This
 // lets sections with no explicit `photo` fall back to access-point imagery.
+// Look up a river's state code so we can build canonical /rivers/[state]/[slug]
+// links (legacy 1-segment links still 301 to these, but we skip the redirect).
+async function getRiverState(riverSlug: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('rivers')
+    .select('state')
+    .eq('slug', riverSlug)
+    .single();
+  return (data as { state: string } | null)?.state ?? null;
+}
+
 async function resolveAccessPoints(
   riverSlug: string,
   sections: FloatSection[],
@@ -186,6 +199,10 @@ export default async function RiverGuideLayout({ post }: Props) {
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
   const aps = await resolveAccessPoints(slug, g.sections);
+  const riverState = post.river_slug ? await getRiverState(post.river_slug) : null;
+  const reportHref = post.river_slug
+    ? (riverState ? riverPath(riverState, post.river_slug) : `/rivers/${post.river_slug}`)
+    : '/blog';
 
   return (
     <article className="eddy-guide-root" style={{ background: 'var(--color-neutral-50)' }}>
@@ -207,7 +224,7 @@ export default async function RiverGuideLayout({ post }: Props) {
         }}
       >
         <Link
-          href={post.river_slug ? `/rivers/${post.river_slug}` : '/blog'}
+          href={reportHref}
           style={{
             color: 'var(--color-primary-600)',
             textDecoration: 'none',
@@ -220,6 +237,14 @@ export default async function RiverGuideLayout({ post }: Props) {
           <>
             <span>·</span>
             <span>{post.read_time_minutes} min read</span>
+          </>
+        )}
+        {post.published_at && (
+          <>
+            <span>·</span>
+            <time dateTime={post.published_at}>
+              {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </time>
           </>
         )}
         <span

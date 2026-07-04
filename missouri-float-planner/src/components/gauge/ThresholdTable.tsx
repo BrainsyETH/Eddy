@@ -226,6 +226,10 @@ export default function ThresholdTable({
         <div>
           <h3 className="text-base font-bold text-neutral-900">Float Conditions</h3>
           <p className="text-xs text-neutral-500 mt-0.5">What the water level means for floating</p>
+          <p className="text-[11px] text-neutral-400 mt-1">
+            <abbr title="feet" className="no-underline">ft</abbr> = gauge height ·{' '}
+            <abbr title="cubic feet per second" className="no-underline">cfs</abbr> = flow rate
+          </p>
         </div>
         {hasAlt && (
           <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
