@@ -1,80 +1,73 @@
-# Buffalo River — NPS Floatability Chart (captured verbatim)
+# Buffalo River — NPS Float-Level Thresholds (AUTHORITATIVE, cfs)
 
-> Source: Wild Bill's Outfitter "River Floating Levels & Guide"
-> https://www.wildbillsoutfitter.com/floating-levels-guides — the page states
-> "recommended floating levels by the river gauge … courtesy of NPS." So the
-> authority is the **National Park Service**; Wild Bill's republishes it.
-> Captured from user-supplied screenshots (IMG_8909 / IMG_8910), 2026-07-03.
-> **All values are gage height in FEET.** These are the [signoff] calibration
-> anchors — verbatim below, proposed mapping and open decisions after.
+> Source: NPS "BUFF Float Guide" official dashboard (nps.maps.arcgis.com,
+> app BUFF_Resource_River_Ga...), "Tables & Graphs" tab. Captured from
+> user-supplied screenshots (IMG_8913/8914/8915), 2026-07-03/04.
+> The dashboard states: "Tables show discharge (cfs) ranges used to determine
+> float levels. The USGS gage names above each table are also links [to] …
+> discharge (cfs)". So these are **NPS's own float thresholds, per USGS gauge,
+> in discharge (cfs)** — the top calibration source, not an outfitter proxy.
+> **This SUPERSEDES the Wild Bill's stage (ft) chart** for calibration (see
+> reconciliation note below). threshold_unit = **cfs** (poll param 00060).
 
-## Verbatim (4 gauge/launch reference points)
+## NPS float-level tables (verbatim, cfs)
 
-**Ponca / Steel Creek Launches**
-- Very Low: Below 2.0'
-- Low but Floatable: 2.0' to 2.4'
-- Ample Water for Floating: 2.5' to 4.9'
-- Experienced Floaters Only: 5.0' to 6.0'
-- Flood Stage, River Closed: Over 6.0'
+| Gauge (USGS)            | Very Low | Low      | Moderate   | High        | Flood   |
+|------------------------|----------|----------|------------|-------------|---------|
+| Boxley (07055646)      | < 200    | 200–350  | 350–1500   | 1500–6500   | > 6500  |
+| Ponca (07055660)       | < 100    | 100–200  | 200–900    | 900–1600    | > 1600  |
+| Pruitt (USGS # TBD)    | < 100    | 100–200  | 200–1000   | 1000–2000   | > 2000  |
+| St. Joe (07056000)     | < 40     | 40–200   | 200–3000   | 3000–8000   | > 8000  |
+| Harriet (07056700)     | < 60     | 60–200   | 200–3000   | 3000–9370   | > 9370  |
 
-**Highway 7 Bridge / Pruitt**
-- Very Low: Below 4.4'
-- Low but Floatable: 4.4' to 4.7'
-- Ample Water for Floating: 4.8' to 6.6'
-- Experienced Floaters Only: 6.7' to 8.0'
-- Flood Stage, River Closed: Over 8.0'
+NPS category legend (from the Levels tab): Flood=Red, High=Orange,
+Moderate=Green, Low=Blue, Very Low=Black, Equipment Error=Gray.
 
-**Grinder's Ferry / Tyler Bend**
-- Very Low: Below 3.3'
-- Low but Floatable: 3.3' to 3.83'
-- Ample Water for Floating: 3.83' to 7.94'
-- Experienced Floaters Only: 7.94' to 11.76'
-- Flood Stage, River Closed: Over 11.76'
+## Live-dashboard cross-validation (2nd source = NPS's own live readings)
 
-**Dillard's Ferry / Buffalo Point**
-- Very Low: Below 2.0'
-- Low but Floatable: 2.0' to 3.4'
-- Ample Water for Floating: 3.5' to 5.9'
-- Experienced Floaters Only: 6.0' to 10.0'
-- Flood Stage, River Closed: Over 10.0'
+Every gauge's live reading reproduced its NPS category via these cfs tables,
+which is the two-source corroboration for the high/dangerous cutoffs:
 
-## Proposed mapping → our 7-level river_gauges columns (all ft)
+| Gauge  | Live flow | Live category | Table check |
+|--------|-----------|---------------|-------------|
+| Boxley | 42.2 cfs  | Very Low      | < 200 ✓ |
+| Ponca  | 73.7 cfs  | Very Low      | < 100 ✓ |
+| Pruitt | 98.1 cfs  | Very Low      | < 100 ✓ |
+| St. Joe| 382 cfs   | Moderate      | 200–3000 ✓ |
+| Harriet| 516 cfs   | Moderate      | 200–3000 ✓ |
 
-NPS uses **5 float tiers**; we have **6** (too_low / low / good / flowing / high
-/ dangerous). NPS "Ample Water for Floating" covers both our `good` and
-`flowing`. The chart gives no split point, so `good` collapses to a thin
-transitional band between "Low but Floatable" top and "Ample" bottom. Values
-below are strictly increasing (passes validate_river_data threshold_order).
+## Mapping → our 7 levels (cfs) with good/flowing split
 
-| Gauge ref | too_low | low | optimal_min | optimal_max | high | dangerous | binding confidence |
-|-----------|---------|-----|-------------|-------------|------|-----------|--------------------|
-| Ponca / Steel Creek | 2.0 | 2.4 | 2.5 | 4.9 | 5.0 | 6.0 | **HIGH** → USGS 07055660 (Ponca) |
-| Hwy 7 / Pruitt      | 4.4 | 4.7 | 4.8 | 6.6 | 6.7 | 8.0 | gauge # UNVERIFIED (Pruitt/Hwy7) |
-| Grinder's Ferry / Tyler Bend | 3.3 | 3.83 | 3.9 | 7.9 | 7.94 | 11.76 | gauge # UNVERIFIED (~St. Joe 07056000?) |
-| Dillard's Ferry / Buffalo Point | 2.0 | 3.4 | 3.5 | 5.9 | 6.0 | 10.0 | gauge # UNVERIFIED (~Harriet 07056700?) |
+NPS "Moderate" = our `good` + `flowing`. Per owner decision, keep them
+separate: **good = lower third of Moderate, flowing (ideal) = upper two-thirds**
+(best-effort; refine with local knowledge). Columns (all cfs, strictly ordered):
 
-Notes on the mapping:
-- **Semantic fit is excellent**: "Experienced Floaters Only" → `high` (use
-  caution), "Flood Stage, River Closed" → `dangerous`. The NPS "River Closed"
-  cutoff is a real operational closure — the strongest possible `dangerous`
-  anchor.
-- **Tyler Bend** had coincident boundaries in the source (3.83 top-of-low =
-  bottom-of-ample; 7.94 top-of-ample = bottom-of-experienced). Nudged
-  optimal_min to 3.9 and optimal_max to 7.9 to keep strict ordering; the raw
-  verbatim numbers are preserved above. Confirm at sign-off.
+| Reach → gauge | too_low | low | optimal_min | optimal_max | high | dangerous |
+|---------------|---------|-----|-------------|-------------|------|-----------|
+| Hailstone → Boxley 07055646   | 200 | 350 | 730  | 1500 | 1500 | 6500 |
+| Upper → Ponca 07055660        | 100 | 200 | 430  | 900  | 900  | 1600 |
+| Middle → St. Joe 07056000     | 40  | 200 | 1130 | 3000 | 3000 | 8000 |
+| Lower → Harriet 07056700      | 60  | 200 | 1130 | 3000 | 3000 | 9370 |
 
-## OPEN DECISIONS for [signoff] before ingest
+- too_low = NPS Very Low upper bound; low = start of Moderate; optimal_min =
+  good/flowing split (lower-third point); optimal_max = high = start of NPS
+  High; dangerous = NPS Flood (a real "River Closed" closure — strongest
+  possible dangerous anchor).
+- Pruitt (200–1000 Moderate) is the upper–middle boundary gauge; recorded here
+  but the 4 reaches map to Boxley/Ponca/St.Joe/Harriet. Pruitt's USGS number
+  still to confirm (not in the verified-7 list).
 
-1. **Datum binding (3 of 4).** Only Ponca→07055660 is high-confidence. Which
-   USGS site number does each of Hwy7/Pruitt, Grinder's Ferry/Tyler Bend, and
-   Dillard's Ferry/Buffalo Point read against? These launch-area labels are NPS
-   reference points, not necessarily our 7 verified gauge names. MUST confirm
-   the gauge→number binding before these thresholds can drive a badge (the
-   whole point of referenceGaugeIsPolled). The "live interactive map" the page
-   links likely names the gauges.
-2. **good/flowing split.** Accept the thin-`good`-band collapse (above), or
-   define a real good vs. flowing split within "Ample Water" per river.
-3. **Second source.** This is NPS-authoritative but a single *published* source
-   (via Wild Bill's). Cross-check against the USGS "Buffalo National River
-   Floating Conditions" product for independent confirmation of the high/
-   dangerous cutoffs (satisfies the two-source rule).
+## Reconciliation: why we dropped the stage (ft) chart
+
+The earlier Wild Bill's chart gave stage (ft) cutoffs (Ponca "Ample 2.5–4.9 ft").
+At the live reading Ponca = 3.7 ft would read "Ample/floatable" on that chart,
+but NPS's own flow-based product calls 73.7 cfs "Very Low." The ft chart is a
+looser, republished secondary; the NPS cfs tables are authoritative AND
+self-consistent with the live dashboard. We calibrate in **cfs**. (Keep the ft
+chart only as a rough stage cross-reference; do not drive the badge from it.)
+
+## Remaining before ingest
+- Confirm the app polls discharge (00060) for all four gauges — it does (USGS
+  provider fetches 00060 + 00065). threshold_unit = cfs.
+- Find the Pruitt gauge USGS number if a finer upper/middle split is wanted.
+- good/flowing split is best-effort — flag for a local-knowledge pass.

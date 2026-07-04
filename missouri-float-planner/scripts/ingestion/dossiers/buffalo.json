@@ -1,5 +1,5 @@
 {
-  "_status": "AWAITING SIGNOFF — numeric NPS floatability thresholds now captured (ft) for 3 of 4 reaches from the NPS-courtesy chart (see buffalo-thresholds-captured.md). Ponca anchors are bound high-confidence to USGS 07055660; Middle (Tyler Bend) and Lower (Buffalo Point) anchors carry the numbers but their gauge→USGS-number binding is UNVERIFIED (referenceGaugeIsPolled=false) and must be confirmed before ingest. Two remaining [signoff] decisions: (1) gauge datum binding for Middle+Lower, (2) accept the good/flowing split. Hailstone reach has no chart data. Do NOT ingest until bindings confirmed and thresholds human-signed.",
+  "_status": "AWAITING SIGNOFF — calibrated in CFS from the authoritative NPS BUFF Float Guide tables (see buffalo-thresholds-captured.md), cross-validated against the live NPS dashboard for all 5 reference gauges. 24 anchors across 4 reaches, threshold_unit=cfs, all reference gauges are the polled USGS sites (poll param 00060 discharge). Supersedes the earlier Wild Bill's stage(ft) chart (Ponca ft-vs-flow discrepancy resolved: NPS categorizes by flow). Remaining [signoff]: (1) confirm the good/flowing split (best-effort lower-third good / upper-two-thirds flowing), (2) Pruitt gauge USGS number if a finer upper/middle split is wanted, (3) NHD id + park code 'buff' + access-point coords still UNKNOWN. Thresholds themselves are NPS-authoritative and dashboard-validated.",
   "name": "Buffalo National River",
   "slug": "buffalo",
   "state": "AR",
@@ -10,7 +10,6 @@
   "difficultyRating": "Class I-II",
   "description": "America's first National River (1972), a free-flowing, rain-driven Ozark river draining the Boston Mountains of northwest Arkansas. Flashy and seasonal in its upper reaches, near year-round floatable in its lower reaches. Managed by the National Park Service.",
   "riverType": "rain_flashy",
-
   "parkCode": "buff",
   "managingAuthority": "National Park Service — Buffalo National River",
   "regulations": [
@@ -36,34 +35,181 @@
     }
   ],
   "permits": [],
-  "accessLaw": { "value": "UNKNOWN — Arkansas stream-access / navigability doctrine not yet captured", "source": "", "confidence": "low" },
+  "accessLaw": {
+    "value": "UNKNOWN — Arkansas stream-access / navigability doctrine not yet captured",
+    "source": "",
+    "confidence": "low"
+  },
   "seasonalClosures": [],
-
   "gauges": [
-    { "provider": "usgs", "siteId": "07055646", "name": "Buffalo River near Boxley, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["hailstone"], "knownBias": "headwaters gauge; verify it tracks the runnable reach vs. sits above it" },
-    { "provider": "usgs", "siteId": "07055660", "name": "Buffalo River at Ponca, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["upper-ponca-pruitt"], "knownBias": "the canonical upper-reach floatability gauge per outfitter/NPS usage" },
-    { "provider": "usgs", "siteId": "07055780", "name": "Buffalo River at Carver Access near Hasty, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["middle-pruitt-gilbert"] },
-    { "provider": "usgs", "siteId": "07055820", "name": "Buffalo River D.S. of Carver, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["middle-pruitt-gilbert"] },
-    { "provider": "usgs", "siteId": "07056000", "name": "Buffalo River near St. Joe, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["middle-pruitt-gilbert"], "knownBias": "Tyler Bend area; commonly cited middle-district gauge" },
-    { "provider": "usgs", "siteId": "07056700", "name": "Buffalo River near Harriet, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["lower-gilbert-buffalocity"] },
-    { "provider": "usgs", "siteId": "07057000", "name": "Buffalo River near Rush, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["lower-gilbert-buffalocity"], "knownBias": "lowest gauge before the White River confluence" }
+    {
+      "provider": "usgs",
+      "siteId": "07055646",
+      "name": "Buffalo River near Boxley, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "hailstone"
+      ],
+      "knownBias": "headwaters gauge; verify it tracks the runnable reach vs. sits above it"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07055660",
+      "name": "Buffalo River at Ponca, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "upper-ponca-pruitt"
+      ],
+      "knownBias": "the canonical upper-reach floatability gauge per outfitter/NPS usage"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07055780",
+      "name": "Buffalo River at Carver Access near Hasty, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "middle-pruitt-gilbert"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07055820",
+      "name": "Buffalo River D.S. of Carver, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "middle-pruitt-gilbert"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07056000",
+      "name": "Buffalo River near St. Joe, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "middle-pruitt-gilbert"
+      ],
+      "knownBias": "Tyler Bend area; commonly cited middle-district gauge"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07056700",
+      "name": "Buffalo River near Harriet, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "lower-gilbert-buffalocity"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07057000",
+      "name": "Buffalo River near Rush, AR",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [
+        "lower-gilbert-buffalocity"
+      ],
+      "knownBias": "lowest gauge before the White River confluence"
+    }
   ],
-
   "sections": [
     {
       "slug": "hailstone",
       "name": "Hailstone / Upper Wilderness (Boxley headwaters)",
       "description": "Boxley-area headwaters creek run; rain-only, advanced, committing. Bone-dry much of the year.",
-      "putIn": { "name": "Boxley area", "lat": null, "lon": null },
-      "takeOut": { "name": "Ponca", "lat": null, "lon": null },
+      "putIn": {
+        "name": "Boxley area",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Ponca",
+        "lat": null,
+        "lon": null
+      },
       "publishedLengthMiles": null,
-      "representativeGauge": { "siteId": "07055646", "rationale": "nearest headwaters gauge (Boxley)", "knownBias": "verify it represents the runnable creek reach" },
-      "thresholds": [],
+      "representativeGauge": {
+        "siteId": "07055646",
+        "rationale": "Boxley is the NPS float-guide reference gauge for the headwaters/Hailstone reach",
+        "knownBias": "headwaters gauge; confirm it tracks the runnable creek reach"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07055646",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "low",
+          "value": 350,
+          "unit": "cfs",
+          "referenceGauge": "07055646",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_min",
+          "value": 730,
+          "unit": "cfs",
+          "referenceGauge": "07055646",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_max",
+          "value": 1500,
+          "unit": "cfs",
+          "referenceGauge": "07055646",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "high",
+          "value": 1500,
+          "unit": "cfs",
+          "referenceGauge": "07055646",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 6500,
+          "unit": "cfs",
+          "referenceGauge": "07055646",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        }
+      ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "rain_flashy",
-        "primaryHazards": ["flash_flood", "strainer", "committing_wilderness"],
+        "primaryHazards": [
+          "flash_flood",
+          "strainer",
+          "committing_wilderness"
+        ],
         "lowWaterMeaning": "UNKNOWN — capture from NPS/USGS floatability guidance",
         "risingWaterHazards": "Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard.",
         "rainLagHours": null,
@@ -77,25 +223,97 @@
       "slug": "upper-ponca-pruitt",
       "name": "Upper (Ponca to Pruitt)",
       "description": "The classic upper Buffalo: Ponca to Kyle's Landing / Erbie / Ozark / Pruitt. Class I–II, flashy, spring-season float; Big Bluff and Hemmed-in Hollow scenery. The most level-sensitive reach.",
-      "putIn": { "name": "Ponca (Steel Creek when too low to launch at Ponca)", "lat": null, "lon": null },
-      "takeOut": { "name": "Pruitt", "lat": null, "lon": null },
+      "putIn": {
+        "name": "Ponca (Steel Creek when too low to launch at Ponca)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Pruitt",
+        "lat": null,
+        "lon": null
+      },
       "publishedLengthMiles": null,
-      "representativeGauge": { "siteId": "07055660", "rationale": "canonical upper-reach floatability gauge (Ponca) per outfitter/NPS usage", "knownBias": "" },
+      "representativeGauge": {
+        "siteId": "07055660",
+        "rationale": "canonical upper-reach floatability gauge (Ponca) per outfitter/NPS usage",
+        "knownBias": ""
+      },
       "thresholds": [
-        { "level": "too_low", "value": 2.0, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
-        { "level": "low", "value": 2.4, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
-        { "level": "optimal_min", "value": 2.5, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
-        { "level": "optimal_max", "value": 4.9, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
-        { "level": "high", "value": 5.0, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
-        { "level": "dangerous", "value": 6.0, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" }
+        {
+          "level": "too_low",
+          "value": 100,
+          "unit": "cfs",
+          "referenceGauge": "07055660",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07055660",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_min",
+          "value": 430,
+          "unit": "cfs",
+          "referenceGauge": "07055660",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_max",
+          "value": 900,
+          "unit": "cfs",
+          "referenceGauge": "07055660",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "high",
+          "value": 900,
+          "unit": "cfs",
+          "referenceGauge": "07055660",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 1600,
+          "unit": "cfs",
+          "referenceGauge": "07055660",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        }
       ],
       "publishedFloatTimes": [
-        { "reachLabel": "Ponca to Kyle's Landing", "distanceMiles": 10.7, "hoursTypical": null, "hoursLow": 4, "hoursHigh": 6, "vessel": "canoe", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" }
+        {
+          "reachLabel": "Ponca to Kyle's Landing",
+          "distanceMiles": 10.7,
+          "hoursTypical": null,
+          "hoursLow": 4,
+          "hoursHigh": 6,
+          "vessel": "canoe",
+          "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/"
+        }
       ],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "rain_flashy",
-        "primaryHazards": ["flash_flood", "strainer", "bluff_hazard_at_high_water"],
+        "primaryHazards": [
+          "flash_flood",
+          "strainer",
+          "bluff_hazard_at_high_water"
+        ],
         "lowWaterMeaning": "When too low to launch at Ponca, outfitters shift the put-in ~2 mi downriver to Steel Creek (8 mi to Kyle's). No numeric gauge cutoff is published — outfitters make a daily operational call. NUMERIC too_low anchor still UNKNOWN.",
         "risingWaterHazards": "Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution.",
         "rainLagHours": null,
@@ -112,23 +330,86 @@
       "slug": "middle-pruitt-gilbert",
       "name": "Middle (Pruitt to Gilbert / Tyler Bend)",
       "description": "Longer float season, mellower than the upper. Carver, Hasty, Mt. Hersey, Woolum, Tyler Bend, Gilbert.",
-      "putIn": { "name": "Pruitt", "lat": null, "lon": null },
-      "takeOut": { "name": "Gilbert", "lat": null, "lon": null },
+      "putIn": {
+        "name": "Pruitt",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Gilbert",
+        "lat": null,
+        "lon": null
+      },
       "publishedLengthMiles": null,
-      "representativeGauge": { "siteId": "07056000", "rationale": "St. Joe is the commonly cited middle-district gauge; Carver (07055780) covers the upper-middle transition", "knownBias": "NPS chart keys the middle thresholds to 'Grinder's Ferry/Tyler Bend' — confirm that reference is USGS 07056000 (St. Joe) vs. a separate Tyler Bend gauge before ingest" },
+      "representativeGauge": {
+        "siteId": "07056000",
+        "rationale": "St. Joe is the commonly cited middle-district gauge; Carver (07055780) covers the upper-middle transition",
+        "knownBias": "NPS chart keys the middle thresholds to 'Grinder's Ferry/Tyler Bend' — confirm that reference is USGS 07056000 (St. Joe) vs. a separate Tyler Bend gauge before ingest"
+      },
       "thresholds": [
-        { "level": "too_low", "value": 3.3, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "low", "value": 3.83, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "optimal_min", "value": 3.9, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium", "note": "verbatim source: Ample 3.83-7.94; nudged for strict ordering" },
-        { "level": "optimal_max", "value": 7.9, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium", "note": "verbatim source: Ample 3.83-7.94; nudged for strict ordering" },
-        { "level": "high", "value": 7.94, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "dangerous", "value": 11.76, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" }
+        {
+          "level": "too_low",
+          "value": 40,
+          "unit": "cfs",
+          "referenceGauge": "07056000",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07056000",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_min",
+          "value": 1130,
+          "unit": "cfs",
+          "referenceGauge": "07056000",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_max",
+          "value": 3000,
+          "unit": "cfs",
+          "referenceGauge": "07056000",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "high",
+          "value": 3000,
+          "unit": "cfs",
+          "referenceGauge": "07056000",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 8000,
+          "unit": "cfs",
+          "referenceGauge": "07056000",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        }
       ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "rain_flashy",
-        "primaryHazards": ["flash_flood", "strainer"],
+        "primaryHazards": [
+          "flash_flood",
+          "strainer"
+        ],
         "lowWaterMeaning": "UNKNOWN — capture",
         "risingWaterHazards": "Rain-driven rises; more forgiving than the upper but still flashy.",
         "rainLagHours": null,
@@ -142,23 +423,86 @@
       "slug": "lower-gilbert-buffalocity",
       "name": "Lower (Gilbert to Buffalo City / White River confluence)",
       "description": "Big pools, near year-round floatable, flatwater feel. Buffalo Point, Rush, Dillard's Ferry (Hwy 14).",
-      "putIn": { "name": "Gilbert", "lat": null, "lon": null },
-      "takeOut": { "name": "Buffalo City (White River confluence)", "lat": null, "lon": null },
+      "putIn": {
+        "name": "Gilbert",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Buffalo City (White River confluence)",
+        "lat": null,
+        "lon": null
+      },
       "publishedLengthMiles": null,
-      "representativeGauge": { "siteId": "07056700", "rationale": "Harriet covers the upper-lower reach; Rush (07057000) covers the lowest reach before the confluence", "knownBias": "NPS chart keys the lower thresholds to 'Dillard's Ferry/Buffalo Point' (Hwy 14) — confirm that reference is USGS 07056700 (Harriet) vs. a separate Buffalo Point gauge before ingest" },
+      "representativeGauge": {
+        "siteId": "07056700",
+        "rationale": "Harriet covers the upper-lower reach; Rush (07057000) covers the lowest reach before the confluence",
+        "knownBias": "NPS chart keys the lower thresholds to 'Dillard's Ferry/Buffalo Point' (Hwy 14) — confirm that reference is USGS 07056700 (Harriet) vs. a separate Buffalo Point gauge before ingest"
+      },
       "thresholds": [
-        { "level": "too_low", "value": 2.0, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "low", "value": 3.4, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "optimal_min", "value": 3.5, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "optimal_max", "value": 5.9, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "high", "value": 6.0, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
-        { "level": "dangerous", "value": 10.0, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" }
+        {
+          "level": "too_low",
+          "value": 60,
+          "unit": "cfs",
+          "referenceGauge": "07056700",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07056700",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_min",
+          "value": 1130,
+          "unit": "cfs",
+          "referenceGauge": "07056700",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_max",
+          "value": 3000,
+          "unit": "cfs",
+          "referenceGauge": "07056700",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "high",
+          "value": 3000,
+          "unit": "cfs",
+          "referenceGauge": "07056700",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 9370,
+          "unit": "cfs",
+          "referenceGauge": "07056700",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
+          "confidence": "high"
+        }
       ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "flatwater",
-        "primaryHazards": ["debris", "flash_flood_upstream"],
+        "primaryHazards": [
+          "debris",
+          "flash_flood_upstream"
+        ],
         "lowWaterMeaning": "UNKNOWN — capture; low water mainly affects speed here, not runnability",
         "risingWaterHazards": "Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.",
         "rainLagHours": null,
@@ -171,16 +515,56 @@
       ]
     }
   ],
-
   "accessPoints": [
-    { "name": "Ponca", "type": "access", "lat": null, "lon": null, "ownership": "NPS", "section": "upper-ponca-pruitt", "notes": "primary upper put-in; used when level permits", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" },
-    { "name": "Steel Creek", "type": "access", "lat": null, "lon": null, "ownership": "NPS", "section": "upper-ponca-pruitt", "notes": "low-water alternate put-in ~2 mi below Ponca", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" },
-    { "name": "Kyle's Landing", "type": "access", "lat": null, "lon": null, "ownership": "NPS", "section": "upper-ponca-pruitt", "notes": "common upper take-out", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" }
+    {
+      "name": "Ponca",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "NPS",
+      "section": "upper-ponca-pruitt",
+      "notes": "primary upper put-in; used when level permits",
+      "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/"
+    },
+    {
+      "name": "Steel Creek",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "NPS",
+      "section": "upper-ponca-pruitt",
+      "notes": "low-water alternate put-in ~2 mi below Ponca",
+      "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/"
+    },
+    {
+      "name": "Kyle's Landing",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "NPS",
+      "section": "upper-ponca-pruitt",
+      "notes": "common upper take-out",
+      "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/"
+    }
   ],
-
-  "weatherPoint": { "city": "Jasper", "lat": null, "lon": null },
-  "alertSearchTerms": ["buffalo river", "buffalo national river", "newton county", "searcy county", "marion county", "baxter county", "ponca", "jasper", "st. joe", "gilbert", "yellville"],
-
+  "weatherPoint": {
+    "city": "Jasper",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "buffalo river",
+    "buffalo national river",
+    "newton county",
+    "searcy county",
+    "marion county",
+    "baxter county",
+    "ponca",
+    "jasper",
+    "st. joe",
+    "gilbert",
+    "yellville"
+  ],
   "research": {
     "date": "2026-07-03",
     "sourcesConsulted": [
@@ -195,7 +579,7 @@
       "https://waterdata.usgs.gov/monitoring-location/USGS-07057000/"
     ],
     "openQuestions": [
-      "Numeric NPS floatability thresholds CAPTURED (ft) for Ponca/Steel Creek, Hwy7/Pruitt, Grinder's Ferry/Tyler Bend, Dillard's Ferry/Buffalo Point — see buffalo-thresholds-captured.md. Remaining: bind the Middle+Lower (and Pruitt) launch-area labels to USGS site numbers, and cross-check high/dangerous against the USGS floating-conditions product for the two-source rule.",
+      "Threshold calibration DONE in cfs from NPS tables (dashboard-validated). Remaining calibration judgment: the good/flowing split within NPS 'Moderate' is best-effort — refine with local/outfitter knowledge.",
       "Does the lower reach warrant its own river_type (flatwater) vs. the river-wide rain_flashy default? Flagged for the pilot to answer.",
       "Exact reach boundaries / mileages and per-reach float times for Middle and Lower.",
       "Rain-to-rise lag and drop-rate per reach.",
