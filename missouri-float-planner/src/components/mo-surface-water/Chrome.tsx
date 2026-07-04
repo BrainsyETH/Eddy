@@ -14,6 +14,7 @@ import {
 } from '@/lib/usgs/mo-statewide-data';
 import { computeDailyConditionSeries } from './derive';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
+import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
@@ -477,6 +478,7 @@ function RiverCard({
         </span>
         <span className="ml-auto" style={{ fontSize: 11, opacity: 0.9 }}>{tone.desc}</span>
       </div>
+      <div className="mt-1.5"><DataAgeChip iso={primaryGauge?.readingTimestamp} /></div>
 
       {primaryThresholds && (
         <ThresholdProvenance
@@ -686,6 +688,7 @@ function GaugeDetail({
         </div>
         <div style={{ fontSize: 13, opacity: 0.95, fontWeight: 600 }}>{headlineLabel}</div>
       </div>
+      <div className="mt-1.5"><DataAgeChip iso={gauge.readingTimestamp} /></div>
 
       <EddyReportCard report={eddy} />
 
@@ -1591,7 +1594,18 @@ export function GaugeHoverOverlay({
             }}
           >
             <span style={{ color: THEME.ink, fontWeight: 700 }}>SOURCE</span>{' '}
-            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · {report ? relativeTime(report.generatedAt) : 'live'}
+            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} ·{' '}
+            {report
+              ? relativeTime(report.generatedAt)
+              : readingAge(gauge.readingTimestamp)?.label ?? 'no timestamp'}
+            {!report && readingAge(gauge.readingTimestamp)?.stale && (
+              <span
+                className="ml-1.5 rounded-sm px-1 py-px font-bold uppercase"
+                style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
+              >
+                Stale
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1617,4 +1631,111 @@ function relativeTime(iso: string): string {
   if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+// ─── Data age ────────────────────────────────────────────────────────────
+//
+// Every reading on the page discloses its age; anything older than two
+// hours is flagged loudly. Data honesty over polish: a stale number
+// styled as live is how someone puts a canoe on flood water.
+
+const STALE_AFTER_MS = 2 * 3600e3;
+
+export function readingAge(iso: string | null | undefined): {
+  label: string;
+  stale: boolean;
+} | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return { label: relativeTime(iso), stale: Date.now() - t > STALE_AFTER_MS };
+}
+
+/** Small mono age line with an amber STALE chip when the reading is old. */
+export function DataAgeChip({ iso }: { iso: string | null | undefined }) {
+  const age = readingAge(iso);
+  if (!age) {
+    return (
+      <span style={{ fontFamily: MONO, fontSize: 9.5, color: THEME.inkDim, letterSpacing: '0.06em' }}>
+        no timestamp
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.06em', color: THEME.inkDim }}>
+      reading {age.label}
+      {age.stale && (
+        <span
+          className="rounded-sm px-1 py-px font-bold uppercase"
+          style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
+        >
+          Stale
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─── Context-site card ──────────────────────────────────────────────────
+//
+// Statewide sites are context, not product: name, live flow, freshness,
+// and a link out to USGS. Deliberately NO condition dressing — they have
+// no curated thresholds (see docs/mo-surface-water-observatory.md).
+
+export function ContextSiteCard({
+  site,
+  onClose,
+}: {
+  site: MoContextSite;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="absolute right-3 z-30 w-[min(330px,calc(100vw-24px))] rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12 }}
+      role="dialog"
+      aria-label={`USGS site ${site.site_no}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="uppercase font-bold"
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}>
+            USGS Site #{site.site_no}
+          </div>
+          <div className="mt-1 font-bold leading-tight"
+            style={{ fontSize: 16, color: THEME.primaryDark, fontFamily: DISPLAY }}>
+            {site.name ?? 'Unnamed monitoring site'}
+          </div>
+        </div>
+        <CloseBtn onClose={onClose} />
+      </div>
+
+      <div className="mt-3 flex items-baseline gap-2 rounded-md border-2 px-3 py-2.5"
+        style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}>
+        <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22, color: THEME.primary }}>
+          {Math.round(site.dischargeCfs).toLocaleString()}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: THEME.inkDim }}>cfs discharge</span>
+        <span className="ml-auto"><DataAgeChip iso={site.readingTimestamp} /></span>
+      </div>
+
+      <p className="mt-2.5" style={{ fontFamily: MONO, fontSize: 10, lineHeight: 1.55, color: THEME.inkDim }}>
+        Statewide context site — Eddy has no float rating here. Flow shown
+        for hydrologic context only.
+      </p>
+
+      <a
+        href={`https://waterdata.usgs.gov/monitoring-location/${site.site_no}`}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-block rounded-md border-2 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em]"
+        style={{
+          background: THEME.cardBg, color: THEME.ink, borderColor: THEME.cardBorder,
+          fontFamily: MONO, boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+        }}
+      >
+        Full record on USGS →
+      </a>
+    </div>
+  );
 }

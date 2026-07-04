@@ -34,6 +34,8 @@ import type {
   MoForecastEntry,
   MoForecastResponse,
 } from '@/app/api/usgs/mo-forecast/route';
+import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
+import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
 import DataDock, { type DockRiverReading } from './Dock';
 import {
@@ -41,6 +43,7 @@ import {
   TimeScrubber,
   DetailModal,
   GaugeHoverOverlay,
+  ContextSiteCard,
   type ModalSelection,
 } from './Chrome';
 
@@ -51,6 +54,8 @@ export default function MOSurfaceWaterApp() {
   const [statewide, setStatewide] = useState<MoStatewideResponse | null>(null);
   const [historyBundle, setHistoryBundle] = useState<MoHistoryBundleResponse | null>(null);
   const [forecast, setForecast] = useState<MoForecastResponse | null>(null);
+  const [moSites, setMoSites] = useState<MoSitesResponse | null>(null);
+  const [selectedSite, setSelectedSite] = useState<MoContextSite | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
@@ -73,6 +78,7 @@ export default function MOSurfaceWaterApp() {
   const showPOIs = false;
   const [showGauges, setShowGauges] = useState(true);
   const [showTerrain, setShowTerrain] = useState(true);
+  const [showSites, setShowSites] = useState(true);
 
   // Initial fetches
   useEffect(() => {
@@ -102,12 +108,22 @@ export default function MOSurfaceWaterApp() {
       }
     };
     load();
+    // Statewide context sites load independently — strictly optional, so
+    // their failure (or slowness) never gates the curated experience.
+    const loadSites = () => {
+      fetch('/api/usgs/mo-sites')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => { if (!aborted && j) setMoSites(j); })
+        .catch(() => {});
+    };
+    loadSites();
     const id = setInterval(() => {
-      // refresh just the live snapshot every 15 minutes
+      // refresh the live snapshots every 15 minutes
       fetch('/api/usgs/mo-statewide')
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => { if (!aborted && j) setStatewide(j); })
         .catch(() => {});
+      loadSites();
     }, 15 * 60 * 1000);
     return () => { aborted = true; clearInterval(id); };
   }, []);
@@ -373,6 +389,10 @@ export default function MOSurfaceWaterApp() {
         setShowGauges={setShowGauges}
         showTerrain={showTerrain}
         setShowTerrain={setShowTerrain}
+        showSites={showSites}
+        setShowSites={setShowSites}
+        siteCount={moSites?.sites.length ?? 0}
+        sitesCapped={moSites?.capped ?? false}
         onHoverRiver={setHoveredRiverId}
         onFocusRiver={setFocusedRiverId}
         open={dockOpen}
@@ -400,6 +420,10 @@ export default function MOSurfaceWaterApp() {
           showPOIs={showPOIs}
           showGauges={showGauges}
           showTerrain={showTerrain}
+          contextSites={moSites?.sites ?? []}
+          showSites={showSites}
+          selectedContextSiteId={selectedSite?.site_no ?? null}
+          onClickContextSite={setSelectedSite}
           railOpen={railOpen}
           onHoverRiver={setHoveredRiverId}
           onFocusRiver={setFocusedRiverId}
@@ -453,6 +477,10 @@ export default function MOSurfaceWaterApp() {
           history={historyEntries}
           rivers={rivers}
         />
+
+        {selectedSite && (
+          <ContextSiteCard site={selectedSite} onClose={() => setSelectedSite(null)} />
+        )}
 
         {error && (
           <div

@@ -44,6 +44,10 @@ export default function DataDock({
   setShowGauges,
   showTerrain,
   setShowTerrain,
+  showSites,
+  setShowSites,
+  siteCount,
+  sitesCapped,
   onHoverRiver,
   onFocusRiver,
   open,
@@ -62,6 +66,11 @@ export default function DataDock({
   setShowGauges: (v: boolean) => void;
   showTerrain: boolean;
   setShowTerrain: (v: boolean) => void;
+  showSites: boolean;
+  setShowSites: (v: boolean) => void;
+  /** Context-site count + cap disclosure for the layers row. */
+  siteCount: number;
+  sitesCapped: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   /** Mobile drawer state; ignored on md+ where the dock is always shown. */
@@ -254,7 +263,7 @@ export default function DataDock({
           <div className="mt-2" style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+          <div className="mt-2.5 grid grid-cols-3 gap-1.5">
             <LayerToggle
               label="Gauges"
               glyph="◎"
@@ -267,7 +276,18 @@ export default function DataDock({
               on={showTerrain}
               onToggle={() => setShowTerrain(!showTerrain)}
             />
+            <LayerToggle
+              label="Sites"
+              glyph="·"
+              on={showSites}
+              onToggle={() => setShowSites(!showSites)}
+            />
           </div>
+          {showSites && siteCount > 0 && (
+            <div className="mt-1.5" style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.05em', color: PARCH_FAINT }}>
+              {siteCount} statewide USGS sites{sitesCapped ? ' (top by flow — capped)' : ''} · neutral, no float rating
+            </div>
+          )}
         </div>
       </aside>
     </>

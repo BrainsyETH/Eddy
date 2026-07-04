@@ -20,6 +20,7 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
+import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
 import moBasemap from '@/data/mo-rivers-basemap.json';
@@ -92,6 +93,11 @@ interface MOMapProps {
   showGauges: boolean;
   /** Baked hillshade relief layer. Defaults on; toggled from the HUD. */
   showTerrain?: boolean;
+  /** Statewide context sites (neutral, no condition rating). */
+  contextSites?: MoContextSite[];
+  showSites?: boolean;
+  selectedContextSiteId?: string | null;
+  onClickContextSite?: (site: MoContextSite | null) => void;
   /** True when the right rail is pinned open — the zoom cluster slides
    *  left so it never hides underneath the rail. */
   railOpen?: boolean;
@@ -126,6 +132,29 @@ function strokeWidthForRiver(
   if (focused) return base + 2.4;
   if (hovered) return base + 1.4;
   return base;
+}
+
+// Discharge → node radius (viewBox units). Sqrt scale so area tracks
+// flow magnitude; clamped so the Mississippi doesn't eat the map.
+function magnitudeR(cfs: number | null | undefined, base: number, span: number): number {
+  if (cfs == null || cfs <= 0) return base;
+  return base + Math.min(1, Math.sqrt(cfs) / Math.sqrt(60000)) * span;
+}
+
+// Ray-cast point-in-polygon against the state outline — context sites
+// arrive bbox-filtered (includes slivers of neighboring states); only
+// in-state sites render on a Missouri map.
+function insideMissouri(lon: number, lat: number): boolean {
+  let inside = false;
+  const n = MO_OUTLINE.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [xi, yi] = MO_OUTLINE[i];
+    const [xj, yj] = MO_OUTLINE[j];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 // Round a raw distance down to a tidy 1/2/5 × 10ⁿ value for the scale bar.
@@ -281,6 +310,34 @@ export default function MOMap(props: MOMapProps) {
     }
     return out;
   }, [project]);
+
+  // Context sites — projected once, filtered to in-state points. These
+  // are NEUTRAL: location, magnitude (size), and freshness (opacity)
+  // only. No condition color — they carry no curated thresholds.
+  const contextNodes = useMemo(() => {
+    const sites = props.contextSites ?? [];
+    const out: Array<{
+      site: MoContextSite;
+      x: number;
+      y: number;
+      r: number;
+      fresh: boolean;
+    }> = [];
+    const staleCutoff = Date.now() - 2 * 3600e3;
+    for (const s of sites) {
+      if (!insideMissouri(s.lon, s.lat)) continue;
+      const [x, y] = project(s.lon, s.lat);
+      out.push({
+        site: s,
+        x,
+        y,
+        r: magnitudeR(s.dischargeCfs, 1.8, 5.2),
+        fresh: s.readingTimestamp != null && Date.parse(s.readingTimestamp) > staleCutoff,
+      });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.contextSites, project]);
 
   // Cities visible in the framed area (plus a small buffer outside, so the
   // nearest metro still anchors the user's orientation).
@@ -774,6 +831,43 @@ export default function MOMap(props: MOMapProps) {
         })}
       </g>
 
+      {/* Statewide context sites — every active MO stream gauge with a
+          current discharge reading. Neutral teal glow nodes: size encodes
+          flow (sqrt), dimmed when the reading is older than 2 h. They sit
+          UNDER the curated layer so the product's rivers stay foreground. */}
+      {props.showSites !== false && contextNodes.length > 0 && (
+        <g style={fadeIn(850, 1200)}>
+          {contextNodes.map((n) => {
+            const selected = props.selectedContextSiteId === n.site.site_no;
+            const rr = n.r * kStable;
+            return (
+              <g
+                key={n.site.site_no}
+                transform={`translate(${n.x} ${n.y})`}
+                className="mosw-ctx"
+                style={{ cursor: 'pointer', opacity: selected ? 1 : n.fresh ? 0.8 : 0.4 }}
+                onClick={guardClick(() => props.onClickContextSite?.(n.site))}
+              >
+                <title>
+                  {`${n.site.name ?? `USGS ${n.site.site_no}`} · ${Math.round(n.site.dischargeCfs)} cfs — context site, no float rating`}
+                </title>
+                <circle r={Math.max(9 * kStable, rr * 2)} fill="transparent" pointerEvents="all" />
+                {/* Ink beads on parchment (the light base kills soft glows);
+                    the curated layer keeps the color + glow treatment. */}
+                <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
+                <circle
+                  r={rr}
+                  fill={n.fresh ? '#1D525F' : '#6B7E85'}
+                  stroke={selected ? '#F07052' : 'rgba(250,248,244,0.9)'}
+                  strokeWidth={(selected ? 1.8 : 0.9) * kStable}
+                  pointerEvents="none"
+                />
+              </g>
+            );
+          })}
+        </g>
+      )}
+
       {/* Rivers — outer "casing" + per-gauge segmented main stroke. Each
           river is split at midpoints between its gauges and painted in
           bands so the river color "flows into" each gauge instead of
@@ -908,6 +1002,7 @@ export default function MOMap(props: MOMapProps) {
           One dash period = 22 viewBox units (14 dash + 8 gap). */}
       <style>{`
         @keyframes mo-river-flow { to { stroke-dashoffset: -22; } }
+        .mosw-ctx:hover { opacity: 1 !important; }
       `}</style>
 
       {/* Gauges. Radii multiplied by kStable so the dot stays the same
@@ -938,7 +1033,10 @@ export default function MOMap(props: MOMapProps) {
           // on hover/focus or once zoomed in (view < 0.5x), where it floats
           // just above the chip like a labeled pin so the anchor stays put.
           const showOtter = isHovered || isFocused || view.w < W * 0.5;
-          const chipR = ((g.is_primary ? 5 : 3.6) + (isFocused ? 2.6 : isHovered ? 1.4 : 0)) * kStable;
+          // Size encodes current discharge on the same sqrt scale as the
+          // statewide context sites, so magnitude reads consistently.
+          const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
+          const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
           const otterSize = (isFocused ? 32 : 27) * kStable;
           const iconYOffset = -(chipR + otterSize * 0.58);
           const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
@@ -961,6 +1059,8 @@ export default function MOMap(props: MOMapProps) {
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
               <circle r={hitR} fill="transparent" pointerEvents="all" />
+              {/* soft glow halo — live data reads as lit */}
+              <circle r={chipR * 2.3} fill={verdictColor} opacity={0.17} pointerEvents="none" />
               {elevated && !reducedMotion && (
                 <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
                   <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
