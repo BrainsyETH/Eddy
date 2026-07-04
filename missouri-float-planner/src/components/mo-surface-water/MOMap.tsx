@@ -1192,6 +1192,19 @@ export default function MOMap(props: MOMapProps) {
               key={condKey(g.river_id, g.site_no)}
               transform={`translate(${x} ${y})`}
               style={{ cursor: 'pointer' }}
+              // Keyboard path: ten curated gauges are tabbable; Enter or
+              // Space pins the detail rail, same as a click. The label
+              // carries condition + reading so the color is never the
+              // only channel.
+              tabIndex={0}
+              role="button"
+              aria-label={`${g.river_name} gauge ${g.site_no} — ${STAGE_VERDICTS[verdict]?.label ?? 'no rating'}${g.gaugeHeightFt != null ? `, ${g.gaugeHeightFt.toFixed(2)} feet` : ''}${g.dischargeCfs != null ? `, ${Math.round(g.dischargeCfs)} cfs` : ''}. Open details`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  props.onFocusGauge(g.site_no);
+                }
+              }}
               onMouseEnter={(e) => {
                 const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
                 props.onHoverGauge(g.site_no, {

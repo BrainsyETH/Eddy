@@ -57,6 +57,8 @@ export default function MOSurfaceWaterApp() {
   const [moSites, setMoSites] = useState<MoSitesResponse | null>(null);
   const [selectedSite, setSelectedSite] = useState<MoContextSite | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Set when live fetch failed and we hydrated from the local snapshot. */
+  const [staleCacheAt, setStaleCacheAt] = useState<string | null>(null);
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
   const [focusedRiverId, setFocusedRiverId] = useState<string | null>(null);
@@ -81,9 +83,13 @@ export default function MOSurfaceWaterApp() {
   const [showSites, setShowSites] = useState(true);
   const [showFlow, setShowFlow] = useState(true);
 
-  // Initial fetches
+  // Initial fetches. On success the payloads are snapshotted to
+  // localStorage; on failure we hydrate from that snapshot with a loud
+  // staleness banner — a rural connection dropping must never mean a
+  // broken map (and never a stale map dressed as live).
   useEffect(() => {
     let aborted = false;
+    const CACHE_KEY = 'mosw-snapshot-v1';
     const load = async () => {
       try {
         const [dRes, sRes, hRes, fRes] = await Promise.all([
@@ -103,9 +109,31 @@ export default function MOSurfaceWaterApp() {
           setHistoryBundle(h);
           setForecast(f);
           setError(null);
+          setStaleCacheAt(null);
+          try {
+            window.localStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ at: new Date().toISOString(), d, s, h, f }),
+            );
+          } catch { /* quota/private mode — cache is best-effort */ }
         }
       } catch (e) {
-        if (!aborted) setError(e instanceof Error ? e.message : String(e));
+        if (aborted) return;
+        // Degraded path: last-known snapshot, clearly labeled.
+        try {
+          const raw = window.localStorage.getItem(CACHE_KEY);
+          if (raw) {
+            const snap = JSON.parse(raw);
+            setDataset(snap.d);
+            setStatewide(snap.s);
+            setHistoryBundle(snap.h);
+            setForecast(snap.f);
+            setStaleCacheAt(snap.at ?? null);
+            setError(null);
+            return;
+          }
+        } catch { /* fall through to the error banner */ }
+        setError(e instanceof Error ? e.message : String(e));
       }
     };
     load();
@@ -385,6 +413,19 @@ export default function MOSurfaceWaterApp() {
     setHoveredGaugePos(null);
   };
 
+  // Escape backs out of whatever is pinned: modal → site card → rail.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (modalSelection) { setModalSelection(null); return; }
+      if (selectedSite) { setSelectedSite(null); return; }
+      closeRail();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalSelection, selectedSite]);
+
   const railOpen = !!railRiver || !!focusedGauge;
 
   return (
@@ -521,6 +562,38 @@ export default function MOSurfaceWaterApp() {
             }}
           >
             Data fetch failed: {error}
+          </div>
+        )}
+
+        {staleCacheAt && (
+          <div
+            className="absolute z-30 flex items-center gap-3 rounded-md border-2 px-3 py-2"
+            style={{
+              top: 12, left: '50%', transform: 'translateX(-50%)',
+              background: '#3D2E00', color: '#FFD98A',
+              borderColor: '#E5A000',
+              fontFamily: 'var(--font-mono)', fontSize: 11,
+              letterSpacing: '0.08em',
+              boxShadow: '3px 3px 0 #1A1814',
+              maxWidth: 'calc(100% - 24px)',
+            }}
+            role="status"
+          >
+            <span className="font-bold uppercase">Offline</span>
+            <span>
+              showing last-known data from{' '}
+              {new Date(staleCacheAt).toLocaleString(undefined, {
+                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+              })}
+            </span>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-sm border px-2 py-0.5 font-bold uppercase"
+              style={{ borderColor: '#E5A000', color: '#FFD98A', fontSize: 10 }}
+            >
+              Retry
+            </button>
           </div>
         )}
       </div>

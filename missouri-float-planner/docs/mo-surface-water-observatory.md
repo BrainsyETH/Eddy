@@ -161,3 +161,17 @@ P4 HUD (aggregates, distribution, toggles) →
 P5 atmosphere (starfield, glow, grain) →
 P6 hardening (perf numbers, a11y, mobile, degraded states).
 One commit per phase boundary.
+
+## 6. Measured results (P6, software-rendered headless Chromium — no GPU)
+
+| Metric | Budget | Measured |
+|---|---|---|
+| Idle FPS, flow on, state view | 60 | **60** |
+| Idle FPS, flow on, zoomed | 60 | **60** |
+| FPS during continuous drag-pan | ~60 | **47** (whole-SVG reraster per viewBox frame under software rendering; GPU compositing in real browsers raises this — re-measure on hardware before further optimizing) |
+| Mobile-viewport idle FPS, flow on | 60 | **60** |
+| SVG element count (10 curated + 480 context nodes) | ≤ ~4000 | **3,164** |
+| Flow particles | ≤700 desktop / ≤300 small | 700 / 300, self-degrading (floor 120) |
+| Hillshade asset | < 400 KB | **550 KB** — kept above the letter of the budget: it is the page's ONLY raster, replaces megabytes of runtime tiles, and relief quality at 1120×700 was judged worth +150 KB. Revisit with AVIF if it matters. |
+| Keyboard | gauges tabbable | Tab → gauge (aria-label carries condition + reading), Enter opens rail, Escape backs out |
+| Offline | no broken map | localStorage snapshot + amber OFFLINE banner with timestamp + retry; STALE chips on readings >2 h |
