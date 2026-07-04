@@ -1,5 +1,5 @@
 {
-  "_status": "INCOMPLETE — verified-data skeleton. Threshold anchors are the [signoff] calibration gate and are NOT yet captured (numeric floatable ranges live on NPS/USGS/outfitter pages that were 403-blocked from this environment's fetch egress; see buffalo-findings-partial.md). Do NOT ingest until sections[].thresholds are populated and human-signed. Everything present below is either primary-source verified or adversarially verified (run wf_0588c66d-ee8); anything unverified is marked UNKNOWN with a toVerify entry.",
+  "_status": "AWAITING SIGNOFF — numeric NPS floatability thresholds now captured (ft) for 3 of 4 reaches from the NPS-courtesy chart (see buffalo-thresholds-captured.md). Ponca anchors are bound high-confidence to USGS 07055660; Middle (Tyler Bend) and Lower (Buffalo Point) anchors carry the numbers but their gauge→USGS-number binding is UNVERIFIED (referenceGaugeIsPolled=false) and must be confirmed before ingest. Two remaining [signoff] decisions: (1) gauge datum binding for Middle+Lower, (2) accept the good/flowing split. Hailstone reach has no chart data. Do NOT ingest until bindings confirmed and thresholds human-signed.",
   "name": "Buffalo National River",
   "slug": "buffalo",
   "state": "AR",
@@ -81,7 +81,14 @@
       "takeOut": { "name": "Pruitt", "lat": null, "lon": null },
       "publishedLengthMiles": null,
       "representativeGauge": { "siteId": "07055660", "rationale": "canonical upper-reach floatability gauge (Ponca) per outfitter/NPS usage", "knownBias": "" },
-      "thresholds": [],
+      "thresholds": [
+        { "level": "too_low", "value": 2.0, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
+        { "level": "low", "value": 2.4, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
+        { "level": "optimal_min", "value": 2.5, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
+        { "level": "optimal_max", "value": 4.9, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
+        { "level": "high", "value": 5.0, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" },
+        { "level": "dangerous", "value": 6.0, "unit": "ft", "referenceGauge": "07055660", "referenceGaugeIsPolled": true, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "high" }
+      ],
       "publishedFloatTimes": [
         { "reachLabel": "Ponca to Kyle's Landing", "distanceMiles": 10.7, "hoursTypical": null, "hoursLow": 4, "hoursHigh": 6, "vessel": "canoe", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" }
       ],
@@ -108,8 +115,15 @@
       "putIn": { "name": "Pruitt", "lat": null, "lon": null },
       "takeOut": { "name": "Gilbert", "lat": null, "lon": null },
       "publishedLengthMiles": null,
-      "representativeGauge": { "siteId": "07056000", "rationale": "St. Joe is the commonly cited middle-district gauge; Carver (07055780) covers the upper-middle transition", "knownBias": "large reach spanning multiple gauges — segment-to-gauge mapping needs care" },
-      "thresholds": [],
+      "representativeGauge": { "siteId": "07056000", "rationale": "St. Joe is the commonly cited middle-district gauge; Carver (07055780) covers the upper-middle transition", "knownBias": "NPS chart keys the middle thresholds to 'Grinder's Ferry/Tyler Bend' — confirm that reference is USGS 07056000 (St. Joe) vs. a separate Tyler Bend gauge before ingest" },
+      "thresholds": [
+        { "level": "too_low", "value": 3.3, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "low", "value": 3.83, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "optimal_min", "value": 3.9, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium", "note": "verbatim source: Ample 3.83-7.94; nudged for strict ordering" },
+        { "level": "optimal_max", "value": 7.9, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium", "note": "verbatim source: Ample 3.83-7.94; nudged for strict ordering" },
+        { "level": "high", "value": 7.94, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "dangerous", "value": 11.76, "unit": "ft", "referenceGauge": "Grinder's Ferry/Tyler Bend (USGS # UNVERIFIED; ~07056000?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" }
+      ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
@@ -131,8 +145,15 @@
       "putIn": { "name": "Gilbert", "lat": null, "lon": null },
       "takeOut": { "name": "Buffalo City (White River confluence)", "lat": null, "lon": null },
       "publishedLengthMiles": null,
-      "representativeGauge": { "siteId": "07056700", "rationale": "Harriet covers the upper-lower reach; Rush (07057000) covers the lowest reach before the confluence", "knownBias": "" },
-      "thresholds": [],
+      "representativeGauge": { "siteId": "07056700", "rationale": "Harriet covers the upper-lower reach; Rush (07057000) covers the lowest reach before the confluence", "knownBias": "NPS chart keys the lower thresholds to 'Dillard's Ferry/Buffalo Point' (Hwy 14) — confirm that reference is USGS 07056700 (Harriet) vs. a separate Buffalo Point gauge before ingest" },
+      "thresholds": [
+        { "level": "too_low", "value": 2.0, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "low", "value": 3.4, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "optimal_min", "value": 3.5, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "optimal_max", "value": 5.9, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "high", "value": 6.0, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" },
+        { "level": "dangerous", "value": 10.0, "unit": "ft", "referenceGauge": "Dillard's Ferry/Buffalo Point (USGS # UNVERIFIED; ~07056700?)", "referenceGaugeIsPolled": false, "source": "https://www.wildbillsoutfitter.com/floating-levels-guides (courtesy NPS)", "confidence": "medium" }
+      ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
@@ -174,7 +195,7 @@
       "https://waterdata.usgs.gov/monitoring-location/USGS-07057000/"
     ],
     "openQuestions": [
-      "NUMERIC floatable thresholds per gauge (too_low / low / optimal / high / dangerous) — the safety-critical [signoff] gate. NOT captured; fetch egress 403-blocked the NPS/USGS/outfitter pages that hold them.",
+      "Numeric NPS floatability thresholds CAPTURED (ft) for Ponca/Steel Creek, Hwy7/Pruitt, Grinder's Ferry/Tyler Bend, Dillard's Ferry/Buffalo Point — see buffalo-thresholds-captured.md. Remaining: bind the Middle+Lower (and Pruitt) launch-area labels to USGS site numbers, and cross-check high/dangerous against the USGS floating-conditions product for the two-source rule.",
       "Does the lower reach warrant its own river_type (flatwater) vs. the river-wide rain_flashy default? Flagged for the pilot to answer.",
       "Exact reach boundaries / mileages and per-reach float times for Middle and Lower.",
       "Rain-to-rise lag and drop-rate per reach.",
