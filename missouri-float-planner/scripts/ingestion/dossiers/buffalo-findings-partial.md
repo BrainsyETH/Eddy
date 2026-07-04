@@ -56,3 +56,36 @@ ranges verbatim — that is where the safety-critical anchors are.
 
 Verified gauge site numbers already banked separately in
 `verified-identifiers-buffalo.md` (7 USGS stations, primary-source checked).
+
+## Source leads for the NUMERIC anchors (run-2 / next-fetch targets)
+
+Run-1 gap = no numeric per-gauge floatable ranges. Search located exactly which
+pages publish them. These are the fetch targets for the numeric thresholds
+(all pending — see environment note below):
+
+- **Wild Bill's Outfitter — "River Floating Levels & Guide"**
+  https://www.wildbillsoutfitter.com/floating-levels-guides
+  (an outfitter page that DOES appear to publish per-gauge numeric floatable
+  ranges, unlike buffaloriver.com's operational-call framing — high priority)
+- **Buffalo National River Float Guide Dashboard (ArcGIS)**
+  https://www.arcgis.com/apps/dashboards/3606e2401fdd428cbbdff9518cbe11af
+- **USGS Buffalo River floating-conditions viewers**
+  https://wise.er.usgs.gov/dp/buffaloriver/  and  https://ar.water.usgs.gov/buffaloriver/
+- **Buffalo National River Partners levels page** https://bnrpartners.org/riverlevels
+- **buffaloriverfieldguide.com/float-conditions**
+
+Qualitative confirmation from search (not a numeric anchor, but directional):
+the **Upper District is the most level-sensitive** — "too low and you'll drag,
+too high and the bluffs become hazardous," and "recommended floating levels are
+available by river gauge." Consistent with the rain_flashy classification.
+
+## ENVIRONMENT NOTE (why numeric capture is pending)
+
+As of this run, direct WebFetch from the working environment returns HTTP 403
+for nps.gov, usgs.gov/data, AND the outfitter pages — the fetch egress is
+degraded, not the sites. WebSearch works; the deep-research workflow's own
+agents use a separate fetch path (they read buffaloriver.com successfully in
+run 1). So the numeric-anchor capture should be done EITHER by the workflow
+agents (run 2, targeting the pages above) OR from an environment whose fetch
+egress can reach these domains. Do not conclude the numbers don't exist — they
+do; they're just not fetchable from here right now.
