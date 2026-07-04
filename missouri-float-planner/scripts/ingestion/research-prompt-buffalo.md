@@ -44,18 +44,40 @@ honest uncertainty beat completeness everywhere in this brief.
 6. **Record dates.** Water guidance changes; note when a page was last
    updated if visible, and flag anything that looks stale (pre-2020).
 
-## Priority sources (start here)
+## MANDATORY primary calibration sources — capture BOTH, verbatim, per gauge
 
-- **NPS — Buffalo National River (nps.gov/buff)**: the park publishes river
-  level / floatability guidance correlating specific USGS gauge readings with
-  which district is floatable. **Capture that guidance verbatim, per gauge,
-  with the URL** — it is the single most authoritative calibration source.
-  Also: safety pages (flash-flood guidance), concessioner list, regulations
-  (PFDs, glass, camping), closures.
+These two pages are where the numeric floatable-level anchors actually live.
+Run 1 confirmed that **outfitters do NOT publish fixed numeric gauge cutoffs**
+— they make a daily operational go/no-go call (e.g. "move Ponca → Steel Creek
+this morning"). So the safety-critical `high`/`dangerous`/`too_low` numbers
+must come from these two authorities, not outfitter prose. Every research run
+MUST fetch and capture both, per gauge, before anything else:
+
+1. **NPS Buffalo National River river-levels / floatability guidance**
+   (nps.gov/buff — the "river levels" / district-floatability page, NOT the
+   generic paddling pages). Capture the exact gauge→floatable-range statements
+   verbatim with the URL. Single most authoritative calibration source.
+2. **USGS "Buffalo National River Floating Conditions — Arkansas" data product**
+   (https://www.usgs.gov/data/buffalo-national-river-floating-conditions-arkansas
+   and its live viewer). USGS publishes its own per-gauge floatability
+   thresholds for this river — the independent second source that lets the
+   `high`/`dangerous` anchors clear the two-source corroboration bar.
+
+If either page cannot be reached or has no numeric per-gauge ranges, say so
+explicitly in `openQuestions` and `toVerify` — do not backfill the gap from
+outfitter prose or Ozark assumptions.
+
+## Priority sources (after the two above)
+
+- **NPS — Buffalo National River (nps.gov/buff)**: beyond the river-levels page,
+  also capture safety pages (flash-flood guidance), concessioner list,
+  regulations (PFDs, glass, camping), closures.
 - **USGS**: gauge inventory for the Buffalo — expected sites include Boxley,
   Ponca, Pruitt, Carver, Hasty, St. Joe, Harriet / Buffalo City area. For each:
   site number, exact name, coordinates, parameters (00060 discharge / 00065
-  gage height), drainage area, period of record.
+  gage height), drainage area, period of record. (Seven site numbers already
+  verified in dossiers/verified-identifiers-buffalo.md — cross-check, don't
+  re-derive.)
 - **American Whitewater (americanwhitewater.org)**: runnable ranges and gauge
   correlations for the upper reaches (Hailstone, Ponca–Kyle's). **Reference
   only — read and cite, do not bulk-copy; their terms prohibit harvesting.**
