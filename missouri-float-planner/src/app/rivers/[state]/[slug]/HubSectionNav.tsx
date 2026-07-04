@@ -42,7 +42,7 @@ export default function HubSectionNav({ planUrl, hasGuide = true }: { planUrl: s
   return (
     <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200">
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between gap-3 py-2">
-        <nav className="flex gap-1 overflow-x-auto">
+        <nav className="flex gap-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
           {sections.map((s) => (
             <a
               key={s.id}

@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
@@ -930,21 +931,25 @@ function JourneyCenter({
           <div className="w-20 h-0.5 rounded-full bg-gradient-to-r from-support-400 to-accent-400"></div>
           <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
         </div>
-        <div className="flex items-baseline justify-center gap-3">
+        <div className="flex items-start justify-center gap-3">
           <div className="text-center">
-            <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
+            <p className="text-xl font-bold text-neutral-900 leading-tight">{plan.distance.formatted}</p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5">Distance</p>
           </div>
-          <span className="text-neutral-300 text-lg">|</span>
-          <div className="text-center">
+          <span className="text-neutral-300 text-lg leading-none pt-1">|</span>
+          <div className="text-center min-w-0">
             {isLoading || recalculating ? (
               <div className="flex items-center justify-center h-7">
                 <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
-              <p className="text-xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
+              <p className="text-lg font-bold text-neutral-900 leading-tight tabular-nums">
+                {plan.floatTime?.timeRange
+                  ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
+                  : plan.floatTime?.formatted || '--'}
+              </p>
             )}
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500 flex items-center gap-0.5">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5 flex items-center justify-center gap-0.5">
               Est. Time
               <span
                 className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
