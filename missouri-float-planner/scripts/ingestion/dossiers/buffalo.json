@@ -1,0 +1,191 @@
+{
+  "_status": "INCOMPLETE — verified-data skeleton. Threshold anchors are the [signoff] calibration gate and are NOT yet captured (numeric floatable ranges live on NPS/USGS/outfitter pages that were 403-blocked from this environment's fetch egress; see buffalo-findings-partial.md). Do NOT ingest until sections[].thresholds are populated and human-signed. Everything present below is either primary-source verified or adversarially verified (run wf_0588c66d-ee8); anything unverified is marked UNKNOWN with a toVerify entry.",
+  "name": "Buffalo National River",
+  "slug": "buffalo",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Buffalo National River",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I-II",
+  "description": "America's first National River (1972), a free-flowing, rain-driven Ozark river draining the Boston Mountains of northwest Arkansas. Flashy and seasonal in its upper reaches, near year-round floatable in its lower reaches. Managed by the National Park Service.",
+  "riverType": "rain_flashy",
+
+  "parkCode": "buff",
+  "managingAuthority": "National Park Service — Buffalo National River",
+  "regulations": [
+    {
+      "text": "Every vessel must carry a U.S. Coast Guard approved life vest (PFD) for each person aboard; children under age 13 must wear a securely fastened life vest while aboard any vessel.",
+      "authority": "NPS — Buffalo National River",
+      "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
+    },
+    {
+      "text": "Glass containers are prohibited within 100 feet of any river or stream in the park (and in caves, on trails or waterways), except in designated campgrounds, picnic sites, or vehicles on designated roads/parking areas.",
+      "authority": "NPS — Buffalo National River",
+      "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
+    },
+    {
+      "text": "Possession of polystyrene (Styrofoam) items — cups, plates, coolers, ice chests, containers — is prohibited while floating or camping, except in developed campgrounds, picnic areas, landings, roads and parking lots.",
+      "authority": "NPS — Buffalo National River",
+      "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
+    },
+    {
+      "text": "Vessels carrying food or beverages must have an attached closable mesh litter bag; food/beverages must be kept in a sealed cooler or spill-proof container.",
+      "authority": "NPS — Buffalo National River",
+      "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
+    }
+  ],
+  "permits": [],
+  "accessLaw": { "value": "UNKNOWN — Arkansas stream-access / navigability doctrine not yet captured", "source": "", "confidence": "low" },
+  "seasonalClosures": [],
+
+  "gauges": [
+    { "provider": "usgs", "siteId": "07055646", "name": "Buffalo River near Boxley, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["hailstone"], "knownBias": "headwaters gauge; verify it tracks the runnable reach vs. sits above it" },
+    { "provider": "usgs", "siteId": "07055660", "name": "Buffalo River at Ponca, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["upper-ponca-pruitt"], "knownBias": "the canonical upper-reach floatability gauge per outfitter/NPS usage" },
+    { "provider": "usgs", "siteId": "07055780", "name": "Buffalo River at Carver Access near Hasty, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["middle-pruitt-gilbert"] },
+    { "provider": "usgs", "siteId": "07055820", "name": "Buffalo River D.S. of Carver, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["middle-pruitt-gilbert"] },
+    { "provider": "usgs", "siteId": "07056000", "name": "Buffalo River near St. Joe, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["middle-pruitt-gilbert"], "knownBias": "Tyler Bend area; commonly cited middle-district gauge" },
+    { "provider": "usgs", "siteId": "07056700", "name": "Buffalo River near Harriet, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["lower-gilbert-buffalocity"] },
+    { "provider": "usgs", "siteId": "07057000", "name": "Buffalo River near Rush, AR", "lat": null, "lon": null, "paramsAvailable": [], "servesSections": ["lower-gilbert-buffalocity"], "knownBias": "lowest gauge before the White River confluence" }
+  ],
+
+  "sections": [
+    {
+      "slug": "hailstone",
+      "name": "Hailstone / Upper Wilderness (Boxley headwaters)",
+      "description": "Boxley-area headwaters creek run; rain-only, advanced, committing. Bone-dry much of the year.",
+      "putIn": { "name": "Boxley area", "lat": null, "lon": null },
+      "takeOut": { "name": "Ponca", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": { "siteId": "07055646", "rationale": "nearest headwaters gauge (Boxley)", "knownBias": "verify it represents the runnable creek reach" },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "rain_flashy",
+        "primaryHazards": ["flash_flood", "strainer", "committing_wilderness"],
+        "lowWaterMeaning": "UNKNOWN — capture from NPS/USGS floatability guidance",
+        "risingWaterHazards": "Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": []
+    },
+    {
+      "slug": "upper-ponca-pruitt",
+      "name": "Upper (Ponca to Pruitt)",
+      "description": "The classic upper Buffalo: Ponca to Kyle's Landing / Erbie / Ozark / Pruitt. Class I–II, flashy, spring-season float; Big Bluff and Hemmed-in Hollow scenery. The most level-sensitive reach.",
+      "putIn": { "name": "Ponca (Steel Creek when too low to launch at Ponca)", "lat": null, "lon": null },
+      "takeOut": { "name": "Pruitt", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": { "siteId": "07055660", "rationale": "canonical upper-reach floatability gauge (Ponca) per outfitter/NPS usage", "knownBias": "" },
+      "thresholds": [],
+      "publishedFloatTimes": [
+        { "reachLabel": "Ponca to Kyle's Landing", "distanceMiles": 10.7, "hoursTypical": null, "hoursLow": 4, "hoursHigh": 6, "vessel": "canoe", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" }
+      ],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "rain_flashy",
+        "primaryHazards": ["flash_flood", "strainer", "bluff_hazard_at_high_water"],
+        "lowWaterMeaning": "When too low to launch at Ponca, outfitters shift the put-in ~2 mi downriver to Steel Creek (8 mi to Kyle's). No numeric gauge cutoff is published — outfitters make a daily operational call. NUMERIC too_low anchor still UNKNOWN.",
+        "risingWaterHazards": "Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Floatable season is typically March through June, occasionally into July with rainfall (Buffalo Outdoor Center).",
+        "The most level-sensitive reach on the river: too low and you drag, too high and the bluffs are hazardous."
+      ]
+    },
+    {
+      "slug": "middle-pruitt-gilbert",
+      "name": "Middle (Pruitt to Gilbert / Tyler Bend)",
+      "description": "Longer float season, mellower than the upper. Carver, Hasty, Mt. Hersey, Woolum, Tyler Bend, Gilbert.",
+      "putIn": { "name": "Pruitt", "lat": null, "lon": null },
+      "takeOut": { "name": "Gilbert", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": { "siteId": "07056000", "rationale": "St. Joe is the commonly cited middle-district gauge; Carver (07055780) covers the upper-middle transition", "knownBias": "large reach spanning multiple gauges — segment-to-gauge mapping needs care" },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "rain_flashy",
+        "primaryHazards": ["flash_flood", "strainer"],
+        "lowWaterMeaning": "UNKNOWN — capture",
+        "risingWaterHazards": "Rain-driven rises; more forgiving than the upper but still flashy.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": []
+    },
+    {
+      "slug": "lower-gilbert-buffalocity",
+      "name": "Lower (Gilbert to Buffalo City / White River confluence)",
+      "description": "Big pools, near year-round floatable, flatwater feel. Buffalo Point, Rush, Dillard's Ferry (Hwy 14).",
+      "putIn": { "name": "Gilbert", "lat": null, "lon": null },
+      "takeOut": { "name": "Buffalo City (White River confluence)", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": { "siteId": "07056700", "rationale": "Harriet covers the upper-lower reach; Rush (07057000) covers the lowest reach before the confluence", "knownBias": "" },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "flatwater",
+        "primaryHazards": ["debris", "flash_flood_upstream"],
+        "lowWaterMeaning": "UNKNOWN — capture; low water mainly affects speed here, not runnability",
+        "risingWaterHazards": "Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Note: this reach reads more as flatwater than the flashy upper — a candidate for per-section river_type divergence if the uniform rain_flashy framing proves too conservative here."
+      ]
+    }
+  ],
+
+  "accessPoints": [
+    { "name": "Ponca", "type": "access", "lat": null, "lon": null, "ownership": "NPS", "section": "upper-ponca-pruitt", "notes": "primary upper put-in; used when level permits", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" },
+    { "name": "Steel Creek", "type": "access", "lat": null, "lon": null, "ownership": "NPS", "section": "upper-ponca-pruitt", "notes": "low-water alternate put-in ~2 mi below Ponca", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" },
+    { "name": "Kyle's Landing", "type": "access", "lat": null, "lon": null, "ownership": "NPS", "section": "upper-ponca-pruitt", "notes": "common upper take-out", "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/" }
+  ],
+
+  "weatherPoint": { "city": "Jasper", "lat": null, "lon": null },
+  "alertSearchTerms": ["buffalo river", "buffalo national river", "newton county", "searcy county", "marion county", "baxter county", "ponca", "jasper", "st. joe", "gilbert", "yellville"],
+
+  "research": {
+    "date": "2026-07-03",
+    "sourcesConsulted": [
+      "https://www.nps.gov/buff/planyourvisit/river-rules.htm",
+      "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07055646/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07055660/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07055780/",
+      "https://waterdata.usgs.gov/monitoring-location/07055820/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07056000/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07056700/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07057000/"
+    ],
+    "openQuestions": [
+      "NUMERIC floatable thresholds per gauge (too_low / low / optimal / high / dangerous) — the safety-critical [signoff] gate. NOT captured; fetch egress 403-blocked the NPS/USGS/outfitter pages that hold them.",
+      "Does the lower reach warrant its own river_type (flatwater) vs. the river-wide rain_flashy default? Flagged for the pilot to answer.",
+      "Exact reach boundaries / mileages and per-reach float times for Middle and Lower.",
+      "Rain-to-rise lag and drop-rate per reach.",
+      "Arkansas stream-access / navigability law (once-per-state research)."
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the Buffalo River flowline (currently UNKNOWN)",
+      "NPS park code 'buff' against the NPS API",
+      "Gauge coordinates, parameters (00060/00065), drainage areas, periods of record — from each USGS monitoring-location page",
+      "Numeric floatable ranges from: wildbillsoutfitter.com/floating-levels-guides, the ArcGIS float dashboard (3606e2401fdd428cbbdff9518cbe11af), wise.er.usgs.gov/dp/buffaloriver, ar.water.usgs.gov/buffaloriver, bnrpartners.org/riverlevels",
+      "Full NPS access-point list with coordinates (put-ins/take-outs per district)"
+    ]
+  }
+}
