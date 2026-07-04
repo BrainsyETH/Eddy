@@ -180,6 +180,48 @@ export const CONDITION_CARD_BLURBS: Record<ConditionCode, string> = {
   unknown: 'Conditions unavailable.',
 };
 
+export interface StaticEddyTextInput {
+  conditionCode: ConditionCode;
+  /** Current gauge height in feet (null → reading line omitted). */
+  gaugeHeightFt?: number | null;
+  /** Optimal range bounds from DB thresholds. */
+  optimalMin?: number | null;
+  optimalMax?: number | null;
+  /** 'ft' | 'cfs' — the threshold unit for the optimal range. */
+  thresholdUnit?: string | null;
+  /** River-specific local color (DB river_note, falls back to RIVER_NOTES). */
+  riverNote?: string | null;
+}
+
+/**
+ * Canonical static "Eddy Says" fallback used when no AI update is available.
+ *
+ * Both the river report card (RiverCard) and the full river report page
+ * (RiverGaugeDetail) render from this single builder so the quote reads
+ * identically across surfaces. Deliberately omits the gauge name — the report
+ * page already shows it in the meta row, and the card has no room for it.
+ */
+export function buildStaticEddyText({
+  conditionCode,
+  gaugeHeightFt,
+  optimalMin,
+  optimalMax,
+  thresholdUnit,
+  riverNote,
+}: StaticEddyTextInput): string {
+  const parts: string[] = [];
+  if (gaugeHeightFt != null) {
+    parts.push(`Reading ${gaugeHeightFt.toFixed(1)} ft.`);
+  }
+  parts.push(CONDITION_CARD_BLURBS[conditionCode] || CONDITION_CARD_BLURBS.unknown);
+  if (optimalMin != null && optimalMax != null) {
+    const unit = thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+    parts.push(`Optimal range: ${optimalMin}–${optimalMax} ${unit}.`);
+  }
+  if (riverNote) parts.push(riverNote);
+  return parts.join(' ');
+}
+
 /** Build a one-line Eddy summary across all rivers for the listing page. */
 export function buildRiversSummary(conditionCodes: (ConditionCode | null)[]): string {
   const counts: Partial<Record<ConditionCode | 'none', number>> = {};

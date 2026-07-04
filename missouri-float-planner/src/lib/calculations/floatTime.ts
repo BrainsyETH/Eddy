@@ -225,6 +225,35 @@ export function formatFloatTimeRange(minMinutes: number, maxMinutes: number): st
 }
 
 /**
+ * Compact abbreviated float time, e.g. "11h 30m", "4h", or "45m". Built for
+ * tight stat displays where the verbose "~11 hours 30 minutes" wraps badly.
+ */
+export function formatFloatTimeCompact(minutes: number): string {
+  const rounded = roundToQuarterHour(minutes);
+  if (rounded < 60) {
+    return `${rounded}m`;
+  }
+  const hours = Math.floor(rounded / 60);
+  const remainingMinutes = rounded % 60;
+  return remainingMinutes === 0 ? `${hours}h` : `${hours}h ${remainingMinutes}m`;
+}
+
+/**
+ * Compact estimate range for narrow stat columns, e.g. "~11h 30m–18h 30m".
+ * A single "~" leads the range and the units are abbreviated so the value
+ * stays on one or two lines instead of wrapping to three. Collapses to a
+ * single value when the rounded ends coincide.
+ */
+export function formatFloatTimeRangeCompact(minMinutes: number, maxMinutes: number): string {
+  const lo = roundToQuarterHour(minMinutes);
+  const hi = roundToQuarterHour(maxMinutes);
+  if (lo >= hi) {
+    return `~${formatFloatTimeCompact(lo)}`;
+  }
+  return `~${formatFloatTimeCompact(lo)}–${formatFloatTimeCompact(hi)}`;
+}
+
+/**
  * Formats distance as a human-readable string
  *
  * @param miles Distance in miles
