@@ -23,6 +23,15 @@ import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
 import moBasemap from '@/data/mo-rivers-basemap.json';
+import {
+  W,
+  H,
+  buildProjector,
+  lineToPath,
+  polygonToPath,
+  bboxOf,
+} from './projection';
+import { usePrefersReducedMotion } from './fx';
 
 type BasemapRiver = {
   type: 'Feature';
@@ -39,56 +48,8 @@ const BASEMAP_LAKES = (moBasemap.lakes?.features ?? []) as BasemapLake[];
 
 // ─── Projection ─────────────────────────────────────────────────────────
 //
-// The viewBox is fixed at 1600×1000 but the projection window is computed
-// at runtime from the bounding box of the actual data (rivers + gauges +
-// campgrounds), so the canvas auto-frames to wherever the data actually
-// lives. The state silhouette renders in the same projection and is
-// allowed to overflow the viewBox; it gets clipped naturally by SVG.
-
-const W = 1600;
-const H = 1000;
-const PADDING = 60;
-
-type Projector = (lon: number, lat: number) => [number, number];
-
-function buildProjector(bbox: {
-  minLon: number;
-  maxLon: number;
-  minLat: number;
-  maxLat: number;
-}): Projector {
-  const lonSpan = bbox.maxLon - bbox.minLon || 0.001;
-  const latSpan = bbox.maxLat - bbox.minLat || 0.001;
-  const centerLon = (bbox.minLon + bbox.maxLon) / 2;
-  const centerLat = (bbox.minLat + bbox.maxLat) / 2;
-  const cosLat = Math.cos((centerLat * Math.PI) / 180);
-
-  const innerW = W - 2 * PADDING;
-  const innerH = H - 2 * PADDING;
-  const scaleByLon = innerW / lonSpan;
-  const scaleByLat = innerH / (latSpan / cosLat);
-  const scale = Math.min(scaleByLon, scaleByLat);
-
-  return (lon, lat) => {
-    const x = (lon - centerLon) * scale + W / 2;
-    const y = -(lat - centerLat) * (scale / cosLat) + H / 2;
-    return [x, y];
-  };
-}
-
-function lineToPath(coords: Array<[number, number]>, project: Projector): string {
-  if (!coords.length) return '';
-  return coords
-    .map(([lon, lat], i) => {
-      const [x, y] = project(lon, lat);
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-}
-
-function polygonToPath(coords: Array<[number, number]>, project: Projector): string {
-  return lineToPath(coords, project) + ' Z';
-}
+// Shared with the hero backdrop via ./projection — the viewBox is fixed at
+// 1600×1000 and the projection window locks to the state outline below.
 
 // ─── Static geometry ────────────────────────────────────────────────────
 
@@ -129,6 +90,9 @@ interface MOMapProps {
   showAccessPoints: boolean;
   showPOIs: boolean;
   showGauges: boolean;
+  /** True when the right rail is pinned open — the zoom cluster slides
+   *  left so it never hides underneath the rail. */
+  railOpen?: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   onHoverGauge: (id: string | null, screenPos?: { x: number; y: number } | null) => void;
@@ -184,29 +148,13 @@ function strokeWidthForBasemapRiver(lengthMi: number): number {
 }
 
 export default function MOMap(props: MOMapProps) {
+  const reducedMotion = usePrefersReducedMotion();
   // Lock the projection window to the full Missouri state outline so the
   // map always reads as "Missouri", no matter what data subset is loaded.
   // Earlier we framed to the data bbox, which caused the southern half of
   // the state to fill the canvas and the visual to drift as data changed.
-  const bbox = useMemo(() => {
-    let minLon = Infinity, maxLon = -Infinity;
-    let minLat = Infinity, maxLat = -Infinity;
-    for (const [lon, lat] of MO_OUTLINE) {
-      if (lon < minLon) minLon = lon;
-      if (lon > maxLon) maxLon = lon;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-    }
-    // Tight padding — the state outline already has visual breathing room.
-    const lonPad = (maxLon - minLon) * 0.02;
-    const latPad = (maxLat - minLat) * 0.02;
-    return {
-      minLon: minLon - lonPad,
-      maxLon: maxLon + lonPad,
-      minLat: minLat - latPad,
-      maxLat: maxLat + latPad,
-    };
-  }, []);
+  // Tight padding — the state outline already has visual breathing room.
+  const bbox = useMemo(() => bboxOf(MO_OUTLINE, 0.02), []);
 
   const project = useMemo(() => buildProjector(bbox), [bbox]);
 
@@ -466,6 +414,9 @@ export default function MOMap(props: MOMapProps) {
     };
   }, [view.x, view.y]);
 
+  const [dragging, setDragging] = useState(false);
+  const { onHoverGauge } = props;
+
   const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
@@ -474,6 +425,10 @@ export default function MOMap(props: MOMapProps) {
     if (!drag.moved &&
         (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX)) {
       drag.moved = true;
+      setDragging(true);
+      // A pan invalidates the hover overlay's captured screen position;
+      // drop the hover so it doesn't float detached from its marker.
+      onHoverGauge(null, null);
       // Once we know this is a real drag, capture the pointer so events
       // keep flowing even if the cursor leaves the SVG bounds mid-pan.
       try {
@@ -490,13 +445,14 @@ export default function MOMap(props: MOMapProps) {
       x: drag.startViewX - dx * sx,
       y: drag.startViewY - dy * sy,
     }));
-  }, [view.w, view.h, clampView]);
+  }, [view.w, view.h, clampView, onHoverGauge]);
 
   const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     const drag = dragRef.current;
     if (drag?.captured) {
       try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
     }
+    setDragging(false);
     // Don't null `dragRef` synchronously — onClick reads `moved` to know
     // whether this was a real click or the tail of a drag. Cleared next
     // tick.
@@ -553,7 +509,7 @@ export default function MOMap(props: MOMapProps) {
       viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       className="absolute inset-0 h-full w-full"
-      style={{ cursor: dragRef.current?.moved ? 'grabbing' : 'grab', touchAction: 'none' }}
+      style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -678,7 +634,7 @@ export default function MOMap(props: MOMapProps) {
         strokeLinejoin="round"
       />
 
-      {/* Title */}
+      {/* Title — sits on the dark backdrop above the state, so parchment ink */}
       <text
         x={W / 2}
         y={48}
@@ -686,7 +642,7 @@ export default function MOMap(props: MOMapProps) {
         fontFamily="var(--font-mono), ui-monospace, monospace"
         fontSize={13}
         letterSpacing="0.45em"
-        fill="rgba(80,60,30,0.5)"
+        fill="rgba(242,234,216,0.4)"
         fontWeight={500}
       >
         STATE OF MISSOURI · SURFACE WATER NETWORK
@@ -823,19 +779,21 @@ export default function MOMap(props: MOMapProps) {
             {/* Animated flow overlay — same gradient, dashed, animated
                 stroke-dashoffset. Speed comes from the river's overall
                 verdict (driven by the primary gauge). */}
-            <path
-              d={d}
-              stroke={gradStrokeRef}
-              strokeWidth={Math.max(1.1, sw * 0.55)}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray="14 8"
-              opacity={0.85}
-              style={{
-                animation: `mo-river-flow ${flowDur}s linear infinite`,
-                mixBlendMode: 'screen',
-              }}
-            />
+            {!reducedMotion && (
+              <path
+                d={d}
+                stroke={gradStrokeRef}
+                strokeWidth={Math.max(1.1, sw * 0.55)}
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray="14 8"
+                opacity={0.85}
+                style={{
+                  animation: `mo-river-flow ${flowDur}s linear infinite`,
+                  mixBlendMode: 'screen',
+                }}
+              />
+            )}
             {/* Flood emphasis — when ANY gauge is at flood, draw a brief
                 dashed overlay so the hazard reads even through the fade. */}
             {floodGauges.length > 0 && (
@@ -894,7 +852,10 @@ export default function MOMap(props: MOMapProps) {
           const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
           return (
             <g
-              key={g.site_no}
+              // Keyed per river+site: one physical gauge can serve two
+              // rivers (07017200 → Courtois + Huzzah) and site_no alone
+              // produced duplicate React keys.
+              key={condKey(g.river_id, g.site_no)}
               transform={`translate(${x} ${y})`}
               style={{ cursor: 'pointer' }}
               onMouseEnter={(e) => {
@@ -908,7 +869,7 @@ export default function MOMap(props: MOMapProps) {
               onClick={guardClick(() => props.onFocusGauge(g.site_no))}
             >
               <circle r={hitR} fill="transparent" pointerEvents="all" />
-              {elevated && (
+              {elevated && !reducedMotion && (
                 <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
                   <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
@@ -1011,14 +972,14 @@ export default function MOMap(props: MOMapProps) {
         </g>
       )}
 
-      {/* Period of record footer note */}
+      {/* Period of record footer note — dark backdrop corners need light ink */}
       <text
         x={W - 14}
         y={H - 14}
         textAnchor="end"
         fontFamily="var(--font-mono), ui-monospace, monospace"
         fontSize={10}
-        fill="rgba(80,60,30,0.55)"
+        fill="rgba(242,234,216,0.42)"
       >
         Geometry: USGS NHD via Supabase · Live data: USGS NWIS
       </text>
@@ -1030,7 +991,7 @@ export default function MOMap(props: MOMapProps) {
         fontFamily="var(--font-mono), ui-monospace, monospace"
         fontSize={9}
         letterSpacing="0.1em"
-        fill="rgba(80,60,30,0.55)"
+        fill="rgba(242,234,216,0.42)"
       >
         Stream colour: float condition at the nearest gauge · fades between gauges
       </text>
@@ -1045,7 +1006,9 @@ export default function MOMap(props: MOMapProps) {
         const ox = view.x + view.w * 0.04;
         const oy = view.y + view.h * 0.5;
         const tick = 4.5 * m;
-        const ink = 'rgba(45,42,36,0.78)';
+        // The bar floats over the dark canvas left of the state at the
+        // default framing — parchment ink, not map-ink, or it vanishes.
+        const ink = 'rgba(242,234,216,0.6)';
         return (
           <g pointerEvents="none" fontFamily="var(--font-mono), ui-monospace, monospace">
             <g transform={`translate(${ox + barUnits / 2} ${oy - 26 * m})`}>
@@ -1063,11 +1026,15 @@ export default function MOMap(props: MOMapProps) {
       })()}
     </svg>
 
-    {/* Zoom controls — overlay, not inside the SVG, so they stay fixed
-        in screen coordinates regardless of the current view. */}
+    {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
+        screen coordinates regardless of the current view. Slides out of
+        the way when the right rail is pinned (it used to hide beneath it). */}
     <div
-      className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10"
-      style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
+      className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right] duration-300"
+      style={{
+        fontFamily: 'var(--font-mono), ui-monospace, monospace',
+        right: props.railOpen ? 'min(384px, calc(100vw - 52px))' : 16,
+      }}
     >
       <button
         type="button"

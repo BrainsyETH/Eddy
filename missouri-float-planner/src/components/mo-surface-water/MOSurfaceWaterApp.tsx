@@ -1,5 +1,17 @@
 'use client';
 
+// /missouri-surface-water — a map-first, data-rich experience.
+//
+//   ┌─────────┬──────────────────────────────┐
+//   │  Data   │   Live condition map          │
+//   │  dock   │   (rivers, gauges, rail,      │
+//   │         │    30-day timeline)           │
+//   └─────────┴──────────────────────────────┘
+//
+// The dock and the map share one hover/focus state: pointing at a river
+// row lights the reach; scrubbing the timeline repaints the rows. On
+// mobile the dock becomes a slide-in drawer behind a floating live chip.
+
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -22,13 +34,11 @@ import type {
   MoForecastEntry,
   MoForecastResponse,
 } from '@/app/api/usgs/mo-forecast/route';
+import { computeTodayVerdicts, FLOATABLE } from './derive';
+import DataDock, { type DockRiverReading } from './Dock';
 import {
-  HeaderBar,
-  PercentileLegend,
-  StatewideSummary,
   RightRail,
   TimeScrubber,
-  LayerToggles,
   DetailModal,
   GaugeHoverOverlay,
   type ModalSelection,
@@ -53,6 +63,7 @@ export default function MOSurfaceWaterApp() {
   // rail on click.
   const [modalSelection, setModalSelection] = useState<ModalSelection | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
+  const [dockOpen, setDockOpen] = useState(false);
 
   // Access points / campgrounds / springs are paused while we iterate on
   // the gauge-first experience. The MOMap props are kept so the layers
@@ -124,41 +135,12 @@ export default function MOSurfaceWaterApp() {
     );
   }, [dayOffset, dayCount]);
 
-  // Per-river primary-gauge percentile at scrubbed day (or live if today)
-  const percentileByRiver: Record<string, number | null> = useMemo(() => {
-    const out: Record<string, number | null> = {};
-    const isToday = dayOffset === 0 || scrubIdx === dayCount - 1;
-    if (isToday) {
-      // Use live
-      const byRiver = new Map<string, number[]>();
-      for (const g of gauges) {
-        if (g.percentile == null) continue;
-        const arr = byRiver.get(g.river_slug) ?? [];
-        arr.push(g.percentile);
-        byRiver.set(g.river_slug, arr);
-      }
-      for (const r of rivers) {
-        const arr = byRiver.get(r.slug);
-        out[r.slug] =
-          arr && arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-      }
-    } else {
-      for (const r of rivers) {
-        // Pin to the primary entry — the bundle now also carries secondary
-        // gauges, which share a river_slug, so an unqualified find could
-        // return a secondary gauge's percentile for the river headline.
-        const ent = historyEntries.find((e) => e.river_slug === r.slug && e.is_primary);
-        const p = ent?.daily[scrubIdx]?.percentile ?? null;
-        out[r.slug] = p;
-      }
-    }
-    return out;
-  }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
+  const isToday = dayOffset === 0 || scrubIdx === dayCount - 1;
 
   // Per-gauge percentile (for gauge dots)
   const percentileByGauge: Record<string, number | null> = useMemo(() => {
     const out: Record<string, number | null> = {};
-    if (dayOffset === 0 || scrubIdx === dayCount - 1 || !historyEntries.length) {
+    if (isToday || !historyEntries.length) {
       for (const g of gauges) out[g.site_no] = g.percentile;
     } else {
       for (const g of gauges) {
@@ -167,7 +149,7 @@ export default function MOSurfaceWaterApp() {
       }
     }
     return out;
-  }, [gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
+  }, [gauges, historyEntries, scrubIdx, isToday]);
 
   // Per-gauge ConditionCode — derived from the gauge's own thresholds and
   // reading. Drives the segmented river coloring so each reach inherits
@@ -180,7 +162,6 @@ export default function MOSurfaceWaterApp() {
   // must classify independently per river.
   const conditionByGauge: Record<string, StageVerdict> = useMemo(() => {
     const out: Record<string, StageVerdict> = {};
-    const isToday = dayOffset === 0 || scrubIdx === dayCount - 1;
     for (const r of rivers) {
       for (const g of r.gauges ?? []) {
         const live = gauges.find((x) => x.site_no === g.site_id);
@@ -200,58 +181,64 @@ export default function MOSurfaceWaterApp() {
       }
     }
     return out;
-  }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount]);
+  }, [rivers, gauges, historyEntries, scrubIdx, isToday]);
 
-  // Verdict per river based on the gauge_height_ft from the primary gauge.
-  // For historical scrubbing, we approximate by mapping percentile back through
-  // the per-day stage when available; otherwise we use today's stage.
-  // When today's view is active, the next-72h AHPS forecast peak also feeds
-  // the flood-stage hazard override — i.e. "river is currently Prime but
-  // forecast crosses flood stage tomorrow" reads as Hazard.
+  // Verdict per river from the primary gauge. Today's view includes the
+  // 72h AHPS forecast flood override (shared derivation with the dock's
+  // headline counts); scrubbed days classify the historical reading.
   const verdictByRiver: Record<string, StageVerdict> = useMemo(() => {
+    if (isToday) return computeTodayVerdicts(rivers, gauges, forecastBySite);
     const out: Record<string, StageVerdict> = {};
+    for (const r of rivers) {
+      const primary = (r.gauges ?? []).find((g) => g.is_primary);
+      if (!primary) { out[r.slug] = 'unknown'; continue; }
+      const ent = historyEntries.find((e) => e.site_no === primary.site_id);
+      const day = ent?.daily[scrubIdx];
+      const value = primary.threshold_unit === 'ft'
+        ? day?.gaugeHeightFt ?? null
+        : day?.dischargeCfs ?? null;
+      out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary);
+    }
+    return out;
+  }, [rivers, gauges, historyEntries, scrubIdx, isToday, forecastBySite]);
+
+  // Primary-gauge reading per river for the dock rows — live today,
+  // historical when the timeline is scrubbed, so the dock always shows
+  // the same day the map is painting.
+  const readingByRiver: Record<string, DockRiverReading> = useMemo(() => {
+    const out: Record<string, DockRiverReading> = {};
     const liveByRiver = new Map<string, MoStatewideGauge>();
     for (const g of gauges) {
       if (g.is_primary && !liveByRiver.has(g.river_slug)) liveByRiver.set(g.river_slug, g);
     }
-    const isToday = dayOffset === 0 || scrubIdx === dayCount - 1;
     for (const r of rivers) {
       const primary = (r.gauges ?? []).find((g) => g.is_primary);
-      if (!primary) { out[r.slug] = 'unknown'; continue; }
-      let value: number | null = null;
+      if (!primary) { out[r.slug] = { value: null, unit: 'ft', dischargeCfs: null }; continue; }
       if (isToday) {
         const live = liveByRiver.get(r.slug);
-        value = primary.threshold_unit === 'ft'
-          ? live?.gaugeHeightFt ?? null
-          : live?.dischargeCfs ?? null;
+        out[r.slug] = {
+          value: primary.threshold_unit === 'ft'
+            ? live?.gaugeHeightFt ?? null
+            : live?.dischargeCfs ?? null,
+          unit: primary.threshold_unit,
+          dischargeCfs: live?.dischargeCfs ?? null,
+        };
       } else {
         const ent = historyEntries.find((e) => e.site_no === primary.site_id);
         const day = ent?.daily[scrubIdx];
-        value = primary.threshold_unit === 'ft'
-          ? day?.gaugeHeightFt ?? null
-          : day?.dischargeCfs ?? null;
+        out[r.slug] = {
+          value: primary.threshold_unit === 'ft'
+            ? day?.gaugeHeightFt ?? null
+            : day?.dischargeCfs ?? null,
+          unit: primary.threshold_unit,
+          dischargeCfs: day?.dischargeCfs ?? null,
+        };
       }
-      // Flood-stage hazard override — for ft thresholds only, when today's
-      // live or 72h-forecast peak exceeds USGS/AHPS flood stage.
-      if (
-        isToday &&
-        primary.threshold_unit === 'ft' &&
-        primary.flood_stage_ft != null
-      ) {
-        const fc = forecastBySite[primary.site_id];
-        const peakCandidate = Math.max(
-          value ?? Number.NEGATIVE_INFINITY,
-          fc?.peakFt ?? Number.NEGATIVE_INFINITY,
-        );
-        if (peakCandidate >= primary.flood_stage_ft) {
-          out[r.slug] = 'dangerous';
-          continue;
-        }
-      }
-      out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary);
     }
     return out;
-  }, [rivers, gauges, historyEntries, scrubIdx, dayOffset, dayCount, forecastBySite]);
+  }, [rivers, gauges, historyEntries, scrubIdx, isToday]);
+
+  const floatableCount = rivers.filter((r) => FLOATABLE.has(verdictByRiver[r.slug])).length;
 
   // ─── Right-rail selectors ─────────────────────────────────────────────
   const focusedRiver = rivers.find((r) => r.id === focusedRiverId) ?? null;
@@ -359,86 +346,126 @@ export default function MOSurfaceWaterApp() {
     setHoveredGaugePos(null);
   };
 
+  const railOpen = !!railRiver || !!focusedGauge;
+
   return (
-    <div className="absolute inset-0" style={{ background: '#0F2D35', fontFamily: 'var(--font-body)' }}>
-      <MOMap
+    <div
+      className="absolute inset-0 flex overflow-hidden"
+      style={{ background: '#071A20', fontFamily: 'var(--font-body)' }}
+    >
+      {/* keyframes shared by the dock chrome */}
+      <style>{`
+        @keyframes mosw-ping { 75%, 100% { transform: scale(2.6); opacity: 0; } }
+      `}</style>
+
+      <DataDock
         rivers={rivers}
-        campgrounds={dataset?.campgrounds ?? []}
-        gauges={gauges}
         verdictByRiver={verdictByRiver}
-        conditionByGauge={conditionByGauge}
-        percentileByGauge={percentileByGauge}
+        readingByRiver={readingByRiver}
+        history={historyEntries}
         hoveredRiverId={hoveredRiverId}
         focusedRiverId={focusedRiverId}
-        hoveredGaugeId={hoveredGaugeId}
-        focusedGaugeId={focusedGaugeId}
-        showCampgrounds={showCampgrounds}
-        showAccessPoints={showAccessPoints}
-        showPOIs={showPOIs}
-        showGauges={showGauges}
-        onHoverRiver={setHoveredRiverId}
-        onFocusRiver={setFocusedRiverId}
-        onHoverGauge={(id, pos) => { setHoveredGaugeId(id); setHoveredGaugePos(pos ?? null); }}
-        onFocusGauge={handleFocusGauge}
-        onClickCampground={handleClickCampground}
-        onClickAccessPoint={handleClickAccess}
-        onClickPoi={handleClickPoi}
-      />
-
-      <HeaderBar
+        dayOffset={dayOffset}
         generatedAt={statewide?.generatedAt ?? dataset?.generated_at ?? null}
-        riverCount={rivers.length}
         gaugeCount={gauges.length}
-        campgroundCount={dataset?.campgrounds.length ?? 0}
-      />
-      <PercentileLegend />
-      <LayerToggles
         showGauges={showGauges}
         setShowGauges={setShowGauges}
-      />
-      <StatewideSummary
-        rivers={rivers}
-        percentileByRiver={percentileByRiver}
-        verdictByRiver={verdictByRiver}
-      />
-
-      <RightRail
-        river={railRiver}
-        primaryGauge={railPrimaryGauge}
-        primaryHistory={railPrimaryHistory}
-        focusedGauge={focusedGauge}
-        focusedGaugeVerdict={focusedGauge ? conditionByGauge[condKey(focusedGauge.river_id, focusedGauge.site_no)] ?? null : null}
-        campground={null}
-        accessPoint={null}
-        poi={null}
-        forecastBySite={forecastBySite}
-        onClose={closeRail}
-        onCloseGauge={() => setFocusedGaugeId(null)}
-        onAccessPointClick={(id) => handleClickAccess(id)}
+        onHoverRiver={setHoveredRiverId}
+        onFocusRiver={setFocusedRiverId}
+        open={dockOpen}
+        onClose={() => setDockOpen(false)}
       />
 
-      <TimeScrubber
-        dayOffset={dayOffset}
-        setDayOffset={setDayOffset}
-        history={historyEntries}
-        rivers={rivers}
-      />
+      {/* ── Map stage ── */}
+      <div className="relative min-w-0 flex-1">
+        {/* Map canvas stops above the timeline so the state never hides
+            behind the scrubber. */}
+        <div className="absolute inset-x-0 top-0 bottom-[150px]">
+        <MOMap
+          rivers={rivers}
+          campgrounds={dataset?.campgrounds ?? []}
+          gauges={gauges}
+          verdictByRiver={verdictByRiver}
+          conditionByGauge={conditionByGauge}
+          percentileByGauge={percentileByGauge}
+          hoveredRiverId={hoveredRiverId}
+          focusedRiverId={focusedRiverId}
+          hoveredGaugeId={hoveredGaugeId}
+          focusedGaugeId={focusedGaugeId}
+          showCampgrounds={showCampgrounds}
+          showAccessPoints={showAccessPoints}
+          showPOIs={showPOIs}
+          showGauges={showGauges}
+          railOpen={railOpen}
+          onHoverRiver={setHoveredRiverId}
+          onFocusRiver={setFocusedRiverId}
+          onHoverGauge={(id, pos) => { setHoveredGaugeId(id); setHoveredGaugePos(pos ?? null); }}
+          onFocusGauge={handleFocusGauge}
+          onClickCampground={handleClickCampground}
+          onClickAccessPoint={handleClickAccess}
+          onClickPoi={handleClickPoi}
+        />
+        </div>
 
-      {error && (
-        <div
-          className="absolute z-30 rounded-md border-2 px-3 py-2"
+        {/* Mobile: floating live chip that opens the dock drawer */}
+        <button
+          type="button"
+          onClick={() => setDockOpen(true)}
+          className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-md border-2 px-3 py-2 md:hidden"
           style={{
-            top: 96, left: '50%', transform: 'translateX(-50%)',
-            background: '#0F2D35', color: '#F2EAD8',
-            borderColor: '#3F3B33',
-            fontFamily: 'var(--font-mono)', fontSize: 11,
-            letterSpacing: '0.08em',
-            boxShadow: '3px 3px 0 #1A1814',
+            background: 'rgba(12,40,49,0.94)',
+            borderColor: 'rgba(242,234,216,0.2)',
+            color: '#F2EAD8',
+            fontFamily: 'var(--font-mono), ui-monospace, monospace',
+            fontSize: 11,
+            letterSpacing: '0.1em',
+            boxShadow: '0 8px 24px -12px rgba(4,20,26,0.9)',
           }}
         >
-          Data fetch failed: {error}
-        </div>
-      )}
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: '#F07052', boxShadow: '0 0 6px #F07052' }} />
+          <span className="font-bold uppercase">
+            {floatableCount}/{rivers.length || '—'} floatable · rivers
+          </span>
+        </button>
+
+        <RightRail
+          river={railRiver}
+          primaryGauge={railPrimaryGauge}
+          primaryHistory={railPrimaryHistory}
+          focusedGauge={focusedGauge}
+          focusedGaugeVerdict={focusedGauge ? conditionByGauge[condKey(focusedGauge.river_id, focusedGauge.site_no)] ?? null : null}
+          campground={null}
+          accessPoint={null}
+          poi={null}
+          forecastBySite={forecastBySite}
+          onClose={closeRail}
+          onCloseGauge={() => setFocusedGaugeId(null)}
+          onAccessPointClick={(id) => handleClickAccess(id)}
+        />
+
+        <TimeScrubber
+          dayOffset={dayOffset}
+          setDayOffset={setDayOffset}
+          history={historyEntries}
+          rivers={rivers}
+        />
+
+        {error && (
+          <div
+            className="absolute z-30 rounded-md border-2 px-3 py-2"
+            style={{
+              top: 64, left: '50%', transform: 'translateX(-50%)',
+              background: '#0F2D35', color: '#F2EAD8',
+              borderColor: '#3F3B33',
+              fontFamily: 'var(--font-mono)', fontSize: 11,
+              letterSpacing: '0.08em',
+              boxShadow: '3px 3px 0 #1A1814',
+            }}
+          >
+            Data fetch failed: {error}
+          </div>
+        )}
+      </div>
 
       <DetailModal selection={modalSelection} onClose={closeModal} />
 
