@@ -1,5 +1,5 @@
 {
-  "_status": "AWAITING SIGNOFF — calibrated in CFS from the authoritative NPS BUFF Float Guide tables (see buffalo-thresholds-captured.md), cross-validated against the live NPS dashboard for all 5 reference gauges. 24 anchors across 4 reaches, threshold_unit=cfs, all reference gauges are the polled USGS sites (poll param 00060 discharge). Supersedes the earlier Wild Bill's stage(ft) chart (Ponca ft-vs-flow discrepancy resolved: NPS categorizes by flow). Remaining [signoff]: (1) confirm the good/flowing split (best-effort lower-third good / upper-two-thirds flowing), (2) Pruitt gauge USGS number if a finer upper/middle split is wanted, (3) NHD id + park code 'buff' + access-point coords still UNKNOWN. Thresholds themselves are NPS-authoritative and dashboard-validated.",
+  "_status": "AWAITING SIGNOFF — calibrated in CFS from the authoritative NPS BUFF Float Guide tables (see buffalo-thresholds-captured.md), cross-validated against the live NPS dashboard for all 5 reference gauges. 24 anchors across 4 reaches, threshold_unit=cfs, all reference gauges are the polled USGS sites (poll param 00060 discharge). Supersedes the earlier Wild Bill's stage(ft) chart (Ponca ft-vs-flow discrepancy resolved: NPS categorizes by flow). Remaining [signoff]: (1) confirm the good/flowing split (best-effort lower-third good / upper-two-thirds flowing), (2) Pruitt gauge USGS number if a finer upper/middle split is wanted. Mechanical items status: park code 'buff' VERIFIED (nps.gov/buff, parkplanning.nps.gov/buff, NPS API parkCode=buff). NHD feature id and gauge coordinates/params/drainage areas remain UNKNOWN because USGS + NPS + National Map hosts are all denied by the current network policy (hard 403 on CONNECT) — NOT fabricated. Gauge coords/params/drainageArea should be auto-pulled from the USGS site service at ingest time (more reliable than hand transcription); NHD geometry via seed path or National Map query once egress allows (see scripts/config/nhd-rivers.json $buffalo_nhd_todo). Thresholds themselves are NPS-authoritative and dashboard-validated.",
   "name": "Buffalo National River",
   "slug": "buffalo",
   "state": "AR",
@@ -586,11 +586,13 @@
       "Arkansas stream-access / navigability law (once-per-state research)."
     ],
     "toVerify": [
-      "NHD Permanent Identifier for the Buffalo River flowline (currently UNKNOWN)",
-      "NPS park code 'buff' against the NPS API",
-      "Gauge coordinates, parameters (00060/00065), drainage areas, periods of record — from each USGS monitoring-location page",
-      "Numeric floatable ranges from: wildbillsoutfitter.com/floating-levels-guides, the ArcGIS float dashboard (3606e2401fdd428cbbdff9518cbe11af), wise.er.usgs.gov/dp/buffaloriver, ar.water.usgs.gov/buffaloriver, bnrpartners.org/riverlevels",
-      "Full NPS access-point list with coordinates (put-ins/take-outs per district)"
+      "NHD Permanent Identifier for the Buffalo River flowline (UNKNOWN — National Map host policy-blocked at draft time; see scripts/config/nhd-rivers.json $buffalo_nhd_todo for the fill recipe; long multi-segment main stem may need the seed-file geometry path)",
+      "Gauge coordinates, parameters (00060/00065), drainage areas, periods of record — DEFER to ingest-time auto-pull from the USGS site service (USGS hosts policy-blocked at draft time; do not hand-transcribe)",
+      "Numeric floatable ranges cross-check (thresholds already calibrated from NPS tables): wildbillsoutfitter.com/floating-levels-guides, the ArcGIS float dashboard (3606e2401fdd428cbbdff9518cbe11af), wise.er.usgs.gov/dp/buffaloriver, ar.water.usgs.gov/buffaloriver, bnrpartners.org/riverlevels",
+      "Full NPS access-point list with coordinates (put-ins/take-outs per district) — human places every point on the map"
+    ],
+    "verified": [
+      "NPS park code 'buff' — confirmed via nps.gov/buff, parkplanning.nps.gov/buff, and the NPS API pattern developer.nps.gov/api/v1/parks?parkCode=buff (WebSearch, 2026-07-04)"
     ]
   }
 }
