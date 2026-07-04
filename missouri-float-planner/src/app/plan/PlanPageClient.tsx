@@ -84,7 +84,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const visualFormRef = useFocusTrap<HTMLDivElement>(showVisualSubmitForm, () => setShowVisualSubmitForm(false));
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'saving'>('idle');
 
-  const floatPlanCardRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -453,18 +452,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     ? { min: Math.min(putInPoint.riverMile, takeOutPoint.riverMile), max: Math.max(putInPoint.riverMile, takeOutPoint.riverMile) }
     : null;
 
-  useEffect(() => {
-    // Only auto-scroll on mobile, where floatPlanCardRef targets the visible
-    // bottom sheet. On desktop the ref points at a hidden (lg:hidden) node, and
-    // yanking the viewport while the user reads the map is unwanted.
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
-    if (isMobile && selectedPutIn && selectedTakeOut && floatPlanCardRef.current) {
-      const t = setTimeout(() => {
-        floatPlanCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 100);
-      return () => clearTimeout(t);
-    }
-  }, [selectedPutIn, selectedTakeOut]);
+  // (No auto-scroll here: the mobile plan card is a fixed-position bottom
+  // sheet, so it is always on screen — scrollIntoView on a fixed element only
+  // risks yanking the document toward the below-fold content.)
 
   // ─── No river selected: show the map with a prominent river picker ───
   if (!riverSlug) {

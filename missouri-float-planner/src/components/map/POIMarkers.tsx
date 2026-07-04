@@ -93,7 +93,11 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
         box-sizing: border-box;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        z-index: 0;
       `;
+      // z-index 0 keeps POIs beneath access-point markers (z 1/10): POIs
+      // mount later, and with no explicit index DOM order was putting a
+      // scenic-overlook dot on top of the access point the user needs to tap.
 
       // Inner element is the visible colored/gradient circle
       const circle = document.createElement('div');

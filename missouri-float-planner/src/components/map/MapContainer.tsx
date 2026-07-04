@@ -434,7 +434,10 @@ export default function MapContainer({
       {/* Map Controls - right side. On mobile there is no NavigationControl,
           so the column starts near the top; on desktop it sits below the
           MapLibre zoom/compass stack. */}
-      <div className="absolute top-2.5 md:top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 z-10">
+      {/* z-10 normally, but lifted above the z-20 hint/stats overlays while
+          the layers menu is open — the column is a stacking context, so an
+          inner z-50 alone can never escape it. */}
+      <div className={`absolute top-2.5 md:top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 ${showStylePicker ? 'z-30' : 'z-10'}`}>
         {/* Layers menu: map style everywhere; on mobile it also carries the
             weather-radar and gauge toggles so the map edge shows ONE button
             instead of three. */}

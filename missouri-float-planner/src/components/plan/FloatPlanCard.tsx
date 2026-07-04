@@ -1201,7 +1201,10 @@ function MobileBottomSheet({
     <div
       ref={sheetRef}
       data-plan-sheet
-      className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl shadow-2xl ease-out overflow-hidden lg:hidden ${
+      // z-40: below the site header menu, river picker, photo/feedback modals,
+      // and fullscreen map (all z-50) — the sheet used to win those ties by
+      // DOM order and drew over every one of them.
+      className={`fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl shadow-2xl ease-out overflow-hidden lg:hidden ${
         isDragging ? '' : 'transition-all duration-300'
       } ${
         isOpen
@@ -1219,6 +1222,7 @@ function MobileBottomSheet({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
             onClick={() => setSheetState('collapsed')}
           >
             <GripHorizontal size={24} className="text-neutral-300" />
@@ -1261,6 +1265,7 @@ function MobileBottomSheet({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           onClick={() => setSheetState('peek')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
