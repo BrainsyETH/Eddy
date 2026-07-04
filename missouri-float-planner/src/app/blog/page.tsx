@@ -133,6 +133,11 @@ export default async function BlogPage() {
                       {post.read_time_minutes && (
                         <span className="text-xs text-neutral-500">{post.read_time_minutes} min read</span>
                       )}
+                      {post.published_at && (
+                        <time dateTime={post.published_at} className="text-xs text-neutral-500">
+                          {new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </time>
+                      )}
                     </div>
 
                     <h2 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-primary-700 transition-colors">

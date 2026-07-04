@@ -1572,10 +1572,30 @@ export default function FloatPlanCard({
     );
   }
 
-  // Both points selected but still loading - show skeleton (desktop only)
+  // Both points selected but still loading - show skeleton
   if (hasBothPoints && !displayPlan && isLoading) {
     return (
-      <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
+      <>
+        {/* Mobile skeleton — the desktop grid below is hidden on small screens,
+            so without this the bottom sheet stays empty during the plan fetch. */}
+        <div className="lg:hidden bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden animate-pulse" role="status" aria-label="Calculating your float plan">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="h-5 bg-neutral-200 rounded w-24"></div>
+              <div className="h-5 bg-neutral-200 rounded w-16"></div>
+            </div>
+            <div className="h-8 bg-neutral-200 rounded w-40"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-support-200"></div>
+              <div className="flex-1 h-1 bg-neutral-200 rounded"></div>
+              <div className="w-3 h-3 rounded-full bg-accent-200"></div>
+            </div>
+            <div className="h-12 bg-neutral-100 rounded w-full"></div>
+            <span className="sr-only">Calculating your float plan…</span>
+          </div>
+        </div>
+
+        <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
         <div className="p-4">
           <div className="grid grid-cols-[1fr,280px,1fr] gap-4">
             {/* Put-in Card Skeleton */}
@@ -1611,6 +1631,7 @@ export default function FloatPlanCard({
           </div>
         </div>
       </div>
+      </>
     );
   }
 

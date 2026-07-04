@@ -499,6 +499,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               dischargeCfs={activeGauge.dischargeCfs}
               thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
+              readingAgeHours={activeGauge.readingAgeHours}
             />
             <GaugeWeather
               key={`weather-${activeSiteId}`}

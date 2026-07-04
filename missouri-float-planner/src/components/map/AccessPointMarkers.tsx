@@ -238,9 +238,22 @@ export default function AccessPointMarkers({
 
       // Add click handler - always allow clicks so user can deselect or change selection
       if (onMarkerClick) {
-        el.addEventListener('click', (e: MouseEvent) => {
-          e.stopPropagation();
-          e.preventDefault();
+        // Expose the marker to keyboard + assistive tech as a real button.
+        const action = isPutIn
+          ? 'deselect put-in'
+          : isTakeOut
+          ? 'deselect take-out'
+          : !selectedPutIn
+          ? 'select as put-in'
+          : 'select as take-out';
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute(
+          'aria-label',
+          `${point.name}, river mile ${point.riverMile.toFixed(1)}, ${point.type.replace('_', ' ')}. Press to ${action}.`,
+        );
+
+        const activate = () => {
           if (!supportsHoverRef.current) {
             popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
             map.once('click', () => popup.remove());
@@ -249,7 +262,25 @@ export default function AccessPointMarkers({
           if (supportsHoverRef.current) {
             popup.remove();
           }
+        };
+
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+          activate();
         });
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            activate();
+          }
+        });
+        // Surface the popup on keyboard focus, mirroring hover.
+        el.addEventListener('focus', () => {
+          popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
+        });
+        el.addEventListener('blur', () => popup.remove());
       }
 
       markersRef.current.push(marker);
