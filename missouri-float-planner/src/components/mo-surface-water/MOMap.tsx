@@ -33,6 +33,7 @@ import {
   bboxOf,
 } from './projection';
 import { usePrefersReducedMotion } from './fx';
+import FlowLayer, { type FlowRiver } from './FlowLayer';
 
 type BasemapRiver = {
   type: 'Feature';
@@ -93,6 +94,8 @@ interface MOMapProps {
   showGauges: boolean;
   /** Baked hillshade relief layer. Defaults on; toggled from the HUD. */
   showTerrain?: boolean;
+  /** Animated particle flow layer along the curated rivers. */
+  showFlow?: boolean;
   /** Statewide context sites (neutral, no condition rating). */
   contextSites?: MoContextSite[];
   showSites?: boolean;
@@ -353,27 +356,6 @@ export default function MOMap(props: MOMapProps) {
     );
   }, [bbox]);
 
-  // ─── Flow animation ────────────────────────────────────────────────────
-  // The river segments paint as flowing dashed lines via CSS-animated
-  // stroke-dashoffset. Each ConditionCode maps to a loop duration: too_low
-  // is ~60s per dash period (almost stationary), dangerous is ~2s
-  // (sprinting). Replaces the old RAF-driven particle dots — same visual
-  // intent (motion communicates flow strength) but seamless and free, no
-  // JS frame loop, and crucially no "no particles for too_low/low" gap
-  // since every segment animates regardless of condition.
-  //
-  // The dash period (sum of dash + gap, in viewBox units) needs to match
-  // the negative `to` value on the @keyframes below — they're both 22.
-  const FLOW_DURATION_BY_CONDITION: Record<StageVerdict, number> = {
-    too_low:   60,
-    low:       30,
-    good:      14,
-    flowing:   8,
-    high:      4,
-    dangerous: 2,
-    unknown:   20,
-  };
-
   // ─── Zoom + pan ────────────────────────────────────────────────────────
   // The SVG viewBox is state. Wheel zooms around the cursor; primary-button
   // drag pans; double-click resets to the full-state framing. Children
@@ -499,6 +481,10 @@ export default function MOMap(props: MOMapProps) {
   // Native `addEventListener` with `{ passive: false }` lets the page
   // suppress browser scroll while we zoom the SVG.
   const svgRef = useRef<SVGSVGElement | null>(null);
+  // The stage div hosts the native wheel listener so zoom works over the
+  // base SVG, the flow canvas, and the marker SVG alike (events from
+  // marker groups bubble up to it).
+  const stageRef = useRef<HTMLDivElement | null>(null);
   // The wheel handler reads `view` and writes to it. We stash the latest
   // view in a ref so the native listener (registered once) sees fresh
   // state without needing to re-bind on every view change.
@@ -506,7 +492,7 @@ export default function MOMap(props: MOMapProps) {
   useEffect(() => { viewRef.current = view; }, [view]);
 
   useEffect(() => {
-    const svg = svgRef.current;
+    const svg = stageRef.current;
     if (!svg) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
@@ -531,7 +517,7 @@ export default function MOMap(props: MOMapProps) {
   // markers receive their click events normally.
   const DRAG_THRESHOLD_PX = 5;
 
-  const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     // Track potential drag, but DO NOT capture the pointer yet. If we
     // capture here, all subsequent pointer events (including the click
@@ -555,7 +541,7 @@ export default function MOMap(props: MOMapProps) {
   const [dragging, setDragging] = useState(false);
   const { onHoverGauge } = props;
 
-  const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
     const dx = e.clientX - drag.startClientX;
@@ -585,7 +571,7 @@ export default function MOMap(props: MOMapProps) {
     }));
   }, [view.w, view.h, clampView, onHoverGauge]);
 
-  const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (drag?.captured) {
       try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
@@ -628,6 +614,33 @@ export default function MOMap(props: MOMapProps) {
     [],
   );
 
+  // Curated polylines + gradient recipes for the particle flow layer.
+  const flowRivers = useMemo<FlowRiver[]>(() => {
+    return props.rivers.map((r) => {
+      const grad = riverGradients[r.id];
+      return {
+        id: r.id,
+        pts: (r.geometry.coordinates as Array<[number, number]>).map(([lo, la]) =>
+          project(lo, la),
+        ),
+        verdict: props.verdictByRiver[r.slug] ?? 'unknown',
+        axis: grad ? { x1: grad.x1, y1: grad.y1, x2: grad.x2, y2: grad.y2 } : null,
+        stops: grad ? grad.stops.map((st) => ({ offset: st.offset, color: st.color })) : [],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.rivers, props.verdictByRiver, riverGradients, project]);
+
+  // Particle budget: 700 desktop / 300 small screens or low-end hardware
+  // (docs/mo-surface-water-observatory.md). Sampled once per mount.
+  const [maxParticles] = useState(() => {
+    if (typeof window === 'undefined') return 700;
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const small = window.matchMedia('(max-width: 768px)').matches;
+    const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
+    return small || lowEnd ? 300 : 700;
+  });
+
   // Sort rivers so lower-order paint underneath higher-order, and the
   // hovered/focused one always renders last (on top).
   const orderedRivers = useMemo(() => {
@@ -640,13 +653,15 @@ export default function MOMap(props: MOMapProps) {
     });
   }, [props.rivers, props.hoveredRiverId, props.focusedRiverId]);
 
+  const viewBoxAttr = `${view.x} ${view.y} ${view.w} ${view.h}`;
+
   return (
     <>
-    <svg
-      ref={svgRef}
-      viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
-      preserveAspectRatio="xMidYMid meet"
-      className="absolute inset-0 h-full w-full"
+    {/* Stage — owns pan/zoom/hover so events work identically across the
+        base SVG, the flow canvas, and the marker SVG stacked inside it. */}
+    <div
+      ref={stageRef}
+      className="absolute inset-0"
       style={{
         cursor: dragging ? 'grabbing' : 'grab',
         touchAction: 'none',
@@ -675,7 +690,7 @@ export default function MOMap(props: MOMapProps) {
       onClick={(e) => {
         // Empty-area click clears focus — but only if we didn't just pan.
         if (dragRef.current?.moved) return;
-        if (e.target === e.currentTarget) {
+        if (e.target === svgRef.current || e.target === e.currentTarget) {
           props.onFocusRiver(null);
           props.onFocusGauge(null);
           props.onClickCampground(null);
@@ -683,6 +698,12 @@ export default function MOMap(props: MOMapProps) {
           props.onClickPoi(null);
         }
       }}
+    >
+    <svg
+      ref={svgRef}
+      viewBox={viewBoxAttr}
+      preserveAspectRatio="xMidYMid meet"
+      className="absolute inset-0 h-full w-full"
     >
       <defs>
         <radialGradient id="mo-bg" cx="50%" cy="50%" r="85%">
@@ -893,11 +914,6 @@ export default function MOMap(props: MOMapProps) {
         const grad = riverGradients[r.id];
         const gradId = `mo-river-grad-${r.id}`;
         const gradStrokeRef = grad ? `url(#${gradId})` : fallbackColor;
-        // Flow speed for the whole river is driven by the primary gauge's
-        // condition (or the river's overall verdict if there's no
-        // primary). Each river paints at one speed; color fades along
-        // the gradient at each gauge's projected position.
-        const flowDur = FLOW_DURATION_BY_CONDITION[verdict];
         // Highlight the dangerous portion with a brief dashed inner
         // overlay if any gauge is at flood — limited to the segment
         // around that gauge so neighbors aren't visually contaminated.
@@ -962,24 +978,6 @@ export default function MOMap(props: MOMapProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {/* Animated flow overlay — same gradient, dashed, animated
-                stroke-dashoffset. Speed comes from the river's overall
-                verdict (driven by the primary gauge). */}
-            {!reducedMotion && (
-              <path
-                d={d}
-                stroke={gradStrokeRef}
-                strokeWidth={Math.max(1.1, sw * 0.55)}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray="14 8"
-                opacity={0.85}
-                style={{
-                  animation: `mo-river-flow ${flowDur}s linear infinite`,
-                  mixBlendMode: 'screen',
-                }}
-              />
-            )}
             {/* Flood emphasis — when ANY gauge is at flood, draw a brief
                 dashed overlay so the hazard reads even through the fade. */}
             {floodGauges.length > 0 && (
@@ -1001,100 +999,8 @@ export default function MOMap(props: MOMapProps) {
       {/* Flow animation keyframes — applied per-segment via inline style.
           One dash period = 22 viewBox units (14 dash + 8 gap). */}
       <style>{`
-        @keyframes mo-river-flow { to { stroke-dashoffset: -22; } }
         .mosw-ctx:hover { opacity: 1 !important; }
       `}</style>
-
-      {/* Gauges. Radii multiplied by kStable so the dot stays the same
-          *screen* size at any zoom — at the state-wide view it doesn't
-          dwarf the rivers, and zoomed in it doesn't balloon.
-          Each marker has an invisible 14px screen hit-target as the
-          first child so clicks register reliably even when the visible
-          dot is only a few pixels across. */}
-      {props.showGauges && (
-      <g style={fadeIn(1450, 800)}>
-        {props.gauges.map((g) => {
-          const r = props.rivers.find((x) => x.id === g.river_id);
-          const gauge = r?.gauges?.find((x) => x.site_id === g.site_no);
-          if (!gauge) return null;
-          const [x, y] = project(gauge.lon, gauge.lat);
-          const p = props.percentileByGauge[g.site_no] ?? g.percentile;
-          const isHovered = props.hoveredGaugeId === g.site_no;
-          const isFocused = props.focusedGaugeId === g.site_no;
-          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
-          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
-          // Pulse the marker when the river is running high — by discharge
-          // percentile when USGS publishes it, otherwise by the editorial
-          // condition so stage-only gauges still flag rising water.
-          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
-          const iconHref = getEddyImageForCondition(verdict);
-          // Condition chip: a crisp colored disc with a cream halo reads at
-          // any zoom. The Eddy avatar is the personality layer — shown only
-          // on hover/focus or once zoomed in (view < 0.5x), where it floats
-          // just above the chip like a labeled pin so the anchor stays put.
-          const showOtter = isHovered || isFocused || view.w < W * 0.5;
-          // Size encodes current discharge on the same sqrt scale as the
-          // statewide context sites, so magnitude reads consistently.
-          const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
-          const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
-          const otterSize = (isFocused ? 32 : 27) * kStable;
-          const iconYOffset = -(chipR + otterSize * 0.58);
-          const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
-          return (
-            <g
-              // Keyed per river+site: one physical gauge can serve two
-              // rivers (07017200 → Courtois + Huzzah) and site_no alone
-              // produced duplicate React keys.
-              key={condKey(g.river_id, g.site_no)}
-              transform={`translate(${x} ${y})`}
-              style={{ cursor: 'pointer' }}
-              onMouseEnter={(e) => {
-                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
-                props.onHoverGauge(g.site_no, {
-                  x: rect.left + rect.width / 2,
-                  y: rect.top + rect.height / 2,
-                });
-              }}
-              onMouseLeave={() => props.onHoverGauge(null, null)}
-              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
-            >
-              <circle r={hitR} fill="transparent" pointerEvents="all" />
-              {/* soft glow halo — live data reads as lit */}
-              <circle r={chipR * 2.3} fill={verdictColor} opacity={0.17} pointerEvents="none" />
-              {elevated && !reducedMotion && (
-                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
-                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
-                </circle>
-              )}
-              {showOtter && (
-                <image
-                  href={iconHref}
-                  x={-otterSize / 2}
-                  y={iconYOffset - otterSize / 2}
-                  width={otterSize}
-                  height={otterSize}
-                  pointerEvents="none"
-                  style={{
-                    filter: isFocused
-                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
-                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
-                  }}
-                />
-              )}
-              <circle
-                r={chipR}
-                fill={verdictColor}
-                stroke="#FAF8F4"
-                strokeWidth={1.5 * kStable}
-                pointerEvents="none"
-                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
-              />
-            </g>
-          );
-        })}
-      </g>
-      )}
 
       {/* Access points */}
       {props.showAccessPoints && (
@@ -1217,6 +1123,123 @@ export default function MOMap(props: MOMapProps) {
         );
       })()}
     </svg>
+
+    {/* Animated flow — comet particles on the curated rivers, above the
+        river strokes but below the gauge markers (next SVG). Pointer
+        events pass straight through. */}
+    {props.showFlow !== false && !reducedMotion && entryPhase === 'done' && (
+      <FlowLayer
+        rivers={flowRivers}
+        viewRef={viewRef}
+        enabled
+        maxParticles={maxParticles}
+      />
+    )}
+
+    {/* Marker overlay — gauges stay crisp above the particle stream.
+        The SVG itself is transparent to the pointer; each marker opts
+        back in, and its events bubble to the stage div for pan/zoom. */}
+    <svg
+      viewBox={viewBoxAttr}
+      preserveAspectRatio="xMidYMid meet"
+      className="absolute inset-0 h-full w-full"
+      style={{ pointerEvents: 'none' }}
+    >
+      {/* Gauges. Radii multiplied by kStable so the dot stays the same
+          *screen* size at any zoom — at the state-wide view it doesn't
+          dwarf the rivers, and zoomed in it doesn't balloon.
+          Each marker has an invisible 14px screen hit-target as the
+          first child so clicks register reliably even when the visible
+          dot is only a few pixels across. */}
+      {props.showGauges && (
+      <g style={fadeIn(1450, 800)}>
+        {props.gauges.map((g) => {
+          const r = props.rivers.find((x) => x.id === g.river_id);
+          const gauge = r?.gauges?.find((x) => x.site_id === g.site_no);
+          if (!gauge) return null;
+          const [x, y] = project(gauge.lon, gauge.lat);
+          const p = props.percentileByGauge[g.site_no] ?? g.percentile;
+          const isHovered = props.hoveredGaugeId === g.site_no;
+          const isFocused = props.focusedGaugeId === g.site_no;
+          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
+          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
+          // Pulse the marker when the river is running high — by discharge
+          // percentile when USGS publishes it, otherwise by the editorial
+          // condition so stage-only gauges still flag rising water.
+          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
+          const iconHref = getEddyImageForCondition(verdict);
+          // Condition chip: a crisp colored disc with a cream halo reads at
+          // any zoom. The Eddy avatar is the personality layer — shown only
+          // on hover/focus or once zoomed in (view < 0.5x), where it floats
+          // just above the chip like a labeled pin so the anchor stays put.
+          const showOtter = isHovered || isFocused || view.w < W * 0.5;
+          // Size encodes current discharge on the same sqrt scale as the
+          // statewide context sites, so magnitude reads consistently.
+          const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
+          const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
+          const otterSize = (isFocused ? 32 : 27) * kStable;
+          const iconYOffset = -(chipR + otterSize * 0.58);
+          const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
+          return (
+            <g
+              // Keyed per river+site: one physical gauge can serve two
+              // rivers (07017200 → Courtois + Huzzah) and site_no alone
+              // produced duplicate React keys.
+              key={condKey(g.river_id, g.site_no)}
+              transform={`translate(${x} ${y})`}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={(e) => {
+                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
+                props.onHoverGauge(g.site_no, {
+                  x: rect.left + rect.width / 2,
+                  y: rect.top + rect.height / 2,
+                });
+              }}
+              onMouseLeave={() => props.onHoverGauge(null, null)}
+              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
+            >
+              <circle r={hitR} fill="transparent" pointerEvents="all" />
+              {/* soft glow halo — live data reads as lit */}
+              <circle r={chipR * 2.3} fill={verdictColor} opacity={0.17} pointerEvents="none" />
+              {elevated && !reducedMotion && (
+                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
+                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {showOtter && (
+                <image
+                  href={iconHref}
+                  x={-otterSize / 2}
+                  y={iconYOffset - otterSize / 2}
+                  width={otterSize}
+                  height={otterSize}
+                  pointerEvents="none"
+                  // Blob-store avatar can be blocked (offline, strict
+                  // networks) — hide instead of a broken-image glyph.
+                  onError={(e) => { (e.currentTarget as SVGImageElement).style.display = 'none'; }}
+                  style={{
+                    filter: isFocused
+                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
+                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
+                  }}
+                />
+              )}
+              <circle
+                r={chipR}
+                fill={verdictColor}
+                stroke="#FAF8F4"
+                strokeWidth={1.5 * kStable}
+                pointerEvents="none"
+                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
+              />
+            </g>
+          );
+        })}
+      </g>
+      )}
+    </svg>
+    </div>
 
     {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
         screen coordinates regardless of the current view. Slides out of

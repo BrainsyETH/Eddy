@@ -46,6 +46,8 @@ export default function DataDock({
   setShowTerrain,
   showSites,
   setShowSites,
+  showFlow,
+  setShowFlow,
   siteCount,
   sitesCapped,
   onHoverRiver,
@@ -68,6 +70,8 @@ export default function DataDock({
   setShowTerrain: (v: boolean) => void;
   showSites: boolean;
   setShowSites: (v: boolean) => void;
+  showFlow: boolean;
+  setShowFlow: (v: boolean) => void;
   /** Context-site count + cap disclosure for the layers row. */
   siteCount: number;
   sitesCapped: boolean;
@@ -263,7 +267,7 @@ export default function DataDock({
           <div className="mt-2" style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
-          <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+          <div className="mt-2.5 grid grid-cols-2 gap-1.5">
             <LayerToggle
               label="Gauges"
               glyph="◎"
@@ -281,6 +285,12 @@ export default function DataDock({
               glyph="·"
               on={showSites}
               onToggle={() => setShowSites(!showSites)}
+            />
+            <LayerToggle
+              label="Flow"
+              glyph="≈"
+              on={showFlow}
+              onToggle={() => setShowFlow(!showFlow)}
             />
           </div>
           {showSites && siteCount > 0 && (
@@ -416,9 +426,12 @@ function RiverRow({
         background: lit
           ? `linear-gradient(120deg, ${v.color}22 0%, rgba(12,40,49,0.4) 65%)`
           : 'rgba(242,234,216,0.03)',
-        borderLeft: `3px solid ${v.color}`,
         transform: lit ? 'translateX(3px)' : undefined,
-        boxShadow: lit ? `0 6px 18px -10px ${v.color}88` : undefined,
+        // Inset bar stands in for border-left — mixing the borderLeft
+        // shorthand with borderColor trips React's style-conflict warning.
+        boxShadow: lit
+          ? `inset 3px 0 0 ${v.color}, 0 6px 18px -10px ${v.color}88`
+          : `inset 3px 0 0 ${v.color}`,
         cursor: 'pointer',
         opacity: mounted ? 1 : 0,
         translate: mounted ? '0 0' : '0 10px',

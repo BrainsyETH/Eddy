@@ -79,6 +79,7 @@ export default function MOSurfaceWaterApp() {
   const [showGauges, setShowGauges] = useState(true);
   const [showTerrain, setShowTerrain] = useState(true);
   const [showSites, setShowSites] = useState(true);
+  const [showFlow, setShowFlow] = useState(true);
 
   // Initial fetches
   useEffect(() => {
@@ -391,6 +392,8 @@ export default function MOSurfaceWaterApp() {
         setShowTerrain={setShowTerrain}
         showSites={showSites}
         setShowSites={setShowSites}
+        showFlow={showFlow}
+        setShowFlow={setShowFlow}
         siteCount={moSites?.sites.length ?? 0}
         sitesCapped={moSites?.capped ?? false}
         onHoverRiver={setHoveredRiverId}
@@ -420,6 +423,7 @@ export default function MOSurfaceWaterApp() {
           showPOIs={showPOIs}
           showGauges={showGauges}
           showTerrain={showTerrain}
+          showFlow={showFlow}
           contextSites={moSites?.sites ?? []}
           showSites={showSites}
           selectedContextSiteId={selectedSite?.site_no ?? null}
