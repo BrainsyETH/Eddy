@@ -113,7 +113,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Reading age
   const ageText = (() => {
-    if (!gauge?.readingAgeHours) return null;
+    if (gauge?.readingAgeHours == null) return null;
     if (gauge.readingAgeHours < 1) {
       const mins = Math.round(gauge.readingAgeHours * 60);
       return mins < 2 ? 'Just now' : `${mins}m ago`;
@@ -236,8 +236,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-neutral-900 mb-2">Gauge Not Found</h1>
           <p className="text-neutral-600 mb-4">Could not find gauge station {siteId}.</p>
-          <Link href="/gauges" className="text-primary-600 hover:text-primary-700 font-medium">
-            &larr; Back to all gauges
+          <Link href="/rivers" className="text-primary-600 hover:text-primary-700 font-medium">
+            &larr; Back to river reports
           </Link>
         </div>
       </div>
@@ -249,11 +249,11 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
         {/* Back link */}
         <Link
-          href="/gauges"
+          href="/rivers"
           className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          All Gauges
+          All River Reports
         </Link>
 
         {/* Header */}
@@ -321,6 +321,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                     <button
                       onClick={() => handleUnitToggle('ft')}
+                      aria-pressed={effectiveUnit === 'ft'}
+                      title="Gauge height in feet"
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         effectiveUnit === 'ft'
                           ? 'bg-primary-500 text-white'
@@ -331,6 +333,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     </button>
                     <button
                       onClick={() => handleUnitToggle('cfs')}
+                      aria-pressed={effectiveUnit === 'cfs'}
+                      title="Flow in cubic feet per second"
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         effectiveUnit === 'cfs'
                           ? 'bg-primary-500 text-white'
@@ -347,6 +351,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     <button
                       key={opt.days}
                       onClick={() => setDateRange(opt.days)}
+                      aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
                           ? 'bg-primary-500 text-white'

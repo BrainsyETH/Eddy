@@ -121,6 +121,7 @@ export default async function BlogPage() {
                         <img
                           src={post.featured_image_url}
                           alt={riverName ?? post.title}
+                          loading="lazy"
                           className="w-full h-40 object-cover"
                         />
                       </div>

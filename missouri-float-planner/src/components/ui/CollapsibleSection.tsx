@@ -46,8 +46,9 @@ export default function CollapsibleSection({
 
       <div
         role="region"
+        aria-label={title}
         className={`transition-all duration-200 ease-in-out ${
-          isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+          isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden invisible'
         }`}
       >
         <div className="px-4 pb-4">

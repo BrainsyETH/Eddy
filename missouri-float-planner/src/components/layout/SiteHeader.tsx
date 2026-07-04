@@ -52,6 +52,16 @@ export default function SiteHeader() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  // Close mobile menu on Escape
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
   // Hide header on the embed workbench and all embeddable widget pages —
   // the workbench renders its own top bar and the widgets are chromeless.
   if (pathname === '/embed' || pathname.startsWith('/embed/')) {
@@ -84,6 +94,7 @@ export default function SiteHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? 'page' : undefined}
                   className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                     active
                       ? 'text-white bg-white/10'
@@ -104,6 +115,8 @@ export default function SiteHeader() {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded-md text-primary-100 hover:text-white hover:bg-white/10 transition-colors"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -112,7 +125,7 @@ export default function SiteHeader() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
+        <div id="mobile-menu" className="md:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
           <div className="px-4 py-3 space-y-1">
             {NAV_ITEMS.map((item) => {
               const active = item.matches(pathname);
@@ -120,6 +133,7 @@ export default function SiteHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? 'page' : undefined}
                   className={`block px-3 py-3 rounded-md no-underline transition-colors font-medium ${
                     active
                       ? 'bg-white/10 text-white'

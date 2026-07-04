@@ -103,13 +103,15 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
 
             {/* Current reading */}
             <div className="flex flex-col items-end flex-shrink-0">
-              {primaryValue !== null && (
+              {primaryValue !== null ? (
                 <div className="flex items-baseline gap-1">
                   <span className="text-xl font-bold text-neutral-900 tabular-nums">
                     {isCfsPrimary ? primaryValue.toLocaleString() : primaryValue.toFixed(2)}
                   </span>
                   <span className="text-xs font-medium text-neutral-500">{primaryUnitLabel}</span>
                 </div>
+              ) : (
+                <span className="text-sm text-neutral-400">No reading</span>
               )}
             </div>
           </div>

@@ -231,6 +231,7 @@ export default function ThresholdTable({
           <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
             <button
               onClick={() => setShowingAlt(false)}
+              aria-pressed={!showingAlt}
               className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                 !showingAlt
                   ? 'bg-primary-500 text-white'
@@ -241,6 +242,7 @@ export default function ThresholdTable({
             </button>
             <button
               onClick={() => setShowingAlt(true)}
+              aria-pressed={showingAlt}
               className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                 showingAlt
                   ? 'bg-primary-500 text-white'
@@ -270,6 +272,8 @@ export default function ThresholdTable({
                   }}
                   onClick={() => setSelectedZone(selectedZone === zone.key ? null : zone.key)}
                   title={`${zone.label}: ${fmt(zone.min)} – ${fmt(zone.max)} ${unitLabel}`}
+                  aria-pressed={isSelected}
+                  aria-label={`${zone.label}: ${fmt(zone.min)} to ${fmt(zone.max)} ${unitLabel}`}
                 >
                   <span className="text-[10px] sm:text-xs font-bold truncate px-1 select-none" style={{ color: '#1A1814' }}>
                     {zone.label}

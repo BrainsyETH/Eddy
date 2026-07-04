@@ -98,6 +98,26 @@ export default function MapContainer({
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('liberty');
   const [showStylePicker, setShowStylePicker] = useState(false);
+  const stylePickerRef = useRef<HTMLDivElement>(null);
+
+  // Close the style picker on outside click or Escape
+  useEffect(() => {
+    if (!showStylePicker) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (stylePickerRef.current && !stylePickerRef.current.contains(e.target as Node)) {
+        setShowStylePicker(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowStylePicker(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showStylePicker]);
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const radarSourceId = 'rainviewer-radar';
@@ -402,20 +422,26 @@ export default function MapContainer({
       {mapLoaded && map.current && (
         <MapProvider map={map.current}>{children}</MapProvider>
       )}
+      {!mapLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100/60 pointer-events-none" role="status" aria-label="Loading map">
+          <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+        </div>
+      )}
 
       {/* Map Controls - right side, below MapLibre navigation controls */}
       <div className="absolute top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 z-10">
         {/* Style Picker - always visible (including mobile) */}
-        <div className={`relative ${showStylePicker ? 'z-50' : ''}`}>
+        <div ref={stylePickerRef} className={`relative ${showStylePicker ? 'z-50' : ''}`}>
           <button
             onClick={() => setShowStylePicker(!showStylePicker)}
             className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
               showStylePicker
-                ? 'bg-river-water text-white'
+                ? 'bg-primary-500 text-white'
                 : 'bg-white/90 text-gray-700 hover:bg-white'
             }`}
             title="Change map style"
             aria-label="Change map style"
+            aria-expanded={showStylePicker}
           >
             <Layers className="w-5 h-5" />
           </button>
@@ -427,7 +453,7 @@ export default function MapContainer({
                   key={key}
                   onClick={() => changeMapStyle(key)}
                   className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
-                    mapStyle === key ? 'bg-river-50 text-river-600 font-medium' : 'text-gray-700'
+                    mapStyle === key ? 'bg-primary-50 text-primary-600 font-medium' : 'text-gray-700'
                   }`}
                 >
                   {MAP_STYLES[key].name}
@@ -442,7 +468,7 @@ export default function MapContainer({
           onClick={toggleWeather}
           className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
             weatherEnabled
-              ? 'bg-river-water text-white'
+              ? 'bg-primary-500 text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
           }`}
           title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}

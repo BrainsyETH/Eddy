@@ -196,7 +196,7 @@ export default function AboutPage() {
             ))}
           </div>
           <p className="text-xs text-neutral-500 mt-3 text-center">
-            Thresholds vary by river and gauge. Visit the <Link href="/gauges" className="text-primary-600 hover:text-primary-700 font-semibold">Gauges page</Link> to see specifics for each station.
+            Thresholds vary by river and gauge. Visit the <Link href="/rivers" className="text-primary-600 hover:text-primary-700 font-semibold">River Reports page</Link> to see specifics for each station.
           </p>
         </AboutCollapsibleSection>
 

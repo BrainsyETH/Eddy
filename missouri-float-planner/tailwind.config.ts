@@ -137,6 +137,7 @@ const config: Config = {
       borderWidth: {
         'thin': '1px',
         'base': '2px',
+        '3': '3px',
         'thick': '3px',
         'chunky': '4px',
       },

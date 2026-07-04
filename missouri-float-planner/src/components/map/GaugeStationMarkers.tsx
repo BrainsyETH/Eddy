@@ -11,6 +11,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+import { escapeHtml } from '@/lib/escape-html';
 
 interface GaugeStationMarkersProps {
   gauges: GaugeStation[];
@@ -230,7 +231,7 @@ export default function GaugeStationMarkers({
         const riverNames = gauge.thresholds.map(t => t.riverName).join(', ');
         riversHtml = `
           <p style="margin-top: 8px; font-size: 10px; color: #a3a3a3;">
-            Rivers: ${riverNames}
+            Rivers: ${escapeHtml(riverNames)}
           </p>
         `;
       }
@@ -243,7 +244,7 @@ export default function GaugeStationMarkers({
             ${ageText ? `<span style="margin-left: auto; font-size: 10px; color: #6b7280;">${ageText}</span>` : ''}
           </div>
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: #ffffff; line-height: 1.3;">
-            ${gauge.name}
+            ${escapeHtml(gauge.name)}
           </h3>
           <p style="margin: 0 0 8px 0; font-size: 11px; color: #6b7280;">
             USGS ${gauge.usgsSiteId}

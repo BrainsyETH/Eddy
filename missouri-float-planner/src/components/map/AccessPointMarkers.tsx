@@ -10,6 +10,7 @@ import { MapPin, Flag, FlagOff, type LucideIcon } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { AccessPoint } from '@/types/api';
+import { escapeHtml } from '@/lib/escape-html';
 
 interface AccessPointMarkersProps {
   accessPoints: AccessPoint[];
@@ -182,7 +183,7 @@ export default function AccessPointMarkers({
       const popupContent = `
         <div style="padding: 12px; min-width: 180px; max-width: 220px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); overflow: hidden;">
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            ${point.name}
+            ${escapeHtml(point.name)}
           </h3>
           <p style="margin: 0 0 8px 0; font-size: 12px; color: #c7b8a6;">
             Mile ${point.riverMile.toFixed(1)} • ${point.type.replace('_', ' ')}

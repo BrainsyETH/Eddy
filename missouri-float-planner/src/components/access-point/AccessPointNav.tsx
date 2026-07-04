@@ -36,17 +36,23 @@ export default function AccessPointNav({ accessPoint }: AccessPointNavProps) {
   const navLinks = generateNavLinks(coords, accessPoint.directionsOverride);
   const platform = detectPlatform();
 
-  const handleClick = (link: NavLink) => {
+  const handleClick = (e: React.MouseEvent, link: NavLink) => {
+    // Let modified clicks (new tab, middle-click) use the plain href
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
     handleNavClick(link, platform);
   };
 
   return (
     <div className="grid grid-cols-4 gap-2">
       {navLinks.map((link) => (
-        <button
+        <a
           key={link.app}
-          onClick={() => handleClick(link)}
-          className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px]"
+          href={link.webFallback}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => handleClick(e, link)}
+          className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px] no-underline"
         >
           <div className="flex items-center justify-center w-8 h-8">
             {NAV_APP_ICONS[link.app] ? (
@@ -62,7 +68,7 @@ export default function AccessPointNav({ accessPoint }: AccessPointNavProps) {
             )}
           </div>
           <span className="text-xs font-semibold text-neutral-900">{link.label}</span>
-        </button>
+        </a>
       ))}
     </div>
   );
