@@ -58,11 +58,14 @@ const problems: string[] = [];
 const warnings: string[] = [];
 
 // ---------- [signoff] gate ----------
+// _status must BEGIN with the token SIGNED-OFF — not merely contain it, so the
+// word appearing in instructional prose (e.g. "flip _status to SIGNED-OFF")
+// can't false-pass the gate.
 const status: string = dossier._status ?? '';
-if (!/SIGNED-OFF/.test(status)) {
+if (!/^\s*SIGNED-OFF\b/.test(status)) {
   problems.push(
-    `[signoff] _status does not contain the token SIGNED-OFF (current: "${status.slice(0, 80)}…"). ` +
-    'The owner adds it after reviewing thresholds; STUB/AWAITING SIGNOFF dossiers are refused.'
+    `[signoff] _status does not BEGIN with the token SIGNED-OFF (current: "${status.slice(0, 80)}…"). ` +
+    'The owner sets _status to start with SIGNED-OFF after reviewing thresholds; STUB/AWAITING SIGNOFF dossiers are refused.'
   );
 }
 
