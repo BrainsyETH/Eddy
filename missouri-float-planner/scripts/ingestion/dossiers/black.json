@@ -1,0 +1,56 @@
+{
+  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). River-specific caution: Clearwater Lake dam sits mid-river; the lower reach is a tailwater — confirm whether the lower reach is dam_tailwater rather than spring_fed_float.",
+  "name": "Black River",
+  "slug": "black",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I-II",
+  "description": "A clear, popular southeast-Missouri Ozark float river below the St. Francois Mountains. The Lesterville reach is a summer-float hotspot; gravel bars and bluffs.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
+    "confidence": "medium"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Lesterville",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "black river",
+    "reynolds county",
+    "wayne county",
+    "butler county",
+    "lesterville",
+    "annapolis",
+    "poplar bluff"
+  ],
+  "research": {
+    "date": null,
+    "sourcesConsulted": [],
+    "openQuestions": [
+      "Reach division: Upper (Lesterville) vs lower (below Clearwater Lake) — 2 reaches likely.",
+      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Black River near Annapolis; Black River at Lesterville; Black River near Poplar Bluff",
+      "River-type / character check: Clearwater Lake dam sits mid-river; the lower reach is a tailwater — confirm whether the lower reach is dam_tailwater rather than spring_fed_float."
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
+      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
+      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
+      "MDC / outfitter floatability stage (ft) statements per reach",
+      "Full MDC access-point list with coordinates (human places every point)",
+      "County list for NWS alert terms (seeded: Reynolds, Wayne, Butler)"
+    ]
+  }
+}

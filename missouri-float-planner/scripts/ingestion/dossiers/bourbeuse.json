@@ -1,0 +1,57 @@
+{
+  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). River-specific caution: Low-gradient lowland river — verify the spring_fed_float archetype and speed curve fit; it may float slower than the clear Ozark streams.",
+  "name": "Bourbeuse River",
+  "slug": "bourbeuse",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I",
+  "description": "A slow, deeply meandering tributary of the Meramec in east-central Missouri. Low-gradient and forgiving; more lowland-slough character than the clear spring-fed Ozark floats — confirm whether spring_fed_float fits.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
+    "confidence": "medium"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Union",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "bourbeuse river",
+    "phelps county",
+    "crawford county",
+    "gasconade county",
+    "franklin county",
+    "union",
+    "bland",
+    "noser mill"
+  ],
+  "research": {
+    "date": null,
+    "sourcesConsulted": [],
+    "openQuestions": [
+      "Reach division: Likely one calibration reach; confirm gauge coverage.",
+      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Bourbeuse River at Union; Bourbeuse River near High Gate",
+      "River-type / character check: Low-gradient lowland river — verify the spring_fed_float archetype and speed curve fit; it may float slower than the clear Ozark streams."
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
+      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
+      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
+      "MDC / outfitter floatability stage (ft) statements per reach",
+      "Full MDC access-point list with coordinates (human places every point)",
+      "County list for NWS alert terms (seeded: Phelps, Crawford, Gasconade, Franklin)"
+    ]
+  }
+}

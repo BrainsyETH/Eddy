@@ -101,6 +101,85 @@
       "state": "AR",
       "timezone": "America/Chicago",
       "riverType": "rain_flashy"
+    },
+    {
+      "$comment": "New Missouri rivers (batch). nhdFeatureId UNKNOWN pending National Map query (hydro.nationalmap.gov NHDPlus_HR, restrict where reachcode LIKE '10%'/'11%'/'07%' to the MO drainages so you don't grab a same-named river elsewhere). Long main stems (Gasconade, Black, St. Francis) likely need the seed-geometry path, not a single permanent_identifier. Research dossiers scaffolded in scripts/ingestion/dossiers/<slug>.json — fill via research-prompt-missouri.md before ingest.",
+      "name": "Gasconade River",
+      "slug": "gasconade",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "The longest river entirely within Missouri, a winding Ozark float stream draining the central Ozarks north to the Missouri River.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Bourbeuse River",
+      "slug": "bourbeuse",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "A slow, deeply meandering tributary of the Meramec in east-central Missouri; low-gradient and forgiving.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Black River",
+      "slug": "black",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "A clear, popular southeast-Missouri Ozark float river below the St. Francois Mountains; the Lesterville reach is a summer-float hotspot.",
+      "difficultyRating": "Class I-II",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
+    },
+    {
+      "$stFrancisNote": "riverType rain_flashy: the upper St. Francis (Millstream Gardens / Silver Mines shut-ins) is Missouri's premier whitewater (Class II-IV, rain-dependent, spikes fast). The lower reach mellows toward Wappapello Lake. Confirm per-section river_type at calibration.",
+      "name": "St. Francis River",
+      "slug": "st-francis",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "Missouri's premier whitewater in its upper shut-ins reach (rain-dependent Class II-IV), mellowing downstream toward Wappapello Lake.",
+      "difficultyRating": "Class II-IV (upper whitewater)",
+      "region": "St. Francois Mountains",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "North Fork River",
+      "slug": "north-fork-white",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "The North Fork of the White River, a classic spring-fed south-central Missouri float and wild-trout stream fed by Rainbow and Blue Springs.",
+      "difficultyRating": "Class I-II",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Elk River",
+      "slug": "elk",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "A warm, popular summer float in the far-southwest Missouri corner (McDonald County) around Noel and Pineville.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
+    },
+    {
+      "name": "James River",
+      "slug": "james",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "A southwest-Missouri float and smallmouth stream draining the Springfield plateau to Table Rock Lake; the Galena reach is the classic float.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
     }
   ]
 }

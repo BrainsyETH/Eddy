@@ -1,0 +1,59 @@
+{
+  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). ",
+  "name": "Gasconade River",
+  "slug": "gasconade",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I",
+  "description": "The longest river entirely within Missouri, a winding Ozark float stream draining the central Ozarks north to the Missouri River. Long floatable season; smallmouth fishing; many low-water access bridges.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
+    "confidence": "medium"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Waynesville",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "gasconade river",
+    "texas county",
+    "pulaski county",
+    "phelps county",
+    "maries county",
+    "gasconade county",
+    "osage county",
+    "waynesville",
+    "jerome",
+    "vienna",
+    "hermann"
+  ],
+  "research": {
+    "date": null,
+    "sourcesConsulted": [],
+    "openQuestions": [
+      "Reach division: Long river — expect 2–3 calibration reaches (upper near Hazelgreen, middle at Jerome, lower near Rich Fountain/Mouth).",
+      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Gasconade River near Hazelgreen; Gasconade River at Jerome; Gasconade River near Rich Fountain"
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
+      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
+      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
+      "MDC / outfitter floatability stage (ft) statements per reach",
+      "Full MDC access-point list with coordinates (human places every point)",
+      "County list for NWS alert terms (seeded: Texas, Pulaski, Phelps, Maries, Gasconade, Osage)"
+    ]
+  }
+}
