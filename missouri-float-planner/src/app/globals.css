@@ -1032,8 +1032,11 @@ h1, h2, h3, h4, h5, h6 {
   height: calc(100dvh - 6rem);
 }
 
-/* Variant reserving room for the collapsed float-plan bottom sheet. */
+/* Variant reserving room for the collapsed float-plan bottom sheet. The
+   sheet is 65px PLUS the safe-area inset, so the reserved space must grow by
+   the same inset or the sheet covers the bottom of the map (and MapLibre's
+   attribution) on notched phones. */
 .plan-map-h--sheet {
-  height: calc(100vh - 6rem - 80px);
-  height: calc(100dvh - 6rem - 80px);
+  height: calc(100vh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
 }

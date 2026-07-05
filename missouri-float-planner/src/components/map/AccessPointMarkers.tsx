@@ -254,10 +254,11 @@ export default function AccessPointMarkers({
         );
 
         const activate = () => {
-          if (!supportsHoverRef.current) {
-            popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
-            map.once('click', () => popup.remove());
-          }
+          // No popup on touch: selecting rebuilds every marker (the effect
+          // depends on the selection), which tears the popup down after one
+          // frame anyway — and its "select as put-in" prompt is stale the
+          // moment the tap lands. Selection feedback on mobile is the marker
+          // recolor + the plan sheet. Hover devices preview via mouseenter.
           onMarkerClick(point);
           if (supportsHoverRef.current) {
             popup.remove();
