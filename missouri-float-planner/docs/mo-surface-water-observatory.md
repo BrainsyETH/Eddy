@@ -1,4 +1,4 @@
-# /missouri-surface-water — Observatory build memo
+# /river-map (né /missouri-surface-water) — Observatory build memo
 
 Design + engineering memo for the showcase rebuild ("mission-control
 observatory for Missouri water"). Written before feature code per the

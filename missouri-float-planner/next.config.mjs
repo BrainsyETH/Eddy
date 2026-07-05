@@ -33,6 +33,13 @@ const nextConfig = {
         destination: '/rivers',
         permanent: true,
       },
+      // The statewide observatory shipped as /missouri-surface-water and was
+      // renamed to the region-agnostic /river-map (multi-region is coming).
+      {
+        source: '/missouri-surface-water',
+        destination: '/river-map',
+        permanent: true,
+      },
       {
         source: '/rivers/:slug',
         has: [{ type: 'query', key: 'putIn' }],
