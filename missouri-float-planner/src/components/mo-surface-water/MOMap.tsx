@@ -818,7 +818,7 @@ export default function MOMap(props: MOMapProps) {
         fill="rgba(242,234,216,0.4)"
         fontWeight={500}
       >
-        STATE OF MISSOURI · SURFACE WATER NETWORK
+        STATE OF MISSOURI · LIVE RIVER NETWORK
       </text>
 
       {/* Cities */}

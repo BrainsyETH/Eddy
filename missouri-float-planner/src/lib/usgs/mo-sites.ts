@@ -1,4 +1,4 @@
-// Statewide USGS context sites for /missouri-surface-water.
+// Statewide USGS context sites for /river-map.
 //
 // The observatory map shows every active Missouri stream site with a
 // current discharge reading as a NEUTRAL context node — location + flow

@@ -1,6 +1,6 @@
 'use client';
 
-// Data dock for /missouri-surface-water — the "rich data" half of the
+// Data dock for /river-map — the "rich data" half of the
 // map experience. Everything in the dock is wired to the map: hovering a
 // river row lights its reach up, clicking pins it, and when the timeline
 // is scrubbed the rows repaint to that day. Desktop: a fixed left panel.
@@ -66,7 +66,7 @@ export default function DataDock({
   generatedAt: string | null;
   gaugeCount: number;
   /** Statewide observatory aggregates (see MOSurfaceWaterApp). */
-  telemetry: { reporting: number; totalCfs: number; risk72h: number };
+  telemetry: { reporting: number; rising: number; falling: number; risk72h: number };
   showGauges: boolean;
   setShowGauges: (v: boolean) => void;
   showTerrain: boolean;
@@ -177,7 +177,7 @@ export default function DataDock({
             className="mt-2 font-bold leading-none"
             style={{ fontFamily: DISPLAY, fontSize: 26, letterSpacing: '-0.01em', color: PARCH }}
           >
-            Missouri{' '}
+            Live{' '}
             <span
               style={{
                 background: 'linear-gradient(115deg, #A3D1DB 5%, #10b981 60%, #4A9AAD 100%)',
@@ -186,14 +186,14 @@ export default function DataDock({
                 color: 'transparent',
               }}
             >
-              Surface Water
+              River Map
             </span>
           </h1>
           <div
             className="mt-1.5"
             style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.08em', color: PARCH_FAINT }}
           >
-            {rivers.length} float rivers · {gaugeCount} gauges · verdict on every reach
+            Missouri · {rivers.length} float rivers · {gaugeCount} gauges · verdict on every reach
           </div>
         </div>
 
@@ -245,13 +245,7 @@ export default function DataDock({
             style={{ borderColor: 'rgba(242,234,216,0.14)' }}
           >
             <TelemetryCell label="Gauges live" value={telemetry.reporting} active={mounted} />
-            <TelemetryCell
-              label="Curated flow"
-              value={telemetry.totalCfs}
-              active={mounted}
-              format={(n) => (n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString())}
-              unit="cfs"
-            />
+            <TrendCell rising={telemetry.rising} falling={telemetry.falling} active={mounted} />
             <TelemetryCell
               label="72h flood risk"
               value={telemetry.risk72h}
@@ -387,6 +381,39 @@ function TelemetryCell({
         style={{ fontFamily: MONO, fontSize: 7, letterSpacing: '0.12em', color: PARCH_DIM }}
       >
         {label}
+      </div>
+    </div>
+  );
+}
+
+// 24h direction across the curated rivers — the planning signal
+// (is the water coming up or dropping?), not a vanity aggregate.
+function TrendCell({
+  rising,
+  falling,
+  active,
+}: {
+  rising: number;
+  falling: number;
+  active: boolean;
+}) {
+  const up = useCountUp(rising, active, 900);
+  const down = useCountUp(falling, active, 900);
+  return (
+    <div
+      className="rounded-md border px-1.5 py-1.5"
+      style={{ borderColor: 'rgba(242,234,216,0.1)', background: 'rgba(242,234,216,0.03)' }}
+    >
+      <div className="font-bold" style={{ fontFamily: MONO, fontSize: 15, lineHeight: 1 }}>
+        <span style={{ color: '#72B5C4' }}>▲{up}</span>
+        <span style={{ color: PARCH_DIM, margin: '0 3px' }}>·</span>
+        <span style={{ color: '#B89D72' }}>▼{down}</span>
+      </div>
+      <div
+        className="mt-1 uppercase"
+        style={{ fontFamily: MONO, fontSize: 7, letterSpacing: '0.12em', color: PARCH_DIM }}
+      >
+        Rising / falling · 24h
       </div>
     </div>
   );
