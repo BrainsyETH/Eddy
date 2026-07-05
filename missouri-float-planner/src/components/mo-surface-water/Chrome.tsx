@@ -2,323 +2,29 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PERCENTILE_CLASSES,
   STAGE_VERDICTS,
   THEME,
   classifyPercentile,
   classifyStageFromThresholds,
   type MORiver,
   type MOCampground,
-  type MOGauge,
   type MOAccessPoint,
   type MOPoi,
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
+import { computeDailyConditionSeries } from './derive';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
+import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoHistoryResponse } from '@/app/api/usgs/mo-history/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
-import type { ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const SANS = 'var(--font-body), system-ui, sans-serif';
 const DISPLAY = 'var(--font-display), system-ui, sans-serif';
-
-// ─── Header ──────────────────────────────────────────────────────────────
-
-export function HeaderBar({
-  generatedAt,
-  riverCount,
-  gaugeCount,
-  campgroundCount,
-}: {
-  generatedAt: string | null;
-  riverCount: number;
-  gaugeCount: number;
-  campgroundCount: number;
-}) {
-  const stamp = generatedAt
-    ? new Date(generatedAt).toLocaleString(undefined, {
-        month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      })
-    : '—';
-  return (
-    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3">
-      <div
-        className="pointer-events-auto rounded-md border-2 px-4 py-2.5"
-        style={{
-          background: THEME.cardBg,
-          borderColor: THEME.cardBorder,
-          color: THEME.ink,
-          boxShadow: `3px 3px 0 ${THEME.cardShadow}`,
-        }}
-      >
-        <div
-          className="font-bold"
-          style={{
-            fontFamily: DISPLAY,
-            fontSize: 18,
-            letterSpacing: '-0.01em',
-            color: THEME.primaryDark,
-          }}
-        >
-          USGS · Missouri Surface Water
-        </div>
-        <div
-          className="mt-0.5 uppercase"
-          style={{
-            fontFamily: MONO,
-            fontSize: 10,
-            letterSpacing: '0.12em',
-            color: THEME.inkDim,
-          }}
-        >
-          {riverCount} floatable rivers · {gaugeCount} active gauges · {campgroundCount} campgrounds
-        </div>
-      </div>
-      <div
-        className="pointer-events-auto rounded-md border-2 px-3 py-2.5"
-        style={{
-          background: THEME.cardBg,
-          borderColor: THEME.cardBorder,
-          color: THEME.ink,
-          boxShadow: `3px 3px 0 ${THEME.cardShadow}`,
-        }}
-      >
-        <div
-          className="uppercase"
-          style={{
-            fontFamily: MONO,
-            fontSize: 9,
-            letterSpacing: '0.18em',
-            color: THEME.inkDim,
-          }}
-        >
-          Live snapshot
-        </div>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ background: THEME.live, boxShadow: `0 0 6px ${THEME.live}` }}
-          />
-          <span
-            className="font-bold"
-            style={{ fontFamily: MONO, fontSize: 13, color: THEME.ink }}
-          >
-            {stamp}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Layer toggles ──────────────────────────────────────────────────────
-
-export function LayerToggles({
-  showGauges,
-  setShowGauges,
-}: {
-  showGauges: boolean;
-  setShowGauges: (v: boolean) => void;
-}) {
-  const toggleStyle = (active: boolean) => ({
-    background: active ? THEME.primaryDark : THEME.cardBg,
-    color: active ? '#F2EAD8' : THEME.ink,
-    borderColor: THEME.cardBorder,
-    boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
-    fontFamily: MONO,
-  });
-  return (
-    <div className="absolute right-3 top-[88px] z-10 flex flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={() => setShowGauges(!showGauges)}
-        className="rounded-md border-2 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:opacity-90"
-        style={toggleStyle(showGauges)}
-      >
-        ◎ Gauges ({showGauges ? 'on' : 'off'})
-      </button>
-    </div>
-  );
-}
-
-// ─── Percentile legend ──────────────────────────────────────────────────
-
-// River-condition legend — single source of truth across the page,
-// /plan, /rivers/[slug], embeds. Maps each ConditionCode to the same
-// CONDITION_COLORS painting the curated rivers and gauge dots.
-export function PercentileLegend() {
-  // Display order = readability order (driest → wettest).
-  // Language matches the per-condition titles on /about so the legend and
-  // the explanatory page agree on what each condition means.
-  const items: Array<{ code: ConditionCode; short: string; label: string }> = [
-    { code: 'too_low',   short: 'Too Low',    label: 'Not recommended' },
-    { code: 'low',       short: 'Low',        label: 'Scraping likely' },
-    { code: 'good',      short: 'Good',       label: 'Floatable' },
-    { code: 'flowing',   short: 'Flowing',    label: 'Ideal conditions' },
-    { code: 'high',      short: 'High Water', label: 'Use caution' },
-    { code: 'dangerous', short: 'Flood',      label: 'Do not float' },
-  ];
-  return (
-    <div
-      className="absolute left-3 z-10 rounded-md border-2 px-3 py-2.5"
-      style={{
-        top: 96,
-        background: THEME.cardBg,
-        borderColor: THEME.cardBorder,
-        color: THEME.ink,
-        boxShadow: `3px 3px 0 ${THEME.cardShadow}`,
-        fontFamily: MONO,
-        fontSize: 10,
-      }}
-    >
-      <div
-        className="uppercase font-bold"
-        style={{
-          fontSize: 9,
-          letterSpacing: '0.15em',
-          color: THEME.inkDim,
-          marginBottom: 6,
-        }}
-      >
-        River conditions
-      </div>
-      {items.map((it) => (
-        <div key={it.code} className="mb-0.5 flex items-center gap-2">
-          <span style={{ width: 18, height: 4, background: STAGE_VERDICTS[it.code].color, borderRadius: 2 }} />
-          <span className="font-semibold" style={{ width: 74 }}>{it.short}</span>
-          <span style={{ color: THEME.inkDim }}>{it.label}</span>
-        </div>
-      ))}
-      <div
-        className="mt-2 border-t pt-2"
-        style={{
-          borderColor: '#DBD5CA',
-          fontSize: 9,
-          color: THEME.inkDim,
-          letterSpacing: '0.05em',
-        }}
-      >
-        Each river segment fades into the next gauge&apos;s color along the line.
-      </div>
-    </div>
-  );
-}
-
-// ─── Statewide summary ──────────────────────────────────────────────────
-
-export function StatewideSummary({
-  rivers,
-  percentileByRiver,
-  verdictByRiver,
-}: {
-  rivers: MORiver[];
-  percentileByRiver: Record<string, number | null>;
-  verdictByRiver: Record<string, StageVerdict>;
-}) {
-  const verdictCounts = useMemo(() => {
-    const c: Record<StageVerdict, number> = {
-      too_low: 0, low: 0, good: 0, flowing: 0, high: 0, dangerous: 0, unknown: 0,
-    };
-    for (const r of rivers) c[verdictByRiver[r.slug] ?? 'unknown']++;
-    return c;
-  }, [rivers, verdictByRiver]);
-
-  const percentileCounts = useMemo(() => {
-    const c = { low: 0, below: 0, normal: 0, above: 0, high: 0, unknown: 0 };
-    for (const r of rivers) {
-      const p = percentileByRiver[r.slug];
-      if (p == null) c.unknown++;
-      else if (p < 10) c.low++;
-      else if (p < 25) c.below++;
-      else if (p < 75) c.normal++;
-      else if (p < 90) c.above++;
-      else c.high++;
-    }
-    return c;
-  }, [rivers, percentileByRiver]);
-
-  // Order matches the ConditionCode display order used elsewhere in the
-  // app (CONDITION_COLORS / CONDITION_LABELS in src/constants).
-  const items = [
-    { label: 'Too low',  n: verdictCounts.too_low,   color: STAGE_VERDICTS.too_low.color },
-    { label: 'Low',      n: verdictCounts.low,       color: STAGE_VERDICTS.low.color },
-    { label: 'Good',     n: verdictCounts.good,      color: STAGE_VERDICTS.good.color },
-    { label: 'Flowing',  n: verdictCounts.flowing,   color: STAGE_VERDICTS.flowing.color },
-    { label: 'High',     n: verdictCounts.high,      color: STAGE_VERDICTS.high.color },
-    { label: 'Flood',    n: verdictCounts.dangerous, color: STAGE_VERDICTS.dangerous.color },
-  ];
-  // Only surface an "unknown" tile when some river actually lacks a reading,
-  // so the tiles always sum to the river count instead of silently dropping
-  // one. (Keeps "7 floatable rivers" reconciled with the verdict row.)
-  if (verdictCounts.unknown > 0) {
-    items.push({ label: 'No data', n: verdictCounts.unknown, color: STAGE_VERDICTS.unknown.color });
-  }
-
-  // Percentile (discharge) context only renders when at least one gauge
-  // publishes discharge stats — most MO stage gauges don't, and "0 low /
-  // 0 normal / 0 high" read as broken.
-  const hasHydrology =
-    percentileCounts.low + percentileCounts.below + percentileCounts.normal +
-    percentileCounts.above + percentileCounts.high > 0;
-
-  return (
-    <div
-      className="absolute left-3 z-10 rounded-md border-2 px-3.5 py-3"
-      style={{
-        bottom: 156,
-        background: THEME.cardBg,
-        borderColor: THEME.cardBorder,
-        color: THEME.ink,
-        boxShadow: `3px 3px 0 ${THEME.cardShadow}`,
-        fontFamily: MONO,
-      }}
-    >
-      <div
-        className="uppercase font-bold"
-        style={{
-          fontSize: 9,
-          letterSpacing: '0.15em',
-          color: THEME.inkDim,
-          marginBottom: 8,
-        }}
-      >
-        Floater verdict · right now
-      </div>
-      <div className="flex gap-3.5">
-        {items.map((it) => (
-          <div key={it.label} className="text-center">
-            <div className="font-bold" style={{ fontSize: 22, lineHeight: 1, color: it.color }}>
-              {it.n}
-            </div>
-            <div
-              className="mt-1 uppercase font-semibold"
-              style={{ fontSize: 8.5, letterSpacing: '0.08em', color: THEME.inkDim }}
-            >
-              {it.label}
-            </div>
-          </div>
-        ))}
-      </div>
-      {hasHydrology && (
-        <div
-          className="mt-2 border-t pt-2 flex gap-3"
-          style={{ borderColor: '#DBD5CA', fontSize: 9, color: THEME.inkDim }}
-        >
-          <span>Hydrology:</span>
-          <span style={{ color: PERCENTILE_CLASSES[0].color }}>{percentileCounts.low + percentileCounts.below} low</span>
-          <span style={{ color: PERCENTILE_CLASSES[2].color }}>{percentileCounts.normal} normal</span>
-          <span style={{ color: PERCENTILE_CLASSES[3].color }}>{percentileCounts.above + percentileCounts.high} high</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Sparkline + ribbon (real history) ──────────────────────────────────
 
@@ -738,8 +444,8 @@ function RiverCard({
 
   return (
     <div
-      className="absolute right-3 z-20 w-[360px] overflow-auto rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 96, bottom: 156 }}
+      className="absolute right-3 z-20 w-[min(360px,calc(100vw-24px))] overflow-auto rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12, bottom: 156 }}
     >
       {onClose && (
         <div className="absolute right-3 top-3">
@@ -772,6 +478,7 @@ function RiverCard({
         </span>
         <span className="ml-auto" style={{ fontSize: 11, opacity: 0.9 }}>{tone.desc}</span>
       </div>
+      <div className="mt-1.5"><DataAgeChip iso={primaryGauge?.readingTimestamp} /></div>
 
       {primaryThresholds && (
         <ThresholdProvenance
@@ -798,7 +505,7 @@ function RiverCard({
             marginBottom: 4,
           }}
         >
-          30-day CFS · primary gauge
+          30-day trend · primary gauge
         </div>
         <div
           className="rounded-md border-2 p-2.5"
@@ -951,8 +658,8 @@ function GaugeDetail({
     : (gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—');
   return (
     <div
-      className="absolute right-3 z-30 w-[360px] overflow-auto rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 96, bottom: 156 }}
+      className="absolute right-3 z-30 w-[min(360px,calc(100vw-24px))] overflow-auto rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12, bottom: 156 }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -981,6 +688,7 @@ function GaugeDetail({
         </div>
         <div style={{ fontSize: 13, opacity: 0.95, fontWeight: 600 }}>{headlineLabel}</div>
       </div>
+      <div className="mt-1.5"><DataAgeChip iso={gauge.readingTimestamp} /></div>
 
       <EddyReportCard report={eddy} />
 
@@ -1008,7 +716,7 @@ function GaugeDetail({
 
       <div className="mt-3 uppercase font-bold"
         style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em', color: THEME.inkDim }}>
-        30-day CFS
+        30-day trend
       </div>
       <div
         className="mt-1 rounded-md border-2 p-2.5"
@@ -1205,8 +913,8 @@ function CampgroundCard({
 }: { campground: MOCampground; onClose: () => void }) {
   return (
     <div
-      className="absolute right-3 z-30 w-[330px] rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 96 }}
+      className="absolute right-3 z-30 w-[min(330px,calc(100vw-24px))] rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12 }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -1263,8 +971,8 @@ function AccessPointCard({
 }: { ap: MOAccessPoint; river: MORiver; onClose: () => void }) {
   return (
     <div
-      className="absolute right-3 z-30 w-[330px] rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 96 }}
+      className="absolute right-3 z-30 w-[min(330px,calc(100vw-24px))] rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12 }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -1303,8 +1011,8 @@ function PoiCard({
 }: { poi: MOPoi; river: MORiver | null; onClose: () => void }) {
   return (
     <div
-      className="absolute right-3 z-30 w-[330px] rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 96 }}
+      className="absolute right-3 z-30 w-[min(330px,calc(100vw-24px))] rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12 }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -1368,54 +1076,15 @@ export function TimeScrubber({
   // percentile-based trend was empty for most of them — the timeline read as
   // broken. Instead: the trendline is the share of rivers that were
   // floatable per day, and the stripe is the full condition distribution.
+  // Computation is shared with the scroll-story month chart (./derive) so
+  // the two timelines can never disagree.
   const { trend, dailyBands, dayCount } = useMemo(() => {
-    const primaryEntries = history.filter((e) => e.is_primary);
-    // Anchor the day axis to history[0] so this matches the parent's dayCount
-    // (historyEntries[0].daily.length) and the scrubber thumb stays aligned.
-    const L = history[0]?.daily.length ?? 0;
-    if (!L) {
-      return {
-        trend: [] as Array<{ x: number; y: number }>,
-        dailyBands: [] as Array<{ x: number; counts: Record<StageVerdict, number> }>,
-        dayCount: RANGE,
-      };
-    }
-    // Resolve each river's primary thresholds + matching history entry once.
-    const series = rivers
-      .map((r) => {
-        const primary = (r.gauges ?? []).find((g) => g.is_primary);
-        if (!primary) return null;
-        const ent = primaryEntries.find((e) => e.site_no === primary.site_id);
-        if (!ent) return null;
-        return { primary, ent };
-      })
-      .filter((s): s is { primary: MOGauge; ent: MoHistoryBundleEntry } => s != null);
-
-    const trendOut: Array<{ x: number; y: number }> = [];
-    const bandsOut: Array<{ x: number; counts: Record<StageVerdict, number> }> = [];
-    for (let i = 0; i < L; i++) {
-      const counts: Record<StageVerdict, number> = {
-        too_low: 0, low: 0, good: 0, flowing: 0, high: 0, dangerous: 0, unknown: 0,
-      };
-      let floatable = 0;
-      let known = 0;
-      for (const { primary, ent } of series) {
-        const day = ent.daily[i];
-        const value = primary.threshold_unit === 'ft'
-          ? day?.gaugeHeightFt ?? null
-          : day?.dischargeCfs ?? null;
-        const c = classifyStageFromThresholds(value, primary.threshold_unit, primary);
-        counts[c]++;
-        if (c !== 'unknown') {
-          known++;
-          if (c === 'good' || c === 'flowing') floatable++;
-        }
-      }
-      bandsOut.push({ x: i, counts });
-      trendOut.push({ x: i, y: known ? (floatable / known) * 100 : 0 });
-    }
-    return { trend: trendOut, dailyBands: bandsOut, dayCount: L };
+    const s = computeDailyConditionSeries(history, rivers);
+    // Anchor the axis to RANGE while history is still loading so the header
+    // copy renders; the range input stays disabled until real days exist.
+    return { trend: s.trend, dailyBands: s.dailyBands, dayCount: s.dayCount || RANGE };
   }, [history, rivers, RANGE]);
+  const hasDays = trend.length > 0;
 
   const W = 1500, H = 64;
   const xAt = (i: number) => (i / Math.max(1, dayCount - 1)) * W;
@@ -1453,8 +1122,10 @@ export function TimeScrubber({
           >
             30-day timeline
           </span>
+          {/* Hidden on phones: the wrapped hint pushed the chart past the
+              card's fixed height. */}
           <span
-            className="ml-3"
+            className="ml-3 hidden sm:inline"
             style={{
               fontFamily: MONO, fontSize: 10, color: 'rgba(242,234,216,0.6)',
             }}
@@ -1534,13 +1205,14 @@ export function TimeScrubber({
           </div>
         )}
         <input
-          type="range" min={0} max={dayCount - 1} step={1}
+          type="range" min={0} max={Math.max(0, dayCount - 1)} step={1}
           value={indexFromOffset(dayOffset)}
           aria-label="Scrub days"
+          disabled={!hasDays}
           onChange={(e) => setDayOffset(offsetFromIndex(parseInt(e.target.value, 10)))}
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
-            opacity: 0, cursor: 'ew-resize', margin: 0,
+            opacity: 0, cursor: hasDays ? 'ew-resize' : 'default', margin: 0,
           }}
         />
       </div>
@@ -1864,7 +1536,19 @@ export function GaugeHoverOverlay({
           style={{ width: 48, height: 48, borderColor: THEME.cardBorder, background: '#F2EAD8', overflow: 'hidden' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={eddyImg} alt="" width={44} height={44} style={{ display: 'block', margin: '2px auto' }} />
+          <img
+            src={eddyImg}
+            alt=""
+            width={44}
+            height={44}
+            style={{ display: 'block', margin: '2px auto' }}
+            // Blob-store avatar can be blocked (offline, strict proxies) —
+            // hide the frame instead of showing a broken-image glyph.
+            onError={(e) => {
+              const frame = e.currentTarget.parentElement;
+              if (frame) frame.style.display = 'none';
+            }}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -1910,7 +1594,18 @@ export function GaugeHoverOverlay({
             }}
           >
             <span style={{ color: THEME.ink, fontWeight: 700 }}>SOURCE</span>{' '}
-            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · {report ? relativeTime(report.generatedAt) : 'live'}
+            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} ·{' '}
+            {report
+              ? relativeTime(report.generatedAt)
+              : readingAge(gauge.readingTimestamp)?.label ?? 'no timestamp'}
+            {!report && readingAge(gauge.readingTimestamp)?.stale && (
+              <span
+                className="ml-1.5 rounded-sm px-1 py-px font-bold uppercase"
+                style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
+              >
+                Stale
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1936,4 +1631,111 @@ function relativeTime(iso: string): string {
   if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+// ─── Data age ────────────────────────────────────────────────────────────
+//
+// Every reading on the page discloses its age; anything older than two
+// hours is flagged loudly. Data honesty over polish: a stale number
+// styled as live is how someone puts a canoe on flood water.
+
+const STALE_AFTER_MS = 2 * 3600e3;
+
+export function readingAge(iso: string | null | undefined): {
+  label: string;
+  stale: boolean;
+} | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return { label: relativeTime(iso), stale: Date.now() - t > STALE_AFTER_MS };
+}
+
+/** Small mono age line with an amber STALE chip when the reading is old. */
+export function DataAgeChip({ iso }: { iso: string | null | undefined }) {
+  const age = readingAge(iso);
+  if (!age) {
+    return (
+      <span style={{ fontFamily: MONO, fontSize: 9.5, color: THEME.inkDim, letterSpacing: '0.06em' }}>
+        no timestamp
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.06em', color: THEME.inkDim }}>
+      reading {age.label}
+      {age.stale && (
+        <span
+          className="rounded-sm px-1 py-px font-bold uppercase"
+          style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
+        >
+          Stale
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─── Context-site card ──────────────────────────────────────────────────
+//
+// Statewide sites are context, not product: name, live flow, freshness,
+// and a link out to USGS. Deliberately NO condition dressing — they have
+// no curated thresholds (see docs/mo-surface-water-observatory.md).
+
+export function ContextSiteCard({
+  site,
+  onClose,
+}: {
+  site: MoContextSite;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="absolute right-3 z-30 w-[min(330px,calc(100vw-24px))] rounded-md border-2 p-4"
+      style={{ ...RAIL_BASE_STYLE, top: 12 }}
+      role="dialog"
+      aria-label={`USGS site ${site.site_no}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="uppercase font-bold"
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}>
+            USGS Site #{site.site_no}
+          </div>
+          <div className="mt-1 font-bold leading-tight"
+            style={{ fontSize: 16, color: THEME.primaryDark, fontFamily: DISPLAY }}>
+            {site.name ?? 'Unnamed monitoring site'}
+          </div>
+        </div>
+        <CloseBtn onClose={onClose} />
+      </div>
+
+      <div className="mt-3 flex items-baseline gap-2 rounded-md border-2 px-3 py-2.5"
+        style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}>
+        <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22, color: THEME.primary }}>
+          {Math.round(site.dischargeCfs).toLocaleString()}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: THEME.inkDim }}>cfs discharge</span>
+        <span className="ml-auto"><DataAgeChip iso={site.readingTimestamp} /></span>
+      </div>
+
+      <p className="mt-2.5" style={{ fontFamily: MONO, fontSize: 10, lineHeight: 1.55, color: THEME.inkDim }}>
+        Statewide context site — Eddy has no float rating here. Flow shown
+        for hydrologic context only.
+      </p>
+
+      <a
+        href={`https://waterdata.usgs.gov/monitoring-location/${site.site_no}`}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-block rounded-md border-2 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em]"
+        style={{
+          background: THEME.cardBg, color: THEME.ink, borderColor: THEME.cardBorder,
+          fontFamily: MONO, boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+        }}
+      >
+        Full record on USGS →
+      </a>
+    </div>
+  );
 }
