@@ -1,5 +1,5 @@
 {
-  "_status": "STUB+RUN2 — identity/access/character populated from deep-research run wf_4b190bc5-d1a, then extended with WebSearch-tier run 2 (see st-francis-findings-partial.md RUN 2 UPDATE). NOT SIGNED-OFF and NOT ingestable: no gauge site number is primary-verified (verified-identifiers-st-francis.md not written). Run 2 gains: 4 gauges now cross-checked (07034000 Roselle/ROZM7 WW-ref, 07036100 Saco, 07037500 Patterson/PAZM7, 07039500 Wappapello), and the whitewater runnable anchor resolved — Roselle 'above 3 ft = at its best' (optimal_min, ft), SEARCH-DERIVED confidence 'low', verify against American Whitewater #2921. Still missing: the runnable MAX/too-high, NWS flood stages (auto-fetch from ROZM7/PAZM7 at ingest), and lat/lon. DATA-CONTINUITY RISK: Roselle (07034000) was dropped from the USGS network ~2016 — confirm it is currently reporting before a live badge. This is Missouri's ONLY whitewater river; the upper reach's badge is a paddler runnable-range. Re-run the primary-source pass from unblocked egress, write verified-identifiers-st-francis.md, then flip _status to SIGNED-OFF.",
+  "_status": "STUB+RUN2 — identity/access/character populated from deep-research run wf_4b190bc5-d1a, then extended with WebSearch-tier run 2 (see st-francis-findings-partial.md RUN 2 UPDATE). NOT SIGNED-OFF and NOT ingestable: no gauge site number is primary-verified (verified-identifiers-st-francis.md not written). Run 2 gains: 4 gauges now cross-checked (07034000 Roselle/ROZM7 WW-ref, 07036100 Saco, 07037500 Patterson/PAZM7, 07039500 Wappapello), and the whitewater runnable anchor resolved — Roselle 'above 3 ft = at its best' (optimal_min, ft), SEARCH-DERIVED confidence 'low', verify against American Whitewater #2921. Still missing: the runnable MAX/too-high, NWS flood stages (auto-fetch from ROZM7/PAZM7 at ingest), and lat/lon. DATA-CONTINUITY RISK: Roselle (07034000) was dropped from the USGS network ~2016 — confirm it is currently reporting before a live badge. This is Missouri's ONLY whitewater river; the upper reach's badge is a paddler runnable-range. RUN 3 (2026-07-06): owner provided the Eddy gauge card for 'St. Francis River near Roselle' showing a CONFIGURED runnable legend — Range 3–6 ft, bands <3 Below Recommended / 3–4 Low / 4–5 Medium / 5–6 High Runnable / >6 Above Recommended (reading 1.93 ft = below recommended on Jul 6). The full ft ladder (too_low 3 / low 4 / optimal 4–5 / high 6) is now encoded from that legend at confidence 'high'. IMPORTANT: the app ALREADY appears to display these Roselle bands — before ingest, reconcile with the existing DB config so this dossier does not create a conflicting river_gauges row. Re-run the primary-source id pass from unblocked egress, write verified-identifiers-st-francis.md, then flip _status to SIGNED-OFF.",
   "name": "St. Francis River",
   "slug": "st-francis",
   "state": "MO",
@@ -81,15 +81,11 @@
         "knownBias": "gauge site # unverified; historical funding-driven outages"
       },
       "thresholds": [
-        {
-          "level": "optimal_min",
-          "value": 3,
-          "unit": "ft",
-          "referenceGauge": "07034000",
-          "referenceGaugeIsPolled": true,
-          "source": "American Whitewater #2921 / St. Louis Outdoor Adventures (via WebSearch synthesis, 2026-07): 'The Roselle gauge generally has to be above 3 feet for the river to be at its best.' Paddler D-bridge conversion: when gauge <6.0 ft, (gauge − 3) × 15 = D-bridge level in inches.",
-          "confidence": "low"
-        }
+        { "level": "too_low", "value": 3, "unit": "ft", "referenceGauge": "07034000", "referenceGaugeIsPolled": true, "source": "Eddy gauge display for 'St. Francis River near Roselle' (Stage Height ft; source: NOAA Gauge Details), hand-provided 2026-07-06 — legend '<3 ft Below Recommended'. Corroborated: American Whitewater #2921 'above 3 ft = at its best'.", "confidence": "high" },
+        { "level": "low", "value": 4, "unit": "ft", "referenceGauge": "07034000", "referenceGaugeIsPolled": true, "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '3–4 ft Low Runnable'.", "confidence": "high" },
+        { "level": "optimal_min", "value": 4, "unit": "ft", "referenceGauge": "07034000", "referenceGaugeIsPolled": true, "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '4–5 ft Medium Runnable' (the sweet spot); overall recommended Range 3–6 ft.", "confidence": "high" },
+        { "level": "optimal_max", "value": 5, "unit": "ft", "referenceGauge": "07034000", "referenceGaugeIsPolled": true, "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — top of '4–5 ft Medium Runnable'.", "confidence": "high" },
+        { "level": "high", "value": 6, "unit": "ft", "referenceGauge": "07034000", "referenceGaugeIsPolled": true, "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '5–6 ft High Runnable', '>6 ft Above Recommended'. Corroborated: paddler D-bridge rule keys off gauge <6.0 ft.", "confidence": "high" }
       ],
       "publishedFloatTimes": [
         {
@@ -187,7 +183,7 @@
       "https://water.noaa.gov/gauges/pazm7"
     ],
     "openQuestions": [
-      "CALIBRATION CORE (partly resolved run 2): runnable MIN captured — Roselle >3 ft = 'at its best' (optimal_min, SEARCH-DERIVED, confidence low, verify vs AW #2921). STILL MISSING: the too-high / dangerous MAX and the too_low drag threshold, plus confirmation of the exact AW wording and unit off the page.",
+      "CALIBRATION CORE (RESOLVED run 3): full Roselle ft runnable ladder captured from the Eddy gauge legend — too_low 3 / low 4 / optimal 4–5 / high 6 (Range 3–6 ft). Reconcile with the app's existing Roselle config before ingest (the card is already rendering these bands). Optional: a true 'dangerous' anchor above 6 ft from NWS ROZM7 flood stage (auto-fetch).",
       "Is the Roselle gauge (07034000) currently live and pollable? It has a history of USGS network drops (funding, ~2016); what is the fallback (USACE MVS SF_tab)?",
       "Per-section river_type: upper = whitewater (does the system need a whitewater archetype, or is rain_flashy + Class II-IV difficulty enough?); lower = calmer float — and which of Saco (07036100) / Patterson (07037500) / Wappapello (07039500) best represents the lower float reach.",
       "Lower reach: floatable/dangerous guidance below Sam A. Baker toward Wappapello (none captured)."

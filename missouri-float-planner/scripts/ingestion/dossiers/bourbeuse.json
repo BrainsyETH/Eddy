@@ -1,5 +1,5 @@
 {
-  "_status": "STUB+RUN2 — identity/access/character populated, and gauges + a cfs floatability ladder drafted from WebSearch-tier research (see bourbeuse-findings-partial.md). NOT SIGNED-OFF and NOT ingestable: (1) no gauge site number is primary-verified (verified-identifiers-bourbeuse.md not written), (2) the floatability cfs bands are SEARCH-DERIVED single-source (OzarkAnglers overview) at confidence 'low' — must be confirmed against the source page before a live badge, (3) NWS flood/action stages are intentionally NOT hand-entered — fetch-nws-flood-stages.ts auto-pulls them from nwsLid=UNNM7 at ingest. Direct fetch of USGS/NWS/MCFA is 403-blocked in this environment; re-run the primary-source pass from unblocked egress, write verified-identifiers-bourbeuse.md, then flip _status to SIGNED-OFF. RiverType note: research confirms runoff-fed/turbid/slow-meandering lowland character — the 'spring_fed_float' archetype is likely WRONG for speed curves; changing it is a [signoff] call, flagged in openQuestions.",
+  "_status": "STUB+RUN3 — identity/access/character populated and a FULL two-reach cfs floatability ladder + access-point mileages transcribed from the authoritative Al Agnew / OzarkAnglers 'Bourbeuse River Overview' (hand-provided by owner 2026-07-06). NOT SIGNED-OFF and NOT ingestable: no gauge site number is primary-verified yet (verified-identifiers-bourbeuse.md not written — waiting on the USGS site-service paste for name/lat/lon/params). Thresholds are single-source (Agnew): too_low/low/optimal are confidence 'high' (explicit published navigability table); high/dangerous are 'medium' pending NWS UNNM7/HTGM7 corroboration (auto-fetch at ingest) — the [safety] gate will require that before a live danger badge. RIVER-TYPE: Agnew explicitly confirms runoff-fed/murky/slow — 'spring_fed_float' is WRONG for the speed curve; owner must reclassify [signoff] (isSpringFed set false on both reaches). Once the USGS paste lands, write verified-identifiers-bourbeuse.md and flip _status to SIGNED-OFF.",
   "name": "Bourbeuse River",
   "slug": "bourbeuse",
   "state": "MO",
@@ -8,7 +8,7 @@
   "region": "Ozarks",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I",
-  "description": "A slow, deeply meandering, runoff-fed tributary of the Meramec in east-central Missouri. Low-gradient and turbid — more lowland float than the clear spring-fed Ozark streams. Drops into a low/marginal float range through summer and fall; floatable window skews to spring and after rain. Logjams and low-water bridges are recurring hazards.",
+  "description": "The slowest large stream in the Ozarks and one of its crookedest: from its head of navigation at Mint Spring the Bourbeuse runs ~116 river-miles in under 38 airline miles to the Meramec. Runoff-fed and murky (its watershed is largely cleared farmland over Pennsylvanian sandstone), with an inconsistent water supply — the upper half is seldom floatable without dragging in a dry summer. Not popular with the rental-canoe crowd (one small outfitter on the whole river); mostly local anglers. Catfish throughout; smallmouth in the upper reaches, spotted bass increasingly dominant below Noser Mill.",
   "riverType": "spring_fed_float",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
@@ -22,14 +22,26 @@
   "gauges": [
     {
       "provider": "usgs",
+      "siteId": "07015720",
+      "name": "Bourbeuse River near High Gate, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "HTGM7",
+      "servesSections": ["upper-mintspring-nosermill"],
+      "knownBias": "CANDIDATE, NOT primary-verified. At the Hwy B bridge, several miles above the head of navigation at Mint Spring. Agnew: usefulness is QUESTIONABLE for much of the upper river because many tributaries add considerable water after rain — if it has rained, cross-check the Union gauge for a rise. Reads the upper reach.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
       "siteId": "07016500",
       "name": "Bourbeuse River at Union, MO",
       "lat": null,
       "lon": null,
       "paramsAvailable": [],
       "nwsLid": "UNNM7",
-      "servesSections": ["lower-union"],
-      "knownBias": "CANDIDATE, NOT primary-verified (USGS page 403'd; site #/name cross-checked across ≥2 search results). Long-record lower-river reference at the Hwy 50 bridge; record to 1897; params discharge(00060)+gage height(00065)+precip per USGS listing. Source note: reliable for the entire lower river EXCEPT the Noser Mill→Spring Creek stretch, which runs lower than the rest.",
+      "servesSections": ["lower-nosermill-meramec"],
+      "knownBias": "CANDIDATE, NOT primary-verified. At the Highway 50 bridge at Union. Agnew: fairly reliable for the entire lower river EXCEPT the Noser Mill→Spring Creek stretch, which runs lower than the rest. Long record (to 1897).",
       "_verify": true
     },
     {
@@ -39,8 +51,8 @@
       "lat": null,
       "lon": null,
       "paramsAvailable": [],
-      "servesSections": ["lower-union"],
-      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Just above Union; confirm active + params.",
+      "servesSections": [],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced; not cited by Agnew). Just above Union; secondary.",
       "_verify": true
     },
     {
@@ -50,123 +62,143 @@
       "lat": null,
       "lon": null,
       "paramsAvailable": [],
-      "servesSections": ["upper"],
-      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Upper–mid river.",
-      "_verify": true
-    },
-    {
-      "provider": "usgs",
-      "siteId": "07015720",
-      "name": "Bourbeuse River near High Gate, MO",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
-      "nwsLid": "HTGM7",
-      "servesSections": ["upper"],
-      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Upper river.",
+      "servesSections": [],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced; not cited by Agnew). Upper–mid; secondary.",
       "_verify": true
     }
   ],
   "sections": [
     {
-      "slug": "lower-union",
-      "name": "Lower Bourbeuse (Noser Mill / Union area)",
-      "description": "The commonly floated lower river represented by the long-record Union gauge (Hwy 50 bridge). Slow, meandering, runoff-fed; summer/fall low water makes riffles scrape or require walking. The Noser Mill→Spring Creek stretch runs lower than the rest of this section.",
-      "putIn": { "name": "Noser Mill area", "lat": null, "lon": null },
-      "takeOut": { "name": "Union (Hwy 50)", "lat": null, "lon": null },
-      "publishedLengthMiles": null,
+      "slug": "upper-mintspring-nosermill",
+      "name": "Upper Bourbeuse (Mint Spring to Noser Mill)",
+      "description": "The upper half from the head of navigation at Mint Spring to Noser Mill (~59 river-miles). Very inconsistent flow — seldom floatable without dragging in a dry summer; anglers walk riffles to reach the big pools. Gradient 2.6 ft/mi. Public access is scarce, so visiting paddlers often face multi-day floats between usable accesses.",
+      "putIn": { "name": "Mint Spring MDC Access", "lat": null, "lon": null },
+      "takeOut": { "name": "Hwy 185 at Noser Mill (Devils Back Campground)", "lat": null, "lon": null },
+      "publishedLengthMiles": 59.0,
       "representativeGauge": {
-        "siteId": "07016500",
-        "rationale": "Union (07016500) is the long-record lower-river gauge the floatability guidance is quoted against (cfs)",
-        "knownBias": "reads for the lower river; Noser Mill→Spring Creek runs lower than the gauge suggests"
+        "siteId": "07015720",
+        "rationale": "Agnew keys the upper-river navigability table to the Bourbeuse River near High Gate gauge (Hwy B bridge)",
+        "knownBias": "questionable for much of the upper river — tributaries add water after rain; cross-check Union for rises"
       },
       "thresholds": [
-        {
-          "level": "too_low",
-          "value": 40,
-          "unit": "cfs",
-          "referenceGauge": "07016500",
-          "referenceGaugeIsPolled": true,
-          "source": "OzarkAnglers Bourbeuse River overview (via WebSearch synthesis, 2026-07): '<40 cfs most riffles will have to be walked' at the Bourbeuse River at Union gauge",
-          "confidence": "low"
-        },
-        {
-          "level": "low",
-          "value": 70,
-          "unit": "cfs",
-          "referenceGauge": "07016500",
-          "referenceGaugeIsPolled": true,
-          "source": "OzarkAnglers Bourbeuse River overview (via WebSearch synthesis, 2026-07): '40–70 cfs runnable with considerable scraping'; minimum comfortable ≈70 cfs at the Union gauge",
-          "confidence": "low"
-        },
-        {
-          "level": "optimal_min",
-          "value": 120,
-          "unit": "cfs",
-          "referenceGauge": "07016500",
-          "referenceGaugeIsPolled": true,
-          "source": "OzarkAnglers Bourbeuse River overview (via WebSearch synthesis, 2026-07): '70–120 cfs low but floatable' at the Union gauge → top of the low-but-floatable band taken as optimal_min",
-          "confidence": "low"
-        }
+        { "level": "too_low", "value": 10, "unit": "cfs", "referenceGauge": "07015720", "referenceGaugeIsPolled": true, "source": "Al Agnew, 'Bourbeuse River Overview', OzarkAnglers (2017-08-01), upper-reach navigability table @ High Gate gauge: 'Less than 10 cfs—the whole upper river will require walking many riffles.'", "confidence": "high" },
+        { "level": "low", "value": 30, "unit": "cfs", "referenceGauge": "07015720", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '10-30 cfs—low but floatable with a lot of scraping bottom, especially in upper portions.'", "confidence": "high" },
+        { "level": "optimal_min", "value": 30, "unit": "cfs", "referenceGauge": "07015720", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '30-60 cfs—easily floatable in lower portions, some scraping bottom likely in upper portions.'", "confidence": "high" },
+        { "level": "optimal_max", "value": 60, "unit": "cfs", "referenceGauge": "07015720", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: top of 'easily floatable' band (30-60 cfs); 60-120 is 'high but floatable'.", "confidence": "high" },
+        { "level": "high", "value": 120, "unit": "cfs", "referenceGauge": "07015720", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '60-120 cfs—high but floatable'; '120-200 cfs—very high, muddy water likely.'", "confidence": "medium" },
+        { "level": "dangerous", "value": 200, "unit": "cfs", "referenceGauge": "07015720", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: 'Over 200 cfs—Probably too high.'", "confidence": "medium" }
       ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "spring_fed_float",
-        "primaryHazards": ["logjam", "strainer", "low_water_bridge"],
-        "lowWaterMeaning": "Below ~40 cfs at Union most riffles must be walked; 40–70 cfs means considerable bottom-scraping. Normal Jun–Nov flow (60–150 cfs) sits in the low-to-marginal range, so summer floats commonly drag. (SEARCH-DERIVED, verify.)",
-        "risingWaterHazards": "Runoff-fed and turbid; rises after rain. Logjams/strainers and low-water bridges become the practical hazards as water comes up. NWS UNNM7 flood/action stages auto-fill at ingest.",
+        "primaryHazards": ["logjam", "strainer", "low_water_bridge", "dragging_low_water"],
+        "lowWaterMeaning": "Below ~10 cfs at High Gate the whole upper river requires walking many riffles; 10–30 cfs is low but floatable with a lot of bottom-scraping. In a dry summer (Jun–Nov normal 2–20 cfs) the upper river is frequently unfloatable.",
+        "risingWaterHazards": "Runoff-fed and flashy from tributaries; over ~120 cfs it is high and muddy, over ~200 cfs probably too high. Low-water bridges (Glaser Ford, Hog Trough Rd) and logjams are the practical hazards. NWS HTGM7 flood/action stages auto-fill at ingest.",
+        "rainLagHours": null,
+        "rainLagNote": "Tributaries add water fast after rain; High Gate can under-read a tributary-driven rise — cross-check Union.",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Normal flow @ High Gate — Dec–Feb 30–60 cfs; Mar–May 40–100; Jun–Nov 2–20; low flows 0.2–2; highest fishable 150–200 (Agnew).",
+        "Gradient 2.6 ft/mi. Seldom jetboatable even when high.",
+        "Public access scarce on the upper river — plan multi-day floats between accesses."
+      ]
+    },
+    {
+      "slug": "lower-nosermill-meramec",
+      "name": "Lower Bourbeuse (Noser Mill to the Meramec)",
+      "description": "The lower half from Noser Mill ~55 river-miles to the Meramec confluence. Flow stays inconsistent until Spring Creek (fed by Kratz Spring, ~25 cfs avg) enters ~10 mi below Noser Mill and can nearly double the river; from there it is nearly always floatable, though some riffles still walk in low water. A few impressive bluffs below Spring Creek; increasingly developed and murky near Union and below. Gradient 2.2 ft/mi.",
+      "putIn": { "name": "Hwy 185 at Noser Mill (Devils Back Campground)", "lat": null, "lon": null },
+      "takeOut": { "name": "Chouteau Claim MDC Access (mouth at the Meramec)", "lat": null, "lon": null },
+      "publishedLengthMiles": 55.2,
+      "representativeGauge": {
+        "siteId": "07016500",
+        "rationale": "Agnew keys the lower-river navigability table to the Bourbeuse River at Union gauge (Hwy 50 bridge)",
+        "knownBias": "reliable for the whole lower river except Noser Mill→Spring Creek, which runs lower than the gauge suggests"
+      },
+      "thresholds": [
+        { "level": "too_low", "value": 40, "unit": "cfs", "referenceGauge": "07016500", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview, lower-reach navigability table @ Union gauge: 'Less than 40 cfs—Most riffles will have to be walked.'", "confidence": "high" },
+        { "level": "low", "value": 70, "unit": "cfs", "referenceGauge": "07016500", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '40-70 cfs—Most riffles will be runnable with considerable scraping bottom.'", "confidence": "high" },
+        { "level": "optimal_min", "value": 120, "unit": "cfs", "referenceGauge": "07016500", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '70-120 cfs—low but floatable'; '120-250 cfs—easily floatable' → easily-floatable band begins at 120.", "confidence": "high" },
+        { "level": "optimal_max", "value": 250, "unit": "cfs", "referenceGauge": "07016500", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '120-250 cfs—easily floatable'; '250-500 cfs—high but floatable' → top of easily-floatable at 250.", "confidence": "high" },
+        { "level": "high", "value": 500, "unit": "cfs", "referenceGauge": "07016500", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '250-500 cfs—high but floatable'; '500-1000 cfs—very high...strong currents and willow jungles may be dangerous.'", "confidence": "medium" },
+        { "level": "dangerous", "value": 1000, "unit": "cfs", "referenceGauge": "07016500", "referenceGaugeIsPolled": true, "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: 'Over 1000 cfs—too high.' (500–1000 already flagged 'may be dangerous'.)", "confidence": "medium" }
+      ],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["strainer", "willow_jungle_high_water", "logjam", "strong_current_high_water"],
+        "lowWaterMeaning": "Below ~40 cfs at Union most riffles must be walked; 40–70 cfs runs with considerable scraping. The Noser Mill→Spring Creek stretch runs lower than the Union gauge reads. Jun–Nov normal (60–150 cfs) sits in the low-to-marginal range.",
+        "risingWaterHazards": "500–1000 cfs is very high and probably muddy, with strong currents and willow jungles that 'may be dangerous'; over 1000 cfs is too high. NWS UNNM7 flood/action stages auto-fill at ingest.",
         "rainLagHours": null,
         "rainLagNote": "UNKNOWN — capture",
         "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
-        "Runoff-fed, not spring-fed: turbid and slower than the clear Ozark floats; drops into a marginal float range through summer/fall (OzarkAnglers, via search).",
-        "Extreme meandering — high river-miles per straight-line mile; plan float times accordingly."
+        "Normal flow @ Union — Dec–Feb 150–250 cfs; Mar–May 300–500; Jun–Nov 60–150; low flows 30–60; highest fishable 600–1000 (Agnew).",
+        "Spring Creek (Kratz Spring, ~25 cfs avg) enters ~10 mi below Noser Mill and can nearly double the flow — below it the river is nearly always floatable.",
+        "Gradient 2.2 ft/mi. Below Union the river is incised into alluvial banks and typically very murky."
       ]
     }
   ],
-  "accessPoints": [],
-  "weatherPoint": {
-    "city": "Union",
-    "lat": null,
-    "lon": null
-  },
+  "accessPoints": [
+    { "name": "Mint Spring MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "upper-mintspring-nosermill", "notes": "Head of navigation. Upper reach mile 0.0.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Glaser Ford low-water bridge (Koenig Road)", "type": "bridge", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 2.3. Low-water bridge hazard.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Enke Road bridge", "type": "bridge", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 7.7. Very poor access.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Hog Trough Road low-water bridge", "type": "bridge", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 10.7. Low-water bridge hazard.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Tea MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "upper-mintspring-nosermill", "notes": "Upper mile 17.6.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Mill Rock MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "upper-mintspring-nosermill", "notes": "Upper mile 34.8.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Hwy CC bridge", "type": "bridge", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 39.0. Very poor access.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Wenkle Ford MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "upper-mintspring-nosermill", "notes": "Upper mile 42.0.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Laubinger Ford", "type": "access", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 45.0. Very obscure and hard to find.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Peters Ford", "type": "access", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 53.0. Unimproved ford; parking non-existent without permission.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Hwy 185 at Noser Mill / Devils Back Campground", "type": "access", "lat": null, "lon": null, "section": "upper-mintspring-nosermill", "notes": "Upper mile 59.0 / lower mile 0.0. Bridge has no access; access below the mill dam (from the north) may be posted; safest is Devils Back Campground above the bridge (entails portaging Noser Mill dam).", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Schmitt Ford", "type": "access", "lat": null, "lon": null, "section": "lower-nosermill-meramec", "notes": "Lower mile 4.2. Obscure, may be posted; end of Stuesse Road.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Reiker Ford MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 21.5.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Mayers Landing MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 32.5.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Union MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 40.9. Near the Hwy 50 / Union gauge.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Dr. Henry A. and Amalia Uhlemeyer MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 49.9.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
+    { "name": "Chouteau Claim MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 55.2. At the mouth of the Bourbeuse (Meramec confluence).", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" }
+  ],
+  "weatherPoint": { "city": "Union", "lat": null, "lon": null },
   "alertSearchTerms": [
     "bourbeuse river",
     "phelps county",
     "crawford county",
     "gasconade county",
     "franklin county",
+    "maries county",
     "union",
     "owensville",
-    "noser mill"
+    "noser mill",
+    "high gate"
   ],
   "research": {
     "date": "2026-07-06",
     "sourcesConsulted": [
-      "https://missouricanoe.org/bourbeuse-river/",
       "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "http://southwestpaddler.com/docs/meramec4.html",
-      "https://paddlestlouis.com/2018/07/29/bourbeuse-river-hwy-44-to-guths-mill-dam/",
-      "https://www.floatmissouri.com/plan/outfitter/",
+      "https://missouricanoe.org/bourbeuse-river/",
       "https://water.noaa.gov/gauges/unnm7",
-      "https://waterdata.usgs.gov/monitoring-location/USGS-07016500/"
+      "https://water.noaa.gov/gauges/htgm7",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07016500/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07015720/"
     ],
     "openQuestions": [
-      "RIVER-TYPE [signoff]: research confirms runoff-fed / turbid / slow-meandering lowland character — 'spring_fed_float' likely mis-models the speed curve. Consider a runoff/lowland float archetype or 'flatwater'. Owner call; not flipped unilaterally because riverType drives speed curves.",
-      "Reach division: currently one lower calibration reach (Union). Confirm whether an upper reach (High Gate/Owensville gauges) needs its own thresholds.",
-      "The brief's guessed 'Bourbeuse near Noser Mill (07016000)' gauge could NOT be confirmed to exist in search — do not ingest it; confirm or drop.",
-      "Full MCFA/MDC reach mileage + access-point list with float times (missouricanoe.org/bourbeuse-river/ did not expose its table to search)."
+      "RIVER-TYPE [signoff]: Agnew explicitly confirms runoff-fed / murky / slowest-large-Ozark-stream character — 'spring_fed_float' mis-models the speed curve. Reclassify (a runoff/lowland float archetype, or 'flatwater'); not flipped unilaterally because riverType drives speed curves. isSpringFed already set false on both reaches.",
+      "DANGER ANCHORS: high/dangerous cfs (upper 120/200 @ High Gate; lower 500/1000 @ Union) are single-source (Agnew) at confidence 'medium' — corroborate with NWS UNNM7/HTGM7 flood stages (auto-fetch) before a live danger badge; the [safety] gate enforces this.",
+      "Upper-reach gauge caveat: High Gate under-reads tributary-driven rises; consider surfacing the 'check Union after rain' rule in the app's upper-reach guidance.",
+      "Float times per reach not published by Agnew — derive from mileage + speed curve once river_type is settled."
     ],
     "toVerify": [
-      "USGS 07016500 (Union), 07016400 (above Union), 07015750 (Owensville), 07015720 (High Gate): transcribe site #, name, lat/lon, params (00060/00065), drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-bourbeuse.md",
-      "Confirm or drop the brief's '07016000 near Noser Mill' guess (search could not confirm it exists)",
-      "Floatability cfs bands at Union (too_low 40 / low 70 / optimal_min 120) — verify against the OzarkAnglers overview page; these are SEARCH-DERIVED, confidence 'low'",
-      "NWS UNNM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); do not hand-enter",
+      "USGS 07015720 (High Gate), 07016500 (Union), 07016400 (above Union), 07015750 (Owensville): transcribe site #, name, lat/lon, params (00060/00065), drainage area from the USGS site service — CANDIDATES ONLY until then; then write verified-identifiers-bourbeuse.md",
+      "The brief's earlier '07016000 near Noser Mill' guess is NOT in Agnew's account and was unconfirmed in search — treat as non-existent unless the USGS paste shows it",
+      "NWS UNNM7 (Union) and HTGM7 (High Gate) flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); use as the danger-anchor corroboration",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "Full MDC access-point list with coordinates (human places every point)"
+      "Access-point coordinates — human places every point in admin [manual]; names + river-miles captured from Agnew"
     ]
   }
 }
