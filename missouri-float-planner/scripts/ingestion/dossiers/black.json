@@ -108,8 +108,10 @@
       },
       "hazards": [],
       "localKnowledge": [
-        "Popular float reach: Lesterville → Highway K (west of Annapolis); towns Lesterville, Annapolis, Piedmont (via search).",
-        "Multi-fork headwaters (East/Middle/West Forks) each with its own gauge near Lesterville — a level reading must be matched to the right fork/reach."
+        "Al Agnew: the three forks (West largest, Middle second, East smallest) converge near Lesterville; the main stem from there to Clearwater Reservoir is one of the more popular canoeing streams in Missouri — big campgrounds and canoe rentals in/below Lesterville. Exceptionally clear water (perhaps the clearest in the Ozarks), vast gravel bars, occasional sheer cliffs. Smallmouth + goggle-eye; sucker 'grabbing' (snagging) popular.",
+        "Clearwater Dam (flood control) sits below this reach: normal pool inundates only 5–6 mi of channel, but the HIGH-WATER pool backs all the way to the Highway K area (~10 mi upstream) — so the effective downstream limit of the float reach moves with lake level.",
+        "West Fork floatable from ~Centerville; Middle Fork often floated from the Hwy 21-72 bridge; East Fork (Taum Sauk / Johnson Shut-ins / Bell Mountain Wilderness) is NOT considered floatable.",
+        "Below Clearwater Dam the river is a separate, slower, dam-influenced reach (warmer/murkier releases favor spotted bass over smallmouth); canoe liveries only just below the dam; much of the lower river is within Mark Twain NF. Leaves the Ozarks at Poplar Bluff into slow lowland water."
       ]
     }
   ],
@@ -141,7 +143,8 @@
       "https://www.missourigreatoutdoors.com/black-river-levels"
     ],
     "openQuestions": [
-      "CALIBRATION CORE (missing): gauge-keyed floatability (cfs or ft) for the Lesterville→Annapolis reach — search returned only generic riffle-drag language with no numbers and no named reference gauge.",
+      "CALIBRATION CORE (still missing): gauge-keyed floatability cfs/ft ladder for the Lesterville→Annapolis reach @ 07061500. The Al Agnew OzarkAnglers 'Black River' overview (2026-07-06) gave rich CHARACTER (three forks, Clearwater dynamics, upper-clear/lower-murky) but NOT the 'Navigability: <X cfs…' table the Bourbeuse article had — capture that subsection from the Black article.",
+      "REACH STRUCTURE (Agnew-confirmed): upper float reach = forks/Lesterville → Highway K (moves with Clearwater high pool) = clear spring-fed float @ Annapolis 07061500. A SEPARATE lower reach below Clearwater Dam toward Poplar Bluff is dam-influenced (warmer/murkier, slower) — would be river_type=dam_tailwater with its own gauge (a Black River at Poplar Bluff gauge, not in the current set); out of scope until that gauge is added.",
       "Representative gauge choice [signoff]: Annapolis (07061500, has the NWS LID) vs Lesterville (07061400, closer to the put-in). Confirm which the app should poll for this reach.",
       "Lower reach below Clearwater Lake is a dam-influenced tailwater toward Poplar Bluff — not researched here; if added it likely needs river_type=dam_tailwater and its own gauge (e.g. Black River at Poplar Bluff).",
       "CROSS-CHECK (do not ingest as-is): search reported ANNM7 flood categories Action 6 / Minor 8 / Moderate 15 / Major 25 ft — single-source; the authoritative values come from fetch-nws-flood-stages.ts."

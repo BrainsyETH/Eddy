@@ -78,15 +78,19 @@
       "characteristics": {
         "isSpringFed": true,
         "hydroType": "spring_fed_float",
-        "primaryHazards": ["low_water_bridge", "strainer", "gravel_bar"],
-        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs floatability captured; only generic riffle-drag guidance. Capture a Hazelgreen-keyed minimum from MDC/outfitter sources.",
+        "primaryHazards": ["losing_reach_low_water", "rockslide_bluff_rapid", "low_water_bridge", "strainer", "gravel_bar"],
+        "lowWaterMeaning": "UNKNOWN (numeric, gauge-keyed) — no cfs navigability table captured yet (the Agnew narrative provided character but not the table). CRITICAL CAVEAT: the upper Gasconade has a documented LOSING REACH (Ozark Springs → Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to <30 cfs below as the river sinks underground — weed-choked, often walk-the-canoe. Water returns ~a mile downstream at Rockslide Bluff via Falling, Creasy, and Bartless Mill Springs. An upstream gauge reading can therefore badly OVERSTATE floatability through the losing reach; confirm the Hazelgreen gauge's position relative to the Narrows.",
         "risingWaterHazards": "Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. NWS HZLM7 flood/action stages auto-fill at ingest.",
         "rainLagHours": null,
         "rainLagNote": "UNKNOWN — capture",
         "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
-      "localKnowledge": []
+      "localKnowledge": [
+        "LOSING REACH (Al Agnew): Ozark Springs → Hwy 17, upper end of the Narrows bend above Schlict Spring — a large part of the river disappears underground in low water (~75 cfs above the Narrows, <30 cfs below). Put in at Schlict Spring in low water and it can be a barely-flowing, weed-choked trickle.",
+        "Rockslide Bluff: a 200 ft × 60 ft × 20 ft section of cliff collapsed into the river on 1971-11-03, still an interesting rapid; springs bubble up from the river bottom here and the flow (and floating) picks up markedly below it.",
+        "Longest river entirely within Missouri and the longest undammed river in the Ozarks; ~250 mi of floatable water. Floatable from ~Hwy E (≈11 mi below the highest put-in) down."
+      ]
     },
     {
       "slug": "mid-jerome",
@@ -180,7 +184,8 @@
       "https://www.missourigreatoutdoors.com/gasconade-river-levels"
     ],
     "openQuestions": [
-      "CALIBRATION CORE (missing): gauge-keyed floatability (cfs) for Hazelgreen / Jerome / Rich Fountain — search returned only generic riffle-drag language with no numbers.",
+      "CALIBRATION CORE (still missing): gauge-keyed floatability cfs ladder for Hazelgreen / Jerome / Rich Fountain. The Al Agnew OzarkAnglers narrative (2026-07-06) gave rich CHARACTER (losing reach, Rockslide Bluff, extent) but NOT the 'Navigability: <X cfs…' table the Bourbeuse article had — capture that subsection from the Gasconade article. Only firm number so far: the losing reach runs ~75 cfs above the Narrows / <30 cfs below in low water (a hazard datum, not a float threshold).",
+      "ACCESS LANDMARKS from Agnew (no mileages/coords yet — [manual] capture): Hwy E (≈11 mi below the highest put-in), Hwy 17 at Waynesville, Hwy 28, Ozark Springs, Schlict Spring (in the losing reach), Jerome, Paydown (≈80 mi of lower river remain below Paydown). Build the full MCFA/MDC mileage table.",
       "Reach division: 3 reaches drafted (Hazelgreen upper, Jerome mid, Rich Fountain lower); confirm boundaries and whether all three warrant separate calibration.",
       "CROSS-CHECK — FLAGGED CONFLATED (do not ingest): search reported Jerome JRMM7 'minor 15 ft / moderate 25 ft / major >30 ft' but also 'action 18.5–20.5 ft' (higher than minor — impossible ladder). Record stage 35.06 ft (2017-05-01). Authoritative categories come from fetch-nws-flood-stages.ts; HZLM7 and RIFM7 flood categories were not captured at all."
     ],
