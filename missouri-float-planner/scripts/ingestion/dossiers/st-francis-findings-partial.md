@@ -9,6 +9,34 @@
 > access mileage are solid; **every numeric level anchor and every USGS site
 > number is still a CANDIDATE pending primary-source verification.**
 
+## RUN 2 UPDATE (WebSearch tier — fetch still 403, but search index readable)
+
+Direct fetch stays hard-blocked (403 CONNECT), but the **WebSearch tool returns
+synthesized index reads**, which resolved run 1's single most important gap.
+Confidence: `CONFIRMED-ID` = site#↔name↔NWS-ID cross-checked across ≥2 results;
+`SEARCH-DERIVED` = number from search synthesis, single-source, verify vs page.
+
+**Gauges — now CONFIRMED-ID (names/numbers cross-checked; lat/lon still to fetch):**
+| USGS # | Name | NWS ID | Role |
+|---|---|---|---|
+| 07034000 | St. Francis River near Roselle, MO | ROZM7 | whitewater reference gauge |
+| 07036100 | St. Francis River near Saco, MO | — | mid (NEW this run) |
+| 07037500 | St. Francis River near Patterson, MO | PAZM7 | long-record; discharge (00060) + gage height (00065); USACE St. Louis District coop; Rolla FO |
+| 07039500 | St. Francis River at Wappapello, MO | — | lower (NEW this run) |
+- ⚠️ Roselle (07034000): search reconfirms USGS **dropped it from the network ~2016** (MWA forum) — **verify it is currently reporting** before keying a live badge to it. USACE MVS feed (mvs-wc.usace.army.mil/trans/gage/SF_tab.html) is the fallback.
+
+**Whitewater runnable anchor — RESOLVES run-1 open #1 (`SEARCH-DERIVED`, verify vs AW #2921):**
+- Reference gauge = **Roselle (07034000 / ROZM7)**, unit = **ft (stage)**.
+- **Above 3 ft = river "at its best"** for the Millstream Gardens→Silver Mines run.
+- Rain trigger: look for **½" rain within 6 hr** in upper watershed (Roselle & above).
+- D-bridge conversion (paddler rule): when gauge <6.0 ft, `(gauge − 3) × 15 = D-bridge level in inches`.
+- Run reconfirmed: **Class II–IV, 2.3 mi**, rain-fed; Winter/Spring often runnable, Summer/Fall only after a big rain. (No numeric MAX/too-high captured — still open.)
+
+**Still OPEN after run 2:** clean NWS flood categories for ROZM7 & PAZM7 (search
+returned only generic action/minor/moderate/major *definitions*, not Patterson/
+Roselle *thresholds*); all lat/lon; AW's exact min/max range + unit verbatim off
+the page; whether Roselle is live today.
+
 ## HEADLINE: this river is not the spring-fed float fast-path
 
 The St. Francis is the **only whitewater river in Missouri** (USFS). The upper
