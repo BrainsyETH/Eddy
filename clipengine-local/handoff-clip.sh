@@ -24,11 +24,15 @@ START=$(read_json "d.get('peaks',[])[$IDX]['start_secs'] if len(d.get('peaks',[]
 DUR=$(read_json "d.get('peaks',[])[$IDX].get('duration_secs',13) if len(d.get('peaks',[]))>$IDX else 13")
 SCORE=$(read_json "d.get('peaks',[])[$IDX].get('score',0) if len(d.get('peaks',[]))>$IDX else 0")
 
-# Dedup: skip if this video+start already exists in clip_library.
+# Dedup backstop: skip if this video+start already exists in clip_library.
+# (The scan loop in run-local.sh dedups per-video BEFORE downloading; this
+# exact video+start check still guards manual --url/--peak runs and races.)
+# Exit 3 = dupe, so the caller can tell "skipped" from "dispatched" (0) and
+# from real failures (1/2) and not count it toward MAX_CLIPS.
 EXISTING=$(curl -s "${SUPABASE_URL}/rest/v1/clip_library?youtube_video_id=eq.${VIDEO_ID}&clip_start_secs=eq.${START}&select=id" \
   -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")
 if echo "$EXISTING" | python3 -c "import json,sys;d=json.loads(sys.stdin.read() or 'null');exit(0 if isinstance(d,list) and d else 1)" 2>/dev/null; then
-  echo "⏭️  handoff: already in clip_library ($VIDEO_ID @ ${START}s) — skipping"; exit 0
+  echo "⏭️  handoff: already in clip_library ($VIDEO_ID @ ${START}s) — skipping"; exit 3
 fi
 
 # River display name for the branded frame.

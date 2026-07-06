@@ -130,10 +130,17 @@ process_video() {
   # Brand via cloud Remotion only: upload the RAW clip and hand off. render-clip.yml
   # brands it (clip-reel composition) and inserts clip_library (pending). Branding
   # lives in exactly one place — no local finalize, so it's never double-branded.
+  # Only a DISPATCHED render counts as a produced clip: dupes (rc=3) and failed
+  # handoffs return 1 so the scan loop doesn't burn MAX_CLIPS on them.
   echo "→ Handing off to cloud Remotion branding..."
-  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" \
-    || echo "⚠️  handoff failed"
-  rm -rf "$WORK"; return 0
+  local HANDOFF_RC=0
+  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" || HANDOFF_RC=$?
+  rm -rf "$WORK"
+  if [ "$HANDOFF_RC" -ne 0 ]; then
+    [ "$HANDOFF_RC" -eq 3 ] || echo "⚠️  handoff failed (rc=$HANDOFF_RC)"
+    return 1
+  fi
+  return 0
 }
 
 if [ -n "$SINGLE_URL" ]; then
@@ -172,11 +179,25 @@ else
       else
         echo "    ⏭️  not paddling: ${VTITLE:0:64}"; continue
       fi
+      # Video-level dedup BEFORE any scrape/download (mirrors the cloud
+      # pipeline): a video that already has a clip in clip_library is skipped
+      # here, so it costs one cheap REST call instead of a full yt-dlp
+      # download + extract, and never burns the MAX_CLIPS budget.
+      EXISTING=$(curl -s "${SUPABASE_URL}/rest/v1/clip_library?youtube_video_id=eq.${VID}&select=id&limit=1" \
+        -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")
+      # Only a JSON array with rows means "exists" — a PostgREST error object
+      # must not read as a hit. Fail open (proceed) and log on error.
+      DEDUP=$(echo "$EXISTING" | python3 -c "import json,sys;d=json.loads(sys.stdin.read() or 'null');print('exists' if isinstance(d,list) and d else ('new' if isinstance(d,list) else 'error'))" 2>/dev/null || echo error)
+      if [ "$DEDUP" = exists ]; then
+        echo "    ⏭️  already in clip_library — skipping"; continue
+      elif [ "$DEDUP" = error ]; then
+        echo "    ⚠️  dedup check failed ($(printf '%s' "$EXISTING" | head -c 120)) — proceeding without dedup"
+      fi
       # Count only produced clips so no-river/failed videos don't burn MAX_CLIPS.
       if process_video "https://www.youtube.com/watch?v=${VID}" "$VRIVER" "$PEAK_NUMBER" "$CH_IG"; then
         COUNT=$((COUNT + 1))
       fi
-    done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
+    done < <(yt-dlp --socket-timeout 30 --retries 3 --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
   done < <(python3 -c "
 import json,sys
 # Pipe-delimited (not tab): tab is IFS-whitespace, so empty middle fields would

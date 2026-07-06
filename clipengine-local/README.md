@@ -1,10 +1,13 @@
 # ClipEngine — Local Runner
 
-Run the Eddy YouTube→Reels pipeline on this machine, no cloud. Uses the exact
-repo scripts in `../scripts/clipengine/`, so captions and branding are identical
-to the production GitHub Actions workflow. The only differences: channels come
-from `channels.json` (not the `YOUTUBE_CHANNELS_JSON` secret) and finished clips
-are written to `output/` instead of uploaded to Vercel Blob / Supabase.
+Run the Eddy YouTube→Reels pipeline on this machine. Uses the exact repo
+scripts in `../scripts/clipengine/`, so captions and branding are identical to
+the production GitHub Actions workflow — both paths hand the raw clip to cloud
+Remotion (`render-clip.yml`), which brands it and inserts `clip_library`.
+`channels.json` here is the single channel list for BOTH the local runner and
+the cloud pipeline (the workflow reads it from the repo checkout).
+
+Full operational playbook: [`docs/clipengine-ops.md`](../docs/clipengine-ops.md).
 
 ## Add channels
 
@@ -17,9 +20,11 @@ strings also work). `river_slug` is metadata only; it is NOT drawn on the video.
 ]
 ```
 
-This is the same format as the `YOUTUBE_CHANNELS_JSON` GitHub secret, so you can
-paste this file's contents straight into the secret when you want it running in
-the cloud too.
+The cloud pipeline (`youtube-clip-pipeline.yml`) reads this same file from the
+repo checkout, so committing a channel change to `main` updates both the local
+runner and the daily cloud scan — nothing else to sync. (The optional
+`instagram` field is used locally for the on-screen credit; the cloud parser
+ignores it.)
 
 ## Run
 
@@ -31,7 +36,12 @@ the cloud too.
 ./run-local.sh
 ```
 
-Output → `output/<videoId>-peak<N>.mp4`.
+Nothing is written to `output/` (branding is cloud-only) — results land in
+Supabase `clip_library` as `pending`; `output/cron.log` has the run logs.
+
+Already-clipped videos are skipped *before* any download (video-level dedup
+against `clip_library`), and skips don't count toward `MAX_CLIPS`, so a scan
+budget is only spent on genuinely new clips.
 
 ## Publishing to Facebook / Instagram
 
