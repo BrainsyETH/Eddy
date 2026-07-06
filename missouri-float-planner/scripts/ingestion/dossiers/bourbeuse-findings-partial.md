@@ -1,42 +1,66 @@
-# Bourbeuse River (MO) — Partial Research Findings (run 1, URL-discovery only)
+# Bourbeuse River (MO) — Research Findings (WebSearch tier, run 2)
 
-> Deep-research run wf_eb1f0b14-4d4: 3 angles, 15 sources fetched, **0 claims
-> extracted — every source returned empty**. The fetch egress was fully
-> degraded during this run (worse than St. Francis run 1, where a couple
-> non-gov pages still extracted). So this file is **URL discovery only**: the
-> search phase surfaced real candidate gauge/source URLs, but NOTHING was read
-> or verified. Every item below is a LEAD to fetch from an unblocked
-> environment — no site number, level, or fact here is confirmed.
+> **Method note.** Direct page fetch (WebFetch/curl/workflow-fetch) is hard-blocked
+> by this environment's egress policy (403 CONNECT). The **WebSearch tool works**,
+> and returns a synthesized read of the search index. Everything below was gathered
+> that way. Confidence tags:
+> - `CONFIRMED-ID` = gauge site#↔name↔NWS-ID cross-checked across ≥2 search results.
+> - `SEARCH-DERIVED` = a number that appeared in a search synthesis, single-source,
+>   **must be verified against the source page** before it drives live warnings.
+> - `PARTIAL` = search returned an incomplete/possibly-conflated set.
 
-## Candidate gauges (from USGS monitoring-location URLs the search returned)
+## Gauges (CONFIRMED-ID — names/numbers cross-checked; lat/lon still to fetch)
 
-These are the `waterdata.usgs.gov/monitoring-location/USGS-<n>/` URLs surfaced
-for "Bourbeuse River" — real USGS URLs, but the pages did not load, so the
-name/reach/params of each is UNCONFIRMED. Do NOT ingest until each is opened:
+| USGS site | Name | NWS ID | Notes |
+|---|---|---|---|
+| 07015720 | Bourbeuse River near High Gate, MO | HTGM7 | upper river |
+| 07015750 | Bourbeuse River near Owensville, MO | — | upper–mid |
+| 07016400 | Bourbeuse River above Union, MO | — | just above Union |
+| 07016500 | Bourbeuse River at Union, MO | UNNM7 | Hwy 50 bridge; lower-river reference; params: discharge (00060), gage height (00065), precipitation; record to 1897; Rolla Field Office |
 
-- **07016500** — expected "Bourbeuse River at Union, MO" (long-record lower gauge; NWS **UNNM7** = Union). CANDIDATE.
-- **07016400** — CANDIDATE (near Union / upstream).
-- **07015000** — CANDIDATE (older/historic record — verify still active).
-- **07015720** — CANDIDATE (upper Bourbeuse).
-- **07015750** — CANDIDATE (upper Bourbeuse).
-- NWS gauge **UNNM7** (Union) — water.noaa.gov/gauges/unnm7 — flood categories not captured.
+- ⚠️ **"near Noser Mill" (07016000)** — the brief's guess; **search could not confirm this site exists.** Do NOT ingest. Verify separately or drop.
+- Still to fetch per gauge: exact lat/lon, datum, current active parameter list.
 
-## Source leads (found by search, NOT read — fetch from unblocked env)
+## Reach anchor — floatability keyed to Union (07016500), UNIT = cfs
 
-- MDC/MCFA reach + access + mileage: https://missouricanoe.org/bourbeuse-river/
-- Ozark Anglers overview: https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/
-- Southwest Paddler (Meramec basin, Bourbeuse): http://southwestpaddler.com/docs/meramec4.html
-- Paddle St. Louis trip report (Hwy 44 → Guths Mill Dam): https://paddlestlouis.com/2018/07/29/bourbeuse-river-hwy-44-to-guths-mill-dam/
-- Float Missouri outfitter directory: https://www.floatmissouri.com/plan/outfitter/
-- Union flood-stage news (emissourian): over-flood-stage-in-Union article (context for danger anchor)
+`SEARCH-DERIVED, single-source (reads like OzarkAnglers overview), VERIFY`
+- `< 40 cfs` — most riffles must be walked
+- `40–70 cfs` — riffles runnable with considerable bottom-scraping
+- `70–120 cfs` — low but floatable; a few wide riffles scrape
+- Normal **Jun–Nov** flow at Union: **60–150 cfs** (low-to-marginal range)
+- Typical low flows: **30–60 cfs** (floating difficult)
+- **Minimum comfortable ≈ 70 cfs**
+- Gauge caveat from source: Union gauge reliable for the entire lower river
+  EXCEPT the Noser Mill → Spring Creek stretch runs lower than the rest.
+- Reference gauge STATED (Union 07016500); unit STATED (cfs). ✓ meets rules.
 
-## Status
+## NWS flood categories — Union UNNM7 (PARTIAL — do not treat as danger anchor yet)
 
-No dossier written from this run — building a stub from zero extracted content
-would be fabrication. When egress recovers, either re-run the harness or fetch
-the six source leads directly; targets: confirm the Union gauge (07016500 /
-UNNM7) name+params, MCFA mileage table, outfitter floatable-stage guidance, and
-NWS UNNM7 flood categories. Bourbeuse character (per the brief, not yet
-source-confirmed): slow, meandering, runoff-fed, summer low-water, logjam/
-strainer hazards — treat as `spring_fed_float`'s turbid cousin, likely its own
-low-gradient profile.
+`SEARCH-DERIVED, PARTIAL`
+- Flood stage ≈ **15 ft**; **minor flooding at ~17 ft** (numbers slightly
+  inconsistent in synthesis — 15 vs 17). Clean action/minor/moderate/major
+  split NOT obtained. **Needs source-page fetch (water.noaa.gov/gauges/unnm7).**
+
+## Access points + mileage (INCOMPLETE)
+
+- MCFA Bourbeuse page exists (missouricanoe.org/bourbeuse-river/) but the
+  mileage table did not surface in snippets. Outfitter identified:
+  **Devil's Back Floats** (canoe/kayak/camping on the Bourbeuse).
+- Towns along river: Union, Owensville, Sullivan.
+- **Open:** full put-in→take-out reach table w/ river-miles + float hours.
+
+## River character (consistent with brief; partly source-touched)
+
+- Slow, low-gradient, extremely meandering tributary of the Meramec; Class I;
+  smallmouth/largemouth/catfish/sunfish; fewer crowds than the spring rivers.
+- Runoff-influenced, drops into low/marginal float range through summer–fall
+  (see cfs bands above). Floatable window skews spring / after rain.
+- Named hazards (per brief, not yet source-confirmed): low-water bridges,
+  logjams/strainers — common on this river.
+
+## Open questions → next fetch pass (unblocked env)
+
+1. Confirm/deny 07016000 "near Noser Mill"; get lat/lon for all confirmed gauges.
+2. Verify the Union cfs floatability bands against the OzarkAnglers source page.
+3. Clean NWS UNNM7 flood category set (action/minor/moderate/major in ft).
+4. Full MCFA/MDC reach mileage + access-point table with float times.
