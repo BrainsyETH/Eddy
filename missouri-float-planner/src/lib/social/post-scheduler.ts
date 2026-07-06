@@ -21,6 +21,7 @@ import { overlayLiveConditions } from './live-conditions';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
 import { getLocalDay, getLocalMinutes } from './local-time';
+import { upcomingHolidayWeekend } from './holiday-weekends';
 import type {
   SocialCustomContent,
   SocialPlatform,
@@ -184,11 +185,16 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
   {
     const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
+    // Holiday early call: ahead of Memorial Day / July 4th / Labor Day, fire an
+    // extra Tuesday forecast even when the grid cell is off — the season's
+    // demand-spike weeks get a midweek read plus the regular Friday final call.
+    const holidayName = upcomingHolidayWeekend(schedulerZone);
+    const holidayEarlyCall = !!holidayName && !todayMedia && todayKey === 'tue';
     // The grid (media_schedule) is the single source of truth for which days a
     // type fires — same as daily_digest/river_highlight. The legacy `enabled`
     // flag isn't maintained by the grid UI, so gating on it silently desynced
     // these posts off even with every day set to Video.
-    if (todayMedia && config.weekly_forecast) {
+    if ((todayMedia || holidayEarlyCall) && config.weekly_forecast) {
       const { time_cst } = config.weekly_forecast;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
       const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
@@ -210,7 +216,13 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         } else {
           const platforms: SocialPlatform[] = ['facebook', 'instagram'];
           for (const platform of platforms) {
-            const { caption, hashtags } = formatWeeklyForecastCaption(topRivers, customContent, platform);
+            const { caption, hashtags } = formatWeeklyForecastCaption(
+              topRivers,
+              customContent,
+              platform,
+              false,
+              holidayName ? { name: holidayName, earlyCall: holidayEarlyCall } : null,
+            );
             posts.push({
               postType: 'weekly_forecast',
               platform,
