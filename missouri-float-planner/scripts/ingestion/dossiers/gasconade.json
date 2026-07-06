@@ -1,5 +1,5 @@
 {
-  "_status": "STUB+RUN1 — identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-gasconade.md written; lat/lon + params + drainage backfilled for all 3 reach gauges (Hazelgreen/Jerome/Rich Fountain, all ACTIVE + pollable). NWS JRMM7 flood set resolved to a clean 13/15/25/30 ft (the earlier 'conflation' was impact-statement noise). STILL NEEDED: (1) gauge-keyed floatability cfs ladder — thresholds[] intentionally empty until captured (an Al Agnew OzarkAnglers 'Gasconade River Overview' would supply it), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage — impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
+  "_status": "STUB+RUN1 — identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-gasconade.md written; lat/lon + params + drainage backfilled for all 3 reach gauges (Hazelgreen/Jerome/Rich Fountain, all ACTIVE + pollable). NWS JRMM7 flood set resolved to a clean 13/15/25/30 ft. [UPPER LADDER ENCODED 2026-07-06] Hazelgreen reach now carries a moherp OBSERVED (paddler trip-calibrated) cfs ladder — Low 100 / Good 200 / High 1000, trip-corroborated, confidence medium; moherp ESTIMATED values recorded as reference only per the calibration decision. STILL NEEDED: (1) Jerome + Rich Fountain ladders (moherp Jerome page may have observed values; Rich Fountain does not — Agnew per-reach Navigability tables remain the corroboration target), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage — impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
   "name": "Gasconade River",
   "slug": "gasconade",
   "state": "MO",
@@ -73,8 +73,18 @@
         "rationale": "Hazelgreen (06928000) is the upper-river reference gauge with an NWS forecast point (HZLM7)",
         "knownBias": ""
       },
-      "thresholds": [],
-      "publishedFloatTimes": [],
+      "thresholds": [
+        { "level": "low", "value": 100, "unit": "cfs", "referenceGauge": "06928000", "referenceGaugeIsPolled": true, "source": "rivers.moherp.org Missouri paddler gauge ratings, Hazelgreen 06928000 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) thresholds — Low 100 cfs.", "confidence": "medium" },
+        { "level": "optimal_min", "value": 200, "unit": "cfs", "referenceGauge": "06928000", "referenceGaugeIsPolled": true, "source": "rivers.moherp.org Hazelgreen OBSERVED rating: Good begins at 200 cfs ('ideal for a canoe or kayak; boats drag on fewer than one-quarter of riffles').", "corroboratingSources": ["moherp trip reports rated Good at 443 cfs/1.88 ft (2018-09-15 Cave Lodge→Ruby's Landing), 616 cfs/2.48 ft (2010-06-12 Osage Fork→Hazelgreen), 1230 cfs/3.10 ft (2026-05-04 Blacks Ford→Gasconade Hills Resort)"], "confidence": "medium" },
+        { "level": "optimal_max", "value": 1000, "unit": "cfs", "referenceGauge": "06928000", "referenceGaugeIsPolled": true, "source": "rivers.moherp.org Hazelgreen OBSERVED rating: High begins at 1000 cfs (top of the Good band).", "confidence": "medium" },
+        { "level": "high", "value": 1000, "unit": "cfs", "referenceGauge": "06928000", "referenceGaugeIsPolled": true, "source": "rivers.moherp.org Hazelgreen OBSERVED rating: High 1000 cfs (site taxonomy: 'high and potentially dangerous… canoe travel may not be advisable').", "corroboratingSources": ["moherp trips rated High at 1090 cfs/3.16 ft (2016-10-23) and 3350 cfs/5.78 ft (2022-04-23). CONTRARY datum: one 2019-05-27 trip at 2840 cfs was logged Good — the 1000-cfs boundary is soft; owner review at signoff."], "confidence": "medium" }
+      ],
+      "publishedFloatTimes": [
+        { "reachLabel": "Buzzard Bluff to Wilbur Allen", "distanceMiles": 7.2, "source": "rivers.moherp.org trip reports (2019-05-27, 2022-04-23), Hazelgreen gauge page" },
+        { "reachLabel": "Blacks Ford to Gasconade Hills Resort", "distanceMiles": 6.0, "source": "rivers.moherp.org trip report (2026-05-04), Hazelgreen gauge page" },
+        { "reachLabel": "Osage Fork to Hazelgreen", "distanceMiles": 0.8, "source": "rivers.moherp.org trip reports (2010-06-12, 2016-10-23), Hazelgreen gauge page" },
+        { "reachLabel": "Cave Lodge to Ruby's Landing", "distanceMiles": 5.1, "source": "rivers.moherp.org trip report (2018-09-15), Hazelgreen gauge page" }
+      ],
       "characteristics": {
         "isSpringFed": true,
         "hydroType": "spring_fed_float",
@@ -149,7 +159,16 @@
       "localKnowledge": []
     }
   ],
-  "accessPoints": [],
+  "accessPoints": [
+    { "name": "Buzzard Bluff", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "Named put-in in moherp trip reports; 7.2 mi above Wilbur Allen.", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Wilbur Allen", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "Named take-out in moherp trip reports (Buzzard Bluff → Wilbur Allen, 7.2 mi).", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Blacks Ford", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "Named put-in; 6.0 mi above Gasconade Hills Resort.", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Gasconade Hills Resort", "type": "access", "lat": null, "lon": null, "ownership": "private", "section": "upper-hazelgreen", "notes": "Private resort take-out in moherp trip reports.", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Osage Fork confluence access", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "0.8 mi above the Hazelgreen access per moherp trips.", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Hazelgreen access", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "Take-out at/near the Hazelgreen gauge (I-44 area).", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Cave Lodge", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "Named put-in; 5.1 mi above Ruby's Landing.", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" },
+    { "name": "Ruby's Landing", "type": "access", "lat": null, "lon": null, "section": "upper-hazelgreen", "notes": "Named take-out in moherp trip reports.", "source": "https://rivers.moherp.org/gauge/?gauge=06928000" }
+  ],
   "weatherPoint": {
     "city": "Waynesville",
     "lat": null,
@@ -188,8 +207,13 @@
       "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source — frequency statistics do not encode channel geometry (see black.json for the Bourbeuse falsification), and on this river the LOSING REACH makes gauge-vs-reality divergence even worse. Retain ONLY as context (% of normal, already rendered by the app) and sanity checks. Thresholds must come from the Agnew Gasconade article's per-reach 'Navigability' tables (the owner's paste was the intro narrative; the reach sections with Gradient/gauge/Normal flow/Navigability/Accesses follow further down the article) — that is the target source for all three reaches. Only the UPPER-reach (Hazelgreen) percentile set is on file; Jerome/Rich Fountain flows are 3–4× larger.",
       "06928000_hazelgreen_cfs": { "basis": "68 years, July 6 daily mean", "low": 60.0, "p25": 173.5, "median": 261.5, "p75": 525.5, "mean": 615.8, "high": 6140.0, "latestObserved": 708, "latestDate": "2026-07-06" }
     },
+    "moherpRatings": {
+      "note": "rivers.moherp.org paddler gauge ratings (owner-provided 2026-07-06). OBSERVED = consolidated from community trip reports at known discharge (human/geometry-calibrated → encoded as thresholds at confidence medium). ESTIMATED = site model → reference only, per the calibration decision.",
+      "06928000_hazelgreen": { "observed_cfs": { "low": 100, "good": 200, "high": 1000 }, "estimated_cfs": { "poor": 56, "low": 226, "good": 494, "high": 943, "flood": 4809 }, "latest": "Good (708 cfs), median 262 — 2026-07-06" },
+      "06934000_richfountain": { "observed_cfs": null, "estimated_cfs": { "poor": 484, "low": 1074, "good": 1994, "high": 3151, "flood": 13580 }, "latest": "Good (2190 cfs), median 1200 — 2026-07-06", "note": "NO observed values → no thresholds encoded for the lower reach. Check the moherp Jerome page (rivers.moherp.org/gauge/?gauge=06933500) for observed values for the middle reach." }
+    },
     "openQuestions": [
-      "CALIBRATION CORE (still missing): gauge-keyed floatability cfs ladder for Hazelgreen / Jerome / Rich Fountain. The Al Agnew OzarkAnglers narrative (2026-07-06) gave rich CHARACTER (losing reach, Rockslide Bluff, extent) but NOT the 'Navigability: <X cfs…' table the Bourbeuse article had — capture that subsection from the Gasconade article. Only firm number so far: the losing reach runs ~75 cfs above the Narrows / <30 cfs below in low water (a hazard datum, not a float threshold).",
+      "CALIBRATION CORE (UPPER REACH RESOLVED 2026-07-06): Hazelgreen ladder encoded from moherp OBSERVED community ratings (Low 100 / Good 200 / High 1000 cfs, trip-corroborated) at confidence medium. STILL MISSING: Jerome (mid) and Rich Fountain (lower) ladders — Rich Fountain's moherp page has NO observed values; pull the moherp JEROME page (rivers.moherp.org/gauge/?gauge=06933500) which may have observed values, and the Agnew article's per-reach 'Navigability' tables for cross-corroboration (would also bump Hazelgreen confidences to high). Losing-reach datum: ~75 cfs above the Narrows / <30 cfs below in low water (hazard datum, not a float threshold).",
       "ACCESS LANDMARKS from Agnew (no mileages/coords yet — [manual] capture): Hwy E (≈11 mi below the highest put-in), Hwy 17 at Waynesville, Hwy 28, Ozark Springs, Schlict Spring (in the losing reach), Jerome, Paydown (≈80 mi of lower river remain below Paydown). Build the full MCFA/MDC mileage table.",
       "Reach division: 3 reaches drafted (Hazelgreen upper, Jerome mid, Rich Fountain lower); confirm boundaries and whether all three warrant separate calibration.",
       "CROSS-CHECK — FLAGGED CONFLATED (do not ingest): search reported Jerome JRMM7 'minor 15 ft / moderate 25 ft / major >30 ft' but also 'action 18.5–20.5 ft' (higher than minor — impossible ladder). Record stage 35.06 ft (2017-05-01). Authoritative categories come from fetch-nws-flood-stages.ts; HZLM7 and RIFM7 flood categories were not captured at all."
