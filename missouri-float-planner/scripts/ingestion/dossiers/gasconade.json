@@ -1,5 +1,5 @@
 {
-  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). ",
+  "_status": "STUB+RUN1 — identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). NOT SIGNED-OFF and NOT ingestable: (1) no gauge site number is primary-verified (verified-identifiers-gasconade.md not written), (2) NO gauge-keyed floatability numbers were captured — only generic qualitative guidance — so thresholds[] are intentionally empty, (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage — impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
   "name": "Gasconade River",
   "slug": "gasconade",
   "state": "MO",
@@ -8,7 +8,7 @@
   "region": "Ozarks",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I",
-  "description": "The longest river entirely within Missouri, a winding Ozark float stream draining the central Ozarks north to the Missouri River. Long floatable season; smallmouth fishing; many low-water access bridges.",
+  "description": "The longest river entirely within Missouri, a winding low-gradient Ozark float stream draining the central Ozarks north to the Missouri River. Spring-influenced but with significant runoff; long floatable season; smallmouth fishing; many low-water access bridges. Long enough to warrant multiple calibration reaches (upper near Hazelgreen, middle at Jerome, lower near Rich Fountain).",
   "riverType": "spring_fed_float",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
@@ -19,8 +19,129 @@
     "confidence": "medium"
   },
   "seasonalClosures": [],
-  "gauges": [],
-  "sections": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "06928000",
+      "name": "Gasconade River near Hazelgreen, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "HZLM7",
+      "servesSections": ["upper-hazelgreen"],
+      "knownBias": "CANDIDATE, NOT primary-verified (USGS page 403'd; site #/name cross-checked across ≥2 search results). Upper-river reference; params discharge(00060)+gage height(00065) per USGS listing.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "06933500",
+      "name": "Gasconade River at Jerome, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "JRMM7",
+      "servesSections": ["mid-jerome"],
+      "knownBias": "CANDIDATE, NOT primary-verified. Mid-river reference at the Jerome/Waynesville float hub; the most-cited Gasconade float gauge.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "06934000",
+      "name": "Gasconade River near Rich Fountain, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "RIFM7",
+      "servesSections": ["lower-richfountain"],
+      "knownBias": "CANDIDATE, NOT primary-verified. Lower-river reference toward the Missouri River confluence.",
+      "_verify": true
+    }
+  ],
+  "sections": [
+    {
+      "slug": "upper-hazelgreen",
+      "name": "Upper Gasconade (Hazelgreen area)",
+      "description": "Upper reach represented by the Hazelgreen gauge. Winding, low-gradient, spring-influenced Ozark float with smallmouth fishing.",
+      "putIn": { "name": "Hazelgreen area", "lat": null, "lon": null },
+      "takeOut": { "name": "downstream toward Jerome", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "06928000",
+        "rationale": "Hazelgreen (06928000) is the upper-river reference gauge with an NWS forecast point (HZLM7)",
+        "knownBias": ""
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["low_water_bridge", "strainer", "gravel_bar"],
+        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs floatability captured; only generic riffle-drag guidance. Capture a Hazelgreen-keyed minimum from MDC/outfitter sources.",
+        "risingWaterHazards": "Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. NWS HZLM7 flood/action stages auto-fill at ingest.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": []
+    },
+    {
+      "slug": "mid-jerome",
+      "name": "Middle Gasconade (Jerome / Waynesville)",
+      "description": "The popular middle float reach around Jerome and Waynesville, represented by the Jerome gauge — the most-cited Gasconade float gauge.",
+      "putIn": { "name": "Waynesville / upstream of Jerome", "lat": null, "lon": null },
+      "takeOut": { "name": "Jerome", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "06933500",
+        "rationale": "Jerome (06933500 / JRMM7) is the most-cited float gauge and the mid-river reference",
+        "knownBias": ""
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["low_water_bridge", "strainer", "gravel_bar"],
+        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs floatability captured; generic guidance only. Capture a Jerome-keyed minimum.",
+        "risingWaterHazards": "Runoff-responsive; low-water bridges and strainers become hazards as water rises. NWS JRMM7 flood/action stages auto-fill at ingest. (Search-reported Jerome flood numbers were internally inconsistent — see openQuestions; do NOT use them.)",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "High-quality smallmouth bass fishery; Jerome/Waynesville is the float hub (via search)."
+      ]
+    },
+    {
+      "slug": "lower-richfountain",
+      "name": "Lower Gasconade (Rich Fountain toward the mouth)",
+      "description": "Lower reach represented by the Rich Fountain gauge, toward the Missouri River confluence. Larger, slower water.",
+      "putIn": { "name": "downstream of Jerome", "lat": null, "lon": null },
+      "takeOut": { "name": "Rich Fountain area", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "06934000",
+        "rationale": "Rich Fountain (06934000 / RIFM7) is the lower-river reference gauge",
+        "knownBias": "larger, lower river — floatability semantics differ from the upper reaches"
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["strainer", "low_water_bridge"],
+        "lowWaterMeaning": "UNKNOWN (numeric) — capture a Rich Fountain-keyed minimum; on the larger lower river low water mainly affects speed.",
+        "risingWaterHazards": "Rises arrive from the large upstream drainage. NWS RIFM7 flood/action stages auto-fill at ingest.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": []
+    }
+  ],
   "accessPoints": [],
   "weatherPoint": {
     "city": "Waynesville",
@@ -41,19 +162,27 @@
     "hermann"
   ],
   "research": {
-    "date": null,
-    "sourcesConsulted": [],
+    "date": "2026-07-06",
+    "sourcesConsulted": [
+      "https://missouricanoe.org/gasconade-river/",
+      "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/",
+      "https://water.noaa.gov/gauges/hzlm7",
+      "https://water.noaa.gov/gauges/jrmm7",
+      "https://water.noaa.gov/gauges/rifm7",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-06933500/",
+      "https://www.missourigreatoutdoors.com/gasconade-river-levels"
+    ],
     "openQuestions": [
-      "Reach division: Long river — expect 2–3 calibration reaches (upper near Hazelgreen, middle at Jerome, lower near Rich Fountain/Mouth).",
-      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Gasconade River near Hazelgreen; Gasconade River at Jerome; Gasconade River near Rich Fountain"
+      "CALIBRATION CORE (missing): gauge-keyed floatability (cfs) for Hazelgreen / Jerome / Rich Fountain — search returned only generic riffle-drag language with no numbers.",
+      "Reach division: 3 reaches drafted (Hazelgreen upper, Jerome mid, Rich Fountain lower); confirm boundaries and whether all three warrant separate calibration.",
+      "CROSS-CHECK — FLAGGED CONFLATED (do not ingest): search reported Jerome JRMM7 'minor 15 ft / moderate 25 ft / major >30 ft' but also 'action 18.5–20.5 ft' (higher than minor — impossible ladder). Record stage 35.06 ft (2017-05-01). Authoritative categories come from fetch-nws-flood-stages.ts; HZLM7 and RIFM7 flood categories were not captured at all."
     ],
     "toVerify": [
+      "USGS 06928000 (Hazelgreen), 06933500 (Jerome), 06934000 (Rich Fountain): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-gasconade.md",
+      "Gauge-keyed floatability thresholds (cfs) for each reach (MDC / outfitter)",
+      "NWS HZLM7 / JRMM7 / RIFM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); the search-derived Jerome set is conflated, do not use",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
-      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
-      "MDC / outfitter floatability stage (ft) statements per reach",
-      "Full MDC access-point list with coordinates (human places every point)",
-      "County list for NWS alert terms (seeded: Texas, Pulaski, Phelps, Maries, Gasconade, Osage)"
+      "Full MDC access-point list with coordinates + reach mileage/float times (human places every point)"
     ]
   }
 }

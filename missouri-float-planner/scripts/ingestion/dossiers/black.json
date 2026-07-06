@@ -1,5 +1,5 @@
 {
-  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). River-specific caution: Clearwater Lake dam sits mid-river; the lower reach is a tailwater — confirm whether the lower reach is dam_tailwater rather than spring_fed_float.",
+  "_status": "STUB+RUN1 — identity/access/character populated and gauges drafted from WebSearch-tier research (see black-findings-partial.md). NOT SIGNED-OFF and NOT ingestable: (1) no gauge site number is primary-verified (verified-identifiers-black.md not written), (2) NO gauge-keyed floatability numbers were captured — only generic qualitative guidance — so thresholds[] are intentionally empty (badge cannot go live without a floatability ladder), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from nwsLid=ANNM7 at ingest (the 6/8/15/25 ft set found in search is recorded only as a single-source cross-check in research.openQuestions). Direct fetch of USGS/NWS/MCFA is 403-blocked here; re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-black.md, then flip _status to SIGNED-OFF.",
   "name": "Black River",
   "slug": "black",
   "state": "MO",
@@ -8,7 +8,7 @@
   "region": "Ozarks",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I-II",
-  "description": "A clear, popular southeast-Missouri Ozark float river below the St. Francois Mountains. The Lesterville reach is a summer-float hotspot; gravel bars and bluffs.",
+  "description": "A clear, popular southeast-Missouri Ozark float river below the St. Francois Mountains. The Lesterville reach (above Clearwater Lake) is a summer-float hotspot with gravel bars and bluffs; below Clearwater Lake the river becomes a dam-influenced lower reach toward Poplar Bluff. Multi-fork headwaters (East/Middle/West Forks) converge near Lesterville.",
   "riverType": "spring_fed_float",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
@@ -19,8 +19,96 @@
     "confidence": "medium"
   },
   "seasonalClosures": [],
-  "gauges": [],
-  "sections": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07061500",
+      "name": "Black River near Annapolis, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "ANNM7",
+      "servesSections": ["upper-lesterville"],
+      "knownBias": "CANDIDATE, NOT primary-verified (USGS page 403'd; site #/name cross-checked across ≥2 search results). Long-record HCDN main gauge for the upper Black above Clearwater Lake; params discharge(00060)+gage height(00065). Represents the downstream end of the Lesterville→Hwy K float reach.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061400",
+      "name": "Black River near Lesterville, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": ["upper-lesterville"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Reynolds County; record to 1993. Closer to the top of the float reach than Annapolis — consider as representative once verified.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061600",
+      "name": "Black River below Annapolis, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": ["upper-lesterville"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Just downstream of Annapolis.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061270",
+      "name": "East Fork Black River near Lesterville, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced; also an American Whitewater gauge, id 6922). Tributary — represents the East Fork, not the main-stem float reach; do not key main-stem floatability to it without confirming.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061170",
+      "name": "Middle Fork Black River near Lesterville, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": [],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Tributary (Middle Fork).",
+      "_verify": true
+    }
+  ],
+  "sections": [
+    {
+      "slug": "upper-lesterville",
+      "name": "Upper Black (Lesterville to Hwy K / Annapolis)",
+      "description": "The popular summer-float reach above Clearwater Lake: Lesterville down toward Highway K west of Annapolis. Clear, spring-influenced Ozark float with gravel bars and bluffs; Class I with some faster water. Family float + smallmouth fishery.",
+      "putIn": { "name": "Lesterville", "lat": null, "lon": null },
+      "takeOut": { "name": "Highway K (west of Annapolis)", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "07061500",
+        "rationale": "Annapolis (07061500) is the long-record HCDN gauge with an NWS forecast point (ANNM7) covering the downstream end of the float reach; Lesterville (07061400) is the closer upper alternative to weigh at signoff",
+        "knownBias": "sits at the downstream end of the reach; upper put-in near Lesterville may run lower"
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["strainer", "gravel_bar", "bluff"],
+        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs/ft floatability threshold was captured; only generic guidance (boats drag on most riffles when low). Capture a Lesterville/Annapolis-keyed minimum from MDC/outfitter sources.",
+        "risingWaterHazards": "Rain-responsive; rises bring strong current and strainers. NWS ANNM7 flood/action stages auto-fill at ingest (search found action 6 / minor 8 / moderate 15 / major 25 ft — SINGLE-SOURCE, treat as cross-check only).",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Popular float reach: Lesterville → Highway K (west of Annapolis); towns Lesterville, Annapolis, Piedmont (via search).",
+        "Multi-fork headwaters (East/Middle/West Forks) each with its own gauge near Lesterville — a level reading must be matched to the right fork/reach."
+      ]
+    }
+  ],
   "accessPoints": [],
   "weatherPoint": {
     "city": "Lesterville",
@@ -32,25 +120,34 @@
     "reynolds county",
     "wayne county",
     "butler county",
+    "iron county",
     "lesterville",
     "annapolis",
+    "piedmont",
     "poplar bluff"
   ],
   "research": {
-    "date": null,
-    "sourcesConsulted": [],
+    "date": "2026-07-06",
+    "sourcesConsulted": [
+      "https://missouricanoe.org/black-river/",
+      "https://www.floatmissouri.com/plan/missouri-rivers/black-river/",
+      "https://www.lestervillemissouri.com/float-trips/",
+      "https://water.noaa.gov/gauges/annm7",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07061500/",
+      "https://www.missourigreatoutdoors.com/black-river-levels"
+    ],
     "openQuestions": [
-      "Reach division: Upper (Lesterville) vs lower (below Clearwater Lake) — 2 reaches likely.",
-      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Black River near Annapolis; Black River at Lesterville; Black River near Poplar Bluff",
-      "River-type / character check: Clearwater Lake dam sits mid-river; the lower reach is a tailwater — confirm whether the lower reach is dam_tailwater rather than spring_fed_float."
+      "CALIBRATION CORE (missing): gauge-keyed floatability (cfs or ft) for the Lesterville→Annapolis reach — search returned only generic riffle-drag language with no numbers and no named reference gauge.",
+      "Representative gauge choice [signoff]: Annapolis (07061500, has the NWS LID) vs Lesterville (07061400, closer to the put-in). Confirm which the app should poll for this reach.",
+      "Lower reach below Clearwater Lake is a dam-influenced tailwater toward Poplar Bluff — not researched here; if added it likely needs river_type=dam_tailwater and its own gauge (e.g. Black River at Poplar Bluff).",
+      "CROSS-CHECK (do not ingest as-is): search reported ANNM7 flood categories Action 6 / Minor 8 / Moderate 15 / Major 25 ft — single-source; the authoritative values come from fetch-nws-flood-stages.ts."
     ],
     "toVerify": [
+      "USGS 07061500 (Annapolis), 07061400 (Lesterville), 07061600 (below Annapolis), 07061270 (E.Fork), 07061170 (M.Fork): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-black.md",
+      "Gauge-keyed floatability thresholds (cfs or ft) for the Lesterville→Annapolis reach (MDC / outfitter)",
+      "NWS ANNM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
-      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
-      "MDC / outfitter floatability stage (ft) statements per reach",
-      "Full MDC access-point list with coordinates (human places every point)",
-      "County list for NWS alert terms (seeded: Reynolds, Wayne, Butler)"
+      "Full MDC access-point list with coordinates (human places every point)"
     ]
   }
 }

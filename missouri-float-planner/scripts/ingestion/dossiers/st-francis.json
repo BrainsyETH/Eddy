@@ -1,5 +1,5 @@
 {
-  "_status": "STUB+RUN1 — identity/access/character populated from deep-research run wf_4b190bc5-d1a (see st-francis-findings-partial.md), but NOT SIGNED-OFF and NOT ingestable: zero numeric level anchors captured (AW runnable range, NWS flood stages, MDC stage guidance all 403'd) and no gauge site number is primary-verified yet. This river is Missouri's ONLY whitewater river — the upper reach is a Class II–IV rain-fed run whose badge is a paddler runnable-range, a different calibration paradigm than the spring-fed floats. Re-run research after the 5pm-UTC session limit resets (or from an environment whose egress can reach USGS/NWS/AW), targeting the 5 open questions, then write verified-identifiers-st-francis.md and flip _status to SIGNED-OFF.",
+  "_status": "STUB+RUN2 — identity/access/character populated from deep-research run wf_4b190bc5-d1a, then extended with WebSearch-tier run 2 (see st-francis-findings-partial.md RUN 2 UPDATE). NOT SIGNED-OFF and NOT ingestable: no gauge site number is primary-verified (verified-identifiers-st-francis.md not written). Run 2 gains: 4 gauges now cross-checked (07034000 Roselle/ROZM7 WW-ref, 07036100 Saco, 07037500 Patterson/PAZM7, 07039500 Wappapello), and the whitewater runnable anchor resolved — Roselle 'above 3 ft = at its best' (optimal_min, ft), SEARCH-DERIVED confidence 'low', verify against American Whitewater #2921. Still missing: the runnable MAX/too-high, NWS flood stages (auto-fetch from ROZM7/PAZM7 at ingest), and lat/lon. DATA-CONTINUITY RISK: Roselle (07034000) was dropped from the USGS network ~2016 — confirm it is currently reporting before a live badge. This is Missouri's ONLY whitewater river; the upper reach's badge is a paddler runnable-range. Re-run the primary-source pass from unblocked egress, write verified-identifiers-st-francis.md, then flip _status to SIGNED-OFF.",
   "name": "St. Francis River",
   "slug": "st-francis",
   "state": "MO",
@@ -41,7 +41,29 @@
       "paramsAvailable": [],
       "nwsLid": "PAZM7",
       "servesSections": ["lower-float"],
-      "knownBias": "CANDIDATE, NOT primary-verified (USGS page 403'd; co-located with NWS PAZM7). Represents the lower river toward Wappapello.",
+      "knownBias": "CANDIDATE, NOT primary-verified (USGS page 403'd; co-located with NWS PAZM7). Long-record gauge; discharge(00060)+gage height(00065); USACE St. Louis District coop. Represents the lower river toward Wappapello.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07036100",
+      "name": "St. Francis River near Saco, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": ["lower-float"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced run 2). Mid gauge between Roselle and Patterson; confirm active + which reach it best represents.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07039500",
+      "name": "St. Francis River at Wappapello, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": ["lower-float"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced run 2). Lowest gauge, at Wappapello Lake — likely below the floated reaches; verify before use.",
       "_verify": true
     }
   ],
@@ -58,7 +80,17 @@
         "rationale": "American Whitewater #2921 quotes the runnable range against the Roselle gauge; MWA keys race go/no-go to a St. Francis level display",
         "knownBias": "gauge site # unverified; historical funding-driven outages"
       },
-      "thresholds": [],
+      "thresholds": [
+        {
+          "level": "optimal_min",
+          "value": 3,
+          "unit": "ft",
+          "referenceGauge": "07034000",
+          "referenceGaugeIsPolled": true,
+          "source": "American Whitewater #2921 / St. Louis Outdoor Adventures (via WebSearch synthesis, 2026-07): 'The Roselle gauge generally has to be above 3 feet for the river to be at its best.' Paddler D-bridge conversion: when gauge <6.0 ft, (gauge − 3) × 15 = D-bridge level in inches.",
+          "confidence": "low"
+        }
+      ],
       "publishedFloatTimes": [
         {
           "reachLabel": "Millstream Gardens to Silver Mines",
@@ -140,27 +172,30 @@
     "silver mines"
   ],
   "research": {
-    "date": "2026-07-05",
+    "date": "2026-07-06",
     "sourcesConsulted": [
       "https://www.americanwhitewater.org/content/River/view/river-detail/2921/main",
+      "https://stlouisoutdooradventures.com/st-francis-river-whitewater/",
       "https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area",
       "https://missouriwhitewater.org/competition/mwc/",
       "https://missouriwhitewater.org/forums/topic/roselle-gage-status/",
       "https://www.missouricanoe.org/river-maps/stfrancis.html",
       "https://mostateparks.com/park/sam-a-baker-state-park/floating",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07034000/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07037500/",
       "https://water.noaa.gov/gauges/rozm7",
       "https://water.noaa.gov/gauges/pazm7"
     ],
     "openQuestions": [
-      "CALIBRATION CORE (missing): American Whitewater #2921 runnable min/max, its UNIT (ft vs cfs), and confirmation it is the Roselle gauge — page 403'd this run.",
-      "Is the Roselle gauge (07034000) currently live and pollable? It has a history of USGS network drops (funding); what is the fallback (USACE MVS SF_tab)?",
-      "Per-section river_type: upper = whitewater (does the system need a whitewater archetype, or is rain_flashy + Class II-IV difficulty enough?); lower = calmer float.",
-      "Lower reach: which gauge and any floatable/dangerous guidance below Sam A. Baker toward Wappapello."
+      "CALIBRATION CORE (partly resolved run 2): runnable MIN captured — Roselle >3 ft = 'at its best' (optimal_min, SEARCH-DERIVED, confidence low, verify vs AW #2921). STILL MISSING: the too-high / dangerous MAX and the too_low drag threshold, plus confirmation of the exact AW wording and unit off the page.",
+      "Is the Roselle gauge (07034000) currently live and pollable? It has a history of USGS network drops (funding, ~2016); what is the fallback (USACE MVS SF_tab)?",
+      "Per-section river_type: upper = whitewater (does the system need a whitewater archetype, or is rain_flashy + Class II-IV difficulty enough?); lower = calmer float — and which of Saco (07036100) / Patterson (07037500) / Wappapello (07039500) best represents the lower float reach.",
+      "Lower reach: floatable/dangerous guidance below Sam A. Baker toward Wappapello (none captured)."
     ],
     "toVerify": [
-      "USGS 07034000 (Roselle) and 07037500 (Patterson): transcribe site #, name, lat/lon, params (00060/00065), drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-st-francis.md",
-      "NWS AHPS action/minor/moderate/major flood stages (ft) for ROZM7 and PAZM7 — the danger-anchor second source",
-      "American Whitewater #2921 runnable range with reference gauge + unit (the calibration core)",
+      "USGS 07034000 (Roselle), 07036100 (Saco), 07037500 (Patterson), 07039500 (Wappapello): transcribe site #, name, lat/lon, params (00060/00065), drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-st-francis.md",
+      "Roselle optimal_min = 3 ft — verify against the American Whitewater #2921 page (currently SEARCH-DERIVED, confidence low); capture the runnable MAX",
+      "NWS AHPS flood/action stages (ft) for ROZM7 and PAZM7 — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
       "Full MDC/USFS/State-Parks access-point list with coordinates (human places every point)"
     ]

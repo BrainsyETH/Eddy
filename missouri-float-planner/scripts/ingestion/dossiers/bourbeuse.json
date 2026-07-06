@@ -1,5 +1,5 @@
 {
-  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). River-specific caution: Low-gradient lowland river — verify the spring_fed_float archetype and speed curve fit; it may float slower than the clear Ozark streams.",
+  "_status": "STUB+RUN2 — identity/access/character populated, and gauges + a cfs floatability ladder drafted from WebSearch-tier research (see bourbeuse-findings-partial.md). NOT SIGNED-OFF and NOT ingestable: (1) no gauge site number is primary-verified (verified-identifiers-bourbeuse.md not written), (2) the floatability cfs bands are SEARCH-DERIVED single-source (OzarkAnglers overview) at confidence 'low' — must be confirmed against the source page before a live badge, (3) NWS flood/action stages are intentionally NOT hand-entered — fetch-nws-flood-stages.ts auto-pulls them from nwsLid=UNNM7 at ingest. Direct fetch of USGS/NWS/MCFA is 403-blocked in this environment; re-run the primary-source pass from unblocked egress, write verified-identifiers-bourbeuse.md, then flip _status to SIGNED-OFF. RiverType note: research confirms runoff-fed/turbid/slow-meandering lowland character — the 'spring_fed_float' archetype is likely WRONG for speed curves; changing it is a [signoff] call, flagged in openQuestions.",
   "name": "Bourbeuse River",
   "slug": "bourbeuse",
   "state": "MO",
@@ -8,7 +8,7 @@
   "region": "Ozarks",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I",
-  "description": "A slow, deeply meandering tributary of the Meramec in east-central Missouri. Low-gradient and forgiving; more lowland-slough character than the clear spring-fed Ozark floats — confirm whether spring_fed_float fits.",
+  "description": "A slow, deeply meandering, runoff-fed tributary of the Meramec in east-central Missouri. Low-gradient and turbid — more lowland float than the clear spring-fed Ozark streams. Drops into a low/marginal float range through summer and fall; floatable window skews to spring and after rain. Logjams and low-water bridges are recurring hazards.",
   "riverType": "spring_fed_float",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
@@ -19,8 +19,114 @@
     "confidence": "medium"
   },
   "seasonalClosures": [],
-  "gauges": [],
-  "sections": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07016500",
+      "name": "Bourbeuse River at Union, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "UNNM7",
+      "servesSections": ["lower-union"],
+      "knownBias": "CANDIDATE, NOT primary-verified (USGS page 403'd; site #/name cross-checked across ≥2 search results). Long-record lower-river reference at the Hwy 50 bridge; record to 1897; params discharge(00060)+gage height(00065)+precip per USGS listing. Source note: reliable for the entire lower river EXCEPT the Noser Mill→Spring Creek stretch, which runs lower than the rest.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07016400",
+      "name": "Bourbeuse River above Union, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": ["lower-union"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Just above Union; confirm active + params.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07015750",
+      "name": "Bourbeuse River near Owensville, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "servesSections": ["upper"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Upper–mid river.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07015720",
+      "name": "Bourbeuse River near High Gate, MO",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [],
+      "nwsLid": "HTGM7",
+      "servesSections": ["upper"],
+      "knownBias": "CANDIDATE, NOT primary-verified (search-surfaced). Upper river.",
+      "_verify": true
+    }
+  ],
+  "sections": [
+    {
+      "slug": "lower-union",
+      "name": "Lower Bourbeuse (Noser Mill / Union area)",
+      "description": "The commonly floated lower river represented by the long-record Union gauge (Hwy 50 bridge). Slow, meandering, runoff-fed; summer/fall low water makes riffles scrape or require walking. The Noser Mill→Spring Creek stretch runs lower than the rest of this section.",
+      "putIn": { "name": "Noser Mill area", "lat": null, "lon": null },
+      "takeOut": { "name": "Union (Hwy 50)", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "07016500",
+        "rationale": "Union (07016500) is the long-record lower-river gauge the floatability guidance is quoted against (cfs)",
+        "knownBias": "reads for the lower river; Noser Mill→Spring Creek runs lower than the gauge suggests"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 40,
+          "unit": "cfs",
+          "referenceGauge": "07016500",
+          "referenceGaugeIsPolled": true,
+          "source": "OzarkAnglers Bourbeuse River overview (via WebSearch synthesis, 2026-07): '<40 cfs most riffles will have to be walked' at the Bourbeuse River at Union gauge",
+          "confidence": "low"
+        },
+        {
+          "level": "low",
+          "value": 70,
+          "unit": "cfs",
+          "referenceGauge": "07016500",
+          "referenceGaugeIsPolled": true,
+          "source": "OzarkAnglers Bourbeuse River overview (via WebSearch synthesis, 2026-07): '40–70 cfs runnable with considerable scraping'; minimum comfortable ≈70 cfs at the Union gauge",
+          "confidence": "low"
+        },
+        {
+          "level": "optimal_min",
+          "value": 120,
+          "unit": "cfs",
+          "referenceGauge": "07016500",
+          "referenceGaugeIsPolled": true,
+          "source": "OzarkAnglers Bourbeuse River overview (via WebSearch synthesis, 2026-07): '70–120 cfs low but floatable' at the Union gauge → top of the low-but-floatable band taken as optimal_min",
+          "confidence": "low"
+        }
+      ],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["logjam", "strainer", "low_water_bridge"],
+        "lowWaterMeaning": "Below ~40 cfs at Union most riffles must be walked; 40–70 cfs means considerable bottom-scraping. Normal Jun–Nov flow (60–150 cfs) sits in the low-to-marginal range, so summer floats commonly drag. (SEARCH-DERIVED, verify.)",
+        "risingWaterHazards": "Runoff-fed and turbid; rises after rain. Logjams/strainers and low-water bridges become the practical hazards as water comes up. NWS UNNM7 flood/action stages auto-fill at ingest.",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Runoff-fed, not spring-fed: turbid and slower than the clear Ozark floats; drops into a marginal float range through summer/fall (OzarkAnglers, via search).",
+        "Extreme meandering — high river-miles per straight-line mile; plan float times accordingly."
+      ]
+    }
+  ],
   "accessPoints": [],
   "weatherPoint": {
     "city": "Union",
@@ -34,24 +140,33 @@
     "gasconade county",
     "franklin county",
     "union",
-    "bland",
+    "owensville",
     "noser mill"
   ],
   "research": {
-    "date": null,
-    "sourcesConsulted": [],
+    "date": "2026-07-06",
+    "sourcesConsulted": [
+      "https://missouricanoe.org/bourbeuse-river/",
+      "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+      "http://southwestpaddler.com/docs/meramec4.html",
+      "https://paddlestlouis.com/2018/07/29/bourbeuse-river-hwy-44-to-guths-mill-dam/",
+      "https://www.floatmissouri.com/plan/outfitter/",
+      "https://water.noaa.gov/gauges/unnm7",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07016500/"
+    ],
     "openQuestions": [
-      "Reach division: Likely one calibration reach; confirm gauge coverage.",
-      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Bourbeuse River at Union; Bourbeuse River near High Gate",
-      "River-type / character check: Low-gradient lowland river — verify the spring_fed_float archetype and speed curve fit; it may float slower than the clear Ozark streams."
+      "RIVER-TYPE [signoff]: research confirms runoff-fed / turbid / slow-meandering lowland character — 'spring_fed_float' likely mis-models the speed curve. Consider a runoff/lowland float archetype or 'flatwater'. Owner call; not flipped unilaterally because riverType drives speed curves.",
+      "Reach division: currently one lower calibration reach (Union). Confirm whether an upper reach (High Gate/Owensville gauges) needs its own thresholds.",
+      "The brief's guessed 'Bourbeuse near Noser Mill (07016000)' gauge could NOT be confirmed to exist in search — do not ingest it; confirm or drop.",
+      "Full MCFA/MDC reach mileage + access-point list with float times (missouricanoe.org/bourbeuse-river/ did not expose its table to search)."
     ],
     "toVerify": [
+      "USGS 07016500 (Union), 07016400 (above Union), 07015750 (Owensville), 07015720 (High Gate): transcribe site #, name, lat/lon, params (00060/00065), drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-bourbeuse.md",
+      "Confirm or drop the brief's '07016000 near Noser Mill' guess (search could not confirm it exists)",
+      "Floatability cfs bands at Union (too_low 40 / low 70 / optimal_min 120) — verify against the OzarkAnglers overview page; these are SEARCH-DERIVED, confidence 'low'",
+      "NWS UNNM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); do not hand-enter",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
-      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
-      "MDC / outfitter floatability stage (ft) statements per reach",
-      "Full MDC access-point list with coordinates (human places every point)",
-      "County list for NWS alert terms (seeded: Phelps, Crawford, Gasconade, Franklin)"
+      "Full MDC access-point list with coordinates (human places every point)"
     ]
   }
 }
