@@ -29,8 +29,10 @@ async function fetchPostInsights(
 
   try {
     if (platform === 'instagram') {
-      // Instagram Insights API
-      const metrics = 'impressions,reach,saved,shares';
+      // Instagram Insights API. `views` replaced `impressions` for IG media in
+      // Graph API v22+ — requesting a removed metric fails the WHOLE call, so
+      // ask for views and store it in the impressions field/column.
+      const metrics = 'views,reach,saved,shares';
       const url = `https://graph.facebook.com/v24.0/${platformPostId}/insights?metric=${metrics}&access_token=${token}`;
       const response = await fetch(url);
       const data = await response.json();
@@ -44,7 +46,7 @@ async function fetchPostInsights(
       for (const metric of data.data || []) {
         const value = metric.values?.[0]?.value ?? 0;
         switch (metric.name) {
-          case 'impressions': insights.impressions = value; break;
+          case 'views': insights.impressions = value; break;
           case 'reach': insights.reach = value; break;
           case 'saved': insights.saves = value; break;
           case 'shares': insights.shares = value; break;
@@ -138,14 +140,16 @@ export async function fetchAllPendingInsights(): Promise<{
     );
 
     if (insights) {
+      // Column names carry the insights_ prefix — that's the live schema (see
+      // types/database.ts); the bare names from migration 00088 never shipped.
       const { error: updateError } = await supabase
         .from('social_posts')
         .update({
-          impressions: insights.impressions,
-          reach: insights.reach,
-          saves: insights.saves,
-          shares: insights.shares,
-          engagement_rate: insights.engagement_rate,
+          insights_impressions: insights.impressions,
+          insights_reach: insights.reach,
+          insights_saves: insights.saves,
+          insights_shares: insights.shares,
+          insights_engagement_rate: insights.engagement_rate,
           insights_fetched_at: new Date().toISOString(),
         })
         .eq('id', post.id);
