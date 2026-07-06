@@ -183,6 +183,11 @@
       "https://waterdata.usgs.gov/monitoring-location/USGS-06933500/",
       "https://www.missourigreatoutdoors.com/gasconade-river-levels"
     ],
+    "appRenderConfirmed": "Eddy Gasconade page verified end-to-end 2026-07-06 (owner screenshot): aggregate streamflow 5,064 cfs (78% of normal), 3 gauge cards (max discharge Rich Fountain 2,450 cfs / 3.96 ft; highest-elevation Hazelgreen 845 ft), and daily trend chart all render on live USGS data.",
+    "flowStatisticsUsgs": {
+      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. Reference data for a possible percentile-derived floatability ladder — NOT yet adopted as thresholds. Only the UPPER-reach (Hazelgreen) percentile set is available; Jerome/Rich Fountain need their own stats (much larger flows: current Rich Fountain 2,450 cfs vs Hazelgreen 708 cfs).",
+      "06928000_hazelgreen_cfs": { "basis": "68 years, July 6 daily mean", "low": 60.0, "p25": 173.5, "median": 261.5, "p75": 525.5, "mean": 615.8, "high": 6140.0, "latestObserved": 708, "latestDate": "2026-07-06" }
+    },
     "openQuestions": [
       "CALIBRATION CORE (still missing): gauge-keyed floatability cfs ladder for Hazelgreen / Jerome / Rich Fountain. The Al Agnew OzarkAnglers narrative (2026-07-06) gave rich CHARACTER (losing reach, Rockslide Bluff, extent) but NOT the 'Navigability: <X cfs…' table the Bourbeuse article had — capture that subsection from the Gasconade article. Only firm number so far: the losing reach runs ~75 cfs above the Narrows / <30 cfs below in low water (a hazard datum, not a float threshold).",
       "ACCESS LANDMARKS from Agnew (no mileages/coords yet — [manual] capture): Hwy E (≈11 mi below the highest put-in), Hwy 17 at Waynesville, Hwy 28, Ozark Springs, Schlict Spring (in the losing reach), Jerome, Paydown (≈80 mi of lower river remain below Paydown). Build the full MCFA/MDC mileage table.",

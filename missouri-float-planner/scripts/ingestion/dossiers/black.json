@@ -142,6 +142,11 @@
       "https://waterdata.usgs.gov/monitoring-location/USGS-07061500/",
       "https://www.missourigreatoutdoors.com/black-river-levels"
     ],
+    "appRenderConfirmed": "Eddy Black/Gasconade gauge wiring verified end-to-end 2026-07-06 (owner screenshots): aggregate streamflow, per-gauge cards, and trend chart render on live USGS data.",
+    "flowStatisticsUsgs": {
+      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. Reference data for a possible percentile-derived floatability ladder — NOT yet adopted as thresholds.",
+      "07061500_annapolis_cfs": { "basis": "87 years, July 6 daily mean", "low": 93.7, "p25": 149.0, "median": 204.0, "p75": 274.0, "mean": 270.4, "high": 1270.0, "latestObserved": 288, "latestDate": "2026-07-06" }
+    },
     "openQuestions": [
       "CALIBRATION CORE (still missing): gauge-keyed floatability cfs/ft ladder for the Lesterville→Annapolis reach @ 07061500. The Al Agnew OzarkAnglers 'Black River' overview (2026-07-06) gave rich CHARACTER (three forks, Clearwater dynamics, upper-clear/lower-murky) but NOT the 'Navigability: <X cfs…' table the Bourbeuse article had — capture that subsection from the Black article.",
       "REACH STRUCTURE (Agnew-confirmed): upper float reach = forks/Lesterville → Highway K (moves with Clearwater high pool) = clear spring-fed float @ Annapolis 07061500. A SEPARATE lower reach below Clearwater Dam toward Poplar Bluff is dam-influenced (warmer/murkier, slower) — would be river_type=dam_tailwater with its own gauge (a Black River at Poplar Bluff gauge, not in the current set); out of scope until that gauge is added.",
