@@ -24,9 +24,12 @@ import {
   X,
   Zap,
   Play,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
-type Tab = 'settings' | 'filters' | 'content' | 'history';
+type Tab = 'settings' | 'filters' | 'content' | 'history' | 'analytics';
 
 interface PlatformHealthStats {
   platform: string;
@@ -142,6 +145,48 @@ interface SocialPost {
   media_type: string;
   created_at: string;
   published_at: string | null;
+  // Meta insights — populated by the fetch-insights cron (null until fetched).
+  insights_impressions: number | null;
+  insights_reach: number | null;
+  insights_saves: number | null;
+  insights_shares: number | null;
+  insights_engagement_rate: number | null;
+  insights_fetched_at: string | null;
+}
+
+// Weekly performance review — written by the weekly-review cron, read here.
+interface ContentMixStatus {
+  actual: Record<string, number>;
+  target: Record<string, number>;
+  deviation: Record<string, number>;
+}
+interface ReviewPerformer {
+  id: string;
+  river_slug: string | null;
+  content_type: string | null;
+  hook_style?: string | null;
+  engagement_rate: number;
+  impressions?: number;
+  caption: string;
+}
+interface PerfBucket {
+  posts: number;
+  avgEngagement: number;
+}
+interface WeeklyReview {
+  week_start: string;
+  week_end: string;
+  review_data: {
+    totalPosts: number;
+    riverPerformance?: Record<string, PerfBucket>;
+    hookPerformance?: Record<string, PerfBucket>;
+    dayPerformance?: Record<string, PerfBucket>;
+  };
+  content_mix: ContentMixStatus | null;
+  top_performers: ReviewPerformer[] | null;
+  learnings: string | null;
+  bias_guidance: string | null;
+  created_at: string;
 }
 
 interface CustomContent {
@@ -297,6 +342,39 @@ const POST_TYPE_LABELS: Record<string, string> = {
   manual: 'Tip',
 };
 
+// Compact metric cell: "—" until insights are fetched, "1.2k" for large counts.
+function fmtMetric(n: number | null | undefined): string {
+  if (n == null) return '—';
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+function fmtPct(n: number | null | undefined, digits = 1): string {
+  if (n == null || Number.isNaN(n)) return '—';
+  return `${(n * 100).toFixed(digits)}%`;
+}
+
+// Highest-engagement entry in a river/hook/day performance bucket (min posts
+// so a single fluke post doesn't top the chart).
+function topBucket(
+  buckets: Record<string, PerfBucket> | undefined,
+  minPosts = 1,
+): { key: string; avgEngagement: number; posts: number } | null {
+  if (!buckets) return null;
+  const sorted = Object.entries(buckets)
+    .filter(([, v]) => v.posts >= minPosts)
+    .sort((a, b) => b[1].avgEngagement - a[1].avgEngagement);
+  if (sorted.length === 0) return null;
+  return { key: sorted[0][0], avgEngagement: sorted[0][1].avgEngagement, posts: sorted[0][1].posts };
+}
+
+const MIX_LABELS: Record<string, string> = {
+  conditions: 'Conditions',
+  educational: 'Educational',
+  engagement: 'Engagement',
+  promotional: 'Promotional',
+};
+
 export default function SocialAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('settings');
   const [config, setConfig] = useState<SocialConfig | null>(null);
@@ -310,6 +388,11 @@ export default function SocialAdminPage() {
     platform: '',
     status: '',
   });
+
+  // Analytics tab — weekly reviews + which week is selected in the dropdown.
+  const [reviews, setReviews] = useState<WeeklyReview[]>([]);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState(0);
 
   // Video pipeline health — surfaces silent fallbacks (image instead of
   // video) and PAT/scope failures before they pile up.
@@ -359,6 +442,11 @@ export default function SocialAdminPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  // Slug → display name via loaded rivers, falling back to a titleized slug.
+  const riverLabel = (slug: string): string =>
+    rivers.find((r) => r.slug === slug)?.name ||
+    slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
   const fetchConfig = useCallback(async () => {
     try {
       const res = await adminFetch(`/api/admin/social/config?_t=${Date.now()}`);
@@ -403,6 +491,20 @@ export default function SocialAdminPage() {
       showToast('Could not load post history', 'error');
     }
   }, [postFilter]);
+
+  const fetchReviews = useCallback(async () => {
+    try {
+      const res = await adminFetch(`/api/admin/social/reviews?_t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReviews(data.reviews || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch reviews:', err);
+    } finally {
+      setReviewsLoaded(true);
+    }
+  }, []);
 
   const fetchContent = useCallback(async () => {
     try {
@@ -470,6 +572,13 @@ export default function SocialAdminPage() {
   useEffect(() => {
     fetchPosts();
   }, [postFilter, fetchPosts]);
+
+  // Lazily load weekly reviews the first time the Analytics tab is opened.
+  useEffect(() => {
+    if (activeTab === 'analytics' && !reviewsLoaded) {
+      fetchReviews();
+    }
+  }, [activeTab, reviewsLoaded, fetchReviews]);
 
   const saveConfig = async () => {
     if (!config) return;
@@ -766,6 +875,7 @@ export default function SocialAdminPage() {
     { key: 'filters', label: 'River Filters', icon: Filter },
     { key: 'content', label: 'Custom Content', icon: FileText },
     { key: 'history', label: 'Post History', icon: Clock },
+    { key: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   return (
@@ -1802,6 +1912,9 @@ export default function SocialAdminPage() {
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Media</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">River</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Status</th>
+                            <th className="text-right text-xs font-medium text-neutral-400 uppercase px-4 py-3" title="Reach">Reach</th>
+                            <th className="text-right text-xs font-medium text-neutral-400 uppercase px-4 py-3" title="Saves">Saves</th>
+                            <th className="text-right text-xs font-medium text-neutral-400 uppercase px-4 py-3" title="Shares">Shares</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Caption</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Actions</th>
                           </tr>
@@ -1844,6 +1957,9 @@ export default function SocialAdminPage() {
                                     </p>
                                   )}
                                 </td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 text-right tabular-nums">{fmtMetric(post.insights_reach)}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 text-right tabular-nums">{fmtMetric(post.insights_saves)}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 text-right tabular-nums">{fmtMetric(post.insights_shares)}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-400 max-w-xs truncate">
                                   {(post.caption || '').slice(0, 80)}...
                                 </td>
@@ -1877,6 +1993,185 @@ export default function SocialAdminPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Analytics Tab */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-4">
+                {!reviewsLoaded ? (
+                  <div className="flex justify-center py-12">
+                    <RefreshCw className="w-6 h-6 animate-spin text-neutral-400" />
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-8 text-center">
+                    <BarChart3 className="w-8 h-8 text-neutral-500 mx-auto mb-3" />
+                    <p className="text-neutral-300 font-medium">No weekly reviews yet</p>
+                    <p className="text-neutral-500 text-sm mt-1 max-w-md mx-auto">
+                      The weekly review runs every Monday and needs a full week of posts with fetched
+                      insights. Per-post reach, saves, and shares appear in Post History as the daily
+                      insights sync fills them in.
+                    </p>
+                  </div>
+                ) : (() => {
+                  const review = reviews[selectedWeek] ?? reviews[0];
+                  const rd = review.review_data || { totalPosts: 0 };
+                  const bestRiver = topBucket(rd.riverPerformance);
+                  const bestHook = topBucket(rd.hookPerformance);
+                  const bestDay = topBucket(rd.dayPerformance);
+                  const top = review.top_performers ?? [];
+                  let under: ReviewPerformer[] = [];
+                  try {
+                    const parsed = review.learnings ? JSON.parse(review.learnings) : null;
+                    if (parsed?.underperformers) under = parsed.underperformers;
+                  } catch {
+                    // learnings not JSON — ignore
+                  }
+                  const mix = review.content_mix;
+                  const bestCards = [
+                    { label: 'Best river', value: bestRiver ? riverLabel(bestRiver.key) : null, sub: bestRiver },
+                    { label: 'Best hook', value: bestHook?.key ?? null, sub: bestHook },
+                    { label: 'Best day', value: bestDay?.key ?? null, sub: bestDay },
+                  ];
+                  return (
+                    <>
+                      {/* Header: week selector + meta */}
+                      <div className="flex flex-wrap gap-3 items-center justify-between">
+                        <div className="flex gap-3 items-center">
+                          <select
+                            value={selectedWeek}
+                            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                            className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
+                          >
+                            {reviews.map((r, i) => (
+                              <option key={r.week_start} value={i}>
+                                {new Date(r.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {' – '}
+                                {new Date(r.week_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {i === 0 ? ' (latest)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-sm text-neutral-400">{rd.totalPosts} posts</span>
+                          <button
+                            onClick={() => { setReviewsLoaded(false); fetchReviews(); }}
+                            className="p-2 text-neutral-400 hover:text-white transition-colors"
+                            title="Refresh"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <span className="text-xs text-neutral-500">
+                          Generated {new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      {/* Bias guidance — the punchline */}
+                      {review.bias_guidance && (
+                        <div className="bg-primary-500/10 border border-primary-500/30 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Zap className="w-4 h-4 text-primary-400" />
+                            <h3 className="text-sm font-semibold text-primary-300 uppercase tracking-wide">This week&apos;s guidance</h3>
+                          </div>
+                          <p className="text-sm text-neutral-200 whitespace-pre-line leading-relaxed">{review.bias_guidance}</p>
+                        </div>
+                      )}
+
+                      {/* Best river / hook / day */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {bestCards.map((c) => (
+                          <div key={c.label} className="bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+                            <p className="text-xs text-neutral-400 uppercase tracking-wide">{c.label}</p>
+                            <p className="text-lg font-semibold text-white mt-1 capitalize">{c.value || '—'}</p>
+                            {c.sub && (
+                              <p className="text-xs text-neutral-500 mt-0.5">
+                                {fmtPct(c.sub.avgEngagement)} avg · {c.sub.posts} post{c.sub.posts === 1 ? '' : 's'}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Top / under performers */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <TrendingUp className="w-4 h-4 text-green-400" />
+                            <h3 className="text-sm font-semibold text-white">Top performers</h3>
+                          </div>
+                          {top.length === 0 ? (
+                            <p className="text-sm text-neutral-500">No ranked posts this week.</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {top.map((p, i) => (
+                                <li key={p.id || i} className="text-sm">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-neutral-300 capitalize truncate">
+                                      {(p.content_type || 'post')}{p.river_slug ? ` · ${riverLabel(p.river_slug)}` : ''}
+                                    </span>
+                                    <span className="text-green-400 tabular-nums shrink-0">{fmtPct(p.engagement_rate)}</span>
+                                  </div>
+                                  <p className="text-xs text-neutral-500 truncate">{p.caption}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <TrendingDown className="w-4 h-4 text-orange-400" />
+                            <h3 className="text-sm font-semibold text-white">Underperformers</h3>
+                          </div>
+                          {under.length === 0 ? (
+                            <p className="text-sm text-neutral-500">No ranked posts this week.</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {under.map((p, i) => (
+                                <li key={p.id || i} className="text-sm">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-neutral-300 capitalize truncate">
+                                      {(p.content_type || 'post')}{p.river_slug ? ` · ${riverLabel(p.river_slug)}` : ''}
+                                    </span>
+                                    <span className="text-orange-400 tabular-nums shrink-0">{fmtPct(p.engagement_rate)}</span>
+                                  </div>
+                                  <p className="text-xs text-neutral-500 truncate">{p.caption}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Content mix vs target */}
+                      {mix && (
+                        <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+                          <h3 className="text-sm font-semibold text-white mb-3">Content mix (14-day) vs target</h3>
+                          <div className="space-y-2">
+                            {Object.keys(MIX_LABELS).map((cat) => {
+                              const actual = mix.actual?.[cat] ?? 0;
+                              const target = mix.target?.[cat] ?? 0;
+                              const dev = mix.deviation?.[cat] ?? 0;
+                              return (
+                                <div key={cat} className="flex items-center gap-3 text-sm">
+                                  <span className="w-24 text-neutral-400 shrink-0">{MIX_LABELS[cat]}</span>
+                                  <div className="flex-1 h-2 bg-neutral-700 rounded-full overflow-hidden relative">
+                                    <div className="h-full bg-primary-500" style={{ width: `${Math.min(100, actual * 100)}%` }} />
+                                    <div className="absolute top-0 h-full w-px bg-white/60" style={{ left: `${Math.min(100, target * 100)}%` }} title={`Target ${fmtPct(target, 0)}`} />
+                                  </div>
+                                  <span className="w-14 text-right text-neutral-300 tabular-nums shrink-0">{fmtPct(actual, 0)}</span>
+                                  <span className={`w-20 text-right tabular-nums shrink-0 ${Math.abs(dev) > 0.1 ? (dev > 0 ? 'text-orange-400' : 'text-neutral-500') : 'text-neutral-600'}`}>
+                                    {dev > 0 ? `+${fmtPct(dev, 0)}` : fmtPct(dev, 0)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="text-xs text-neutral-500 mt-3">Bar = actual share · tick = target · right column = gap to target (positive means under-served).</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </>
