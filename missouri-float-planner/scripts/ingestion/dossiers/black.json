@@ -144,7 +144,7 @@
     ],
     "appRenderConfirmed": "Eddy Black/Gasconade gauge wiring verified end-to-end 2026-07-06 (owner screenshots): aggregate streamflow, per-gauge cards, and trend chart render on live USGS data.",
     "flowStatisticsUsgs": {
-      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. Reference data for a possible percentile-derived floatability ladder — NOT yet adopted as thresholds.",
+      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source — frequency statistics do not encode channel geometry (falsified by Bourbeuse: Agnew's verified table shows median summer flow there = scraping, while median summer flow on the Black floats fine; the stats cannot distinguish the two). Retain ONLY as context (% of normal) and sanity-check data. Thresholds must come from human floatability sources (Agnew navigability table > outfitter minimums > MDC), per the calibration hierarchy.",
       "07061500_annapolis_cfs": { "basis": "87 years, July 6 daily mean", "low": 93.7, "p25": 149.0, "median": 204.0, "p75": 274.0, "mean": 270.4, "high": 1270.0, "latestObserved": 288, "latestDate": "2026-07-06" }
     },
     "openQuestions": [
