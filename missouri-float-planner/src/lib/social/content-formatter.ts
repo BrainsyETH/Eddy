@@ -112,6 +112,22 @@ const ENGAGEMENT_QUESTIONS: string[] = [
   'Tag your float crew.',
 ];
 
+// Share prompts for alerts \u2014 sends/shares are the ranking signal safety posts
+// are built to earn, so every alert asks the reader to pass it to the person
+// it protects instead of hoping they think of it.
+// NOTE: {river} interpolates the short name, which can carry an article ("the
+// Current") \u2014 templates must place it where "the X" reads naturally.
+const WARNING_SHARE_PROMPTS: string[] = [
+  'Know someone floating {river} this week? Send them this.',
+  'Send this to anyone planning to float {river}.',
+  'Floating {river} soon? Send this to your crew first.',
+];
+
+const RECOVERY_SHARE_PROMPTS: string[] = [
+  'Tag whoever\u2019s been waiting on this one.',
+  'Know someone who put off floating {river}? Tell them it\u2019s back on.',
+];
+
 // ---------------------------------------------------------------------------
 // CTA templates — deep-linked, varied
 // ---------------------------------------------------------------------------
@@ -316,11 +332,19 @@ export function formatEddySaysCaption(
 // Weekly Forecast Caption
 // ---------------------------------------------------------------------------
 
+/** Holiday branding for the weekend forecast (see holiday-weekends.ts). */
+export interface ForecastHoliday {
+  name: string;
+  /** True for the midweek early-call post ahead of the holiday weekend. */
+  earlyCall?: boolean;
+}
+
 export function formatWeeklyForecastCaption(
   topRivers: EddyUpdate[],
   customContent: SocialCustomContent[],
   platform: SocialPlatform,
   rainNote = false,
+  holiday: ForecastHoliday | null = null,
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
 
@@ -329,7 +353,7 @@ export function formatWeeklyForecastCaption(
     .slice(0, 3)
     .map((r) => RIVER_SHORT_NAMES[r.river_slug] || r.river_slug)
     .join(', ');
-  lines.push(`This Weekend — ${names} 🛶`);
+  lines.push(holiday ? `${holiday.name} Weekend — ${names} 🛶` : `This Weekend — ${names} 🛶`);
   lines.push('');
 
   // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft · 78°/55° · Clear"
@@ -350,6 +374,17 @@ export function formatWeeklyForecastCaption(
   // Rain-everywhere fallback note (best-available picks rather than dry ones).
   if (rainNote) {
     lines.push('Rain’s in the forecast across the board this weekend — these are the best bets. Keep an eye on the radar.');
+    lines.push('');
+  }
+
+  // Holiday framing: the early call promises the Friday final read (a reason
+  // to follow); the weekend post asks to be sent to the trip group (a share).
+  if (holiday) {
+    if (holiday.earlyCall) {
+      lines.push(`Early call for ${holiday.name} weekend — levels can shift after midweek rain, so the final read posts Friday. ${FOLLOW_CTA}.`);
+    } else {
+      lines.push(`Floating ${holiday.name} weekend with a crew? Send this so everyone shows up at the right put-in.`);
+    }
     lines.push('');
   }
 
@@ -684,6 +719,14 @@ export function formatConditionChangeCaption(params: {
   }
   lines.push('');
 
+  // Share prompt — rotated deterministically like the hooks.
+  const shareSeed = `${params.riverSlug}-${new Date().toISOString().split('T')[0]}-share`;
+  lines.push(interpolate(
+    pickTemplate(isRecovery ? RECOVERY_SHARE_PROMPTS : WARNING_SHARE_PROMPTS, shareSeed),
+    { river: riverName },
+  ));
+  lines.push('');
+
   // CTA — live conditions (core value) + the growth follow CTA.
   lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug)}`);
   lines.push(`${FOLLOW_CTA} 🦦`);
@@ -709,6 +752,8 @@ export function formatStormDigestCaption(
   lines.push(`After recent rain, water is coming up fast across the Ozarks: ${shown}${more}.`);
   lines.push('');
   lines.push('Check your river before you load the boats — high and dangerous water moves quick and hides debris.');
+  lines.push('');
+  lines.push('Send this to whoever’s planning a float this week.');
   lines.push('');
   lines.push('Live gauges for every river → https://eddy.guide/rivers');
   lines.push(`${FOLLOW_CTA} 🦦`);
