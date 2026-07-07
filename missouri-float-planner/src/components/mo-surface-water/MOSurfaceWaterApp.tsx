@@ -451,27 +451,44 @@ export default function MOSurfaceWaterApp() {
     return names.length >= 2 ? names : null;
   }, [hoveredGauge, rivers]);
 
+  // One selection = one overlay. The page has three independent overlay
+  // systems — the rail (focused gauge/river), the context-site card, and
+  // the center detail modal — and clicking a new feature must REPLACE
+  // whatever is open, not stack on top of it. Every selection entry point
+  // clears all of them first, then sets its own. (Escape still peels the
+  // layers one at a time for keyboard users, below.)
+  const clearAllOverlays = () => {
+    setFocusedGaugeId(null);
+    setFocusedRiverId(null);
+    setHoveredRiverId(null);
+    setHoveredGaugeId(null);
+    setHoveredGaugePos(null);
+    setSelectedSite(null);
+    setModalSelection(null);
+  };
+
   const handleFocusGauge = (id: string | null) => {
-    setFocusedGaugeId(id);
-    // Only follow the gauge's parent river when the user had ALREADY
-    // pinned a river — in that case we want the back-nav from the gauge
-    // rail to return them to the river card they were exploring. A cold
-    // click on a gauge marker should open the gauge alone, so closing
-    // it once empties the rail instead of revealing a river card the
-    // user never asked for.
-    if (id && focusedRiverId) {
-      const g = gauges.find((x) => x.site_no === id);
-      if (g) setFocusedRiverId(g.river_id);
-    }
+    clearAllOverlays();
+    if (id) setFocusedGaugeId(id);
+  };
+  const selectRiver = (id: string | null) => {
+    clearAllOverlays();
+    if (id) setFocusedRiverId(id);
+  };
+  const selectSite = (site: MoContextSite | null) => {
+    clearAllOverlays();
+    if (site) setSelectedSite(site);
   };
   // Access points / campgrounds / POIs open the modal popup with link-outs.
   // We also focus the river they belong to so the right rail keeps showing
-  // its float context behind the modal.
+  // its float context behind the modal — that pairing is one selection, so
+  // it clears the gauge/site overlays but keeps its own river focus.
   const handleClickAccess = (id: string | null) => {
     if (!id) { setModalSelection(null); return; }
     for (const r of rivers) {
       const ap = (r.access_points ?? []).find((a) => a.id === id);
       if (ap) {
+        clearAllOverlays();
         setModalSelection({ kind: 'access', ap, river: r });
         setFocusedRiverId(r.id);
         return;
@@ -502,6 +519,7 @@ export default function MOSurfaceWaterApp() {
         }
       }
     }
+    clearAllOverlays();
     setModalSelection({ kind: 'campground', camp, nearestRiverName });
   };
   const handleClickPoi = (id: string | null) => {
@@ -509,6 +527,7 @@ export default function MOSurfaceWaterApp() {
     for (const r of rivers) {
       const p = (r.pois ?? []).find((x) => x.id === id);
       if (p) {
+        clearAllOverlays();
         setModalSelection({ kind: 'poi', poi: p, river: r });
         setFocusedRiverId(r.id);
         return;
@@ -577,7 +596,7 @@ export default function MOSurfaceWaterApp() {
         siteCount={moSites?.sites.length ?? 0}
         sitesCapped={moSites?.capped ?? false}
         onHoverRiver={setHoveredRiverId}
-        onFocusRiver={setFocusedRiverId}
+        onFocusRiver={selectRiver}
         open={dockOpen}
         onClose={() => setDockOpen(false)}
       />
@@ -607,10 +626,10 @@ export default function MOSurfaceWaterApp() {
           contextSites={moSites?.sites ?? []}
           showSites={showSites}
           selectedContextSiteId={selectedSite?.site_no ?? null}
-          onClickContextSite={setSelectedSite}
+          onClickContextSite={selectSite}
           railOpen={railOpen}
           onHoverRiver={setHoveredRiverId}
-          onFocusRiver={setFocusedRiverId}
+          onFocusRiver={selectRiver}
           onHoverGauge={(id, pos) => { setHoveredGaugeId(id); setHoveredGaugePos(pos ?? null); }}
           onFocusGauge={handleFocusGauge}
           onClickCampground={handleClickCampground}
