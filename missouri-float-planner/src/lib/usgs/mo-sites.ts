@@ -15,10 +15,13 @@
 
 const MODERN_BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0/collections';
 const PARAM_DISCHARGE = '00060';
-// Missouri bbox with a slim margin (matches MISSOURI_BOUNDS in constants).
-const MO_BBOX = '-95.9,35.9,-88.9,40.7';
-/** Render/transfer ceiling — beyond this we keep the highest-discharge sites. */
-export const MO_SITES_CAP = 600;
+// Missouri + Arkansas bbox with a slim margin. South edge drops to ~33.0
+// to cover Arkansas; the in-region polygon test in MOMap re-filters to the
+// two state outlines, so bbox slop from neighboring states is dropped there.
+const MO_BBOX = '-95.9,32.9,-88.9,40.7';
+/** Render/transfer ceiling — beyond this we keep the highest-discharge sites.
+ *  Raised for two states' worth of gauges. */
+export const MO_SITES_CAP = 900;
 
 export interface MoContextSite {
   site_no: string;
