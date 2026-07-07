@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   STAGE_VERDICTS,
   THEME,
@@ -431,6 +431,67 @@ const RAIL_BASE_STYLE: React.CSSProperties = {
   boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
 };
 
+// Responsive container for the detail cards: a right-side panel on desktop
+// (md+), a bottom sheet on phones — with a tap-outside backdrop and a
+// swipe-down drag handle to dismiss (the side card had neither). Only the
+// container/chrome is responsive; the card bodies are unchanged.
+function RailSheet({
+  onClose,
+  className = 'md:w-[min(360px,calc(100vw-24px))]',
+  tall = true,
+  z = 'z-30',
+  ariaLabel,
+  children,
+}: {
+  onClose?: () => void;
+  className?: string;
+  tall?: boolean;
+  z?: string;
+  ariaLabel?: string;
+  children: React.ReactNode;
+}) {
+  const [dragDY, setDragDY] = useState(0);
+  const startY = useRef<number | null>(null);
+  return (
+    <>
+      {/* Mobile backdrop — the missing tap-outside-to-close. */}
+      <button
+        type="button"
+        aria-label="Close detail"
+        onClick={onClose}
+        className={`fixed inset-0 md:hidden ${z}`}
+        style={{ background: 'rgba(4,20,26,0.45)', backdropFilter: 'blur(2px)' }}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        className={`${z} overflow-auto border-2 fixed inset-x-0 bottom-0 max-h-[86dvh] rounded-t-2xl md:absolute md:inset-x-auto md:right-3 md:top-12 md:max-h-none md:rounded-md ${tall ? 'md:bottom-[156px]' : ''} ${className}`}
+        style={{
+          ...RAIL_BASE_STYLE,
+          transform: dragDY ? `translateY(${dragDY}px)` : undefined,
+          transition: dragDY ? 'none' : 'transform 220ms cubic-bezier(0.4,0,0.2,1)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        {/* Drag handle — mobile only; swipe down past a threshold dismisses. */}
+        <div
+          className="md:hidden sticky top-0 z-10 flex justify-center pt-2.5 pb-1"
+          style={{ background: THEME.cardBg, touchAction: 'none' }}
+          onTouchStart={(e) => { startY.current = e.touches[0].clientY; }}
+          onTouchMove={(e) => {
+            if (startY.current != null) setDragDY(Math.max(0, e.touches[0].clientY - startY.current));
+          }}
+          onTouchEnd={() => { if (dragDY > 110) onClose?.(); setDragDY(0); startY.current = null; }}
+        >
+          <div style={{ width: 40, height: 4, borderRadius: 99, background: 'rgba(45,42,36,0.28)' }} />
+        </div>
+        {children}
+      </div>
+    </>
+  );
+}
+
 function RiverCard({
   river,
   sharedGauge,
@@ -478,10 +539,8 @@ function RiverCard({
   const accessSummary = showAllAccess ? allAccess : allAccess.slice(0, 4);
 
   return (
-    <div
-      className="absolute right-3 z-20 w-[min(360px,calc(100vw-24px))] overflow-auto rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 12, bottom: 156 }}
-    >
+    <RailSheet onClose={onClose} z="z-20" ariaLabel={river.name}>
+    <div className="p-4">
       {onClose && (
         <div className="absolute right-3 top-3">
           <CloseBtn onClose={onClose} />
@@ -668,6 +727,7 @@ function RiverCard({
         </div>
       )}
     </div>
+    </RailSheet>
   );
 }
 
@@ -713,10 +773,8 @@ function GaugeDetail({
     ? (gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : '—')
     : (gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—');
   return (
-    <div
-      className="absolute right-3 z-30 w-[min(360px,calc(100vw-24px))] overflow-auto rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 12, bottom: 156 }}
-    >
+    <RailSheet onClose={onClose} z="z-30" ariaLabel={`Gauge ${gauge.site_no}`}>
+    <div className="p-4">
       <div className="flex items-start justify-between">
         <div>
           <div
@@ -797,6 +855,7 @@ function GaugeDetail({
         this gauge&apos;s daily period of record for today&apos;s calendar date.
       </div>
     </div>
+    </RailSheet>
   );
 }
 
@@ -1105,11 +1164,16 @@ export function TimeScrubber({
   setDayOffset,
   history,
   rivers,
+  expanded,
+  onToggle,
 }: {
   dayOffset: number;
   setDayOffset: (v: number) => void;
   history: MoHistoryBundleEntry[];
   rivers: MORiver[];
+  /** Collapsed on mobile by default to reclaim map height; always true on md+. */
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const RANGE = 30;
 
@@ -1149,11 +1213,12 @@ export function TimeScrubber({
     <div
       className="absolute inset-x-3 z-20 rounded-md border-2 px-4 pb-3 pt-2.5"
       style={{
-        bottom: 12, height: 130,
+        bottom: 12, height: expanded ? 130 : 44,
         background: THEME.primaryDark,
         borderColor: THEME.cardBorder,
         color: THEME.parchment,
         boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
+        transition: 'height 220ms cubic-bezier(0.4,0,0.2,1)',
       }}
     >
       <div className="mb-1.5 flex items-center justify-between">
@@ -1177,15 +1242,31 @@ export function TimeScrubber({
               : 'historical readings still loading…'}
           </span>
         </div>
-        <div
-          className="uppercase font-bold"
-          style={{
-            fontFamily: MONO, fontSize: 11, letterSpacing: '0.08em', color: THEME.live,
-          }}
-        >
-          {dayOffset === 0 ? 'TODAY' : `${Math.abs(dayOffset)}d ago`}
+        <div className="flex items-center gap-2">
+          <div
+            className="uppercase font-bold"
+            style={{
+              fontFamily: MONO, fontSize: 11, letterSpacing: '0.08em', color: THEME.live,
+            }}
+          >
+            {dayOffset === 0 ? 'TODAY' : `${Math.abs(dayOffset)}d ago`}
+          </div>
+          {/* Mobile-only collapse toggle — reclaims map height. Desktop keeps
+              the timeline always open. */}
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={expanded ? 'Collapse timeline' : 'Expand timeline'}
+            aria-expanded={expanded}
+            className="grid place-items-center md:hidden"
+            style={{ width: 28, height: 28, color: THEME.parchment, fontSize: 13, lineHeight: 1 }}
+          >
+            {expanded ? '▾' : '▴'}
+          </button>
         </div>
       </div>
+      {expanded && (
+        <>
 
       <div className="relative" style={{ height: 80 }}>
         <svg viewBox={`0 0 ${W} ${H + 12}`} preserveAspectRatio="none"
@@ -1262,6 +1343,8 @@ export function TimeScrubber({
         style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.1em', color: 'rgba(242,234,216,0.5)' }}>
         <span>30d</span><span>22d</span><span>15d</span><span>7d</span><span>today</span>
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1786,12 +1869,8 @@ export function ContextSiteCard({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="absolute right-3 z-30 w-[min(330px,calc(100vw-24px))] rounded-md border-2 p-4"
-      style={{ ...RAIL_BASE_STYLE, top: 12 }}
-      role="dialog"
-      aria-label={`USGS site ${site.site_no}`}
-    >
+    <RailSheet onClose={onClose} z="z-30" tall={false} className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS site ${site.site_no}`}>
+    <div className="p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="uppercase font-bold"
@@ -1833,5 +1912,6 @@ export function ContextSiteCard({
         Full record on USGS →
       </a>
     </div>
+    </RailSheet>
   );
 }

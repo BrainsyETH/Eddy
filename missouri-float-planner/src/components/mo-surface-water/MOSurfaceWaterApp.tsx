@@ -72,6 +72,14 @@ export default function MOSurfaceWaterApp() {
   const [modalSelection, setModalSelection] = useState<ModalSelection | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
   const [dockOpen, setDockOpen] = useState(false);
+  // The 30-day timeline is a big fixed reserve; collapse it by default on
+  // phones to give the map back ~100px, expanded on md+. Starts expanded on
+  // both server and first client render (so hydration matches), then
+  // collapses after mount if we're on a small screen.
+  const [timelineExpanded, setTimelineExpanded] = useState(true);
+  useEffect(() => {
+    if (!window.matchMedia('(min-width: 768px)').matches) setTimelineExpanded(false);
+  }, []);
 
   // Access points / campgrounds / springs are paused while we iterate on
   // the gauge-first experience. The MOMap props are kept so the layers
@@ -604,8 +612,12 @@ export default function MOSurfaceWaterApp() {
       {/* ── Map stage ── */}
       <div className="relative min-w-0 flex-1">
         {/* Map canvas stops above the timeline so the state never hides
-            behind the scrubber. */}
-        <div className="absolute inset-x-0 top-0 bottom-[150px]">
+            behind the scrubber. The reserve shrinks when the timeline is
+            collapsed (mobile), giving the map back its height. */}
+        <div
+          className="absolute inset-x-0 top-0"
+          style={{ bottom: timelineExpanded ? 150 : 60 }}
+        >
         <MOMap
           rivers={rivers}
           campgrounds={dataset?.campgrounds ?? []}
@@ -680,6 +692,8 @@ export default function MOSurfaceWaterApp() {
           setDayOffset={setDayOffset}
           history={historyEntries}
           rivers={rivers}
+          expanded={timelineExpanded}
+          onToggle={() => setTimelineExpanded((v) => !v)}
         />
 
         {selectedSite && (
