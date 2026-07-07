@@ -376,6 +376,25 @@ async function main() {
         await page.waitForTimeout(600);
       }
       await page.screenshot({ path: path.join(OUT_DIR, 'mobile-drawer.png') });
+
+      // Tap a river row → the drawer closes and the detail opens as a bottom
+      // sheet (dialog). Screenshot it, then confirm the backdrop dismisses it.
+      const row = page.locator('aside button', { hasText: 'Courtois Creek' }).first();
+      if (await row.count()) {
+        await row.click();
+        await page.waitForTimeout(600);
+        const sheet = page.locator('[role="dialog"]');
+        check('mobile detail opens as a sheet', (await sheet.count()) > 0);
+        await page.screenshot({ path: path.join(OUT_DIR, 'mobile-sheet.png') });
+        // Tap the exposed backdrop area above the sheet (top of screen) — the
+        // sheet covers the centre, so a real dismiss taps the dimmed strip.
+        const backdrop = page.locator('button[aria-label="Close detail"]');
+        if (await backdrop.count()) {
+          await page.mouse.click(195, 88);
+          await page.waitForTimeout(400);
+          check('tapping the backdrop closes the sheet', (await page.locator('[role="dialog"]').count()) === 0);
+        }
+      }
       check('mobile screenshots captured', true, OUT_DIR);
       await page.close();
     }

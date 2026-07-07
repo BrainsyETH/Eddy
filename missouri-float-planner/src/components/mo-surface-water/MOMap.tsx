@@ -1432,11 +1432,10 @@ export default function MOMap(props: MOMapProps) {
         screen coordinates regardless of the current view. Slides out of
         the way when the right rail is pinned (it used to hide beneath it). */}
     <div
-      className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right] duration-300"
-      style={{
-        fontFamily: 'var(--font-mono), ui-monospace, monospace',
-        right: props.railOpen ? 'min(384px, calc(100vw - 52px))' : 16,
-      }}
+      className={`absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right] duration-300 right-4 ${
+        props.railOpen ? 'md:right-[min(384px,calc(100vw-52px))]' : ''
+      }`}
+      style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
     >
       <button
         type="button"
