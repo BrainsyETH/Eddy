@@ -51,7 +51,9 @@ export default function DataDock({
   hoveredRiverId,
   focusedRiverId,
   dayOffset,
-  generatedAt,
+  readingsAsOf,
+  cadenceSeconds,
+  sharedGaugeByRiver,
   gaugeCount,
   telemetry,
   showGauges,
@@ -77,7 +79,12 @@ export default function DataDock({
   hoveredRiverId: string | null;
   focusedRiverId: string | null;
   dayOffset: number;
-  generatedAt: string | null;
+  /** Newest actual USGS reading timestamp — NOT server response time. */
+  readingsAsOf: string | null;
+  /** Refresh cadence of the live feed in seconds (default 15 min). */
+  cadenceSeconds: number | null;
+  /** Rivers whose primary gauge also rates other rivers, keyed by slug. */
+  sharedGaugeByRiver: Record<string, { siteId: string; others: string[] }>;
   gaugeCount: number;
   /** Statewide observatory aggregates (see MOSurfaceWaterApp). */
   telemetry: { reporting: number; rising: number; falling: number; risk72h: number };
@@ -127,11 +134,19 @@ export default function DataDock({
     );
   }, [rivers, verdictByRiver]);
 
-  const stamp = generatedAt
-    ? new Date(generatedAt).toLocaleString(undefined, {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-      })
+  // "As of" = the newest actual gauge reading. Same-day shows time only;
+  // an older stamp (offline snapshot, USGS outage) keeps its date so the
+  // age is unmissable.
+  const stampDate = readingsAsOf ? new Date(readingsAsOf) : null;
+  const stamp = stampDate
+    ? stampDate.toLocaleString(
+        undefined,
+        stampDate.toDateString() === new Date().toDateString()
+          ? { hour: '2-digit', minute: '2-digit' }
+          : { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
+      )
     : '—';
+  const cadenceMin = Math.max(1, Math.round((cadenceSeconds ?? 900) / 60));
 
   const scrubbed = dayOffset !== 0;
 
@@ -176,7 +191,7 @@ export default function DataDock({
               )}
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: '#F07052' }} />
             </span>
-            USGS · live · {stamp}
+            USGS · readings as of {stamp}
             <button
               type="button"
               aria-label="Close panel"
@@ -207,7 +222,7 @@ export default function DataDock({
             className="mt-1.5"
             style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.08em', color: PARCH_FAINT }}
           >
-            Missouri · {rivers.length} float rivers · {gaugeCount} gauges · verdict on every reach
+            Missouri · {rivers.length} float rivers · {gaugeCount} gauges · refreshes every {cadenceMin} min
           </div>
         </div>
 
@@ -291,6 +306,7 @@ export default function DataDock({
               verdict={verdictByRiver[r.slug] ?? 'unknown'}
               reading={readingByRiver[r.slug] ?? null}
               trend={scrubbed ? null : trendByRiver[r.slug] ?? null}
+              sharedGauge={sharedGaugeByRiver[r.slug] ?? null}
               history={
                 historyBySite.get((r.gauges ?? []).find((g) => g.is_primary)?.site_id ?? '') ?? null
               }
@@ -497,6 +513,7 @@ function RiverRow({
   verdict,
   reading,
   trend,
+  sharedGauge,
   history,
   hovered,
   focused,
@@ -510,6 +527,8 @@ function RiverRow({
   reading: DockRiverReading | null;
   /** 24h direction; null when unknown or replaying a scrubbed day. */
   trend: DockRiverTrend | null;
+  /** Set when this river's primary gauge also rates other rivers. */
+  sharedGauge: { siteId: string; others: string[] } | null;
   history: MoHistoryBundleEntry | null;
   hovered: boolean;
   focused: boolean;
@@ -544,11 +563,16 @@ function RiverRow({
     return { line: pts.join(' '), SW, SH };
   }, [history]);
 
+  // Distinguish "gauge exists but no reading" (—) from "river has no live
+  // gauge at all" — the latter deserves words, not a silent dash.
+  const hasPrimaryGauge = (river.gauges ?? []).some((g) => g.is_primary);
   const valueLabel = reading?.value != null
     ? reading.unit === 'ft'
       ? `${reading.value.toFixed(2)} ft`
       : `${Math.round(reading.value)} cfs`
-    : '—';
+    : hasPrimaryGauge
+      ? '—'
+      : 'no live gauge';
 
   return (
     <button
@@ -629,6 +653,14 @@ function RiverRow({
           </svg>
         )}
       </div>
+      {sharedGauge && (
+        <div
+          className="mt-1"
+          style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.06em', color: PARCH_FAINT }}
+        >
+          shared gauge · also rates {sharedGauge.others.join(', ')}
+        </div>
+      )}
     </button>
   );
 }

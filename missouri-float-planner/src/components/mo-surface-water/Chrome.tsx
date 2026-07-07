@@ -325,6 +325,7 @@ function KV({ label, value, sub }: { label: string; value: string; sub?: string 
 
 export function RightRail({
   river,
+  sharedGauge,
   primaryGauge,
   primaryHistory,
   focusedGauge,
@@ -338,6 +339,9 @@ export function RightRail({
   onAccessPointClick,
 }: {
   river: MORiver | null;
+  /** Set when the river's primary gauge also rates other rivers
+   *  (e.g. USGS 07017200 covers both Courtois and Huzzah). */
+  sharedGauge?: { siteId: string; others: string[] } | null;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
   focusedGauge: MoStatewideGauge | null;
@@ -382,6 +386,7 @@ export function RightRail({
     return (
       <RiverCard
         river={river}
+        sharedGauge={sharedGauge ?? null}
         primaryGauge={primaryGauge}
         primaryHistory={primaryHistory}
         forecast={forecast}
@@ -402,6 +407,7 @@ const RAIL_BASE_STYLE: React.CSSProperties = {
 
 function RiverCard({
   river,
+  sharedGauge,
   primaryGauge,
   primaryHistory,
   forecast,
@@ -409,6 +415,8 @@ function RiverCard({
   onAccessPointClick,
 }: {
   river: MORiver;
+  /** Set when the primary gauge also rates other rivers. */
+  sharedGauge: { siteId: string; others: string[] } | null;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
   forecast: MoForecastEntry | null;
@@ -470,7 +478,9 @@ function RiverCard({
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
           {primaryGauge?.gaugeHeightFt != null
             ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
-            : '— ft'}
+            : primaryThresholds
+              ? '— ft'
+              : 'no live gauge'}
         </span>
         <span className="font-bold uppercase"
           style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em' }}>
@@ -479,6 +489,15 @@ function RiverCard({
         <span className="ml-auto" style={{ fontSize: 11, opacity: 0.9 }}>{tone.desc}</span>
       </div>
       <div className="mt-1.5"><DataAgeChip iso={primaryGauge?.readingTimestamp} /></div>
+      {sharedGauge && (
+        <div
+          className="mt-1"
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: THEME.inkDim, lineHeight: 1.5 }}
+        >
+          Reading via shared gauge #{sharedGauge.siteId} — also rates{' '}
+          {sharedGauge.others.join(', ')}; thresholds calibrated per river.
+        </div>
+      )}
 
       {primaryThresholds && (
         <ThresholdProvenance
@@ -1485,6 +1504,7 @@ export function GaugeHoverOverlay({
   gauge,
   gaugeName,
   verdict: verdictCode,
+  sharedRiverNames,
   pos,
 }: {
   gauge: MoStatewideGauge | null;
@@ -1493,6 +1513,9 @@ export function GaugeHoverOverlay({
   /** Editorial condition for this gauge, used for the fallback card when
    *  Eddy has no written report yet. */
   verdict: StageVerdict | null;
+  /** Set (≥2 names) when this one physical gauge is the primary rating
+   *  for multiple rivers — disclosed on the SOURCE line. */
+  sharedRiverNames?: string[] | null;
   pos: { x: number; y: number } | null;
 }) {
   const report = useGaugeRailReport(gauge);
@@ -1593,18 +1616,22 @@ export function GaugeHoverOverlay({
               letterSpacing: '0.04em',
             }}
           >
+            {/* The reading's age (and its STALE flag) always shows — a fresh
+                Eddy report must never mask an old number underneath it. */}
             <span style={{ color: THEME.ink, fontWeight: 700 }}>SOURCE</span>{' '}
-            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} ·{' '}
-            {report
-              ? relativeTime(report.generatedAt)
-              : readingAge(gauge.readingTimestamp)?.label ?? 'no timestamp'}
-            {!report && readingAge(gauge.readingTimestamp)?.stale && (
+            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · reading{' '}
+            {readingAge(gauge.readingTimestamp)?.label ?? 'no timestamp'}
+            {readingAge(gauge.readingTimestamp)?.stale && (
               <span
                 className="ml-1.5 rounded-sm px-1 py-px font-bold uppercase"
                 style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
               >
                 Stale
               </span>
+            )}
+            {report && <> · report {relativeTime(report.generatedAt)}</>}
+            {sharedRiverNames && sharedRiverNames.length >= 2 && (
+              <> · serves {sharedRiverNames.join(' + ')}</>
             )}
           </div>
         </div>
