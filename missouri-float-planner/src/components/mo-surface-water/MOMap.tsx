@@ -612,31 +612,76 @@ export default function MOMap(props: MOMapProps) {
   // markers receive their click events normally.
   const DRAG_THRESHOLD_PX = 5;
 
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    // Track potential drag, but DO NOT capture the pointer yet. If we
-    // capture here, all subsequent pointer events (including the click
-    // that follows pointerup) get retargeted to the SVG, and clicks on
-    // markers, the zoom buttons, etc. never reach their original target
-    // — diagnosed via /tmp/click-debug.mjs which showed the click event
-    // landing on `<svg>` with no marker target. We capture lazily in
-    // onPointerMove, only once the user has actually moved past the
-    // drag threshold.
-    dragRef.current = {
-      pointerId: e.pointerId,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startViewX: view.x,
-      startViewY: view.y,
-      moved: false,
-      captured: false,
-    };
-  }, [view.x, view.y]);
+  // Multi-touch: every active pointer, plus the frozen state of an in-flight
+  // two-finger pinch. `hadMultiTouch` suppresses the click that trails a
+  // pinch so it doesn't clear the user's selection.
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<
+    | { startDist: number; startView: { x: number; y: number; w: number; h: number }; startMidX: number; startMidY: number }
+    | null
+  >(null);
+  const hadMultiTouchRef = useRef(false);
 
   const [dragging, setDragging] = useState(false);
   const { onHoverGauge } = props;
 
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 1) hadMultiTouchRef.current = false;
+    if (pointersRef.current.size === 2) {
+      // Begin a pinch: freeze the current view + the finger spread/midpoint.
+      const pts = [...pointersRef.current.values()];
+      pinchRef.current = {
+        startDist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1,
+        startView: { ...viewRef.current },
+        startMidX: (pts[0].x + pts[1].x) / 2,
+        startMidY: (pts[0].y + pts[1].y) / 2,
+      };
+      hadMultiTouchRef.current = true;
+      dragRef.current = null; // cancel any single-finger pan in progress
+      setDragging(false);
+      onHoverGauge(null, null);
+      return;
+    }
+    if (e.button !== 0) return;
+    // Track a potential single-finger drag, but DO NOT capture the pointer
+    // yet — capturing here retargets the trailing click to the SVG and
+    // markers/buttons never receive it. We capture lazily past the threshold.
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startViewX: viewRef.current.x,
+      startViewY: viewRef.current.y,
+      moved: false,
+      captured: false,
+    };
+  }, [onHoverGauge]);
+
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    // Two-finger pinch: zoom by the change in finger spread, and keep the
+    // viewBox point under the start-midpoint pinned under the current
+    // midpoint (so pinch pans as well as zooms).
+    const pinch = pinchRef.current;
+    if (pinch && pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      const curMidX = (pts[0].x + pts[1].x) / 2;
+      const curMidY = (pts[0].y + pts[1].y) / 2;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const sv = pinch.startView;
+      const ax = sv.x + ((pinch.startMidX - rect.left) / rect.width) * sv.w;
+      const ay = sv.y + ((pinch.startMidY - rect.top) / rect.height) * sv.h;
+      const nw = sv.w * (pinch.startDist / dist);
+      const nh = nw / stageAspectRef.current;
+      const nx = ax - ((curMidX - rect.left) / rect.width) * nw;
+      const ny = ay - ((curMidY - rect.top) / rect.height) * nh;
+      setView(clampView({ x: nx, y: ny, w: nw, h: nh }));
+      return;
+    }
     const drag = dragRef.current;
     if (!drag) return;
     const dx = e.clientX - drag.startClientX;
@@ -657,16 +702,23 @@ export default function MOMap(props: MOMapProps) {
     }
     if (!drag.moved) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const sx = view.w / rect.width;
-    const sy = view.h / rect.height;
-    setView((v) => clampView({
-      ...v,
+    const v = viewRef.current;
+    const sx = v.w / rect.width;
+    const sy = v.h / rect.height;
+    setView((cur) => clampView({
+      ...cur,
       x: drag.startViewX - dx * sx,
       y: drag.startViewY - dy * sy,
     }));
-  }, [view.w, view.h, clampView, onHoverGauge]);
+  }, [clampView, onHoverGauge]);
 
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    // Reset the pinch-click guard only after the trailing click has fired.
+    if (pointersRef.current.size === 0) {
+      setTimeout(() => { hadMultiTouchRef.current = false; }, 0);
+    }
     const drag = dragRef.current;
     if (drag?.captured) {
       try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
@@ -794,8 +846,9 @@ export default function MOMap(props: MOMapProps) {
         props.onHoverGauge(null, null);
       }}
       onClick={(e) => {
-        // Empty-area click clears focus — but only if we didn't just pan.
-        if (dragRef.current?.moved) return;
+        // Empty-area click clears focus — but only if we didn't just pan
+        // or finish a pinch.
+        if (dragRef.current?.moved || hadMultiTouchRef.current) return;
         if (e.target === svgRef.current || e.target === e.currentTarget) {
           props.onFocusRiver(null);
           props.onFocusGauge(null);
