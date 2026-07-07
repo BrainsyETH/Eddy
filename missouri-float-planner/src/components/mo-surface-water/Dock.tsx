@@ -324,7 +324,15 @@ export default function DataDock({
         </div>
 
         {/* ── Legend + layer toggle ── */}
-        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(242,234,216,0.1)' }}>
+        <div
+          className="px-4 py-3"
+          style={{
+            borderTop: '1px solid rgba(242,234,216,0.1)',
+            // Keep the toggles clear of the iOS home indicator when the
+            // drawer is open on mobile (adds to py-3, not instead of it).
+            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">
             {CONDITION_ORDER.map((code) => (
               <div key={code} className="flex items-center gap-1.5">

@@ -194,7 +194,10 @@ export default function FlowLayer({
     let raf = 0;
     let last = performance.now();
     let running = true;
-    // Rolling degradation check
+    // Rolling degradation check. The small-budget tier is already on
+    // constrained hardware, so it gets half the reaction window — ~0.75s
+    // of slow frames instead of ~1.5s before the particle count halves.
+    const SLOW_FRAME_LIMIT = maxParticles <= 300 ? 30 : 60;
     let slowFrames = 0;
 
     const pointAt = (r: RiverRuntime, s: number): [number, number, number] => {
@@ -222,7 +225,7 @@ export default function FlowLayer({
 
       // Self-degrade long before jank becomes visible.
       if (dtMs > 24) {
-        if (++slowFrames >= 60 && particles.length > 120) {
+        if (++slowFrames >= SLOW_FRAME_LIMIT && particles.length > 120) {
           particles = particles.filter((_, i) => i % 2 === 0);
           slowFrames = 0;
           console.info(`[mosw-flow] degraded to ${particles.length} particles`);

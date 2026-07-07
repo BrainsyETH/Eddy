@@ -335,7 +335,9 @@ export default function MOMap(props: MOMapProps) {
         site: s,
         x,
         y,
-        r: magnitudeR(s.dischargeCfs, 1.8, 5.2),
+        // Smaller than any curated gauge chip so the two classes read
+        // apart in a static screenshot, not just on hover.
+        r: magnitudeR(s.dischargeCfs, 1.4, 4.2),
         fresh: s.readingTimestamp != null && Date.parse(s.readingTimestamp) > staleCutoff,
       });
     }
@@ -884,11 +886,14 @@ export default function MOMap(props: MOMapProps) {
                 {/* Ink beads on parchment (the light base kills soft glows);
                     the curated layer keeps the color + glow treatment. */}
                 <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
+                {/* Dark hairline, not the cream ring — that ring is the
+                    curated gauges' signature, and sharing it made the two
+                    classes indistinguishable at a glance. */}
                 <circle
                   r={rr}
                   fill={n.fresh ? '#1D525F' : '#6B7E85'}
-                  stroke={selected ? '#F07052' : 'rgba(250,248,244,0.9)'}
-                  strokeWidth={(selected ? 1.8 : 0.9) * kStable}
+                  stroke={selected ? '#F07052' : 'rgba(15,45,53,0.35)'}
+                  strokeWidth={(selected ? 1.8 : 0.7) * kStable}
                   pointerEvents="none"
                 />
               </g>
@@ -1100,7 +1105,7 @@ export default function MOMap(props: MOMapProps) {
         letterSpacing="0.1em"
         fill="rgba(242,234,216,0.42)"
       >
-        Stream colour: float condition at the nearest gauge · fades between gauges
+        Stream colour: float condition at the nearest gauge · small ink dots: statewide USGS sites, no float rating
       </text>
 
       {/* Scale bar + north arrow — anchored to the viewport (screen-fixed) in
