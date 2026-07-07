@@ -11,7 +11,7 @@
 // Particles ride along the rendered <path> elements using
 // getTotalLength() + getPointAtLength(), the same trick the design uses.
 
-import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import { useRef, useMemo, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import {
   STAGE_VERDICTS,
   condKey,
@@ -382,14 +382,49 @@ export default function MOMap(props: MOMapProps) {
   // drag pans; double-click resets to the full-state framing. Children
   // never re-project (paths are memoized on `project`); only the viewBox
   // attribute changes per frame, so the browser handles zoom natively.
-  const HOME_VIEW = useMemo(() => ({ x: 0, y: 0, w: W, h: H }), []);
-  // High-altitude framing for the cinematic entry — the widest the clamp
-  // allows, biased slightly up so the state "rises" into place.
+  // Projected bounding box of the region (Missouri + Arkansas) in viewBox
+  // units — the frame the camera fits to.
+  const regionBounds = useMemo(() => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [lon, lat] of ALL_REGION_COORDS) {
+      const [x, y] = project(lon, lat);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }, [project]);
+
+  // Live pixel aspect (w/h) of the map stage. The view rect is kept at this
+  // aspect so the SVG's xMidYMid-meet fit FILLS the stage instead of
+  // letterboxing: the two-state region is portrait and phones are portrait,
+  // so a fixed landscape viewBox shrank the map to a tiny centred island.
+  // Measured synchronously below; W/H is the SSR fallback.
+  const [stageAspect, setStageAspect] = useState(W / H);
+  const stageAspectRef = useRef(W / H);
+
+  // Fit the region into a view rect of the given aspect, with breathing room.
+  const fitView = useCallback(
+    (aspect: number) => {
+      const { x: rx, y: ry, w: rw, h: rh } = regionBounds;
+      const PAD = 1.08;
+      let w: number, h: number;
+      if (aspect >= rw / rh) { h = rh * PAD; w = h * aspect; }
+      else { w = rw * PAD; h = w / aspect; }
+      return { x: rx + rw / 2 - w / 2, y: ry + rh / 2 - h / 2, w, h };
+    },
+    [regionBounds],
+  );
+
+  const HOME_VIEW = useMemo(() => fitView(stageAspect), [fitView, stageAspect]);
+  // High-altitude framing for the cinematic entry — 1.4× wider than home,
+  // biased slightly up so the region "rises" into place.
   const ENTRY_VIEW = useMemo(() => {
-    const w = W * 1.4;
-    const h = w * (H / W);
-    return { x: (W - w) / 2, y: (H - h) / 2 - H * 0.06, w, h };
-  }, []);
+    const w = HOME_VIEW.w * 1.4, h = HOME_VIEW.h * 1.4;
+    const cx = HOME_VIEW.x + HOME_VIEW.w / 2, cy = HOME_VIEW.y + HOME_VIEW.h / 2;
+    return { x: cx - w / 2, y: cy - h / 2 - h * 0.06, w, h };
+  }, [HOME_VIEW]);
   const entryEligible =
     !reducedMotion &&
     typeof window !== 'undefined' &&
@@ -415,20 +450,24 @@ export default function MOMap(props: MOMapProps) {
 
   const clampView = useCallback(
     (v: { x: number; y: number; w: number; h: number }) => {
-      // Cap zoom: 12x in (so individual rivers are readable) and 1.4x out
-      // (so the user can't drift into open ocean).
-      const minW = W / 12;
-      const maxW = W * 1.4;
+      // Zoom range is relative to the home framing: ~9× in (rivers readable),
+      // and barely past home out (home already shows the whole region, so
+      // there's nothing to gain by drifting into open space). Height is
+      // derived from the live stage aspect so the view never letterboxes.
+      const minW = HOME_VIEW.w / 9;
+      const maxW = HOME_VIEW.w * 1.06;
       const nw = Math.max(minW, Math.min(maxW, v.w));
-      const nh = nw * (H / W);
-      // Pan limits: keep the center inside [-W/4, 5W/4] x [-H/4, 5H/4]
-      const cx = v.x + v.w / 2;
-      const cy = v.y + v.h / 2;
-      const ccx = Math.max(-W / 4, Math.min((5 * W) / 4, cx));
-      const ccy = Math.max(-H / 4, Math.min((5 * H) / 4, cy));
+      const nh = nw / stageAspect;
+      // Pan limits: keep the view centre within the region (+ slack) so the
+      // states can't be dragged off-screen.
+      const rcx = regionBounds.x + regionBounds.w / 2;
+      const rcy = regionBounds.y + regionBounds.h / 2;
+      const mX = regionBounds.w * 0.55, mY = regionBounds.h * 0.55;
+      const ccx = Math.max(rcx - mX, Math.min(rcx + mX, v.x + v.w / 2));
+      const ccy = Math.max(rcy - mY, Math.min(rcy + mY, v.y + v.h / 2));
       return { x: ccx - nw / 2, y: ccy - nh / 2, w: nw, h: nh };
     },
-    [],
+    [HOME_VIEW, stageAspect, regionBounds],
   );
 
   // ─── Cinematic entry ───────────────────────────────────────────────────
@@ -448,7 +487,7 @@ export default function MOMap(props: MOMapProps) {
       if (finished) return;
       finished = true;
       cancelAnimationFrame(raf);
-      setView({ x: 0, y: 0, w: W, h: H });
+      setView(HOME_VIEW);
       setEntryPhase('done');
       try { window.sessionStorage.setItem('mosw-entry-played', '1'); } catch { /* private mode */ }
     };
@@ -456,10 +495,10 @@ export default function MOMap(props: MOMapProps) {
       const p = Math.min(1, (t - t0) / D);
       const e = ease(p);
       setView({
-        x: ENTRY_VIEW.x * (1 - e),
-        y: ENTRY_VIEW.y * (1 - e),
-        w: ENTRY_VIEW.w + (W - ENTRY_VIEW.w) * e,
-        h: ENTRY_VIEW.h + (H - ENTRY_VIEW.h) * e,
+        x: ENTRY_VIEW.x + (HOME_VIEW.x - ENTRY_VIEW.x) * e,
+        y: ENTRY_VIEW.y + (HOME_VIEW.y - ENTRY_VIEW.y) * e,
+        w: ENTRY_VIEW.w + (HOME_VIEW.w - ENTRY_VIEW.w) * e,
+        h: ENTRY_VIEW.h + (HOME_VIEW.h - ENTRY_VIEW.h) * e,
       });
       if (p >= 1) finish();
       else raf = requestAnimationFrame(tick);
@@ -474,7 +513,7 @@ export default function MOMap(props: MOMapProps) {
       window.removeEventListener('keydown', finish);
       window.removeEventListener('wheel', finish);
     };
-  }, [entryPhase, ENTRY_VIEW]);
+  }, [entryPhase, ENTRY_VIEW, HOME_VIEW]);
 
   // Layer reveal during the flight: flips one frame after mount so CSS
   // transitions (with per-layer delays) carry terrain → basemap → rivers
@@ -512,6 +551,41 @@ export default function MOMap(props: MOMapProps) {
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
+  // Measure the stage's pixel aspect and keep the view rect matched to it, so
+  // the region fills the stage on both portrait phones and wide desktops.
+  useLayoutEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return;
+      const a = r.width / r.height;
+      if (Math.abs(a - stageAspectRef.current) < 0.002) return;
+      stageAspectRef.current = a;
+      setStageAspect(a);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // React to stage-aspect changes. First real measurement: snap the initial
+  // (non-fly-in) view to the correctly-framed home. Later changes (rotate,
+  // iOS URL bar, the timeline collapsing) remap the CURRENT view to the new
+  // aspect — preserving the user's zoom/pan — instead of snapping home.
+  const framedRef = useRef(false);
+  useEffect(() => {
+    if (!framedRef.current) {
+      framedRef.current = true;
+      if (entryPhase === 'done') setView(HOME_VIEW);
+      return;
+    }
+    if (entryPhase !== 'done') return;
+    setView((v) => clampView({ ...v, h: v.w / stageAspect }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageAspect]);
+
   useEffect(() => {
     const svg = stageRef.current;
     if (!svg) return;
@@ -524,7 +598,7 @@ export default function MOMap(props: MOMapProps) {
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
       const factor = Math.exp(dy / 600);
       const nw = v.w * factor;
-      const nh = nw * (H / W);
+      const nh = nw / stageAspectRef.current;
       const nx = px - ((e.clientX - rect.left) / rect.width) * nw;
       const ny = py - ((e.clientY - rect.top) / rect.height) * nh;
       setView(clampView({ x: nx, y: ny, w: nw, h: nh }));
@@ -611,7 +685,10 @@ export default function MOMap(props: MOMapProps) {
   // in by `kStable`. Without this, a 4px gauge dot at 1× zoom becomes a
   // 24px blob at 6× zoom because viewBox-units shrink relative to screen
   // pixels.
-  const kStable = view.w / W;
+  // Referenced to the home framing (not the raw viewBox width) so markers
+  // and labels are a readable, consistent fraction of the stage at every
+  // aspect — and stay pixel-stable as you zoom in past home.
+  const kStable = view.w / HOME_VIEW.w;
 
   const zoomBy = useCallback((factor: number) => {
     setView((v) => clampView({
@@ -621,7 +698,7 @@ export default function MOMap(props: MOMapProps) {
       h: v.h * factor,
     }));
   }, [clampView]);
-  const zoomedIn = view.w < W * 0.99;
+  const zoomedIn = view.w < HOME_VIEW.w * 0.99;
 
   // Click handlers on individual features need to ignore the tail of a
   // drag-pan; otherwise dragging across a river or gauge focuses it on
@@ -838,20 +915,6 @@ export default function MOMap(props: MOMapProps) {
         strokeWidth={2.2}
         strokeLinejoin="round"
       />
-
-      {/* Title — sits on the dark backdrop above the state, so parchment ink */}
-      <text
-        x={W / 2}
-        y={48}
-        textAnchor="middle"
-        fontFamily="var(--font-mono), ui-monospace, monospace"
-        fontSize={13}
-        letterSpacing="0.45em"
-        fill="rgba(242,234,216,0.4)"
-        fontWeight={500}
-      >
-        MISSOURI &amp; ARKANSAS · LIVE RIVER NETWORK
-      </text>
 
       {/* Cities */}
       <g style={fadeIn(1300, 900)}>
@@ -1109,30 +1172,6 @@ export default function MOMap(props: MOMapProps) {
         </g>
       )}
 
-      {/* Period of record footer note — dark backdrop corners need light ink */}
-      <text
-        x={W - 14}
-        y={H - 14}
-        textAnchor="end"
-        fontFamily="var(--font-mono), ui-monospace, monospace"
-        fontSize={10}
-        fill="rgba(242,234,216,0.42)"
-      >
-        Geometry: USGS NHD via Supabase · Live data: USGS NWIS
-      </text>
-
-      {/* Reference key for percentile coloring */}
-      <text
-        x={14}
-        y={H - 14}
-        fontFamily="var(--font-mono), ui-monospace, monospace"
-        fontSize={9}
-        letterSpacing="0.1em"
-        fill="rgba(242,234,216,0.42)"
-      >
-        Stream colour: float condition at the nearest gauge · small ink dots: statewide USGS sites, no float rating
-      </text>
-
       {/* Scale bar + north arrow — anchored to the viewport (screen-fixed) in
           the empty left-centre band so they never collide with the corner
           cards. Bar length tracks a tidy ground distance for the zoom. */}
@@ -1216,7 +1255,7 @@ export default function MOMap(props: MOMapProps) {
           // any zoom. The Eddy avatar is the personality layer — shown only
           // on hover/focus or once zoomed in (view < 0.5x), where it floats
           // just above the chip like a labeled pin so the anchor stays put.
-          const showOtter = isHovered || isFocused || view.w < W * 0.5;
+          const showOtter = isHovered || isFocused || view.w < HOME_VIEW.w * 0.5;
           // Size encodes current discharge on the same sqrt scale as the
           // statewide context sites, so magnitude reads consistently.
           const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
@@ -1296,6 +1335,44 @@ export default function MOMap(props: MOMapProps) {
       </g>
       )}
     </svg>
+    </div>
+
+    {/* Title — screen-space overlay (not inside the pan/zoom SVG), so it
+        stays pinned at the top and never clips as the map fills the stage or
+        the user zooms. Desktop only: on phones the dock masthead + FAB
+        already brand it, and the header row is tight. */}
+    <div
+      className="pointer-events-none absolute inset-x-0 top-2 z-10 hidden text-center md:block"
+      style={{
+        fontFamily: 'var(--font-mono), ui-monospace, monospace',
+        fontSize: 13,
+        letterSpacing: '0.45em',
+        color: 'rgba(242,234,216,0.4)',
+        fontWeight: 500,
+      }}
+    >
+      MISSOURI &amp; ARKANSAS · LIVE RIVER NETWORK
+    </div>
+
+    {/* Footer notes — screen-space, desktop only (the dock carries the legend
+        on mobile). Attribution left, colour key right. */}
+    <div
+      className="pointer-events-none absolute bottom-2 left-3 z-10 hidden md:block"
+      style={{
+        fontFamily: 'var(--font-mono), ui-monospace, monospace',
+        fontSize: 9, letterSpacing: '0.1em', color: 'rgba(242,234,216,0.42)',
+      }}
+    >
+      Stream colour: float condition at the nearest gauge · small ink dots: statewide USGS sites, no float rating
+    </div>
+    <div
+      className="pointer-events-none absolute bottom-2 right-3 z-10 hidden md:block"
+      style={{
+        fontFamily: 'var(--font-mono), ui-monospace, monospace',
+        fontSize: 10, color: 'rgba(242,234,216,0.42)',
+      }}
+    >
+      Geometry: USGS NHD via Supabase · Live data: USGS NWIS
     </div>
 
     {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
