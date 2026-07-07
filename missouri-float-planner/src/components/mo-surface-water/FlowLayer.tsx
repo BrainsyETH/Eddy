@@ -18,8 +18,15 @@ export interface FlowRiver {
   id: string;
   /** Projected polyline in viewBox units. */
   pts: Array<[number, number]>;
-  /** Overall verdict — sets particle speed for the whole reach. */
+  /** Overall verdict — sets the reach's base particle speed. */
   verdict: StageVerdict;
+  /**
+   * USGS flow-statistics percentile (0–100) at the river's primary gauge,
+   * or null when no stats are available. Modulates speed continuously
+   * within the verdict's band — percentile, never raw CFS, because CFS
+   * isn't comparable across rivers.
+   */
+  percentile: number | null;
   /** Gradient axis + stops (matches the SVG linearGradient painting). */
   axis: { x1: number; y1: number; x2: number; y2: number } | null;
   stops: Array<{ offset: number; color: string }>;
@@ -38,6 +45,21 @@ const SPEED: Record<StageVerdict, number> = {
   dangerous: 26,
   unknown: 4,
 };
+
+/**
+ * Continuous speed within a condition band: the flow percentile sweeps a
+ * ±20% envelope around the verdict's base speed (P0 → 0.8×, P100 → 1.2×).
+ * ±20% is the widest symmetric band that keeps adjacent conditions strictly
+ * ordered (good×1.2 = 7.8 < flowing×0.8 = 8.0, high×1.2 = 20.4 <
+ * dangerous×0.8 = 20.8), so the 7-level taxonomy still reads at a glance.
+ * No percentile → base speed, exactly the old step behavior.
+ */
+function speedFor(verdict: StageVerdict, percentile: number | null): number {
+  const base = SPEED[verdict] ?? SPEED.unknown;
+  if (percentile == null || Number.isNaN(percentile)) return base;
+  const p = Math.max(0, Math.min(100, percentile));
+  return base * (0.8 + 0.4 * (p / 100));
+}
 
 interface Particle {
   river: number;
@@ -130,7 +152,7 @@ export default function FlowLayer({
           const rgb = [0, 1, 2].map((c) => Math.round(lo.rgb[c] + (hi.rgb[c] - lo.rgb[c]) * k));
           lut.push(`${rgb[0]},${rgb[1]},${rgb[2]}`);
         }
-        return { pts: r.pts, cum, total, speed: SPEED[r.verdict] ?? SPEED.unknown, lut };
+        return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile), lut };
       });
     if (!runtimes.length) return;
 

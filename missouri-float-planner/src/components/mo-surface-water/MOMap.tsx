@@ -619,18 +619,23 @@ export default function MOMap(props: MOMapProps) {
   const flowRivers = useMemo<FlowRiver[]>(() => {
     return props.rivers.map((r) => {
       const grad = riverGradients[r.id];
+      // Primary-gauge percentile modulates particle speed within the
+      // verdict's band (scrub-aware — the app swaps in the scrubbed day's
+      // percentile, so replaying the month visibly changes the current).
+      const primarySite = (r.gauges ?? []).find((g) => g.is_primary)?.site_id;
       return {
         id: r.id,
         pts: (r.geometry.coordinates as Array<[number, number]>).map(([lo, la]) =>
           project(lo, la),
         ),
         verdict: props.verdictByRiver[r.slug] ?? 'unknown',
+        percentile: primarySite != null ? props.percentileByGauge[primarySite] ?? null : null,
         axis: grad ? { x1: grad.x1, y1: grad.y1, x2: grad.x2, y2: grad.y2 } : null,
         stops: grad ? grad.stops.map((st) => ({ offset: st.offset, color: st.color })) : [],
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.rivers, props.verdictByRiver, riverGradients, project]);
+  }, [props.rivers, props.verdictByRiver, props.percentileByGauge, riverGradients, project]);
 
   // Particle budget: 700 desktop / 300 small screens or low-end hardware
   // (docs/mo-surface-water-observatory.md). Sampled once per mount.
