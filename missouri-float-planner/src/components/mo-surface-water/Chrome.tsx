@@ -1105,11 +1105,16 @@ export function TimeScrubber({
   setDayOffset,
   history,
   rivers,
+  expanded,
+  onToggle,
 }: {
   dayOffset: number;
   setDayOffset: (v: number) => void;
   history: MoHistoryBundleEntry[];
   rivers: MORiver[];
+  /** Collapsed on mobile by default to reclaim map height; always true on md+. */
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const RANGE = 30;
 
@@ -1149,11 +1154,12 @@ export function TimeScrubber({
     <div
       className="absolute inset-x-3 z-20 rounded-md border-2 px-4 pb-3 pt-2.5"
       style={{
-        bottom: 12, height: 130,
+        bottom: 12, height: expanded ? 130 : 44,
         background: THEME.primaryDark,
         borderColor: THEME.cardBorder,
         color: THEME.parchment,
         boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
+        transition: 'height 220ms cubic-bezier(0.4,0,0.2,1)',
       }}
     >
       <div className="mb-1.5 flex items-center justify-between">
@@ -1177,15 +1183,31 @@ export function TimeScrubber({
               : 'historical readings still loading…'}
           </span>
         </div>
-        <div
-          className="uppercase font-bold"
-          style={{
-            fontFamily: MONO, fontSize: 11, letterSpacing: '0.08em', color: THEME.live,
-          }}
-        >
-          {dayOffset === 0 ? 'TODAY' : `${Math.abs(dayOffset)}d ago`}
+        <div className="flex items-center gap-2">
+          <div
+            className="uppercase font-bold"
+            style={{
+              fontFamily: MONO, fontSize: 11, letterSpacing: '0.08em', color: THEME.live,
+            }}
+          >
+            {dayOffset === 0 ? 'TODAY' : `${Math.abs(dayOffset)}d ago`}
+          </div>
+          {/* Mobile-only collapse toggle — reclaims map height. Desktop keeps
+              the timeline always open. */}
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={expanded ? 'Collapse timeline' : 'Expand timeline'}
+            aria-expanded={expanded}
+            className="grid place-items-center md:hidden"
+            style={{ width: 28, height: 28, color: THEME.parchment, fontSize: 13, lineHeight: 1 }}
+          >
+            {expanded ? '▾' : '▴'}
+          </button>
         </div>
       </div>
+      {expanded && (
+        <>
 
       <div className="relative" style={{ height: 80 }}>
         <svg viewBox={`0 0 ${W} ${H + 12}`} preserveAspectRatio="none"
@@ -1262,6 +1284,8 @@ export function TimeScrubber({
         style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.1em', color: 'rgba(242,234,216,0.5)' }}>
         <span>30d</span><span>22d</span><span>15d</span><span>7d</span><span>today</span>
       </div>
+        </>
+      )}
     </div>
   );
 }
