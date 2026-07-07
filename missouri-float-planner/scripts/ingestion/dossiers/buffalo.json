@@ -46,9 +46,10 @@
       "provider": "usgs",
       "siteId": "07055646",
       "name": "Buffalo River near Boxley, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 35.93888889,
+      "lon": -93.405,
+      "paramsAvailable": ["00060"],
+      "drainageAreaSqMi": 57.4,
       "servesSections": [
         "hailstone"
       ],
@@ -58,9 +59,10 @@
       "provider": "usgs",
       "siteId": "07055660",
       "name": "Buffalo River at Ponca, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 36.0225,
+      "lon": -93.3547222,
+      "paramsAvailable": ["00060"],
+      "drainageAreaSqMi": 116,
       "servesSections": [
         "upper-ponca-pruitt"
       ],
@@ -70,9 +72,9 @@
       "provider": "usgs",
       "siteId": "07055780",
       "name": "Buffalo River at Carver Access near Hasty, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 35.98313889,
+      "lon": -93.04275,
+      "paramsAvailable": ["00060"],
       "servesSections": [
         "middle-pruitt-gilbert"
       ]
@@ -81,9 +83,9 @@
       "provider": "usgs",
       "siteId": "07055820",
       "name": "Buffalo River D.S. of Carver, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 35.98341667,
+      "lon": -93.0365,
+      "paramsAvailable": ["00060"],
       "servesSections": [
         "middle-pruitt-gilbert"
       ]
@@ -92,9 +94,10 @@
       "provider": "usgs",
       "siteId": "07056000",
       "name": "Buffalo River near St. Joe, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 35.98305556,
+      "lon": -92.7472222,
+      "paramsAvailable": ["00060"],
+      "drainageAreaSqMi": 829,
       "servesSections": [
         "middle-pruitt-gilbert"
       ],
@@ -104,9 +107,10 @@
       "provider": "usgs",
       "siteId": "07056700",
       "name": "Buffalo River near Harriet, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 36.06777778,
+      "lon": -92.5775,
+      "paramsAvailable": ["00060"],
+      "drainageAreaSqMi": 1070,
       "servesSections": [
         "lower-gilbert-buffalocity"
       ]
@@ -115,9 +119,10 @@
       "provider": "usgs",
       "siteId": "07057000",
       "name": "Buffalo River near Rush, AR",
-      "lat": null,
-      "lon": null,
-      "paramsAvailable": [],
+      "lat": 36.11729369,
+      "lon": -92.554607,
+      "paramsAvailable": ["00060"],
+      "drainageAreaSqMi": 1096,
       "servesSections": [
         "lower-gilbert-buffalocity"
       ],
@@ -587,7 +592,7 @@
     ],
     "toVerify": [
       "NHD Permanent Identifier for the Buffalo River flowline (UNKNOWN — National Map host policy-blocked at draft time; see scripts/config/nhd-rivers.json $buffalo_nhd_todo for the fill recipe; long multi-segment main stem may need the seed-file geometry path)",
-      "Gauge coordinates, parameters (00060/00065), drainage areas, periods of record — DEFER to ingest-time auto-pull from the USGS site service (USGS hosts policy-blocked at draft time; do not hand-transcribe)",
+      "Gauge coordinates + drainage areas — DONE 2026-07-07: backfilled for all 7 gauges from the USGS site service (siteOutput=expanded), owner-provided. Carver 07055780 and D.S.-of-Carver 07055820 have no published drainage area (left null). Poll param 00060 (discharge) set — matches the cfs calibration; gage height (00065) availability NOT confirmed (only the site file, not seriesCatalog, was provided) — confirm if a stage badge is ever wanted.",
       "Numeric floatable ranges cross-check (thresholds already calibrated from NPS tables): wildbillsoutfitter.com/floating-levels-guides, the ArcGIS float dashboard (3606e2401fdd428cbbdff9518cbe11af), wise.er.usgs.gov/dp/buffaloriver, ar.water.usgs.gov/buffaloriver, bnrpartners.org/riverlevels",
       "Full NPS access-point list with coordinates (put-ins/take-outs per district) — human places every point on the map"
     ],
