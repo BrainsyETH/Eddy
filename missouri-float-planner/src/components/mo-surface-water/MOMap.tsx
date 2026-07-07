@@ -20,9 +20,21 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
+import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
 import moBasemap from '@/data/mo-rivers-basemap.json';
+import {
+  W,
+  H,
+  buildProjector,
+  lineToPath,
+  polygonToPath,
+  bboxOf,
+} from './projection';
+import { usePrefersReducedMotion } from './fx';
+import FlowLayer, { type FlowRiver } from './FlowLayer';
+import Stars from './Stars';
 
 type BasemapRiver = {
   type: 'Feature';
@@ -39,56 +51,8 @@ const BASEMAP_LAKES = (moBasemap.lakes?.features ?? []) as BasemapLake[];
 
 // ─── Projection ─────────────────────────────────────────────────────────
 //
-// The viewBox is fixed at 1600×1000 but the projection window is computed
-// at runtime from the bounding box of the actual data (rivers + gauges +
-// campgrounds), so the canvas auto-frames to wherever the data actually
-// lives. The state silhouette renders in the same projection and is
-// allowed to overflow the viewBox; it gets clipped naturally by SVG.
-
-const W = 1600;
-const H = 1000;
-const PADDING = 60;
-
-type Projector = (lon: number, lat: number) => [number, number];
-
-function buildProjector(bbox: {
-  minLon: number;
-  maxLon: number;
-  minLat: number;
-  maxLat: number;
-}): Projector {
-  const lonSpan = bbox.maxLon - bbox.minLon || 0.001;
-  const latSpan = bbox.maxLat - bbox.minLat || 0.001;
-  const centerLon = (bbox.minLon + bbox.maxLon) / 2;
-  const centerLat = (bbox.minLat + bbox.maxLat) / 2;
-  const cosLat = Math.cos((centerLat * Math.PI) / 180);
-
-  const innerW = W - 2 * PADDING;
-  const innerH = H - 2 * PADDING;
-  const scaleByLon = innerW / lonSpan;
-  const scaleByLat = innerH / (latSpan / cosLat);
-  const scale = Math.min(scaleByLon, scaleByLat);
-
-  return (lon, lat) => {
-    const x = (lon - centerLon) * scale + W / 2;
-    const y = -(lat - centerLat) * (scale / cosLat) + H / 2;
-    return [x, y];
-  };
-}
-
-function lineToPath(coords: Array<[number, number]>, project: Projector): string {
-  if (!coords.length) return '';
-  return coords
-    .map(([lon, lat], i) => {
-      const [x, y] = project(lon, lat);
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-}
-
-function polygonToPath(coords: Array<[number, number]>, project: Projector): string {
-  return lineToPath(coords, project) + ' Z';
-}
+// Shared with the hero backdrop via ./projection — the viewBox is fixed at
+// 1600×1000 and the projection window locks to the state outline below.
 
 // ─── Static geometry ────────────────────────────────────────────────────
 
@@ -129,6 +93,18 @@ interface MOMapProps {
   showAccessPoints: boolean;
   showPOIs: boolean;
   showGauges: boolean;
+  /** Baked hillshade relief layer. Defaults on; toggled from the HUD. */
+  showTerrain?: boolean;
+  /** Animated particle flow layer along the curated rivers. */
+  showFlow?: boolean;
+  /** Statewide context sites (neutral, no condition rating). */
+  contextSites?: MoContextSite[];
+  showSites?: boolean;
+  selectedContextSiteId?: string | null;
+  onClickContextSite?: (site: MoContextSite | null) => void;
+  /** True when the right rail is pinned open — the zoom cluster slides
+   *  left so it never hides underneath the rail. */
+  railOpen?: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   onHoverGauge: (id: string | null, screenPos?: { x: number; y: number } | null) => void;
@@ -162,6 +138,29 @@ function strokeWidthForRiver(
   return base;
 }
 
+// Discharge → node radius (viewBox units). Sqrt scale so area tracks
+// flow magnitude; clamped so the Mississippi doesn't eat the map.
+function magnitudeR(cfs: number | null | undefined, base: number, span: number): number {
+  if (cfs == null || cfs <= 0) return base;
+  return base + Math.min(1, Math.sqrt(cfs) / Math.sqrt(60000)) * span;
+}
+
+// Ray-cast point-in-polygon against the state outline — context sites
+// arrive bbox-filtered (includes slivers of neighboring states); only
+// in-state sites render on a Missouri map.
+function insideMissouri(lon: number, lat: number): boolean {
+  let inside = false;
+  const n = MO_OUTLINE.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [xi, yi] = MO_OUTLINE[i];
+    const [xj, yj] = MO_OUTLINE[j];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 // Round a raw distance down to a tidy 1/2/5 × 10ⁿ value for the scale bar.
 function niceDistance(km: number): number {
   if (km <= 0) return 1;
@@ -184,29 +183,13 @@ function strokeWidthForBasemapRiver(lengthMi: number): number {
 }
 
 export default function MOMap(props: MOMapProps) {
+  const reducedMotion = usePrefersReducedMotion();
   // Lock the projection window to the full Missouri state outline so the
   // map always reads as "Missouri", no matter what data subset is loaded.
   // Earlier we framed to the data bbox, which caused the southern half of
   // the state to fill the canvas and the visual to drift as data changed.
-  const bbox = useMemo(() => {
-    let minLon = Infinity, maxLon = -Infinity;
-    let minLat = Infinity, maxLat = -Infinity;
-    for (const [lon, lat] of MO_OUTLINE) {
-      if (lon < minLon) minLon = lon;
-      if (lon > maxLon) maxLon = lon;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-    }
-    // Tight padding — the state outline already has visual breathing room.
-    const lonPad = (maxLon - minLon) * 0.02;
-    const latPad = (maxLat - minLat) * 0.02;
-    return {
-      minLon: minLon - lonPad,
-      maxLon: maxLon + lonPad,
-      minLat: minLat - latPad,
-      maxLat: maxLat + latPad,
-    };
-  }, []);
+  // Tight padding — the state outline already has visual breathing room.
+  const bbox = useMemo(() => bboxOf(MO_OUTLINE, 0.02), []);
 
   const project = useMemo(() => buildProjector(bbox), [bbox]);
 
@@ -215,7 +198,6 @@ export default function MOMap(props: MOMapProps) {
     [project],
   );
   // Projected anchor for the Ozark highland tint (southern plateau).
-  const ozarkTint = useMemo(() => project(-92.0, 37.05), [project]);
   // Kilometres represented by one viewBox unit — drives the scale bar.
   const kmPerUnit = useMemo(() => {
     const [x0] = project(-92, 38);
@@ -333,6 +315,34 @@ export default function MOMap(props: MOMapProps) {
     return out;
   }, [project]);
 
+  // Context sites — projected once, filtered to in-state points. These
+  // are NEUTRAL: location, magnitude (size), and freshness (opacity)
+  // only. No condition color — they carry no curated thresholds.
+  const contextNodes = useMemo(() => {
+    const sites = props.contextSites ?? [];
+    const out: Array<{
+      site: MoContextSite;
+      x: number;
+      y: number;
+      r: number;
+      fresh: boolean;
+    }> = [];
+    const staleCutoff = Date.now() - 2 * 3600e3;
+    for (const s of sites) {
+      if (!insideMissouri(s.lon, s.lat)) continue;
+      const [x, y] = project(s.lon, s.lat);
+      out.push({
+        site: s,
+        x,
+        y,
+        r: magnitudeR(s.dischargeCfs, 1.8, 5.2),
+        fresh: s.readingTimestamp != null && Date.parse(s.readingTimestamp) > staleCutoff,
+      });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.contextSites, project]);
+
   // Cities visible in the framed area (plus a small buffer outside, so the
   // nearest metro still anchors the user's orientation).
   const visibleCities = useMemo(() => {
@@ -347,34 +357,29 @@ export default function MOMap(props: MOMapProps) {
     );
   }, [bbox]);
 
-  // ─── Flow animation ────────────────────────────────────────────────────
-  // The river segments paint as flowing dashed lines via CSS-animated
-  // stroke-dashoffset. Each ConditionCode maps to a loop duration: too_low
-  // is ~60s per dash period (almost stationary), dangerous is ~2s
-  // (sprinting). Replaces the old RAF-driven particle dots — same visual
-  // intent (motion communicates flow strength) but seamless and free, no
-  // JS frame loop, and crucially no "no particles for too_low/low" gap
-  // since every segment animates regardless of condition.
-  //
-  // The dash period (sum of dash + gap, in viewBox units) needs to match
-  // the negative `to` value on the @keyframes below — they're both 22.
-  const FLOW_DURATION_BY_CONDITION: Record<StageVerdict, number> = {
-    too_low:   60,
-    low:       30,
-    good:      14,
-    flowing:   8,
-    high:      4,
-    dangerous: 2,
-    unknown:   20,
-  };
-
   // ─── Zoom + pan ────────────────────────────────────────────────────────
   // The SVG viewBox is state. Wheel zooms around the cursor; primary-button
   // drag pans; double-click resets to the full-state framing. Children
   // never re-project (paths are memoized on `project`); only the viewBox
   // attribute changes per frame, so the browser handles zoom natively.
   const HOME_VIEW = useMemo(() => ({ x: 0, y: 0, w: W, h: H }), []);
-  const [view, setView] = useState(HOME_VIEW);
+  // High-altitude framing for the cinematic entry — the widest the clamp
+  // allows, biased slightly up so the state "rises" into place.
+  const ENTRY_VIEW = useMemo(() => {
+    const w = W * 1.4;
+    const h = w * (H / W);
+    return { x: (W - w) / 2, y: (H - h) / 2 - H * 0.06, w, h };
+  }, []);
+  const entryEligible =
+    !reducedMotion &&
+    typeof window !== 'undefined' &&
+    window.sessionStorage?.getItem('mosw-entry-played') !== '1';
+  const [view, setView] = useState(entryEligible ? ENTRY_VIEW : HOME_VIEW);
+  // 'flying' → camera en route (interaction blocked, layers fading up);
+  // 'done' → composed end state. Reduced motion starts at 'done'.
+  const [entryPhase, setEntryPhase] = useState<'flying' | 'done'>(
+    entryEligible ? 'flying' : 'done',
+  );
   const dragRef = useRef<
     | {
         pointerId: number;
@@ -406,6 +411,70 @@ export default function MOMap(props: MOMapProps) {
     [],
   );
 
+  // ─── Cinematic entry ───────────────────────────────────────────────────
+  // One-shot fly-down from high altitude to the home framing. Pure
+  // viewBox interpolation (no layout work per frame). Skippable via any
+  // pointer/key/wheel input; never replays within a session; reduced
+  // motion never enters 'flying' at all (static composed state instead).
+  useEffect(() => {
+    if (entryPhase !== 'flying') return;
+    let raf = 0;
+    let finished = false;
+    const D = 2100;
+    const t0 = performance.now();
+    const ease = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      cancelAnimationFrame(raf);
+      setView({ x: 0, y: 0, w: W, h: H });
+      setEntryPhase('done');
+      try { window.sessionStorage.setItem('mosw-entry-played', '1'); } catch { /* private mode */ }
+    };
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / D);
+      const e = ease(p);
+      setView({
+        x: ENTRY_VIEW.x * (1 - e),
+        y: ENTRY_VIEW.y * (1 - e),
+        w: ENTRY_VIEW.w + (W - ENTRY_VIEW.w) * e,
+        h: ENTRY_VIEW.h + (H - ENTRY_VIEW.h) * e,
+      });
+      if (p >= 1) finish();
+      else raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    window.addEventListener('pointerdown', finish);
+    window.addEventListener('keydown', finish);
+    window.addEventListener('wheel', finish);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointerdown', finish);
+      window.removeEventListener('keydown', finish);
+      window.removeEventListener('wheel', finish);
+    };
+  }, [entryPhase, ENTRY_VIEW]);
+
+  // Layer reveal during the flight: flips one frame after mount so CSS
+  // transitions (with per-layer delays) carry terrain → basemap → rivers
+  // → markers up in sequence while the camera descends.
+  const [lit, setLit] = useState(!entryEligible);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setLit(true)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const fadeIn = useCallback(
+    (delayMs: number, durMs = 1100): React.CSSProperties =>
+      reducedMotion
+        ? {}
+        : {
+            opacity: lit ? 1 : 0,
+            transition: `opacity ${durMs}ms cubic-bezier(0.4,0,0.2,1) ${delayMs}ms`,
+          },
+    [lit, reducedMotion],
+  );
+
   // Wheel zoom is attached natively (not via React's `onWheel` prop)
   // because React registers wheel listeners as passive by default, which
   // makes `e.preventDefault()` a no-op and triggers the
@@ -413,6 +482,10 @@ export default function MOMap(props: MOMapProps) {
   // Native `addEventListener` with `{ passive: false }` lets the page
   // suppress browser scroll while we zoom the SVG.
   const svgRef = useRef<SVGSVGElement | null>(null);
+  // The stage div hosts the native wheel listener so zoom works over the
+  // base SVG, the flow canvas, and the marker SVG alike (events from
+  // marker groups bubble up to it).
+  const stageRef = useRef<HTMLDivElement | null>(null);
   // The wheel handler reads `view` and writes to it. We stash the latest
   // view in a ref so the native listener (registered once) sees fresh
   // state without needing to re-bind on every view change.
@@ -420,7 +493,7 @@ export default function MOMap(props: MOMapProps) {
   useEffect(() => { viewRef.current = view; }, [view]);
 
   useEffect(() => {
-    const svg = svgRef.current;
+    const svg = stageRef.current;
     if (!svg) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
@@ -445,7 +518,7 @@ export default function MOMap(props: MOMapProps) {
   // markers receive their click events normally.
   const DRAG_THRESHOLD_PX = 5;
 
-  const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     // Track potential drag, but DO NOT capture the pointer yet. If we
     // capture here, all subsequent pointer events (including the click
@@ -466,7 +539,10 @@ export default function MOMap(props: MOMapProps) {
     };
   }, [view.x, view.y]);
 
-  const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const [dragging, setDragging] = useState(false);
+  const { onHoverGauge } = props;
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
     const dx = e.clientX - drag.startClientX;
@@ -474,6 +550,10 @@ export default function MOMap(props: MOMapProps) {
     if (!drag.moved &&
         (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX)) {
       drag.moved = true;
+      setDragging(true);
+      // A pan invalidates the hover overlay's captured screen position;
+      // drop the hover so it doesn't float detached from its marker.
+      onHoverGauge(null, null);
       // Once we know this is a real drag, capture the pointer so events
       // keep flowing even if the cursor leaves the SVG bounds mid-pan.
       try {
@@ -490,13 +570,14 @@ export default function MOMap(props: MOMapProps) {
       x: drag.startViewX - dx * sx,
       y: drag.startViewY - dy * sy,
     }));
-  }, [view.w, view.h, clampView]);
+  }, [view.w, view.h, clampView, onHoverGauge]);
 
-  const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (drag?.captured) {
       try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
     }
+    setDragging(false);
     // Don't null `dragRef` synchronously — onClick reads `moved` to know
     // whether this was a real click or the tail of a drag. Cleared next
     // tick.
@@ -534,6 +615,33 @@ export default function MOMap(props: MOMapProps) {
     [],
   );
 
+  // Curated polylines + gradient recipes for the particle flow layer.
+  const flowRivers = useMemo<FlowRiver[]>(() => {
+    return props.rivers.map((r) => {
+      const grad = riverGradients[r.id];
+      return {
+        id: r.id,
+        pts: (r.geometry.coordinates as Array<[number, number]>).map(([lo, la]) =>
+          project(lo, la),
+        ),
+        verdict: props.verdictByRiver[r.slug] ?? 'unknown',
+        axis: grad ? { x1: grad.x1, y1: grad.y1, x2: grad.x2, y2: grad.y2 } : null,
+        stops: grad ? grad.stops.map((st) => ({ offset: st.offset, color: st.color })) : [],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.rivers, props.verdictByRiver, riverGradients, project]);
+
+  // Particle budget: 700 desktop / 300 small screens or low-end hardware
+  // (docs/mo-surface-water-observatory.md). Sampled once per mount.
+  const [maxParticles] = useState(() => {
+    if (typeof window === 'undefined') return 700;
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const small = window.matchMedia('(max-width: 768px)').matches;
+    const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
+    return small || lowEnd ? 300 : 700;
+  });
+
   // Sort rivers so lower-order paint underneath higher-order, and the
   // hovered/focused one always renders last (on top).
   const orderedRivers = useMemo(() => {
@@ -546,14 +654,27 @@ export default function MOMap(props: MOMapProps) {
     });
   }, [props.rivers, props.hoveredRiverId, props.focusedRiverId]);
 
+  const viewBoxAttr = `${view.x} ${view.y} ${view.w} ${view.h}`;
+
   return (
     <>
-    <svg
-      ref={svgRef}
-      viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
-      preserveAspectRatio="xMidYMid meet"
-      className="absolute inset-0 h-full w-full"
-      style={{ cursor: dragRef.current?.moved ? 'grabbing' : 'grab', touchAction: 'none' }}
+    {/* Stage — owns pan/zoom/hover so events work identically across the
+        base SVG, the flow canvas, and the marker SVG stacked inside it. */}
+    <div
+      ref={stageRef}
+      className="absolute inset-0"
+      style={{
+        cursor: dragging ? 'grabbing' : 'grab',
+        touchAction: 'none',
+        // Deep-space canvas behind the landmass. CSS background is
+        // viewport-fixed, so it correctly does NOT zoom with the map —
+        // distant sky shouldn't parallax with a camera move.
+        background:
+          'radial-gradient(120% 105% at 62% 18%, #0C2833 0%, #071A22 44%, #030A0F 100%)',
+        // Interactions wait for the fly-in; skip is on window, so a tap
+        // still fast-forwards.
+        pointerEvents: entryPhase === 'flying' ? 'none' : undefined,
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -570,7 +691,7 @@ export default function MOMap(props: MOMapProps) {
       onClick={(e) => {
         // Empty-area click clears focus — but only if we didn't just pan.
         if (dragRef.current?.moved) return;
-        if (e.target === e.currentTarget) {
+        if (e.target === svgRef.current || e.target === e.currentTarget) {
           props.onFocusRiver(null);
           props.onFocusGauge(null);
           props.onClickCampground(null);
@@ -579,20 +700,19 @@ export default function MOMap(props: MOMapProps) {
         }
       }}
     >
+    {/* Distant sky — static, screen-fixed, behind the landmass. */}
+    <Stars />
+    <svg
+      ref={svgRef}
+      viewBox={viewBoxAttr}
+      preserveAspectRatio="xMidYMid meet"
+      className="absolute inset-0 h-full w-full"
+    >
       <defs>
         <radialGradient id="mo-bg" cx="50%" cy="50%" r="85%">
           <stop offset="0%" stopColor="#F4ECDB" />
           <stop offset="60%" stopColor="#EADFC2" />
           <stop offset="100%" stopColor="#D4C394" />
-        </radialGradient>
-        {/* Muted highland tint — anchored over the southern Ozark Plateau
-            where the float rivers live, fading to nothing toward the
-            glaciated plains in the north. Adds regional depth and fills the
-            otherwise-blank canvas without inventing data. */}
-        <radialGradient id="mo-ozark" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#6F8A5E" stopOpacity="0.22" />
-          <stop offset="55%" stopColor="#7D9468" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="#7D9468" stopOpacity="0" />
         </radialGradient>
         {/* Soft drop shadow so the parchment silhouette lifts off the dark
             teal backdrop. Cast by a dark copy of the state path drawn just
@@ -616,9 +736,6 @@ export default function MOMap(props: MOMapProps) {
         </clipPath>
       </defs>
 
-      {/* Backdrop (matches Eddy primary-900) */}
-      <rect width={W} height={H} fill="#0F2D35" />
-
       {/* Shadow caster — a dark copy of the state, blurred via the filter.
           The parchment group paints over its fill, leaving only the soft
           halo around MO's edges. */}
@@ -630,22 +747,34 @@ export default function MOMap(props: MOMapProps) {
       <g clipPath="url(#mo-clip)">
         <rect width={W} height={H} fill="url(#mo-bg)" />
         <rect width={W} height={H} fill="url(#mo-grain)" />
-        {/* Ozark highland tint (objectBoundingBox gradient on an ellipse over
-            the southern plateau). */}
-        <ellipse
-          cx={ozarkTint[0]}
-          cy={ozarkTint[1]}
-          rx={560}
-          ry={430}
-          fill="url(#mo-ozark)"
-        />
+
+        {/* Real terrain relief — hillshade baked at build time from SRTM
+            (AWS terrarium tiles) in this exact projection, so the Ozark
+            plateau, river valleys, and the Bootheel drop-off read as
+            actual landforms. Relief lives in the alpha channel (shadow
+            ink + sun highlights over transparent flats), so it composites
+            plainly on the parchment. One static ~390 KB raster; zero
+            runtime tile fetches. See scripts/build-mo-hillshade.ts. */}
+        {props.showTerrain !== false && (
+          <g style={fadeIn(350, 1400)} pointerEvents="none">
+            <image
+              href="/mo-hillshade.png"
+              x={0}
+              y={0}
+              width={W}
+              height={H}
+              preserveAspectRatio="none"
+              opacity={0.75}
+            />
+          </g>
+        )}
 
         {/* NHD basemap — lakes (filled polygons) under named perennial
             rivers (thin uniform blue). Renders inside the state clip so it
             never bleeds across MO's borders. Curated rivers, gauges, etc.
             paint OUTSIDE this group on top of the basemap. Kept low-contrast
             so the colored curated reaches read as the foreground. */}
-        <g pointerEvents="none">
+        <g pointerEvents="none" style={fadeIn(650, 1200)}>
           {basemapLakePaths.map((l) => (
             <path
               key={`lake-${l.name}`}
@@ -678,7 +807,7 @@ export default function MOMap(props: MOMapProps) {
         strokeLinejoin="round"
       />
 
-      {/* Title */}
+      {/* Title — sits on the dark backdrop above the state, so parchment ink */}
       <text
         x={W / 2}
         y={48}
@@ -686,14 +815,14 @@ export default function MOMap(props: MOMapProps) {
         fontFamily="var(--font-mono), ui-monospace, monospace"
         fontSize={13}
         letterSpacing="0.45em"
-        fill="rgba(80,60,30,0.5)"
+        fill="rgba(242,234,216,0.4)"
         fontWeight={500}
       >
-        STATE OF MISSOURI · SURFACE WATER NETWORK
+        STATE OF MISSOURI · LIVE RIVER NETWORK
       </text>
 
       {/* Cities */}
-      <g>
+      <g style={fadeIn(1300, 900)}>
         {visibleCities.map((c) => {
           const [cx, cy] = project(c.lon, c.lat);
           const cityR = (c.type === 'metro' ? 4 : 2.8) * kStable;
@@ -726,6 +855,43 @@ export default function MOMap(props: MOMapProps) {
         })}
       </g>
 
+      {/* Statewide context sites — every active MO stream gauge with a
+          current discharge reading. Neutral teal glow nodes: size encodes
+          flow (sqrt), dimmed when the reading is older than 2 h. They sit
+          UNDER the curated layer so the product's rivers stay foreground. */}
+      {props.showSites !== false && contextNodes.length > 0 && (
+        <g style={fadeIn(850, 1200)}>
+          {contextNodes.map((n) => {
+            const selected = props.selectedContextSiteId === n.site.site_no;
+            const rr = n.r * kStable;
+            return (
+              <g
+                key={n.site.site_no}
+                transform={`translate(${n.x} ${n.y})`}
+                className="mosw-ctx"
+                style={{ cursor: 'pointer', opacity: selected ? 1 : n.fresh ? 0.8 : 0.4 }}
+                onClick={guardClick(() => props.onClickContextSite?.(n.site))}
+              >
+                <title>
+                  {`${n.site.name ?? `USGS ${n.site.site_no}`} · ${Math.round(n.site.dischargeCfs)} cfs — context site, no float rating`}
+                </title>
+                <circle r={Math.max(9 * kStable, rr * 2)} fill="transparent" pointerEvents="all" />
+                {/* Ink beads on parchment (the light base kills soft glows);
+                    the curated layer keeps the color + glow treatment. */}
+                <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
+                <circle
+                  r={rr}
+                  fill={n.fresh ? '#1D525F' : '#6B7E85'}
+                  stroke={selected ? '#F07052' : 'rgba(250,248,244,0.9)'}
+                  strokeWidth={(selected ? 1.8 : 0.9) * kStable}
+                  pointerEvents="none"
+                />
+              </g>
+            );
+          })}
+        </g>
+      )}
+
       {/* Rivers — outer "casing" + per-gauge segmented main stroke. Each
           river is split at midpoints between its gauges and painted in
           bands so the river color "flows into" each gauge instead of
@@ -735,7 +901,7 @@ export default function MOMap(props: MOMapProps) {
           inside MO's borders — Eleven Point's lower NHD reach legitimately
           continues into Arkansas, but on a Missouri-focused map we clip
           it the same way the basemap is clipped. */}
-      <g clipPath="url(#mo-clip)">
+      <g clipPath="url(#mo-clip)" style={fadeIn(950, 1100)}>
       {orderedRivers.map((r) => {
         const d = riverPaths[r.id];
         if (!d) return null;
@@ -751,11 +917,6 @@ export default function MOMap(props: MOMapProps) {
         const grad = riverGradients[r.id];
         const gradId = `mo-river-grad-${r.id}`;
         const gradStrokeRef = grad ? `url(#${gradId})` : fallbackColor;
-        // Flow speed for the whole river is driven by the primary gauge's
-        // condition (or the river's overall verdict if there's no
-        // primary). Each river paints at one speed; color fades along
-        // the gradient at each gauge's projected position.
-        const flowDur = FLOW_DURATION_BY_CONDITION[verdict];
         // Highlight the dangerous portion with a brief dashed inner
         // overlay if any gauge is at flood — limited to the segment
         // around that gauge so neighbors aren't visually contaminated.
@@ -820,22 +981,6 @@ export default function MOMap(props: MOMapProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {/* Animated flow overlay — same gradient, dashed, animated
-                stroke-dashoffset. Speed comes from the river's overall
-                verdict (driven by the primary gauge). */}
-            <path
-              d={d}
-              stroke={gradStrokeRef}
-              strokeWidth={Math.max(1.1, sw * 0.55)}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray="14 8"
-              opacity={0.85}
-              style={{
-                animation: `mo-river-flow ${flowDur}s linear infinite`,
-                mixBlendMode: 'screen',
-              }}
-            />
             {/* Flood emphasis — when ANY gauge is at flood, draw a brief
                 dashed overlay so the hazard reads even through the fade. */}
             {floodGauges.length > 0 && (
@@ -857,91 +1002,9 @@ export default function MOMap(props: MOMapProps) {
       {/* Flow animation keyframes — applied per-segment via inline style.
           One dash period = 22 viewBox units (14 dash + 8 gap). */}
       <style>{`
-        @keyframes mo-river-flow { to { stroke-dashoffset: -22; } }
+        .mosw-ctx:hover { opacity: 1 !important; }
+        @keyframes mosw-breathe { 0%, 100% { opacity: 0.82; } 50% { opacity: 1; } }
       `}</style>
-
-      {/* Gauges. Radii multiplied by kStable so the dot stays the same
-          *screen* size at any zoom — at the state-wide view it doesn't
-          dwarf the rivers, and zoomed in it doesn't balloon.
-          Each marker has an invisible 14px screen hit-target as the
-          first child so clicks register reliably even when the visible
-          dot is only a few pixels across. */}
-      {props.showGauges && (
-      <g>
-        {props.gauges.map((g) => {
-          const r = props.rivers.find((x) => x.id === g.river_id);
-          const gauge = r?.gauges?.find((x) => x.site_id === g.site_no);
-          if (!gauge) return null;
-          const [x, y] = project(gauge.lon, gauge.lat);
-          const p = props.percentileByGauge[g.site_no] ?? g.percentile;
-          const isHovered = props.hoveredGaugeId === g.site_no;
-          const isFocused = props.focusedGaugeId === g.site_no;
-          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
-          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
-          // Pulse the marker when the river is running high — by discharge
-          // percentile when USGS publishes it, otherwise by the editorial
-          // condition so stage-only gauges still flag rising water.
-          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
-          const iconHref = getEddyImageForCondition(verdict);
-          // Condition chip: a crisp colored disc with a cream halo reads at
-          // any zoom. The Eddy avatar is the personality layer — shown only
-          // on hover/focus or once zoomed in (view < 0.5x), where it floats
-          // just above the chip like a labeled pin so the anchor stays put.
-          const showOtter = isHovered || isFocused || view.w < W * 0.5;
-          const chipR = ((g.is_primary ? 5 : 3.6) + (isFocused ? 2.6 : isHovered ? 1.4 : 0)) * kStable;
-          const otterSize = (isFocused ? 32 : 27) * kStable;
-          const iconYOffset = -(chipR + otterSize * 0.58);
-          const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
-          return (
-            <g
-              key={g.site_no}
-              transform={`translate(${x} ${y})`}
-              style={{ cursor: 'pointer' }}
-              onMouseEnter={(e) => {
-                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
-                props.onHoverGauge(g.site_no, {
-                  x: rect.left + rect.width / 2,
-                  y: rect.top + rect.height / 2,
-                });
-              }}
-              onMouseLeave={() => props.onHoverGauge(null, null)}
-              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
-            >
-              <circle r={hitR} fill="transparent" pointerEvents="all" />
-              {elevated && (
-                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
-                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
-                </circle>
-              )}
-              {showOtter && (
-                <image
-                  href={iconHref}
-                  x={-otterSize / 2}
-                  y={iconYOffset - otterSize / 2}
-                  width={otterSize}
-                  height={otterSize}
-                  pointerEvents="none"
-                  style={{
-                    filter: isFocused
-                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
-                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
-                  }}
-                />
-              )}
-              <circle
-                r={chipR}
-                fill={verdictColor}
-                stroke="#FAF8F4"
-                strokeWidth={1.5 * kStable}
-                pointerEvents="none"
-                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
-              />
-            </g>
-          );
-        })}
-      </g>
-      )}
 
       {/* Access points */}
       {props.showAccessPoints && (
@@ -1011,14 +1074,14 @@ export default function MOMap(props: MOMapProps) {
         </g>
       )}
 
-      {/* Period of record footer note */}
+      {/* Period of record footer note — dark backdrop corners need light ink */}
       <text
         x={W - 14}
         y={H - 14}
         textAnchor="end"
         fontFamily="var(--font-mono), ui-monospace, monospace"
         fontSize={10}
-        fill="rgba(80,60,30,0.55)"
+        fill="rgba(242,234,216,0.42)"
       >
         Geometry: USGS NHD via Supabase · Live data: USGS NWIS
       </text>
@@ -1030,7 +1093,7 @@ export default function MOMap(props: MOMapProps) {
         fontFamily="var(--font-mono), ui-monospace, monospace"
         fontSize={9}
         letterSpacing="0.1em"
-        fill="rgba(80,60,30,0.55)"
+        fill="rgba(242,234,216,0.42)"
       >
         Stream colour: float condition at the nearest gauge · fades between gauges
       </text>
@@ -1045,7 +1108,9 @@ export default function MOMap(props: MOMapProps) {
         const ox = view.x + view.w * 0.04;
         const oy = view.y + view.h * 0.5;
         const tick = 4.5 * m;
-        const ink = 'rgba(45,42,36,0.78)';
+        // The bar floats over the dark canvas left of the state at the
+        // default framing — parchment ink, not map-ink, or it vanishes.
+        const ink = 'rgba(242,234,216,0.6)';
         return (
           <g pointerEvents="none" fontFamily="var(--font-mono), ui-monospace, monospace">
             <g transform={`translate(${ox + barUnits / 2} ${oy - 26 * m})`}>
@@ -1063,11 +1128,145 @@ export default function MOMap(props: MOMapProps) {
       })()}
     </svg>
 
-    {/* Zoom controls — overlay, not inside the SVG, so they stay fixed
-        in screen coordinates regardless of the current view. */}
+    {/* Animated flow — comet particles on the curated rivers, above the
+        river strokes but below the gauge markers (next SVG). Pointer
+        events pass straight through. */}
+    {props.showFlow !== false && !reducedMotion && entryPhase === 'done' && (
+      <FlowLayer
+        rivers={flowRivers}
+        viewRef={viewRef}
+        enabled
+        maxParticles={maxParticles}
+      />
+    )}
+
+    {/* Marker overlay — gauges stay crisp above the particle stream.
+        The SVG itself is transparent to the pointer; each marker opts
+        back in, and its events bubble to the stage div for pan/zoom. */}
+    <svg
+      viewBox={viewBoxAttr}
+      preserveAspectRatio="xMidYMid meet"
+      className="absolute inset-0 h-full w-full"
+      style={{ pointerEvents: 'none' }}
+    >
+      {/* Gauges. Radii multiplied by kStable so the dot stays the same
+          *screen* size at any zoom — at the state-wide view it doesn't
+          dwarf the rivers, and zoomed in it doesn't balloon.
+          Each marker has an invisible 14px screen hit-target as the
+          first child so clicks register reliably even when the visible
+          dot is only a few pixels across. */}
+      {props.showGauges && (
+      <g style={fadeIn(1450, 800)}>
+        {props.gauges.map((g) => {
+          const r = props.rivers.find((x) => x.id === g.river_id);
+          const gauge = r?.gauges?.find((x) => x.site_id === g.site_no);
+          if (!gauge) return null;
+          const [x, y] = project(gauge.lon, gauge.lat);
+          const p = props.percentileByGauge[g.site_no] ?? g.percentile;
+          const isHovered = props.hoveredGaugeId === g.site_no;
+          const isFocused = props.focusedGaugeId === g.site_no;
+          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
+          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
+          // Pulse the marker when the river is running high — by discharge
+          // percentile when USGS publishes it, otherwise by the editorial
+          // condition so stage-only gauges still flag rising water.
+          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
+          const iconHref = getEddyImageForCondition(verdict);
+          // Condition chip: a crisp colored disc with a cream halo reads at
+          // any zoom. The Eddy avatar is the personality layer — shown only
+          // on hover/focus or once zoomed in (view < 0.5x), where it floats
+          // just above the chip like a labeled pin so the anchor stays put.
+          const showOtter = isHovered || isFocused || view.w < W * 0.5;
+          // Size encodes current discharge on the same sqrt scale as the
+          // statewide context sites, so magnitude reads consistently.
+          const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
+          const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
+          const otterSize = (isFocused ? 32 : 27) * kStable;
+          const iconYOffset = -(chipR + otterSize * 0.58);
+          const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
+          return (
+            <g
+              // Keyed per river+site: one physical gauge can serve two
+              // rivers (07017200 → Courtois + Huzzah) and site_no alone
+              // produced duplicate React keys.
+              key={condKey(g.river_id, g.site_no)}
+              transform={`translate(${x} ${y})`}
+              style={{ cursor: 'pointer' }}
+              // Keyboard path: ten curated gauges are tabbable; Enter or
+              // Space pins the detail rail, same as a click. The label
+              // carries condition + reading so the color is never the
+              // only channel.
+              tabIndex={0}
+              role="button"
+              aria-label={`${g.river_name} gauge ${g.site_no} — ${STAGE_VERDICTS[verdict]?.label ?? 'no rating'}${g.gaugeHeightFt != null ? `, ${g.gaugeHeightFt.toFixed(2)} feet` : ''}${g.dischargeCfs != null ? `, ${Math.round(g.dischargeCfs)} cfs` : ''}. Open details`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  props.onFocusGauge(g.site_no);
+                }
+              }}
+              onMouseEnter={(e) => {
+                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
+                props.onHoverGauge(g.site_no, {
+                  x: rect.left + rect.width / 2,
+                  y: rect.top + rect.height / 2,
+                });
+              }}
+              onMouseLeave={() => props.onHoverGauge(null, null)}
+              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
+            >
+              <circle r={hitR} fill="transparent" pointerEvents="all" />
+              {/* soft glow halo — live data reads as lit */}
+              <circle r={chipR * 2.3} fill={verdictColor} opacity={0.17} pointerEvents="none" />
+              {elevated && !reducedMotion && (
+                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
+                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {showOtter && (
+                <image
+                  href={iconHref}
+                  x={-otterSize / 2}
+                  y={iconYOffset - otterSize / 2}
+                  width={otterSize}
+                  height={otterSize}
+                  pointerEvents="none"
+                  // Blob-store avatar can be blocked (offline, strict
+                  // networks) — hide instead of a broken-image glyph.
+                  onError={(e) => { (e.currentTarget as SVGImageElement).style.display = 'none'; }}
+                  style={{
+                    filter: isFocused
+                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
+                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
+                  }}
+                />
+              )}
+              <circle
+                r={chipR}
+                fill={verdictColor}
+                stroke="#FAF8F4"
+                strokeWidth={1.5 * kStable}
+                pointerEvents="none"
+                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
+              />
+            </g>
+          );
+        })}
+      </g>
+      )}
+    </svg>
+    </div>
+
+    {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
+        screen coordinates regardless of the current view. Slides out of
+        the way when the right rail is pinned (it used to hide beneath it). */}
     <div
-      className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10"
-      style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
+      className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right] duration-300"
+      style={{
+        fontFamily: 'var(--font-mono), ui-monospace, monospace',
+        right: props.railOpen ? 'min(384px, calc(100vw - 52px))' : 16,
+      }}
     >
       <button
         type="button"

@@ -10,7 +10,7 @@ import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     // 10 requests per IP per minute — onboarding is a handful of calls, ever.
     const rateLimitResult = await rateLimit(`embed-resolve:${getClientIp(request)}`, 10, 60 * 1000);

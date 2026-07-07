@@ -10,6 +10,7 @@ import { Star, type LucideIcon, Droplets, Mountain, Landmark, Eye, CircleDot, Te
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { PointOfInterest } from '@/types/nps';
+import { escapeHtml } from '@/lib/escape-html';
 
 interface POIMarkersProps {
   pois: PointOfInterest[];
@@ -92,7 +93,11 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
         box-sizing: border-box;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        z-index: 0;
       `;
+      // z-index 0 keeps POIs beneath access-point markers (z 1/10): POIs
+      // mount later, and with no explicit index DOM order was putting a
+      // scenic-overlook dot on top of the access point the user needs to tap.
 
       // Inner element is the visible colored/gradient circle
       const circle = document.createElement('div');
@@ -144,12 +149,12 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
       const popupContent = `
         <div style="padding: 10px; min-width: 160px; max-width: 200px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            ${poi.name}
+            ${escapeHtml(poi.name)}
           </h3>
           <p style="margin: 0 0 6px 0; font-size: 11px; color: #c7b8a6;">
             ${typeLabels[poi.type] || 'Point of Interest'}${poi.riverMile !== null ? ` · Mile ${poi.riverMile.toFixed(1)}` : ''}
           </p>
-          ${poi.description ? `<p style="margin: 0; font-size: 11px; color: #d1d5db; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${poi.description}</p>` : ''}
+          ${poi.description ? `<p style="margin: 0; font-size: 11px; color: #d1d5db; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${escapeHtml(poi.description)}</p>` : ''}
         </div>
       `;
 

@@ -10,6 +10,7 @@ import { MapPin, Flag, FlagOff, type LucideIcon } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { AccessPoint } from '@/types/api';
+import { escapeHtml } from '@/lib/escape-html';
 
 interface AccessPointMarkersProps {
   accessPoints: AccessPoint[];
@@ -182,7 +183,7 @@ export default function AccessPointMarkers({
       const popupContent = `
         <div style="padding: 12px; min-width: 180px; max-width: 220px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); overflow: hidden;">
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            ${point.name}
+            ${escapeHtml(point.name)}
           </h3>
           <p style="margin: 0 0 8px 0; font-size: 12px; color: #c7b8a6;">
             Mile ${point.riverMile.toFixed(1)} • ${point.type.replace('_', ' ')}
@@ -237,18 +238,50 @@ export default function AccessPointMarkers({
 
       // Add click handler - always allow clicks so user can deselect or change selection
       if (onMarkerClick) {
-        el.addEventListener('click', (e: MouseEvent) => {
-          e.stopPropagation();
-          e.preventDefault();
-          if (!supportsHoverRef.current) {
-            popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
-            map.once('click', () => popup.remove());
-          }
+        // Expose the marker to keyboard + assistive tech as a real button.
+        const action = isPutIn
+          ? 'deselect put-in'
+          : isTakeOut
+          ? 'deselect take-out'
+          : !selectedPutIn
+          ? 'select as put-in'
+          : 'select as take-out';
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute(
+          'aria-label',
+          `${point.name}, river mile ${point.riverMile.toFixed(1)}, ${point.type.replace('_', ' ')}. Press to ${action}.`,
+        );
+
+        const activate = () => {
+          // No popup on touch: selecting rebuilds every marker (the effect
+          // depends on the selection), which tears the popup down after one
+          // frame anyway — and its "select as put-in" prompt is stale the
+          // moment the tap lands. Selection feedback on mobile is the marker
+          // recolor + the plan sheet. Hover devices preview via mouseenter.
           onMarkerClick(point);
           if (supportsHoverRef.current) {
             popup.remove();
           }
+        };
+
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+          activate();
         });
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            activate();
+          }
+        });
+        // Surface the popup on keyboard focus, mirroring hover.
+        el.addEventListener('focus', () => {
+          popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
+        });
+        el.addEventListener('blur', () => popup.remove());
       }
 
       markersRef.current.push(marker);

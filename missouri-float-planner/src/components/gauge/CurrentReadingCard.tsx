@@ -16,6 +16,16 @@ interface CurrentReadingCardProps {
   thresholdUnit: 'ft' | 'cfs';
   conditionCode?: ConditionCode;
   waterTempF?: number | null;
+  readingAgeHours?: number | null;
+}
+
+function formatAge(hours: number): string {
+  if (hours < 1) {
+    const mins = Math.round(hours * 60);
+    return mins < 2 ? 'just now' : `${mins}m ago`;
+  }
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
 }
 
 export default function CurrentReadingCard({
@@ -25,6 +35,7 @@ export default function CurrentReadingCard({
   thresholdUnit,
   conditionCode,
   waterTempF,
+  readingAgeHours,
 }: CurrentReadingCardProps) {
   const { data: history } = useGaugeHistory(siteId, 14);
 
@@ -47,7 +58,15 @@ export default function CurrentReadingCard({
     : null;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }} aria-label="Current gauge reading">
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }} role="group" aria-label="Current gauge reading">
+      {/* One concise spoken summary instead of letting screen readers re-read the
+          full two-column grid (both numbers + labels) on every background poll. */}
+      <p className="sr-only" aria-live="polite">
+        {conditionLabel ? `${conditionLabel}. ` : ''}
+        {gaugeHeightFt !== null ? `Stage ${formatFt(gaugeHeightFt)} feet. ` : ''}
+        {dischargeCfs !== null ? `Flow ${formatCfs(dischargeCfs)} cubic feet per second.` : ''}
+      </p>
+
       {/* Condition status strip — bold solid band for at-a-glance color, with
           near-black ink (clears WCAG AA on every condition solid; white does not). */}
       {conditionColor && conditionLabel && (
@@ -61,8 +80,8 @@ export default function CurrentReadingCard({
         </div>
       )}
 
-      {/* 2-column readings: Stage | Flow */}
-      <div className="grid grid-cols-2 divide-x divide-white/10" aria-live="polite">
+      {/* 2-column readings: Stage | Flow (visual only; announced via summary above) */}
+      <div className="grid grid-cols-2 divide-x divide-white/10" aria-hidden="true">
         {/* Stage (ft) */}
         <div className={`px-4 pt-4 pb-3 ${!isCfsPrimary ? '' : 'opacity-70'}`}>
           <span className="text-[11px] font-semibold tracking-wider text-white/50 uppercase block mb-1">
@@ -136,6 +155,13 @@ export default function CurrentReadingCard({
               <span className="block text-white/30">last {percentile.windowDays}d</span>
             </span>
           )}
+        </div>
+      )}
+
+      {/* Reading freshness — so staleness is obvious on the card itself */}
+      {readingAgeHours != null && (
+        <div className="px-4 pb-3 -mt-1">
+          <span className="text-[10px] text-white/40">Updated {formatAge(readingAgeHours)}</span>
         </div>
       )}
     </div>

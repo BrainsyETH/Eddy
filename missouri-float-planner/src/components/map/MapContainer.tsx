@@ -98,6 +98,26 @@ export default function MapContainer({
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('liberty');
   const [showStylePicker, setShowStylePicker] = useState(false);
+  const stylePickerRef = useRef<HTMLDivElement>(null);
+
+  // Close the style picker on outside click or Escape
+  useEffect(() => {
+    if (!showStylePicker) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (stylePickerRef.current && !stylePickerRef.current.contains(e.target as Node)) {
+        setShowStylePicker(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowStylePicker(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showStylePicker]);
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const radarSourceId = 'rainviewer-radar';
@@ -343,8 +363,11 @@ export default function MapContainer({
       console.debug('Map style image missing:', e.id);
     });
 
-    // Add navigation controls
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // Add navigation controls — desktop only. On touch screens pinch/rotate
+    // covers zoom, and the three-button stack eats scarce map height.
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+    }
 
     // Move attribution to bottom-left so it doesn't cover access points
     map.current.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
@@ -402,47 +425,82 @@ export default function MapContainer({
       {mapLoaded && map.current && (
         <MapProvider map={map.current}>{children}</MapProvider>
       )}
+      {!mapLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100/60 pointer-events-none" role="status" aria-label="Loading map">
+          <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+        </div>
+      )}
 
-      {/* Map Controls - right side, below MapLibre navigation controls */}
-      <div className="absolute top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 z-10">
-        {/* Style Picker - always visible (including mobile) */}
-        <div className={`relative ${showStylePicker ? 'z-50' : ''}`}>
+      {/* Map Controls - right side. On mobile there is no NavigationControl,
+          so the column starts near the top; on desktop it sits below the
+          MapLibre zoom/compass stack. */}
+      {/* z-10 normally, but lifted above the z-20 hint/stats overlays while
+          the layers menu is open — the column is a stacking context, so an
+          inner z-50 alone can never escape it. */}
+      <div className={`absolute top-2.5 md:top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 ${showStylePicker ? 'z-30' : 'z-10'}`}>
+        {/* Layers menu: map style everywhere; on mobile it also carries the
+            weather-radar and gauge toggles so the map edge shows ONE button
+            instead of three. */}
+        <div ref={stylePickerRef} className={`relative ${showStylePicker ? 'z-50' : ''}`}>
           <button
             onClick={() => setShowStylePicker(!showStylePicker)}
             className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
               showStylePicker
-                ? 'bg-river-water text-white'
+                ? 'bg-primary-500 text-white'
                 : 'bg-white/90 text-gray-700 hover:bg-white'
             }`}
-            title="Change map style"
-            aria-label="Change map style"
+            title="Map layers"
+            aria-label="Map layers"
+            aria-expanded={showStylePicker}
           >
             <Layers className="w-5 h-5" />
           </button>
 
           {showStylePicker && (
-            <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px] z-50">
+            <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[150px] z-50">
               {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
                 <button
                   key={key}
                   onClick={() => changeMapStyle(key)}
                   className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
-                    mapStyle === key ? 'bg-river-50 text-river-600 font-medium' : 'text-gray-700'
+                    mapStyle === key ? 'bg-primary-50 text-primary-600 font-medium' : 'text-gray-700'
                   }`}
                 >
                   {MAP_STYLES[key].name}
                 </button>
               ))}
+
+              {/* Mobile-only overlay toggles (desktop keeps dedicated buttons).
+                  Deliberately does NOT close the menu, so both can be toggled
+                  in one visit. */}
+              <div className="md:hidden border-t border-gray-200">
+                <button
+                  onClick={toggleWeather}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
+                  aria-pressed={weatherEnabled}
+                >
+                  <span>Weather radar</span>
+                  <span className={`w-2 h-2 rounded-full ${weatherEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
+                </button>
+                <button
+                  onClick={toggleGauges}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
+                  aria-pressed={gaugesEnabled}
+                >
+                  <span>Gauge stations</span>
+                  <span className={`w-2 h-2 rounded-full ${gaugesEnabled ? 'bg-blue-500' : 'bg-gray-300'}`} aria-hidden="true" />
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Weather Overlay Toggle - always visible (including mobile) */}
+        {/* Weather Overlay Toggle - desktop only (mobile: inside Layers menu) */}
         <button
           onClick={toggleWeather}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+          className={`hidden md:block p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
             weatherEnabled
-              ? 'bg-river-water text-white'
+              ? 'bg-primary-500 text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
           }`}
           title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
@@ -463,10 +521,10 @@ export default function MapContainer({
           </svg>
         </button>
 
-        {/* Gauge Stations Toggle - always visible (including mobile) */}
+        {/* Gauge Stations Toggle - desktop only (mobile: inside Layers menu) */}
         <button
           onClick={toggleGauges}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+          className={`hidden md:block p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
             gaugesEnabled
               ? 'bg-blue-500 text-white'
               : 'bg-white/90 text-gray-700 hover:bg-white'
@@ -477,10 +535,12 @@ export default function MapContainer({
           <Droplets className="w-5 h-5" />
         </button>
 
-        {/* Expand/Collapse Toggle - in controls column on desktop, bottom-right on mobile */}
+        {/* Expand/Collapse Toggle — lives in the column on all breakpoints so
+            the bottom-right corner stays free for the legend/attribution and
+            the access-point strip. */}
         <button
           onClick={toggleExpanded}
-          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all bg-white/90 text-gray-700 hover:bg-white ${isExpanded ? '' : 'hidden md:block'}`}
+          className="p-2.5 md:p-2 rounded-lg shadow-lg transition-all bg-white/90 text-gray-700 hover:bg-white"
           title={isExpanded ? 'Collapse map' : 'Expand map'}
           aria-label={isExpanded ? 'Collapse map' : 'Expand map'}
         >
@@ -488,16 +548,6 @@ export default function MapContainer({
         </button>
       </div>
 
-      {/* Mobile-only expand button - bottom-right */}
-      <button
-        onClick={toggleExpanded}
-        className="absolute bottom-3 right-2.5 z-10 p-2.5 rounded-lg shadow-lg transition-all bg-white/90 text-gray-700 hover:bg-white md:hidden"
-        title={isExpanded ? 'Collapse map' : 'Expand map'}
-        aria-label={isExpanded ? 'Collapse map' : 'Expand map'}
-      >
-        {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-      </button>
-      
       {/* Weather Attribution */}
       {weatherEnabled && (
         <div className="absolute bottom-1 left-1 z-10 text-xs text-white/60 bg-black/30 px-1 rounded">

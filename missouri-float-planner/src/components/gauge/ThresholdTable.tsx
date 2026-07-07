@@ -226,11 +226,16 @@ export default function ThresholdTable({
         <div>
           <h3 className="text-base font-bold text-neutral-900">Float Conditions</h3>
           <p className="text-xs text-neutral-500 mt-0.5">What the water level means for floating</p>
+          <p className="text-[11px] text-neutral-400 mt-1">
+            <abbr title="feet" className="no-underline">ft</abbr> = gauge height ·{' '}
+            <abbr title="cubic feet per second" className="no-underline">cfs</abbr> = flow rate
+          </p>
         </div>
         {hasAlt && (
           <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
             <button
               onClick={() => setShowingAlt(false)}
+              aria-pressed={!showingAlt}
               className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                 !showingAlt
                   ? 'bg-primary-500 text-white'
@@ -241,6 +246,7 @@ export default function ThresholdTable({
             </button>
             <button
               onClick={() => setShowingAlt(true)}
+              aria-pressed={showingAlt}
               className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                 showingAlt
                   ? 'bg-primary-500 text-white'
@@ -270,6 +276,8 @@ export default function ThresholdTable({
                   }}
                   onClick={() => setSelectedZone(selectedZone === zone.key ? null : zone.key)}
                   title={`${zone.label}: ${fmt(zone.min)} – ${fmt(zone.max)} ${unitLabel}`}
+                  aria-pressed={isSelected}
+                  aria-label={`${zone.label}: ${fmt(zone.min)} to ${fmt(zone.max)} ${unitLabel}`}
                 >
                   <span className="text-[10px] sm:text-xs font-bold truncate px-1 select-none" style={{ color: '#1A1814' }}>
                     {zone.label}

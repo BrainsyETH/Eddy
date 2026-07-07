@@ -12,6 +12,7 @@ import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -149,21 +150,25 @@ export default function PlanSidebar({
             on desktop, not only in the transient map badge. */}
         {hasBothPoints && plan && (
           <div className="bg-neutral-50 rounded-xl p-3">
-            <div className="flex items-baseline justify-center gap-3">
+            <div className="grid grid-cols-[1fr_auto_1.4fr_auto_1fr] items-start justify-items-center gap-x-2">
               <div className="text-center">
-                <p className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{plan.distance.formatted}</p>
-                <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
+                <p className="text-lg font-bold text-neutral-900 leading-tight" style={{ fontFamily: 'var(--font-display)' }}>{plan.distance.formatted}</p>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5">Distance</p>
               </div>
-              <span className="text-neutral-300 text-lg">|</span>
-              <div className="text-center">
+              <span className="text-neutral-300 text-lg leading-none pt-1">|</span>
+              <div className="text-center min-w-0">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-6">
                     <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : (
-                  <p className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{plan.floatTime?.formatted || '--'}</p>
+                  <p className="text-base font-bold text-neutral-900 leading-tight tabular-nums" style={{ fontFamily: 'var(--font-display)' }}>
+                    {plan.floatTime?.timeRange
+                      ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
+                      : plan.floatTime?.formatted || '--'}
+                  </p>
                 )}
-                <p className="text-[10px] uppercase tracking-wider text-neutral-500 inline-flex items-center gap-0.5">
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5 inline-flex items-center gap-0.5">
                   Est. Time
                   <span
                     className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
@@ -178,7 +183,7 @@ export default function PlanSidebar({
                   </span>
                 </p>
               </div>
-              <span className="text-neutral-300 text-lg">|</span>
+              <span className="text-neutral-300 text-lg leading-none pt-1">|</span>
               <div className="text-center">
                 <ConditionBadge code={conditionCode} size="sm" />
                 <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">Condition</p>
@@ -307,6 +312,17 @@ export default function PlanSidebar({
       {/* Footer — share buttons (sticky at bottom) */}
       {hasBothPoints && plan && (
         <div className="flex-shrink-0 px-4 py-3 border-t border-neutral-100 bg-white">
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => {
+                onClearPutIn();
+                onClearTakeOut();
+              }}
+              className="text-xs text-neutral-400 hover:text-neutral-600 underline underline-offset-2 transition-colors"
+            >
+              Clear route &amp; start over
+            </button>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={onShare}

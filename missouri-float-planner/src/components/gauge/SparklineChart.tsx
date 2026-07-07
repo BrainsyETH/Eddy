@@ -44,6 +44,7 @@ export default function SparklineChart({ siteId, displayUnit, className = '' }: 
       viewBox={`0 0 ${width} ${height}`}
       className={`${className}`}
       preserveAspectRatio="none"
+      aria-hidden="true"
     >
       <polyline
         points={points}

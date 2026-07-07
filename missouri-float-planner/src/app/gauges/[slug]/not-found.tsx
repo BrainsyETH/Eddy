@@ -14,7 +14,7 @@ export default function GaugeNotFound() {
           We couldn&apos;t find gauge data for this river. The link may be incorrect.
         </p>
         <Link
-          href="/gauges"
+          href="/rivers"
           className="inline-block px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors no-underline"
         >
           View all river reports

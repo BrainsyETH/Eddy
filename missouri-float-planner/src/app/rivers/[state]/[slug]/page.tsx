@@ -382,11 +382,11 @@ export default async function RiverGuidePage({ params }: Props) {
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
           {/* ===== Live report ===== */}
-          <section id="status" className="scroll-mt-24 pt-8">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+          <section id="status" className="scroll-mt-24 pt-6 md:pt-8">
+            <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
               Live report
             </h2>
-            <p className="text-sm text-neutral-600 mb-5">
+            <p className="text-sm text-neutral-600 mb-4 md:mb-5">
               USGS gauge readings, updated hourly. Pick a gauge near your put-in.
             </p>
             <RiverGaugeDetail riverSlug={slug} />

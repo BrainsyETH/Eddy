@@ -144,7 +144,6 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
             placeholder="Ask Eddy anything..."
             rows={1}
             className="flex-1 resize-none rounded-xl border-2 border-neutral-200 px-4 py-2.5 text-sm bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent focus:bg-white placeholder:text-neutral-400 transition-colors"
-            disabled={isLoading}
           />
           <button
             type="submit"

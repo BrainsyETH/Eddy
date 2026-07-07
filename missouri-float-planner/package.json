@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint && npm run lint:tokens",
+    "lint:tokens": "tsx scripts/check-tailwind-tokens.ts",
+    "test:links": "tsx scripts/check-dead-links.ts",
     "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
     "db:import-gauges": "tsx scripts/fetch-gauge-stations.ts",
     "db:snap-access-points": "tsx scripts/snap-access-points.ts",
@@ -73,6 +75,7 @@
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
     "@types/node": "^20",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/sanitize-html": "^2.16.0",

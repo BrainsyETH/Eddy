@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
+import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
@@ -930,21 +931,25 @@ function JourneyCenter({
           <div className="w-20 h-0.5 rounded-full bg-gradient-to-r from-support-400 to-accent-400"></div>
           <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
         </div>
-        <div className="flex items-baseline justify-center gap-3">
+        <div className="flex items-start justify-center gap-3">
           <div className="text-center">
-            <p className="text-xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Distance</p>
+            <p className="text-xl font-bold text-neutral-900 leading-tight">{plan.distance.formatted}</p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5">Distance</p>
           </div>
-          <span className="text-neutral-300 text-lg">|</span>
-          <div className="text-center">
+          <span className="text-neutral-300 text-lg leading-none pt-1">|</span>
+          <div className="text-center min-w-0">
             {isLoading || recalculating ? (
               <div className="flex items-center justify-center h-7">
                 <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
-              <p className="text-xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
+              <p className="text-lg font-bold text-neutral-900 leading-tight tabular-nums">
+                {plan.floatTime?.timeRange
+                  ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
+                  : plan.floatTime?.formatted || '--'}
+              </p>
             )}
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500 flex items-center gap-0.5">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5 flex items-center justify-center gap-0.5">
               Est. Time
               <span
                 className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
@@ -1114,34 +1119,46 @@ function MobileBottomSheet({
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Three snap points instead of two: 'peek' keeps the route summary and
+  // vessel toggle on screen while most of the map (and the drawn route) stays
+  // visible — the state users actually want while deciding on a float.
+  type SheetState = 'collapsed' | 'peek' | 'expanded';
+  const [sheetState, setSheetState] = useState<SheetState>('collapsed');
   const [putInExpanded, setPutInExpanded] = useState(false);
   const [takeOutExpanded, setTakeOutExpanded] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { data: vesselTypes } = useVesselTypes();
   const canoeVessel = vesselTypes?.find(v => v.slug === 'canoe');
   const raftVessel = vesselTypes?.find(v => v.slug === 'raft');
 
-  // Heights for the sheet states
+  // Heights for the sheet states (window.innerHeight tracks the visual
+  // viewport, so browser-toolbar collapse is already accounted for)
   const COLLAPSED_HEIGHT = 65;
-  const EXPANDED_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600;
+  const PEEK_HEIGHT = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.42) : 320;
+  const EXPANDED_HEIGHT = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.85) : 600;
 
-  // Reset height when expanded state changes
+  const heightFor = useCallback((state: SheetState) => (
+    state === 'expanded' ? EXPANDED_HEIGHT : state === 'peek' ? PEEK_HEIGHT : COLLAPSED_HEIGHT
+  ), [EXPANDED_HEIGHT, PEEK_HEIGHT]);
+
+  // Reset height when the snap state changes
   useEffect(() => {
-    setSheetHeight(isExpanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
-  }, [isExpanded, EXPANDED_HEIGHT]);
+    setSheetHeight(heightFor(sheetState));
+  }, [sheetState, heightFor]);
 
   // Handle touch start for drag
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
+    setIsDragging(true);
     dragRef.current = {
       startY: touch.clientY,
-      startHeight: sheetHeight || (isExpanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT),
+      startHeight: sheetHeight ?? heightFor(sheetState),
     };
-  }, [sheetHeight, isExpanded, EXPANDED_HEIGHT]);
+  }, [sheetHeight, sheetState, heightFor]);
 
   // Handle touch move for drag
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -1155,72 +1172,83 @@ function MobileBottomSheet({
     setSheetHeight(newHeight);
   }, [EXPANDED_HEIGHT]);
 
-  // Handle touch end - snap to collapsed or expanded
+  // Handle touch end - snap to the nearest of the three states
   const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
     if (!dragRef.current || sheetHeight === null) return;
-    const threshold = (COLLAPSED_HEIGHT + EXPANDED_HEIGHT) / 2;
-    if (sheetHeight > threshold) {
-      setIsExpanded(true);
-      setSheetHeight(EXPANDED_HEIGHT);
-    } else {
-      setIsExpanded(false);
-      setSheetHeight(COLLAPSED_HEIGHT);
-    }
+    const states: SheetState[] = ['collapsed', 'peek', 'expanded'];
+    const nearest = states.reduce((best, s) =>
+      Math.abs(heightFor(s) - sheetHeight) < Math.abs(heightFor(best) - sheetHeight) ? s : best
+    );
+    setSheetState(nearest);
+    setSheetHeight(heightFor(nearest));
     dragRef.current = null;
-  }, [sheetHeight, EXPANDED_HEIGHT]);
+  }, [sheetHeight, heightFor]);
+
+  const isOpen = sheetState !== 'collapsed';
 
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
   const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
   const isUpstream = plan.putIn.riverMile > plan.takeOut.riverMile;
 
+  const compactTime = plan.floatTime
+    ? plan.floatTime.timeRange
+      ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
+      : formatFloatTimeRangeCompact(plan.floatTime.minutes, plan.floatTime.minutes)
+    : null;
+
   return (
     <div
       ref={sheetRef}
       data-plan-sheet
-      className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl shadow-2xl transition-all duration-300 ease-out overflow-hidden lg:hidden ${
-        isExpanded
+      // z-40: below the site header menu, river picker, photo/feedback modals,
+      // and fullscreen map (all z-50) — the sheet used to win those ties by
+      // DOM order and drew over every one of them.
+      className={`fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl shadow-2xl ease-out overflow-hidden lg:hidden ${
+        isDragging ? '' : 'transition-all duration-300'
+      } ${
+        isOpen
           ? 'bg-white border-t border-neutral-200'
           : 'bg-[#1e3a5f] border-t border-[#2a4d7a]'
       }`}
-      style={{ height: sheetHeight || COLLAPSED_HEIGHT }}
+      // Safe-area inset keeps the sheet clear of the home indicator / gesture bar
+      style={{ height: `calc(${sheetHeight ?? COLLAPSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))` }}
     >
-      {isExpanded ? (
+      {isOpen ? (
         <>
-          {/* Drag Handle - expanded */}
+          {/* Drag Handle - open */}
           <div
             className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            onClick={() => setIsExpanded(false)}
+            onTouchCancel={handleTouchEnd}
+            onClick={() => setSheetState('collapsed')}
           >
             <GripHorizontal size={24} className="text-neutral-300" />
           </div>
 
-          {/* Summary Header - expanded */}
+          {/* Title row. Deliberately minimal: route names, distance, and time
+              live ONCE in the route summary card below, not repeated here. */}
           <div className="px-4 pb-3">
             <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
-                <p className="font-bold text-neutral-900 truncate">
-                  {putInPoint.name} → {takeOutPoint.name}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                <span className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</span>
+              <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
                   {conditionConfig.label}
                 </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsExpanded(false);
+                    setSheetState(sheetState === 'peek' ? 'expanded' : 'collapsed');
                   }}
-                  aria-label="Collapse float plan"
+                  aria-label={sheetState === 'peek' ? 'Expand float plan' : 'Collapse float plan'}
                   aria-expanded={true}
                   className="p-1"
                 >
-                  <ChevronDown size={20} className="text-neutral-900" />
+                  {sheetState === 'peek'
+                    ? <ChevronUp size={20} className="text-neutral-900" />
+                    : <ChevronDown size={20} className="text-neutral-900" />}
                 </button>
               </div>
             </div>
@@ -1237,11 +1265,12 @@ function MobileBottomSheet({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          onClick={() => setIsExpanded(true)}
+          onTouchCancel={handleTouchEnd}
+          onClick={() => setSheetState('peek')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setIsExpanded(true);
+              setSheetState('peek');
             }
           }}
         >
@@ -1249,15 +1278,17 @@ function MobileBottomSheet({
           <div className="flex items-center justify-between w-full px-4 pb-2">
             <span className="text-sm font-bold text-white">Your Float Plan</span>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white/80">{plan.distance.formatted}</span>
+              <span className="text-sm font-bold text-white/80">
+                {plan.distance.miles} mi{compactTime ? ` · ${compactTime}` : ''}
+              </span>
               <ChevronUp size={18} className="text-white/70" />
             </div>
           </div>
         </div>
       )}
 
-      {/* Expanded Content */}
-      <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 90px)` }}>
+      {/* Sheet Content (peek shows the route summary; scroll for the rest) */}
+      <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 84px)` }}>
         {/* Route Summary with Vessel Toggle */}
         <div className="bg-neutral-50 rounded-xl p-3 mb-4">
           <div className="flex items-center gap-3 mb-2">
@@ -1272,7 +1303,7 @@ function MobileBottomSheet({
             </div>
             <div className="text-right">
               <p className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</p>
-              <p className="text-xs text-neutral-600">{plan.floatTime?.formatted || '--'}</p>
+              <p className="text-xs text-neutral-600">{compactTime || '--'}</p>
             </div>
           </div>
 
@@ -1572,10 +1603,30 @@ export default function FloatPlanCard({
     );
   }
 
-  // Both points selected but still loading - show skeleton (desktop only)
+  // Both points selected but still loading - show skeleton
   if (hasBothPoints && !displayPlan && isLoading) {
     return (
-      <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
+      <>
+        {/* Mobile skeleton — the desktop grid below is hidden on small screens,
+            so without this the bottom sheet stays empty during the plan fetch. */}
+        <div className="lg:hidden bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden animate-pulse" role="status" aria-label="Calculating your float plan">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="h-5 bg-neutral-200 rounded w-24"></div>
+              <div className="h-5 bg-neutral-200 rounded w-16"></div>
+            </div>
+            <div className="h-8 bg-neutral-200 rounded w-40"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-support-200"></div>
+              <div className="flex-1 h-1 bg-neutral-200 rounded"></div>
+              <div className="w-3 h-3 rounded-full bg-accent-200"></div>
+            </div>
+            <div className="h-12 bg-neutral-100 rounded w-full"></div>
+            <span className="sr-only">Calculating your float plan…</span>
+          </div>
+        </div>
+
+        <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden">
         <div className="p-4">
           <div className="grid grid-cols-[1fr,280px,1fr] gap-4">
             {/* Put-in Card Skeleton */}
@@ -1611,6 +1662,7 @@ export default function FloatPlanCard({
           </div>
         </div>
       </div>
+      </>
     );
   }
 

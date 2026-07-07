@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { ChevronDown } from 'lucide-react';
 
@@ -30,6 +30,7 @@ export default function AccessPointSection({
   children,
 }: AccessPointSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const panelId = useId();
 
   const badgeColors = {
     default: 'bg-neutral-100 text-neutral-700',
@@ -41,6 +42,8 @@ export default function AccessPointSection({
     <div>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
         className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${
           isOpen ? 'bg-neutral-50' : 'hover:bg-neutral-50'
         }`}
@@ -72,8 +75,9 @@ export default function AccessPointSection({
       </button>
 
       <div
-        className={`overflow-hidden transition-all duration-200 ${
-          isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+        id={panelId}
+        className={`transition-all duration-200 ${
+          isOpen ? 'max-h-none opacity-100' : 'max-h-0 opacity-0 overflow-hidden invisible'
         }`}
       >
         <div className="px-4 pb-4 pl-[52px]">{children}</div>

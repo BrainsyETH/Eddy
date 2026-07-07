@@ -19,6 +19,7 @@ import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
+import { upcomingHolidayWeekend } from './holiday-weekends';
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
@@ -157,6 +158,9 @@ export async function buildPostContext(
     const dry = floatable.filter((u: any) => !hasRainComing(u.weather));
     const usingFallback = dry.length === 0;
     const topRivers = (usingFallback ? floatable : dry).slice(0, 3);
+    // Holiday branding (Memorial Day / July 4th / Labor Day) carries through the
+    // reel title + cover label so the video matches the caption's framing.
+    const holidayName = upcomingHolidayWeekend();
     return {
       postType,
       riverSlug: null,
@@ -168,11 +172,12 @@ export async function buildPostContext(
           gaugeHeightFt: u.gauge_height_ft,
           weather: weatherChip(u.weather),
         })),
-        dateLabel: 'This Weekend',
-        title: 'Weekend Forecast',
+        dateLabel: holidayName ? `${holidayName} Weekend` : 'This Weekend',
+        title: holidayName ? `${holidayName} Forecast` : 'Weekend Forecast',
         rainNote: usingFallback,
       },
-      caption: (platform, custom) => formatWeeklyForecastCaption(topRivers, custom, platform, usingFallback),
+      caption: (platform, custom) =>
+        formatWeeklyForecastCaption(topRivers, custom, platform, usingFallback, holidayName ? { name: holidayName } : null),
       imageUrl: (platform) => og('forecast', platform),
     };
   }

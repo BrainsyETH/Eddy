@@ -161,6 +161,7 @@ export default function RiverReportsGrid() {
               <button
                 key={stat.key}
                 onClick={() => setSelectedCondition(isActive ? 'all' : stat.key)}
+                aria-pressed={isActive}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                   isActive
                     ? 'shadow-sm'

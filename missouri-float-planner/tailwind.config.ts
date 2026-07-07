@@ -1,5 +1,36 @@
 import type { Config } from "tailwindcss";
 
+// Primary — Deep river blue-green (main surfaces, nav, map chrome)
+const primary = {
+  50: '#EBF5F7',
+  100: '#D4EAEF',
+  200: '#A3D1DB',
+  300: '#72B5C4',
+  400: '#4A9AAD',
+  500: '#2D7889', // Base
+  600: '#256574',
+  700: '#1D525F',
+  800: '#163F4A',
+  900: '#0F2D35',
+};
+
+// Neutrals — Warm stone tones
+const neutral = {
+  50: '#F7F6F3',
+  100: '#EDEBE6',
+  200: '#DBD5CA',
+  300: '#C2BAAC',
+  400: '#A49C8E',
+  500: '#857D70',
+  600: '#6B6459',
+  700: '#524D43',
+  750: '#48443B', // interpolated 700↔800 (used by admin table rows)
+  800: '#3F3B33',
+  850: '#36332C', // interpolated 800↔900
+  900: '#2D2A24',
+  950: '#1A1814',
+};
+
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -19,18 +50,16 @@ const config: Config = {
         // =========================================
 
         // Primary — Deep river blue-green (main surfaces, nav, map chrome)
-        primary: {
-          50: '#EBF5F7',
-          100: '#D4EAEF',
-          200: '#A3D1DB',
-          300: '#72B5C4',
-          400: '#4A9AAD',
-          500: '#2D7889', // Base
-          600: '#256574',
-          700: '#1D525F',
-          800: '#163F4A',
-          900: '#0F2D35',
-        },
+        primary,
+
+        // Legacy palette aliases — older components (admin editors, FeedbackModal,
+        // map/plan loading states) still reference these names. They map onto the
+        // current palette so those classes resolve instead of rendering unstyled:
+        //   river → primary (blue-green), ozark → primary (dark shades),
+        //   bluff → neutral (warm stone). Prefer the canonical names in new code.
+        river: primary,
+        ozark: primary,
+        bluff: neutral,
 
         // Secondary — Sandbar tan (supporting surfaces, cards)
         secondary: {
@@ -75,19 +104,7 @@ const config: Config = {
         },
 
         // Neutrals — Warm stone tones
-        neutral: {
-          50: '#F7F6F3',
-          100: '#EDEBE6',
-          200: '#DBD5CA',
-          300: '#C2BAAC',
-          400: '#A49C8E',
-          500: '#857D70',
-          600: '#6B6459',
-          700: '#524D43',
-          800: '#3F3B33',
-          900: '#2D2A24',
-          950: '#1A1814',
-        },
+        neutral,
 
         // Semantic shorthand colors
         background: '#F7F6F3', // neutral-50
@@ -137,6 +154,7 @@ const config: Config = {
       borderWidth: {
         'thin': '1px',
         'base': '2px',
+        '3': '3px',
         'thick': '3px',
         'chunky': '4px',
       },

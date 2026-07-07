@@ -149,8 +149,8 @@ function ConditionBadge({ condition }: { condition: FloatPlan['condition'] }) {
           </div>
           {condition.percentile !== null && condition.percentile !== undefined && (
             <div>
-              <span className="text-lg font-bold text-neutral-800">{Math.round(condition.percentile)}%</span>
-              <span className="text-sm text-neutral-500 ml-1">ile</span>
+              <span className="text-lg font-bold text-neutral-800">{Math.round(condition.percentile)}th</span>
+              <span className="text-sm text-neutral-500 ml-1">percentile</span>
             </div>
           )}
         </div>

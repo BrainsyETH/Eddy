@@ -1008,3 +1008,35 @@ h1, h2, h3, h4, h5, h6 {
 .maplibregl-popup.admin-access-point-popup {
   z-index: 2000 !important;
 }
+
+/* ===== MOBILE VIEWPORT UTILITIES ===== */
+
+/* Bottom padding matching the device safe area (home indicator). The class is
+   referenced by the plan bottom sheet and mobile overlays. */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Planner viewport heights. 100vh overshoots on mobile browsers whose URL bar
+   collapses (iOS Safari, Brave, Chrome) and pushes the bottom of the layout
+   behind the browser chrome; dvh tracks the *visible* viewport. The vh
+   declaration is the fallback for older engines. 6rem = site header (3.5rem)
+   + planner header row (2.5rem). */
+.plan-viewport-h {
+  height: calc(100vh - 3.5rem);
+  height: calc(100dvh - 3.5rem);
+}
+
+.plan-map-h {
+  height: calc(100vh - 6rem);
+  height: calc(100dvh - 6rem);
+}
+
+/* Variant reserving room for the collapsed float-plan bottom sheet. The
+   sheet is 65px PLUS the safe-area inset, so the reserved space must grow by
+   the same inset or the sheet covers the bottom of the map (and MapLibre's
+   attribution) on notched phones. */
+.plan-map-h--sheet {
+  height: calc(100vh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+}

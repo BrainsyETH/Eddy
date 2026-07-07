@@ -82,7 +82,6 @@ jobs:
           # no Most-Replayed heatmap (small Ozark channels). Tier-2 stays gated.
           # See scripts/clipengine/scrape-heatmap.sh (PR #748). Set to "0" to revert.
           TIER1_HEATMAP_OPTIONAL: "1"
-          YOUTUBE_CHANNELS_JSON: ${{ secrets.YOUTUBE_CHANNELS_JSON }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
@@ -90,6 +89,12 @@ jobs:
           WORK_DIR=$(mktemp -d)
           RESULTS_JSON="$WORK_DIR/results.json"
           echo "[]" > "$RESULTS_JSON"
+
+          # Channels come straight from the repo checkout — the SAME file the
+          # local runner uses (clipengine-local/channels.json), so there is one
+          # source of truth and no YOUTUBE_CHANNELS_JSON secret to keep in sync.
+          # The parser below ignores extra fields (e.g. instagram).
+          YOUTUBE_CHANNELS_JSON="$(cat clipengine-local/channels.json 2>/dev/null || echo '')"
 
           # YouTube bot-blocks shared CI IPs; authenticated cookies are required
           # to download. Write the secret (Netscape cookies.txt format) to a file
@@ -353,9 +358,9 @@ jobs:
               process_video "$VURL" "$VRIVER" "$PEAK_NUMBER"
             done < "$CANDIDATES"
           else
-            echo "ℹ️ No youtube_url input and no YOUTUBE_CHANNELS_JSON secret — nothing to do."
-            echo "  Set YOUTUBE_CHANNELS_JSON (array of channel URLs or {url, river_slug} objects)"
-            echo "  to enable daily channel scanning, or dispatch manually with a youtube_url input."
+            echo "ℹ️ No youtube_url input and clipengine-local/channels.json is missing/empty — nothing to do."
+            echo "  Add channels to clipengine-local/channels.json (array of channel URLs or"
+            echo "  {url, river_slug} objects), or dispatch manually with a youtube_url input."
           fi
 
           # Report results

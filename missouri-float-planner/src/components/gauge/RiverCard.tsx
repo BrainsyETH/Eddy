@@ -3,7 +3,7 @@
 // src/components/gauge/RiverCard.tsx
 // Dashboard card representing one river with 14-day chart, Eddy Says, and condition
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Droplets, ArrowRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
@@ -13,7 +13,7 @@ import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { CONDITION_CARD_BLURBS, RIVER_NOTES } from '@/data/eddy-quotes';
+import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeTrendContext from '@/components/gauge/GaugeTrendContext';
 
@@ -26,30 +26,29 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
 
   const [showFull, setShowFull] = useState(false);
 
+  // Whether the collapsed (2-line clamped) quote is actually truncated. Drives
+  // the More/Less toggle for the static fallback, which has no AI summaryText
+  // to key off — without this the static quote clamps with no way to read on.
+  const quoteRef = useRef<HTMLParagraphElement>(null);
+  const [isClamped, setIsClamped] = useState(false);
+
   // Eddy update comes from the batched /api/eddy-updates call — one request
   // shared by every card on the grid (and the home page) via React Query,
   // instead of a per-card /api/eddy-update/[slug] fetch.
   const { data: eddyUpdates, isLoading: eddyLoading } = useEddyUpdates();
   const eddyUpdate = riverSlug ? eddyUpdates?.[riverSlug] ?? null : null;
 
-  // Build static fallback text
-  const buildStaticText = () => {
-    const blurb = CONDITION_CARD_BLURBS[condition.code] || CONDITION_CARD_BLURBS.unknown;
-    const parts: string[] = [];
-    if (primaryGauge.gaugeHeightFt !== null) {
-      parts.push(`Reading ${primaryGauge.gaugeHeightFt.toFixed(1)} ft.`);
-    }
-    parts.push(blurb);
-    const optMin = primaryThreshold.levelOptimalMin;
-    const optMax = primaryThreshold.levelOptimalMax;
-    const unit = primaryThreshold.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-    if (optMin != null && optMax != null) {
-      parts.push(`Optimal range: ${optMin}\u2013${optMax} ${unit}.`);
-    }
-    const notes = riverSlug ? RIVER_NOTES[riverSlug] : null;
-    if (notes) parts.push(notes);
-    return parts.join(' ');
-  };
+  // Static fallback text \u2014 shared with the full river report page so the quote
+  // reads identically across the card and the report (see buildStaticEddyText).
+  const buildStaticText = () =>
+    buildStaticEddyText({
+      conditionCode: condition.code,
+      gaugeHeightFt: primaryGauge.gaugeHeightFt,
+      optimalMin: primaryThreshold.levelOptimalMin,
+      optimalMax: primaryThreshold.levelOptimalMax,
+      thresholdUnit: primaryThreshold.thresholdUnit,
+      riverNote: riverSlug ? RIVER_NOTES[riverSlug] : null,
+    });
 
   // Always use live condition so card badge matches the current gauge reading
   const displayConditionCode = condition.code;
@@ -59,6 +58,28 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
   const displayText = eddyUpdate?.summaryText && !showFull
     ? eddyUpdate.summaryText
     : eddyUpdate ? eddyUpdate.quoteText : buildStaticText();
+
+  // Measure whether the collapsed quote overflows its 2-line clamp so we can
+  // offer a More toggle even when there's no AI summaryText. Only measured
+  // while collapsed; the value is retained once expanded so the Less button
+  // stays put.
+  useEffect(() => {
+    if (showFull) return;
+    const el = quoteRef.current;
+    if (!el) return;
+    const measure = () => setIsClamped(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eddyLoading is included so we re-measure once the real quote paragraph
+    // mounts (the loading placeholder has no ref) even if displayText is
+    // unchanged between the loading and loaded renders.
+  }, [displayText, showFull, eddyLoading]);
+
+  // A toggle is worthwhile when there's a longer AI narrative to reveal, or
+  // when the (static/AI) quote is being truncated by the clamp.
+  const canExpand = Boolean(eddyUpdate?.summaryText) || isClamped || showFull;
 
   const isCfsPrimary = primaryThreshold.thresholdUnit === 'cfs';
   const primaryValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;
@@ -103,13 +124,15 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
 
             {/* Current reading */}
             <div className="flex flex-col items-end flex-shrink-0">
-              {primaryValue !== null && (
+              {primaryValue !== null ? (
                 <div className="flex items-baseline gap-1">
                   <span className="text-xl font-bold text-neutral-900 tabular-nums">
                     {isCfsPrimary ? primaryValue.toLocaleString() : primaryValue.toFixed(2)}
                   </span>
                   <span className="text-xs font-medium text-neutral-500">{primaryUnitLabel}</span>
                 </div>
+              ) : (
+                <span className="text-sm text-neutral-400">No reading</span>
               )}
             </div>
           </div>
@@ -154,11 +177,11 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
               {eddyLoading && !eddyUpdate ? (
                 <p className="text-xs text-neutral-500 italic">Loading...</p>
               ) : (
-                <p className={`text-xs leading-relaxed font-medium ${showFull ? '' : 'line-clamp-2'}`} style={{ color: surface.color }}>
+                <p ref={quoteRef} className={`text-xs leading-relaxed font-medium ${showFull ? '' : 'line-clamp-2'}`} style={{ color: surface.color }}>
                   &ldquo;{displayText}&rdquo;
                 </p>
               )}
-              {eddyUpdate?.summaryText && (
+              {canExpand && (
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowFull(!showFull); }}
                   aria-expanded={showFull}

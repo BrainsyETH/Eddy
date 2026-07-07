@@ -50,14 +50,16 @@ export async function runWeeklyReview(): Promise<ReviewResults> {
 
   console.log(`${LOG_PREFIX} Running weekly review: ${weekStart.toISOString().slice(0, 10)} → ${weekEnd.toISOString().slice(0, 10)}`);
 
-  // Fetch this week's published posts with insights
+  // Fetch this week's published posts with insights. Columns carry the
+  // insights_ prefix — that's the live schema (see types/database.ts); the
+  // bare names from migration 00088 never shipped.
   const { data: posts } = await supabase
     .from('social_posts')
-    .select('id, river_slug, content_type, hook_style, audience_segment, caption, engagement_rate, impressions, reach, saves, shares, published_at, platform')
+    .select('id, river_slug, content_type, hook_style, audience_segment, caption, insights_engagement_rate, insights_impressions, insights_reach, insights_saves, insights_shares, published_at, platform')
     .gte('published_at', weekStart.toISOString())
     .lte('published_at', weekEnd.toISOString())
     .eq('status', 'published')
-    .order('engagement_rate', { ascending: false });
+    .order('insights_engagement_rate', { ascending: false });
 
   interface PostRow {
     id: string;
@@ -66,11 +68,11 @@ export async function runWeeklyReview(): Promise<ReviewResults> {
     hook_style: string | null;
     audience_segment: string | null;
     caption: string | null;
-    engagement_rate: number | null;
-    impressions: number | null;
-    reach: number | null;
-    saves: number | null;
-    shares: number | null;
+    insights_engagement_rate: number | null;
+    insights_impressions: number | null;
+    insights_reach: number | null;
+    insights_saves: number | null;
+    insights_shares: number | null;
     published_at: string | null;
     platform: string;
   }
@@ -82,27 +84,27 @@ export async function runWeeklyReview(): Promise<ReviewResults> {
 
   // Top performers (top 3 by engagement)
   const topPerformers = allPosts
-    .filter((p: PostRow) => p.engagement_rate != null)
+    .filter((p: PostRow) => p.insights_engagement_rate != null)
     .slice(0, 3)
     .map((p: PostRow) => ({
       id: p.id,
       river_slug: p.river_slug,
       content_type: p.content_type,
       hook_style: p.hook_style,
-      engagement_rate: p.engagement_rate || 0,
-      impressions: p.impressions || 0,
+      engagement_rate: p.insights_engagement_rate || 0,
+      impressions: p.insights_impressions || 0,
       caption: (p.caption || '').slice(0, 100),
     }));
 
   // Underperformers (bottom 3)
   const underperformers = allPosts
-    .filter((p: PostRow) => p.engagement_rate != null)
+    .filter((p: PostRow) => p.insights_engagement_rate != null)
     .slice(-3)
     .map((p: PostRow) => ({
       id: p.id,
       river_slug: p.river_slug,
       content_type: p.content_type,
-      engagement_rate: p.engagement_rate || 0,
+      engagement_rate: p.insights_engagement_rate || 0,
       caption: (p.caption || '').slice(0, 100),
     }));
 
@@ -114,7 +116,7 @@ export async function runWeeklyReview(): Promise<ReviewResults> {
       riverPerformance[river] = { posts: 0, totalEngagement: 0, avgEngagement: 0 };
     }
     riverPerformance[river].posts++;
-    riverPerformance[river].totalEngagement += post.engagement_rate || 0;
+    riverPerformance[river].totalEngagement += post.insights_engagement_rate || 0;
   }
   for (const river in riverPerformance) {
     riverPerformance[river].avgEngagement =
@@ -129,7 +131,7 @@ export async function runWeeklyReview(): Promise<ReviewResults> {
       hookPerformance[hook] = { posts: 0, totalEngagement: 0, avgEngagement: 0 };
     }
     hookPerformance[hook].posts++;
-    hookPerformance[hook].totalEngagement += post.engagement_rate || 0;
+    hookPerformance[hook].totalEngagement += post.insights_engagement_rate || 0;
   }
   for (const hook in hookPerformance) {
     hookPerformance[hook].avgEngagement =
@@ -145,7 +147,7 @@ export async function runWeeklyReview(): Promise<ReviewResults> {
       dayPerformance[day] = { posts: 0, totalEngagement: 0, avgEngagement: 0 };
     }
     dayPerformance[day].posts++;
-    dayPerformance[day].totalEngagement += post.engagement_rate || 0;
+    dayPerformance[day].totalEngagement += post.insights_engagement_rate || 0;
   }
   for (const day in dayPerformance) {
     dayPerformance[day].avgEngagement =

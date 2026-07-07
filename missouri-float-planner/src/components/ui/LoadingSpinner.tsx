@@ -17,7 +17,8 @@ export default function LoadingSpinner({
   };
 
   return (
-    <div className={`flex items-center justify-center ${className}`}>
+    <div role="status" aria-label="Loading" className={`flex items-center justify-center ${className}`}>
+      <span className="sr-only">Loading…</span>
       <div className="relative">
         {/* Outer glow ring */}
         <div

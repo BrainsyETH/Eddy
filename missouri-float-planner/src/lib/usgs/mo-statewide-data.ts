@@ -1,4 +1,4 @@
-// Type definitions and constants for the /missouri-surface-water page.
+// Type definitions and constants for the /river-map page.
 // Geometry, gauges, access points, campgrounds, and POIs come from Supabase
 // at request time via the get_mo_surface_water_dataset() RPC. Live readings
 // come from USGS NWIS via fetchGaugeReadings.

@@ -26,7 +26,10 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
             <li key={i} className="flex items-center gap-1.5">
               {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" aria-hidden="true" />}
               {isLast || !item.href ? (
-                <span className={isLast ? 'text-neutral-900 font-medium truncate max-w-[200px]' : ''}>
+                <span
+                  aria-current={isLast ? 'page' : undefined}
+                  className={isLast ? 'text-neutral-900 font-medium truncate max-w-[200px]' : ''}
+                >
                   {item.label}
                 </span>
               ) : (

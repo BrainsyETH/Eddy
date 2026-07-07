@@ -70,6 +70,7 @@ function AccessPointCard({
     <button
       onClick={onClick}
       onMouseEnter={onHover}
+      data-access-point-id={point.id}
       className={`flex-shrink-0 w-36 rounded-xl overflow-hidden shadow-sm ${borderClass} ${bgClass} transition-all hover:shadow-md active:scale-95`}
     >
       {/* Image or placeholder */}
@@ -584,6 +585,22 @@ export default function AccessPointStrip({
     }
   }, [accessPoints]);
 
+  // Keep the most recently selected card in view. Selecting from the MAP
+  // otherwise leaves the strip wherever it was — the user gets no visual
+  // confirmation of which card lit up. Scroll the container directly (not
+  // scrollIntoView) so the page never scrolls vertically as a side effect.
+  useEffect(() => {
+    const container = scrollRef.current;
+    const targetId = selectedTakeOutId ?? selectedPutInId;
+    if (!container || !targetId) return;
+    const card = container.querySelector<HTMLElement>(`[data-access-point-id="${CSS.escape(targetId)}"]`);
+    if (!card) return;
+    container.scrollTo({
+      left: card.offsetLeft - container.clientWidth / 2 + card.clientWidth / 2,
+      behavior: 'smooth',
+    });
+  }, [selectedPutInId, selectedTakeOutId]);
+
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
     const scrollAmount = 300;
@@ -611,8 +628,9 @@ export default function AccessPointStrip({
     <div className="relative">
       {/* Branding + scrollable cards row */}
       <div className="flex items-center">
-        {/* Plan Your Float branding */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1 pl-2 pr-2">
+        {/* Plan Your Float branding — desktop only; on a phone this column
+            steals ~60px of card width from an already tight strip */}
+        <div className="hidden lg:flex flex-shrink-0 flex-col items-center gap-1 pl-2 pr-2">
           <Image
             src={EDDY_CANOE_IMAGE}
             alt="Eddy the Otter in a canoe"

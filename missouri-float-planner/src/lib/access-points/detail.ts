@@ -1,0 +1,411 @@
+// src/lib/access-points/detail.ts
+// Shared access-point-detail data loader. Extracted from the API route so both
+// the /api/rivers/[slug]/access/[accessSlug] handler and the server-rendered
+// access-point page can build the same payload from one code path — the page
+// renders its content on the server (crawlable, no client fetch waterfall).
+
+import type { createClient } from '@/lib/supabase/server';
+import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import type {
+  AccessPointDetail,
+  AccessPointType,
+  AccessPointDetailResponse,
+  NearbyAccessPoint,
+  AccessPointGaugeStatus,
+  NPSCampgroundInfo,
+  RoadSurface,
+  ManagingAgency,
+  ParkingCapacity,
+  NearbyService,
+} from '@/types/api';
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+export type AccessPointDetailResult =
+  | { ok: true; data: AccessPointDetailResponse }
+  | { ok: false; reason: 'river-not-found' | 'not-found' | 'invalid-coords' };
+
+/**
+ * Load full access-point detail (access point + nearby points + gauge status)
+ * for a given river/access slug. Returns a discriminated result so callers can
+ * map failures to a 404 (API) or notFound() (page) as appropriate.
+ */
+export async function getAccessPointDetail(
+  supabase: SupabaseServerClient,
+  riverSlug: string,
+  accessSlug: string,
+): Promise<AccessPointDetailResult> {
+  // Get river info
+  const { data: river, error: riverError } = await supabase
+    .from('rivers')
+    .select('id, name, slug')
+    .eq('slug', riverSlug)
+    .single();
+
+  if (riverError || !river) {
+    return { ok: false, reason: 'river-not-found' };
+  }
+
+  // Get access point with all detail fields
+  const { data: ap, error: apError } = await supabase
+    .from('access_points')
+    .select('*')
+    .eq('river_id', river.id)
+    .eq('slug', accessSlug)
+    .eq('approved', true)
+    .single();
+
+  if (apError || !ap) {
+    return { ok: false, reason: 'not-found' };
+  }
+
+  // Extract coordinates
+  const lng =
+    (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] ||
+    (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0];
+  const lat =
+    (ap.location_orig as { coordinates?: number[] } | null)?.coordinates?.[1] ||
+    (ap.location_snap as { coordinates?: number[] } | null)?.coordinates?.[1];
+
+  if (!lng || !lat) {
+    return { ok: false, reason: 'invalid-coords' };
+  }
+
+  // Get nearby access points (upstream and downstream)
+  const { data: allAccessPoints } = await supabase
+    .from('access_points')
+    .select('id, name, slug, river_mile_downstream')
+    .eq('river_id', river.id)
+    .eq('approved', true)
+    .order('river_mile_downstream', { ascending: true });
+
+  const currentMile = ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : 0;
+
+  const nearbyAccessPoints: NearbyAccessPoint[] = [];
+
+  if (allAccessPoints) {
+    // Find upstream (lower river mile = closer to headwaters)
+    const upstream = allAccessPoints
+      .filter(
+        (p) =>
+          p.id !== ap.id &&
+          p.river_mile_downstream != null &&
+          parseFloat(String(p.river_mile_downstream)) < currentMile
+      )
+      .sort(
+        (a, b) =>
+          (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0) -
+          (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0)
+      )[0];
+
+    // Find downstream (higher river mile = further from headwaters)
+    const downstream = allAccessPoints
+      .filter(
+        (p) =>
+          p.id !== ap.id &&
+          p.river_mile_downstream != null &&
+          parseFloat(String(p.river_mile_downstream)) > currentMile
+      )
+      .sort(
+        (a, b) =>
+          (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0) -
+          (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0)
+      )[0];
+
+    if (upstream) {
+      const distance = currentMile - (upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0);
+      nearbyAccessPoints.push({
+        id: upstream.id,
+        name: upstream.name,
+        slug: upstream.slug,
+        direction: 'upstream',
+        distanceMiles: Math.round(distance * 10) / 10,
+        estimatedFloatTime: estimateFloatTime(distance),
+        riverMile: upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0,
+      });
+    }
+
+    if (downstream) {
+      const distance = (downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0) - currentMile;
+      nearbyAccessPoints.push({
+        id: downstream.id,
+        name: downstream.name,
+        slug: downstream.slug,
+        direction: 'downstream',
+        distanceMiles: Math.round(distance * 10) / 10,
+        estimatedFloatTime: estimateFloatTime(distance),
+        riverMile: downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0,
+      });
+    }
+  }
+
+  // Get gauge status for this river (using access point's river mile for segment-aware selection)
+  const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
+
+  // Get NPS campground data if linked
+  let npsCampground: NPSCampgroundInfo | null = null;
+  if (ap.nps_campground_id) {
+    npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id);
+  }
+
+  // Format the access point detail
+  const accessPoint: AccessPointDetail = {
+    id: ap.id,
+    riverId: ap.river_id ?? '',
+    name: ap.name,
+    slug: ap.slug,
+    riverMile: currentMile,
+    type: ap.type as AccessPointType,
+    types: (ap.types || (ap.type ? [ap.type] : [])) as AccessPointType[],
+    isPublic: ap.is_public ?? false,
+    ownership: ap.ownership,
+    description: ap.description,
+    amenities: ap.amenities || [],
+    parkingInfo: ap.parking_info,
+    roadAccess: ap.road_access,
+    facilities: ap.facilities,
+    feeRequired: ap.fee_required ?? false,
+    feeNotes: ap.fee_notes,
+    directionsOverride: ap.directions_override,
+    imageUrls: ap.image_urls || [],
+    googleMapsUrl: ap.google_maps_url,
+    coordinates: { lng, lat },
+    // New detail fields
+    roadSurface: (ap.road_surface as RoadSurface[]) || [],
+    parkingCapacity: ap.parking_capacity as ParkingCapacity | null,
+    managingAgency: ap.managing_agency as ManagingAgency | null,
+    officialSiteUrl: ap.official_site_url,
+    localTips: ap.local_tips,
+    nearbyServices: (ap.nearby_services as unknown as NearbyService[]) || [],
+    drivingLat: ap.driving_lat != null ? parseFloat(String(ap.driving_lat)) : null,
+    drivingLng: ap.driving_lng != null ? parseFloat(String(ap.driving_lng)) : null,
+    river: {
+      id: river.id,
+      name: river.name,
+      slug: river.slug,
+    },
+    npsCampground,
+  };
+
+  return {
+    ok: true,
+    data: { accessPoint, nearbyAccessPoints, gaugeStatus },
+  };
+}
+
+// Helper to estimate float time based on distance
+function estimateFloatTime(miles: number): string | null {
+  if (miles <= 0) return null;
+  // Assume average 2 mph float speed
+  const hours = miles / 2;
+  if (hours < 1) {
+    return `~${Math.round(hours * 60)} min`;
+  }
+  return `~${Math.round(hours * 10) / 10} hr`;
+}
+
+// Helper to get gauge status for the river (segment-aware based on access point river mile)
+async function getGaugeStatus(
+  supabase: SupabaseServerClient,
+  riverId: string,
+  accessPointRiverMile: number
+): Promise<AccessPointGaugeStatus | null> {
+  try {
+    // First, try to find the nearest gauge at or upstream of the access point
+    // (largest river_mile that is <= access point's river mile)
+    let riverGauge = null;
+
+    if (accessPointRiverMile > 0) {
+      const { data: nearestGauge } = await supabase
+        .from('river_gauges')
+        .select(
+          `
+          gauge_station_id,
+          is_primary,
+          river_mile,
+          threshold_unit,
+          level_too_low,
+          level_low,
+          level_optimal_min,
+          level_optimal_max,
+          level_high,
+          level_dangerous,
+          gauge_stations (
+            id,
+            usgs_site_id,
+            name
+          )
+        `
+        )
+        .eq('river_id', riverId)
+        .not('river_mile', 'is', null)
+        .lte('river_mile', accessPointRiverMile)
+        .order('river_mile', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (nearestGauge) {
+        riverGauge = nearestGauge;
+      }
+    }
+
+    // Fall back to primary gauge if no segment-specific gauge found
+    if (!riverGauge) {
+      const { data: primaryGauge } = await supabase
+        .from('river_gauges')
+        .select(
+          `
+          gauge_station_id,
+          is_primary,
+          river_mile,
+          threshold_unit,
+          level_too_low,
+          level_low,
+          level_optimal_min,
+          level_optimal_max,
+          level_high,
+          level_dangerous,
+          gauge_stations (
+            id,
+            usgs_site_id,
+            name
+          )
+        `
+        )
+        .eq('river_id', riverId)
+        .eq('is_primary', true)
+        .single();
+
+      riverGauge = primaryGauge;
+    }
+
+    if (!riverGauge || !riverGauge.gauge_stations) {
+      return null;
+    }
+
+    // Supabase returns joined relations - handle both array and single object cases
+    const gaugeData = riverGauge.gauge_stations;
+    const gauge = (Array.isArray(gaugeData) ? gaugeData[0] : gaugeData) as {
+      id: string;
+      usgs_site_id: string;
+      name: string;
+    } | undefined;
+
+    if (!gauge) {
+      return null;
+    }
+
+    // Fetch the latest reading for this gauge from gauge_readings
+    const { data: latestReading } = await supabase
+      .from('gauge_readings')
+      .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+      .eq('gauge_station_id', gauge.id)
+      .order('reading_timestamp', { ascending: false })
+      .limit(1)
+      .single();
+
+    const heightFt = latestReading?.gauge_height_ft ?? null;
+    const cfs = latestReading?.discharge_cfs ?? null;
+
+    // Use computeCondition for consistent condition evaluation
+    const thresholds: ConditionThresholds = {
+      levelTooLow: riverGauge.level_too_low,
+      levelLow: riverGauge.level_low,
+      levelOptimalMin: riverGauge.level_optimal_min,
+      levelOptimalMax: riverGauge.level_optimal_max,
+      levelHigh: riverGauge.level_high,
+      levelDangerous: riverGauge.level_dangerous,
+      thresholdUnit: (riverGauge.threshold_unit || 'ft') as 'ft' | 'cfs',
+    };
+
+    const condition = computeCondition(heightFt, thresholds, cfs);
+
+    return {
+      level: condition.code,
+      cfs,
+      heightFt,
+      label: getConditionShortLabel(condition.code),
+      trend: null,
+      lastUpdated: latestReading?.reading_timestamp ?? null,
+      gaugeId: gauge.id,
+      gaugeName: gauge.name,
+      usgsId: gauge.usgs_site_id,
+    };
+  } catch (error) {
+    console.error('Error fetching gauge status:', error);
+    return null;
+  }
+}
+
+// Helper to get NPS campground info for an access point
+async function getNPSCampgroundInfo(
+  supabase: SupabaseServerClient,
+  npsCampgroundId: string
+): Promise<NPSCampgroundInfo | null> {
+  try {
+    const { data: cg, error } = await supabase
+      .from('nps_campgrounds')
+      .select('*')
+      .eq('id', npsCampgroundId)
+      .single();
+
+    if (error || !cg) return null;
+
+    const amenitiesData = typeof cg.amenities === 'string'
+      ? JSON.parse(cg.amenities)
+      : cg.amenities || {};
+
+    const feesData = typeof cg.fees === 'string'
+      ? JSON.parse(cg.fees)
+      : cg.fees || [];
+
+    const imagesData = typeof cg.images === 'string'
+      ? JSON.parse(cg.images)
+      : cg.images || [];
+
+    const operatingHoursData = typeof cg.operating_hours === 'string'
+      ? JSON.parse(cg.operating_hours)
+      : cg.operating_hours || [];
+
+    return {
+      npsId: cg.nps_id,
+      name: cg.name,
+      npsUrl: cg.nps_url,
+      reservationInfo: cg.reservation_info,
+      reservationUrl: cg.reservation_url,
+      fees: feesData.map((f: { cost?: string; description?: string; title?: string }) => ({
+        cost: f.cost || '0.00',
+        description: f.description || '',
+        title: f.title || 'Camping Fee',
+      })),
+      totalSites: cg.total_sites || 0,
+      sitesReservable: cg.sites_reservable || 0,
+      sitesFirstCome: cg.sites_first_come || 0,
+      sitesGroup: cg.sites_group || 0,
+      sitesTentOnly: cg.sites_tent_only || 0,
+      sitesElectrical: cg.sites_electrical || 0,
+      sitesRvOnly: cg.sites_rv_only || 0,
+      sitesWalkBoatTo: cg.sites_walk_boat_to || 0,
+      amenities: {
+        toilets: amenitiesData.toilets || [],
+        showers: amenitiesData.showers || [],
+        cellPhoneReception: amenitiesData.cellPhoneReception || 'Unknown',
+        potableWater: amenitiesData.potableWater || [],
+        campStore: amenitiesData.campStore || 'No',
+        firewoodForSale: amenitiesData.firewoodForSale || 'No',
+        dumpStation: amenitiesData.dumpStation || 'No',
+        trashCollection: amenitiesData.trashRecyclingCollection || 'Unknown',
+      },
+      operatingHours: operatingHoursData.map((oh: { description?: string; name?: string }) => ({
+        description: oh.description || '',
+        name: oh.name || '',
+      })),
+      classification: cg.classification,
+      weatherOverview: cg.weather_overview,
+      images: imagesData,
+    };
+  } catch (error) {
+    console.error('Error fetching NPS campground info:', error);
+    return null;
+  }
+}

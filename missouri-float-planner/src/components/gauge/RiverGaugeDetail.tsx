@@ -14,7 +14,7 @@ import { computeCondition, getConditionShortLabel, getConditionTailwindColor, ty
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
@@ -227,7 +227,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   // Reading age
   const ageText = useMemo(() => {
-    if (!activeGauge?.readingAgeHours) return null;
+    if (activeGauge?.readingAgeHours == null) return null;
     if (activeGauge.readingAgeHours < 1) {
       const mins = Math.round(activeGauge.readingAgeHours * 60);
       return mins < 2 ? 'Just now' : `${mins}m ago`;
@@ -295,23 +295,20 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const eddyConditionCode: ConditionCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
   const surface = conditionChip(eddyConditionCode);
 
+  // Static fallback text \u2014 shared with the river report card (RiverCard) via
+  // buildStaticEddyText so the quote reads identically across both surfaces.
   const buildStaticText = () => {
     const sourceGauge = onSecondaryTabWithUpdate ? activeGauge : primaryGauge;
     const sourceThreshold = onSecondaryTabWithUpdate ? activeThreshold : primaryThreshold;
     const sourceCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
-    const blurb = CONDITION_CARD_BLURBS[sourceCode] || CONDITION_CARD_BLURBS.unknown;
-    const parts: string[] = [];
-    if (sourceGauge?.gaugeHeightFt !== null && sourceGauge?.gaugeHeightFt !== undefined) {
-      parts.push(`Reading ${sourceGauge.gaugeHeightFt.toFixed(1)} ft at ${sourceGauge.name}.`);
-    }
-    parts.push(blurb);
-    const optMin = sourceThreshold?.levelOptimalMin;
-    const optMax = sourceThreshold?.levelOptimalMax;
-    const unit = sourceThreshold?.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-    if (optMin != null && optMax != null) {
-      parts.push(`Optimal range is ${optMin}\u2013${optMax} ${unit}.`);
-    }
-    return parts.join(' ');
+    return buildStaticEddyText({
+      conditionCode: sourceCode,
+      gaugeHeightFt: sourceGauge?.gaugeHeightFt ?? null,
+      optimalMin: sourceThreshold?.levelOptimalMin,
+      optimalMax: sourceThreshold?.levelOptimalMax,
+      thresholdUnit: sourceThreshold?.thresholdUnit,
+      riverNote: RIVER_NOTES[riverSlug] ?? null,
+    });
   };
 
   const eddyDisplayText = activeEddyUpdate?.summaryText && !eddyShowFull
@@ -367,29 +364,31 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   return (
     <div>
-        {/* Gauge meta */}
-        <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500 mb-5">
-            <span>{activeGauge.name}</span>
-            <span className="text-neutral-300">&middot;</span>
-            <a
-              href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
-            >
-              USGS {activeGauge.usgsSiteId}
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            {ageText && (
-              <>
-                <span className="text-neutral-300">&middot;</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  {ageText}
-                </span>
-              </>
-            )}
-            <div className="flex items-center gap-3 ml-auto">
+        {/* Gauge meta — identity on top, actions below on mobile / inline on desktop */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500 mb-5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+              <span className="font-medium text-neutral-600">{activeGauge.name}</span>
+              <span className="text-neutral-300">&middot;</span>
+              <a
+                href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
+              >
+                USGS {activeGauge.usgsSiteId}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              {ageText && (
+                <>
+                  <span className="text-neutral-300">&middot;</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    {ageText}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-4 sm:gap-3 sm:ml-auto">
               <Link
                 href={`/rivers/${riverSlug}?submitPhoto=true`}
                 className="flex items-center gap-1 text-neutral-400 hover:text-teal-600 transition-colors"
@@ -413,7 +412,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
         {/* Gauge Tab Bar */}
         {tabs.length > 1 && (
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <GaugeTabBar
               gauges={tabs}
               activeSiteId={activeSiteId || ''}
@@ -423,7 +422,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         )}
 
         {/* Chart + Reading Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Chart */}
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 pt-4 pb-0">
@@ -436,6 +435,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
                     <button
                       onClick={() => handleUnitToggle('ft')}
+                      aria-pressed={effectiveUnit === 'ft'}
+                      title="Gauge height in feet"
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         effectiveUnit === 'ft'
                           ? 'bg-primary-500 text-white'
@@ -446,6 +447,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     </button>
                     <button
                       onClick={() => handleUnitToggle('cfs')}
+                      aria-pressed={effectiveUnit === 'cfs'}
+                      title="Flow in cubic feet per second"
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         effectiveUnit === 'cfs'
                           ? 'bg-primary-500 text-white'
@@ -462,6 +465,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     <button
                       key={opt.days}
                       onClick={() => setDateRange(opt.days)}
+                      aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
                           ? 'bg-primary-500 text-white'
@@ -494,6 +498,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               dischargeCfs={activeGauge.dischargeCfs}
               thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
+              readingAgeHours={activeGauge.readingAgeHours}
             />
             <GaugeWeather
               key={`weather-${activeSiteId}`}

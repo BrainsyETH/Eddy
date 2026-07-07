@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
  * NWS AHPS forecast peaks for every primary gauge that carries an
  * `nws_lid`. Returns the next-72h hydrograph (forecast block) plus the
  * single peak stage and timestamp, keyed by USGS site number to match the
- * rest of the /missouri-surface-water data shape.
+ * rest of the /river-map data shape.
  *
  * AHPS XML schema (relevant parts):
  *   <site>

@@ -9,13 +9,13 @@ const EDDY_FAVICON = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Ed
 
 const cards = [
   {
-    href: '/gauges',
+    href: '/rivers',
     icon: <Activity className="w-6 h-6 text-primary-600" />,
     title: 'Check Conditions',
     description: 'Live levels for all 8 rivers',
   },
   {
-    href: '#plan',
+    href: '/plan',
     icon: <Map className="w-6 h-6 text-primary-600" />,
     title: 'Plan a Float',
     description: 'Pick your river, put-in & take-out',
