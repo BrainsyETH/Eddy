@@ -1,5 +1,5 @@
 {
-  "_status": "STUB+RUN3 — identity/access/character populated and a FULL two-reach cfs floatability ladder + access-point mileages transcribed from the authoritative Al Agnew / OzarkAnglers 'Bourbeuse River Overview' (hand-provided by owner 2026-07-06). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-bourbeuse.md written from the USGS site service; lat/lon, params (00060/00065) and drainage areas backfilled for all gauges; representative gauges High Gate 07015720 + Union 07016500 confirmed POLLABLE (07016400/07015750 confirmed discontinued, reference only). [SAFETY GATE CLEARED 2026-07-06] the 4 danger anchors (upper high 120/dangerous 200; lower high 500/dangerous 1000 cfs) bumped medium->high on owner approval — Agnew's published navigability table is the authoritative Missouri float reference. Dry-run now passes [verify] + [safety]; ONLY [signoff] remains. NOT ingestable until the owner sets _status to begin with the literal token SIGNED-OFF (and geometry/apply run from an unblocked env per DEPLOYMENT-STATUS.md). Thresholds are single-source (Agnew): too_low/low/optimal are confidence 'high' (explicit published navigability table); high/dangerous are 'medium' pending NWS UNNM7/HTGM7 corroboration (auto-fetch at ingest) — the [safety] gate will require that before a live danger badge. RIVER-TYPE: Agnew explicitly confirms runoff-fed/murky/slow — 'spring_fed_float' is WRONG for the speed curve; owner must reclassify [signoff] (isSpringFed set false on both reaches). Once the USGS paste lands, write verified-identifiers-bourbeuse.md and flip _status to SIGNED-OFF.",
+  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN3 — identity/access/character populated and a FULL two-reach cfs floatability ladder + access-point mileages transcribed from the authoritative Al Agnew / OzarkAnglers 'Bourbeuse River Overview' (hand-provided by owner 2026-07-06). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-bourbeuse.md written from the USGS site service; lat/lon, params (00060/00065) and drainage areas backfilled for all gauges; representative gauges High Gate 07015720 + Union 07016500 confirmed POLLABLE (07016400/07015750 confirmed discontinued, reference only). [SAFETY GATE CLEARED 2026-07-06] the 4 danger anchors (upper high 120/dangerous 200; lower high 500/dangerous 1000 cfs) bumped medium->high on owner approval — Agnew's published navigability table is the authoritative Missouri float reference. Dry-run now passes [verify] + [safety]; ONLY [signoff] remains. NOT ingestable until the owner sets _status to begin with the literal token SIGNED-OFF (and geometry/apply run from an unblocked env per DEPLOYMENT-STATUS.md). Thresholds are single-source (Agnew): too_low/low/optimal are confidence 'high' (explicit published navigability table); high/dangerous are 'medium' pending NWS UNNM7/HTGM7 corroboration (auto-fetch at ingest) — the [safety] gate will require that before a live danger badge. RIVER-TYPE: Agnew explicitly confirms runoff-fed/murky/slow — 'spring_fed_float' is WRONG for the speed curve; owner must reclassify [signoff] (isSpringFed set false on both reaches). Once the USGS paste lands, write verified-identifiers-bourbeuse.md and flip _status to SIGNED-OFF.",
   "name": "Bourbeuse River",
   "slug": "bourbeuse",
   "state": "MO",
@@ -9,7 +9,7 @@
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I",
   "description": "The slowest large stream in the Ozarks and one of its crookedest: from its head of navigation at Mint Spring the Bourbeuse runs ~116 river-miles in under 38 airline miles to the Meramec. Runoff-fed and murky (its watershed is largely cleared farmland over Pennsylvanian sandstone), with an inconsistent water supply — the upper half is seldom floatable without dragging in a dry summer. Not popular with the rental-canoe crowd (one small outfitter on the whole river); mostly local anglers. Catfish throughout; smallmouth in the upper reaches, spotted bass increasingly dominant below Noser Mill.",
-  "riverType": "spring_fed_float",
+  "riverType": "rain_flashy",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
   "permits": [],
@@ -94,7 +94,7 @@
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
-        "hydroType": "spring_fed_float",
+        "hydroType": "rain_flashy",
         "primaryHazards": ["logjam", "strainer", "low_water_bridge", "dragging_low_water"],
         "lowWaterMeaning": "Below ~10 cfs at High Gate the whole upper river requires walking many riffles; 10–30 cfs is low but floatable with a lot of bottom-scraping. In a dry summer (Jun–Nov normal 2–20 cfs) the upper river is frequently unfloatable.",
         "risingWaterHazards": "Runoff-fed and flashy from tributaries; over ~120 cfs it is high and muddy, over ~200 cfs probably too high. Low-water bridges (Glaser Ford, Hog Trough Rd) and logjams are the practical hazards. NWS HTGM7 flood/action stages auto-fill at ingest.",
@@ -132,7 +132,7 @@
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
-        "hydroType": "spring_fed_float",
+        "hydroType": "rain_flashy",
         "primaryHazards": ["strainer", "willow_jungle_high_water", "logjam", "strong_current_high_water"],
         "lowWaterMeaning": "Below ~40 cfs at Union most riffles must be walked; 40–70 cfs runs with considerable scraping. The Noser Mill→Spring Creek stretch runs lower than the Union gauge reads. Jun–Nov normal (60–150 cfs) sits in the low-to-marginal range.",
         "risingWaterHazards": "500–1000 cfs is very high and probably muddy, with strong currents and willow jungles that 'may be dangerous'; over 1000 cfs is too high. NWS UNNM7 flood/action stages auto-fill at ingest.",
@@ -167,7 +167,7 @@
     { "name": "Dr. Henry A. and Amalia Uhlemeyer MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 49.9.", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" },
     { "name": "Chouteau Claim MDC Access", "type": "access", "lat": null, "lon": null, "ownership": "MDC", "section": "lower-nosermill-meramec", "notes": "Lower mile 55.2. At the mouth of the Bourbeuse (Meramec confluence).", "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/" }
   ],
-  "weatherPoint": { "city": "Union", "lat": null, "lon": null },
+  "weatherPoint": { "city": "Union", "lat": 38.45, "lon": -91.0085 },
   "alertSearchTerms": [
     "bourbeuse river",
     "phelps county",
