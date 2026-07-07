@@ -37,6 +37,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 type Level = 'too_low' | 'low' | 'optimal_min' | 'optimal_max' | 'high' | 'dangerous';
+
+// river_gauges.threshold_source is a provenance ENUM (check constraint:
+// usgs | nws_ahps | outfitter | editorial), not free text. The dossier's
+// prose citation stays in the dossier (the committed provenance record);
+// the DB gets the category plus the first URL in threshold_source_url.
+type SourceCategory = 'usgs' | 'nws_ahps' | 'outfitter' | 'editorial';
+function classifySource(raw: string): SourceCategory {
+  const s = raw.toLowerCase();
+  if (/\b(noaa|nws|ahps|nwps)\b/.test(s)) return 'nws_ahps';
+  if (/\busgs\b/.test(s) && /percentile|statistic|flow.duration/.test(s)) return 'usgs';
+  if (/outfitter|livery|canoe rental|rental/.test(s)) return 'outfitter';
+  return 'editorial';
+}
 const LEVEL_ORDER: Level[] = ['too_low', 'low', 'optimal_min', 'optimal_max', 'high', 'dangerous'];
 const LEVEL_COL: Record<Level, string> = {
   too_low: 'level_too_low', low: 'level_low',
@@ -123,6 +136,15 @@ for (const s of dossier.sections ?? []) {
   }
 }
 for (const [siteId, b] of perGauge) {
+  // Published band tables often share edges (Agnew: '10-30 low / 30-60 easily
+  // floatable' → low == optimal_min). A shared edge means the source defines
+  // no 'good' (between-low-and-optimal) zone; drop the redundant low anchor —
+  // condition logic reads [too_low, optimal_min) as 'low' either way, and
+  // validate_river_data() requires strictly increasing levels.
+  if (b.values.low !== undefined && b.values.low === b.values.optimal_min) {
+    delete b.values.low;
+    warnings.push(`gauge ${siteId}: low == optimal_min (adjacent published bands) — 'low' anchor dropped; [too_low, optimal_min) reads as 'low'.`);
+  }
   const present = LEVEL_ORDER.filter((l) => b.values[l] !== undefined);
   for (let i = 1; i < present.length; i++) {
     const a = b.values[present[i - 1]]!, c = b.values[present[i]]!;
@@ -177,8 +199,9 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
 
 // ---------- apply ----------
 (async () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key).');
   const db = createClient(url, key);
 
   const { data: river, error: riverErr } = await db.from('rivers').select('id').eq('slug', dossier.slug).single();
@@ -211,12 +234,15 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     const row: Record<string, unknown> = {
       river_id: river.id, gauge_station_id: stationId,
       threshold_unit: b.unit,
-      threshold_source: [...b.sources][0],
+      threshold_source: classifySource([...b.sources].join(' ')),
       threshold_source_url: [...b.urls][0] ?? null,
       threshold_updated_at: new Date().toISOString(),
       ...(gauge?.positionRiverMile != null ? { river_mile: gauge.positionRiverMile } : {}),
     };
-    for (const l of LEVEL_ORDER) if (b.values[l] !== undefined) row[LEVEL_COL[l]] = b.values[l];
+    // Always set every level column (null when the dossier has no anchor) so
+    // re-ingests are idempotent — an anchor dropped from the dossier must not
+    // survive in the DB from an earlier run.
+    for (const l of LEVEL_ORDER) row[LEVEL_COL[l]] = b.values[l] ?? null;
     const { data: existing } = await db.from('river_gauges').select('id').eq('river_id', river.id).eq('gauge_station_id', stationId).maybeSingle();
     const { error } = existing
       ? await db.from('river_gauges').update(row).eq('id', existing.id)

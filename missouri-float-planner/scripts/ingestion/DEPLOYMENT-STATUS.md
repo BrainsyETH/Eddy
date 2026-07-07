@@ -1,76 +1,73 @@
 # River Onboarding — Deployment Status & Runbook
 
-_Last updated 2026-07-06 (DB state verified live via Supabase MCP, project FloatMe / ilefwfpvphadsbptiaur)._
+_Last updated 2026-07-07 (DEPLOYED to production, project FloatMe / ilefwfpvphadsbptiaur)._
 
-Covers the 4 new Missouri rivers + Buffalo (AR). The research dossiers are done;
-this file is the bridge from dossier → live on eddy.guide.
+Covers the 4 new Missouri rivers + Buffalo (AR). **The deploy has run**: this
+file is now the record of what shipped and what remains.
 
-## Confirmed production DB state (read-only recon)
+## Shipped 2026-07-07 (session claude/rivers-prod-deploy-env-es86lu)
 
-- **8 rivers** live: big-piney (inactive), courtois, current, eleven-point,
-  huzzah, jacks-fork, meramec, niangua. **None** of our 5 exist yet.
-- **270 gauge_stations**; **14 of our 18 gauges already present, active, coords
-  matching the dossiers exactly** (all representatives incl. Poplar Bluff
-  07063000 + Williamsville 07062575). The 4 discontinued gauges
-  (07016400/07015750/07061400/07061170) are correctly absent.
-- `gauge_stations.nws_lid` is **null on all** → our verified LIDs are a clean
-  additive backfill (UNNM7/HTGM7, ROZM7/PAZM7, ANNM7, HZLM7/JRMM7/RIFM7).
-- Schema present and matches ingest-dossier.ts: rivers, river_gauges,
-  river_sections, river_characteristics, gauge_stations, access_points,
-  float_segments, river_mile_markers.
-- OPEN schema question (MCP dropped before confirming): is `rivers.geom`
-  NOT NULL? Determines whether a rivers row can be created before NHD geometry.
+- **Geometry**: all 5 rivers created from NHD HR HUC8 shapefiles via the
+  extended `scripts/import-nhd-rivers-from-tnm.ts` (multi-HUC support + INSERT
+  mode + `--apply`). Bourbeuse 148.6 mi (HUC 07140103), Gasconade 261.3 mi
+  (10290201+10290203), Black 194.7 mi (11010007), St. Francis 122.8 mi
+  (08020202), Buffalo 148.3 mi (11010005). Endpoints verified against real
+  mouths; direction_verified=true (NHD flowlines are downstream-oriented).
+- **nws_lid backfill**: HTGM7/UNNM7 (Bourbeuse), HZLM7/JRMM7/RIFM7 (Gasconade),
+  ANNM7 (Black), ROZM7/PAZM7 (St. Francis) + **SJOA4** for Buffalo St. Joe
+  07056000 (discovered via NWPS's own usgsId cross-reference; the other Buffalo
+  gauges have no NWS forecast points).
+- **Sign-off + ingest**: all 5 dossiers flipped to SIGNED-OFF (owner go-ahead
+  "push the rivers to prod") and ingested with `--apply`. Bourbeuse
+  reclassified `spring_fed_float`→`rain_flashy` at sign-off (Agnew: runoff-fed;
+  the dossier had flagged spring_fed as WRONG for the speed curve).
+  10 river_gauges threshold sets, 12 river_sections, 5 river_characteristics.
+- **Flood stages**: written for all 6 MO LIDs + SJOA4 (e.g. Annapolis
+  action 6 / flood 8 ft). Fixed `fetch-nws-flood-stages.ts` write path
+  (nws_lid was being written to the wrong table; curated threshold_source is
+  no longer overwritten — official stages layer alongside, per 00114).
+- **Roselle provider=nws**: implemented `src/lib/flow-providers/nws.ts`
+  (NWPS gauge API, siteId = NWS LID, kcfs→cfs normalization, -999 sentinels),
+  registered as `nws`, smoke-tested live (ROZM7 → 1.87 ft). DB:
+  gauge_stations 07034000 now `provider='nws'`, `site_id_external='ROZM7'`.
+- **Ingest hardening**: threshold_source now classified to the DB enum
+  (usgs/nws_ahps/outfitter/editorial — prose citations stay in the dossier);
+  `low == optimal_min` shared-edge bands drop the redundant low anchor
+  (validator requires strictly increasing levels); level columns are written
+  null-when-absent so re-ingests are idempotent.
+- **Cleanup**: the 4 discontinued reference gauges created by ingest
+  (07016400, 07015750, 07061400, 07061170) set `active=false` — they are
+  documented non-realtime and must not be polled.
+- **Validation + activation**: `validate_river_data()` → **0 errors** on the
+  new rivers. `active=true` for **bourbeuse, gasconade, st-francis, buffalo**.
+  **Black stays inactive** — its floatability ladder is still optimal_min-only
+  (Annapolis 180 cfs observed); complete the ladder before activating.
 
-## The one true blocker: rivers rows need geometry
+## Remaining / follow-ups
 
-ingest-dossier.ts refuses if the `rivers` row is absent and **will not invent
-geometry**. Geometry comes from NHD via import-nhd-rivers-from-tnm.ts (National
-Map) or the seed path — and National Map is egress-blocked in the current
-environment. So river creation must happen from an environment with either
-outbound access to the National Map, or the NHD flowline seed files.
+1. **Deploy the app code** (this branch → main → Vercel). Until then the
+   deployed cron skips provider='nws' gracefully and Roselle shows no fresh
+   reading; the other 4 rivers work with the currently-deployed code.
+2. **stale_gauge warnings** (Buffalo St. Joe "never", Roselle "1997") clear on
+   the first cron pass after deploy.
+3. **Black**: complete the ladder (too_low/low/optimal_max/high from an Agnew
+   navigability table or Lesterville outfitter guidance), re-ingest, then
+   validate + activate.
+4. **Access points** [manual]: place put-ins/take-outs in admin per the
+   dossiers' proposed names + river miles (never script-written).
+5. **Gasconade lower reach** (Rich Fountain RIFM7): no ladder yet — encode when
+   a source lands; mid reach (Jerome) is optimal_min-only.
+6. **Buffalo good/flowing split**: NPS tables give best-effort splits;
+   refine if NPS publishes finer bands. Pruitt gauge if a finer upper/middle
+   split is wanted.
+7. VBNM7 (Current at Van Buren) 404s on NWPS — its LID may have changed;
+   re-discover when touching the legacy rivers.
 
-## Per-river readiness
+## Notes (calibration decisions, unchanged)
 
-| River | Dossier | Verify gate | Floatability | Blockers to live |
-|---|---|---|---|---|
-| **Bourbeuse** | STUB+RUN3 | ✅ clear | ✅ full, 2 reaches (Agnew) | geometry · signoff · apply (danger anchors RESOLVED->high 2026-07-06) |
-| **St. Francis** | STUB+RUN2 | ✅ clear | ✅ full Roselle ft ladder | geometry · signoff · **Roselle provider=nws wiring** · apply |
-| **Gasconade** | STUB+RUN1 | ✅ clear | ✅ upper+mid (moherp observed); lower open | geometry · signoff · apply · (lower-reach ladder later) |
-| **Black** | STUB+RUN1 | ✅ clear | ◐ optimal_min only (moherp observed) | geometry · signoff · **rest of ladder** · apply |
-| **Buffalo** (AR) | ✅ clear | ✅ 24 anchors, 4 reaches (NPS) | geometry · signoff · apply (coords backfilled 2026-07-07 → all 7 gauge_stations will create at ingest) |
-
-## Go-live sequence (per river)
-
-1. **Create the rivers row + geometry** — from an unblocked env:
-   `npx tsx scripts/import-nhd-rivers-from-tnm.ts <slug>` (or seed path).
-2. **Backfill nws_lid** on the existing gauge_stations (safe, additive) so
-   fetch-nws-flood-stages.ts can attach flood/action stages. Verified LIDs are
-   in the verified-identifiers-*.md files.
-3. **Owner sign-off**: review thresholds, then set `_status` to begin with the
-   literal token `SIGNED-OFF`. Danger-anchor decisions to make first:
-   - Bourbeuse: bump Agnew high/dangerous cfs from `medium`→`high` (Agnew is the
-     authoritative MO float source) OR add a 2nd source — else the [safety] gate
-     holds them (currently 4 flags).
-   - Others: no danger-anchor block (St. Francis high=6 ft confidence high;
-     Gasconade/Black high anchors carry trip corroboration).
-4. **Ingest**: `npx tsx scripts/ingestion/ingest-dossier.ts dossiers/<slug>.json --apply`
-   (needs NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY). Writes river
-   fields, river_gauges thresholds, river_sections, river_characteristics.
-   Reuses existing gauge_stations (does not duplicate).
-5. **Flood stages**: `npx tsx scripts/fetch-nws-flood-stages.ts --write`.
-6. **St. Francis only**: confirm the FlowProvider routes provider=`nws`/ROZM7
-   for gauge 07034000 (USGS discharge dead since 1997) and polls param 00065 ft.
-7. **Access points** [manual]: human places put-ins/take-outs in admin (dossiers
-   propose names + river-miles; access_points table already has 233 rows).
-8. **Validate + activate**: run validate_river_data('<slug>'), then flip
-   `rivers.active = true`.
-
-## Notes
 - moherp OBSERVED ladders are trip-report-calibrated (accuracy-approved). moherp
-  ESTIMATED and USGS percentiles are REJECTED as thresholds (see the calibration
-  decision in black.json/gasconade.json research notes) — Annapolis proved it:
-  estimated Good 536 cfs vs observed Good 180 cfs, real trips floating Good at
-  189/192.
-- Longer-term: Eddy already has the gauges + users to grow its OWN observed tier
-  (community_reports table exists, 0 rows) — trip logs at known discharge would
-  replicate moherp's method in-house and reduce dependence on scattered sources.
+  ESTIMATED and USGS percentiles are REJECTED as thresholds — Annapolis proved
+  it: estimated Good 536 cfs vs observed Good 180 cfs, real trips floating Good
+  at 189/192.
+- Longer-term: grow Eddy's own observed tier via community_reports (0 rows) —
+  trip logs at known discharge replicate moherp's method in-house.

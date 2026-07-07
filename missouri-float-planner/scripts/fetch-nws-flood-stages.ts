@@ -46,10 +46,10 @@ function loadEnv() {
 loadEnv();
 
 function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
   if (!url || !key) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (checked .env.local + shell env)');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key) — checked .env.local + shell env');
   }
   console.error(`[env] url=${url}  key=${key.slice(0, 6)}…(${key.length} chars)`);
   return createClient(url, key);
@@ -117,23 +117,34 @@ async function main() {
     console.log(`    → ${note}`);
 
     if (write && source) {
-      const patch: Record<string, unknown> = { threshold_source: source };
-      if (lid) patch.nws_lid = lid;
+      if (lid && g.nws_lid !== lid) {
+        // nws_lid lives on gauge_stations, not river_gauges.
+        await supabase.from('gauge_stations').update({ nws_lid: lid }).eq('id', g.id);
+      }
       // flood/action columns live on river_gauges (per-river-gauge). Update all rows
       // for this station; the human review step can then adjust level_dangerous.
+      const patch: Record<string, unknown> = {};
       if (source === 'nws_ahps') {
         if (floodStageFt != null) patch.flood_stage_ft = floodStageFt;
         if (actionStageFt != null) patch.action_stage_ft = actionStageFt;
       }
-      if (lid && g.nws_lid !== lid) {
-        await supabase.from('gauge_stations').update({ nws_lid: lid }).eq('id', g.id);
+      if (Object.keys(patch).length > 0) {
+        const { error: upErr } = await supabase
+          .from('river_gauges')
+          .update(patch)
+          .eq('gauge_station_id', g.id);
+        if (upErr) console.warn(`    ! write failed: ${upErr.message}`);
+        else console.log('    ✓ written');
       }
-      const { error: upErr } = await supabase
+      // Stamp provenance only where the ladder has none — rows written by the
+      // dossier pipeline carry curated provenance (editorial/outfitter) that
+      // official stages must not overwrite (00114: layer alongside, not replace).
+      const { error: srcErr } = await supabase
         .from('river_gauges')
-        .update(patch)
-        .eq('gauge_station_id', g.id);
-      if (upErr) console.warn(`    ! write failed: ${upErr.message}`);
-      else console.log('    ✓ written');
+        .update({ threshold_source: source })
+        .eq('gauge_station_id', g.id)
+        .is('threshold_source', null);
+      if (srcErr) console.warn(`    ! provenance write failed: ${srcErr.message}`);
     }
   }
 
