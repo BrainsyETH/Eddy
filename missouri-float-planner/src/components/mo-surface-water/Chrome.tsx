@@ -1644,6 +1644,9 @@ export function GaugeHoverOverlay({
             {unchangedDays != null && (
               <span className="ml-1.5"><UnchangedChip days={unchangedDays} /></span>
             )}
+            {gauge.percentile != null && (
+              <> · P{Math.round(gauge.percentile)} {classifyPercentile(gauge.percentile).label.toLowerCase()}</>
+            )}
             {report && <> · report {relativeTime(report.generatedAt)}</>}
             {sharedRiverNames && sharedRiverNames.length >= 2 && (
               <> · serves {sharedRiverNames.join(' + ')}</>

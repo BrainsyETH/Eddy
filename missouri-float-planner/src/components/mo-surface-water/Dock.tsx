@@ -9,6 +9,7 @@
 import { useMemo, useRef } from 'react';
 import {
   STAGE_VERDICTS,
+  classifyPercentile,
   type MORiver,
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
@@ -28,6 +29,8 @@ export interface DockRiverReading {
   value: number | null;
   unit: 'ft' | 'cfs';
   dischargeCfs: number | null;
+  /** USGS flow-statistics percentile (0–100) — the "how unusual" axis. */
+  percentile: number | null;
 }
 
 /** 24h direction at a river's primary gauge (see trendByRiver in the app). */
@@ -661,6 +664,16 @@ function RiverRow({
           </svg>
         )}
       </div>
+      {reading?.percentile != null && (
+        // "How unusual is this flow" in plain language — the same axis
+        // that modulates the particle speed on the map.
+        <div
+          className="mt-1"
+          style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.06em', color: PARCH_FAINT }}
+        >
+          P{Math.round(reading.percentile)} · {classifyPercentile(reading.percentile).label.toLowerCase()} flow
+        </div>
+      )}
       {sharedGauge && (
         <div
           className="mt-1"

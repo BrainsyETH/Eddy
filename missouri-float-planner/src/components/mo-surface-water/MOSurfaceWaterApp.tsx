@@ -288,7 +288,7 @@ export default function MOSurfaceWaterApp() {
     }
     for (const r of rivers) {
       const primary = (r.gauges ?? []).find((g) => g.is_primary);
-      if (!primary) { out[r.slug] = { value: null, unit: 'ft', dischargeCfs: null }; continue; }
+      if (!primary) { out[r.slug] = { value: null, unit: 'ft', dischargeCfs: null, percentile: null }; continue; }
       if (isToday) {
         const live = liveBySite.get(primary.site_id);
         out[r.slug] = {
@@ -297,6 +297,7 @@ export default function MOSurfaceWaterApp() {
             : live?.dischargeCfs ?? null,
           unit: primary.threshold_unit,
           dischargeCfs: live?.dischargeCfs ?? null,
+          percentile: live?.percentile ?? null,
         };
       } else {
         const ent = historyEntries.find((e) => e.site_no === primary.site_id);
@@ -307,6 +308,7 @@ export default function MOSurfaceWaterApp() {
             : day?.dischargeCfs ?? null,
           unit: primary.threshold_unit,
           dischargeCfs: day?.dischargeCfs ?? null,
+          percentile: day?.percentile ?? null,
         };
       }
     }
