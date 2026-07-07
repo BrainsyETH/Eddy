@@ -177,8 +177,9 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
 
 // ---------- apply ----------
 (async () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key).');
   const db = createClient(url, key);
 
   const { data: river, error: riverErr } = await db.from('rivers').select('id').eq('slug', dossier.slug).single();
