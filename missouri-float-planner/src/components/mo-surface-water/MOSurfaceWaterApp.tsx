@@ -44,6 +44,7 @@ import {
   DetailModal,
   GaugeHoverOverlay,
   ContextSiteCard,
+  flatlineDays,
   type ModalSelection,
 } from './Chrome';
 
@@ -432,6 +433,12 @@ export default function MOSurfaceWaterApp() {
     }
     return null;
   }, [hoveredGauge, rivers]);
+  // Stuck-sensor disclosure for the hovered gauge (see flatlineDays).
+  const hoveredGaugeUnchangedDays = useMemo(() => {
+    if (!hoveredGauge) return null;
+    const ent = historyEntries.find((e) => e.site_no === hoveredGauge.site_no) ?? null;
+    return flatlineDays(ent, hoveredGauge);
+  }, [hoveredGauge, historyEntries]);
   // Rivers whose PRIMARY rating comes from the hovered gauge — two or more
   // means the hover overlay discloses the shared-gauge arrangement.
   const hoveredGaugeSharedRivers = useMemo(() => {
@@ -717,6 +724,7 @@ export default function MOSurfaceWaterApp() {
           gaugeName={hoveredGaugeName}
           verdict={hoveredGauge ? conditionByGauge[condKey(hoveredGauge.river_id, hoveredGauge.site_no)] ?? null : null}
           sharedRiverNames={hoveredGaugeSharedRivers}
+          unchangedDays={hoveredGaugeUnchangedDays}
           pos={hoveredGaugePos}
         />
       )}

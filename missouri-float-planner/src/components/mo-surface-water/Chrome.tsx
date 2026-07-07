@@ -522,7 +522,10 @@ function RiverCard({
         </span>
         <span className="ml-auto" style={{ fontSize: 11, opacity: 0.9 }}>{tone.desc}</span>
       </div>
-      <div className="mt-1.5"><DataAgeChip iso={primaryGauge?.readingTimestamp} /></div>
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <DataAgeChip iso={primaryGauge?.readingTimestamp} />
+        <UnchangedChip days={flatlineDays(primaryHistory, primaryGauge)} />
+      </div>
       {sharedGauge && (
         <div
           className="mt-1"
@@ -1525,6 +1528,7 @@ export function GaugeHoverOverlay({
   gaugeName,
   verdict: verdictCode,
   sharedRiverNames,
+  unchangedDays,
   pos,
 }: {
   gauge: MoStatewideGauge | null;
@@ -1536,6 +1540,8 @@ export function GaugeHoverOverlay({
   /** Set (≥2 names) when this one physical gauge is the primary rating
    *  for multiple rivers — disclosed on the SOURCE line. */
   sharedRiverNames?: string[] | null;
+  /** Days the reading has sat byte-identical (see flatlineDays), or null. */
+  unchangedDays?: number | null;
   pos: { x: number; y: number } | null;
 }) {
   const report = useGaugeRailReport(gauge);
@@ -1635,6 +1641,9 @@ export function GaugeHoverOverlay({
                 Stale
               </span>
             )}
+            {unchangedDays != null && (
+              <span className="ml-1.5"><UnchangedChip days={unchangedDays} /></span>
+            )}
             {report && <> · report {relativeTime(report.generatedAt)}</>}
             {sharedRiverNames && sharedRiverNames.length >= 2 && (
               <> · serves {sharedRiverNames.join(' + ')}</>
@@ -1682,6 +1691,57 @@ export function readingAge(iso: string | null | undefined): {
   const t = Date.parse(iso);
   if (isNaN(t)) return null;
   return { label: relativeTime(iso), stale: Date.now() - t > STALE_AFTER_MS };
+}
+
+/**
+ * Soft stuck-sensor heuristic from data already on the page: the trailing
+ * run of daily medians that are ALL identical (both height and discharge —
+ * discharge varies naturally, so an identical run is the strong signal),
+ * confirmed by the live reading still matching. Returns the run length in
+ * days (≥3), or null. Deliberately descriptive, not diagnostic: a stable
+ * pool CAN sit flat, so the UI says "unchanged N days", never "broken".
+ * The cron logs the same condition server-side at 15-min granularity
+ * (update-gauges flatline counter); this is its user-facing counterpart.
+ */
+export function flatlineDays(
+  history: MoHistoryBundleEntry | null | undefined,
+  live: { gaugeHeightFt: number | null; dischargeCfs: number | null } | null | undefined,
+): number | null {
+  const daily = history?.daily ?? [];
+  if (daily.length < 3 || !live) return null;
+  const last = daily[daily.length - 1];
+  if (last.dischargeCfs == null && last.gaugeHeightFt == null) return null;
+  let run = 1;
+  for (let i = daily.length - 2; i >= 0; i--) {
+    const d = daily[i];
+    if (d.dischargeCfs === last.dischargeCfs && d.gaugeHeightFt === last.gaugeHeightFt) run++;
+    else break;
+  }
+  if (run < 3) return null;
+  const liveMatches =
+    (last.dischargeCfs == null || live.dischargeCfs === last.dischargeCfs) &&
+    (last.gaugeHeightFt == null || live.gaugeHeightFt === last.gaugeHeightFt);
+  return liveMatches ? run : null;
+}
+
+/** Soft amber "unchanged N days" disclosure next to a reading's age. */
+export function UnchangedChip({ days }: { days: number | null }) {
+  if (days == null) return null;
+  return (
+    <span
+      className="rounded-sm px-1 py-px font-bold uppercase"
+      title="This gauge has reported the identical value for several days — the sensor may be stuck."
+      style={{
+        border: '1px solid #E5A000',
+        color: '#8A6100',
+        fontFamily: MONO,
+        fontSize: 8,
+        letterSpacing: '0.1em',
+      }}
+    >
+      unchanged {days} days
+    </span>
+  );
 }
 
 /** Small mono age line with an amber STALE chip when the reading is old. */
