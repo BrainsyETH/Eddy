@@ -10,7 +10,11 @@ import type { RiverListItem } from '@/types/api';
 export async function getRivers(): Promise<RiverListItem[]> {
   const supabase = createAdminClient();
 
-  // Try with active filter first, fall back to all rivers if column doesn't exist
+  // Try with active filter first, fall back to all rivers if column doesn't exist.
+  // access_points is a LEFT join (not !inner): an active river with zero access
+  // points still belongs in the list — it shows accessPointCount 0 until a human
+  // places put-ins/take-outs in the geography editor. Previously the inner join
+  // silently hid every newly-onboarded river until its first access point.
   let rivers;
   let error;
 
@@ -25,7 +29,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
       description,
       difficulty_rating,
       region,
-      access_points!inner(id)
+      access_points(id)
     `)
     .eq('active', true)
     .order('name', { ascending: true });
@@ -42,7 +46,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         description,
         difficulty_rating,
         region,
-        access_points!inner(id)
+        access_points(id)
       `)
       .order('name', { ascending: true });
 
