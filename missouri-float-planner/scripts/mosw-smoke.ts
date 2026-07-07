@@ -55,6 +55,7 @@ const gauge = (site: string, name: string, lon: number, lat: number) => ({
 // Shared-gauge case: 07017200 is primary for BOTH Courtois and Huzzah.
 // Third river has no gauges at all → 'no live gauge'.
 const SHARED_SITE = '07017200';
+const FLAT_SITE = '07099999';
 const dataset = {
   generated_at: iso(0),
   campgrounds: [],
@@ -101,6 +102,22 @@ const dataset = {
       access_points: [],
       pois: [],
     },
+    {
+      // Stuck sensor: identical daily medians + identical live reading →
+      // the 'unchanged N days' disclosure must show on its river card.
+      id: 'r-flatline',
+      slug: 'flatline-fork',
+      name: 'Flatline Fork',
+      region: 'Ozarks',
+      length_miles: 22,
+      geometry: {
+        type: 'LineString',
+        coordinates: [[-92.9, 38.2], [-92.75, 38.3], [-92.6, 38.38]],
+      },
+      gauges: [gauge(FLAT_SITE, 'Flatline Fork nr Nowhere MO', -92.75, 38.3)],
+      access_points: [],
+      pois: [],
+    },
   ],
 };
 
@@ -125,6 +142,23 @@ const statewide = {
       threshold_source: 'editorial',
       threshold_source_url: null,
     },
+    {
+      site_no: FLAT_SITE,
+      nws_lid: null,
+      river_id: 'r-flatline',
+      river_slug: 'flatline-fork',
+      river_name: 'Flatline Fork',
+      is_primary: true,
+      dischargeCfs: 90,
+      gaugeHeightFt: 1.85, // identical to every daily median below
+      readingTimestamp: iso(25 * 60_000),
+      percentile: 18,
+      stats: null,
+      flood_stage_ft: null,
+      action_stage_ft: null,
+      threshold_source: 'editorial',
+      threshold_source_url: null,
+    },
   ],
 };
 
@@ -144,6 +178,18 @@ const history = {
         { date: day(0), dischargeCfs: 260, gaugeHeightFt: 3.2, percentile: 72 },
       ],
       band: { p25: 180, p50: 220, p75: 300 },
+    },
+    {
+      river_id: 'r-flatline',
+      river_slug: 'flatline-fork',
+      site_no: FLAT_SITE,
+      is_primary: true,
+      daily: [
+        { date: day(2), dischargeCfs: 90, gaugeHeightFt: 1.85, percentile: 18 },
+        { date: day(1), dischargeCfs: 90, gaugeHeightFt: 1.85, percentile: 18 },
+        { date: day(0), dischargeCfs: 90, gaugeHeightFt: 1.85, percentile: 18 },
+      ],
+      band: { p25: 85, p50: 95, p75: 140 },
     },
   ],
 };
@@ -271,11 +317,27 @@ async function main() {
       // Both rivers rate from the one physical gauge — the statewide payload
       // has a single entry for the shared site, and lookups must go by site
       // number, not river slug, or the second river loses its reading.
-      check('shared gauge serves BOTH rivers (2/3 go)', /2\/3 go/.test(dockText));
+      check('shared gauge serves BOTH rivers (2/4 go)', /2\/4 go/.test(dockText));
       check('per-row 24h trend arrow', /[▲▼→] 24h/.test(dockText));
       check('gauge-less river says so', /no live gauge/i.test(dockText));
+      check('percentile in plain language on rows', /P\d+ · .*normal/i.test(dockText));
 
       await page.screenshot({ path: path.join(OUT_DIR, 'desktop.png') });
+
+      // Pin the shared-gauge river → RiverCard shows the disclosure + the
+      // AA tint-and-ink verdict banner (screenshot for contrast review).
+      await page.locator('aside button', { hasText: 'Courtois Creek' }).first().click();
+      await page.waitForTimeout(500);
+      const railText = (await page.textContent('body')) ?? '';
+      check('river card discloses shared gauge', /Reading via shared gauge #\d+/i.test(railText));
+      await page.screenshot({ path: path.join(OUT_DIR, 'desktop-rail.png') });
+
+      // Pin the flatlined river → 'unchanged N days' disclosure.
+      await page.locator('aside button', { hasText: 'Flatline Fork' }).first().click();
+      await page.waitForTimeout(500);
+      const flatText = (await page.textContent('body')) ?? '';
+      check('flatlined reading disclosed', /unchanged 3 days/i.test(flatText));
+
       await page.close();
     }
 
