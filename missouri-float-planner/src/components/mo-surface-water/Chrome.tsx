@@ -539,7 +539,7 @@ function RiverCard({
   const accessSummary = showAllAccess ? allAccess : allAccess.slice(0, 4);
 
   return (
-    <RailSheet onClose={onClose} z="z-20" ariaLabel={river.name}>
+    <RailSheet onClose={onClose} z="z-40" ariaLabel={river.name}>
     <div className="p-4">
       {onClose && (
         <div className="absolute right-3 top-3">
@@ -773,7 +773,7 @@ function GaugeDetail({
     ? (gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : '—')
     : (gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—');
   return (
-    <RailSheet onClose={onClose} z="z-30" ariaLabel={`Gauge ${gauge.site_no}`}>
+    <RailSheet onClose={onClose} z="z-40" ariaLabel={`Gauge ${gauge.site_no}`}>
     <div className="p-4">
       <div className="flex items-start justify-between">
         <div>
@@ -1869,7 +1869,7 @@ export function ContextSiteCard({
   onClose: () => void;
 }) {
   return (
-    <RailSheet onClose={onClose} z="z-30" tall={false} className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS site ${site.site_no}`}>
+    <RailSheet onClose={onClose} z="z-40" tall={false} className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS site ${site.site_no}`}>
     <div className="p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
