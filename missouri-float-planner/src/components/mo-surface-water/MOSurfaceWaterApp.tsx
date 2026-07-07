@@ -264,15 +264,18 @@ export default function MOSurfaceWaterApp() {
   // the same day the map is painting.
   const readingByRiver: Record<string, DockRiverReading> = useMemo(() => {
     const out: Record<string, DockRiverReading> = {};
-    const liveByRiver = new Map<string, MoStatewideGauge>();
+    // By SITE, not river slug — the statewide payload has one entry per
+    // physical gauge, so a shared primary (07017200 → Courtois + Huzzah)
+    // must serve both rivers' rows (see computeTodayVerdicts).
+    const liveBySite = new Map<string, MoStatewideGauge>();
     for (const g of gauges) {
-      if (g.is_primary && !liveByRiver.has(g.river_slug)) liveByRiver.set(g.river_slug, g);
+      if (!liveBySite.has(g.site_no)) liveBySite.set(g.site_no, g);
     }
     for (const r of rivers) {
       const primary = (r.gauges ?? []).find((g) => g.is_primary);
       if (!primary) { out[r.slug] = { value: null, unit: 'ft', dischargeCfs: null }; continue; }
       if (isToday) {
-        const live = liveByRiver.get(r.slug);
+        const live = liveBySite.get(primary.site_id);
         out[r.slug] = {
           value: primary.threshold_unit === 'ft'
             ? live?.gaugeHeightFt ?? null

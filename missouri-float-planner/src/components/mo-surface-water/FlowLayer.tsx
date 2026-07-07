@@ -110,6 +110,11 @@ export default function FlowLayer({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !enabled || rivers.length === 0) return;
+    // MOMap already unmounts this layer under reduced motion, but its
+    // media-query hook initializes false and flips in an effect — this
+    // synchronous check closes the one-frame race where particles could
+    // draw before that state propagates.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 

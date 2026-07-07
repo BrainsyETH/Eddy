@@ -43,3 +43,4 @@ remotion/out/
 remotion/node_modules/
 tmp/
 .terrain-tile-cache/
+.smoke/
