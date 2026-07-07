@@ -10,6 +10,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeCondition } from '@/lib/conditions';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
 import type { ConditionCode } from '@/types/api';
 
 export type ThresholdSource = 'usgs' | 'nws_ahps' | 'outfitter' | 'editorial';
@@ -177,18 +178,46 @@ export function colorForPercentile(p: number | null | undefined): string {
 
 export type StageVerdict = ConditionCode;
 
+// Labels and colors come straight from the canonical condition system so the
+// map can never drift from /rivers, /plan, or the Reels. `desc` is a compact
+// variant of CONDITION_SYSTEM[code].description sized for the RiverCard
+// verdict banner (one line next to a 22px reading); `inner` is only used by
+// the flood dash overlay on the map lines. `unknown` displays as '—' here —
+// the dock chips are too narrow for the word "Unknown".
+const STAGE_DESC: Record<ConditionCode, string> = {
+  too_low: 'Too low to float — frequent dragging and portaging likely.',
+  low: 'Low — expect some dragging in shallow areas.',
+  good: 'Good — floatable with minimal dragging.',
+  flowing: 'Ideal conditions. Go.',
+  high: 'Fast current — strong paddlers only.',
+  dangerous: 'Flood-stage water. Do not float.',
+  unknown: '',
+};
+
+const STAGE_INNER: Record<ConditionCode, string> = {
+  too_low: '#A49C8E',
+  low: '#F2C94C',
+  good: '#A8DD3F',
+  flowing: '#34D399',
+  high: '#FB923C',
+  dangerous: '#F87171',
+  unknown: '#A49C8E',
+};
+
 export const STAGE_VERDICTS: Record<
   ConditionCode,
   { label: string; color: string; inner: string; desc: string }
-> = {
-  too_low:   { label: 'Too Low',  color: CONDITION_COLORS.too_low,   inner: '#A49C8E', desc: 'Too low to float — frequent dragging and portaging likely.' },
-  low:       { label: 'Low',      color: CONDITION_COLORS.low,       inner: '#F2C94C', desc: 'Low — expect some dragging in shallow areas.' },
-  good:      { label: 'Good',     color: CONDITION_COLORS.good,      inner: '#A8DD3F', desc: 'Good — floatable with minimal dragging.' },
-  flowing:   { label: 'Flowing',  color: CONDITION_COLORS.flowing,   inner: '#34D399', desc: 'Ideal conditions. Go.' },
-  high:      { label: 'High',     color: CONDITION_COLORS.high,      inner: '#FB923C', desc: 'Fast current — strong paddlers only.' },
-  dangerous: { label: 'Flood',    color: CONDITION_COLORS.dangerous, inner: '#F87171', desc: 'Flood-stage water. Do not float.' },
-  unknown:   { label: '—',        color: CONDITION_COLORS.unknown,   inner: '#A49C8E', desc: '' },
-};
+> = Object.fromEntries(
+  (Object.keys(CONDITION_SYSTEM) as ConditionCode[]).map((code) => [
+    code,
+    {
+      label: code === 'unknown' ? '—' : CONDITION_SYSTEM[code].label,
+      color: CONDITION_SYSTEM[code].solid,
+      inner: STAGE_INNER[code],
+      desc: STAGE_DESC[code],
+    },
+  ]),
+) as Record<ConditionCode, { label: string; color: string; inner: string; desc: string }>;
 
 /**
  * Given a current reading + the river's primary-gauge thresholds, classify
