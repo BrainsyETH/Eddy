@@ -639,6 +639,9 @@ export default function MOMap(props: MOMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.rivers, props.verdictByRiver, props.percentileByGauge, riverGradients, project]);
 
+  // Terrain raster: AVIF first, PNG on decode failure (older Safari).
+  const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
+
   // Particle budget: 700 desktop / 300 small screens or low-end hardware
   // (docs/mo-surface-water-observatory.md). Sampled once per mount.
   const [maxParticles] = useState(() => {
@@ -760,18 +763,22 @@ export default function MOMap(props: MOMapProps) {
             plateau, river valleys, and the Bootheel drop-off read as
             actual landforms. Relief lives in the alpha channel (shadow
             ink + sun highlights over transparent flats), so it composites
-            plainly on the parchment. One static ~390 KB raster; zero
-            runtime tile fetches. See scripts/build-mo-hillshade.ts. */}
+            plainly on the parchment. One static raster, zero runtime tile
+            fetches: AVIF (~200 KB — alpha-heavy content that WebP/PNG
+            can't compress well) with the original PNG (~560 KB) as an
+            onError fallback for browsers without AVIF.
+            See scripts/build-mo-hillshade.ts. */}
         {props.showTerrain !== false && (
           <g style={fadeIn(350, 1400)} pointerEvents="none">
             <image
-              href="/mo-hillshade.png"
+              href={hillshadeHref}
               x={0}
               y={0}
               width={W}
               height={H}
               preserveAspectRatio="none"
               opacity={0.75}
+              onError={() => setHillshadeHref('/mo-hillshade.png')}
             />
           </g>
         )}
