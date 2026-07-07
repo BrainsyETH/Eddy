@@ -5,6 +5,7 @@
 
 import type { FlowProvider } from './types';
 import { UsgsProvider } from './usgs';
+import { NwsProvider } from './nws';
 
 export type {
   FlowProvider,
@@ -16,6 +17,9 @@ export type {
 
 const PROVIDERS: Record<string, FlowProvider> = {
   usgs: new UsgsProvider(),
+  // NWPS gauges (siteId = NWS LID) — for sites NWS observes but USGS
+  // telemetry doesn't, e.g. St. Francis at Roselle (ROZM7).
+  nws: new NwsProvider(),
 };
 
 export const DEFAULT_PROVIDER_ID = 'usgs';

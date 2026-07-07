@@ -65,12 +65,14 @@ interface NHDResponse {
 
 // Create Supabase admin client
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Accept either the app's canonical names or the shorter SUPABASE_URL/SUPABASE_KEY
+  // convention (SUPABASE_KEY must be the service_role key, not the anon key).
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
   if (!url || !serviceKey) {
     throw new Error(
-      'Missing environment variables. Make sure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.'
+      'Missing environment variables. Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = the service_role key).'
     );
   }
 

@@ -1,5 +1,5 @@
 {
-  "_status": "STUB+RUN1 — identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-gasconade.md written; lat/lon + params + drainage backfilled for all 3 reach gauges (Hazelgreen/Jerome/Rich Fountain, all ACTIVE + pollable). NWS JRMM7 flood set resolved to a clean 13/15/25/30 ft. [UPPER LADDER ENCODED 2026-07-06] Hazelgreen reach now carries a moherp OBSERVED (paddler trip-calibrated) cfs ladder — Low 100 / Good 200 / High 1000, trip-corroborated, confidence medium; moherp ESTIMATED values recorded as reference only per the calibration decision. STILL NEEDED: (1) Jerome + Rich Fountain ladders (moherp Jerome page may have observed values; Rich Fountain does not — Agnew per-reach Navigability tables remain the corroboration target), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage — impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
+  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN1 — identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-gasconade.md written; lat/lon + params + drainage backfilled for all 3 reach gauges (Hazelgreen/Jerome/Rich Fountain, all ACTIVE + pollable). NWS JRMM7 flood set resolved to a clean 13/15/25/30 ft. [UPPER LADDER ENCODED 2026-07-06] Hazelgreen reach now carries a moherp OBSERVED (paddler trip-calibrated) cfs ladder — Low 100 / Good 200 / High 1000, trip-corroborated, confidence medium; moherp ESTIMATED values recorded as reference only per the calibration decision. STILL NEEDED: (1) Jerome + Rich Fountain ladders (moherp Jerome page may have observed values; Rich Fountain does not — Agnew per-reach Navigability tables remain the corroboration target), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage — impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
   "name": "Gasconade River",
   "slug": "gasconade",
   "state": "MO",
@@ -181,8 +181,8 @@
   ],
   "weatherPoint": {
     "city": "Waynesville",
-    "lat": null,
-    "lon": null
+    "lat": 37.8287,
+    "lon": -92.2007
   },
   "alertSearchTerms": [
     "gasconade river",
