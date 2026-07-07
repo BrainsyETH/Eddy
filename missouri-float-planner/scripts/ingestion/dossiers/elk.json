@@ -1,0 +1,53 @@
+{
+  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). ",
+  "name": "Elk River",
+  "slug": "elk",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I",
+  "description": "A warm, popular summer float in the far-southwest Missouri corner (McDonald County) around Noel and Pineville. Gravel bars, bluffs, heavy summer traffic; more rain-influenced and warmer than the deep-Ozark springs.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
+    "confidence": "medium"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Pineville",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "elk river",
+    "mcdonald county",
+    "noel",
+    "pineville",
+    "lanagan"
+  ],
+  "research": {
+    "date": null,
+    "sourcesConsulted": [],
+    "openQuestions": [
+      "Reach division: Short river — likely one calibration reach (Pineville → Noel → Tiff City).",
+      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): Elk River near Tiff City; Big Sugar Creek near Powell"
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
+      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
+      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
+      "MDC / outfitter floatability stage (ft) statements per reach",
+      "Full MDC access-point list with coordinates (human places every point)",
+      "County list for NWS alert terms (seeded: McDonald)"
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). River-specific caution: Upper reach carries Springfield urban runoff (flashier, water-quality notes); lower Galena reach is the recreational float. Note the divergence.",
+  "name": "James River",
+  "slug": "james",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I",
+  "description": "A southwest-Missouri float and smallmouth stream draining the Springfield plateau to Table Rock Lake. The Galena reach is the classic float; upper reaches near Springfield carry urban runoff.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
+    "confidence": "medium"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Galena",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "james river",
+    "greene county",
+    "christian county",
+    "stone county",
+    "galena",
+    "hootentown",
+    "springfield"
+  ],
+  "research": {
+    "date": null,
+    "sourcesConsulted": [],
+    "openQuestions": [
+      "Reach division: Upper (near Springfield, urban) vs lower (Galena → Table Rock) — 2 reaches.",
+      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): James River near Galena; James River at Springfield",
+      "River-type / character check: Upper reach carries Springfield urban runoff (flashier, water-quality notes); lower Galena reach is the recreational float. Note the divergence."
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
+      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
+      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
+      "MDC / outfitter floatability stage (ft) statements per reach",
+      "Full MDC access-point list with coordinates (human places every point)",
+      "County list for NWS alert terms (seeded: Greene, Christian, Stone)"
+    ]
+  }
+}

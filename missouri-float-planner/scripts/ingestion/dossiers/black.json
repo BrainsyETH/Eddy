@@ -1,0 +1,181 @@
+{
+  "_status": "STUB+RUN1 — identity/access/character populated and gauges drafted from WebSearch-tier research (see black-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-black.md written; lat/lon + params + drainage backfilled. KEY FIX: Lesterville 07061400 confirmed DISCONTINUED (water-quality only) — Annapolis 07061500 is the ONLY pollable representative for the float reach; E.Fork 07061270 active (tributary); below-Annapolis 07061600 last reported 2025-12. [FIRST ANCHOR ENCODED 2026-07-06] optimal_min = 180 cfs @ Annapolis from the moherp OBSERVED paddler rating (corroborated by two Good trips at 189/192 cfs); the site's model-ESTIMATED values are recorded as reference only (estimated Good 536 vs observed 180 — a 3× model miss that re-validates the calibration decision). Two lower-river gauge CANDIDATES logged for the future dam_tailwater reach: Poplar Bluff 07063000 (active) and Williamsville 07062575 (likely dead) — not in gauges[] pending USGS verification. STILL NEEDED: (1) the rest of the floatability ladder (too_low/low/optimal_max/high) from an Agnew Navigability table or Lesterville outfitter guidance, (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from nwsLid=ANNM7 at ingest (the 6/8/15/25 ft set found in search is recorded only as a single-source cross-check in research.openQuestions). Direct fetch of USGS/NWS/MCFA is 403-blocked here; re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-black.md, then flip _status to SIGNED-OFF.",
+  "name": "Black River",
+  "slug": "black",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I-II",
+  "description": "A clear, popular southeast-Missouri Ozark float river below the St. Francois Mountains. The Lesterville reach (above Clearwater Lake) is a summer-float hotspot with gravel bars and bluffs; below Clearwater Lake the river becomes a dam-influenced lower reach toward Poplar Bluff. Multi-fork headwaters (East/Middle/West Forks) converge near Lesterville.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
+    "confidence": "medium"
+  },
+  "seasonalClosures": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07061500",
+      "name": "Black River near Annapolis, MO",
+      "lat": 37.33813889,
+      "lon": -90.78875,
+      "paramsAvailable": ["00060", "00065"],
+      "drainageAreaSqMi": 484,
+      "nwsLid": "ANNM7",
+      "servesSections": ["upper-lesterville"],
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 1985→2026, 00065 2007→2026). Long-record HCDN main gauge for the upper Black above Clearwater Lake, Reynolds Co. THE ONLY pollable representative for the float reach (Lesterville 07061400 is discontinued). Represents the downstream end of the Lesterville→Hwy K reach.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061400",
+      "name": "Black River near Lesterville, MO",
+      "lat": 37.44060375,
+      "lon": -90.8326218,
+      "paramsAvailable": [],
+      "drainageAreaSqMi": 430,
+      "servesSections": [],
+      "knownBias": "VERIFIED but NOT real-time: USGS site service shows water-quality only (1993), no uv 00060/00065 — DISCONTINUED. Do NOT poll or use as representative despite being closer to the put-in. (Removed from servesSections.)",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061600",
+      "name": "Black River below Annapolis, MO",
+      "lat": 37.325194,
+      "lon": -90.764667,
+      "paramsAvailable": ["00060", "00065"],
+      "drainageAreaSqMi": 493,
+      "servesSections": [],
+      "knownBias": "VERIFIED. uv 00060/00065 ran 2006 → 2025-12-03 then stops — possibly recently discontinued; verify it is still reporting before use. Just downstream of Annapolis.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061270",
+      "name": "East Fork Black River near Lesterville, MO",
+      "lat": 37.55255556,
+      "lon": -90.8424444,
+      "paramsAvailable": ["00060", "00065"],
+      "drainageAreaSqMi": 52.2,
+      "servesSections": [],
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 2003→2026, also temp/DO; AW gauge id 6922). Tributary — represents the East Fork only, not the main-stem float reach; do not key main-stem floatability to it.",
+      "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07061170",
+      "name": "Middle Fork Black River near Lesterville, MO",
+      "lat": 37.48060338,
+      "lon": -90.9029007,
+      "paramsAvailable": [],
+      "servesSections": [],
+      "knownBias": "VERIFIED but NOT real-time: water-quality only (1965, 1993), no uv. Discontinued. Reference only.",
+      "_verify": true
+    }
+  ],
+  "sections": [
+    {
+      "slug": "upper-lesterville",
+      "name": "Upper Black (Lesterville to Hwy K / Annapolis)",
+      "description": "The popular summer-float reach above Clearwater Lake: Lesterville down toward Highway K west of Annapolis. Clear, spring-influenced Ozark float with gravel bars and bluffs; Class I with some faster water. Family float + smallmouth fishery.",
+      "putIn": { "name": "Lesterville", "lat": null, "lon": null },
+      "takeOut": { "name": "Highway K (west of Annapolis)", "lat": null, "lon": null },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "07061500",
+        "rationale": "Annapolis (07061500) is the long-record HCDN gauge with an NWS forecast point (ANNM7) covering the downstream end of the float reach; Lesterville (07061400) is the closer upper alternative to weigh at signoff",
+        "knownBias": "sits at the downstream end of the reach; upper put-in near Lesterville may run lower"
+      },
+      "thresholds": [
+        { "level": "optimal_min", "value": 180, "unit": "cfs", "referenceGauge": "07061500", "referenceGaugeIsPolled": true, "source": "rivers.moherp.org Missouri paddler gauge ratings, Black River Annapolis 07061500 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) rating — Good begins at 180 cfs. The ONLY observed anchor on this gauge; the site's ESTIMATED values (e.g. Good 536) are model-derived and rejected per the calibration decision.", "corroboratingSources": ["moherp trip reports rated Good at 192 cfs / 4.18 ft (2016-11-12, Mill Creek→Bluff Cave, 8.3 mi) and 189 cfs / 4.17 ft (2016-11-13, Bluff Cave→Rt K, 6.0 mi)"], "confidence": "medium" }
+      ],
+      "publishedFloatTimes": [
+        { "reachLabel": "Mill Creek to Bluff Cave", "distanceMiles": 8.3, "source": "rivers.moherp.org trip report (2016-11-12), Annapolis gauge page" },
+        { "reachLabel": "Bluff Cave to Rt K", "distanceMiles": 6.0, "source": "rivers.moherp.org trip report (2016-11-13), Annapolis gauge page" }
+      ],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": ["strainer", "gravel_bar", "bluff"],
+        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs/ft floatability threshold was captured; only generic guidance (boats drag on most riffles when low). Capture a Lesterville/Annapolis-keyed minimum from MDC/outfitter sources.",
+        "risingWaterHazards": "Rain-responsive; rises bring strong current and strainers. NWS ANNM7 flood/action stages auto-fill at ingest (search found action 6 / minor 8 / moderate 15 / major 25 ft — SINGLE-SOURCE, treat as cross-check only).",
+        "rainLagHours": null,
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Al Agnew: the three forks (West largest, Middle second, East smallest) converge near Lesterville; the main stem from there to Clearwater Reservoir is one of the more popular canoeing streams in Missouri — big campgrounds and canoe rentals in/below Lesterville. Exceptionally clear water (perhaps the clearest in the Ozarks), vast gravel bars, occasional sheer cliffs. Smallmouth + goggle-eye; sucker 'grabbing' (snagging) popular.",
+        "Clearwater Dam (flood control) sits below this reach: normal pool inundates only 5–6 mi of channel, but the HIGH-WATER pool backs all the way to the Highway K area (~10 mi upstream) — so the effective downstream limit of the float reach moves with lake level.",
+        "West Fork floatable from ~Centerville; Middle Fork often floated from the Hwy 21-72 bridge; East Fork (Taum Sauk / Johnson Shut-ins / Bell Mountain Wilderness) is NOT considered floatable.",
+        "Below Clearwater Dam the river is a separate, slower, dam-influenced reach (warmer/murkier releases favor spotted bass over smallmouth); canoe liveries only just below the dam; much of the lower river is within Mark Twain NF. Leaves the Ozarks at Poplar Bluff into slow lowland water."
+      ]
+    }
+  ],
+  "accessPoints": [
+    { "name": "Mill Creek", "type": "access", "lat": null, "lon": null, "section": "upper-lesterville", "notes": "Named put-in in moherp trip reports; 8.3 mi above Bluff Cave.", "source": "https://rivers.moherp.org/gauge/?gauge=07061500" },
+    { "name": "Bluff Cave", "type": "access", "lat": null, "lon": null, "section": "upper-lesterville", "notes": "Named access in moherp trip reports; 6.0 mi above Rt K.", "source": "https://rivers.moherp.org/gauge/?gauge=07061500" },
+    { "name": "Markham Springs", "type": "access", "lat": null, "lon": null, "ownership": "USFS", "notes": "LOWER river (below Clearwater Dam, Williamsville area) — named put-in in a moherp trip (2.7 mi to Hammer, Good at 507 cfs on the Williamsville gauge, 2021-10-17). Belongs to the future dam_tailwater lower reach, no section yet.", "source": "https://rivers.moherp.org/gauge/?gauge=07062575" },
+    { "name": "Hammer access", "type": "access", "lat": null, "lon": null, "notes": "LOWER river take-out 2.7 mi below Markham Springs (moherp trip). Future dam_tailwater reach.", "source": "https://rivers.moherp.org/gauge/?gauge=07062575" }
+  ],
+  "weatherPoint": {
+    "city": "Lesterville",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "black river",
+    "reynolds county",
+    "wayne county",
+    "butler county",
+    "iron county",
+    "lesterville",
+    "annapolis",
+    "piedmont",
+    "poplar bluff"
+  ],
+  "research": {
+    "date": "2026-07-06",
+    "sourcesConsulted": [
+      "https://missouricanoe.org/black-river/",
+      "https://www.floatmissouri.com/plan/missouri-rivers/black-river/",
+      "https://www.lestervillemissouri.com/float-trips/",
+      "https://water.noaa.gov/gauges/annm7",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07061500/",
+      "https://www.missourigreatoutdoors.com/black-river-levels"
+    ],
+    "appRenderConfirmed": "Eddy Black/Gasconade gauge wiring verified end-to-end 2026-07-06 (owner screenshots): aggregate streamflow, per-gauge cards, and trend chart render on live USGS data.",
+    "flowStatisticsUsgs": {
+      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source — frequency statistics do not encode channel geometry (falsified by Bourbeuse: Agnew's verified table shows median summer flow there = scraping, while median summer flow on the Black floats fine; the stats cannot distinguish the two). Retain ONLY as context (% of normal) and sanity-check data. Thresholds must come from human floatability sources (Agnew navigability table > outfitter minimums > MDC), per the calibration hierarchy.",
+      "07061500_annapolis_cfs": { "basis": "87 years, July 6 daily mean", "low": 93.7, "p25": 149.0, "median": 204.0, "p75": 274.0, "mean": 270.4, "high": 1270.0, "latestObserved": 288, "latestDate": "2026-07-06" }
+    },
+    "moherpRatings": {
+      "note": "rivers.moherp.org paddler gauge ratings (owner-provided 2026-07-06). OBSERVED = trip-calibrated → encoded as thresholds. ESTIMATED = site model → reference only. FALSIFICATION ON THIS GAUGE: estimated Good 536 cfs vs OBSERVED Good 180 cfs (~3× off), with two real trips floating Good at 189/192 — model-derived thresholds mis-calibrate, which is exactly why the calibration decision rejects them.",
+      "07061500_annapolis": { "observed_cfs": { "good": 180 }, "estimated_cfs": { "poor": 153, "low": 286, "good": 536, "high": 956, "flood": 2013 }, "latest": "Good (288 cfs), median 204 — 2026-07-06" },
+      "07063000_poplarbluff_CANDIDATE": { "observed_cfs": null, "estimated_cfs": { "poor": 340, "low": 651, "good": 992, "high": 2065, "flood": 4093 }, "latest": "Low (947 cfs), median 713 — 2026-07-06 (ACTIVE)", "note": "The gauge for the future dam_tailwater lower reach. NOT added to gauges[] — needs USGS site-service verification first (the [verify] gate)." },
+      "07062575_williamsville_CANDIDATE": { "observed_cfs": null, "estimated_cfs": { "poor": 314, "low": 627, "good": 1529, "high": 2565, "flood": 4725 }, "latest": "STALE — last update 2025-11-28, 'no discharge data to display'; likely discontinued", "note": "Historical reference: Markham Springs→Hammer trip (2021-10-17, 2.7 mi) rated Good at 507 cfs / 3.40 ft. Verify status via USGS site service before any use." }
+    },
+    "openQuestions": [
+      "CALIBRATION CORE (PARTIALLY RESOLVED 2026-07-06): optimal_min = 180 cfs @ 07061500 encoded from the moherp OBSERVED rating, corroborated by two Good trips at 189/192 cfs. STILL MISSING: too_low / low / optimal_max / high anchors — moherp has no other observed values on this gauge (its estimated set is rejected). Sources to complete the ladder: an Agnew 'Navigability' table for the Black, or Lesterville outfitter minimum/maximum guidance, or accumulating moherp trip reports at other levels.",
+      "REACH STRUCTURE (Agnew-confirmed): upper float reach = forks/Lesterville → Highway K (moves with Clearwater high pool) = clear spring-fed float @ Annapolis 07061500. A SEPARATE lower reach below Clearwater Dam toward Poplar Bluff is dam-influenced (warmer/murkier, slower) — would be river_type=dam_tailwater with its own gauge (a Black River at Poplar Bluff gauge, not in the current set); out of scope until that gauge is added.",
+      "Representative gauge choice [signoff]: Annapolis (07061500, has the NWS LID) vs Lesterville (07061400, closer to the put-in). Confirm which the app should poll for this reach.",
+      "Lower reach below Clearwater Lake is a dam-influenced tailwater toward Poplar Bluff — not researched here; if added it likely needs river_type=dam_tailwater and its own gauge (e.g. Black River at Poplar Bluff).",
+      "CROSS-CHECK (do not ingest as-is): search reported ANNM7 flood categories Action 6 / Minor 8 / Moderate 15 / Major 25 ft — single-source; the authoritative values come from fetch-nws-flood-stages.ts."
+    ],
+    "toVerify": [
+      "USGS 07061500 (Annapolis), 07061400 (Lesterville), 07061600 (below Annapolis), 07061270 (E.Fork), 07061170 (M.Fork): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-black.md",
+      "Gauge-keyed floatability thresholds (cfs or ft) for the Lesterville→Annapolis reach (MDC / outfitter)",
+      "NWS ANNM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
+      "Full MDC access-point list with coordinates (human places every point)"
+    ]
+  }
+}
