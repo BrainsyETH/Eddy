@@ -439,7 +439,7 @@ function RailSheet({
   onClose,
   className = 'md:w-[min(360px,calc(100vw-24px))]',
   tall = true,
-  z = 'z-30',
+  z = 'z-40',
   ariaLabel,
   children,
 }: {
@@ -450,8 +450,41 @@ function RailSheet({
   ariaLabel?: string;
   children: React.ReactNode;
 }) {
-  const [dragDY, setDragDY] = useState(0);
-  const startY = useRef<number | null>(null);
+  // Mobile is a two-snap bottom sheet: opens at a small PEEK (headline only)
+  // and swipes up to EXPANDED for the full card; swiping the handle below
+  // peek dismisses. Desktop (md+) stays the right-side panel — the height
+  // logic only applies on phones. (MOMap is ssr:false, so reading matchMedia
+  // at init is safe — no hydration mismatch.)
+  const [isMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
+  );
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const PEEK = Math.round(vh * 0.44);
+  const EXPANDED = Math.round(vh * 0.88);
+  const [height, setHeight] = useState(PEEK);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+
+  // Each new selection (ariaLabel changes) reopens at peek.
+  useEffect(() => { setHeight(PEEK); }, [ariaLabel, PEEK]);
+
+  const onHandleStart = (e: React.TouchEvent) => {
+    dragRef.current = { startY: e.touches[0].clientY, startH: height };
+    setDragging(true);
+  };
+  const onHandleMove = (e: React.TouchEvent) => {
+    if (!dragRef.current) return;
+    const dy = dragRef.current.startY - e.touches[0].clientY; // up = grow
+    setHeight(Math.max(80, Math.min(EXPANDED, dragRef.current.startH + dy)));
+  };
+  const onHandleEnd = () => {
+    setDragging(false);
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    if (height < PEEK * 0.6) { onClose?.(); return; } // dragged well below peek → dismiss
+    setHeight(Math.abs(height - EXPANDED) < Math.abs(height - PEEK) ? EXPANDED : PEEK);
+  };
+
   return (
     <>
       {/* Mobile backdrop — the missing tap-outside-to-close. */}
@@ -466,23 +499,23 @@ function RailSheet({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
-        className={`${z} overflow-auto border-2 fixed inset-x-0 bottom-0 max-h-[86dvh] rounded-t-2xl md:absolute md:inset-x-auto md:right-3 md:top-12 md:max-h-none md:rounded-md ${tall ? 'md:bottom-[156px]' : ''} ${className}`}
+        className={`${z} overflow-auto border-2 fixed inset-x-0 bottom-0 rounded-t-2xl md:absolute md:inset-x-auto md:right-3 md:top-12 md:h-auto md:rounded-md ${tall ? 'md:bottom-[156px]' : ''} ${className}`}
         style={{
           ...RAIL_BASE_STYLE,
-          transform: dragDY ? `translateY(${dragDY}px)` : undefined,
-          transition: dragDY ? 'none' : 'transform 220ms cubic-bezier(0.4,0,0.2,1)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          // Explicit height only on phones (peek/expanded); desktop lets the
+          // md: inset classes govern.
+          ...(isMobile ? { height: `calc(${height}px + env(safe-area-inset-bottom, 0px))` } : {}),
+          transition: dragging ? 'none' : 'height 260ms cubic-bezier(0.4,0,0.2,1)',
+          paddingBottom: isMobile ? undefined : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        {/* Drag handle — mobile only; swipe down past a threshold dismisses. */}
+        {/* Drag handle — mobile only; drag up to expand, down to peek/dismiss. */}
         <div
           className="md:hidden sticky top-0 z-10 flex justify-center pt-2.5 pb-1"
           style={{ background: THEME.cardBg, touchAction: 'none' }}
-          onTouchStart={(e) => { startY.current = e.touches[0].clientY; }}
-          onTouchMove={(e) => {
-            if (startY.current != null) setDragDY(Math.max(0, e.touches[0].clientY - startY.current));
-          }}
-          onTouchEnd={() => { if (dragDY > 110) onClose?.(); setDragDY(0); startY.current = null; }}
+          onTouchStart={onHandleStart}
+          onTouchMove={onHandleMove}
+          onTouchEnd={onHandleEnd}
         >
           <div style={{ width: 40, height: 4, borderRadius: 99, background: 'rgba(45,42,36,0.28)' }} />
         </div>
