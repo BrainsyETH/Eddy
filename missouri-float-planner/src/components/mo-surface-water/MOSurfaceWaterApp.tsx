@@ -157,15 +157,29 @@ export default function MOSurfaceWaterApp() {
         .catch(() => {});
     };
     loadSites();
-    const id = setInterval(() => {
-      // refresh the live snapshots every 15 minutes
+    let lastLiveFetchAt = Date.now();
+    const refreshLive = () => {
+      lastLiveFetchAt = Date.now();
       fetch('/api/usgs/mo-statewide')
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => { if (!aborted && j) setStatewide(j); })
         .catch(() => {});
       loadSites();
-    }, 15 * 60 * 1000);
-    return () => { aborted = true; clearInterval(id); };
+    };
+    // refresh the live snapshots every 15 minutes
+    const id = setInterval(refreshLive, 15 * 60 * 1000);
+    // Background tabs throttle (or freeze, on mobile) the interval — a
+    // phone unlocked hours later would show old readings until the next
+    // tick. Refetch immediately on tab return when the data has aged.
+    const onVisible = () => {
+      if (!document.hidden && Date.now() - lastLiveFetchAt > 5 * 60 * 1000) refreshLive();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      aborted = true;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   const rivers: MORiver[] = useMemo(() => dataset?.rivers ?? [], [dataset]);
