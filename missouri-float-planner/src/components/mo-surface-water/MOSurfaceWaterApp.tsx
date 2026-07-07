@@ -37,7 +37,7 @@ import type {
 import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
 import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
-import DataDock, { type DockRiverReading } from './Dock';
+import DataDock, { type DockRiverReading, type DockRiverTrend } from './Dock';
 import {
   RightRail,
   TimeScrubber,
@@ -297,9 +297,39 @@ export default function MOSurfaceWaterApp() {
 
   const floatableCount = rivers.filter((r) => FLOATABLE.has(verdictByRiver[r.slug])).length;
 
+  // 24h direction per river: today's daily value vs yesterday's, in the
+  // gauge's own threshold unit. Small wobble reads as steady, not a trend.
+  // Null when the river has no primary gauge or fewer than two daily points.
+  const trendByRiver: Record<string, DockRiverTrend | null> = useMemo(() => {
+    const out: Record<string, DockRiverTrend | null> = {};
+    for (const r of rivers) {
+      out[r.slug] = null;
+      const primary = (r.gauges ?? []).find((g) => g.is_primary);
+      if (!primary) continue;
+      const ent = historyEntries.find((e) => e.site_no === primary.site_id && e.is_primary);
+      const daily = ent?.daily ?? [];
+      const pick = (d: { gaugeHeightFt: number | null; dischargeCfs: number | null }) =>
+        primary.threshold_unit === 'ft' ? d.gaugeHeightFt : d.dischargeCfs;
+      const vals = daily.map(pick).filter((v): v is number => v != null);
+      if (vals.length < 2) continue;
+      const today = vals[vals.length - 1];
+      const yesterday = vals[vals.length - 2];
+      const delta = today - yesterday;
+      const deadband = primary.threshold_unit === 'ft' ? 0.05 : Math.abs(yesterday) * 0.05;
+      out[r.slug] = {
+        dir: delta > deadband ? 'rising' : delta < -deadband ? 'falling' : 'steady',
+        delta,
+        unit: primary.threshold_unit,
+      };
+    }
+    return out;
+  }, [rivers, historyEntries]);
+
   // Mission-control telemetry for the dock: how much of the network is
   // talking, which way the water is moving (the planning signal), and
-  // whether the next 72h forecast crosses any warning stage.
+  // whether the next 72h forecast crosses any warning stage. The rising/
+  // falling counts are derived from trendByRiver so the aggregate and the
+  // per-row arrows can never disagree.
   const telemetry = useMemo(() => {
     const reporting = gauges.filter(
       (g) => g.dischargeCfs != null || g.gaugeHeightFt != null,
@@ -308,29 +338,17 @@ export default function MOSurfaceWaterApp() {
     let falling = 0;
     let risk72h = 0;
     for (const r of rivers) {
+      const dir = trendByRiver[r.slug]?.dir;
+      if (dir === 'rising') rising++;
+      else if (dir === 'falling') falling++;
       const primary = (r.gauges ?? []).find((g) => g.is_primary);
       if (!primary) continue;
-      // 24h direction: today's daily value vs yesterday's, in the gauge's
-      // own threshold unit. Small wobble reads as steady, not a trend.
-      const ent = historyEntries.find((e) => e.site_no === primary.site_id && e.is_primary);
-      const daily = ent?.daily ?? [];
-      const pick = (d: { gaugeHeightFt: number | null; dischargeCfs: number | null }) =>
-        primary.threshold_unit === 'ft' ? d.gaugeHeightFt : d.dischargeCfs;
-      const vals = daily.map(pick).filter((v): v is number => v != null);
-      if (vals.length >= 2) {
-        const today = vals[vals.length - 1];
-        const yesterday = vals[vals.length - 2];
-        const delta = today - yesterday;
-        const deadband = primary.threshold_unit === 'ft' ? 0.05 : Math.abs(yesterday) * 0.05;
-        if (delta > deadband) rising++;
-        else if (delta < -deadband) falling++;
-      }
       const fc = forecastBySite[primary.site_id];
       const warnStage = primary.action_stage_ft ?? primary.flood_stage_ft;
       if (fc?.peakFt != null && warnStage != null && fc.peakFt >= warnStage) risk72h++;
     }
     return { reporting, rising, falling, risk72h };
-  }, [rivers, gauges, historyEntries, forecastBySite]);
+  }, [rivers, gauges, trendByRiver, forecastBySite]);
 
   // ─── Right-rail selectors ─────────────────────────────────────────────
   const focusedRiver = rivers.find((r) => r.id === focusedRiverId) ?? null;
@@ -467,6 +485,7 @@ export default function MOSurfaceWaterApp() {
         rivers={rivers}
         verdictByRiver={verdictByRiver}
         readingByRiver={readingByRiver}
+        trendByRiver={trendByRiver}
         history={historyEntries}
         hoveredRiverId={hoveredRiverId}
         focusedRiverId={focusedRiverId}

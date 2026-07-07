@@ -30,10 +30,23 @@ export interface DockRiverReading {
   dischargeCfs: number | null;
 }
 
+/** 24h direction at a river's primary gauge (see trendByRiver in the app). */
+export interface DockRiverTrend {
+  dir: 'rising' | 'falling' | 'steady';
+  delta: number;
+  unit: 'ft' | 'cfs';
+}
+
+// Shared trend hues — the aggregate TrendCell and the per-row arrows tell
+// the same story in the same colors.
+const TREND_UP = '#72B5C4';
+const TREND_DOWN = '#B89D72';
+
 export default function DataDock({
   rivers,
   verdictByRiver,
   readingByRiver,
+  trendByRiver,
   history,
   hoveredRiverId,
   focusedRiverId,
@@ -59,6 +72,7 @@ export default function DataDock({
   rivers: MORiver[];
   verdictByRiver: Record<string, StageVerdict>;
   readingByRiver: Record<string, DockRiverReading>;
+  trendByRiver: Record<string, DockRiverTrend | null>;
   history: MoHistoryBundleEntry[];
   hoveredRiverId: string | null;
   focusedRiverId: string | null;
@@ -206,7 +220,8 @@ export default function DataDock({
             >
               {scrubbed ? `Verdict · ${Math.abs(dayOffset)}d ago` : 'Verdict · right now'}
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: '#10b981', fontWeight: 700 }}>
+            {/* The single number the page exists to answer — reads first. */}
+            <span style={{ fontFamily: MONO, fontSize: 13, color: '#10b981', fontWeight: 700 }}>
               {floatable}/{rivers.length} go
             </span>
           </div>
@@ -275,6 +290,7 @@ export default function DataDock({
               river={r}
               verdict={verdictByRiver[r.slug] ?? 'unknown'}
               reading={readingByRiver[r.slug] ?? null}
+              trend={scrubbed ? null : trendByRiver[r.slug] ?? null}
               history={
                 historyBySite.get((r.gauges ?? []).find((g) => g.is_primary)?.site_id ?? '') ?? null
               }
@@ -378,7 +394,7 @@ function TelemetryCell({
       </div>
       <div
         className="mt-1 uppercase"
-        style={{ fontFamily: MONO, fontSize: 7, letterSpacing: '0.12em', color: PARCH_DIM }}
+        style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.12em', color: PARCH_DIM }}
       >
         {label}
       </div>
@@ -405,13 +421,13 @@ function TrendCell({
       style={{ borderColor: 'rgba(242,234,216,0.1)', background: 'rgba(242,234,216,0.03)' }}
     >
       <div className="font-bold" style={{ fontFamily: MONO, fontSize: 15, lineHeight: 1 }}>
-        <span style={{ color: '#72B5C4' }}>▲{up}</span>
+        <span style={{ color: TREND_UP }}>▲{up}</span>
         <span style={{ color: PARCH_DIM, margin: '0 3px' }}>·</span>
-        <span style={{ color: '#B89D72' }}>▼{down}</span>
+        <span style={{ color: TREND_DOWN }}>▼{down}</span>
       </div>
       <div
         className="mt-1 uppercase"
-        style={{ fontFamily: MONO, fontSize: 7, letterSpacing: '0.12em', color: PARCH_DIM }}
+        style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.12em', color: PARCH_DIM }}
       >
         Rising / falling · 24h
       </div>
@@ -468,7 +484,7 @@ function VerdictMini({ code, n, active }: { code: StageVerdict; n: number; activ
       </div>
       <div
         className="mt-0.5 truncate uppercase"
-        style={{ fontFamily: MONO, fontSize: 6.5, letterSpacing: '0.08em', color: PARCH_DIM }}
+        style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.08em', color: PARCH_DIM }}
       >
         {v.label}
       </div>
@@ -480,6 +496,7 @@ function RiverRow({
   river,
   verdict,
   reading,
+  trend,
   history,
   hovered,
   focused,
@@ -491,6 +508,8 @@ function RiverRow({
   river: MORiver;
   verdict: StageVerdict;
   reading: DockRiverReading | null;
+  /** 24h direction; null when unknown or replaying a scrubbed day. */
+  trend: DockRiverTrend | null;
   history: MoHistoryBundleEntry | null;
   hovered: boolean;
   focused: boolean;
@@ -501,6 +520,10 @@ function RiverRow({
 }) {
   const v = STAGE_VERDICTS[verdict];
   const lit = hovered || focused;
+  const trendGlyph = trend ? { rising: '▲', falling: '▼', steady: '→' }[trend.dir] : null;
+  const trendColor = trend
+    ? { rising: TREND_UP, falling: TREND_DOWN, steady: PARCH_DIM }[trend.dir]
+    : PARCH_DIM;
 
   const spark = useMemo(() => {
     const daily = history?.daily ?? [];
@@ -534,7 +557,7 @@ function RiverRow({
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
       aria-pressed={focused}
-      aria-label={`${river.name} — ${v.label}, ${valueLabel}. ${focused ? 'Unpin' : 'Show on map'}`}
+      aria-label={`${river.name} — ${v.label}, ${valueLabel}${trend ? `, ${trend.dir} over 24 hours` : ''}. ${focused ? 'Unpin' : 'Show on map'}`}
       className="group mb-1.5 block w-full rounded-md border p-2.5 text-left transition-all duration-200"
       style={{
         borderColor: lit ? `${v.color}88` : 'rgba(242,234,216,0.09)',
@@ -572,6 +595,15 @@ function RiverRow({
           <span className="font-bold" style={{ fontFamily: MONO, fontSize: 15, color: v.color, lineHeight: 1 }}>
             {valueLabel}
           </span>
+          {trendGlyph && (
+            <span
+              className="ml-2 font-bold"
+              title={`${trend!.dir} over the last 24h`}
+              style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.06em', color: trendColor }}
+            >
+              {trendGlyph} 24h
+            </span>
+          )}
           <span className="ml-2" style={{ fontFamily: MONO, fontSize: 9.5, color: PARCH_FAINT }}>
             {reading?.dischargeCfs != null && reading.unit === 'ft'
               ? `${Math.round(reading.dischargeCfs)} cfs`
