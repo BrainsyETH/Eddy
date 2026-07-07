@@ -21,10 +21,36 @@ import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const SANS = 'var(--font-body), system-ui, sans-serif';
 const DISPLAY = 'var(--font-display), system-ui, sans-serif';
+
+/** Small uppercase verdict pill in the shared system's approved surface —
+ *  tint background + dark ink + mid-tint border. White text on the solid
+ *  condition fills fails AA on the light levels (low/good). */
+function VerdictChipSpan({ code, label }: { code: string; label: string }) {
+  const chip = conditionChip(code);
+  return (
+    <span
+      style={{
+        background: chip.background,
+        color: chip.color,
+        border: `1px solid ${chip.borderColor}`,
+        fontFamily: MONO,
+        fontSize: 9,
+        letterSpacing: '0.1em',
+        padding: '1px 6px',
+        borderRadius: 3,
+        textTransform: 'uppercase',
+        fontWeight: 700,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 // ─── Sparkline + ribbon (real history) ──────────────────────────────────
 
@@ -445,6 +471,7 @@ function RiverCard({
     return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds);
   })();
   const tone = STAGE_VERDICTS[verdict];
+  const bannerChip = conditionChip(verdict);
 
   const allAccess = river.access_points ?? [];
   const [showAllAccess, setShowAllAccess] = useState(false);
@@ -471,9 +498,16 @@ function RiverCard({
         {river.name}
       </div>
 
+      {/* Tint + dark ink + solid inset accent — the shared system's approved
+          chip surface (white on the light condition fills fails AA). */}
       <div
         className="mt-3 flex items-baseline gap-2.5 rounded-md px-3 py-2.5"
-        style={{ background: tone.color, color: '#FAF8F4' }}
+        style={{
+          background: bannerChip.background,
+          color: bannerChip.color,
+          border: `1.5px solid ${bannerChip.borderColor}`,
+          boxShadow: `inset 3px 0 0 ${bannerChip.solid}`,
+        }}
       >
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
           {primaryGauge?.gaugeHeightFt != null
@@ -872,21 +906,7 @@ function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
         >
           Eddy says
         </span>
-        <span
-          style={{
-            background: verdict.color,
-            color: '#FAF8F4',
-            fontFamily: MONO,
-            fontSize: 9,
-            letterSpacing: '0.1em',
-            padding: '1px 6px',
-            borderRadius: 3,
-            textTransform: 'uppercase',
-            fontWeight: 700,
-          }}
-        >
-          {verdict.label}
-        </span>
+        <VerdictChipSpan code={report.conditionCode} label={verdict.label} />
       </div>
       {report.summaryText && (
         <p
@@ -1581,21 +1601,7 @@ export function GaugeHoverOverlay({
             >
               {report ? 'Eddy says' : 'Live reading'}
             </span>
-            <span
-              style={{
-                background: verdict.color,
-                color: '#FAF8F4',
-                fontFamily: MONO,
-                fontSize: 9,
-                letterSpacing: '0.1em',
-                padding: '2px 7px',
-                borderRadius: 3,
-                textTransform: 'uppercase',
-                fontWeight: 700,
-              }}
-            >
-              {verdict.label}
-            </span>
+            <VerdictChipSpan code={conditionCode} label={verdict.label} />
           </div>
           <p
             className="mt-1.5 leading-snug"
