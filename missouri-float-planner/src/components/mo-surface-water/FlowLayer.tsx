@@ -2,8 +2,15 @@
 
 // Animated flow layer — comet particles riding the curated rivers'
 // real geometry, downstream, at a speed set by each river's condition.
-// The nullschool/Windy technique, minus the tile dependency: one canvas,
-// one rAF loop, zero React re-renders per frame.
+// One canvas, one rAF loop, zero React re-renders per frame.
+//
+// This is NOT the nullschool/Windy additive-glow look: those render on
+// black, where 'lighter' compositing and white particle heads read as
+// light. Our rivers flow over a LIGHT parchment landmass, so additive
+// blending just washes toward white and the white heads dominate. We
+// instead draw "ink current" — each particle is a translucent streak in
+// its reach's condition color with a brighter same-hue crest, composited
+// normally, so it reads as colored water moving in the channel.
 //
 // Perf budget (docs/mo-surface-water-observatory.md): ≤700 particles on
 // desktop, ≤300 on small/low-end devices; dt clamped; paused when the
@@ -76,8 +83,10 @@ interface RiverRuntime {
   cum: Float64Array;  // cumulative segment lengths
   total: number;
   speed: number;
-  /** 24-bucket color LUT along the reach (head colors, pre-stringified). */
+  /** 24-bucket condition-color LUT along the reach (pre-stringified rgb). */
   lut: string[];
+  /** Same LUT mixed toward white — the lit crest at each particle head. */
+  headLut: string[];
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -136,6 +145,7 @@ export default function FlowLayer({
           : [{ offset: 0, rgb: [163, 209, 219] as [number, number, number] }];
         const axis = r.axis;
         const lut: string[] = [];
+        const headLut: string[] = [];
         for (let b = 0; b < 24; b++) {
           // Point at fraction f along the LINE; project onto gradient axis.
           const f = b / 23;
@@ -163,8 +173,12 @@ export default function FlowLayer({
           const k = Math.max(0, Math.min(1, (t - lo.offset) / span));
           const rgb = [0, 1, 2].map((c) => Math.round(lo.rgb[c] + (hi.rgb[c] - lo.rgb[c]) * k));
           lut.push(`${rgb[0]},${rgb[1]},${rgb[2]}`);
+          // The lit crest: same hue mixed 42% toward white. Reads as a
+          // sunlit ripple on colored water — not a white pinprick.
+          const head = rgb.map((c) => Math.round(c + (255 - c) * 0.42));
+          headLut.push(`${head[0]},${head[1]},${head[2]}`);
         }
-        return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile), lut };
+        return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile), lut, headLut };
       });
     if (!runtimes.length) return;
 
@@ -251,7 +265,9 @@ export default function FlowLayer({
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
-      ctx.globalCompositeOperation = 'lighter';
+      // Normal compositing — this paints over a LIGHT parchment landmass,
+      // where additive ('lighter') would just wash everything toward white.
+      ctx.globalCompositeOperation = 'source-over';
       ctx.lineCap = 'round';
 
       for (const p of particles) {
@@ -264,18 +280,21 @@ export default function FlowLayer({
         // from the river's mouth back to its source.
         const tailLen = Math.min(14, 2.5 + r.speed * 0.45);
         const [tx, ty] = pointAt(r, Math.max(0.01, p.s - tailLen));
-        const color = r.lut[Math.min(23, Math.floor((p.s / r.total) * 24))];
+        const bucket = Math.min(23, Math.floor((p.s / r.total) * 24));
+        const color = r.lut[bucket];
 
         const hx = x * s + ox;
         const hy = y * s + oy;
-        ctx.strokeStyle = `rgba(${color},0.28)`;
+        // Colored streak in the reach's condition hue — reads on parchment.
+        ctx.strokeStyle = `rgba(${color},0.5)`;
         ctx.lineWidth = Math.max(1, 1.4 * dpr);
         ctx.beginPath();
         ctx.moveTo(tx * s + ox, ty * s + oy);
         ctx.lineTo(hx, hy);
         ctx.stroke();
 
-        ctx.fillStyle = `rgba(255,255,255,0.55)`;
+        // Lit crest — brighter same-hue tone, not white.
+        ctx.fillStyle = `rgba(${r.headLut[bucket]},0.7)`;
         ctx.beginPath();
         ctx.arc(hx, hy, Math.max(0.8, 0.9 * dpr), 0, Math.PI * 2);
         ctx.fill();
