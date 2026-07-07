@@ -27,14 +27,18 @@ export function computeTodayVerdicts(
   forecastBySite: Record<string, MoForecastEntry>,
 ): Record<string, StageVerdict> {
   const out: Record<string, StageVerdict> = {};
-  const liveByRiver = new Map<string, MoStatewideGauge>();
+  // Keyed by SITE, not river slug: the statewide payload carries one entry
+  // per physical gauge tagged with the first river that uses it, so a
+  // shared primary (07017200 → Courtois + Huzzah) must be looked up by
+  // site number or the second river silently loses its reading.
+  const liveBySite = new Map<string, MoStatewideGauge>();
   for (const g of gauges) {
-    if (g.is_primary && !liveByRiver.has(g.river_slug)) liveByRiver.set(g.river_slug, g);
+    if (!liveBySite.has(g.site_no)) liveBySite.set(g.site_no, g);
   }
   for (const r of rivers) {
     const primary = (r.gauges ?? []).find((g) => g.is_primary);
     if (!primary) { out[r.slug] = 'unknown'; continue; }
-    const live = liveByRiver.get(r.slug);
+    const live = liveBySite.get(primary.site_id);
     const value = primary.threshold_unit === 'ft'
       ? live?.gaugeHeightFt ?? null
       : live?.dischargeCfs ?? null;

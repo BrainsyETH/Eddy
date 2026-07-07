@@ -18,8 +18,15 @@ export interface FlowRiver {
   id: string;
   /** Projected polyline in viewBox units. */
   pts: Array<[number, number]>;
-  /** Overall verdict — sets particle speed for the whole reach. */
+  /** Overall verdict — sets the reach's base particle speed. */
   verdict: StageVerdict;
+  /**
+   * USGS flow-statistics percentile (0–100) at the river's primary gauge,
+   * or null when no stats are available. Modulates speed continuously
+   * within the verdict's band — percentile, never raw CFS, because CFS
+   * isn't comparable across rivers.
+   */
+  percentile: number | null;
   /** Gradient axis + stops (matches the SVG linearGradient painting). */
   axis: { x1: number; y1: number; x2: number; y2: number } | null;
   stops: Array<{ offset: number; color: string }>;
@@ -39,11 +46,30 @@ const SPEED: Record<StageVerdict, number> = {
   unknown: 4,
 };
 
+/**
+ * Continuous speed within a condition band: the flow percentile sweeps a
+ * ±20% envelope around the verdict's base speed (P0 → 0.8×, P100 → 1.2×).
+ * ±20% is the widest symmetric band that keeps adjacent conditions strictly
+ * ordered (good×1.2 = 7.8 < flowing×0.8 = 8.0, high×1.2 = 20.4 <
+ * dangerous×0.8 = 20.8), so the 7-level taxonomy still reads at a glance.
+ * No percentile → base speed, exactly the old step behavior.
+ */
+function speedFor(verdict: StageVerdict, percentile: number | null): number {
+  const base = SPEED[verdict] ?? SPEED.unknown;
+  if (percentile == null || Number.isNaN(percentile)) return base;
+  const p = Math.max(0, Math.min(100, percentile));
+  return base * (0.8 + 0.4 * (p / 100));
+}
+
 interface Particle {
   river: number;
   s: number;       // distance along polyline (viewBox units)
   jitter: number;  // 0.85–1.15 speed variance so streams don't march in lockstep
 }
+
+// One log line per page load marking when the first particle frame drew —
+// the "rivers are visibly moving" moment scripts/mosw-smoke.ts asserts on.
+let firstFrameLogged = false;
 
 interface RiverRuntime {
   pts: Array<[number, number]>;
@@ -69,18 +95,26 @@ export default function FlowLayer({
   viewRef,
   enabled,
   maxParticles,
+  style,
 }: {
   rivers: FlowRiver[];
   /** Live view state owned by MOMap — read per frame, never re-rendered. */
   viewRef: RefObject<ViewBox>;
   enabled: boolean;
   maxParticles: number;
+  /** Optional canvas styling (MOMap fades the layer up with the rivers). */
+  style?: React.CSSProperties;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !enabled || rivers.length === 0) return;
+    // MOMap already unmounts this layer under reduced motion, but its
+    // media-query hook initializes false and flips in an effect — this
+    // synchronous check closes the one-frame race where particles could
+    // draw before that state propagates.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -130,7 +164,7 @@ export default function FlowLayer({
           const rgb = [0, 1, 2].map((c) => Math.round(lo.rgb[c] + (hi.rgb[c] - lo.rgb[c]) * k));
           lut.push(`${rgb[0]},${rgb[1]},${rgb[2]}`);
         }
-        return { pts: r.pts, cum, total, speed: SPEED[r.verdict] ?? SPEED.unknown, lut };
+        return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile), lut };
       });
     if (!runtimes.length) return;
 
@@ -165,7 +199,10 @@ export default function FlowLayer({
     let raf = 0;
     let last = performance.now();
     let running = true;
-    // Rolling degradation check
+    // Rolling degradation check. The small-budget tier is already on
+    // constrained hardware, so it gets half the reaction window — ~0.75s
+    // of slow frames instead of ~1.5s before the particle count halves.
+    const SLOW_FRAME_LIMIT = maxParticles <= 300 ? 30 : 60;
     let slowFrames = 0;
 
     const pointAt = (r: RiverRuntime, s: number): [number, number, number] => {
@@ -193,7 +230,7 @@ export default function FlowLayer({
 
       // Self-degrade long before jank becomes visible.
       if (dtMs > 24) {
-        if (++slowFrames >= 60 && particles.length > 120) {
+        if (++slowFrames >= SLOW_FRAME_LIMIT && particles.length > 120) {
           particles = particles.filter((_, i) => i % 2 === 0);
           slowFrames = 0;
           console.info(`[mosw-flow] degraded to ${particles.length} particles`);
@@ -244,6 +281,11 @@ export default function FlowLayer({
         ctx.fill();
       }
 
+      if (!firstFrameLogged) {
+        firstFrameLogged = true;
+        console.info(`[mosw-flow] first-frame ${Math.round(performance.now())}ms`);
+      }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -275,6 +317,7 @@ export default function FlowLayer({
       ref={canvasRef}
       aria-hidden
       className="pointer-events-none absolute inset-0 h-full w-full"
+      style={style}
     />
   );
 }

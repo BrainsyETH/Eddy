@@ -21,10 +21,36 @@ import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import { getEddyImageForCondition } from '@/constants';
+import { conditionChip } from '@shared/condition-system';
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const SANS = 'var(--font-body), system-ui, sans-serif';
 const DISPLAY = 'var(--font-display), system-ui, sans-serif';
+
+/** Small uppercase verdict pill in the shared system's approved surface —
+ *  tint background + dark ink + mid-tint border. White text on the solid
+ *  condition fills fails AA on the light levels (low/good). */
+function VerdictChipSpan({ code, label }: { code: string; label: string }) {
+  const chip = conditionChip(code);
+  return (
+    <span
+      style={{
+        background: chip.background,
+        color: chip.color,
+        border: `1px solid ${chip.borderColor}`,
+        fontFamily: MONO,
+        fontSize: 9,
+        letterSpacing: '0.1em',
+        padding: '1px 6px',
+        borderRadius: 3,
+        textTransform: 'uppercase',
+        fontWeight: 700,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 // ─── Sparkline + ribbon (real history) ──────────────────────────────────
 
@@ -325,6 +351,7 @@ function KV({ label, value, sub }: { label: string; value: string; sub?: string 
 
 export function RightRail({
   river,
+  sharedGauge,
   primaryGauge,
   primaryHistory,
   focusedGauge,
@@ -338,6 +365,9 @@ export function RightRail({
   onAccessPointClick,
 }: {
   river: MORiver | null;
+  /** Set when the river's primary gauge also rates other rivers
+   *  (e.g. USGS 07017200 covers both Courtois and Huzzah). */
+  sharedGauge?: { siteId: string; others: string[] } | null;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
   focusedGauge: MoStatewideGauge | null;
@@ -382,6 +412,7 @@ export function RightRail({
     return (
       <RiverCard
         river={river}
+        sharedGauge={sharedGauge ?? null}
         primaryGauge={primaryGauge}
         primaryHistory={primaryHistory}
         forecast={forecast}
@@ -402,6 +433,7 @@ const RAIL_BASE_STYLE: React.CSSProperties = {
 
 function RiverCard({
   river,
+  sharedGauge,
   primaryGauge,
   primaryHistory,
   forecast,
@@ -409,6 +441,8 @@ function RiverCard({
   onAccessPointClick,
 }: {
   river: MORiver;
+  /** Set when the primary gauge also rates other rivers. */
+  sharedGauge: { siteId: string; others: string[] } | null;
   primaryGauge: MoStatewideGauge | null;
   primaryHistory: MoHistoryBundleEntry | null;
   forecast: MoForecastEntry | null;
@@ -437,6 +471,7 @@ function RiverCard({
     return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds);
   })();
   const tone = STAGE_VERDICTS[verdict];
+  const bannerChip = conditionChip(verdict);
 
   const allAccess = river.access_points ?? [];
   const [showAllAccess, setShowAllAccess] = useState(false);
@@ -463,14 +498,23 @@ function RiverCard({
         {river.name}
       </div>
 
+      {/* Tint + dark ink + solid inset accent — the shared system's approved
+          chip surface (white on the light condition fills fails AA). */}
       <div
         className="mt-3 flex items-baseline gap-2.5 rounded-md px-3 py-2.5"
-        style={{ background: tone.color, color: '#FAF8F4' }}
+        style={{
+          background: bannerChip.background,
+          color: bannerChip.color,
+          border: `1.5px solid ${bannerChip.borderColor}`,
+          boxShadow: `inset 3px 0 0 ${bannerChip.solid}`,
+        }}
       >
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
           {primaryGauge?.gaugeHeightFt != null
             ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
-            : '— ft'}
+            : primaryThresholds
+              ? '— ft'
+              : 'no live gauge'}
         </span>
         <span className="font-bold uppercase"
           style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em' }}>
@@ -478,7 +522,19 @@ function RiverCard({
         </span>
         <span className="ml-auto" style={{ fontSize: 11, opacity: 0.9 }}>{tone.desc}</span>
       </div>
-      <div className="mt-1.5"><DataAgeChip iso={primaryGauge?.readingTimestamp} /></div>
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <DataAgeChip iso={primaryGauge?.readingTimestamp} />
+        <UnchangedChip days={flatlineDays(primaryHistory, primaryGauge)} />
+      </div>
+      {sharedGauge && (
+        <div
+          className="mt-1"
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: THEME.inkDim, lineHeight: 1.5 }}
+        >
+          Reading via shared gauge #{sharedGauge.siteId} — also rates{' '}
+          {sharedGauge.others.join(', ')}; thresholds calibrated per river.
+        </div>
+      )}
 
       {primaryThresholds && (
         <ThresholdProvenance
@@ -853,21 +909,7 @@ function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
         >
           Eddy says
         </span>
-        <span
-          style={{
-            background: verdict.color,
-            color: '#FAF8F4',
-            fontFamily: MONO,
-            fontSize: 9,
-            letterSpacing: '0.1em',
-            padding: '1px 6px',
-            borderRadius: 3,
-            textTransform: 'uppercase',
-            fontWeight: 700,
-          }}
-        >
-          {verdict.label}
-        </span>
+        <VerdictChipSpan code={report.conditionCode} label={verdict.label} />
       </div>
       {report.summaryText && (
         <p
@@ -1485,6 +1527,8 @@ export function GaugeHoverOverlay({
   gauge,
   gaugeName,
   verdict: verdictCode,
+  sharedRiverNames,
+  unchangedDays,
   pos,
 }: {
   gauge: MoStatewideGauge | null;
@@ -1493,6 +1537,11 @@ export function GaugeHoverOverlay({
   /** Editorial condition for this gauge, used for the fallback card when
    *  Eddy has no written report yet. */
   verdict: StageVerdict | null;
+  /** Set (≥2 names) when this one physical gauge is the primary rating
+   *  for multiple rivers — disclosed on the SOURCE line. */
+  sharedRiverNames?: string[] | null;
+  /** Days the reading has sat byte-identical (see flatlineDays), or null. */
+  unchangedDays?: number | null;
   pos: { x: number; y: number } | null;
 }) {
   const report = useGaugeRailReport(gauge);
@@ -1558,21 +1607,7 @@ export function GaugeHoverOverlay({
             >
               {report ? 'Eddy says' : 'Live reading'}
             </span>
-            <span
-              style={{
-                background: verdict.color,
-                color: '#FAF8F4',
-                fontFamily: MONO,
-                fontSize: 9,
-                letterSpacing: '0.1em',
-                padding: '2px 7px',
-                borderRadius: 3,
-                textTransform: 'uppercase',
-                fontWeight: 700,
-              }}
-            >
-              {verdict.label}
-            </span>
+            <VerdictChipSpan code={conditionCode} label={verdict.label} />
           </div>
           <p
             className="mt-1.5 leading-snug"
@@ -1593,18 +1628,28 @@ export function GaugeHoverOverlay({
               letterSpacing: '0.04em',
             }}
           >
+            {/* The reading's age (and its STALE flag) always shows — a fresh
+                Eddy report must never mask an old number underneath it. */}
             <span style={{ color: THEME.ink, fontWeight: 700 }}>SOURCE</span>{' '}
-            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} ·{' '}
-            {report
-              ? relativeTime(report.generatedAt)
-              : readingAge(gauge.readingTimestamp)?.label ?? 'no timestamp'}
-            {!report && readingAge(gauge.readingTimestamp)?.stale && (
+            USGS #{gauge.site_no}{place ? ` · ${place}` : ''} · reading{' '}
+            {readingAge(gauge.readingTimestamp)?.label ?? 'no timestamp'}
+            {readingAge(gauge.readingTimestamp)?.stale && (
               <span
                 className="ml-1.5 rounded-sm px-1 py-px font-bold uppercase"
                 style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
               >
                 Stale
               </span>
+            )}
+            {unchangedDays != null && (
+              <span className="ml-1.5"><UnchangedChip days={unchangedDays} /></span>
+            )}
+            {gauge.percentile != null && (
+              <> · P{Math.round(gauge.percentile)} {classifyPercentile(gauge.percentile).label.toLowerCase()}</>
+            )}
+            {report && <> · report {relativeTime(report.generatedAt)}</>}
+            {sharedRiverNames && sharedRiverNames.length >= 2 && (
+              <> · serves {sharedRiverNames.join(' + ')}</>
             )}
           </div>
         </div>
@@ -1649,6 +1694,57 @@ export function readingAge(iso: string | null | undefined): {
   const t = Date.parse(iso);
   if (isNaN(t)) return null;
   return { label: relativeTime(iso), stale: Date.now() - t > STALE_AFTER_MS };
+}
+
+/**
+ * Soft stuck-sensor heuristic from data already on the page: the trailing
+ * run of daily medians that are ALL identical (both height and discharge —
+ * discharge varies naturally, so an identical run is the strong signal),
+ * confirmed by the live reading still matching. Returns the run length in
+ * days (≥3), or null. Deliberately descriptive, not diagnostic: a stable
+ * pool CAN sit flat, so the UI says "unchanged N days", never "broken".
+ * The cron logs the same condition server-side at 15-min granularity
+ * (update-gauges flatline counter); this is its user-facing counterpart.
+ */
+export function flatlineDays(
+  history: MoHistoryBundleEntry | null | undefined,
+  live: { gaugeHeightFt: number | null; dischargeCfs: number | null } | null | undefined,
+): number | null {
+  const daily = history?.daily ?? [];
+  if (daily.length < 3 || !live) return null;
+  const last = daily[daily.length - 1];
+  if (last.dischargeCfs == null && last.gaugeHeightFt == null) return null;
+  let run = 1;
+  for (let i = daily.length - 2; i >= 0; i--) {
+    const d = daily[i];
+    if (d.dischargeCfs === last.dischargeCfs && d.gaugeHeightFt === last.gaugeHeightFt) run++;
+    else break;
+  }
+  if (run < 3) return null;
+  const liveMatches =
+    (last.dischargeCfs == null || live.dischargeCfs === last.dischargeCfs) &&
+    (last.gaugeHeightFt == null || live.gaugeHeightFt === last.gaugeHeightFt);
+  return liveMatches ? run : null;
+}
+
+/** Soft amber "unchanged N days" disclosure next to a reading's age. */
+export function UnchangedChip({ days }: { days: number | null }) {
+  if (days == null) return null;
+  return (
+    <span
+      className="rounded-sm px-1 py-px font-bold uppercase"
+      title="This gauge has reported the identical value for several days — the sensor may be stuck."
+      style={{
+        border: '1px solid #E5A000',
+        color: '#8A6100',
+        fontFamily: MONO,
+        fontSize: 8,
+        letterSpacing: '0.1em',
+      }}
+    >
+      unchanged {days} days
+    </span>
+  );
 }
 
 /** Small mono age line with an amber STALE chip when the reading is old. */

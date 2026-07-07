@@ -1,0 +1,57 @@
+# .github/workflows/mosw-smoke.yml
+# Fixture-backed Playwright smoke for the /river-map observatory. All
+# /api/usgs/* routes are intercepted with synthetic data, so this needs no
+# Supabase/USGS secrets — it asserts UI behavior: time-to-first-particle,
+# reduced-motion never starts the flow layer, the honest dock stamp,
+# shared-gauge disclosure on both rivers, trend arrows, and the
+# gauge-less state. It caught a real shared-gauge lookup bug on its
+# first run; this keeps that class of regression out.
+
+name: River Map Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'missouri-float-planner/src/components/mo-surface-water/**'
+      - 'missouri-float-planner/src/lib/usgs/**'
+      - 'missouri-float-planner/src/app/river-map/**'
+      - 'missouri-float-planner/src/app/api/usgs/**'
+      - 'missouri-float-planner/shared/condition-system.ts'
+      - 'missouri-float-planner/scripts/mosw-smoke.ts'
+      - '.github/workflows/mosw-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run smoke
+        run: npx tsx scripts/mosw-smoke.ts
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosw-smoke-screenshots
+          path: missouri-float-planner/.smoke/
+          if-no-files-found: ignore

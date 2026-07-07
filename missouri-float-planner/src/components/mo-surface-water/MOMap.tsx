@@ -335,7 +335,9 @@ export default function MOMap(props: MOMapProps) {
         site: s,
         x,
         y,
-        r: magnitudeR(s.dischargeCfs, 1.8, 5.2),
+        // Smaller than any curated gauge chip so the two classes read
+        // apart in a static screenshot, not just on hover.
+        r: magnitudeR(s.dischargeCfs, 1.4, 4.2),
         fresh: s.readingTimestamp != null && Date.parse(s.readingTimestamp) > staleCutoff,
       });
     }
@@ -619,18 +621,26 @@ export default function MOMap(props: MOMapProps) {
   const flowRivers = useMemo<FlowRiver[]>(() => {
     return props.rivers.map((r) => {
       const grad = riverGradients[r.id];
+      // Primary-gauge percentile modulates particle speed within the
+      // verdict's band (scrub-aware — the app swaps in the scrubbed day's
+      // percentile, so replaying the month visibly changes the current).
+      const primarySite = (r.gauges ?? []).find((g) => g.is_primary)?.site_id;
       return {
         id: r.id,
         pts: (r.geometry.coordinates as Array<[number, number]>).map(([lo, la]) =>
           project(lo, la),
         ),
         verdict: props.verdictByRiver[r.slug] ?? 'unknown',
+        percentile: primarySite != null ? props.percentileByGauge[primarySite] ?? null : null,
         axis: grad ? { x1: grad.x1, y1: grad.y1, x2: grad.x2, y2: grad.y2 } : null,
         stops: grad ? grad.stops.map((st) => ({ offset: st.offset, color: st.color })) : [],
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.rivers, props.verdictByRiver, riverGradients, project]);
+  }, [props.rivers, props.verdictByRiver, props.percentileByGauge, riverGradients, project]);
+
+  // Terrain raster: AVIF first, PNG on decode failure (older Safari).
+  const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
 
   // Particle budget: 700 desktop / 300 small screens or low-end hardware
   // (docs/mo-surface-water-observatory.md). Sampled once per mount.
@@ -753,18 +763,22 @@ export default function MOMap(props: MOMapProps) {
             plateau, river valleys, and the Bootheel drop-off read as
             actual landforms. Relief lives in the alpha channel (shadow
             ink + sun highlights over transparent flats), so it composites
-            plainly on the parchment. One static ~390 KB raster; zero
-            runtime tile fetches. See scripts/build-mo-hillshade.ts. */}
+            plainly on the parchment. One static raster, zero runtime tile
+            fetches: AVIF (~200 KB — alpha-heavy content that WebP/PNG
+            can't compress well) with the original PNG (~560 KB) as an
+            onError fallback for browsers without AVIF.
+            See scripts/build-mo-hillshade.ts. */}
         {props.showTerrain !== false && (
           <g style={fadeIn(350, 1400)} pointerEvents="none">
             <image
-              href="/mo-hillshade.png"
+              href={hillshadeHref}
               x={0}
               y={0}
               width={W}
               height={H}
               preserveAspectRatio="none"
               opacity={0.75}
+              onError={() => setHillshadeHref('/mo-hillshade.png')}
             />
           </g>
         )}
@@ -879,11 +893,14 @@ export default function MOMap(props: MOMapProps) {
                 {/* Ink beads on parchment (the light base kills soft glows);
                     the curated layer keeps the color + glow treatment. */}
                 <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
+                {/* Dark hairline, not the cream ring — that ring is the
+                    curated gauges' signature, and sharing it made the two
+                    classes indistinguishable at a glance. */}
                 <circle
                   r={rr}
                   fill={n.fresh ? '#1D525F' : '#6B7E85'}
-                  stroke={selected ? '#F07052' : 'rgba(250,248,244,0.9)'}
-                  strokeWidth={(selected ? 1.8 : 0.9) * kStable}
+                  stroke={selected ? '#F07052' : 'rgba(15,45,53,0.35)'}
+                  strokeWidth={(selected ? 1.8 : 0.7) * kStable}
                   pointerEvents="none"
                 />
               </g>
@@ -1095,7 +1112,7 @@ export default function MOMap(props: MOMapProps) {
         letterSpacing="0.1em"
         fill="rgba(242,234,216,0.42)"
       >
-        Stream colour: float condition at the nearest gauge · fades between gauges
+        Stream colour: float condition at the nearest gauge · small ink dots: statewide USGS sites, no float rating
       </text>
 
       {/* Scale bar + north arrow — anchored to the viewport (screen-fixed) in
@@ -1130,13 +1147,18 @@ export default function MOMap(props: MOMapProps) {
 
     {/* Animated flow — comet particles on the curated rivers, above the
         river strokes but below the gauge markers (next SVG). Pointer
-        events pass straight through. */}
-    {props.showFlow !== false && !reducedMotion && entryPhase === 'done' && (
+        events pass straight through. Mounted during the entry flight too:
+        the canvas re-derives its viewBox transform from viewRef every
+        frame, so particles ride the descending camera — the rivers are
+        already breathing when the state settles into place. The fade
+        matches the curated river strokes' reveal. */}
+    {props.showFlow !== false && !reducedMotion && (
       <FlowLayer
         rivers={flowRivers}
         viewRef={viewRef}
         enabled
         maxParticles={maxParticles}
+        style={fadeIn(950)}
       />
     )}
 

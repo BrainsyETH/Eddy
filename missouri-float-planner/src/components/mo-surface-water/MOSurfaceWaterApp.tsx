@@ -37,13 +37,14 @@ import type {
 import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
 import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
-import DataDock, { type DockRiverReading } from './Dock';
+import DataDock, { type DockRiverReading, type DockRiverTrend } from './Dock';
 import {
   RightRail,
   TimeScrubber,
   DetailModal,
   GaugeHoverOverlay,
   ContextSiteCard,
+  flatlineDays,
   type ModalSelection,
 } from './Chrome';
 
@@ -92,31 +93,42 @@ export default function MOSurfaceWaterApp() {
     const CACHE_KEY = 'mosw-snapshot-v1';
     const load = async () => {
       try {
-        const [dRes, sRes, hRes, fRes] = await Promise.all([
+        // Phase 1 — everything the live verdicts need (geometry + readings
+        // + 72h flood forecast). The rivers start breathing the moment
+        // these land; the slow 30-day history fan-out must not gate them.
+        const [dRes, sRes, fRes] = await Promise.all([
           fetch('/api/usgs/mo-dataset'),
           fetch('/api/usgs/mo-statewide'),
-          fetch('/api/usgs/mo-history-bundle'),
           fetch('/api/usgs/mo-forecast'),
         ]);
         if (!dRes.ok) throw new Error(`dataset ${dRes.status}`);
         const d = await dRes.json();
         const s = sRes.ok ? await sRes.json() : { gauges: [], generatedAt: null };
-        const h = hRes.ok ? await hRes.json() : { entries: [], days: 30, generatedAt: null };
         const f = fRes.ok ? await fRes.json() : { entries: [], generatedAt: null };
-        if (!aborted) {
-          setDataset(d);
-          setStatewide(s);
-          setHistoryBundle(h);
-          setForecast(f);
-          setError(null);
-          setStaleCacheAt(null);
-          try {
-            window.localStorage.setItem(
-              CACHE_KEY,
-              JSON.stringify({ at: new Date().toISOString(), d, s, h, f }),
-            );
-          } catch { /* quota/private mode — cache is best-effort */ }
-        }
+        if (aborted) return;
+        setDataset(d);
+        setStatewide(s);
+        setForecast(f);
+        setError(null);
+        setStaleCacheAt(null);
+
+        // Phase 2 — 30-day history (sparklines, trends, time scrubber).
+        // Everything downstream renders a sensible empty state until it
+        // lands. The offline snapshot is written once both phases settle
+        // so a hydrate never restores a map without its history.
+        let h: MoHistoryBundleResponse = { entries: [], days: 30, generatedAt: '' };
+        try {
+          const hRes = await fetch('/api/usgs/mo-history-bundle');
+          if (hRes.ok) h = await hRes.json();
+        } catch { /* history is enrichment — the live map stands without it */ }
+        if (aborted) return;
+        setHistoryBundle(h);
+        try {
+          window.localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({ at: new Date().toISOString(), d, s, h, f }),
+          );
+        } catch { /* quota/private mode — cache is best-effort */ }
       } catch (e) {
         if (aborted) return;
         // Degraded path: last-known snapshot, clearly labeled.
@@ -146,15 +158,29 @@ export default function MOSurfaceWaterApp() {
         .catch(() => {});
     };
     loadSites();
-    const id = setInterval(() => {
-      // refresh the live snapshots every 15 minutes
+    let lastLiveFetchAt = Date.now();
+    const refreshLive = () => {
+      lastLiveFetchAt = Date.now();
       fetch('/api/usgs/mo-statewide')
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => { if (!aborted && j) setStatewide(j); })
         .catch(() => {});
       loadSites();
-    }, 15 * 60 * 1000);
-    return () => { aborted = true; clearInterval(id); };
+    };
+    // refresh the live snapshots every 15 minutes
+    const id = setInterval(refreshLive, 15 * 60 * 1000);
+    // Background tabs throttle (or freeze, on mobile) the interval — a
+    // phone unlocked hours later would show old readings until the next
+    // tick. Refetch immediately on tab return when the data has aged.
+    const onVisible = () => {
+      if (!document.hidden && Date.now() - lastLiveFetchAt > 5 * 60 * 1000) refreshLive();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      aborted = true;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   const rivers: MORiver[] = useMemo(() => dataset?.rivers ?? [], [dataset]);
@@ -253,21 +279,25 @@ export default function MOSurfaceWaterApp() {
   // the same day the map is painting.
   const readingByRiver: Record<string, DockRiverReading> = useMemo(() => {
     const out: Record<string, DockRiverReading> = {};
-    const liveByRiver = new Map<string, MoStatewideGauge>();
+    // By SITE, not river slug — the statewide payload has one entry per
+    // physical gauge, so a shared primary (07017200 → Courtois + Huzzah)
+    // must serve both rivers' rows (see computeTodayVerdicts).
+    const liveBySite = new Map<string, MoStatewideGauge>();
     for (const g of gauges) {
-      if (g.is_primary && !liveByRiver.has(g.river_slug)) liveByRiver.set(g.river_slug, g);
+      if (!liveBySite.has(g.site_no)) liveBySite.set(g.site_no, g);
     }
     for (const r of rivers) {
       const primary = (r.gauges ?? []).find((g) => g.is_primary);
-      if (!primary) { out[r.slug] = { value: null, unit: 'ft', dischargeCfs: null }; continue; }
+      if (!primary) { out[r.slug] = { value: null, unit: 'ft', dischargeCfs: null, percentile: null }; continue; }
       if (isToday) {
-        const live = liveByRiver.get(r.slug);
+        const live = liveBySite.get(primary.site_id);
         out[r.slug] = {
           value: primary.threshold_unit === 'ft'
             ? live?.gaugeHeightFt ?? null
             : live?.dischargeCfs ?? null,
           unit: primary.threshold_unit,
           dischargeCfs: live?.dischargeCfs ?? null,
+          percentile: live?.percentile ?? null,
         };
       } else {
         const ent = historyEntries.find((e) => e.site_no === primary.site_id);
@@ -278,6 +308,7 @@ export default function MOSurfaceWaterApp() {
             : day?.dischargeCfs ?? null,
           unit: primary.threshold_unit,
           dischargeCfs: day?.dischargeCfs ?? null,
+          percentile: day?.percentile ?? null,
         };
       }
     }
@@ -286,9 +317,75 @@ export default function MOSurfaceWaterApp() {
 
   const floatableCount = rivers.filter((r) => FLOATABLE.has(verdictByRiver[r.slug])).length;
 
+  // A single physical gauge can be the primary for more than one river —
+  // USGS 07017200 rates both Courtois and Huzzah, each against its own
+  // thresholds. Disclose it everywhere the reading shows, instead of
+  // letting a river present a neighbor creek's gauge as silently its own.
+  // Derived from the dataset (no hardcoded site IDs), keyed by river slug.
+  const sharedGaugeByRiver: Record<string, { siteId: string; others: string[] }> = useMemo(() => {
+    const riversBySite = new Map<string, MORiver[]>();
+    for (const r of rivers) {
+      const primary = (r.gauges ?? []).find((g) => g.is_primary);
+      if (!primary) continue;
+      const list = riversBySite.get(primary.site_id) ?? [];
+      list.push(r);
+      riversBySite.set(primary.site_id, list);
+    }
+    const out: Record<string, { siteId: string; others: string[] }> = {};
+    riversBySite.forEach((rs, siteId) => {
+      if (rs.length < 2) return;
+      for (const r of rs) {
+        out[r.slug] = { siteId, others: rs.filter((x) => x.id !== r.id).map((x) => x.name) };
+      }
+    });
+    return out;
+  }, [rivers]);
+
+  // Newest actual USGS reading time across the network — the honest "as of"
+  // for the dock masthead. The route's generatedAt is just server response
+  // time and reads fresher than the data really is.
+  const newestReadingAt = useMemo(() => {
+    let max: string | null = null;
+    for (const g of gauges) {
+      const t = g.readingTimestamp;
+      if (t && !Number.isNaN(Date.parse(t)) && (!max || Date.parse(t) > Date.parse(max))) max = t;
+    }
+    return max;
+  }, [gauges]);
+
+  // 24h direction per river: today's daily value vs yesterday's, in the
+  // gauge's own threshold unit. Small wobble reads as steady, not a trend.
+  // Null when the river has no primary gauge or fewer than two daily points.
+  const trendByRiver: Record<string, DockRiverTrend | null> = useMemo(() => {
+    const out: Record<string, DockRiverTrend | null> = {};
+    for (const r of rivers) {
+      out[r.slug] = null;
+      const primary = (r.gauges ?? []).find((g) => g.is_primary);
+      if (!primary) continue;
+      const ent = historyEntries.find((e) => e.site_no === primary.site_id && e.is_primary);
+      const daily = ent?.daily ?? [];
+      const pick = (d: { gaugeHeightFt: number | null; dischargeCfs: number | null }) =>
+        primary.threshold_unit === 'ft' ? d.gaugeHeightFt : d.dischargeCfs;
+      const vals = daily.map(pick).filter((v): v is number => v != null);
+      if (vals.length < 2) continue;
+      const today = vals[vals.length - 1];
+      const yesterday = vals[vals.length - 2];
+      const delta = today - yesterday;
+      const deadband = primary.threshold_unit === 'ft' ? 0.05 : Math.abs(yesterday) * 0.05;
+      out[r.slug] = {
+        dir: delta > deadband ? 'rising' : delta < -deadband ? 'falling' : 'steady',
+        delta,
+        unit: primary.threshold_unit,
+      };
+    }
+    return out;
+  }, [rivers, historyEntries]);
+
   // Mission-control telemetry for the dock: how much of the network is
   // talking, which way the water is moving (the planning signal), and
-  // whether the next 72h forecast crosses any warning stage.
+  // whether the next 72h forecast crosses any warning stage. The rising/
+  // falling counts are derived from trendByRiver so the aggregate and the
+  // per-row arrows can never disagree.
   const telemetry = useMemo(() => {
     const reporting = gauges.filter(
       (g) => g.dischargeCfs != null || g.gaugeHeightFt != null,
@@ -297,29 +394,17 @@ export default function MOSurfaceWaterApp() {
     let falling = 0;
     let risk72h = 0;
     for (const r of rivers) {
+      const dir = trendByRiver[r.slug]?.dir;
+      if (dir === 'rising') rising++;
+      else if (dir === 'falling') falling++;
       const primary = (r.gauges ?? []).find((g) => g.is_primary);
       if (!primary) continue;
-      // 24h direction: today's daily value vs yesterday's, in the gauge's
-      // own threshold unit. Small wobble reads as steady, not a trend.
-      const ent = historyEntries.find((e) => e.site_no === primary.site_id && e.is_primary);
-      const daily = ent?.daily ?? [];
-      const pick = (d: { gaugeHeightFt: number | null; dischargeCfs: number | null }) =>
-        primary.threshold_unit === 'ft' ? d.gaugeHeightFt : d.dischargeCfs;
-      const vals = daily.map(pick).filter((v): v is number => v != null);
-      if (vals.length >= 2) {
-        const today = vals[vals.length - 1];
-        const yesterday = vals[vals.length - 2];
-        const delta = today - yesterday;
-        const deadband = primary.threshold_unit === 'ft' ? 0.05 : Math.abs(yesterday) * 0.05;
-        if (delta > deadband) rising++;
-        else if (delta < -deadband) falling++;
-      }
       const fc = forecastBySite[primary.site_id];
       const warnStage = primary.action_stage_ft ?? primary.flood_stage_ft;
       if (fc?.peakFt != null && warnStage != null && fc.peakFt >= warnStage) risk72h++;
     }
     return { reporting, rising, falling, risk72h };
-  }, [rivers, gauges, historyEntries, forecastBySite]);
+  }, [rivers, gauges, trendByRiver, forecastBySite]);
 
   // ─── Right-rail selectors ─────────────────────────────────────────────
   const focusedRiver = rivers.find((r) => r.id === focusedRiverId) ?? null;
@@ -349,6 +434,21 @@ export default function MOSurfaceWaterApp() {
       if (match) return match.name;
     }
     return null;
+  }, [hoveredGauge, rivers]);
+  // Stuck-sensor disclosure for the hovered gauge (see flatlineDays).
+  const hoveredGaugeUnchangedDays = useMemo(() => {
+    if (!hoveredGauge) return null;
+    const ent = historyEntries.find((e) => e.site_no === hoveredGauge.site_no) ?? null;
+    return flatlineDays(ent, hoveredGauge);
+  }, [hoveredGauge, historyEntries]);
+  // Rivers whose PRIMARY rating comes from the hovered gauge — two or more
+  // means the hover overlay discloses the shared-gauge arrangement.
+  const hoveredGaugeSharedRivers = useMemo(() => {
+    if (!hoveredGauge) return null;
+    const names = rivers
+      .filter((r) => (r.gauges ?? []).some((g) => g.is_primary && g.site_id === hoveredGauge.site_no))
+      .map((r) => r.name);
+    return names.length >= 2 ? names : null;
   }, [hoveredGauge, rivers]);
 
   const handleFocusGauge = (id: string | null) => {
@@ -456,11 +556,14 @@ export default function MOSurfaceWaterApp() {
         rivers={rivers}
         verdictByRiver={verdictByRiver}
         readingByRiver={readingByRiver}
+        trendByRiver={trendByRiver}
         history={historyEntries}
         hoveredRiverId={hoveredRiverId}
         focusedRiverId={focusedRiverId}
         dayOffset={dayOffset}
-        generatedAt={statewide?.generatedAt ?? dataset?.generated_at ?? null}
+        readingsAsOf={newestReadingAt}
+        cadenceSeconds={statewide?.cadenceSeconds ?? null}
+        sharedGaugeByRiver={sharedGaugeByRiver}
         gaugeCount={gauges.length}
         telemetry={telemetry}
         showGauges={showGauges}
@@ -539,6 +642,7 @@ export default function MOSurfaceWaterApp() {
 
         <RightRail
           river={railRiver}
+          sharedGauge={railRiver ? sharedGaugeByRiver[railRiver.slug] ?? null : null}
           primaryGauge={railPrimaryGauge}
           primaryHistory={railPrimaryHistory}
           focusedGauge={focusedGauge}
@@ -621,6 +725,8 @@ export default function MOSurfaceWaterApp() {
           gauge={hoveredGauge}
           gaugeName={hoveredGaugeName}
           verdict={hoveredGauge ? conditionByGauge[condKey(hoveredGauge.river_id, hoveredGauge.site_no)] ?? null : null}
+          sharedRiverNames={hoveredGaugeSharedRivers}
+          unchangedDays={hoveredGaugeUnchangedDays}
           pos={hoveredGaugePos}
         />
       )}
