@@ -11,8 +11,13 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function MissouriSurfaceWaterPage() {
+  // Height tracks the VISIBLE viewport (dvh), not the layout viewport, so the
+  // timeline / bottom sheet stay clear of the area under the iOS URL bar.
   return (
-    <div className="fixed inset-0 top-14">
+    <div
+      className="fixed inset-x-0 top-14"
+      style={{ height: 'calc(100dvh - 3.5rem)' }}
+    >
       <MOSurfaceWaterApp />
     </div>
   );

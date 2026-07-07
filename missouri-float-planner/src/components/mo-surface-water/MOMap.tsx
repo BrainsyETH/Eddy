@@ -1315,7 +1315,10 @@ export default function MOMap(props: MOMapProps) {
           const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
           const otterSize = (isFocused ? 32 : 27) * kStable;
           const iconYOffset = -(chipR + otterSize * 0.58);
-          const hitR = Math.max(14, (g.is_primary ? 17 : 13)) * kStable;
+          // Generous invisible tap target — gauges are the primary touch
+          // interaction and SVG <g> isn't covered by the global 44px rule.
+          // Pinch-zoom (now supported) separates gauges that sit close.
+          const hitR = (g.is_primary ? 24 : 20) * kStable;
           return (
             <g
               // Keyed per river+site: one physical gauge can serve two
