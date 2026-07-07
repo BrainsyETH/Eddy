@@ -92,31 +92,42 @@ export default function MOSurfaceWaterApp() {
     const CACHE_KEY = 'mosw-snapshot-v1';
     const load = async () => {
       try {
-        const [dRes, sRes, hRes, fRes] = await Promise.all([
+        // Phase 1 — everything the live verdicts need (geometry + readings
+        // + 72h flood forecast). The rivers start breathing the moment
+        // these land; the slow 30-day history fan-out must not gate them.
+        const [dRes, sRes, fRes] = await Promise.all([
           fetch('/api/usgs/mo-dataset'),
           fetch('/api/usgs/mo-statewide'),
-          fetch('/api/usgs/mo-history-bundle'),
           fetch('/api/usgs/mo-forecast'),
         ]);
         if (!dRes.ok) throw new Error(`dataset ${dRes.status}`);
         const d = await dRes.json();
         const s = sRes.ok ? await sRes.json() : { gauges: [], generatedAt: null };
-        const h = hRes.ok ? await hRes.json() : { entries: [], days: 30, generatedAt: null };
         const f = fRes.ok ? await fRes.json() : { entries: [], generatedAt: null };
-        if (!aborted) {
-          setDataset(d);
-          setStatewide(s);
-          setHistoryBundle(h);
-          setForecast(f);
-          setError(null);
-          setStaleCacheAt(null);
-          try {
-            window.localStorage.setItem(
-              CACHE_KEY,
-              JSON.stringify({ at: new Date().toISOString(), d, s, h, f }),
-            );
-          } catch { /* quota/private mode — cache is best-effort */ }
-        }
+        if (aborted) return;
+        setDataset(d);
+        setStatewide(s);
+        setForecast(f);
+        setError(null);
+        setStaleCacheAt(null);
+
+        // Phase 2 — 30-day history (sparklines, trends, time scrubber).
+        // Everything downstream renders a sensible empty state until it
+        // lands. The offline snapshot is written once both phases settle
+        // so a hydrate never restores a map without its history.
+        let h: MoHistoryBundleResponse = { entries: [], days: 30, generatedAt: '' };
+        try {
+          const hRes = await fetch('/api/usgs/mo-history-bundle');
+          if (hRes.ok) h = await hRes.json();
+        } catch { /* history is enrichment — the live map stands without it */ }
+        if (aborted) return;
+        setHistoryBundle(h);
+        try {
+          window.localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({ at: new Date().toISOString(), d, s, h, f }),
+          );
+        } catch { /* quota/private mode — cache is best-effort */ }
       } catch (e) {
         if (aborted) return;
         // Degraded path: last-known snapshot, clearly labeled.

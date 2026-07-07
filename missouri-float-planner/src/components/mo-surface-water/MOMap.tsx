@@ -1135,13 +1135,18 @@ export default function MOMap(props: MOMapProps) {
 
     {/* Animated flow — comet particles on the curated rivers, above the
         river strokes but below the gauge markers (next SVG). Pointer
-        events pass straight through. */}
-    {props.showFlow !== false && !reducedMotion && entryPhase === 'done' && (
+        events pass straight through. Mounted during the entry flight too:
+        the canvas re-derives its viewBox transform from viewRef every
+        frame, so particles ride the descending camera — the rivers are
+        already breathing when the state settles into place. The fade
+        matches the curated river strokes' reveal. */}
+    {props.showFlow !== false && !reducedMotion && (
       <FlowLayer
         rivers={flowRivers}
         viewRef={viewRef}
         enabled
         maxParticles={maxParticles}
+        style={fadeIn(950)}
       />
     )}
 

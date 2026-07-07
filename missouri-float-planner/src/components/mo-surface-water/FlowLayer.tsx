@@ -67,6 +67,10 @@ interface Particle {
   jitter: number;  // 0.85–1.15 speed variance so streams don't march in lockstep
 }
 
+// One log line per page load marking when the first particle frame drew —
+// the "rivers are visibly moving" moment scripts/mosw-smoke.ts asserts on.
+let firstFrameLogged = false;
+
 interface RiverRuntime {
   pts: Array<[number, number]>;
   cum: Float64Array;  // cumulative segment lengths
@@ -91,12 +95,15 @@ export default function FlowLayer({
   viewRef,
   enabled,
   maxParticles,
+  style,
 }: {
   rivers: FlowRiver[];
   /** Live view state owned by MOMap — read per frame, never re-rendered. */
   viewRef: RefObject<ViewBox>;
   enabled: boolean;
   maxParticles: number;
+  /** Optional canvas styling (MOMap fades the layer up with the rivers). */
+  style?: React.CSSProperties;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -266,6 +273,11 @@ export default function FlowLayer({
         ctx.fill();
       }
 
+      if (!firstFrameLogged) {
+        firstFrameLogged = true;
+        console.info(`[mosw-flow] first-frame ${Math.round(performance.now())}ms`);
+      }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -297,6 +309,7 @@ export default function FlowLayer({
       ref={canvasRef}
       aria-hidden
       className="pointer-events-none absolute inset-0 h-full w-full"
+      style={style}
     />
   );
 }
