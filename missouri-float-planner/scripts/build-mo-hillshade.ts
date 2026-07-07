@@ -45,9 +45,12 @@ const OUT_W = 1120;
 const OUT_H = 700;
 const SCALE_OUT = W / OUT_W;
 
-const MO_OUTLINE = (moOutline as { coordinates: number[][][] }).coordinates[0] as Array<
-  [number, number]
->;
+// Union of every state's outer ring — the projection window frames all of
+// them (Missouri + Arkansas), so the terrain must be baked over the same
+// extent or it will be misaligned/shrunk against the river geometry.
+const REGION_COORDS = (moOutline as { coordinates: number[][][][] }).coordinates
+  .map((poly) => poly[0] as Array<[number, number]>)
+  .flat();
 
 // ── Web-mercator helpers (terrarium tiles are z/x/y mercator) ──────────
 const worldPx = (z: number) => 256 * Math.pow(2, z);
@@ -82,7 +85,7 @@ function terrariumElev(png: PNG, px: number, py: number): number {
 async function main() {
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  const bbox = bboxOf(MO_OUTLINE, 0.02);
+  const bbox = bboxOf(REGION_COORDS, 0.02);
   const project = buildProjector(bbox);
   // Invert the projector analytically (it's linear in lon/lat).
   const centerLon = (bbox.minLon + bbox.maxLon) / 2;

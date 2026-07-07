@@ -98,6 +98,20 @@ const HUC8_LIST: string[] = [
   '07110005', // Middle Salt
   // Lower Platte
   '10240005',
+  // ── Arkansas — Ozark + Ouachita float country (the two-state extent) ──
+  '11010005', // Buffalo River
+  '11010004', // Middle White / Buffalo confluence
+  '11010012', // Spring River (AR) + Strawberry
+  '11010013', // Eleven Point (AR) / Spring lower
+  '11010014', // Little Red
+  '08020301', // Cache / lower White
+  '11110201', // Frog / Mulberry (Ozark NF)
+  '11110203', // Illinois Bayou / Big Piney (AR)
+  '11110207', // Petit Jean / Fourche LaFave
+  '08040101', // Upper Ouachita
+  '08040102', // Lake Ouachita reach
+  '08040202', // Caddo / Little Missouri
+  '08040203', // Saline (AR)
 ];
 
 // Major reservoirs / lakes shown on the reference map. We match by gnis_name
@@ -120,6 +134,15 @@ const LAKE_NAMES = new Set<string>([
   'Lake Wappapello',
   'Smithville Lake',
   'Long Branch Lake',
+  // Arkansas reservoirs
+  'Beaver Lake',
+  'Norfork Lake',
+  'Lake Norfork',
+  'Greers Ferry Lake',
+  'Lake Ouachita',
+  'DeGray Lake',
+  'Millwood Lake',
+  'Lake Dardanelle',
 ]);
 
 const FCODE_PERENNIAL = new Set([46006, 55800]);
