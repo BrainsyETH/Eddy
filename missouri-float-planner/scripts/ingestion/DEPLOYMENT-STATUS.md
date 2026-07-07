@@ -33,11 +33,11 @@ outbound access to the National Map, or the NHD flowline seed files.
 
 | River | Dossier | Verify gate | Floatability | Blockers to live |
 |---|---|---|---|---|
-| **Bourbeuse** | STUB+RUN3 | ✅ clear | ✅ full, 2 reaches (Agnew) | geometry · signoff · **danger-anchor confidence call** · apply |
+| **Bourbeuse** | STUB+RUN3 | ✅ clear | ✅ full, 2 reaches (Agnew) | geometry · signoff · apply (danger anchors RESOLVED->high 2026-07-06) |
 | **St. Francis** | STUB+RUN2 | ✅ clear | ✅ full Roselle ft ladder | geometry · signoff · **Roselle provider=nws wiring** · apply |
 | **Gasconade** | STUB+RUN1 | ✅ clear | ✅ upper+mid (moherp observed); lower open | geometry · signoff · apply · (lower-reach ladder later) |
 | **Black** | STUB+RUN1 | ✅ clear | ◐ optimal_min only (moherp observed) | geometry · signoff · **rest of ladder** · apply |
-| **Buffalo** (AR) | AWAITING SIGNOFF | needs verified-identifiers check | ✅ 24 anchors, 4 reaches (NPS) | geometry · gauge_stations create (AR gauges, coords via USGS) · signoff · apply |
+| **Buffalo** (AR) | ✅ clear | ✅ 24 anchors, 4 reaches (NPS) | geometry · signoff · apply (coords backfilled 2026-07-07 → all 7 gauge_stations will create at ingest) |
 
 ## Go-live sequence (per river)
 
