@@ -3,8 +3,8 @@
  * ingest-dossier.ts — layer 2 of the two-layer design (see dossier.ts).
  *
  * Reads a VERIFIED research dossier and emits DB rows:
- *   rivers (multi-region fields), gauge_stations, river_gauges (thresholds),
- *   river_sections, river_characteristics.
+ *   rivers (multi-region fields), gauge_stations, river_gauges (thresholds +
+ *   is_primary from primaryGaugeSiteId), river_sections, river_characteristics.
  *
  * Usage:
  *   npx tsx scripts/ingestion/ingest-dossier.ts dossiers/buffalo.json           # dry run (default)
@@ -153,6 +153,26 @@ for (const [siteId, b] of perGauge) {
   if (b.values.dangerous === undefined) warnings.push(`gauge ${siteId}: no dangerous anchor — badge will never show 'dangerous' from this gauge.`);
 }
 
+// ---------- [signoff] primary-gauge gate ----------
+// is_primary lives on the river_gauges row, so the primary must be a calibrated
+// (thresholded) gauge. Explicit-only: we never guess a primary — it's a
+// safety-relevant, river-level choice — so an unset dossier just warns and
+// leaves is_primary untouched (validate_river_data() will still flag
+// no_primary_gauge, which is the intended launch block).
+const primarySiteId: string | undefined = dossier.primaryGaugeSiteId;
+if (primarySiteId && !perGauge.has(primarySiteId)) {
+  problems.push(
+    `[auto] primaryGaugeSiteId '${primarySiteId}' is not a calibrated gauge ` +
+    `(no thresholds → no river_gauges row to flag). Calibrated gauges: ${[...perGauge.keys()].join(', ') || 'none'}.`
+  );
+} else if (!primarySiteId) {
+  warnings.push(
+    'no primaryGaugeSiteId set — is_primary will NOT be written, so validate_river_data() ' +
+    'will report no_primary_gauge until a primary is designated. Add primaryGaugeSiteId ' +
+    '(one of the calibrated gauges) to the dossier before launch.'
+  );
+}
+
 // ---------- report gate results ----------
 console.log(`\nIngest ${dossier.slug} (${dossier.name}) — ${apply ? 'APPLY' : 'dry run'}`);
 console.log('='.repeat(60));
@@ -190,6 +210,7 @@ const characteristics = secs.length ? {
 
 console.log(`\nPlan: update rivers.${dossier.slug}; upsert ${gauges.filter((g: any) => g.lat != null).length}/${gauges.length} gauge_stations; ` +
   `${perGauge.size} river_gauges threshold sets; ${sectionsRows.length} river_sections; characteristics=${!!characteristics}.`);
+console.log(`Primary gauge (is_primary): ${primarySiteId ?? '(none — is_primary will not be set)'}.`);
 console.log(`Never written by this script: access points [manual], rivers.active (flip after validate_river_data()).`);
 for (const [siteId, b] of perGauge) {
   const v = b.values;
@@ -261,6 +282,26 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
       : await db.from('river_gauges').insert(row);
     if (error) throw new Error(`river_gauges ${siteId}: ${error.message}`);
     console.log(`  ✅ river_gauges ${siteId} (${existing ? 'updated' : 'inserted'})`);
+  }
+
+  // Designate the primary gauge (clear-then-set, mirroring migration 00070) now
+  // that the river_gauges rows exist. Without this a freshly ingested river has
+  // no is_primary and fails validate_river_data()'s no_primary_gauge gate,
+  // blocking activation until someone runs manual SQL.
+  if (primarySiteId) {
+    const primaryStationId = stationIdBySite.get(primarySiteId);
+    if (!primaryStationId) {
+      console.log(`  ⚠️  primary ${primarySiteId}: no gauge_stations row — is_primary NOT set.`);
+    } else {
+      const { error: clearErr } = await db.from('river_gauges').update({ is_primary: false }).eq('river_id', river.id);
+      if (clearErr) throw new Error(`clear is_primary: ${clearErr.message}`);
+      const { error: setErr } = await db.from('river_gauges').update({ is_primary: true })
+        .eq('river_id', river.id).eq('gauge_station_id', primaryStationId);
+      if (setErr) throw new Error(`set is_primary ${primarySiteId}: ${setErr.message}`);
+      console.log(`  ✅ is_primary → ${primarySiteId}`);
+    }
+  } else {
+    console.log('  ⚠️  no primary gauge designated (primaryGaugeSiteId unset) — is_primary untouched.');
   }
 
   for (const s of sectionsRows) {

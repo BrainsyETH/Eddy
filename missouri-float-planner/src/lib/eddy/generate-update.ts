@@ -29,6 +29,64 @@ export interface GaugeContext {
   notes: string | null;
 }
 
+/** Sonnet model used for river-level + per-section updates. */
+export const SONNET_MODEL = 'claude-sonnet-4-6';
+
+/**
+ * Token/cost accounting for a single model call, persisted alongside the update
+ * so spend and prompt-cache hit rates are queryable. Fields are nullable to
+ * tolerate SDK responses that omit a usage block.
+ */
+export interface UsageStats {
+  modelUsed: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheCreationTokens: number | null;
+}
+
+/** Extracts a UsageStats from a Claude message's `usage` block. */
+export function extractUsage(
+  modelUsed: string,
+  usage:
+    | {
+        input_tokens?: number | null;
+        output_tokens?: number | null;
+        cache_read_input_tokens?: number | null;
+        cache_creation_input_tokens?: number | null;
+      }
+    | null
+    | undefined,
+): UsageStats {
+  return {
+    modelUsed,
+    inputTokens: usage?.input_tokens ?? null,
+    outputTokens: usage?.output_tokens ?? null,
+    cacheReadTokens: usage?.cache_read_input_tokens ?? null,
+    cacheCreationTokens: usage?.cache_creation_input_tokens ?? null,
+  };
+}
+
+/**
+ * Maps a UsageStats onto the shared eddy_updates / gauge_updates token columns.
+ * Spread into an `.insert({...})` so every generator records spend the same way.
+ */
+export function usageColumns(usage: UsageStats | null): {
+  model_used: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_creation_tokens: number | null;
+} {
+  return {
+    model_used: usage?.modelUsed ?? null,
+    input_tokens: usage?.inputTokens ?? null,
+    output_tokens: usage?.outputTokens ?? null,
+    cache_read_tokens: usage?.cacheReadTokens ?? null,
+    cache_creation_tokens: usage?.cacheCreationTokens ?? null,
+  };
+}
+
 export interface GeneratedUpdate {
   riverSlug: string;
   sectionSlug: string | null;
@@ -40,10 +98,13 @@ export interface GeneratedUpdate {
   sourcesUsed: string[];
   /** Compact weather snapshot persisted on the update (null if unavailable). */
   weather: WeatherSummary | null;
+  /** Token usage + model for this generation (null if the response had none). */
+  usage: UsageStats | null;
 }
 
 /**
- * Gathers all context data for a river/section and generates an Eddy quote via Haiku.
+ * Gathers all context data for a river/section and generates an Eddy quote via
+ * Claude Sonnet.
  */
 export async function generateEddyUpdate(
   target: UpdateTarget,
@@ -134,10 +195,19 @@ export async function generateEddyUpdate(
 
   try {
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: SONNET_MODEL,
       max_tokens: 700,
       messages: [{ role: 'user', content: prompt }],
-      system: buildEddySystemPrompt(riverCtx),
+      // Static system prompt with a cache breakpoint: every river/section call
+      // in a cron run shares this exact prefix, so only the first pays full
+      // input price. River-specific semantics live in the user prompt.
+      // NOTE: Sonnet 4.6's minimum cacheable prefix is 2048 tokens and this
+      // prompt is ~1.9k, so caching is borderline — watch eddy_updates
+      // .cache_read_tokens to confirm it actually fires (if it stays 0, the
+      // prompt is under the floor and caching is a no-op, which is harmless).
+      system: [
+        { type: 'text', text: EDDY_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+      ],
     });
 
     const textBlock = message.content.find((block) => block.type === 'text');
@@ -165,9 +235,10 @@ export async function generateEddyUpdate(
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
       sourcesUsed,
       weather: buildWeatherSummary(weather, forecast),
+      usage: extractUsage(SONNET_MODEL, message.usage),
     };
   } catch (e) {
-    console.error(`[EddyGen] Haiku call failed for ${target.riverSlug}:`, e);
+    console.error(`[EddyGen] Sonnet call failed for ${target.riverSlug}:`, e);
     return null;
   }
 }
@@ -273,19 +344,11 @@ const RIVER_TYPE_GUIDANCE: Record<RiverType, { lowWater: string; risingWater: st
   },
 };
 
-function buildEddySystemPrompt(riverCtx: RiverContext | null): string {
-  const riverType: RiverType = riverCtx?.riverType ?? 'spring_fed_float';
-  const guidance = RIVER_TYPE_GUIDANCE[riverType] ?? RIVER_TYPE_GUIDANCE.spring_fed_float;
-  // Per-river overrides beat the type default (both are curated data).
-  const lowWater = riverCtx?.characteristics?.lowWaterMeaning
-    ? `The river IS floatable unless the code is "too_low". On this river, low water means: ${riverCtx.characteristics.lowWaterMeaning} Do NOT recommend against floating when the condition code is "low"; that language is reserved for "too_low" only.`
-    : guidance.lowWater;
-  const risingWater = riverCtx?.characteristics?.risingWaterHazards
-    ? `Explain what rising water means for hazards on this river: ${riverCtx.characteristics.risingWaterHazards}`
-    : guidance.risingWater;
-  const regionLabel = riverCtx?.region || 'Ozarks';
-
-  return `You are Eddy, an AI otter mascot for a float trip planning app. You provide condition updates for rivers in the ${regionLabel} region.
+// Static Eddy system prompt. Deliberately free of any river-specific value so
+// it forms an identical, cacheable prefix across every Sonnet call. River
+// region and low/rising-water framing are injected into the user prompt's
+// [CONDITION SEMANTICS] block by buildConditionSemantics().
+const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip planning app. You provide condition updates for float rivers. The user message names the river, its region, and its hydrology semantics.
 
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
@@ -313,7 +376,7 @@ CONDITION ASSESSMENT:
 - If there are active NWS flood alerts, lead with safety first.
 - Cite the actual gauge reading and what it means for floating.
 - For high water: use "use caution" language rather than "experienced paddlers only." High water deserves a clear warning but not a blanket restriction unless conditions are solidly high or approaching dangerous.
-- For "low" conditions: ${lowWater}
+- For "low" conditions: apply the LOW WATER GUIDANCE from the [CONDITION SEMANTICS] block of the user message.
 - For "too_low" conditions: This is the only condition where you should actively recommend waiting or pivoting. The river is genuinely not floatable at this level.
 
 ALTERNATIVES:
@@ -330,7 +393,7 @@ TREND-AWARE TONE:
 
 WATER TRENDS:
 - Lead with the water trend: is the river rising, falling, or stable? What does that mean for someone floating today vs this weekend?
-- If rising: ${risingWater}
+- If rising: apply the RISING WATER GUIDANCE from the [CONDITION SEMANTICS] block of the user message.
 - If falling: explain that conditions are improving. Note how quickly this river typically drops if rain-lag data is provided. Falling water after a flood event means things are getting better.
 - If stable: note that conditions are predictable and reference how long the gauge has held steady.
 - Do NOT classify the river as "spring-fed" or "rain-fed" in your output. Use behavioral descriptors instead (e.g., "this river responds quickly to rain" or "spring inputs keep the base flow steady").
@@ -374,6 +437,29 @@ STYLE:
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself.
 - Your entire output must be ONLY the [SUMMARY] and [FULL] blocks. Nothing else.`;
+
+/**
+ * Per-river condition semantics (region + how "low"/"rising" water should be
+ * framed). Lifted out of the system prompt into the user turn so the system
+ * prompt can stay static and cacheable; the content is unchanged from before.
+ */
+function buildConditionSemantics(riverCtx: RiverContext | null): string {
+  const riverType: RiverType = riverCtx?.riverType ?? 'spring_fed_float';
+  const guidance = RIVER_TYPE_GUIDANCE[riverType] ?? RIVER_TYPE_GUIDANCE.spring_fed_float;
+  // Per-river overrides beat the type default (both are curated data).
+  const lowWater = riverCtx?.characteristics?.lowWaterMeaning
+    ? `The river IS floatable unless the code is "too_low". On this river, low water means: ${riverCtx.characteristics.lowWaterMeaning} Do NOT recommend against floating when the condition code is "low"; that language is reserved for "too_low" only.`
+    : guidance.lowWater;
+  const risingWater = riverCtx?.characteristics?.risingWaterHazards
+    ? `Explain what rising water means for hazards on this river: ${riverCtx.characteristics.risingWaterHazards}`
+    : guidance.risingWater;
+  const regionLabel = riverCtx?.region || 'Ozarks';
+
+  return [
+    `Region: ${regionLabel}`,
+    `LOW WATER GUIDANCE: ${lowWater}`,
+    `RISING WATER GUIDANCE: ${risingWater}`,
+  ].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -419,6 +505,12 @@ function buildPrompt(
       lines.push(`Primary hazards: ${hazards.map((h) => h.replace(/_/g, ' ')).join(', ')}`);
     }
   }
+
+  // Condition semantics (region + low/rising-water framing) — moved out of the
+  // system prompt so that prompt stays static and cacheable.
+  lines.push('');
+  lines.push('[CONDITION SEMANTICS — how to interpret conditions on THIS river]');
+  lines.push(buildConditionSemantics(riverCtx));
 
   lines.push('');
   lines.push('[CURRENT GAUGE DATA]');

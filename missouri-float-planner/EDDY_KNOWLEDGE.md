@@ -173,6 +173,37 @@ the Mark Twain National Forest.
 
 ---
 
+## Gasconade River
+
+The Gasconade is the longest river entirely within Missouri (~280 miles) and the longest undammed river in the Ozarks — a winding, low-gradient float stream often called "one of the world's crookedest." Spring-influenced but runoff-responsive, with dolostone and sandstone bluffs, numerous springs and caves, and a strong smallmouth bass fishery. Mostly Class I (Class II is rare), and one of the least-crowded floats in the region — it's common to go miles without seeing another boat.
+
+- The float hub is around **Jerome and Waynesville** on the middle river. Waynesville and Dixon serve the upper river; the town of Gasconade serves the lower river near the Missouri confluence.
+- Three reference gauges span the river: **Hazelgreen** (upper), **Jerome** (middle, the most-cited float gauge), and **Rich Fountain** (lower). Each represents its own reach, so read the gauge nearest the put-in rather than one headline number for the whole river.
+- Major tributaries include the Osage Fork, Roubidoux Creek, and the Big Piney. Many access points are low-water bridges, which become hazards when the river is up.
+- **Losing reach on the upper river**: through the Narrows bend between Ozark Springs and Highway 17 (above Schlict Spring), much of the flow sinks underground in low water — roughly 75 cfs above the Narrows can drop below 30 cfs through it, leaving a weed-choked, walk-the-canoe trickle. The water returns about a mile downstream near Rockslide Bluff. An upstream gauge reading can overstate floatability through this stretch, so be cautious about the upper river in low water.
+- **Rockslide Bluff**: a section of cliff collapsed into the river in 1971 and is now an interesting little rapid; springs bubble up from the riverbed here and the flow, and the floating, picks up noticeably below it.
+- Strainers (downed trees) and low-water bridges are the main hazards. The gradient is gentle, so trouble comes from wood and structures more than from rapids.
+
+### Upper Hazelgreen
+
+- Represented by the Hazelgreen gauge, the upper-river reference. Winding, spring-influenced, good smallmouth water.
+- Watch the losing reach above Schlict Spring in low water (see the river notes above) — the Hazelgreen reading can overstate what you will actually find through the Narrows.
+- Floatable from around Highway E downstream; the highest put-ins need more water and can be scrapy.
+
+### Mid Jerome
+
+- The popular middle float around Jerome and Waynesville, represented by the Jerome gauge, the most-cited Gasconade float gauge and the best single reference for a typical trip.
+- High-quality smallmouth fishery, and where most outfitted trips run.
+- Low-water bridges and strainers are the hazards to watch as water rises.
+
+### Lower Richfountain
+
+- Represented by the Rich Fountain gauge, toward the Missouri River confluence. Larger, slower water.
+- On this bigger lower river, low water mainly affects your speed rather than whether you can float.
+- Rises here arrive from the whole upstream drainage, so the gauge can climb even when local weather is dry.
+
+---
+
 ## Huzzah Creek
 
 Short, accessible, and perfect for day trips. Pairs naturally with Courtois Creek for
@@ -202,4 +233,67 @@ the weekend crowds. Upper sections usually only floatable in early spring.
 - Beautiful bluffs and gravel bars. Great for wading and swimming when the water is up.
 - Steelville area outfitters serve both Courtois and Huzzah.
 - If Huzzah is too crowded, Courtois is almost always less busy.
+
+---
+
+## Black River
+
+A clear southeast-Missouri Ozark float below the St. Francois Mountains, with two very different personalities split by Clearwater Lake. The Lesterville reach above the lake is a popular summer float — some of the clearest water in the Ozarks, big gravel bars, occasional bluffs, and good smallmouth and goggle-eye fishing. Below Clearwater Dam the river becomes a slower, dam-influenced reach toward Poplar Bluff, where it leaves the Ozarks into flat lowland water.
+
+- The three forks (West largest, Middle, East smallest) converge near Lesterville; the main stem from there to Clearwater Lake is one of Missouri's more popular canoeing streams, with campgrounds and rentals in and below Lesterville.
+- **Two reaches, two gauges.** The upper float reads off the **Annapolis** gauge — the only real-time gauge for that reach (the Lesterville gauge is discontinued). The **Poplar Bluff** gauge covers the lower reach, but sits about 26 river miles downstream on a larger drainage and reads roughly a quarter high, so treat it as a high-water safety ceiling, not a precise level.
+- **Clearwater Dam** sits below the upper reach: its normal pool floods only a few miles of channel, but the flood pool can back up about ten miles toward the Highway K area, so the effective bottom of the float reach moves with lake level.
+- The East Fork (Taum Sauk / Johnson's Shut-Ins / Bell Mountain) is not floatable; West Fork floats from around Centerville, Middle Fork from the Hwy 21-72 bridge.
+
+### Upper Lesterville
+
+- The clear, gravel-bar summer float from Lesterville down toward Clearwater Lake. Read the Annapolis gauge for this reach.
+- Watch where Clearwater's flood pool reaches in high water — the lower end can be slack, backed-up lake rather than moving river.
+
+### Lower Markham Hammer
+
+- Below Clearwater Dam: a dam-influenced tailwater reach where levels reflect the release schedule and can change independent of local rain.
+- The Poplar Bluff gauge is the live reference but reads about a quarter high for this reach — lean on it for the high-water ceiling, not for fine floatability calls.
+
+---
+
+## Bourbeuse River
+
+The slowest large stream in the Ozarks and one of its crookedest — it winds about 116 river miles in under 40 straight-line miles to reach the Meramec. Runoff-fed and usually murky (its watershed is mostly cleared farmland), so it responds fast to rain and drops to a trickle in dry spells. A quiet local's river: one small outfitter on the whole stream, mostly anglers after catfish, smallmouth up high, spotted bass lower down.
+
+- **Often too low.** The upper half is frequently unfloatable without a lot of dragging in a dry summer — plan around recent rain, not the calendar.
+- Two references: the **High Gate** gauge reads the upper river but is unreliable after rain (tributaries add water below it, so cross-check the **Union** gauge for a rise). Union reads the lower river well, except the Noser Mill to Spring Creek stretch, which runs lower than Union shows.
+- **Spring Creek** (fed by Kratz Spring) enters about ten miles below Noser Mill and can nearly double the flow — below it the river is almost always floatable even when the upper river is not.
+- Public access is scarce on the upper river, so trips there are often multi-day. Low-water bridges, logjams, and strainers are the main hazards; the gentle gradient means trouble comes from wood, not rapids.
+
+---
+
+## Buffalo River
+
+The Buffalo National River — America's first National River (1972) — is a free-flowing, rain-driven stream draining the Boston Mountains of northwest Arkansas, managed by the National Park Service. Its personality changes sharply top to bottom: the upper river is flashy and seasonal, floatable mainly spring into early summer, while the lower river holds water nearly year-round and reads more like flatwater.
+
+- **Ponca to Pruitt** is the classic upper float and the most level-sensitive reach on the river — too low and you drag, too high and the bluffs turn hazardous. Season is typically March through June, sometimes into July with rain.
+- Read the gauge that matches your reach: **Ponca** is the canonical upper-river floatability gauge, **St. Joe** (Tyler Bend) the middle-district reference, and **Rush** the lowest before the White River confluence.
+- When it's too low to launch at Ponca, outfitters shift the put-in about two miles down to Steel Creek — there's no published numeric cutoff, it's a daily operational call.
+- Flash floods and strainers are the serious hazards on the flashy upper reaches; the lower river below Gilbert is calmer, where low water mostly affects speed rather than whether you can float.
+
+---
+
+## St. Francis River
+
+Missouri's only whitewater river. The upper St. Francis through Millstream Gardens and Silver Mines — the Tiemann Shut-ins — is a short, rain-dependent Class II–IV pool-drop run that spikes and drops fast and stays cold. Below the shut-ins it mellows and floats more like an ordinary stream toward Sam A. Baker State Park and Wappapello Lake.
+
+- **The whitewater reach is genuinely serious** — Class II–IV pool-drop through the shut-ins, committing at high water, and unrunnable rock when too low. This is the one Missouri float where "experienced paddlers only" is the right framing for the upper run.
+- Levels on the upper river are read as **stage in feet from the Roselle (NWS) gauge**, not discharge — the old USGS discharge record ended in 1997. The Patterson gauge covers the lower river toward Wappapello.
+- Rain-dependent and flashy: it can be a runnable river one day and dry rock the next. The Missouri Whitewater Championships run the reach each spring, contingent on water level — verify before traveling.
+
+### Upper Whitewater
+
+- Millstream Gardens to Silver Mines (the Tiemann Shut-ins): a Class II–IV pool-drop run, swift drops separated by calm pools, run mainly during spring high water. Cold water and committing at high flows.
+- Below the runnable minimum the shut-ins are unrunnable rock — a drag or portage, not a float.
+
+### Lower Float
+
+- Silver Mines down toward Sam A. Baker State Park and Wappapello: a normal-stream float, much calmer than the shut-ins.
+- On this reach low water mainly affects your speed rather than whether you can float.
 

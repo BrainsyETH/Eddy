@@ -192,6 +192,14 @@ export interface RiverDossier {
   seasonalClosures: Sourced<string>[];
 
   // ---- Data sources ----
+  /**
+   * [signoff] The river-level primary gauge (a usgsSiteId from gauges[], and one
+   * that carries thresholds). Drives the river condition badge and the Sonnet
+   * river-level update, and is what validate_river_data() requires before a
+   * river can go active. Ingest sets river_gauges.is_primary from this; it is
+   * never guessed, so leaving it unset blocks the launch gate on purpose.
+   */
+  primaryGaugeSiteId?: string;
   gauges: GaugeCandidate[]; // [verify] every site id
   sections: RiverSectionDossier[]; // the section-aware calibration core
   accessPoints: AccessPointCandidate[]; // [manual]

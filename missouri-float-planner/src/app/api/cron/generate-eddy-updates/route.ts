@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
-import { generateEddyUpdate } from '@/lib/eddy/generate-update';
+import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
 import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
 
 export const dynamic = 'force-dynamic';
@@ -79,9 +79,25 @@ async function runGeneration(request: NextRequest) {
 
   const activeSlugs = new Set((activeRivers || []).map((r: { slug: string }) => r.slug));
 
+  // Optional ?river=<slug> narrows generation to a single active river. This is
+  // the on-demand path used right after a new river is activated, so its Eddy
+  // prose appears immediately instead of waiting up to ~24h for the daily cron.
+  const riverParam = request.nextUrl.searchParams.get('river');
+  const singleRiver = Boolean(riverParam);
+
   // Get all update targets (rivers + sections) and filter to active only
   const allTargets = await getUpdateTargetsFromDb();
-  const targets = allTargets.filter((t) => activeSlugs.has(t.riverSlug));
+  let targets = allTargets.filter((t) => activeSlugs.has(t.riverSlug));
+
+  if (singleRiver) {
+    targets = targets.filter((t) => t.riverSlug === riverParam);
+    if (targets.length === 0) {
+      return NextResponse.json(
+        { error: `River "${riverParam}" is not an active update target` },
+        { status: 404 },
+      );
+    }
+  }
 
   if (targets.length === 0) {
     return NextResponse.json({ message: 'No active rivers found', generated: 0 });
@@ -111,6 +127,7 @@ async function runGeneration(request: NextRequest) {
       summary_text: update.summaryText,
       sources_used: update.sourcesUsed,
       weather: update.weather,
+      ...usageColumns(update.usage),
       generated_at: new Date().toISOString(),
       expires_at: expiresAt,
       trigger_reason: 'scheduled',
@@ -146,8 +163,9 @@ async function runGeneration(request: NextRequest) {
     }
   }
 
-  // Generate global summary from per-river updates
-  try {
+  // Generate global summary from per-river updates. Skipped on single-river
+  // on-demand runs, which would otherwise skew the statewide summary.
+  if (!singleRiver) try {
     const globalUpdate = await generateGlobalUpdate();
     if (globalUpdate) {
       const { error: globalInsertError } = await supabase.from('eddy_updates').insert({
@@ -158,6 +176,7 @@ async function runGeneration(request: NextRequest) {
         discharge_cfs: null,
         quote_text: globalUpdate.quoteText,
         sources_used: globalUpdate.sourcesUsed,
+        ...usageColumns(globalUpdate.usage),
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,
         trigger_reason: 'scheduled',
@@ -179,19 +198,23 @@ async function runGeneration(request: NextRequest) {
     errors.push(`global: ${e instanceof Error ? e.message : 'unknown error'}`);
   }
 
-  // Clean up expired updates (keep last 48 hours for history)
-  const cleanupCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  const { error: cleanupError } = await supabase
-    .from('eddy_updates')
-    .delete()
-    .lt('generated_at', cleanupCutoff);
+  // Clean up expired updates (keep last 48 hours for history). Global
+  // maintenance, so it only runs on full cron passes, not single-river runs.
+  if (!singleRiver) {
+    const cleanupCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const { error: cleanupError } = await supabase
+      .from('eddy_updates')
+      .delete()
+      .lt('generated_at', cleanupCutoff);
 
-  if (cleanupError) {
-    console.warn('[EddyCron] Cleanup failed:', cleanupError);
+    if (cleanupError) {
+      console.warn('[EddyCron] Cleanup failed:', cleanupError);
+    }
   }
 
   return NextResponse.json({
     message: 'Eddy update generation complete',
+    river: riverParam ?? undefined,
     generated,
     failed,
     total: targets.length,
