@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   STAGE_VERDICTS,
   THEME,
@@ -98,6 +98,9 @@ function Sparkline({
     return null;
   }, [history]);
 
+  // Unique gradient id per instance — multiple sparklines share the DOM.
+  const gradId = useId();
+
   if (!series || series.values.length === 0) {
     return (
       <div style={{
@@ -117,17 +120,31 @@ function Sparkline({
 
   // Build the path, breaking on null gaps so a missing day doesn't draw a
   // misleading straight line across the gap.
-  const linePath = (() => {
-    let d = '';
-    let penDown = false;
+  // Split the series into contiguous non-null runs (breaking on gaps), then
+  // build the line and a matching filled area from them. The area closes each
+  // run down to the baseline so a missing day never fills across the gap.
+  const runs: { x: number; y: number }[][] = [];
+  {
+    let current: { x: number; y: number }[] = [];
     values.forEach((v, i) => {
-      if (v == null) { penDown = false; return; }
-      const cmd = penDown ? 'L' : 'M';
-      d += `${cmd}${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)} `;
-      penDown = true;
+      if (v == null) {
+        if (current.length) { runs.push(current); current = []; }
+        return;
+      }
+      current.push({ x: xAt(i), y: yAt(v) });
     });
-    return d.trim();
-  })();
+    if (current.length) runs.push(current);
+  }
+  const runToLine = (run: { x: number; y: number }[]) =>
+    run.map((p, j) => `${j === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const linePath = runs.map(runToLine).join(' ');
+  const areaPath = runs
+    .map((run) => {
+      const first = run[0];
+      const last = run[run.length - 1];
+      return `${runToLine(run)} L${last.x.toFixed(1)} ${height} L${first.x.toFixed(1)} ${height} Z`;
+    })
+    .join(' ');
 
   // Most recent non-null reading drives the current marker + colour.
   let lastIdx = values.length - 1;
@@ -135,7 +152,7 @@ function Sparkline({
   const cur = lastIdx >= 0 ? values[lastIdx]! : null;
   const curColor = mode === 'percentile' && cur != null
     ? classifyPercentile(cur).color
-    : THEME.primaryDark;
+    : THEME.primary;
 
   const ribbon = mode === 'percentile'
     ? `M0 ${yAt(75)} L${width} ${yAt(75)} L${width} ${yAt(25)} L0 ${yAt(25)} Z`
@@ -143,7 +160,14 @@ function Sparkline({
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={curColor} stopOpacity="0.26" />
+          <stop offset="100%" stopColor={curColor} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
       {ribbon && <path d={ribbon} fill="rgba(45,120,137,0.14)" />}
+      {mode !== 'percentile' && areaPath && <path d={areaPath} fill={`url(#${gradId})`} />}
       {mode === 'percentile' && (
         <>
           <line x1="0" y1={yAt(50)} x2={width} y2={yAt(50)}
@@ -256,8 +280,8 @@ function ThresholdProvenance({
     <div
       className="mt-2 rounded-md border-2 px-3 py-2"
       style={{
-        background: '#F4EFE7',
-        borderColor: '#A49C8E',
+        background: 'var(--color-secondary-100)',
+        borderColor: 'var(--color-neutral-300)',
         fontFamily: MONO,
       }}
     >
@@ -327,7 +351,7 @@ function KV({ label, value, sub }: { label: string; value: string; sub?: string 
   return (
     <div
       className="rounded-md border-2 px-2 py-1.5"
-      style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}
+      style={{ background: 'var(--color-secondary-100)', borderColor: 'var(--color-neutral-300)' }}
     >
       <div
         className="uppercase font-bold"
@@ -343,6 +367,32 @@ function KV({ label, value, sub }: { label: string; value: string; sub?: string 
           <span style={{ fontSize: 10, fontWeight: 500, color: THEME.inkDim, marginLeft: 4 }}>{sub}</span>
         )}
       </div>
+    </div>
+  );
+}
+
+// Compact section header echoing the site-wide SectionTitle
+// (src/components/blog/SectionTitle.tsx): a coral eyebrow over a short coral
+// underline. Gives the rail cards the same brand personality as the River
+// Report + Blog without the article-scale sizing.
+function RailSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div
+        className="uppercase font-bold"
+        style={{
+          fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em',
+          color: 'var(--color-accent-600)',
+        }}
+      >
+        {children}
+      </div>
+      <div
+        style={{
+          width: 28, height: 2, borderRadius: 1, marginTop: 5,
+          background: 'var(--color-accent-500)',
+        }}
+      />
     </div>
   );
 }
@@ -429,11 +479,14 @@ export function RightRail({
   return null;
 }
 
+// Matches the site-wide "Field Notebook" card recipe (River Report + Blog):
+// white surface, teal border, warm offset shadow. Uses the shared design
+// tokens so the map panels stay in sync with the rest of the app.
 const RAIL_BASE_STYLE: React.CSSProperties = {
-  background: THEME.cardBg,
-  borderColor: THEME.cardBorder,
+  background: 'var(--color-surface)',
+  borderColor: 'var(--color-primary-700)',
   fontFamily: SANS,
-  boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
+  boxShadow: '3px 3px 0 var(--color-neutral-400)',
 };
 
 // The peek sheet covers this fraction of the viewport bottom; MOMap imports
@@ -631,7 +684,7 @@ function RiverCard({
         <div>
           <div
             className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}
           >
             {river.region ?? '—'} · {river.length_miles?.toFixed(0) ?? '—'} mi
           </div>
@@ -651,7 +704,7 @@ function RiverCard({
           background: bannerChip.background,
           color: bannerChip.color,
           border: `1.5px solid ${bannerChip.borderColor}`,
-          boxShadow: `inset 3px 0 0 ${bannerChip.solid}`,
+          borderLeft: `4px solid ${bannerChip.solid}`,
         }}
       >
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
@@ -699,18 +752,10 @@ function RiverCard({
       </div>
 
       <div className="mt-4">
-        <div
-          className="uppercase font-bold"
-          style={{
-            fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em', color: THEME.inkDim,
-            marginBottom: 4,
-          }}
-        >
-          30-day trend · primary gauge
-        </div>
+        <RailSectionLabel>30-day trend · primary gauge</RailSectionLabel>
         <div
           className="rounded-md border-2 p-2.5"
-          style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}
+          style={{ background: 'var(--color-secondary-100)', borderColor: 'var(--color-neutral-300)' }}
         >
           {primaryHistory ? (
             <Sparkline history={primaryHistory} width={310} height={90} />
@@ -740,15 +785,7 @@ function RiverCard({
 
       {allAccess.length > 0 && (
         <div className="mt-4">
-          <div
-            className="uppercase font-bold"
-            style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em', color: THEME.inkDim,
-              marginBottom: 6,
-            }}
-          >
-            Access points · {allAccess.length}
-          </div>
+          <RailSectionLabel>Access points · {allAccess.length}</RailSectionLabel>
           <div className="space-y-1">
             {accessSummary.map((a) => {
               const clickable = !!onAccessPointClick;
@@ -758,13 +795,13 @@ function RiverCard({
                   key={a.id}
                   type={clickable ? 'button' : undefined}
                   onClick={clickable ? () => onAccessPointClick(a.id) : undefined}
-                  className={`flex w-full items-center justify-between rounded-sm px-2 py-1 text-left ${clickable ? 'hover:bg-[#EAE0CC] cursor-pointer' : ''}`}
-                  style={{ background: '#F4EFE7', fontFamily: MONO, fontSize: 11, transition: 'background 120ms' }}
+                  className={`flex w-full items-center justify-between rounded-sm px-2 py-1 text-left ${clickable ? 'hover:bg-secondary-200 cursor-pointer' : ''}`}
+                  style={{ background: 'var(--color-secondary-100)', fontFamily: MONO, fontSize: 11, transition: 'background 120ms' }}
                 >
                   <span className="truncate" style={{ color: THEME.ink }}>{a.name}</span>
-                  <span style={{ color: THEME.inkDim, marginLeft: 6, whiteSpace: 'nowrap' }}>
+                  <span style={{ color: 'var(--color-primary-600)', fontWeight: 700, marginLeft: 6, whiteSpace: 'nowrap' }}>
                     mi {a.river_mile_downstream != null ? a.river_mile_downstream.toFixed(1) : '—'}
-                    {clickable && <span aria-hidden style={{ marginLeft: 6, color: THEME.inkDim }}>›</span>}
+                    {clickable && <span aria-hidden style={{ marginLeft: 6, color: 'var(--color-accent-500)' }}>›</span>}
                   </span>
                 </Row>
               );
@@ -785,21 +822,13 @@ function RiverCard({
 
       {river.pois && river.pois.length > 0 && (
         <div className="mt-4">
-          <div
-            className="uppercase font-bold"
-            style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em', color: THEME.inkDim,
-              marginBottom: 6,
-            }}
-          >
-            On-river highlights
-          </div>
+          <RailSectionLabel>On-river highlights</RailSectionLabel>
           <div className="space-y-1">
             {river.pois.slice(0, 5).map((p) => (
               <div
                 key={p.id}
                 className="flex items-center justify-between rounded-sm px-2 py-1"
-                style={{ background: '#F4EFE7', fontFamily: MONO, fontSize: 11 }}
+                style={{ background: 'var(--color-secondary-100)', fontFamily: MONO, fontSize: 11 }}
               >
                 <span className="truncate" style={{ color: THEME.ink }}>
                   {p.name}
@@ -855,7 +884,18 @@ function GaugeDetail({
   // the app); fall back to the USGS percentile classification when the
   // gauge has no curated thresholds.
   const verdictInfo = verdict ? STAGE_VERDICTS[verdict] : null;
-  const headlineColor = verdictInfo?.color ?? cls?.color ?? '#857D70';
+  // Match RiverCard's banner: a tinted surface with dark "ink" + a solid
+  // left accent bar (the shared system's AA-safe chip — white text on the
+  // light condition fills fails contrast). For percentile-only gauges with
+  // no editorial verdict, keep the USGS percentile color as a light tint.
+  const bannerChip = verdict
+    ? conditionChip(verdict)
+    : {
+        background: cls ? `${cls.color}1F` : 'rgba(133,125,112,0.12)',
+        color: 'var(--color-neutral-900)',
+        borderColor: cls ? `${cls.color}59` : 'var(--color-neutral-300)',
+        solid: cls?.color ?? '#857D70',
+      };
   const headlineLabel = verdictInfo?.label ?? cls?.label ?? 'No condition data';
   const headlineValue = verdict
     ? (gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : '—')
@@ -868,7 +908,7 @@ function GaugeDetail({
           <div
             className="uppercase font-bold"
             style={{
-              fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim,
+              fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)',
             }}
           >
             USGS Site #{gauge.site_no}
@@ -883,12 +923,17 @@ function GaugeDetail({
 
       <div
         className="mt-3 flex items-baseline gap-3 rounded-md px-3 py-2.5"
-        style={{ background: headlineColor, color: '#FAF8F4' }}
+        style={{
+          background: bannerChip.background,
+          color: bannerChip.color,
+          border: `1.5px solid ${bannerChip.borderColor}`,
+          borderLeft: `4px solid ${bannerChip.solid}`,
+        }}
       >
         <div className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
           {headlineValue}
         </div>
-        <div style={{ fontSize: 13, opacity: 0.95, fontWeight: 600 }}>{headlineLabel}</div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{headlineLabel}</div>
       </div>
       <div className="mt-1.5"><DataAgeChip iso={gauge.readingTimestamp} /></div>
 
@@ -916,13 +961,12 @@ function GaugeDetail({
           value={gauge.stats?.yearsOfRecord != null ? `${Math.round(gauge.stats.yearsOfRecord)}` : '—'} />
       </div>
 
-      <div className="mt-3 uppercase font-bold"
-        style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em', color: THEME.inkDim }}>
-        30-day trend
+      <div className="mt-3">
+        <RailSectionLabel>30-day trend</RailSectionLabel>
       </div>
       <div
         className="mt-1 rounded-md border-2 p-2.5"
-        style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}
+        style={{ background: 'var(--color-secondary-100)', borderColor: 'var(--color-neutral-300)' }}
       >
         {history ? <Sparkline history={history} width={310} height={120} /> : (
           <div style={{
@@ -935,7 +979,7 @@ function GaugeDetail({
       <div
         className="mt-3 border-t pt-2.5"
         style={{
-          borderTop: `1px dashed ${THEME.cardBorder}`,
+          borderTop: '1px dashed var(--color-neutral-300)',
           fontFamily: MONO, fontSize: 10, lineHeight: 1.5, color: THEME.inkDim,
         }}
       >
@@ -1027,7 +1071,7 @@ function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
     return (
       <div
         className="mt-3 rounded-md border-2 p-3"
-        style={{ background: '#F4EFE7', borderColor: '#A49C8E', fontFamily: MONO, fontSize: 11, color: THEME.inkDim }}
+        style={{ background: 'var(--color-secondary-100)', borderColor: 'var(--color-neutral-300)', fontFamily: MONO, fontSize: 11, color: THEME.inkDim }}
       >
         Loading Eddy&apos;s read on this gauge…
       </div>
@@ -1044,15 +1088,16 @@ function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
     <div
       className="mt-3 rounded-md border-2 p-3"
       style={{
-        background: '#FAF8F4',
+        background: 'var(--color-surface)',
         borderColor: THEME.cardBorder,
+        borderLeft: `4px solid ${verdict.color}`,
         boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
       }}
     >
       <div className="flex items-center gap-2">
         <span
           className="uppercase font-bold"
-          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}
         >
           Eddy says
         </span>
@@ -1108,7 +1153,7 @@ function CampgroundCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
             NPS · Ozark Riverways
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1166,7 +1211,7 @@ function AccessPointCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
             {ap.ownership ?? 'Public'} · access
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1206,7 +1251,7 @@ function PoiCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
             {poi.type.replace('_', ' ')}
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1303,9 +1348,12 @@ export function TimeScrubber({
       style={{
         bottom: 12, height: expanded ? 130 : 44,
         background: THEME.primaryDark,
-        borderColor: THEME.cardBorder,
+        // The scrubber is dark chrome over the dark map — it keeps its own
+        // near-black border/shadow rather than the light Field-Notebook card
+        // tokens (a warm offset shadow would read as a halo against the map).
+        borderColor: '#3F3B33',
         color: THEME.parchment,
-        boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
+        boxShadow: '4px 4px 0 #1A1814',
         transition: 'height 220ms cubic-bezier(0.4,0,0.2,1)',
       }}
     >
@@ -1411,7 +1459,7 @@ export function TimeScrubber({
               position: 'absolute', top: -6, left: '50%',
               transform: 'translateX(-50%)',
               width: 12, height: 12, background: THEME.live,
-              borderRadius: 99, border: `2px solid ${THEME.cardBorder}`,
+              borderRadius: 99, border: '2px solid #3F3B33',
             }} />
           </div>
         )}
@@ -1491,12 +1539,12 @@ function ModalShell({
           aria-label="Close"
           onClick={onClose}
           className="absolute right-3 top-3 grid place-items-center w-8 h-8 rounded-md border-2"
-          style={{ background: '#FAF8F4', borderColor: THEME.cardBorder, fontSize: 16, lineHeight: 1, fontWeight: 700, color: THEME.ink }}
+          style={{ background: 'var(--color-surface)', borderColor: THEME.cardBorder, fontSize: 16, lineHeight: 1, fontWeight: 700, color: THEME.ink }}
         >×</button>
         <div className="p-5 pr-12">
           <div
             className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: THEME.inkDim, marginBottom: 4 }}
+            style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: 'var(--color-accent-600)', marginBottom: 4 }}
           >
             {subtitle ?? '—'}
           </div>
@@ -1516,10 +1564,10 @@ function LinkRow({ href, label, hint }: { href: string; label: string; hint?: st
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border-2 hover:bg-[#F4ECDB] transition-colors"
+      className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border-2 hover:bg-secondary-100 transition-colors"
       style={{
         borderColor: THEME.cardBorder,
-        background: '#FAF8F4',
+        background: 'var(--color-secondary-50)',
         fontFamily: MONO,
         fontSize: 12,
         color: THEME.ink,
@@ -1746,7 +1794,7 @@ export function GaugeHoverOverlay({
         top, left, width: OVERLAY_W,
         background: THEME.cardBg,
         borderColor: THEME.cardBorder,
-        boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
+        boxShadow: `3px 3px 0 ${THEME.cardShadow}`,
         fontFamily: SANS,
       }}
     >
@@ -1774,7 +1822,7 @@ export function GaugeHoverOverlay({
           <div className="flex items-center gap-2">
             <span
               className="uppercase font-bold"
-              style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
+              style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}
             >
               {report ? 'Eddy says' : 'Live reading'}
             </span>
@@ -1791,8 +1839,8 @@ export function GaugeHoverOverlay({
           <div
             className="mt-2 rounded-sm px-2 py-1.5"
             style={{
-              background: '#F4EFE7',
-              border: `1px solid ${THEME.cardBorder}`,
+              background: 'var(--color-secondary-100)',
+              border: '1px solid var(--color-neutral-300)',
               fontFamily: MONO,
               fontSize: 10,
               color: THEME.inkDim,
@@ -1964,7 +2012,7 @@ export function ContextSiteCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
             USGS Site #{site.site_no}
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1976,7 +2024,7 @@ export function ContextSiteCard({
       </div>
 
       <div className="mt-3 flex items-baseline gap-2 rounded-md border-2 px-3 py-2.5"
-        style={{ background: '#F4EFE7', borderColor: '#A49C8E' }}>
+        style={{ background: 'var(--color-secondary-100)', borderColor: 'var(--color-neutral-300)' }}>
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22, color: THEME.primary }}>
           {Math.round(site.dischargeCfs).toLocaleString()}
         </span>

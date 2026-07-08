@@ -183,7 +183,7 @@ export default function DataDock({
         <div className="px-4 pb-3 pt-4" style={{ borderBottom: '1px solid rgba(242,234,216,0.1)' }}>
           <div
             className="flex items-center gap-2 uppercase"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.24em', color: '#72B5C4' }}
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.24em', color: 'var(--color-accent-400)' }}
           >
             <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
               {!reduced && (
@@ -221,6 +221,9 @@ export default function DataDock({
               River Map
             </span>
           </h1>
+          {/* Coral underline — the same SectionTitle accent used across the
+              River Report + Blog, adapted for the dark panel. */}
+          <div style={{ width: 32, height: 3, borderRadius: 1, marginTop: 10, background: 'var(--color-accent-500)' }} />
           <div
             className="mt-1.5"
             style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.08em', color: PARCH_FAINT }}
@@ -234,7 +237,7 @@ export default function DataDock({
           <div className="flex items-baseline justify-between">
             <span
               className="uppercase font-bold"
-              style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: PARCH_DIM }}
+              style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: 'var(--color-accent-400)' }}
             >
               {scrubbed ? `Verdict · ${Math.abs(dayOffset)}d ago` : 'Verdict · right now'}
             </span>
