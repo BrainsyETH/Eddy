@@ -12,7 +12,7 @@
 // row lights the reach; scrubbing the timeline repaints the rows. On
 // mobile the dock becomes a slide-in drawer behind a floating live chip.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   classifyStageFromThresholds,
@@ -72,10 +72,34 @@ export default function MOSurfaceWaterApp() {
   const [modalSelection, setModalSelection] = useState<ModalSelection | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
   const [dockOpen, setDockOpen] = useState(false);
+  // True while the mobile bottom sheet is at its EXPANDED snap. The flow
+  // animation pauses when the map is mostly covered (expanded sheet, modal,
+  // or the dock drawer) — at PEEK it keeps running, since the visible live
+  // map above the sheet is the point of the page.
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   // The 30-day timeline is a big fixed reserve; collapse it by default on
   // phones to give the map back ~100px, expanded on md+. Starts expanded on
   // both server and first client render (so hydration matches), then
   // collapses after mount if we're on a small screen.
+  // This page is a fixed full-viewport app — iOS rubber-banding the (empty)
+  // body just reveals the light site background above the dark header as a
+  // gray band. Contain overscroll and paint the body dark for the cases
+  // where iOS rubber-bands anyway; scoped to this route and restored on
+  // unmount so content pages keep pull-to-refresh and their light bg.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = [html.style.overscrollBehaviorY, body.style.overscrollBehaviorY, body.style.backgroundColor];
+    html.style.overscrollBehaviorY = 'none';
+    body.style.overscrollBehaviorY = 'none';
+    body.style.backgroundColor = '#071A20';
+    return () => {
+      html.style.overscrollBehaviorY = prev[0];
+      body.style.overscrollBehaviorY = prev[1];
+      body.style.backgroundColor = prev[2];
+    };
+  }, []);
+
   const [timelineExpanded, setTimelineExpanded] = useState(true);
   useEffect(() => {
     if (!window.matchMedia('(min-width: 768px)').matches) setTimelineExpanded(false);
@@ -465,7 +489,9 @@ export default function MOSurfaceWaterApp() {
   // whatever is open, not stack on top of it. Every selection entry point
   // clears all of them first, then sets its own. (Escape still peels the
   // layers one at a time for keyboard users, below.)
-  const clearAllOverlays = () => {
+  // All of these are useCallback'd so MOMap's memoized marker layers can
+  // list them as deps without being invalidated every render.
+  const clearAllOverlays = useCallback(() => {
     setFocusedGaugeId(null);
     setFocusedRiverId(null);
     setHoveredRiverId(null);
@@ -473,25 +499,29 @@ export default function MOSurfaceWaterApp() {
     setHoveredGaugePos(null);
     setSelectedSite(null);
     setModalSelection(null);
-  };
+  }, []);
 
-  const handleFocusGauge = (id: string | null) => {
+  const handleFocusGauge = useCallback((id: string | null) => {
     clearAllOverlays();
     if (id) setFocusedGaugeId(id);
-  };
-  const selectRiver = (id: string | null) => {
+  }, [clearAllOverlays]);
+  const selectRiver = useCallback((id: string | null) => {
     clearAllOverlays();
     if (id) setFocusedRiverId(id);
-  };
-  const selectSite = (site: MoContextSite | null) => {
+  }, [clearAllOverlays]);
+  const selectSite = useCallback((site: MoContextSite | null) => {
     clearAllOverlays();
     if (site) setSelectedSite(site);
-  };
+  }, [clearAllOverlays]);
+  const handleHoverGauge = useCallback((id: string | null, pos?: { x: number; y: number } | null) => {
+    setHoveredGaugeId(id);
+    setHoveredGaugePos(pos ?? null);
+  }, []);
   // Access points / campgrounds / POIs open the modal popup with link-outs.
   // We also focus the river they belong to so the right rail keeps showing
   // its float context behind the modal — that pairing is one selection, so
   // it clears the gauge/site overlays but keeps its own river focus.
-  const handleClickAccess = (id: string | null) => {
+  const handleClickAccess = useCallback((id: string | null) => {
     if (!id) { setModalSelection(null); return; }
     for (const r of rivers) {
       const ap = (r.access_points ?? []).find((a) => a.id === id);
@@ -502,8 +532,8 @@ export default function MOSurfaceWaterApp() {
         return;
       }
     }
-  };
-  const handleClickCampground = (id: string | null) => {
+  }, [rivers, clearAllOverlays]);
+  const handleClickCampground = useCallback((id: string | null) => {
     if (!id || !dataset) { setModalSelection(null); return; }
     const camp = dataset.campgrounds.find((c) => c.id === id);
     if (!camp) return;
@@ -529,8 +559,8 @@ export default function MOSurfaceWaterApp() {
     }
     clearAllOverlays();
     setModalSelection({ kind: 'campground', camp, nearestRiverName });
-  };
-  const handleClickPoi = (id: string | null) => {
+  }, [rivers, dataset, clearAllOverlays]);
+  const handleClickPoi = useCallback((id: string | null) => {
     if (!id) { setModalSelection(null); return; }
     for (const r of rivers) {
       const p = (r.pois ?? []).find((x) => x.id === id);
@@ -541,9 +571,9 @@ export default function MOSurfaceWaterApp() {
         return;
       }
     }
-  };
+  }, [rivers, clearAllOverlays]);
   const closeModal = () => setModalSelection(null);
-  const closeRail = () => {
+  const closeRail = useCallback(() => {
     setFocusedGaugeId(null);
     setFocusedRiverId(null);
     // Also drop hover state so the × button closes a rail that was opened
@@ -552,7 +582,7 @@ export default function MOSurfaceWaterApp() {
     setHoveredRiverId(null);
     setHoveredGaugeId(null);
     setHoveredGaugePos(null);
-  };
+  }, []);
 
   // Escape backs out of whatever is pinned: modal → site card → rail.
   useEffect(() => {
@@ -642,11 +672,12 @@ export default function MOSurfaceWaterApp() {
           railOpen={railOpen}
           onHoverRiver={setHoveredRiverId}
           onFocusRiver={selectRiver}
-          onHoverGauge={(id, pos) => { setHoveredGaugeId(id); setHoveredGaugePos(pos ?? null); }}
+          onHoverGauge={handleHoverGauge}
           onFocusGauge={handleFocusGauge}
           onClickCampground={handleClickCampground}
           onClickAccessPoint={handleClickAccess}
           onClickPoi={handleClickPoi}
+          flowPaused={sheetExpanded || modalSelection != null || dockOpen}
         />
         </div>
 
@@ -685,6 +716,7 @@ export default function MOSurfaceWaterApp() {
           onClose={closeRail}
           onCloseGauge={() => setFocusedGaugeId(null)}
           onAccessPointClick={(id) => handleClickAccess(id)}
+          onSheetExpandedChange={setSheetExpanded}
         />
 
         {/* On mobile the detail sheet owns the bottom of the screen, so the
@@ -703,7 +735,11 @@ export default function MOSurfaceWaterApp() {
         </div>
 
         {selectedSite && (
-          <ContextSiteCard site={selectedSite} onClose={() => setSelectedSite(null)} />
+          <ContextSiteCard
+            site={selectedSite}
+            onClose={() => setSelectedSite(null)}
+            onSheetExpandedChange={setSheetExpanded}
+          />
         )}
 
         {error && (

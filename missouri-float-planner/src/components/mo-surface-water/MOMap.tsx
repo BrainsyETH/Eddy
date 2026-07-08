@@ -35,6 +35,7 @@ import {
 import { usePrefersReducedMotion } from './fx';
 import FlowLayer, { type FlowRiver } from './FlowLayer';
 import Stars from './Stars';
+import { SHEET_PEEK_FRACTION } from './Chrome';
 
 type BasemapRiver = {
   type: 'Feature';
@@ -109,6 +110,9 @@ interface MOMapProps {
   showTerrain?: boolean;
   /** Animated particle flow layer along the curated rivers. */
   showFlow?: boolean;
+  /** Temporarily stop the flow animation (expanded sheet / modal / dock
+   *  covering the map) without unmounting the layer. */
+  flowPaused?: boolean;
   /** Statewide context sites (neutral, no condition rating). */
   contextSites?: MoContextSite[];
   showSites?: boolean;
@@ -451,6 +455,7 @@ export default function MOMap(props: MOMapProps) {
   const dragRef = useRef<
     | {
         pointerId: number;
+        pointerType: string;
         startClientX: number;
         startClientY: number;
         startViewX: number;
@@ -483,6 +488,31 @@ export default function MOMap(props: MOMapProps) {
     [HOME_VIEW, stageAspect, regionBounds],
   );
 
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const markerSvgRef = useRef<SVGSVGElement | null>(null);
+  // The stage div hosts the native wheel listener so zoom works over the
+  // base SVG, the flow canvas, and the marker SVG alike (events from
+  // marker groups bubble up to it).
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  // The wheel handler reads `view` and writes to it. We stash the latest
+  // view in a ref so the native listener (registered once) sees fresh
+  // state without needing to re-bind on every view change.
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
+
+  // ── Imperative viewBox during gestures + entry (perf) ──
+  // Pan/pinch/entry would otherwise call setView every frame, re-rendering
+  // and reconciling ~5–6k SVG nodes at 60 fps. Instead we mutate the viewBox
+  // attribute on both SVGs (and the shared viewRef the flow canvas reads)
+  // WITHOUT a React render, then commit to state once on gesture end so the
+  // kStable-scaled markers snap to their final screen size.
+  const applyView = useCallback((v: { x: number; y: number; w: number; h: number }) => {
+    viewRef.current = v;
+    const vb = `${v.x} ${v.y} ${v.w} ${v.h}`;
+    svgRef.current?.setAttribute('viewBox', vb);
+    markerSvgRef.current?.setAttribute('viewBox', vb);
+  }, []);
+
   // ─── Cinematic entry ───────────────────────────────────────────────────
   // One-shot fly-down from high altitude to the home framing. Pure
   // viewBox interpolation (no layout work per frame). Skippable via any
@@ -504,15 +534,23 @@ export default function MOMap(props: MOMapProps) {
       setEntryPhase('done');
       try { window.sessionStorage.setItem('mosw-entry-played', '1'); } catch { /* private mode */ }
     };
+    // Imperative viewBox per frame (like pan/pinch) — a setView per frame
+    // re-rendered the marker/river layers ~126 times over the flight.
+    // Coarse checkpoint commits keep the kStable marker scale stepping down
+    // gently instead of snapping 1.4→1.0 at the end, and keep React state
+    // close enough that a mid-flight data render can't hold a stale camera
+    // for more than a frame.
+    let lastCommit = t0;
     const tick = (t: number) => {
       const p = Math.min(1, (t - t0) / D);
       const e = ease(p);
-      setView({
+      applyView({
         x: ENTRY_VIEW.x + (HOME_VIEW.x - ENTRY_VIEW.x) * e,
         y: ENTRY_VIEW.y + (HOME_VIEW.y - ENTRY_VIEW.y) * e,
         w: ENTRY_VIEW.w + (HOME_VIEW.w - ENTRY_VIEW.w) * e,
         h: ENTRY_VIEW.h + (HOME_VIEW.h - ENTRY_VIEW.h) * e,
       });
+      if (t - lastCommit > 450) { lastCommit = t; setView(viewRef.current); }
       if (p >= 1) finish();
       else raf = requestAnimationFrame(tick);
     };
@@ -526,7 +564,7 @@ export default function MOMap(props: MOMapProps) {
       window.removeEventListener('keydown', finish);
       window.removeEventListener('wheel', finish);
     };
-  }, [entryPhase, ENTRY_VIEW, HOME_VIEW]);
+  }, [entryPhase, ENTRY_VIEW, HOME_VIEW, applyView]);
 
   // Layer reveal during the flight: flips one frame after mount so CSS
   // transitions (with per-layer delays) carry terrain → basemap → rivers
@@ -553,31 +591,6 @@ export default function MOMap(props: MOMapProps) {
   // "Unable to preventDefault inside passive event listener" warning.
   // Native `addEventListener` with `{ passive: false }` lets the page
   // suppress browser scroll while we zoom the SVG.
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const markerSvgRef = useRef<SVGSVGElement | null>(null);
-  // The stage div hosts the native wheel listener so zoom works over the
-  // base SVG, the flow canvas, and the marker SVG alike (events from
-  // marker groups bubble up to it).
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  // The wheel handler reads `view` and writes to it. We stash the latest
-  // view in a ref so the native listener (registered once) sees fresh
-  // state without needing to re-bind on every view change.
-  const viewRef = useRef(view);
-  useEffect(() => { viewRef.current = view; }, [view]);
-
-  // ── Imperative viewBox during gestures (perf) ──
-  // Pan/pinch would otherwise call setView every frame, re-rendering and
-  // reconciling ~5–6k SVG nodes at 60 fps. Instead we mutate the viewBox
-  // attribute on both SVGs (and the shared viewRef the flow canvas reads)
-  // WITHOUT a React render, then commit to state once on gesture end so the
-  // kStable-scaled markers snap to their final screen size.
-  const applyView = useCallback((v: { x: number; y: number; w: number; h: number }) => {
-    viewRef.current = v;
-    const vb = `${v.x} ${v.y} ${v.w} ${v.h}`;
-    svgRef.current?.setAttribute('viewBox', vb);
-    markerSvgRef.current?.setAttribute('viewBox', vb);
-  }, []);
-
   // Measure the stage's pixel aspect and keep the view rect matched to it, so
   // the region fills the stage on both portrait phones and wide desktops.
   useLayoutEffect(() => {
@@ -636,8 +649,11 @@ export default function MOMap(props: MOMapProps) {
 
   // Drag threshold (pixels of pointer movement before we treat the gesture
   // as a pan). Below this we leave the click path untouched so feature
-  // markers receive their click events normally.
+  // markers receive their click events normally. Fingers wobble more than
+  // mice — a 5px threshold swallowed imperfect taps as tiny pans, so touch
+  // gets a wider dead zone.
   const DRAG_THRESHOLD_PX = 5;
+  const TOUCH_DRAG_THRESHOLD_PX = 10;
 
   // Multi-touch: every active pointer, plus the frozen state of an in-flight
   // two-finger pinch. `hadMultiTouch` suppresses the click that trails a
@@ -676,6 +692,7 @@ export default function MOMap(props: MOMapProps) {
     // markers/buttons never receive it. We capture lazily past the threshold.
     dragRef.current = {
       pointerId: e.pointerId,
+      pointerType: e.pointerType,
       startClientX: e.clientX,
       startClientY: e.clientY,
       startViewX: viewRef.current.x,
@@ -713,8 +730,9 @@ export default function MOMap(props: MOMapProps) {
     if (!drag) return;
     const dx = e.clientX - drag.startClientX;
     const dy = e.clientY - drag.startClientY;
+    const threshold = drag.pointerType === 'touch' ? TOUCH_DRAG_THRESHOLD_PX : DRAG_THRESHOLD_PX;
     if (!drag.moved &&
-        (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX)) {
+        (Math.abs(dx) > threshold || Math.abs(dy) > threshold)) {
       drag.moved = true;
       setDragging(true);
       // A pan invalidates the hover overlay's captured screen position;
@@ -915,6 +933,215 @@ export default function MOMap(props: MOMapProps) {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextNodes, kStable, props.selectedContextSiteId, props.showSites, lit, reducedMotion, guardClick, props.onClickContextSite]);
+
+  // site_no+river → curated gauge row. The marker loop used to run
+  // rivers.find × gauges.find per marker per render — O(rivers×gauges)
+  // on every hover. Also feeds the selection camera-nudge below.
+  const gaugeMetaByKey = useMemo(() => {
+    const m = new Map<string, { river: MORiver; gauge: NonNullable<MORiver['gauges']>[number] }>();
+    for (const r of props.rivers) {
+      for (const g of r.gauges ?? []) m.set(condKey(r.id, g.site_id), { river: r, gauge: g });
+    }
+    return m;
+  }, [props.rivers]);
+
+  // Hoisted from the marker loop so the memoized layer deps on a boolean,
+  // not the continuously-changing view object.
+  const otterZoom = view.w < HOME_VIEW.w * 0.5;
+
+  // Gauge markers, memoized like contextLayer: recomputes on zoom commits,
+  // data ticks, and hover/focus id changes — but NOT on pans or on the
+  // hover-position renders that fire for every pointer move on a marker.
+  const gaugeLayer = useMemo(() => {
+    if (!props.showGauges) return null;
+    return (
+      <g style={fadeIn(1450, 800)}>
+        {props.gauges.map((g) => {
+          const meta = gaugeMetaByKey.get(condKey(g.river_id, g.site_no));
+          if (!meta) return null;
+          const gauge = meta.gauge;
+          const [x, y] = project(gauge.lon, gauge.lat);
+          const p = props.percentileByGauge[g.site_no] ?? g.percentile;
+          const isHovered = props.hoveredGaugeId === g.site_no;
+          const isFocused = props.focusedGaugeId === g.site_no;
+          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
+          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
+          // Pulse the marker when the river is running high — by discharge
+          // percentile when USGS publishes it, otherwise by the editorial
+          // condition so stage-only gauges still flag rising water.
+          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
+          const iconHref = getEddyImageForCondition(verdict);
+          // Condition chip: a crisp colored disc with a cream halo reads at
+          // any zoom. The Eddy avatar is the personality layer — shown only
+          // on hover/focus or once zoomed in (view < 0.5x), where it floats
+          // just above the chip like a labeled pin so the anchor stays put.
+          const showOtter = isHovered || isFocused || otterZoom;
+          // Size encodes current discharge on the same sqrt scale as the
+          // statewide context sites, so magnitude reads consistently.
+          const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
+          const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
+          const otterSize = (isFocused ? 32 : 27) * kStable;
+          const iconYOffset = -(chipR + otterSize * 0.58);
+          // Generous invisible tap target — gauges are the primary touch
+          // interaction and SVG <g> isn't covered by the global 44px rule.
+          // Pinch-zoom (now supported) separates gauges that sit close.
+          const hitR = (g.is_primary ? 24 : 20) * kStable;
+          return (
+            <g
+              // Keyed per river+site: one physical gauge can serve two
+              // rivers (07017200 → Courtois + Huzzah) and site_no alone
+              // produced duplicate React keys.
+              key={condKey(g.river_id, g.site_no)}
+              transform={`translate(${x} ${y})`}
+              style={{ cursor: 'pointer' }}
+              // Keyboard path: ten curated gauges are tabbable; Enter or
+              // Space pins the detail rail, same as a click. The label
+              // carries condition + reading so the color is never the
+              // only channel.
+              tabIndex={0}
+              role="button"
+              aria-label={`${g.river_name} gauge ${g.site_no} — ${STAGE_VERDICTS[verdict]?.label ?? 'no rating'}${g.gaugeHeightFt != null ? `, ${g.gaugeHeightFt.toFixed(2)} feet` : ''}${g.dischargeCfs != null ? `, ${Math.round(g.dischargeCfs)} cfs` : ''}. Open details`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  props.onFocusGauge(g.site_no);
+                }
+              }}
+              // Pointer (not mouse) events so touch can be excluded: iOS
+              // fires a synthetic mouseenter before click, which flashed
+              // the hover card for a frame before the sheet opened.
+              onPointerEnter={(e) => {
+                if (e.pointerType === 'touch') return;
+                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
+                props.onHoverGauge(g.site_no, {
+                  x: rect.left + rect.width / 2,
+                  y: rect.top + rect.height / 2,
+                });
+              }}
+              onPointerLeave={(e) => {
+                if (e.pointerType === 'touch') return;
+                props.onHoverGauge(null, null);
+              }}
+              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
+            >
+              <circle r={hitR} fill="transparent" pointerEvents="all" />
+              {/* soft glow halo — live data reads as lit */}
+              <circle r={chipR * 2.3} fill={verdictColor} opacity={0.17} pointerEvents="none" />
+              {elevated && !reducedMotion && (
+                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
+                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {showOtter && (
+                <image
+                  href={iconHref}
+                  x={-otterSize / 2}
+                  y={iconYOffset - otterSize / 2}
+                  width={otterSize}
+                  height={otterSize}
+                  pointerEvents="none"
+                  // Blob-store avatar can be blocked (offline, strict
+                  // networks) — hide instead of a broken-image glyph.
+                  onError={(e) => { (e.currentTarget as SVGImageElement).style.display = 'none'; }}
+                  style={{
+                    filter: isFocused
+                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
+                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
+                  }}
+                />
+              )}
+              <circle
+                r={chipR}
+                fill={verdictColor}
+                stroke="#FAF8F4"
+                strokeWidth={1.5 * kStable}
+                pointerEvents="none"
+                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
+              />
+            </g>
+          );
+        })}
+      </g>
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    props.gauges, gaugeMetaByKey, kStable, otterZoom,
+    props.hoveredGaugeId, props.focusedGaugeId,
+    props.conditionByGauge, props.percentileByGauge, props.showGauges,
+    reducedMotion, fadeIn, guardClick, project,
+    props.onFocusGauge, props.onHoverGauge,
+  ]);
+
+  // ── Selection camera nudge (mobile) ──
+  // The peek sheet covers the bottom ~44% of the screen, which can hide the
+  // very feature the user just tapped. When a selection lands in that band,
+  // ease-pan it (Y only) to ~1/3 from the top of the still-visible area.
+  // Fires once per selection change; a user pointerdown cancels mid-flight.
+  useEffect(() => {
+    if (!isSmallScreen || entryPhase !== 'done') return;
+    // Resolve the selected feature to projected map coords.
+    let pt: [number, number] | null = null;
+    if (props.focusedGaugeId) {
+      const g = props.gauges.find((x) => x.site_no === props.focusedGaugeId);
+      const meta = g ? gaugeMetaByKey.get(condKey(g.river_id, g.site_no)) : undefined;
+      if (meta) pt = project(meta.gauge.lon, meta.gauge.lat);
+    } else if (props.focusedRiverId) {
+      const r = props.rivers.find((x) => x.id === props.focusedRiverId);
+      if (r) {
+        const primary = (r.gauges ?? []).find((g) => g.is_primary) ?? (r.gauges ?? [])[0];
+        if (primary) {
+          pt = project(primary.lon, primary.lat);
+        } else {
+          // A river isn't a point — anchor on the polyline's midpoint.
+          const coords = r.geometry.coordinates as Array<[number, number]>;
+          const mid = coords[Math.floor(coords.length / 2)];
+          if (mid) pt = project(mid[0], mid[1]);
+        }
+      }
+    } else if (props.selectedContextSiteId) {
+      const s = (props.contextSites ?? []).find((x) => x.site_no === props.selectedContextSiteId);
+      if (s) pt = project(s.lon, s.lat);
+    }
+    const stage = stageRef.current;
+    if (!pt || !stage) return;
+
+    const rect = stage.getBoundingClientRect();
+    const from = { ...viewRef.current };
+    // Same viewBox→screen math as the flow canvas (preserveAspectRatio meet).
+    const s = Math.min(rect.width / from.w, rect.height / from.h);
+    const oy = (rect.height - from.h * s) / 2 - from.y * s;
+    const screenY = rect.top + pt[1] * s + oy;
+    const sheetTop = window.innerHeight - Math.round(window.innerHeight * SHEET_PEEK_FRACTION);
+    if (screenY < sheetTop - 24) return; // already visible above the sheet
+    const visibleBottom = Math.min(rect.bottom, sheetTop);
+    const desiredY = rect.top + (visibleBottom - rect.top) / 3;
+    const to = clampView({ ...from, y: from.y + (screenY - desiredY) / s });
+
+    let raf = 0;
+    const D = 300;
+    const t0 = performance.now();
+    const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / D);
+      const e = easeInOut(p);
+      applyView({ ...from, y: from.y + (to.y - from.y) * e });
+      if (p >= 1) setView(viewRef.current);
+      else raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    // The user grabbing the map mid-nudge wins immediately.
+    const cancel = () => { cancelAnimationFrame(raf); setView(viewRef.current); };
+    window.addEventListener('pointerdown', cancel, { once: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointerdown', cancel);
+    };
+    // Deliberately keyed on the selection ids only (same pattern as the
+    // aspect-remap effect) — it must fire once per selection, not re-nudge
+    // after the user pans away.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.focusedGaugeId, props.focusedRiverId, props.selectedContextSiteId]);
 
   return (
     <>
@@ -1123,8 +1350,11 @@ export default function MOMap(props: MOMapProps) {
           <g
             key={r.id}
             style={{ opacity: dim ? 0.32 : 1, transition: 'opacity 200ms', cursor: 'pointer' }}
-            onMouseEnter={() => props.onHoverRiver(r.id)}
-            onMouseLeave={() => props.onHoverRiver(null)}
+            // Pointer (not mouse) events so touch is excluded — iOS fires a
+            // synthetic mouseenter before click, which flashed the hover
+            // rail for a frame before the tap focused the river.
+            onPointerEnter={(e) => { if (e.pointerType !== 'touch') props.onHoverRiver(r.id); }}
+            onPointerLeave={(e) => { if (e.pointerType !== 'touch') props.onHoverRiver(null); }}
             onClick={guardClick(() => props.onFocusRiver(r.id))}
           >
             {grad && (
@@ -1312,7 +1542,7 @@ export default function MOMap(props: MOMapProps) {
       <FlowLayer
         rivers={flowRivers}
         viewRef={viewRef}
-        enabled
+        enabled={!props.flowPaused}
         maxParticles={maxParticles}
         style={fadeIn(950)}
       />
@@ -1333,110 +1563,8 @@ export default function MOMap(props: MOMapProps) {
           dwarf the rivers, and zoomed in it doesn't balloon.
           Each marker has an invisible 14px screen hit-target as the
           first child so clicks register reliably even when the visible
-          dot is only a few pixels across. */}
-      {props.showGauges && (
-      <g style={fadeIn(1450, 800)}>
-        {props.gauges.map((g) => {
-          const r = props.rivers.find((x) => x.id === g.river_id);
-          const gauge = r?.gauges?.find((x) => x.site_id === g.site_no);
-          if (!gauge) return null;
-          const [x, y] = project(gauge.lon, gauge.lat);
-          const p = props.percentileByGauge[g.site_no] ?? g.percentile;
-          const isHovered = props.hoveredGaugeId === g.site_no;
-          const isFocused = props.focusedGaugeId === g.site_no;
-          const verdict = props.conditionByGauge[condKey(g.river_id, g.site_no)] ?? 'unknown';
-          const verdictColor = STAGE_VERDICTS[verdict]?.color ?? '#A49C8E';
-          // Pulse the marker when the river is running high — by discharge
-          // percentile when USGS publishes it, otherwise by the editorial
-          // condition so stage-only gauges still flag rising water.
-          const elevated = (p != null && p >= 75) || verdict === 'high' || verdict === 'dangerous';
-          const iconHref = getEddyImageForCondition(verdict);
-          // Condition chip: a crisp colored disc with a cream halo reads at
-          // any zoom. The Eddy avatar is the personality layer — shown only
-          // on hover/focus or once zoomed in (view < 0.5x), where it floats
-          // just above the chip like a labeled pin so the anchor stays put.
-          const showOtter = isHovered || isFocused || view.w < HOME_VIEW.w * 0.5;
-          // Size encodes current discharge on the same sqrt scale as the
-          // statewide context sites, so magnitude reads consistently.
-          const baseR = magnitudeR(g.dischargeCfs, g.is_primary ? 3.4 : 2.6, 5.6);
-          const chipR = (baseR + (isFocused ? 2.4 : isHovered ? 1.2 : 0)) * kStable;
-          const otterSize = (isFocused ? 32 : 27) * kStable;
-          const iconYOffset = -(chipR + otterSize * 0.58);
-          // Generous invisible tap target — gauges are the primary touch
-          // interaction and SVG <g> isn't covered by the global 44px rule.
-          // Pinch-zoom (now supported) separates gauges that sit close.
-          const hitR = (g.is_primary ? 24 : 20) * kStable;
-          return (
-            <g
-              // Keyed per river+site: one physical gauge can serve two
-              // rivers (07017200 → Courtois + Huzzah) and site_no alone
-              // produced duplicate React keys.
-              key={condKey(g.river_id, g.site_no)}
-              transform={`translate(${x} ${y})`}
-              style={{ cursor: 'pointer' }}
-              // Keyboard path: ten curated gauges are tabbable; Enter or
-              // Space pins the detail rail, same as a click. The label
-              // carries condition + reading so the color is never the
-              // only channel.
-              tabIndex={0}
-              role="button"
-              aria-label={`${g.river_name} gauge ${g.site_no} — ${STAGE_VERDICTS[verdict]?.label ?? 'no rating'}${g.gaugeHeightFt != null ? `, ${g.gaugeHeightFt.toFixed(2)} feet` : ''}${g.dischargeCfs != null ? `, ${Math.round(g.dischargeCfs)} cfs` : ''}. Open details`}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  props.onFocusGauge(g.site_no);
-                }
-              }}
-              onMouseEnter={(e) => {
-                const rect = (e.currentTarget as SVGGElement).getBoundingClientRect();
-                props.onHoverGauge(g.site_no, {
-                  x: rect.left + rect.width / 2,
-                  y: rect.top + rect.height / 2,
-                });
-              }}
-              onMouseLeave={() => props.onHoverGauge(null, null)}
-              onClick={guardClick(() => props.onFocusGauge(g.site_no))}
-            >
-              <circle r={hitR} fill="transparent" pointerEvents="all" />
-              {/* soft glow halo — live data reads as lit */}
-              <circle r={chipR * 2.3} fill={verdictColor} opacity={0.17} pointerEvents="none" />
-              {elevated && !reducedMotion && (
-                <circle r={chipR * 1.1} fill="none" stroke={verdictColor} strokeWidth={1.2 * kStable} opacity={0.7} pointerEvents="none">
-                  <animate attributeName="r" from={chipR * 1.1} to={chipR * 3.4} dur="2.2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" from="0.7" to="0" dur="2.2s" repeatCount="indefinite" />
-                </circle>
-              )}
-              {showOtter && (
-                <image
-                  href={iconHref}
-                  x={-otterSize / 2}
-                  y={iconYOffset - otterSize / 2}
-                  width={otterSize}
-                  height={otterSize}
-                  pointerEvents="none"
-                  // Blob-store avatar can be blocked (offline, strict
-                  // networks) — hide instead of a broken-image glyph.
-                  onError={(e) => { (e.currentTarget as SVGImageElement).style.display = 'none'; }}
-                  style={{
-                    filter: isFocused
-                      ? 'drop-shadow(0 1px 2px rgba(15,45,53,0.55))'
-                      : 'drop-shadow(0 1px 1.5px rgba(15,45,53,0.35))',
-                  }}
-                />
-              )}
-              <circle
-                r={chipR}
-                fill={verdictColor}
-                stroke="#FAF8F4"
-                strokeWidth={1.5 * kStable}
-                pointerEvents="none"
-                style={{ filter: 'drop-shadow(0 1px 1px rgba(15,45,53,0.35))' }}
-              />
-            </g>
-          );
-        })}
-      </g>
-      )}
+          dot is only a few pixels across. (Memoized above — gaugeLayer.) */}
+      {gaugeLayer}
     </svg>
     </div>
 

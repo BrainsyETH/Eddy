@@ -308,15 +308,20 @@ export default function FlowLayer({
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
+    // Test hook: the smoke suite asserts the loop pauses under an expanded
+    // sheet and resumes on collapse.
+    (window as Window & { __moswFlowRunning?: boolean }).__moswFlowRunning = true;
 
     const onVisibility = () => {
       if (document.hidden) {
         running = false;
         cancelAnimationFrame(raf);
+        (window as Window & { __moswFlowRunning?: boolean }).__moswFlowRunning = false;
       } else if (!running) {
         running = true;
         last = performance.now();
         raf = requestAnimationFrame(tick);
+        (window as Window & { __moswFlowRunning?: boolean }).__moswFlowRunning = true;
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -324,6 +329,7 @@ export default function FlowLayer({
     return () => {
       running = false;
       cancelAnimationFrame(raf);
+      (window as Window & { __moswFlowRunning?: boolean }).__moswFlowRunning = false;
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import localFont from "next/font/local";
 import { Fredoka } from "next/font/google";
@@ -45,6 +45,13 @@ const EDDY_FAVICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.co
 // Validate GA tracking ID format to prevent script injection via misconfigured env vars
 const rawGaId = process.env.NEXT_PUBLIC_GA_ID || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const GA_TRACKING_ID = rawGaId && /^(G-[A-Z0-9]+|UA-\d+-\d+)$/.test(rawGaId) ? rawGaId : undefined;
+
+// Tint the iOS/Android browser chrome (status bar, URL bar) the same dark
+// teal as the site header — without this the OS paints it with the light
+// page background, leaving a gray band above the nav on phones.
+export const viewport: Viewport = {
+  themeColor: "#163F4A",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
