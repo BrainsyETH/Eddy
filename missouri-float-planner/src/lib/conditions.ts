@@ -90,7 +90,14 @@ export function computeCondition(
     };
   }
 
-  if (thresholds.levelLow !== null && compareValue >= thresholds.levelLow) {
+  // "Good": at or above the low threshold. When a partial ladder defines only
+  // where the optimal band begins (optimal_min) with no low/optimal_max anchor —
+  // e.g. the moherp "Good begins at X" ratings on Gasconade/Jerome (400 cfs) and
+  // Black/Annapolis (180 cfs) — fall back to optimal_min as the good floor.
+  // Without this, a healthy reading passes every band above and lands on the
+  // final "too_low" fall-through, so the gauge reads "Too Low" at any level.
+  const goodFloor = thresholds.levelLow ?? thresholds.levelOptimalMin;
+  if (goodFloor !== null && compareValue >= goodFloor) {
     return {
       code: 'good',
       label: CONDITION_LABELS.good,
