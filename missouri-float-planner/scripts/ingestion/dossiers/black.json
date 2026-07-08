@@ -90,6 +90,24 @@
       "servesSections": [],
       "knownBias": "VERIFIED but NOT real-time: water-quality only (1965, 1993), no uv. Discontinued. Reference only.",
       "_verify": true
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07063000",
+      "name": "Black River at Poplar Bluff, MO",
+      "lat": 36.75975,
+      "lon": -90.38783,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 1245,
+      "nwsLid": "PPBM7",
+      "servesSections": [
+        "lower-markham-hammer"
+      ],
+      "knownBias": "LIVE (549 cfs 2026-07-08, 15-min data). Nearest live, flood-rated gauge below Clearwater Dam; ~26 river mi downstream of the Markham Springs->Hammer reach, ~24% larger drainage (1245 vs ~1007 sq mi). Keyed to the LOWER reach for its live high/dangerous safety ceiling ONLY, because the reach's own gauge (Williamsville 07062575) is discontinued (no real-time discharge since 2022, no NWS flood stages, no rating). Reads ~24% high vs the reach.",
+      "_verify": true
     }
   ],
   "sections": [
@@ -178,6 +196,68 @@
         "West Fork floatable from ~Centerville; Middle Fork often floated from the Hwy 21-72 bridge; East Fork (Taum Sauk / Johnson Shut-ins / Bell Mountain Wilderness) is NOT considered floatable.",
         "Below Clearwater Dam the river is a separate, slower, dam-influenced reach (warmer/murkier releases favor spotted bass over smallmouth); canoe liveries only just below the dam; much of the lower river is within Mark Twain NF. Leaves the Ozarks at Poplar Bluff into slow lowland water."
       ]
+    },
+    {
+      "slug": "lower-markham-hammer",
+      "name": "Lower Black (Markham Springs to Hammer, below Clearwater Dam)",
+      "description": "Dam-release-controlled reach below Clearwater Dam near Williamsville (Wayne County). Warmer, slower, murkier releases; separate hydrology from the upper Lesterville reach. The reach gauge (Williamsville 07062575) is discontinued, so live conditions are keyed to the downstream Black River at Poplar Bluff (07063000), ~26 river mi below the reach.",
+      "putIn": {
+        "name": "Markham Springs",
+        "lat": 36.97887,
+        "lon": -90.60364
+      },
+      "takeOut": {
+        "name": "Hammer access (Bradley A. Hammer Memorial CA)",
+        "lat": 36.96331,
+        "lon": -90.55438
+      },
+      "publishedLengthMiles": 2.7,
+      "representativeGauge": {
+        "siteId": "07063000",
+        "rationale": "Nearest LIVE, flood-rated USGS gauge below Clearwater Dam; the reach's own Williamsville gauge is discontinued. Provides a defensible live high/dangerous ceiling from NWS flood stages.",
+        "knownBias": "~26 river mi downstream, ~24% larger drainage; reads ~24% high vs the reach. Good for flood/high-water detection, not for precise optimal-flow calls. distance_from_section_miles=26 triggers the accuracy warning."
+      },
+      "thresholds": [
+        {
+          "level": "optimal_min",
+          "value": 627,
+          "unit": "cfs",
+          "referenceGauge": "07063000",
+          "referenceGaugeIsPolled": true,
+          "source": "507 cfs OBSERVED 'Good' (Markham Springs->Hammer trip 2021-10-17, logged at the now-discontinued Williamsville gauge 07062575) scaled to this gauge by drainage-area ratio 1245/1007 = 1.236 -> 627 cfs. Single-point calibration.",
+          "confidence": "medium"
+        },
+        {
+          "level": "high",
+          "value": 4809,
+          "unit": "cfs",
+          "referenceGauge": "07063000",
+          "referenceGaugeIsPolled": true,
+          "source": "NWS/NWPS PPBM7 ACTION stage 12.0 ft (api.water.noaa.gov/nwps/v1/gauges/ppbm7) converted via USGS 07063000 exsa rating (get_ratings) = 4808.70 cfs.",
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 7057,
+          "unit": "cfs",
+          "referenceGauge": "07063000",
+          "referenceGaugeIsPolled": true,
+          "source": "NWS/NWPS PPBM7 MINOR/official FLOOD stage 16.0 ft converted via USGS 07063000 exsa rating = 7057.21 cfs.",
+          "confidence": "high"
+        }
+      ],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "dam_tailwater",
+        "primaryHazards": [
+          "strainer",
+          "dam_release"
+        ],
+        "lowWaterMeaning": "Below ~627 cfs at Poplar Bluff (~507 at the reach) reads too-low; the single observed Good was 507 cfs reach-equivalent.",
+        "risingWaterHazards": "Dam releases from Clearwater can raise flow quickly; high=action stage, dangerous=official flood stage at Poplar Bluff."
+      },
+      "hazards": [],
+      "localKnowledge": []
     }
   ],
   "accessPoints": [
@@ -344,6 +424,7 @@
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
       "Full MDC access-point list with coordinates (human places every point)"
     ],
-    "ladderNote2026_07_08": "high=1470/dangerous=3880 cfs added from USGS 07061500 exsa rating x NWS ANNM7 action/flood stages (session claude/rivers-missing-admin). too_low/low/optimal_max left null: no OBSERVED source (moherp estimates rejected); ideal band open-topped 180->1470, sub-180 reads scraping/too_low. Safe to activate."
+    "ladderNote2026_07_08": "high=1470/dangerous=3880 cfs added from USGS 07061500 exsa rating x NWS ANNM7 action/flood stages (session claude/rivers-missing-admin). too_low/low/optimal_max left null: no OBSERVED source (moherp estimates rejected); ideal band open-topped 180->1470, sub-180 reads scraping/too_low. Safe to activate.",
+    "lowerReachNote2026_07_08": "Lower Black (Markham Springs->Hammer) added as a second section keyed to the LIVE Poplar Bluff gauge 07063000 (Williamsville 07062575 is discontinued). River-level badge stays on the primary Annapolis (upper) gauge; the segment-condition function routes lower put-ins to Poplar Bluff via river_mile (Annapolis rm=25, Poplar Bluff rm=55). Applied directly to prod (session claude/rivers-missing-admin), not via ingest."
   }
 }
