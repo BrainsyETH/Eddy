@@ -20,6 +20,17 @@ import json, os, re, sys, math, time, urllib.request, urllib.parse
 WRITE = '--write' in sys.argv
 BASE = os.environ['SUPABASE_URL'].rstrip('/')
 KEY = os.environ['SUPABASE_KEY']
+
+# Guardrail (added after the 2026-07 prod/legacy project mixup, where rivers were
+# written to one Supabase project while the app read another): make the target
+# project visible on every run and refuse to write to an unexpected one. Set
+# EXPECTED_SUPABASE_REF=<ref> to enforce — prod is `ilefwfpvphadsbptiaur`.
+def _project_ref(u):
+    m = re.search(r'https?://([a-z0-9]+)\.supabase\.', u)
+    return m.group(1) if m else '(unknown)'
+REF = _project_ref(BASE)
+EXPECTED_REF = os.environ.get('EXPECTED_SUPABASE_REF')
+
 DOSSIER_DIR = '/home/user/Eddy/missouri-float-planner/scripts/ingestion/dossiers'
 FLAG = '⚠︎ AUTO-PRELOADED FROM RESEARCH DOSSIER (2026-07-07) — verify & drag to the exact ramp before approving.'
 SNAP_ACCEPT_M = 8000  # geocode accepted only if it snaps within 8 km of the river
@@ -45,6 +56,9 @@ def req(method, path, body=None, extra=None):
 AGENCY = {'MDC': 'MDC', 'NPS': 'NPS', 'USFS': 'USFS', 'COE': 'COE',
           'Missouri State Parks': 'State Park', 'State Parks': 'State Park',
           'private': 'Private', 'Private': 'Private'}
+# The access_points_managing_agency_check CHECK constraint (00034) — anything
+# outside this set is rejected, so fall back to null rather than fail the insert.
+AGENCY_ALLOWED = {'MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private'}
 
 def slugify(s):
     s = re.sub(r"[’'()/.,]", '', s.lower())
@@ -152,6 +166,13 @@ def try_geocode(slug, ap, coords):
     return best
 
 def main():
+    print(f"→ target Supabase project: {REF}  ({BASE})")
+    if EXPECTED_REF and REF != EXPECTED_REF:
+        sys.exit(f"ABORT: connected project '{REF}' != EXPECTED_SUPABASE_REF '{EXPECTED_REF}'.\n"
+                 "Point SUPABASE_URL at the intended project before running.")
+    if WRITE and not EXPECTED_REF:
+        print("  ⚠︎ EXPECTED_SUPABASE_REF unset — writing without a project guard. "
+              "Set it to the intended ref (prod = ilefwfpvphadsbptiaur) to be safe.")
     plan = []
     for slug in ['bourbeuse', 'st-francis', 'gasconade', 'black', 'buffalo']:
         d = json.load(open(f'{DOSSIER_DIR}/{slug}.json'))
@@ -184,10 +205,15 @@ def main():
             if x1 == x0: return f0
             return max(0.01, min(0.99, f0 + (f1-f0)*(x-x0)/(x1-x0)))
 
-        # Pass 2: place each point. Priority: geocode > mile-between-anchors >
+        # Pass 2: place each point. Priority: researched coord (dossier lat/lon
+        # from the 2026-07-08 enrichment) > geocode > mile-between-anchors >
         # rank-between-anchors > raw mile model > order spread.
         for idx, (ap, wm) in enumerate(miled):
-            if idx in geo_by_idx:
+            rlat, rlon = ap.get('lat'), ap.get('lon')
+            if isinstance(rlat, (int, float)) and isinstance(rlon, (int, float)):
+                lat, lon = float(rlat), float(rlon)
+                method = f"researched ({ap.get('coordinateConfidence') or 'sourced'})"
+            elif idx in geo_by_idx:
                 g = geo_by_idx[idx]; lon, lat = g[0]; method = f'geocoded ~{g[1]/1000:.1f}km'
             elif wm is not None and len(mile_anchors) >= 2:
                 lon, lat = interp(coords, lin(mile_anchors, wm)); method = f'mile-anchored {wm:.1f}'
@@ -199,19 +225,39 @@ def main():
                 frac = 0.5 if n == 1 else 0.1 + 0.8*idx/(n-1)
                 lon, lat = interp(coords, frac); method = f'interp order {idx+1}/{n}'
             name = ap.get('name', 'Access'); src = ap.get('source')
-            desc = f"{FLAG} [placed: {method}] {ap.get('notes','')}".strip()
-            if src and src.startswith('http'): desc += f" [source: {src}]"
-            plan.append((slug, method, name, lon, lat, {
+            # managing_agency must satisfy the DB CHECK enum; else derive from ownership.
+            agency = ap.get('managingAgency')
+            if agency not in AGENCY_ALLOWED:
+                agency = AGENCY.get(ap.get('ownership'))
+            # river mile: researched value wins, else the parsed whole-mile.
+            rm = ap.get('riverMile')
+            rm = rm if isinstance(rm, (int, float)) else wm
+            # description: factual research (2026-07 enrichment) + verify-before-approve
+            # flag + placement method + coordinate provenance.
+            bits = []
+            if ap.get('description'): bits.append(ap['description'])
+            bits.append(f"[{FLAG} placed: {method}]")
+            if ap.get('coordinateNote'): bits.append(f"[coords: {ap['coordinateNote']}]")
+            prov = ap.get('coordinateSource') or (src if (src and src.startswith('http')) else None)
+            if prov: bits.append(f"[source: {prov}]")
+            desc = ' '.join(bits).strip()
+            row = {
                 'river_id': river_id, 'name': name, 'slug': slugify(name),
                 'type': ap.get('type') or 'access', 'types': [ap.get('type') or 'access'],
-                'ownership': ap.get('ownership'), 'managing_agency': AGENCY.get(ap.get('ownership')),
+                'ownership': ap.get('ownership'), 'managing_agency': agency,
                 'description': desc[:2000],
-                'official_site_url': src if (src and src.startswith('http')) else None,
+                'parking_info': ap.get('parkingInfo'),
+                'road_access': ap.get('roadAccess'),
+                'facilities': ap.get('facilities'),
+                'official_site_url': ap.get('officialSiteUrl') or (src if (src and src.startswith('http')) else None),
                 'location_orig': {'type': 'Point', 'coordinates': [lon, lat]},
                 'location_snap': {'type': 'Point', 'coordinates': [lon, lat]},
-                'river_mile_downstream': wm, 'river_mile_upstream': wm,
+                'river_mile_downstream': rm, 'river_mile_upstream': rm,
                 'approved': False, 'is_public': False,
-            }))
+            }
+            if isinstance(ap.get('feeRequired'), bool):
+                row['fee_required'] = ap['feeRequired']
+            plan.append((slug, method, name, lon, lat, row))
     seen = {}
     for *_, row in plan:
         k = (row['river_id'], row['slug']); seen[k] = seen.get(k, 0)+1

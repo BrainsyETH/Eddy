@@ -5,6 +5,42 @@ _Last updated 2026-07-07 (DEPLOYED to production, project FloatMe / ilefwfpvphad
 Covers the 4 new Missouri rivers + Buffalo (AR). **The deploy has run**: this
 file is now the record of what shipped and what remains.
 
+## ⚠ Canonical target + known gaps (updated 2026-07-08)
+
+- **Production Supabase project is `ilefwfpvphadsbptiaur` (FloatMe).** The app
+  (`src/lib/supabase/admin.ts`) reads whatever `NEXT_PUBLIC_SUPABASE_URL` points
+  at. Every write script MUST target this same project. A legacy project still
+  exists and is the reason the geography admin once showed a stale, smaller
+  river set than the public site — data had been written to a different project
+  than the app was reading. **Before any `--apply` / `--write`, export
+  `EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur`**; `ingest-dossier.ts` and
+  `preload-dossier-access-points.py` now print the target ref and abort on a
+  mismatch. When the legacy project is no longer needed, delete it.
+- **Access points: enriched + loaded as PENDING (2026-07-08).** All 41 dossier
+  access points (bourbeuse 17, gasconade 12, st-francis 5, black 4, buffalo 3)
+  were already in prod as pending pins from an earlier `preload` run, but with
+  rough auto-placed coords (Hammer was ~75 km off, Mill Creek ~18 km). They have
+  now been enriched — sourced exact lat/lon (38 of 41; MDC Atlas, USFS/NPS,
+  USGS gauges, OSM), managing agency, river mile, parking/road/facilities, and
+  factual descriptions — and updated in place. Still `approved=false /
+  is_public=false`: **a human must verify each pin and approve it in
+  `/admin/geography`** before it goes public. 3 points (Bluff Cave, Cave Lodge,
+  Lake Creek) had no citable coordinate and keep a "needs placement" flag.
+- **Black is ACTIVE (2026-07-08), two reaches.** Upper (Lesterville→Hwy K):
+  primary gauge Annapolis **07061500**, ladder `optimal_min 180 / high 1470 /
+  dangerous 3880` cfs (high/dangerous from NWS ANNM7 action/flood stages via the
+  USGS exsa rating). Lower (Markham Springs→Hammer, below Clearwater Dam): the
+  reach gauge **Williamsville 07062575 is DISCONTINUED** (no real-time discharge
+  since 2022, no NWS flood stages, no rating) so the lower reach is keyed to the
+  downstream **Poplar Bluff 07063000** (live; NWS PPBM7) with `optimal_min 627 /
+  high 4809 / dangerous 7057` cfs — high/dangerous from PPBM7 action/flood
+  stages, optimal_min = the 507 cfs observed Good scaled by drainage (×1.236).
+  Segment routing: `river_gauges.river_mile` Annapolis=25, Poplar Bluff=55;
+  Poplar Bluff carries `distance_from_section_miles=26` so lower-reach conditions
+  always show the "gauge is 26 mi from float section" accuracy warning. The
+  river-level badge uses the primary (Annapolis/upper). Applied directly to prod
+  via SQL (not ingest); recorded in `dossiers/black.json`.
+
 ## Shipped 2026-07-07 (session claude/rivers-prod-deploy-env-es86lu)
 
 - **Geometry**: all 5 rivers created from NHD HR HUC8 shapefiles via the
