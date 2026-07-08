@@ -363,6 +363,7 @@ export function RightRail({
   onClose,
   onCloseGauge,
   onAccessPointClick,
+  onSheetExpandedChange,
 }: {
   river: MORiver | null;
   /** Set when the river's primary gauge also rates other rivers
@@ -386,6 +387,8 @@ export function RightRail({
    *  felt like a broken navigation step. */
   onCloseGauge?: () => void;
   onAccessPointClick?: (id: string) => void;
+  /** Mobile sheet peek↔expanded signal, forwarded to whichever card renders. */
+  onSheetExpandedChange?: (expanded: boolean) => void;
 }) {
   if (focusedGauge) {
     return (
@@ -394,6 +397,7 @@ export function RightRail({
         verdict={focusedGaugeVerdict}
         forecast={forecastBySite[focusedGauge.site_no] ?? null}
         onClose={onCloseGauge ?? onClose}
+        onSheetExpandedChange={onSheetExpandedChange}
       />
     );
   }
@@ -418,6 +422,7 @@ export function RightRail({
         forecast={forecast}
         onClose={onClose}
         onAccessPointClick={onAccessPointClick}
+        onSheetExpandedChange={onSheetExpandedChange}
       />
     );
   }
@@ -431,12 +436,20 @@ const RAIL_BASE_STYLE: React.CSSProperties = {
   boxShadow: `4px 4px 0 ${THEME.cardShadow}`,
 };
 
+// The peek sheet covers this fraction of the viewport bottom; MOMap imports
+// it to know how much of the stage a fresh selection's sheet will cover.
+export const SHEET_PEEK_FRACTION = 0.44;
+
 // Responsive container for the detail cards: a right-side panel on desktop
-// (md+), a bottom sheet on phones — with a tap-outside backdrop and a
-// swipe-down drag handle to dismiss (the side card had neither). Only the
-// container/chrome is responsive; the card bodies are unchanged.
+// (md+), a bottom sheet on phones. At PEEK there is deliberately NO backdrop
+// — the map stays visible and interactive above the sheet (tapping another
+// feature switches the selection; tapping empty map closes). Only EXPANDED
+// gets a plain scrim, and nothing here uses backdrop-filter: a blur over the
+// animating flow canvas forces iOS to re-blur the viewport every frame,
+// which was the page's single biggest jank source.
 function RailSheet({
   onClose,
+  onExpandedChange,
   className = 'md:w-[min(360px,calc(100vw-24px))]',
   tall = true,
   z = 'z-40',
@@ -444,6 +457,9 @@ function RailSheet({
   children,
 }: {
   onClose?: () => void;
+  /** Fires when the mobile sheet crosses peek↔expanded (used to pause the
+   *  flow animation while the sheet covers the map). */
+  onExpandedChange?: (expanded: boolean) => void;
   className?: string;
   tall?: boolean;
   z?: string;
@@ -458,46 +474,77 @@ function RailSheet({
   const [isMobile] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
   );
+  const [reducedMotion] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-  const PEEK = Math.round(vh * 0.44);
+  const PEEK = Math.round(vh * SHEET_PEEK_FRACTION);
   const EXPANDED = Math.round(vh * 0.88);
   const [height, setHeight] = useState(PEEK);
+  const [snap, setSnapState] = useState<'peek' | 'expanded'>('peek');
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+  // lastH mirrors the in-flight height so onHandleEnd never reads a stale
+  // render closure — touch events can arrive faster than React re-renders.
+  const dragRef = useRef<{ startY: number; startH: number; lastH: number } | null>(null);
+  const onExpandedChangeRef = useRef(onExpandedChange);
+  onExpandedChangeRef.current = onExpandedChange;
+  const setSnap = (s: 'peek' | 'expanded') => {
+    setSnapState(s);
+    onExpandedChangeRef.current?.(s === 'expanded');
+  };
 
-  // Each new selection (ariaLabel changes) reopens at peek.
-  useEffect(() => { setHeight(PEEK); }, [ariaLabel, PEEK]);
+  // Slide up from the bottom on mount instead of popping in fully open.
+  // Two rAFs guarantee one painted frame at translateY(100%) first.
+  const [entered, setEntered] = useState(!isMobile || reducedMotion);
+  useEffect(() => {
+    if (entered) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)));
+    return () => cancelAnimationFrame(id);
+  }, [entered]);
+
+  // Each new selection (ariaLabel changes) reopens at peek; unmount always
+  // reports collapsed so the flow animation resumes.
+  useEffect(() => { setHeight(PEEK); setSnap('peek'); }, [ariaLabel, PEEK]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onExpandedChangeRef.current?.(false), []);
 
   const onHandleStart = (e: React.TouchEvent) => {
-    dragRef.current = { startY: e.touches[0].clientY, startH: height };
+    dragRef.current = { startY: e.touches[0].clientY, startH: height, lastH: height };
     setDragging(true);
   };
   const onHandleMove = (e: React.TouchEvent) => {
     if (!dragRef.current) return;
     const dy = dragRef.current.startY - e.touches[0].clientY; // up = grow
-    setHeight(Math.max(80, Math.min(EXPANDED, dragRef.current.startH + dy)));
+    const h = Math.max(80, Math.min(EXPANDED, dragRef.current.startH + dy));
+    dragRef.current.lastH = h;
+    setHeight(h);
   };
   const onHandleEnd = () => {
     setDragging(false);
     if (!dragRef.current) return;
+    const h = dragRef.current.lastH;
     dragRef.current = null;
-    if (height < PEEK * 0.6) { onClose?.(); return; } // dragged well below peek → dismiss
-    setHeight(Math.abs(height - EXPANDED) < Math.abs(height - PEEK) ? EXPANDED : PEEK);
+    if (h < PEEK * 0.6) { onClose?.(); return; } // dragged well below peek → dismiss
+    const toExpanded = Math.abs(h - EXPANDED) < Math.abs(h - PEEK);
+    setHeight(toExpanded ? EXPANDED : PEEK);
+    setSnap(toExpanded ? 'expanded' : 'peek');
   };
 
   return (
     <>
-      {/* Mobile backdrop — the missing tap-outside-to-close. */}
-      <button
-        type="button"
-        aria-label="Close detail"
-        onClick={onClose}
-        className={`fixed inset-0 md:hidden ${z}`}
-        style={{ background: 'rgba(4,20,26,0.45)', backdropFilter: 'blur(2px)' }}
-      />
+      {/* Scrim only when EXPANDED — a plain tint (no backdrop-filter), and a
+          tap collapses back to peek rather than closing outright. */}
+      {isMobile && snap === 'expanded' && (
+        <button
+          type="button"
+          aria-label="Collapse detail"
+          onClick={() => { setHeight(PEEK); setSnap('peek'); }}
+          className={`fixed inset-0 md:hidden ${z}`}
+          style={{ background: 'rgba(4,20,26,0.45)' }}
+        />
+      )}
       <div
         role="dialog"
-        aria-modal="true"
+        aria-modal={!isMobile || snap === 'expanded'}
         aria-label={ariaLabel}
         className={`${z} overflow-auto border-2 fixed inset-x-0 bottom-0 rounded-t-2xl md:absolute md:inset-x-auto md:right-3 md:top-12 md:h-auto md:rounded-md ${tall ? 'md:bottom-[156px]' : ''} ${className}`}
         style={{
@@ -505,12 +552,16 @@ function RailSheet({
           // Explicit height only on phones (peek/expanded); desktop lets the
           // md: inset classes govern.
           ...(isMobile ? { height: `calc(${height}px + env(safe-area-inset-bottom, 0px))` } : {}),
-          transition: dragging ? 'none' : 'height 260ms cubic-bezier(0.4,0,0.2,1)',
+          transform: entered ? 'translateY(0)' : 'translateY(100%)',
+          transition: dragging
+            ? 'none'
+            : 'height 260ms cubic-bezier(0.4,0,0.2,1), transform 260ms cubic-bezier(0.4,0,0.2,1)',
           paddingBottom: isMobile ? undefined : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {/* Drag handle — mobile only; drag up to expand, down to peek/dismiss. */}
         <div
+          data-testid="sheet-handle"
           className="md:hidden sticky top-0 z-10 flex justify-center pt-2.5 pb-1"
           style={{ background: THEME.cardBg, touchAction: 'none' }}
           onTouchStart={onHandleStart}
@@ -533,6 +584,7 @@ function RiverCard({
   forecast,
   onClose,
   onAccessPointClick,
+  onSheetExpandedChange,
 }: {
   river: MORiver;
   /** Set when the primary gauge also rates other rivers. */
@@ -544,6 +596,7 @@ function RiverCard({
   /** When set, access-point rows in the rail become clickable buttons
    *  that open the detail modal for that access point. */
   onAccessPointClick?: (id: string) => void;
+  onSheetExpandedChange?: (expanded: boolean) => void;
 }) {
   const primaryThresholds = (river.gauges ?? []).find((x) => x.is_primary) ?? null;
   // Use the canonical classifier so this badge matches /rivers/[slug] for
@@ -572,22 +625,22 @@ function RiverCard({
   const accessSummary = showAllAccess ? allAccess : allAccess.slice(0, 4);
 
   return (
-    <RailSheet onClose={onClose} z="z-40" ariaLabel={river.name}>
+    <RailSheet onClose={onClose} onExpandedChange={onSheetExpandedChange} z="z-40" ariaLabel={river.name}>
     <div className="p-4">
-      {onClose && (
-        <div className="absolute right-3 top-3">
-          <CloseBtn onClose={onClose} />
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div
+            className="uppercase font-bold"
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
+          >
+            {river.region ?? '—'} · {river.length_miles?.toFixed(0) ?? '—'} mi
+          </div>
+          <div className="mt-1 font-bold leading-tight"
+            style={{ fontSize: 22, color: THEME.primaryDark, fontFamily: DISPLAY }}>
+            {river.name}
+          </div>
         </div>
-      )}
-      <div
-        className="uppercase font-bold pr-9"
-        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: THEME.inkDim }}
-      >
-        {river.region ?? '—'} · {river.length_miles?.toFixed(0) ?? '—'} mi
-      </div>
-      <div className="mt-1 font-bold leading-tight pr-9"
-        style={{ fontSize: 22, color: THEME.primaryDark, fontFamily: DISPLAY }}>
-        {river.name}
+        {onClose && <CloseBtn onClose={onClose} />}
       </div>
 
       {/* Tint + dark ink + solid inset accent — the shared system's approved
@@ -787,11 +840,13 @@ function GaugeDetail({
   verdict,
   forecast,
   onClose,
+  onSheetExpandedChange,
 }: {
   gauge: MoStatewideGauge;
   verdict: StageVerdict | null;
   forecast: MoForecastEntry | null;
   onClose: () => void;
+  onSheetExpandedChange?: (expanded: boolean) => void;
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
@@ -806,7 +861,7 @@ function GaugeDetail({
     ? (gauge.gaugeHeightFt != null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : '—')
     : (gauge.percentile != null ? `P${Math.round(gauge.percentile)}` : '—');
   return (
-    <RailSheet onClose={onClose} z="z-40" ariaLabel={`Gauge ${gauge.site_no}`}>
+    <RailSheet onClose={onClose} onExpandedChange={onSheetExpandedChange} z="z-40" ariaLabel={`Gauge ${gauge.site_no}`}>
     <div className="p-4">
       <div className="flex items-start justify-between">
         <div>
@@ -1414,7 +1469,7 @@ function ModalShell({
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center"
-      style={{ background: 'rgba(15,45,53,0.55)', backdropFilter: 'blur(2px)' }}
+      style={{ background: 'rgba(15,45,53,0.55)' }}
       onClick={onClose}
     >
       <div
@@ -1897,12 +1952,14 @@ export function DataAgeChip({ iso }: { iso: string | null | undefined }) {
 export function ContextSiteCard({
   site,
   onClose,
+  onSheetExpandedChange,
 }: {
   site: MoContextSite;
   onClose: () => void;
+  onSheetExpandedChange?: (expanded: boolean) => void;
 }) {
   return (
-    <RailSheet onClose={onClose} z="z-40" tall={false} className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS site ${site.site_no}`}>
+    <RailSheet onClose={onClose} onExpandedChange={onSheetExpandedChange} z="z-40" tall={false} className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS site ${site.site_no}`}>
     <div className="p-4">
       <div className="flex items-start justify-between gap-2">
         <div>

@@ -162,7 +162,7 @@ export default function DataDock({
           aria-label="Close river panel"
           onClick={onClose}
           className="absolute inset-0 z-30 md:hidden"
-          style={{ background: 'rgba(4,20,26,0.55)', backdropFilter: 'blur(2px)' }}
+          style={{ background: 'rgba(4,20,26,0.55)' }}
         />
       )}
 

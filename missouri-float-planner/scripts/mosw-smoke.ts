@@ -378,7 +378,8 @@ async function main() {
       await page.screenshot({ path: path.join(OUT_DIR, 'mobile-drawer.png') });
 
       // Tap a river row → the drawer closes and the detail opens as a bottom
-      // sheet (dialog). Screenshot it, then confirm the backdrop dismisses it.
+      // sheet (dialog) at PEEK: no backdrop, the map stays live above it.
+      // Swipe up → EXPANDED: plain scrim appears and the flow pauses.
       const row = page.locator('aside button', { hasText: 'Courtois Creek' }).first();
       if (await row.count()) {
         await row.click();
@@ -396,15 +397,72 @@ async function main() {
           'timeline hidden while sheet open',
           !(await page.locator('text=30-DAY TIMELINE').first().isVisible().catch(() => false)),
         );
+        // At peek there is deliberately NO backdrop/scrim — the live map is
+        // visible and interactive above the sheet.
+        check(
+          'no backdrop at peek',
+          (await page.locator('button[aria-label="Close detail"], button[aria-label="Collapse detail"]').count()) === 0,
+        );
+        check(
+          'flow running at peek',
+          (await page.evaluate(() => (window as unknown as { __moswFlowRunning?: boolean }).__moswFlowRunning)) === true,
+        );
         await page.screenshot({ path: path.join(OUT_DIR, 'mobile-sheet.png') });
-        // Tap the exposed backdrop area above the sheet (top of screen) — the
-        // sheet covers the centre, so a real dismiss taps the dimmed strip.
-        const backdrop = page.locator('button[aria-label="Close detail"]');
-        if (await backdrop.count()) {
-          await page.mouse.click(195, 88);
-          await page.waitForTimeout(400);
-          check('tapping the backdrop closes the sheet', (await page.locator('[role="dialog"]').count()) === 0);
-        }
+
+        // Swipe the handle up → sheet expands, scrim appears, flow pauses.
+        // (Flat loop, no inner functions: tsx/esbuild decorates nested fns
+        // with a __name helper that doesn't exist inside the browser.)
+        await page.locator('[data-testid="sheet-handle"]').evaluate((el) => {
+          const seq: Array<[string, number]> = [
+            ['touchstart', 480], ['touchmove', 300], ['touchmove', 120], ['touchend', 120],
+          ];
+          for (const [type, y] of seq) {
+            const touch = new Touch({ identifier: 1, target: el, clientX: 195, clientY: y });
+            el.dispatchEvent(new TouchEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              touches: type === 'touchend' ? [] : [touch],
+              targetTouches: type === 'touchend' ? [] : [touch],
+              changedTouches: [touch],
+            }));
+          }
+        });
+        await page.waitForTimeout(450);
+        const expandedBox = await sheet.boundingBox();
+        check(
+          'swipe up expands the sheet',
+          !!expandedBox && expandedBox.height > 844 * 0.8,
+          expandedBox ? `${Math.round(expandedBox.height)}px of 844` : 'no box',
+        );
+        const scrim = page.locator('button[aria-label="Collapse detail"]');
+        check('scrim present when expanded', (await scrim.count()) === 1);
+        check(
+          'flow paused while expanded',
+          (await page.evaluate(() => (window as unknown as { __moswFlowRunning?: boolean }).__moswFlowRunning)) === false,
+        );
+        await page.screenshot({ path: path.join(OUT_DIR, 'mobile-sheet-expanded.png') });
+
+        // Tap the scrim (above the expanded sheet) → back to peek; flow resumes.
+        await page.mouse.click(195, 70);
+        await page.waitForTimeout(450);
+        const peekBox = await sheet.boundingBox();
+        check(
+          'scrim tap collapses back to peek',
+          !!peekBox && peekBox.height < 844 * 0.62,
+          peekBox ? `${Math.round(peekBox.height)}px of 844` : 'no box',
+        );
+        check(
+          'flow resumes at peek',
+          (await page.evaluate(() => (window as unknown as { __moswFlowRunning?: boolean }).__moswFlowRunning)) === true,
+        );
+
+        // Tap the exposed map above the peek sheet → clears the selection and
+        // closes the sheet (replaces the old backdrop-tap dismiss). The point
+        // must clear the floating live chip (top-left) and the zoom cluster
+        // (right edge) — with no backdrop these are tappable again.
+        await page.mouse.click(300, 200);
+        await page.waitForTimeout(400);
+        check('tapping the map above the sheet closes it', (await page.locator('[role="dialog"]').count()) === 0);
       }
       check('mobile screenshots captured', true, OUT_DIR);
       await page.close();
