@@ -141,13 +141,24 @@ export interface RiverSectionDossier {
 export interface AccessPointCandidate {
   name: string;
   type: string; // access / boat_ramp / bridge / park / ...
-  lat?: number; // proposal only
+  lat?: number; // exact sourced coordinate (2026-07-08 enrichment); null = needs placement
   lon?: number;
-  ownership?: string; // NPS / AGFC / private / ...
+  ownership?: string; // freeform, e.g. "Missouri Department of Conservation"
   section?: string; // section slug
   feeRequired?: boolean;
   notes?: string;
   source: string;
+  // ---- 2026-07-08 enrichment; consumed by preload-dossier-access-points.py ----
+  riverMile?: number;
+  managingAgency?: string; // MDC | NPS | USFS | COE | State Park | County | Municipal | Private
+  officialSiteUrl?: string;
+  description?: string;
+  parkingInfo?: string;
+  roadAccess?: string;
+  facilities?: string;
+  coordinateSource?: string; // URL / method the lat/lon came from
+  coordinateConfidence?: string; // high | medium | low | none
+  coordinateNote?: string;
 }
 
 export interface RegulationItem {
