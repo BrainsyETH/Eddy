@@ -6,6 +6,7 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import type { AccessPointsResponse, NPSCampgroundInfo, AccessPointType, NearbyService } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -114,6 +115,8 @@ async function _GET(
     }
 
     // Filter and format access points, excluding those with invalid coordinates
+    const serviceBounds = await getServiceAreaBounds();
+
     const formattedPoints = (accessPoints || [])
       .map((ap) => {
         // Use original coordinates instead of snapped until river geometry is properly imported
@@ -132,10 +135,9 @@ async function _GET(
           return null;
         }
 
-        // Validate coordinates are within reasonable bounds (Missouri area)
-        const isValidLng = lng >= -96.5 && lng <= -88.9;
-        const isValidLat = lat >= 35.9 && lat <= 40.7;
-        if (!isValidLng || !isValidLat) {
+        // Validate coordinates are within the service area (active rivers ∪ MO —
+        // a hardcoded Missouri box silently dropped Arkansas (Buffalo) points)
+        if (!inBounds(lat, lng, serviceBounds)) {
           console.warn(`Access point ${ap.id} (${ap.name}) has out-of-bounds coordinates (${lng}, ${lat}), skipping`);
           return null;
         }

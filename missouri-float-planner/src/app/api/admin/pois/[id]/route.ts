@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { toNum } from '@/lib/utils/num';
+import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,8 +125,9 @@ export async function PUT(
         return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
       }
 
-      if (lat < 35.9 || lat > 40.7 || lng < -96.5 || lng > -88.9) {
-        return NextResponse.json({ error: 'Coordinates must be within Missouri bounds' }, { status: 400 });
+      const bounds = await getServiceAreaBounds();
+      if (!inBounds(lat, lng, bounds)) {
+        return NextResponse.json({ error: 'Coordinates are outside the supported river service area' }, { status: 400 });
       }
 
       updates.latitude = lat;

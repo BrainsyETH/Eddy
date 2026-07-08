@@ -9,6 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AccessPointEditor from './AccessPointEditor';
 import POIEditor from './POIEditor';
+import RiverLinesLayer from './RiverLinesLayer';
 import type { POI } from './POIEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
 import CreatePOIModal from './CreatePOIModal';
@@ -956,6 +957,17 @@ export default function GeographyEditor() {
           </div>
         </div>
       </div>
+
+      {/* River geometry lines — always drawn so every river (with or without
+          access points) is visible and clickable on the editor map. */}
+      <RiverLinesLayer
+        rivers={rivers}
+        selectedRiverId={editState.selectedRiverId}
+        onSelectRiver={(riverId) =>
+          setEditState((prev) => ({ ...prev, selectedRiverId: riverId }))
+        }
+        interactive={!addMode}
+      />
 
       {/* Editor Components */}
       {editState.mode === 'access-points' && (

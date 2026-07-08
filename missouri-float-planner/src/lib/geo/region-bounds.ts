@@ -48,3 +48,26 @@ export async function getRegionBounds(stateCode?: string): Promise<GeoBounds> {
   }
   return MISSOURI_BOUNDS;
 }
+
+/**
+ * Bounds for validating human-entered coordinates (access points, POIs):
+ * the union of the active-river bounds and the legacy Missouri box, so
+ * validation is never stricter than it historically was, but grows to cover
+ * new regions automatically (e.g. the Buffalo in Arkansas dips to ~35.82°N,
+ * below MISSOURI_BOUNDS.minLat — hardcoding the Missouri box made the upper
+ * Buffalo un-editable in the admin).
+ */
+export async function getServiceAreaBounds(): Promise<GeoBounds> {
+  const region = await getRegionBounds();
+  return {
+    minLng: Math.min(region.minLng, MISSOURI_BOUNDS.minLng),
+    minLat: Math.min(region.minLat, MISSOURI_BOUNDS.minLat),
+    maxLng: Math.max(region.maxLng, MISSOURI_BOUNDS.maxLng),
+    maxLat: Math.max(region.maxLat, MISSOURI_BOUNDS.maxLat),
+  };
+}
+
+/** True when a lat/lng falls inside the given bounds. */
+export function inBounds(lat: number, lng: number, b: GeoBounds): boolean {
+  return lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
+}

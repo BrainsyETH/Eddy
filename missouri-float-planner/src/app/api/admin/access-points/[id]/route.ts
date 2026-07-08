@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { sanitizeRichText } from '@/lib/sanitize';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
+import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,10 +167,11 @@ export async function PUT(
 
     // Handle coordinate updates if provided
     if (typeof latitude === 'number' && typeof longitude === 'number') {
-      // Validate coordinates are in reasonable range (Missouri area with buffer)
-      if (latitude < 35.9 || latitude > 40.7 || longitude < -96.5 || longitude > -88.9) {
+      // Validate coordinates are within the service area (active rivers ∪ Missouri)
+      const bounds = await getServiceAreaBounds();
+      if (!inBounds(latitude, longitude, bounds)) {
         return NextResponse.json(
-          { error: 'Coordinates out of bounds' },
+          { error: 'Coordinates are outside the supported river service area' },
           { status: 400 }
         );
       }
