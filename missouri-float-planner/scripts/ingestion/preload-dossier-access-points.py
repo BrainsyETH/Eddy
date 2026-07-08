@@ -20,6 +20,17 @@ import json, os, re, sys, math, time, urllib.request, urllib.parse
 WRITE = '--write' in sys.argv
 BASE = os.environ['SUPABASE_URL'].rstrip('/')
 KEY = os.environ['SUPABASE_KEY']
+
+# Guardrail (added after the 2026-07 prod/legacy project mixup, where rivers were
+# written to one Supabase project while the app read another): make the target
+# project visible on every run and refuse to write to an unexpected one. Set
+# EXPECTED_SUPABASE_REF=<ref> to enforce — prod is `ilefwfpvphadsbptiaur`.
+def _project_ref(u):
+    m = re.search(r'https?://([a-z0-9]+)\.supabase\.', u)
+    return m.group(1) if m else '(unknown)'
+REF = _project_ref(BASE)
+EXPECTED_REF = os.environ.get('EXPECTED_SUPABASE_REF')
+
 DOSSIER_DIR = '/home/user/Eddy/missouri-float-planner/scripts/ingestion/dossiers'
 FLAG = '⚠︎ AUTO-PRELOADED FROM RESEARCH DOSSIER (2026-07-07) — verify & drag to the exact ramp before approving.'
 SNAP_ACCEPT_M = 8000  # geocode accepted only if it snaps within 8 km of the river
@@ -152,6 +163,13 @@ def try_geocode(slug, ap, coords):
     return best
 
 def main():
+    print(f"→ target Supabase project: {REF}  ({BASE})")
+    if EXPECTED_REF and REF != EXPECTED_REF:
+        sys.exit(f"ABORT: connected project '{REF}' != EXPECTED_SUPABASE_REF '{EXPECTED_REF}'.\n"
+                 "Point SUPABASE_URL at the intended project before running.")
+    if WRITE and not EXPECTED_REF:
+        print("  ⚠︎ EXPECTED_SUPABASE_REF unset — writing without a project guard. "
+              "Set it to the intended ref (prod = ilefwfpvphadsbptiaur) to be safe.")
     plan = []
     for slug in ['bourbeuse', 'st-francis', 'gasconade', 'black', 'buffalo']:
         d = json.load(open(f'{DOSSIER_DIR}/{slug}.json'))

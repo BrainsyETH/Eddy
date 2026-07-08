@@ -5,6 +5,27 @@ _Last updated 2026-07-07 (DEPLOYED to production, project FloatMe / ilefwfpvphad
 Covers the 4 new Missouri rivers + Buffalo (AR). **The deploy has run**: this
 file is now the record of what shipped and what remains.
 
+## ⚠ Canonical target + known gaps (updated 2026-07-08)
+
+- **Production Supabase project is `ilefwfpvphadsbptiaur` (FloatMe).** The app
+  (`src/lib/supabase/admin.ts`) reads whatever `NEXT_PUBLIC_SUPABASE_URL` points
+  at. Every write script MUST target this same project. A legacy project still
+  exists and is the reason the geography admin once showed a stale, smaller
+  river set than the public site — data had been written to a different project
+  than the app was reading. **Before any `--apply` / `--write`, export
+  `EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur`**; `ingest-dossier.ts` and
+  `preload-dossier-access-points.py` now print the target ref and abort on a
+  mismatch. When the legacy project is no longer needed, delete it.
+- **Access points are NOT yet loaded.** The dossiers already contain researched
+  access points (bourbeuse 17, gasconade 12, st-francis 5, black 4, buffalo 3 =
+  41), but `ingest-dossier.ts` intentionally skips them (`accessPoints // [manual]`)
+  and `preload-dossier-access-points.py` was never run against prod. The four
+  active new rivers therefore show `accessPointCount: 0`. Dossier points carry
+  name/type/ownership/section/mile-hint/source but **no exact lat/lon and none
+  of the rich metadata** (parkingInfo, roadAccess, facilities, editorial
+  description, images) that the original curated rivers have. Reaching parity =
+  enrich those 41 points (exact coords + metadata) then load, verify, approve.
+
 ## Shipped 2026-07-07 (session claude/rivers-prod-deploy-env-es86lu)
 
 - **Geometry**: all 5 rivers created from NHD HR HUC8 shapefiles via the
