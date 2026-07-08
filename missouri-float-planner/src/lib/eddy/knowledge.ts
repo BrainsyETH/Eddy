@@ -52,7 +52,14 @@ function parseKnowledgeFile(): KnowledgeSections {
     if (!text) return;
 
     if (currentH2 === 'general') {
-      sections.general = text;
+      // General has subsections too (e.g. "### Nearest Towns to Access Points").
+      // Accumulate every flush instead of overwriting, or the last subsection
+      // clobbers the main General primer (hydrology, season, safety). Prefix the
+      // subsection heading so accumulated blocks stay self-describing.
+      const block = currentH3
+        ? `### ${currentH3.replace(/-/g, ' ')}\n${text}`
+        : text;
+      sections.general = sections.general ? `${sections.general}\n\n${block}` : block;
     } else if (currentH2) {
       if (!sections.rivers[currentH2]) {
         sections.rivers[currentH2] = { main: '', subsections: {} };
@@ -131,9 +138,29 @@ export function getKnowledgeForTarget(
         parts.push(subsection);
       }
     }
+  } else {
+    // Surfaces the onboarding gap that shipped Gasconade knowledge-less: an
+    // active river with no "## <River>" section runs on General knowledge only.
+    console.warn(
+      `[EddyKnowledge] No "## " section for river "${riverSlug}" in EDDY_KNOWLEDGE.md — ` +
+      'Eddy will run on General knowledge only. Add a section before launch.'
+    );
   }
 
   return parts.join('\n');
+}
+
+/**
+ * River slugs that have a `## <River>` section in EDDY_KNOWLEDGE.md. Used by the
+ * onboarding-gate check to verify every active river has knowledge.
+ */
+export function listKnowledgeRiverSlugs(): string[] {
+  return Object.keys(parseKnowledgeFile().rivers);
+}
+
+/** The parsed General knowledge block (for regression-testing the parser). */
+export function getGeneralKnowledge(): string {
+  return parseKnowledgeFile().general;
 }
 
 /**

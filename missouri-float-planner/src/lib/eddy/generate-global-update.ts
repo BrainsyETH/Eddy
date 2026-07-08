@@ -6,10 +6,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveRiverContexts, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
+import { SONNET_MODEL, extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
 
 export interface GlobalUpdate {
   quoteText: string;
   sourcesUsed: string[];
+  /** Token usage for this generation (null if the response had none). */
+  usage: UsageStats | null;
 }
 
 const GLOBAL_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip planning app. You are writing a brief overall summary of conditions across all covered rivers.
@@ -92,7 +95,7 @@ export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
 
   try {
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: SONNET_MODEL,
       max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
       system: GLOBAL_SYSTEM_PROMPT,
@@ -109,9 +112,10 @@ export async function generateGlobalUpdate(): Promise<GlobalUpdate | null> {
     return {
       quoteText,
       sourcesUsed: ['per-river updates', 'USGS gauge'],
+      usage: extractUsage(SONNET_MODEL, message.usage),
     };
   } catch (e) {
-    console.error('[EddyGlobal] Haiku call failed:', e);
+    console.error('[EddyGlobal] Sonnet call failed:', e);
     return null;
   }
 }

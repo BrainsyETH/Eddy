@@ -10,6 +10,7 @@ import {
   getSecondaryGaugeTargets,
   type SecondaryGaugeTarget,
 } from '@/lib/eddy/generate-gauge-update';
+import { usageColumns } from '@/lib/eddy/generate-update';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,7 +87,7 @@ async function runGeneration(request: NextRequest) {
       quote_text: update.quoteText,
       summary_text: update.summaryText,
       sources_used: update.sourcesUsed,
-      model_used: update.modelUsed,
+      ...usageColumns(update.usage),
       generated_at: new Date().toISOString(),
       expires_at: expiresAt,
     });

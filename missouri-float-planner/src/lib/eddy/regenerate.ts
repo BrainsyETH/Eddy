@@ -4,7 +4,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb } from '@/lib/eddy/update-targets';
-import { generateEddyUpdate } from '@/lib/eddy/generate-update';
+import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
 
 /** How long to wait before allowing another event-driven regen for the same river */
 const COOLDOWN_HOURS = 2;
@@ -106,6 +106,7 @@ export async function regenerateEddyForRiver(
         quote_text: update.quoteText,
         summary_text: update.summaryText,
         sources_used: update.sourcesUsed,
+        ...usageColumns(update.usage),
         generated_at: new Date().toISOString(),
         expires_at: expiresAt,
         trigger_reason: triggerReason,

@@ -515,13 +515,18 @@ export type Database = {
       }
       eddy_updates: {
         Row: {
+          cache_creation_tokens: number | null
+          cache_read_tokens: number | null
           condition_code: string
           discharge_cfs: number | null
           expires_at: string
           gauge_height_ft: number | null
           generated_at: string
           id: string
+          input_tokens: number | null
           is_event_driven: boolean | null
+          model_used: string | null
+          output_tokens: number | null
           quote_text: string
           river_slug: string
           section_slug: string | null
@@ -531,13 +536,18 @@ export type Database = {
           weather: Json | null
         }
         Insert: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
           condition_code: string
           discharge_cfs?: number | null
           expires_at: string
           gauge_height_ft?: number | null
           generated_at?: string
           id?: string
+          input_tokens?: number | null
           is_event_driven?: boolean | null
+          model_used?: string | null
+          output_tokens?: number | null
           quote_text: string
           river_slug: string
           section_slug?: string | null
@@ -547,13 +557,18 @@ export type Database = {
           weather?: Json | null
         }
         Update: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
           condition_code?: string
           discharge_cfs?: number | null
           expires_at?: string
           gauge_height_ft?: number | null
           generated_at?: string
           id?: string
+          input_tokens?: number | null
           is_event_driven?: boolean | null
+          model_used?: string | null
+          output_tokens?: number | null
           quote_text?: string
           river_slug?: string
           section_slug?: string | null
@@ -854,6 +869,8 @@ export type Database = {
       }
       gauge_updates: {
         Row: {
+          cache_creation_tokens: number | null
+          cache_read_tokens: number | null
           condition_code: string
           discharge_cfs: number | null
           expires_at: string
@@ -861,7 +878,9 @@ export type Database = {
           gauge_station_id: string
           generated_at: string
           id: string
+          input_tokens: number | null
           model_used: string | null
+          output_tokens: number | null
           quote_text: string
           river_slug: string | null
           sources_used: Json | null
@@ -869,6 +888,8 @@ export type Database = {
           usgs_site_id: string
         }
         Insert: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
           condition_code: string
           discharge_cfs?: number | null
           expires_at: string
@@ -876,7 +897,9 @@ export type Database = {
           gauge_station_id: string
           generated_at?: string
           id?: string
+          input_tokens?: number | null
           model_used?: string | null
+          output_tokens?: number | null
           quote_text: string
           river_slug?: string | null
           sources_used?: Json | null
@@ -884,6 +907,8 @@ export type Database = {
           usgs_site_id: string
         }
         Update: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
           condition_code?: string
           discharge_cfs?: number | null
           expires_at?: string
@@ -891,7 +916,9 @@ export type Database = {
           gauge_station_id?: string
           generated_at?: string
           id?: string
+          input_tokens?: number | null
           model_used?: string | null
+          output_tokens?: number | null
           quote_text?: string
           river_slug?: string | null
           sources_used?: Json | null

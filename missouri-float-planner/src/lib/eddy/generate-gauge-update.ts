@@ -16,7 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
-import { parseEddyResponse } from '@/lib/eddy/generate-update';
+import { parseEddyResponse, extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
 import { toNum } from '@/lib/utils/num';
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
@@ -52,6 +52,8 @@ export interface GeneratedGaugeUpdate {
   summaryText: string | null;
   sourcesUsed: string[];
   modelUsed: string;
+  /** Token usage for this generation (null if the response had none). */
+  usage: UsageStats | null;
 }
 
 /**
@@ -299,6 +301,7 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
       sourcesUsed,
       modelUsed: HAIKU_MODEL,
+      usage: extractUsage(HAIKU_MODEL, message.usage),
     };
   } catch (e) {
     console.error(`[GaugeUpdates] Haiku call failed for ${target.usgsSiteId}:`, e);

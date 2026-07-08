@@ -121,9 +121,14 @@ Every river needs these items before going live:
 | 6 | Hazards (dams, strainers, rapids) | Outfitters, community, field research | Admin `/admin/hazards` | **Yes** |
 | 7 | POIs (springs, caves, viewpoints) | NPS API (ONSR rivers), manual entry | Admin `/admin/pois` + cron sync | Recommended |
 | 8 | Shuttle services / outfitters | Local business research | Direct DB or admin panel | Recommended |
-| 9 | Knowledge base entry | Guidebooks, local expertise | Edit `EDDY_KNOWLEDGE.md` | **Yes** |
+| 9 | Knowledge base entry | Guidebooks, local expertise | Edit `EDDY_KNOWLEDGE.md` — verify with `npm run check:eddy-knowledge` | **Yes** |
 | 10 | River section config | Analysis: do upper/lower conditions differ? | Edit `src/data/river-sections.ts` | If applicable |
 | 11 | Hero image + access point photos | Photography, CC licenses, outfitter partnerships | Admin `/admin/images` | Recommended |
+
+> **Enforced steps (don't skip):**
+> - **Knowledge (#9)** — `npm run check:eddy-knowledge` fails if any *active* river lacks a `## <River>` section, and `getKnowledgeForTarget` logs a warning at generation time. Gasconade shipped knowledge-less before this gate existed; don't repeat it.
+> - **Primary gauge (dossier flow)** — `scripts/ingestion/ingest-dossier.ts` sets `river_gauges.is_primary` from the dossier's `primaryGaugeSiteId` (a `[signoff]` field, must be a calibrated gauge). It is never guessed, so a river without it fails `validate_river_data()`'s `no_primary_gauge` gate and cannot go active.
+> - **Cold start** — after flipping `rivers.active`, populate Eddy prose immediately (instead of waiting for the daily cron) with `GET /api/cron/generate-eddy-updates?river=<slug>` using the `CRON_SECRET` bearer token.
 
 ---
 

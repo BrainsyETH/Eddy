@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint && npm run lint:tokens",
     "lint:tokens": "tsx scripts/check-tailwind-tokens.ts",
+    "check:eddy-knowledge": "tsx scripts/check-eddy-knowledge.ts",
     "test:links": "tsx scripts/check-dead-links.ts",
     "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
     "db:import-gauges": "tsx scripts/fetch-gauge-stations.ts",
