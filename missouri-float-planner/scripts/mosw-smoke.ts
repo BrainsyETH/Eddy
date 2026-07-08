@@ -383,8 +383,19 @@ async function main() {
       if (await row.count()) {
         await row.click();
         await page.waitForTimeout(600);
-        const sheet = page.locator('[role="dialog"]');
+        const sheet = page.locator('[role="dialog"]').first();
         check('mobile detail opens as a sheet', (await sheet.count()) > 0);
+        // Opens at PEEK, not full height — the headline shows, not the whole card.
+        const box = await sheet.boundingBox();
+        check(
+          'sheet opens at peek height (not full)',
+          !!box && box.height < 844 * 0.62,
+          box ? `${Math.round(box.height)}px of 844` : 'no box',
+        );
+        check(
+          'timeline hidden while sheet open',
+          !(await page.locator('text=30-DAY TIMELINE').first().isVisible().catch(() => false)),
+        );
         await page.screenshot({ path: path.join(OUT_DIR, 'mobile-sheet.png') });
         // Tap the exposed backdrop area above the sheet (top of screen) — the
         // sheet covers the centre, so a real dismiss taps the dimmed strip.

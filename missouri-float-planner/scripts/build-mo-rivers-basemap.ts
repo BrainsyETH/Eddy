@@ -146,8 +146,8 @@ const LAKE_NAMES = new Set<string>([
 ]);
 
 const FCODE_PERENNIAL = new Set([46006, 55800]);
-const SIMPLIFY_TOLERANCE_DEG = 0.0008; // ~80 m at MO latitude
-const MIN_LENGTH_MI = 6; // drop tiny named tributaries
+const SIMPLIFY_TOLERANCE_DEG = 0.0014; // ~150 m — coarser vertices shrink the bundle
+const MIN_LENGTH_MI = 10; // drop small named tributaries (the map ships to phones)
 // See import-nhd-rivers-from-tnm.ts — same digitization-gap problem.
 const CHAIN_BRIDGE_TOLERANCE_DEG = 0.012;
 const TNM_BASE = 'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/HU8/Shape';

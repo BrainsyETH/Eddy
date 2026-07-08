@@ -333,9 +333,17 @@ export default function MOMap(props: MOMapProps) {
     return out;
   }, [project]);
 
+  // Small-screen flag (sampled once) — phones render far fewer context
+  // nodes so the SVG tree stays light (up to 900 groups × 3 circles is the
+  // single biggest reconciliation + per-zoom DOM-write cost on the map).
+  const [isSmallScreen] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches,
+  );
+
   // Context sites — projected once, filtered to in-state points. These
   // are NEUTRAL: location, magnitude (size), and freshness (opacity)
-  // only. No condition color — they carry no curated thresholds.
+  // only. No condition color — they carry no curated thresholds. Capped to
+  // the highest-flow ~180 on phones (biggest first) for performance.
   const contextNodes = useMemo(() => {
     const sites = props.contextSites ?? [];
     const out: Array<{
@@ -359,9 +367,14 @@ export default function MOMap(props: MOMapProps) {
         fresh: s.readingTimestamp != null && Date.parse(s.readingTimestamp) > staleCutoff,
       });
     }
+    const CONTEXT_CAP_MOBILE = 180;
+    if (isSmallScreen && out.length > CONTEXT_CAP_MOBILE) {
+      out.sort((a, b) => (b.site.dischargeCfs ?? 0) - (a.site.dischargeCfs ?? 0));
+      return out.slice(0, CONTEXT_CAP_MOBILE);
+    }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.contextSites, project]);
+  }, [props.contextSites, project, isSmallScreen]);
 
   // Cities visible in the framed area (plus a small buffer outside, so the
   // nearest metro still anchors the user's orientation).
@@ -541,6 +554,7 @@ export default function MOMap(props: MOMapProps) {
   // Native `addEventListener` with `{ passive: false }` lets the page
   // suppress browser scroll while we zoom the SVG.
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const markerSvgRef = useRef<SVGSVGElement | null>(null);
   // The stage div hosts the native wheel listener so zoom works over the
   // base SVG, the flow canvas, and the marker SVG alike (events from
   // marker groups bubble up to it).
@@ -550,6 +564,19 @@ export default function MOMap(props: MOMapProps) {
   // state without needing to re-bind on every view change.
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+
+  // ── Imperative viewBox during gestures (perf) ──
+  // Pan/pinch would otherwise call setView every frame, re-rendering and
+  // reconciling ~5–6k SVG nodes at 60 fps. Instead we mutate the viewBox
+  // attribute on both SVGs (and the shared viewRef the flow canvas reads)
+  // WITHOUT a React render, then commit to state once on gesture end so the
+  // kStable-scaled markers snap to their final screen size.
+  const applyView = useCallback((v: { x: number; y: number; w: number; h: number }) => {
+    viewRef.current = v;
+    const vb = `${v.x} ${v.y} ${v.w} ${v.h}`;
+    svgRef.current?.setAttribute('viewBox', vb);
+    markerSvgRef.current?.setAttribute('viewBox', vb);
+  }, []);
 
   // Measure the stage's pixel aspect and keep the view rect matched to it, so
   // the region fills the stage on both portrait phones and wide desktops.
@@ -679,7 +706,7 @@ export default function MOMap(props: MOMapProps) {
       const nh = nw / stageAspectRef.current;
       const nx = ax - ((curMidX - rect.left) / rect.width) * nw;
       const ny = ay - ((curMidY - rect.top) / rect.height) * nh;
-      setView(clampView({ x: nx, y: ny, w: nw, h: nh }));
+      applyView(clampView({ x: nx, y: ny, w: nw, h: nh }));
       return;
     }
     const drag = dragRef.current;
@@ -705,12 +732,13 @@ export default function MOMap(props: MOMapProps) {
     const v = viewRef.current;
     const sx = v.w / rect.width;
     const sy = v.h / rect.height;
-    setView((cur) => clampView({
-      ...cur,
+    applyView(clampView({
       x: drag.startViewX - dx * sx,
       y: drag.startViewY - dy * sy,
+      w: v.w,
+      h: v.h,
     }));
-  }, [clampView, onHoverGauge]);
+  }, [clampView, onHoverGauge, applyView]);
 
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     pointersRef.current.delete(e.pointerId);
@@ -724,6 +752,10 @@ export default function MOMap(props: MOMapProps) {
       try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
     }
     setDragging(false);
+    // Commit the imperatively-applied view to React state so the markers
+    // re-scale to the final zoom and the scale bar updates. A no-op (same
+    // ref) when nothing moved — React bails, so taps don't re-render.
+    setView(viewRef.current);
     // Don't null `dragRef` synchronously — onClick reads `moved` to know
     // whether this was a real click or the tail of a drag. Cleared next
     // tick.
@@ -812,6 +844,77 @@ export default function MOMap(props: MOMapProps) {
   }, [props.rivers, props.hoveredRiverId, props.focusedRiverId]);
 
   const viewBoxAttr = `${view.x} ${view.y} ${view.w} ${view.h}`;
+
+  // ── Memoized static layers (perf) ──
+  // The NHD basemap is 1,000+ <path> nodes; memoizing the JSX means a
+  // view-commit / entry-frame / hover re-render reuses the same element
+  // tree and React skips reconciling all of them. Deps exclude `view`, so
+  // the basemap never re-reconciles on pan/zoom.
+  const basemapLayer = useMemo(() => {
+    const style: React.CSSProperties | undefined = reducedMotion
+      ? undefined
+      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms cubic-bezier(0.4,0,0.2,1) 650ms' };
+    return (
+      <g pointerEvents="none" style={style}>
+        {basemapLakePaths.map((l) => (
+          <path key={`lake-${l.name}`} d={l.d} fill="#7FB2C2" stroke="#3F8499" strokeWidth={0.6} opacity={0.5} />
+        ))}
+        {basemapRiverPaths.map((r) => (
+          <path
+            key={`bm-${r.name}`}
+            d={r.d}
+            stroke="#4E8DA1"
+            strokeWidth={strokeWidthForBasemapRiver(r.lengthMi)}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.42}
+          />
+        ))}
+      </g>
+    );
+  }, [basemapLakePaths, basemapRiverPaths, lit, reducedMotion]);
+
+  // Context-site markers. `kStable` is in deps, so this recomputes on a zoom
+  // commit but stays stable across a pan (kStable constant) — React skips
+  // the up-to-180 groups while panning.
+  const contextLayer = useMemo(() => {
+    if (props.showSites === false || contextNodes.length === 0) return null;
+    const style: React.CSSProperties | undefined = reducedMotion
+      ? undefined
+      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms cubic-bezier(0.4,0,0.2,1) 850ms' };
+    return (
+      <g style={style}>
+        {contextNodes.map((n) => {
+          const selected = props.selectedContextSiteId === n.site.site_no;
+          const rr = n.r * kStable;
+          return (
+            <g
+              key={n.site.site_no}
+              transform={`translate(${n.x} ${n.y})`}
+              className="mosw-ctx"
+              style={{ cursor: 'pointer', opacity: selected ? 1 : n.fresh ? 0.8 : 0.4 }}
+              onClick={guardClick(() => props.onClickContextSite?.(n.site))}
+            >
+              <title>
+                {`${n.site.name ?? `USGS ${n.site.site_no}`} · ${Math.round(n.site.dischargeCfs)} cfs — context site, no float rating`}
+              </title>
+              <circle r={Math.max(9 * kStable, rr * 2)} fill="transparent" pointerEvents="all" />
+              <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
+              <circle
+                r={rr}
+                fill={n.fresh ? '#1D525F' : '#6B7E85'}
+                stroke={selected ? '#F07052' : 'rgba(15,45,53,0.35)'}
+                strokeWidth={(selected ? 1.8 : 0.7) * kStable}
+                pointerEvents="none"
+              />
+            </g>
+          );
+        })}
+      </g>
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextNodes, kStable, props.selectedContextSiteId, props.showSites, lit, reducedMotion, guardClick, props.onClickContextSite]);
 
   return (
     <>
@@ -936,30 +1039,7 @@ export default function MOMap(props: MOMapProps) {
             never bleeds across MO's borders. Curated rivers, gauges, etc.
             paint OUTSIDE this group on top of the basemap. Kept low-contrast
             so the colored curated reaches read as the foreground. */}
-        <g pointerEvents="none" style={fadeIn(650, 1200)}>
-          {basemapLakePaths.map((l) => (
-            <path
-              key={`lake-${l.name}`}
-              d={l.d}
-              fill="#7FB2C2"
-              stroke="#3F8499"
-              strokeWidth={0.6}
-              opacity={0.5}
-            />
-          ))}
-          {basemapRiverPaths.map((r) => (
-            <path
-              key={`bm-${r.name}`}
-              d={r.d}
-              stroke="#4E8DA1"
-              strokeWidth={strokeWidthForBasemapRiver(r.lengthMi)}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={0.42}
-            />
-          ))}
-        </g>
+        {basemapLayer}
       </g>
       <path
         d={stateOutlinePath}
@@ -1007,41 +1087,7 @@ export default function MOMap(props: MOMapProps) {
           current discharge reading. Neutral teal glow nodes: size encodes
           flow (sqrt), dimmed when the reading is older than 2 h. They sit
           UNDER the curated layer so the product's rivers stay foreground. */}
-      {props.showSites !== false && contextNodes.length > 0 && (
-        <g style={fadeIn(850, 1200)}>
-          {contextNodes.map((n) => {
-            const selected = props.selectedContextSiteId === n.site.site_no;
-            const rr = n.r * kStable;
-            return (
-              <g
-                key={n.site.site_no}
-                transform={`translate(${n.x} ${n.y})`}
-                className="mosw-ctx"
-                style={{ cursor: 'pointer', opacity: selected ? 1 : n.fresh ? 0.8 : 0.4 }}
-                onClick={guardClick(() => props.onClickContextSite?.(n.site))}
-              >
-                <title>
-                  {`${n.site.name ?? `USGS ${n.site.site_no}`} · ${Math.round(n.site.dischargeCfs)} cfs — context site, no float rating`}
-                </title>
-                <circle r={Math.max(9 * kStable, rr * 2)} fill="transparent" pointerEvents="all" />
-                {/* Ink beads on parchment (the light base kills soft glows);
-                    the curated layer keeps the color + glow treatment. */}
-                <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
-                {/* Dark hairline, not the cream ring — that ring is the
-                    curated gauges' signature, and sharing it made the two
-                    classes indistinguishable at a glance. */}
-                <circle
-                  r={rr}
-                  fill={n.fresh ? '#1D525F' : '#6B7E85'}
-                  stroke={selected ? '#F07052' : 'rgba(15,45,53,0.35)'}
-                  strokeWidth={(selected ? 1.8 : 0.7) * kStable}
-                  pointerEvents="none"
-                />
-              </g>
-            );
-          })}
-        </g>
-      )}
+      {contextLayer}
 
       {/* Rivers — outer "casing" + per-gauge segmented main stroke. Each
           river is split at midpoints between its gauges and painted in
@@ -1276,6 +1322,7 @@ export default function MOMap(props: MOMapProps) {
         The SVG itself is transparent to the pointer; each marker opts
         back in, and its events bubble to the stage div for pan/zoom. */}
     <svg
+      ref={markerSvgRef}
       viewBox={viewBoxAttr}
       preserveAspectRatio="xMidYMid meet"
       className="absolute inset-0 h-full w-full"

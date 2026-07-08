@@ -687,14 +687,20 @@ export default function MOSurfaceWaterApp() {
           onAccessPointClick={(id) => handleClickAccess(id)}
         />
 
-        <TimeScrubber
-          dayOffset={dayOffset}
-          setDayOffset={setDayOffset}
-          history={historyEntries}
-          rivers={rivers}
-          expanded={timelineExpanded}
-          onToggle={() => setTimelineExpanded((v) => !v)}
-        />
+        {/* On mobile the detail sheet owns the bottom of the screen, so the
+            timeline (also bottom-anchored) is hidden while a sheet/site card
+            is open. `contents` keeps the scrubber positioning normal when
+            shown; desktop always shows it beside the right rail. */}
+        <div className={railOpen || selectedSite ? 'hidden md:contents' : 'contents'}>
+          <TimeScrubber
+            dayOffset={dayOffset}
+            setDayOffset={setDayOffset}
+            history={historyEntries}
+            rivers={rivers}
+            expanded={timelineExpanded}
+            onToggle={() => setTimelineExpanded((v) => !v)}
+          />
+        </div>
 
         {selectedSite && (
           <ContextSiteCard site={selectedSite} onClose={() => setSelectedSite(null)} />
