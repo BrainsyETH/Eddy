@@ -60,7 +60,11 @@ export function buildClipCaption(riverName: string | null, creator: string | nul
   return { caption: lines.join('\n'), hashtags };
 }
 
-const HOOK_STYLES: HookStyle[] = ['question', 'stat', 'story', 'urgency'];
+// Reposted clips carry NO live gauge/condition data, so the 'stat' and
+// 'urgency' styles (which lean on numbers and time-sensitive scarcity) would
+// only invite fabrication. Restrict clip captions to the styles that stay
+// honest without live data.
+const HOOK_STYLES: HookStyle[] = ['question', 'story'];
 
 // Compose the caption + hashtags for a clip. Prefers an AI-written caption
 // (knowledgeable-local tone, deduped against recent posts) when ANTHROPIC_API_KEY
@@ -84,6 +88,9 @@ async function composeClipCaption(
       hookStyle,
       // Tier 2 (no known Eddy river) → frame it as general Ozark paddling.
       riverName: hasRiver ? riverName! : 'Ozarks',
+      // Tier 2 clips have no confirmed river, so their location isn't confirmed
+      // to be in Missouri — suppress Missouri/place-specific claims + hashtags.
+      allowLocationHashtags: hasRiver,
       // scene_description (from the brand-check vision pass) grounds the caption
       // in what the footage actually shows, not just the river name. Null for
       // backlog clips checked before this field existed → caption stays river-only.
