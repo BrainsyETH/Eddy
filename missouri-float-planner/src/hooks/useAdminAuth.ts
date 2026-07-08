@@ -138,5 +138,9 @@ export async function adminFetch(
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(url, { ...options, headers });
+  // Admin data must never come from the browser cache: a river or access point
+  // created since the tab loaded has to appear on the next fetch, not after a
+  // hard refresh. (This is why newly-added rivers were invisible in the
+  // geography editor's river list.)
+  return fetch(url, { cache: 'no-store', ...options, headers });
 }
