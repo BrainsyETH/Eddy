@@ -116,7 +116,11 @@ jobs:
               "canoe, raft, tube, or none), the water character (calm, riffles, rapids, "
               "clear, muddy), the scenery (bluffs, gravel bars, tree cover, sky), and any "
               "notable action. Be concrete, factual, and present tense. No marketing "
-              "language, no invented details, and do NOT name the river (it may be unknown).\n\n"
+              "language, no invented details, and do NOT name the river (it may be unknown). "
+              "Describe foliage only by its literal appearance (e.g. green leaves, bare "
+              "branches, brown/golden leaves) and do NOT state or infer a season, month, or "
+              "time of year — the clip's filming date is unknown and it may be reposted from "
+              "another season.\n\n"
               'Respond with a JSON object:\n'
               '{"verdict": "PUBLISH" | "REVIEW" | "REJECT", "confidence": 0.0-1.0, '
               '"brand_safe": true/false, "visual_quality": "good" | "acceptable" | "poor", '

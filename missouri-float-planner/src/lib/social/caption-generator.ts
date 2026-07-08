@@ -7,9 +7,28 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getLocalParts, getLocalDateStrings } from './local-time';
 import type { HookStyle, ContentCategory } from './types';
 
 const LOG_PREFIX = '[CaptionGen]';
+
+// Missouri is Central time; anchor "today" to the same zone the rest of the
+// social pipeline uses so seasonal language matches the calendar, not UTC.
+const MISSOURI_TZ = 'America/Chicago';
+
+/**
+ * Current Missouri season, derived from the local month. Captions must stay
+ * honest: clips are frequently reposted from other creators and may have been
+ * filmed in a different season, so seasonal language has to be anchored to the
+ * real calendar date — never inferred from how the footage happens to look.
+ */
+function getCurrentSeason(now: Date = new Date()): 'winter' | 'spring' | 'summer' | 'fall' {
+  const { month } = getLocalParts(MISSOURI_TZ, now);
+  if (month === 12 || month <= 2) return 'winter';
+  if (month <= 5) return 'spring';
+  if (month <= 8) return 'summer';
+  return 'fall';
+}
 
 interface CaptionParams {
   contentType: ContentCategory;
@@ -90,6 +109,10 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
     ? `ATTRIBUTION (required): this clip is sourced from another creator. End the caption with these lines verbatim, each on its own line, and do not omit them:\n${attributionLines.join('\n')}`
     : '';
 
+  const now = new Date();
+  const season = getCurrentSeason(now);
+  const { dateStr } = getLocalDateStrings(MISSOURI_TZ, now);
+
   const prompt = `Generate an Instagram caption for the Eddy.guide account (Missouri float trip / river conditions guide).
 
 REQUIREMENTS:
@@ -98,6 +121,7 @@ REQUIREMENTS:
 - DO NOT use marketing buzzwords like "unlock", "discover", "hidden gem", "adventure awaits"
 - Be specific about the river, conditions, and what's actually happening
 - When "CLIP SHOWS" is provided, anchor the caption in what the footage actually depicts (the craft, water, and scenery described). Do NOT invent visual details that aren't listed, and do not claim the footage shows current conditions
+- SEASONAL ACCURACY (critical — do not violate): Today is ${dateStr}, so it is currently ${season} in Missouri. Only reference the CURRENT season (${season}). Do NOT claim, imply, or hint at any other season, month, or foliage/weather state — no "fall color", "peak leaves", "one more fall float", "spring runoff", "before the season shifts", etc. — unless it genuinely matches ${season}. These clips are often reposted from other creators and may have been filmed in a different season, so NEVER infer the season from the footage's colors, foliage, light, or the CLIP SHOWS text; anchor every seasonal reference to today's date. This rule also governs the hashtags — do not output seasonal hashtags (e.g. #FallFloating) that contradict ${season}.
 - 2-3 relevant keywords woven naturally
 - Minimal emojis (0-2 max)
 - End with a call to action pointing to eddy.guide
@@ -107,6 +131,7 @@ HOOK STYLE: ${params.hookStyle}
 Examples of this hook style:
 - ${hookExamples}
 
+TODAY: ${dateStr} (current season in Missouri: ${season})
 RIVER: ${params.riverName}
 ${params.conditionCode ? `CONDITION: ${params.conditionCode}` : ''}
 ${params.gaugeHeight ? `GAUGE HEIGHT: ${params.gaugeHeight} ft` : ''}
