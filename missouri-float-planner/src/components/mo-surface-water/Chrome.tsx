@@ -382,7 +382,7 @@ function RailSectionLabel({ children }: { children: React.ReactNode }) {
         className="uppercase font-bold"
         style={{
           fontFamily: MONO, fontSize: 10, letterSpacing: '0.15em',
-          color: 'var(--color-accent-600)',
+          color: 'var(--color-accent-700)',
         }}
       >
         {children}
@@ -684,7 +684,7 @@ function RiverCard({
         <div>
           <div
             className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}
           >
             {river.region ?? '—'} · {river.length_miles?.toFixed(0) ?? '—'} mi
           </div>
@@ -841,6 +841,27 @@ function RiverCard({
           </div>
         </div>
       )}
+
+      {/* Cross-link to the full River Report — ties the map to the report +
+          blog pages this card's styling mirrors. Coral accent-700 keeps
+          white label text AA-compliant. */}
+      <a
+        href={`/rivers/${river.slug}`}
+        className="mt-4 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2.5 uppercase"
+        style={{
+          background: 'var(--color-accent-700)',
+          color: 'var(--color-surface)',
+          borderColor: THEME.cardBorder,
+          boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+          fontFamily: MONO,
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+        }}
+      >
+        Full river report
+        <span aria-hidden>→</span>
+      </a>
     </div>
     </RailSheet>
   );
@@ -908,7 +929,7 @@ function GaugeDetail({
           <div
             className="uppercase font-bold"
             style={{
-              fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)',
+              fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)',
             }}
           >
             USGS Site #{gauge.site_no}
@@ -1097,7 +1118,7 @@ function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
       <div className="flex items-center gap-2">
         <span
           className="uppercase font-bold"
-          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}
         >
           Eddy says
         </span>
@@ -1153,7 +1174,7 @@ function CampgroundCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}>
             NPS · Ozark Riverways
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1211,7 +1232,7 @@ function AccessPointCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}>
             {ap.ownership ?? 'Public'} · access
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1251,7 +1272,7 @@ function PoiCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}>
             {poi.type.replace('_', ' ')}
           </div>
           <div className="mt-1 font-bold leading-tight"
@@ -1544,7 +1565,7 @@ function ModalShell({
         <div className="p-5 pr-12">
           <div
             className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: 'var(--color-accent-600)', marginBottom: 4 }}
+            style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: 'var(--color-accent-700)', marginBottom: 4 }}
           >
             {subtitle ?? '—'}
           </div>
@@ -1822,7 +1843,7 @@ export function GaugeHoverOverlay({
           <div className="flex items-center gap-2">
             <span
               className="uppercase font-bold"
-              style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}
+              style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}
             >
               {report ? 'Eddy says' : 'Live reading'}
             </span>
@@ -2012,7 +2033,7 @@ export function ContextSiteCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-600)' }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}>
             USGS Site #{site.site_no}
           </div>
           <div className="mt-1 font-bold leading-tight"
