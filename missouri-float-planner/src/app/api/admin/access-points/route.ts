@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,10 @@ export async function GET(request: NextRequest) {
       return rivers as { name?: string; slug?: string };
     };
 
+    // Coordinate sanity bounds derive from active river geometry (union'd with
+    // the legacy Missouri box) so Arkansas rivers aren't flagged as invalid.
+    const serviceBounds = await getServiceAreaBounds();
+
     // Format access points - for admin, include ALL points including those with missing coordinates
     const formatted = (accessPoints || [])
       .map((ap) => {
@@ -89,13 +94,10 @@ export async function GET(request: NextRequest) {
         // For admin view, include points without coordinates but flag them
         const hasMissingCoords = !origCoords;
 
-        // Validate coordinates are within reasonable bounds (Missouri area)
-        let hasInvalidCoords = false;
-        if (origCoords) {
-          const isValidLng = origCoords.lng >= -96.5 && origCoords.lng <= -88.9;
-          const isValidLat = origCoords.lat >= 35.9 && origCoords.lat <= 40.7;
-          hasInvalidCoords = !isValidLng || !isValidLat;
-        }
+        // Validate coordinates are within the service area
+        const hasInvalidCoords = origCoords
+          ? !inBounds(origCoords.lat, origCoords.lng, serviceBounds)
+          : false;
 
         return {
           id: ap.id,
@@ -185,10 +187,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate coordinates are in Missouri area (with buffer for border points)
-    if (latitude < 35.9 || latitude > 40.7 || longitude < -96.5 || longitude > -88.9) {
+    // Validate coordinates are within the service area (active rivers ∪ Missouri)
+    const bounds = await getServiceAreaBounds();
+    if (!inBounds(latitude, longitude, bounds)) {
       return NextResponse.json(
-        { error: 'Coordinates must be within Missouri bounds' },
+        { error: 'Coordinates are outside the supported river service area' },
         { status: 400 }
       );
     }

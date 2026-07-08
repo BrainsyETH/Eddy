@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,9 +136,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (latitude < 35.9 || latitude > 40.7 || longitude < -96.5 || longitude > -88.9) {
+    const bounds = await getServiceAreaBounds();
+    if (!inBounds(latitude, longitude, bounds)) {
       return NextResponse.json(
-        { error: 'Coordinates must be within Missouri bounds' },
+        { error: 'Coordinates are outside the supported river service area' },
         { status: 400 }
       );
     }
