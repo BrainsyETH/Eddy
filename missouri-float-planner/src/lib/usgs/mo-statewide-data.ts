@@ -122,9 +122,11 @@ export const THEME = {
   stateGrain: '#E8DFD0',    // secondary-200
   stateOutline: '#1D525F',  // primary-700
 
-  cardBg: '#FAF8F4',        // secondary-50
-  cardBorder: '#3F3B33',    // neutral-800
-  cardShadow: '#1A1814',    // neutral-950
+  // Card chrome mirrors the site-wide "Field Notebook" recipe used by the
+  // River Report + Blog: white surface, teal border, warm offset shadow.
+  cardBg: '#FFFFFF',        // surface / white
+  cardBorder: '#1D525F',    // primary-700 (teal)
+  cardShadow: '#A49C8E',    // neutral-400 (warm offset)
 
   ink: '#2D2A24',           // neutral-900
   inkDim: '#6B6459',        // neutral-600

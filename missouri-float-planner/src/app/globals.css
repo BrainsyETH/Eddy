@@ -586,7 +586,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0 !important;
   overflow: hidden !important;
   background: var(--color-surface) !important;
-  border: var(--border-base) solid var(--color-primary-600) !important;
+  border: var(--border-base) solid var(--color-primary-700) !important;
 }
 
 .maplibregl-popup-track-pointer {
@@ -615,12 +615,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .maplibregl-popup-close-button:hover {
-  color: var(--color-text-primary) !important;
-  background: var(--color-neutral-100) !important;
+  color: var(--color-accent-700) !important;
+  background: var(--color-accent-100) !important;
 }
 
 .maplibregl-popup-tip {
-  border-top-color: var(--color-primary-600) !important;
+  border-top-color: var(--color-primary-700) !important;
 }
 
 /* Map Legend */

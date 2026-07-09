@@ -12,7 +12,7 @@
 // row lights the reach; scrubbing the timeline repaints the rows. On
 // mobile the dock becomes a slide-in drawer behind a floating live chip.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   classifyStageFromThresholds,
@@ -583,6 +583,36 @@ export default function MOSurfaceWaterApp() {
     setHoveredGaugeId(null);
     setHoveredGaugePos(null);
   }, []);
+
+  // ─── Shareable URL state (?river=<slug> / ?gauge=<site_no>) ────────────
+  // Makes a selected river/gauge deep-linkable. Apply the query once, after
+  // rivers load (slugs → ids), then reflect later selections back into the
+  // URL with replaceState so there's no navigation or history spam.
+  const urlApplied = useRef(false);
+  useEffect(() => {
+    if (urlApplied.current || rivers.length === 0) return;
+    urlApplied.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const riverSlug = params.get('river');
+    const gaugeNo = params.get('gauge');
+    if (riverSlug) {
+      const r = rivers.find((x) => x.slug === riverSlug);
+      if (r) setFocusedRiverId(r.id);
+    } else if (gaugeNo && gauges.some((g) => g.site_no === gaugeNo)) {
+      setFocusedGaugeId(gaugeNo);
+    }
+  }, [rivers, gauges]);
+  useEffect(() => {
+    if (!urlApplied.current) return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('river');
+    params.delete('gauge');
+    const r = rivers.find((x) => x.id === focusedRiverId);
+    if (r) params.set('river', r.slug);
+    else if (focusedGaugeId) params.set('gauge', focusedGaugeId);
+    const qs = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+  }, [focusedRiverId, focusedGaugeId, rivers]);
 
   // Escape backs out of whatever is pinned: modal → site card → rail.
   useEffect(() => {
