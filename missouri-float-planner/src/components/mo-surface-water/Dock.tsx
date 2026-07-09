@@ -352,7 +352,7 @@ export default function DataDock({
               </div>
             ))}
           </div>
-          <div className="mt-2" style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
+          <div className="mt-2" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
           <div className="mt-2.5 grid grid-cols-2 gap-1.5">
@@ -382,7 +382,7 @@ export default function DataDock({
             />
           </div>
           {showSites && siteCount > 0 && (
-            <div className="mt-1.5" style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.05em', color: PARCH_FAINT }}>
+            <div className="mt-1.5" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.05em', color: PARCH_FAINT }}>
               {siteCount} statewide USGS sites{sitesCapped ? ' (top by flow — capped)' : ''} · neutral, no float rating
             </div>
           )}
@@ -419,12 +419,12 @@ function TelemetryCell({
       <div className="font-bold" style={{ fontFamily: MONO, fontSize: 15, lineHeight: 1, color: urgent ? '#ef4444' : PARCH }}>
         {format ? format(n) : n.toLocaleString()}
         {unit && (
-          <span style={{ fontSize: 8.5, marginLeft: 3, color: PARCH_DIM, fontWeight: 500 }}>{unit}</span>
+          <span style={{ fontSize: 9.5, marginLeft: 3, color: PARCH_DIM, fontWeight: 500 }}>{unit}</span>
         )}
       </div>
       <div
         className="mt-1 uppercase"
-        style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.12em', color: PARCH_DIM }}
+        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.12em', color: PARCH_DIM }}
       >
         {label}
       </div>
@@ -457,7 +457,7 @@ function TrendCell({
       </div>
       <div
         className="mt-1 uppercase"
-        style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.12em', color: PARCH_DIM }}
+        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.12em', color: PARCH_DIM }}
       >
         Rising / falling · 24h
       </div>
@@ -514,7 +514,7 @@ function VerdictMini({ code, n, active }: { code: StageVerdict; n: number; activ
       </div>
       <div
         className="mt-0.5 truncate uppercase"
-        style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.08em', color: PARCH_DIM }}
+        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.08em', color: PARCH_DIM }}
       >
         {v.label}
       </div>
@@ -672,7 +672,7 @@ function RiverRow({
         // that modulates the particle speed on the map.
         <div
           className="mt-1"
-          style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.06em', color: PARCH_FAINT }}
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.06em', color: PARCH_FAINT }}
         >
           P{Math.round(reading.percentile)} · {classifyPercentile(reading.percentile).label.toLowerCase()} flow
         </div>
@@ -680,7 +680,7 @@ function RiverRow({
       {sharedGauge && (
         <div
           className="mt-1"
-          style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.06em', color: PARCH_FAINT }}
+          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.06em', color: PARCH_FAINT }}
         >
           shared gauge · also rates {sharedGauge.others.join(', ')}
         </div>

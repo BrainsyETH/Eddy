@@ -73,11 +73,17 @@ function Sparkline({
   //  3. Stage-only → plot raw ft. Last resort.
   const series = useMemo(() => {
     const daily = 'points' in history ? history.points : history.daily;
+    // MoHistoryResponse points carry `timestamp`; the bundle's daily rows use
+    // `date` (YYYY-MM-DD). Support both so the hover readout shows a date.
+    const dates: (string | null)[] = daily.map((d) => {
+      const p = d as { timestamp?: string; date?: string };
+      return p.timestamp ?? p.date ?? null;
+    });
     const nonNullPct = daily.filter((d) => d.percentile != null).length;
     const wantPercentile = daily.length > 0 && nonNullPct / daily.length >= 0.5;
     if (wantPercentile) {
       const values = daily.map((d) => d.percentile);
-      return { mode: 'percentile' as const, values, min: 0, max: 100, unit: '' };
+      return { mode: 'percentile' as const, values, dates, min: 0, max: 100, unit: '' };
     }
     const cfs = daily.map((d) => d.dischargeCfs);
     if (cfs.some((v) => v != null)) {
@@ -85,7 +91,7 @@ function Sparkline({
       const min = Math.min(...valid);
       const max = Math.max(...valid);
       const padded = Math.max(1, max - min);
-      return { mode: 'cfs' as const, values: cfs, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'cfs' };
+      return { mode: 'cfs' as const, values: cfs, dates, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'cfs' };
     }
     const ft = daily.map((d) => d.gaugeHeightFt);
     if (ft.some((v) => v != null)) {
@@ -93,13 +99,16 @@ function Sparkline({
       const min = Math.min(...valid);
       const max = Math.max(...valid);
       const padded = Math.max(0.05, max - min);
-      return { mode: 'ft' as const, values: ft, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'ft' };
+      return { mode: 'ft' as const, values: ft, dates, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'ft' };
     }
     return null;
   }, [history]);
 
   // Unique gradient id per instance — multiple sparklines share the DOM.
   const gradId = useId();
+  const svgRef = useRef<SVGSVGElement>(null);
+  // Hovered data index — drives the crosshair + value/date readout.
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   if (!series || series.values.length === 0) {
     return (
@@ -112,7 +121,7 @@ function Sparkline({
     );
   }
 
-  const { mode, values, min, max, unit } = series;
+  const { mode, values, min, max, unit, dates } = series;
   const range = max - min || 1;
   const xAt = (i: number) =>
     values.length === 1 ? width / 2 : (i / (values.length - 1)) * width;
@@ -158,8 +167,40 @@ function Sparkline({
     ? `M0 ${yAt(75)} L${width} ${yAt(75)} L${width} ${yAt(25)} L0 ${yAt(25)} Z`
     : null;
 
+  // Format a value for the current mode — shared by the corner labels and the
+  // hover readout.
+  const fmtVal = (v: number) =>
+    mode === 'percentile' ? `P${Math.round(v)}`
+      : mode === 'cfs' ? `${Math.round(v)} ${unit}`
+        : `${v.toFixed(2)} ${unit}`;
+
+  // Map the pointer to the nearest day, snapping past null gaps.
+  const onMove = (e: React.MouseEvent<SVGRectElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const frac = (e.clientX - rect.left) / rect.width;
+    let idx = Math.max(0, Math.min(values.length - 1, Math.round(frac * (values.length - 1))));
+    if (values[idx] == null) {
+      for (let d = 1; d < values.length; d++) {
+        if (values[idx - d] != null) { idx -= d; break; }
+        if (values[idx + d] != null) { idx += d; break; }
+      }
+    }
+    setHoverIdx(values[idx] != null ? idx : null);
+  };
+
+  const hv = hoverIdx != null ? values[hoverIdx] : null;
+  const hx = hoverIdx != null ? xAt(hoverIdx) : 0;
+  const hColor = mode === 'percentile' && hv != null ? classifyPercentile(hv).color : curColor;
+  const hoverDate = hoverIdx != null && dates[hoverIdx]
+    ? new Date(dates[hoverIdx] as string).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : null;
+  const hoverLabel = hv != null ? `${fmtVal(hv)}${hoverDate ? ` · ${hoverDate}` : ''}` : '';
+
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} style={{ display: 'block' }}>
+    <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} width={width} height={height} style={{ display: 'block' }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={curColor} stopOpacity="0.26" />
@@ -208,6 +249,30 @@ function Sparkline({
           )}
         </>
       )}
+      {hv != null && (
+        <g pointerEvents="none">
+          <line x1={hx} y1={0} x2={hx} y2={height} stroke="rgba(45,42,36,0.28)" strokeDasharray="2 2" />
+          <circle cx={hx} cy={yAt(hv)} r="3.2" fill={hColor} stroke="#fff" strokeWidth="1.5" />
+          <text
+            x={hx < width / 2 ? hx + 5 : hx - 5}
+            y={11}
+            textAnchor={hx < width / 2 ? 'start' : 'end'}
+            fontSize="9" fontWeight="700" fill={hColor}
+            stroke="#fff" strokeWidth="3" paintOrder="stroke"
+            style={{ fontFamily: MONO }}
+          >
+            {hoverLabel}
+          </text>
+        </g>
+      )}
+      {/* Transparent hit layer on top captures the pointer for the readout. */}
+      <rect
+        x="0" y="0" width={width} height={height}
+        fill="transparent"
+        onMouseMove={onMove}
+        onMouseLeave={() => setHoverIdx(null)}
+        style={{ cursor: 'crosshair' }}
+      />
     </svg>
   );
 }
@@ -355,7 +420,7 @@ function KV({ label, value, sub }: { label: string; value: string; sub?: string 
     >
       <div
         className="uppercase font-bold"
-        style={{ fontSize: 8.5, letterSpacing: '0.1em', color: THEME.inkDim, fontFamily: MONO }}
+        style={{ fontSize: 9.5, letterSpacing: '0.1em', color: THEME.inkDim, fontFamily: MONO }}
       >
         {label}
       </div>
@@ -672,6 +737,10 @@ function RiverCard({
   })();
   const tone = STAGE_VERDICTS[verdict];
   const bannerChip = conditionChip(verdict);
+  // The river's "Eddy says" report — the primary gauge carries is_primary +
+  // river_slug, so this resolves to the river-level report (same source the
+  // gauge card uses), giving the popup the same voice as the report + blog.
+  const eddy = useGaugeRailReport(primaryGauge);
 
   const allAccess = river.access_points ?? [];
   const [showAllAccess, setShowAllAccess] = useState(false);
@@ -733,6 +802,8 @@ function RiverCard({
           {sharedGauge.others.join(', ')}; thresholds calibrated per river.
         </div>
       )}
+
+      <EddyReportCard report={eddy} />
 
       {primaryThresholds && (
         <ThresholdProvenance
@@ -1196,7 +1267,7 @@ function CampgroundCard({
             target="_blank" rel="noreferrer"
             className="rounded-md border-2 px-3 py-2 text-center text-[12px] font-bold uppercase tracking-[0.1em]"
             style={{
-              background: THEME.live, color: '#FAF8F4', borderColor: THEME.cardBorder,
+              background: THEME.live, color: 'var(--color-secondary-50)', borderColor: THEME.cardBorder,
               fontFamily: MONO, boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
             }}
           >
@@ -1876,7 +1947,7 @@ export function GaugeHoverOverlay({
             {readingAge(gauge.readingTimestamp)?.stale && (
               <span
                 className="ml-1.5 rounded-sm px-1 py-px font-bold uppercase"
-                style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
+                style={{ background: '#E5A000', color: '#3D2E00', fontSize: 9.5, letterSpacing: '0.1em' }}
               >
                 Stale
               </span>
@@ -1978,7 +2049,7 @@ export function UnchangedChip({ days }: { days: number | null }) {
         border: '1px solid #E5A000',
         color: '#8A6100',
         fontFamily: MONO,
-        fontSize: 8,
+        fontSize: 9.5,
         letterSpacing: '0.1em',
       }}
     >
@@ -2003,7 +2074,7 @@ export function DataAgeChip({ iso }: { iso: string | null | undefined }) {
       {age.stale && (
         <span
           className="rounded-sm px-1 py-px font-bold uppercase"
-          style={{ background: '#E5A000', color: '#3D2E00', fontSize: 8, letterSpacing: '0.1em' }}
+          style={{ background: '#E5A000', color: '#3D2E00', fontSize: 9.5, letterSpacing: '0.1em' }}
         >
           Stale
         </span>
