@@ -45,7 +45,10 @@ export function Sparkline({
       const min = Math.min(...valid);
       const max = Math.max(...valid);
       const padded = Math.max(1, max - min);
-      return { mode: 'cfs' as const, values: cfs, dates, min: min - padded * 0.05, max: max + padded * 0.05, unit: 'cfs' };
+      // Flow can't go negative — clamp the padded floor at 0 so the axis
+      // never shows a nonsense "-511 cfs". (Stage CAN sit below the gauge
+      // datum, so the ft mode keeps its symmetric padding.)
+      return { mode: 'cfs' as const, values: cfs, dates, min: Math.max(0, min - padded * 0.05), max: max + padded * 0.05, unit: 'cfs' };
     }
     const ft = daily.map((d) => d.gaugeHeightFt);
     if (ft.some((v) => v != null)) {
@@ -125,7 +128,7 @@ export function Sparkline({
   // hover readout.
   const fmtVal = (v: number) =>
     mode === 'percentile' ? `P${Math.round(v)}`
-      : mode === 'cfs' ? `${Math.round(v)} ${unit}`
+      : mode === 'cfs' ? `${Math.round(v).toLocaleString()} ${unit}`
         : `${v.toFixed(2)} ${unit}`;
 
   // Map the pointer to the nearest day, snapping past null gaps.
@@ -190,15 +193,15 @@ export function Sparkline({
       ) : (
         <>
           <text x="3" y={11} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>
-            {mode === 'cfs' ? `${Math.round(max)} ${unit}` : `${max.toFixed(2)} ${unit}`}
+            {fmtVal(max)}
           </text>
           <text x="3" y={height - 3} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>
-            {mode === 'cfs' ? `${Math.round(min)} ${unit}` : `${min.toFixed(2)} ${unit}`}
+            {fmtVal(min)}
           </text>
           {cur != null && (
             <text x={width - 3} y={yAt(cur) - 6} textAnchor="end"
               fontSize="9" fontWeight="700" fill={curColor} style={{ fontFamily: MONO }}>
-              {mode === 'cfs' ? `${Math.round(cur)} ${unit}` : `${cur.toFixed(2)} ${unit}`}
+              {fmtVal(cur)}
             </text>
           )}
         </>

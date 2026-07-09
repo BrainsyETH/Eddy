@@ -173,6 +173,17 @@ function RailSheet({
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   const PEEK = Math.round(vh * SHEET_PEEK_FRACTION);
   const EXPANDED = Math.round(vh * 0.88);
+  // Natural height of the card content — the expanded snap caps here so a
+  // short card (few sections) doesn't leave a page of dead white space
+  // under its CTA. Measured at snap time; content taller than 88vh still
+  // clamps to EXPANDED and scrolls.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const HANDLE_H = 22; // pt-2.5 + 4px bar + pb-1
+  const expandedTarget = () => {
+    const contentH = contentRef.current?.offsetHeight;
+    if (!contentH) return EXPANDED;
+    return Math.max(PEEK, Math.min(EXPANDED, contentH + HANDLE_H));
+  };
   const [height, setHeight] = useState(PEEK);
   const [snap, setSnapState] = useState<'peek' | 'expanded'>('peek');
   const [dragging, setDragging] = useState(false);
@@ -217,8 +228,9 @@ function RailSheet({
     const h = dragRef.current.lastH;
     dragRef.current = null;
     if (h < PEEK * 0.6) { onClose?.(); return; } // dragged well below peek → dismiss
-    const toExpanded = Math.abs(h - EXPANDED) < Math.abs(h - PEEK);
-    setHeight(toExpanded ? EXPANDED : PEEK);
+    const target = expandedTarget();
+    const toExpanded = Math.abs(h - target) < Math.abs(h - PEEK);
+    setHeight(toExpanded ? target : PEEK);
     setSnap(toExpanded ? 'expanded' : 'peek');
   };
 
@@ -263,7 +275,7 @@ function RailSheet({
         >
           <div style={{ width: 40, height: 4, borderRadius: 99, background: 'rgba(45,42,36,0.28)' }} />
         </div>
-        {children}
+        <div ref={contentRef}>{children}</div>
       </div>
     </>
   );

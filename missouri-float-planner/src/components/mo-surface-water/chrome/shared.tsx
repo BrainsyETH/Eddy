@@ -245,11 +245,14 @@ export function relativeTime(iso: string): string {
 
 // ─── Data age ────────────────────────────────────────────────────────────
 //
-// Every reading on the page discloses its age; anything older than two
-// hours is flagged loudly. Data honesty over polish: a stale number
-// styled as live is how someone puts a canoe on flood water.
+// Every reading on the page discloses its age (the "N hrs ago" line always
+// shows), and anything past the threshold is flagged loudly. Data honesty
+// over polish: a stale number styled as live is how someone puts a canoe on
+// flood water. Threshold is six hours: healthy USGS gauges sample every
+// 15-60 min but NWIS distribution routinely lags a few hours, so a 2h flag
+// cried wolf on normally-reporting stations — 6h marks genuine outages.
 
-const STALE_AFTER_MS = 2 * 3600e3;
+const STALE_AFTER_MS = 6 * 3600e3;
 
 export function readingAge(iso: string | null | undefined): {
   label: string;
