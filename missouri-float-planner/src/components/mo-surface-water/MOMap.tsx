@@ -614,6 +614,9 @@ export default function MOMap(props: MOMapProps) {
   // (non-fly-in) view to the correctly-framed home. Later changes (rotate,
   // iOS URL bar, the timeline collapsing) remap the CURRENT view to the new
   // aspect — preserving the user's zoom/pan — instead of snapping home.
+  // The remap is CENTER-anchored: growing/shrinking h from the top-left
+  // corner kept the top edge pinned, so expanding the mobile timeline shoved
+  // the whole region toward the top of the stage with dead space below.
   const framedRef = useRef(false);
   useEffect(() => {
     if (!framedRef.current) {
@@ -622,7 +625,10 @@ export default function MOMap(props: MOMapProps) {
       return;
     }
     if (entryPhase !== 'done') return;
-    setView((v) => clampView({ ...v, h: v.w / stageAspect }));
+    setView((v) => {
+      const h = v.w / stageAspect;
+      return clampView({ ...v, y: v.y + (v.h - h) / 2, h });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageAspect]);
 
@@ -1073,75 +1079,109 @@ export default function MOMap(props: MOMapProps) {
     props.onFocusGauge, props.onHoverGauge,
   ]);
 
-  // ── Selection camera nudge (mobile) ──
-  // The peek sheet covers the bottom ~44% of the screen, which can hide the
-  // very feature the user just tapped. When a selection lands in that band,
-  // ease-pan it (Y only) to ~1/3 from the top of the still-visible area.
-  // Fires once per selection change; a user pointerdown cancels mid-flight.
+  // ── Selection camera fit (mobile) ──
+  // The peek sheet covers the bottom ~44% of the screen, and at the home
+  // framing a selected river is a barely-legible sliver even when it is
+  // technically "visible" above the sheet (which is why the old Y-only
+  // nudge did nothing for deep links). When a selection lands, fit the
+  // camera to the feature's projected bounds inside the still-visible band
+  // above the sheet — zooming in or out as needed. Fires once per selection
+  // (a ref, not deps, guards this), INCLUDING selections made while the
+  // entry fly-in is still running: those fit as soon as the entry completes.
+  // A user pointerdown cancels mid-flight.
+  const fittedSelRef = useRef<string | null>(null);
+  const selectionKey = `${props.focusedGaugeId ?? ''}|${props.focusedRiverId ?? ''}|${props.selectedContextSiteId ?? ''}`;
   useEffect(() => {
     if (!isSmallScreen || entryPhase !== 'done') return;
-    // Resolve the selected feature to projected map coords.
-    let pt: [number, number] | null = null;
+    if (selectionKey === '||') { fittedSelRef.current = null; return; }
+    if (fittedSelRef.current === selectionKey) return;
+
+    // Resolve the selection to a projected bbox. Point features (gauges,
+    // context sites) get a synthetic box ~1/8 of the region so the camera
+    // settles at a readable neighborhood zoom instead of a pin on a wall.
+    let bbox: { x: number; y: number; w: number; h: number } | null = null;
+    const pointBox = (lon: number, lat: number) => {
+      const [x, y] = project(lon, lat);
+      const s = regionBounds.w * 0.12;
+      return { x: x - s / 2, y: y - s / 2, w: s, h: s };
+    };
     if (props.focusedGaugeId) {
       const g = props.gauges.find((x) => x.site_no === props.focusedGaugeId);
       const meta = g ? gaugeMetaByKey.get(condKey(g.river_id, g.site_no)) : undefined;
-      if (meta) pt = project(meta.gauge.lon, meta.gauge.lat);
+      if (meta) bbox = pointBox(meta.gauge.lon, meta.gauge.lat);
     } else if (props.focusedRiverId) {
       const r = props.rivers.find((x) => x.id === props.focusedRiverId);
       if (r) {
-        const primary = (r.gauges ?? []).find((g) => g.is_primary) ?? (r.gauges ?? [])[0];
-        if (primary) {
-          pt = project(primary.lon, primary.lat);
-        } else {
-          // A river isn't a point — anchor on the polyline's midpoint.
-          const coords = r.geometry.coordinates as Array<[number, number]>;
-          const mid = coords[Math.floor(coords.length / 2)];
-          if (mid) pt = project(mid[0], mid[1]);
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const [lon, lat] of r.geometry.coordinates as Array<[number, number]>) {
+          const [x, y] = project(lon, lat);
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
         }
+        if (minX < Infinity) bbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
       }
     } else if (props.selectedContextSiteId) {
       const s = (props.contextSites ?? []).find((x) => x.site_no === props.selectedContextSiteId);
-      if (s) pt = project(s.lon, s.lat);
+      if (s) bbox = pointBox(s.lon, s.lat);
     }
     const stage = stageRef.current;
-    if (!pt || !stage) return;
+    if (!bbox || !stage) return;
+    fittedSelRef.current = selectionKey;
 
+    // The band of the stage still visible above the peek sheet.
     const rect = stage.getBoundingClientRect();
-    const from = { ...viewRef.current };
-    // Same viewBox→screen math as the flow canvas (preserveAspectRatio meet).
-    const s = Math.min(rect.width / from.w, rect.height / from.h);
-    const oy = (rect.height - from.h * s) / 2 - from.y * s;
-    const screenY = rect.top + pt[1] * s + oy;
+    if (rect.width < 1 || rect.height < 1) return;
     const sheetTop = window.innerHeight - Math.round(window.innerHeight * SHEET_PEEK_FRACTION);
-    if (screenY < sheetTop - 24) return; // already visible above the sheet
-    const visibleBottom = Math.min(rect.bottom, sheetTop);
-    const desiredY = rect.top + (visibleBottom - rect.top) / 3;
-    const to = clampView({ ...from, y: from.y + (screenY - desiredY) / s });
+    const visibleFrac = Math.max(0.25, (Math.min(rect.bottom, sheetTop) - rect.top) / rect.height);
 
+    // View width that fits the bbox into the band with breathing room (90%
+    // of the stage width, 80% of the band height), at the stage aspect. The
+    // bbox centers in the band; clampView bounds zoom + pan (long rivers cap
+    // at the max-out zoom and fit best-effort).
+    const from = { ...viewRef.current };
+    const needW = Math.max(bbox.w / 0.9, (bbox.h / (visibleFrac * 0.8)) * stageAspect);
+    const to = clampView({
+      x: bbox.x + bbox.w / 2 - needW / 2,
+      y: bbox.y + bbox.h / 2 - (needW / stageAspect) * (visibleFrac / 2),
+      w: needW,
+      h: needW / stageAspect,
+    });
+
+    if (reducedMotion) {
+      applyView(to);
+      setView(to);
+      return;
+    }
     let raf = 0;
-    const D = 300;
+    const D = 420;
     const t0 = performance.now();
     const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
     const tick = (t: number) => {
       const p = Math.min(1, (t - t0) / D);
       const e = easeInOut(p);
-      applyView({ ...from, y: from.y + (to.y - from.y) * e });
+      applyView({
+        x: from.x + (to.x - from.x) * e,
+        y: from.y + (to.y - from.y) * e,
+        w: from.w + (to.w - from.w) * e,
+        h: from.h + (to.h - from.h) * e,
+      });
       if (p >= 1) setView(viewRef.current);
       else raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    // The user grabbing the map mid-nudge wins immediately.
+    // The user grabbing the map mid-fit wins immediately.
     const cancel = () => { cancelAnimationFrame(raf); setView(viewRef.current); };
     window.addEventListener('pointerdown', cancel, { once: true });
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('pointerdown', cancel);
     };
-    // Deliberately keyed on the selection ids only (same pattern as the
-    // aspect-remap effect) — it must fire once per selection, not re-nudge
-    // after the user pans away.
+    // Keyed on the selection + entry completion; fittedSelRef makes it fire
+    // once per selection (no re-fit after the user pans away).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.focusedGaugeId, props.focusedRiverId, props.selectedContextSiteId]);
+  }, [selectionKey, entryPhase]);
 
   return (
     <>
@@ -1608,10 +1648,12 @@ export default function MOMap(props: MOMapProps) {
 
     {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
         screen coordinates regardless of the current view. Slides out of
-        the way when the right rail is pinned (it used to hide beneath it). */}
+        the way when the right rail is pinned (it used to hide beneath it);
+        on phones the sheet owns the bottom of the screen, so the cluster
+        fades out entirely instead of poking out half-buried behind it. */}
     <div
-      className={`absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right] duration-300 right-4 ${
-        props.railOpen ? 'md:right-[min(384px,calc(100vw-52px))]' : ''
+      className={`absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right,opacity] duration-300 right-4 ${
+        props.railOpen ? 'md:right-[min(384px,calc(100vw-52px))] max-md:pointer-events-none max-md:opacity-0' : ''
       }`}
       style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
     >

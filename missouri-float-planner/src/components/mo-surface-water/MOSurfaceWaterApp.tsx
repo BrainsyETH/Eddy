@@ -728,7 +728,7 @@ export default function MOSurfaceWaterApp() {
         >
           <span className="inline-block h-2 w-2 rounded-full" style={{ background: '#F07052', boxShadow: '0 0 6px #F07052' }} />
           <span className="font-bold uppercase">
-            {floatableCount}/{rivers.length || '—'} floatable · rivers
+            {floatableCount}/{rivers.length || '—'} rivers floatable
           </span>
         </button>
 

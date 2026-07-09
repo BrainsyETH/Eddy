@@ -194,7 +194,11 @@ export default function DataDock({
               )}
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: '#F07052' }} />
             </span>
-            USGS · readings as of {stamp}
+            {/* "readings" drops on phones: the drawer close button eats ~40px
+                of this row, and the wrapped "PM" orphan looked broken. */}
+            <span className="whitespace-nowrap">
+              USGS · <span className="hidden md:inline">readings </span>as of {stamp}
+            </span>
             <button
               type="button"
               aria-label="Close panel"
@@ -246,7 +250,11 @@ export default function DataDock({
               {floatable}/{rivers.length} go
             </span>
           </div>
-          <div className="mt-2 grid grid-cols-6 gap-1">
+          {/* 3×2, not 6-across: six tiles in a 320px rail left ~40px per
+              label, truncating "TOO LOW"/"FLOWING" mid-word at any legible
+              size. The share bar below still reads the distribution in one
+              glance. */}
+          <div className="mt-2 grid grid-cols-3 gap-1">
             {CONDITION_ORDER.map((code) => (
               <VerdictMini key={code} code={code} n={counts[code]} active={mounted} />
             ))}
@@ -304,7 +312,16 @@ export default function DataDock({
         </div>
 
         {/* ── River rows ── */}
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        {/* The bottom mask fades the last visible row into the legend edge —
+            a scroll affordance, so the list reads as "more below" instead of
+            a card chopped in half at the panel boundary. */}
+        <div
+          className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-3"
+          style={{
+            WebkitMaskImage: 'linear-gradient(180deg, #000 calc(100% - 28px), transparent)',
+            maskImage: 'linear-gradient(180deg, #000 calc(100% - 28px), transparent)',
+          }}
+        >
           {sorted.map((r, i) => (
             <RiverRow
               key={r.id}
@@ -370,7 +387,7 @@ export default function DataDock({
             />
             <LayerToggle
               label="Sites"
-              glyph="·"
+              glyph="◦"
               on={showSites}
               onToggle={() => setShowSites(!showSites)}
             />

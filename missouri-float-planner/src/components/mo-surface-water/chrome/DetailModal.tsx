@@ -151,7 +151,7 @@ function ImageGallery({ urls, alt }: { urls: string[]; alt: string }) {
 
 function FactRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 py-1.5 border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+    <div className="flex justify-between gap-4 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
       <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', color: THEME.inkDim, textTransform: 'uppercase' }}>
         {label}
       </span>
