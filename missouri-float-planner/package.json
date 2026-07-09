@@ -37,7 +37,9 @@
     "video:render": "cd remotion && npx remotion render Root tutorial-full out/eddy-tutorial-landscape.mp4",
     "video:render:vertical": "cd remotion && npx remotion render Root tutorial-full-vertical out/eddy-tutorial-vertical.mp4",
     "video:render:all": "npm run video:render && npm run video:render:vertical",
-    "video:studio": "cd remotion && npx remotion studio"
+    "video:studio": "cd remotion && npx remotion studio",
+    "promo:capture": "cd remotion && node scripts/capture-promo.mjs",
+    "promo:render": "cd remotion && bash scripts/render-promo.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
