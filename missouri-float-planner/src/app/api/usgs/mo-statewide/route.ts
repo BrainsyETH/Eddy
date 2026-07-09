@@ -6,6 +6,8 @@ import {
   type DailyStatistics,
 } from '@/lib/usgs/gauges';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
+import { NwsProvider } from '@/lib/flow-providers/nws';
+import type { GaugeReading } from '@/lib/flow-providers/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,13 +80,51 @@ export async function GET() {
     const readings = await fetchGaugeReadings(siteIds);
     const readingMap = new Map(readings.map((r) => [r.siteId, r]));
 
+    // USGS → NWS fallback. Some gauges sit on discontinued USGS stations that
+    // NOAA/NWPS still observes live — e.g. St. Francis River near Roselle,
+    // whose USGS site (07034000) stopped reporting discharge in 1997 but whose
+    // NWS gauge (ROZM7) still reports live stage. When the USGS reading is
+    // missing or long stale and the gauge carries an NWS LID, use the live NWS
+    // observation instead so the card isn't stuck on a decades-old value.
+    const STALE_FALLBACK_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+    const isFresh = (r: GaugeReading | null | undefined): boolean => {
+      if (!r?.readingTimestamp) return false;
+      const t = new Date(r.readingTimestamp).getTime();
+      return Number.isFinite(t) && Date.now() - t <= STALE_FALLBACK_MS;
+    };
+    const lidBySite = new Map<string, string>();
+    for (const siteId of siteIds) {
+      const lid = siteToRiver.get(siteId)?.nws_lid;
+      if (lid && !isFresh(readingMap.get(siteId))) lidBySite.set(siteId, lid);
+    }
+    const nwsBySite = new Map<string, GaugeReading>();
+    if (lidBySite.size > 0) {
+      try {
+        const lids = Array.from(new Set(lidBySite.values()));
+        const nwsReadings = await new NwsProvider().fetchLatest(lids);
+        const byLid = new Map(nwsReadings.map((r) => [r.siteId, r]));
+        for (const [siteId, lid] of lidBySite) {
+          const nws = byLid.get(lid);
+          if (!isFresh(nws)) continue;
+          // NWPS reports 0 kcfs for stage-only gauges (no rating curve) — a
+          // placeholder, not a real zero flow. Keep the live stage, drop the 0.
+          nwsBySite.set(siteId, {
+            ...nws!,
+            dischargeCfs: nws!.dischargeCfs && nws!.dischargeCfs > 0 ? nws!.dischargeCfs : null,
+          });
+        }
+      } catch (e) {
+        console.warn('[usgs/mo-statewide] NWS fallback failed:', e);
+      }
+    }
+
     const statsResults = await Promise.allSettled(
       siteIds.map((id) => fetchDailyStatistics(id)),
     );
 
     const gauges: MoStatewideGauge[] = siteIds.map((siteId, i) => {
       const meta = siteToRiver.get(siteId)!;
-      const reading = readingMap.get(siteId) ?? null;
+      const reading = nwsBySite.get(siteId) ?? readingMap.get(siteId) ?? null;
       const statsRes = statsResults[i];
       const stats =
         statsRes.status === 'fulfilled' && statsRes.value ? statsRes.value : null;
