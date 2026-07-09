@@ -20,6 +20,7 @@
     "@remotion/cli": "4.0.242",
     "@remotion/renderer": "4.0.242",
     "@remotion/tailwind": "4.0.242",
+    "@remotion/transitions": "^4.0.242",
     "autoprefixer": "^10",
     "openai": "^4.73.0",
     "postcss": "^8",

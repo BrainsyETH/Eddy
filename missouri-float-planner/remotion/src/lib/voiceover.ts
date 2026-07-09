@@ -29,6 +29,14 @@ export interface SceneVO {
 
 export const FPS = 30;
 
+/**
+ * Overlap length of each montage transition, in frames (~0.47s at 30fps). Beats
+ * that play back-to-back through a <Montage> overlap by this much and blend, so
+ * a composition's real length is shorter than the naive sum of its beats — use
+ * the *MontageFrames helpers below to register the right durationInFrames.
+ */
+export const MONTAGE_TRANSITION_FRAMES = 14;
+
 // ============================================
 // Website/YouTube Tutorial Scenes (~110s)
 // ============================================
@@ -191,6 +199,109 @@ export const reelScenes: SceneVO[] = [
   },
 ];
 
+// ============================================
+// Promo Reel Scenes (~39s) — 3-feature product promo:
+// live river map · river levels · plan a float
+// ============================================
+
+export const promoScenes: SceneVO[] = [
+  {
+    id: "promo-hook",
+    compositionId: "promo-hook",
+    title: "Hook",
+    script:
+      "Floating an Ozark river this weekend? Here's how to know it's running — before you load the cooler.",
+    voDuration: 6.12,
+    animationPadding: 0.78,
+    audioFile: "promo-01-hook.mp3",
+  },
+  {
+    id: "promo-map",
+    compositionId: "promo-map",
+    title: "Live River Map",
+    script:
+      "This is the live river map. Every river is painted by its USGS gauges, so you can see what's flowing at a glance. Tap one for today's floater's verdict — then drag the timeline to replay the whole month.",
+    voDuration: 13.66,
+    animationPadding: 0.84,
+    audioFile: "promo-02-map.mp3",
+  },
+  {
+    id: "promo-levels",
+    compositionId: "promo-levels",
+    title: "River Levels",
+    script:
+      "Too low and you're dragging bottom; too high and it's dangerous. Eddy reads the gauges for you — feet, flow, and the seven-day trend — and just tells you: good to float, or wait.",
+    voDuration: 13.66,
+    animationPadding: 0.84,
+    audioFile: "promo-03-levels.mp3",
+  },
+  {
+    id: "promo-plan",
+    compositionId: "promo-plan",
+    title: "Plan a Float",
+    script:
+      "Found a good one? Pick your put-in and take-out. Eddy does the math — float time, river miles, and the shuttle drive — in seconds.",
+    voDuration: 7.42,
+    animationPadding: 0.88,
+    audioFile: "promo-04-plan.mp3",
+  },
+  {
+    id: "promo-cta",
+    compositionId: "promo-cta",
+    title: "CTA",
+    script: "Check the rivers. Plan the float. Start at eddy dot guide.",
+    voDuration: 4.8,
+    animationPadding: 0.9,
+    audioFile: "promo-05-cta.mp3",
+  },
+];
+
+// ============================================
+// Current River focus reel (~30s) — Eddy Says verdict + plan the float
+// ============================================
+
+export const currentScenes: SceneVO[] = [
+  {
+    id: "current-hook",
+    compositionId: "current-hook",
+    title: "Hook",
+    script:
+      "Thinking about floating the Current River this weekend? Let's see what Eddy says.",
+    voDuration: 4.75,
+    animationPadding: 0.85,
+    audioFile: "current-01-hook.mp3",
+  },
+  {
+    id: "current-eddy-says",
+    compositionId: "current-eddy-says",
+    title: "Eddy Says",
+    script:
+      "Right now, the Current is sitting at three feet — the low end of the ideal range — running clear and steady. Eddy says conditions are excellent today.",
+    voDuration: 9.36,
+    animationPadding: 1.04,
+    audioFile: "current-02-eddysays.mp3",
+  },
+  {
+    id: "current-plan",
+    compositionId: "current-plan",
+    title: "Plan the Float",
+    script:
+      "Ready to go? The classic float from Akers Ferry down to Pulltite Spring is nine and a half miles — about four to six hours on the water.",
+    voDuration: 8.21,
+    animationPadding: 0.89,
+    audioFile: "current-03-plan.mp3",
+  },
+  {
+    id: "current-cta",
+    compositionId: "current-cta",
+    title: "CTA",
+    script: "Check conditions and plan your Current River float at eddy dot guide.",
+    voDuration: 4.75,
+    animationPadding: 0.85,
+    audioFile: "current-04-cta.mp3",
+  },
+];
+
 /** Get total duration of a scene in seconds */
 export function getSceneDuration(scene: SceneVO): number {
   return scene.voDuration + scene.animationPadding;
@@ -219,4 +330,41 @@ export function getReelTotalFrames(): number {
 /** Get total reel duration in seconds */
 export function getReelTotalDuration(): number {
   return reelScenes.reduce((sum, s) => sum + getSceneDuration(s), 0);
+}
+
+/** Get total promo duration in frames */
+export function getPromoTotalFrames(): number {
+  return promoScenes.reduce((sum, s) => sum + getSceneFrames(s), 0);
+}
+
+/** Promo length once beats overlap through the montage transitions. */
+export function getPromoMontageFrames(): number {
+  return montageLength(promoScenes);
+}
+
+/** Current-River reel length once beats overlap through the montage. */
+export function getCurrentMontageFrames(): number {
+  return montageLength(currentScenes);
+}
+
+/** Reel length once beats overlap through the montage transitions. */
+export function getReelMontageFrames(): number {
+  return montageLength(reelScenes);
+}
+
+/** Frames a montage of these beats occupies: total minus the (n-1) overlaps. */
+function montageLength(list: SceneVO[]): number {
+  const total = list.reduce((sum, s) => sum + getSceneFrames(s), 0);
+  const overlaps = Math.max(0, list.length - 1) * MONTAGE_TRANSITION_FRAMES;
+  return Math.max(1, total - overlaps);
+}
+
+/** Get total promo duration in seconds */
+export function getPromoTotalDuration(): number {
+  return promoScenes.reduce((sum, s) => sum + getSceneDuration(s), 0);
+}
+
+/** Get total Current River reel duration in frames */
+export function getCurrentTotalFrames(): number {
+  return currentScenes.reduce((sum, s) => sum + getSceneFrames(s), 0);
 }

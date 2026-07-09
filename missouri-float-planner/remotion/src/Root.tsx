@@ -11,8 +11,10 @@ import { AccessPointScene } from "./compositions/scenes/07-AccessPoint";
 import { SharePlanScene } from "./compositions/scenes/08-SharePlan";
 import { AskEddyScene } from "./compositions/scenes/09-AskEddy";
 import { OutroScene } from "./compositions/scenes/10-Outro";
-import { scenes, reelScenes, getSceneFrames, getTotalFrames, getReelTotalFrames, FPS } from "./lib/voiceover";
+import { scenes, reelScenes, getSceneFrames, getTotalFrames, getReelTotalFrames, getPromoMontageFrames, getCurrentMontageFrames, FPS } from "./lib/voiceover";
 import { ReelFull } from "./compositions/ReelFull";
+import { PromoFull } from "./compositions/PromoFull";
+import { PromoCurrent } from "./compositions/PromoCurrent";
 import { GaugeAnimation } from "./compositions/social/GaugeAnimation";
 import { DigestReel, getDigestDuration } from "./compositions/social/DigestReel";
 import { SectionGuide } from "./compositions/social/SectionGuide";
@@ -32,6 +34,11 @@ import "./style.css";
 
 const totalFrames = getTotalFrames();
 const reelTotalFrames = getReelTotalFrames();
+// PromoFull and PromoCurrent montage their beats (they overlap), so each runs
+// shorter than the naive sum — register the overlap-adjusted length or the tail
+// goes blank.
+const promoTotalFrames = getPromoMontageFrames();
+const currentTotalFrames = getCurrentMontageFrames();
 
 /**
  * Root composition registry.
@@ -65,6 +72,52 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={{ format: "portrait" as const }}
+      />
+
+      {/* ============================================
+          PROMO — 9:16 three-feature product promo (~39s)
+          live river map · river levels · plan a float
+          ============================================ */}
+
+      <Composition
+        id="promo"
+        component={PromoFull}
+        durationInFrames={promoTotalFrames}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{ mapClip: null as string | null, format: "portrait" as const, voiceover: true }}
+      />
+
+      {/* Landscape cut — YouTube / site hero (16:9) */}
+      <Composition
+        id="promo-landscape"
+        component={PromoFull}
+        durationInFrames={promoTotalFrames}
+        fps={FPS}
+        width={1920}
+        height={1080}
+        defaultProps={{ mapClip: null as string | null, format: "landscape" as const, voiceover: true }}
+      />
+
+      {/* Current River focus reel — Eddy Says verdict + plan the float */}
+      <Composition
+        id="promo-current"
+        component={PromoCurrent}
+        durationInFrames={currentTotalFrames}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{ format: "portrait" as const, voiceover: true }}
+      />
+      <Composition
+        id="promo-current-landscape"
+        component={PromoCurrent}
+        durationInFrames={currentTotalFrames}
+        fps={FPS}
+        width={1920}
+        height={1080}
+        defaultProps={{ format: "landscape" as const, voiceover: true }}
       />
 
       {/* ============================================
