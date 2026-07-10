@@ -146,6 +146,30 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
       continue;
     }
 
+    // Idempotency guard: never re-post the same clip video to a platform that
+    // already has a live (published) or in-flight (publishing) row for it. The
+    // post-clip cron runs on a serverless timeout, and Reel publishing can take
+    // minutes — if a prior run committed the Reel to Meta but was killed before
+    // recording used_in_posts, this stops the next run from double-posting it.
+    // A 'failed' row is intentionally NOT matched, so a genuine failure can retry.
+    if (clip.clip_url) {
+      const { data: existing } = await supabase
+        .from('social_posts')
+        .select('id, status')
+        .eq('platform', platform)
+        .eq('video_url', clip.clip_url)
+        .in('status', ['publishing', 'published'])
+        .limit(1);
+      if (existing && existing.length > 0) {
+        results.push({
+          platform,
+          success: false,
+          error: `Already ${existing[0].status} on ${platform} for this clip — skipping to avoid a duplicate`,
+        });
+        continue;
+      }
+    }
+
     // Branded cover so the Reel's grid thumbnail isn't the black first video
     // frame (clips have no OG cover otherwise). Per-platform for the right size.
     const coverUrl =

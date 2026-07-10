@@ -11,6 +11,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { publishClip, type ClipRow } from '@/lib/social/clip-poster';
 
 export const dynamic = 'force-dynamic';
+// Publishing a Reel is a container flow that polls Meta for up to ~150s PER
+// platform (see waitForContainer in meta-client). Without headroom the function
+// was killed mid-publish — after Meta committed the Reel but before we could
+// record used_in_posts — so the next run re-posted the same clip (the "posted
+// twice" bug). Give the publish real room; publishClip is also now idempotent
+// per (clip_url, platform) as a belt-and-suspenders guard.
+export const maxDuration = 300;
 const LOG = '[PostClipCron]';
 
 export async function GET(request: NextRequest) {

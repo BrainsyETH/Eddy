@@ -237,6 +237,25 @@ jobs:
             local SRC_ORIENT="landscape"
             [ "$(echo "$SRC_DIMS" | cut -dx -f2)" -gt "$(echo "$SRC_DIMS" | cut -dx -f1)" ] 2>/dev/null && SRC_ORIENT="portrait"
 
+            # The branded reel's length MUST match the ACTUAL extracted footage,
+            # not the requested peak duration. A windowed yt-dlp download can fall
+            # short of the requested window (keyframe snapping / the source ending),
+            # leaving a clip shorter than PEAK_DURATION. render-clip builds the
+            # composition from duration_secs, so if that's longer than the footage,
+            # OffthreadVideo holds its last frame for the remainder — a reel that's
+            # frozen on a still image. Probe the real duration (floored to whole
+            # seconds so the render never outruns the media) and use THAT. Skip
+            # clips too short to post as a Reel instead of shipping a frozen blip.
+            local ACTUAL_DUR=$(ffprobe -v error -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 "$RAW_CLIP" 2>/dev/null | cut -d. -f1)
+            if ! [ "$ACTUAL_DUR" -ge 0 ] 2>/dev/null; then ACTUAL_DUR="${PEAK_DURATION:-13}"; fi
+            if [ "$ACTUAL_DUR" -lt 4 ] 2>/dev/null; then
+              echo "⚠️ Extracted clip is only ${ACTUAL_DUR}s (< 4s floor) — skipping to avoid a frozen reel"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
+            echo "Clip duration: requested ${PEAK_DURATION:-13}s, actual ${ACTUAL_DUR}s (using actual for the reel)"
+
             echo "→ Dispatching render-clip (Remotion branding)..."
             if gh workflow run render-clip.yml --ref main \
               -f video_url="$RAW_URL" \
@@ -247,7 +266,7 @@ jobs:
               -f source_url="$URL" \
               -f youtube_channel="$CHANNEL" \
               -f peak_number="$PEAK" \
-              -f duration_secs="${PEAK_DURATION:-13}" \
+              -f duration_secs="$ACTUAL_DUR" \
               -f clip_start_secs="$PEAK_START" \
               -f orientation="portrait" \
               -f heatmap_score="$PEAK_SCORE" \
