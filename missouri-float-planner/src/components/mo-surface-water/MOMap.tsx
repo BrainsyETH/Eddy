@@ -202,6 +202,15 @@ function strokeWidthForBasemapRiver(lengthMi: number): number {
   return 1.0;
 }
 
+// Compositor-camera tuning (see "Compositor-transform camera" below).
+// The SVGs render a VIEW_BUFFER margin beyond the stage on every side, so
+// gesture transforms can slide the stale raster around without exposing
+// blank edges; the REBASE bounds cap how far a transform may stretch that
+// raster before we pay for one fresh rasterization.
+const VIEW_BUFFER = 0.25; // oversize fraction per side (stage × 1.5)
+const REBASE_SCALE_UP = 1.25; // stale raster upscaled ≥25% → too blurry
+const REBASE_SCALE_DOWN = 0.8; // downscaled past the buffer's reach
+
 export default function MOMap(props: MOMapProps) {
   const reducedMotion = usePrefersReducedMotion();
   // Lock the projection window to the full region outline (Missouri +
@@ -395,10 +404,11 @@ export default function MOMap(props: MOMapProps) {
   }, [bbox]);
 
   // ─── Zoom + pan ────────────────────────────────────────────────────────
-  // The SVG viewBox is state. Wheel zooms around the cursor; primary-button
-  // drag pans; double-click resets to the full-state framing. Children
-  // never re-project (paths are memoized on `project`); only the viewBox
-  // attribute changes per frame, so the browser handles zoom natively.
+  // The committed camera is React state; per-frame camera motion is a CSS
+  // transform on the pre-rasterized SVGs (see "Compositor-transform camera"
+  // below). Wheel zooms around the cursor; primary-button drag pans;
+  // double-click resets to the full-state framing. Children never
+  // re-project (paths are memoized on `project`).
   // Projected bounding box of the region (Missouri + Arkansas) in viewBox
   // units — the frame the camera fits to.
   const regionBounds = useMemo(() => {
@@ -500,18 +510,80 @@ export default function MOMap(props: MOMapProps) {
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
-  // ── Imperative viewBox during gestures + entry (perf) ──
-  // Pan/pinch/entry would otherwise call setView every frame, re-rendering
-  // and reconciling ~5–6k SVG nodes at 60 fps. Instead we mutate the viewBox
-  // attribute on both SVGs (and the shared viewRef the flow canvas reads)
-  // WITHOUT a React render, then commit to state once on gesture end so the
-  // kStable-scaled markers snap to their final screen size.
+  // ── Compositor-transform camera during gestures + entry (perf) ──
+  // Mutating the viewBox per frame forces the browser to re-rasterize the
+  // whole SVG scene — ~1,700 nodes PLUS the feDropShadow state silhouette
+  // and the grain pattern — every frame, at devicePixelRatio. On a mid-tier
+  // phone that runs a pan at ~10fps. Instead we do what real map engines do:
+  //
+  //   * The two SVGs are rendered OVERSIZED (a VIEW_BUFFER margin on every
+  //     side) at a "base" view, whose expanded viewBox is written once.
+  //   * Per gesture/animation frame, applyView positions that already-
+  //     rasterized layer with a CSS translate+scale — compositor-only work,
+  //     no re-raster, no layout, no React.
+  //   * When the transform would blur too far (zoom drift) or slide the
+  //     buffer out from under the stage (long pan), we "rebase": write the
+  //     viewBox at the current view and reset the transform — ONE re-raster
+  //     instead of sixty per second.
+  //   * Gesture end / animation end commits via setView; a layout effect
+  //     below re-bases at the committed view so React state, viewBox, and
+  //     transform can never disagree at paint time.
+  //
+  // The math is exact (not approximate) because clampView locks the view
+  // aspect to the stage aspect, so viewBox→screen scale is uniform: the
+  // transformed stale raster shows the SAME geometry as a fresh raster,
+  // only resampled — which is why the flow canvas (drawn per-frame from
+  // viewRef) stays perfectly registered on top of it.
+  const baseViewRef = useRef(view);          // view the viewBox was last written at
+  const stageSizeRef = useRef({ w: 0, h: 0 }); // stage CSS px (kept by measure())
+
+  // Write the (expanded) viewBox for `v` on both SVGs and zero the transform.
+  const writeViewBox = useCallback((v: { x: number; y: number; w: number; h: number }) => {
+    baseViewRef.current = v;
+    const vb = `${v.x - v.w * VIEW_BUFFER} ${v.y - v.h * VIEW_BUFFER} ${v.w * (1 + 2 * VIEW_BUFFER)} ${v.h * (1 + 2 * VIEW_BUFFER)}`;
+    const a = svgRef.current;
+    const b = markerSvgRef.current;
+    if (a) { a.setAttribute('viewBox', vb); a.style.transform = ''; }
+    if (b) { b.setAttribute('viewBox', vb); b.style.transform = ''; }
+  }, []);
+
   const applyView = useCallback((v: { x: number; y: number; w: number; h: number }) => {
     viewRef.current = v;
-    const vb = `${v.x} ${v.y} ${v.w} ${v.h}`;
-    svgRef.current?.setAttribute('viewBox', vb);
-    markerSvgRef.current?.setAttribute('viewBox', vb);
-  }, []);
+    const base = baseViewRef.current;
+    const { w: SW, h: SH } = stageSizeRef.current;
+    if (!SW || !SH) { writeViewBox(v); return; }
+    // Scale/offset that repositions the base raster to show view `v`.
+    // (transform-origin is the SVG's own top-left, at −BUFFER·stage.)
+    const k = base.w / v.w;
+    const s = SW / v.w; // CSS px per viewBox unit at the target view
+    const tx = (base.x - v.x) * s + VIEW_BUFFER * SW * (1 - k);
+    const ty = (base.y - v.y) * s + VIEW_BUFFER * SH * (1 - k);
+    // Rebase when blur or buffer exhaustion would show: edges of the
+    // transformed layer in stage coordinates must still cover the stage.
+    const exL = -VIEW_BUFFER * SW + tx;
+    const exT = -VIEW_BUFFER * SH + ty;
+    const exR = exL + k * (1 + 2 * VIEW_BUFFER) * SW;
+    const exB = exT + k * (1 + 2 * VIEW_BUFFER) * SH;
+    if (
+      k > REBASE_SCALE_UP || k < REBASE_SCALE_DOWN ||
+      exL > 0 || exT > 0 || exR < SW || exB < SH
+    ) {
+      writeViewBox(v);
+      return;
+    }
+    const t = `translate3d(${tx}px, ${ty}px, 0) scale(${k})`;
+    if (svgRef.current) svgRef.current.style.transform = t;
+    if (markerSvgRef.current) markerSvgRef.current.style.transform = t;
+  }, [writeViewBox]);
+
+  // Every committed view (gesture end, zoom buttons, wheel settle, aspect
+  // remap, entry/fit checkpoints) re-bases before paint. The SVGs carry no
+  // viewBox in JSX — this effect is the single writer, so a mid-gesture
+  // React render can never stomp the imperative camera with stale state.
+  useLayoutEffect(() => {
+    viewRef.current = view; // pre-paint, so the flow canvas can't skew a frame
+    writeViewBox(view);
+  }, [view, writeViewBox]);
 
   // ─── Cinematic entry ───────────────────────────────────────────────────
   // One-shot fly-down from high altitude to the home framing. Pure
@@ -599,6 +671,9 @@ export default function MOMap(props: MOMapProps) {
     const measure = () => {
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
+      // Size feeds the compositor-camera transform math even when the
+      // aspect (checked below) hasn't meaningfully changed.
+      stageSizeRef.current = { w: r.width, h: r.height };
       const a = r.width / r.height;
       if (Math.abs(a - stageAspectRef.current) < 0.002) return;
       stageAspectRef.current = a;
@@ -635,6 +710,10 @@ export default function MOMap(props: MOMapProps) {
   useEffect(() => {
     const svg = stageRef.current;
     if (!svg) return;
+    // Wheel frames ride the compositor camera (applyView) like a pinch;
+    // React state commits once the wheel goes quiet so a fast scroll-zoom
+    // doesn't re-render + re-rasterize the scene on every tick.
+    let commitTimer: ReturnType<typeof setTimeout> | null = null;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
       const v = viewRef.current;
@@ -647,11 +726,22 @@ export default function MOMap(props: MOMapProps) {
       const nh = nw / stageAspectRef.current;
       const nx = px - ((e.clientX - rect.left) / rect.width) * nw;
       const ny = py - ((e.clientY - rect.top) / rect.height) * nh;
-      setView(clampView({ x: nx, y: ny, w: nw, h: nh }));
+      applyView(clampView({ x: nx, y: ny, w: nw, h: nh }));
+      if (commitTimer) clearTimeout(commitTimer);
+      commitTimer = setTimeout(() => {
+        commitTimer = null;
+        setView(viewRef.current);
+      }, 140);
     };
     svg.addEventListener('wheel', handler, { passive: false });
-    return () => svg.removeEventListener('wheel', handler);
-  }, [clampView]);
+    return () => {
+      svg.removeEventListener('wheel', handler);
+      if (commitTimer) {
+        clearTimeout(commitTimer);
+        setView(viewRef.current); // don't strand an uncommitted camera
+      }
+    };
+  }, [clampView, applyView]);
 
   // Drag threshold (pixels of pointer movement before we treat the gesture
   // as a pan). Below this we leave the click path untouched so feature
@@ -880,7 +970,15 @@ export default function MOMap(props: MOMapProps) {
     });
   }, [props.rivers, props.hoveredRiverId, props.focusedRiverId]);
 
-  const viewBoxAttr = `${view.x} ${view.y} ${view.w} ${view.h}`;
+  // Geometry shared by both camera-driven SVGs: oversized by VIEW_BUFFER on
+  // every side (viewBox — written imperatively by writeViewBox — expands to
+  // match), origin pinned top-left so applyView's transform math holds.
+  const CAMERA_SVG_STYLE: React.CSSProperties = {
+    inset: `${-VIEW_BUFFER * 100}%`,
+    width: `${(1 + 2 * VIEW_BUFFER) * 100}%`,
+    height: `${(1 + 2 * VIEW_BUFFER) * 100}%`,
+    transformOrigin: '0 0',
+  };
 
   // ── Memoized static layers (perf) ──
   // The NHD basemap is 1,000+ <path> nodes; memoizing the JSX means a
@@ -1202,7 +1300,7 @@ export default function MOMap(props: MOMapProps) {
         base SVG, the flow canvas, and the marker SVG stacked inside it. */}
     <div
       ref={stageRef}
-      className="absolute inset-0"
+      className="absolute inset-0 overflow-hidden"
       style={{
         cursor: dragging ? 'grabbing' : 'grab',
         touchAction: 'none',
@@ -1245,9 +1343,9 @@ export default function MOMap(props: MOMapProps) {
     <Stars />
     <svg
       ref={svgRef}
-      viewBox={viewBoxAttr}
       preserveAspectRatio="xMidYMid meet"
-      className="absolute inset-0 h-full w-full"
+      className="absolute"
+      style={CAMERA_SVG_STYLE}
     >
       <defs>
         <radialGradient id="mo-bg" cx="50%" cy="50%" r="85%">
@@ -1607,10 +1705,9 @@ export default function MOMap(props: MOMapProps) {
         back in, and its events bubble to the stage div for pan/zoom. */}
     <svg
       ref={markerSvgRef}
-      viewBox={viewBoxAttr}
       preserveAspectRatio="xMidYMid meet"
-      className="absolute inset-0 h-full w-full"
-      style={{ pointerEvents: 'none' }}
+      className="absolute"
+      style={{ ...CAMERA_SVG_STYLE, pointerEvents: 'none' }}
     >
       {/* Gauges. Radii multiplied by kStable so the dot stays the same
           *screen* size at any zoom — at the state-wide view it doesn't
