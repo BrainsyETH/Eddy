@@ -1,5 +1,5 @@
 {
-  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN2 \u2014 identity/access/character populated from deep-research run wf_4b190bc5-d1a, then extended with WebSearch-tier run 2 (see st-francis-findings-partial.md RUN 2 UPDATE). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-st-francis.md written; lat/lon + params + drainage backfilled. KEY FIX: USGS 07034000 (Roselle) discharge ends 1997 \u2014 provider changed to 'nws' (LID ROZM7, param 00065 ft) since live data comes from NOAA, not USGS. Saco/Patterson/Wappapello confirmed active. Only [signoff] remains (thresholds are the app's own Roselle ft ladder at confidence 'high' \u2014 no [safety] block). Run 2 gains: 4 gauges now cross-checked (07034000 Roselle/ROZM7 WW-ref, 07036100 Saco, 07037500 Patterson/PAZM7, 07039500 Wappapello), and the whitewater runnable anchor resolved \u2014 Roselle 'above 3 ft = at its best' (optimal_min, ft), SEARCH-DERIVED confidence 'low', verify against American Whitewater #2921. Still missing: the runnable MAX/too-high, NWS flood stages (auto-fetch from ROZM7/PAZM7 at ingest), and lat/lon. DATA-CONTINUITY RISK: Roselle (07034000) was dropped from the USGS network ~2016 \u2014 confirm it is currently reporting before a live badge. This is Missouri's ONLY whitewater river; the upper reach's badge is a paddler runnable-range. RUN 3 (2026-07-06): owner provided a gauge card for 'St. Francis River near Roselle' showing a runnable legend \u2014 Range 3\u20136 ft, bands <3 Below Recommended / 3\u20134 Low / 4\u20135 Medium / 5\u20136 High Runnable / >6 Above Recommended. The full ft ladder (too_low 3 / low 4 / optimal 4\u20135 / high 6) is encoded from that legend at confidence 'high' (corroborated by AW #2921 '>3 ft = best' and the D-bridge <6 ft rule). CORRECTION (DB-verified 2026-07-06 via Supabase): production has NO St. Francis river row or Roselle config \u2014 that screenshot was a THIRD-PARTY display, not Eddy \u2014 so there is nothing to 'reconcile'; this dossier is the source of truth. Gauge station 07034000 already exists in Eddy's statewide layer (active, coords match) but with no river_gauges link yet. Re-run the primary-source id pass from unblocked egress, write verified-identifiers-st-francis.md, then flip _status to SIGNED-OFF.",
+  "_status": "SIGNED-OFF 2026-07-07 — owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN2 — identity/access/character populated from deep-research run wf_4b190bc5-d1a, then extended with WebSearch-tier run 2 (see st-francis-findings-partial.md RUN 2 UPDATE). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-st-francis.md written; lat/lon + params + drainage backfilled. KEY FIX: USGS 07034000 (Roselle) discharge ends 1997 — provider changed to 'nws' (LID ROZM7, param 00065 ft) since live data comes from NOAA, not USGS. Saco/Patterson/Wappapello confirmed active. Only [signoff] remains (thresholds are the app's own Roselle ft ladder at confidence 'high' — no [safety] block). Run 2 gains: 4 gauges now cross-checked (07034000 Roselle/ROZM7 WW-ref, 07036100 Saco, 07037500 Patterson/PAZM7, 07039500 Wappapello), and the whitewater runnable anchor resolved — Roselle 'above 3 ft = at its best' (optimal_min, ft), SEARCH-DERIVED confidence 'low', verify against American Whitewater #2921. Still missing: the runnable MAX/too-high, NWS flood stages (auto-fetch from ROZM7/PAZM7 at ingest), and lat/lon. DATA-CONTINUITY RISK: Roselle (07034000) was dropped from the USGS network ~2016 — confirm it is currently reporting before a live badge. This is Missouri's ONLY whitewater river; the upper reach's badge is a paddler runnable-range. RUN 3 (2026-07-06): owner provided a gauge card for 'St. Francis River near Roselle' showing a runnable legend — Range 3–6 ft, bands <3 Below Recommended / 3–4 Low / 4–5 Medium / 5–6 High Runnable / >6 Above Recommended. The full ft ladder (too_low 3 / low 4 / optimal 4–5 / high 6) is encoded from that legend at confidence 'high' (corroborated by AW #2921 '>3 ft = best' and the D-bridge <6 ft rule). CORRECTION (DB-verified 2026-07-06 via Supabase): production has NO St. Francis river row or Roselle config — that screenshot was a THIRD-PARTY display, not Eddy — so there is nothing to 'reconcile'; this dossier is the source of truth. Gauge station 07034000 already exists in Eddy's statewide layer (active, coords match) but with no river_gauges link yet. Re-run the primary-source id pass from unblocked egress, write verified-identifiers-st-francis.md, then flip _status to SIGNED-OFF.",
   "name": "St. Francis River",
   "slug": "st-francis",
   "primaryGaugeSiteId": "07034000",
@@ -9,14 +9,14 @@
   "region": "St. Francois Mountains",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class II-IV (upper whitewater); calmer below Sam A. Baker SP",
-  "description": "Missouri's only whitewater river. The upper St. Francis through Millstream Gardens / Silver Mines (the Tiemann Shut-ins) is a 2.3-mile, rain-dependent Class II\u2013IV pool-drop run that spikes and drops fast (USFS; American Whitewater #2921). Below the whitewater it mellows and floats more like a normal stream toward Sam A. Baker State Park and Wappapello Lake.",
+  "description": "Missouri's only whitewater river. The upper St. Francis through Millstream Gardens / Silver Mines (the Tiemann Shut-ins) is a 2.3-mile, rain-dependent Class II–IV pool-drop run that spikes and drops fast (USFS; American Whitewater #2921). Below the whitewater it mellows and floats more like a normal stream toward Sam A. Baker State Park and Wappapello Lake.",
   "riverType": "rain_flashy",
   "managingAuthority": "Missouri Department of Conservation (Millstream Gardens CA) and USDA Forest Service, Mark Twain NF (Silver Mines Rec Area); streambed navigability per Missouri law",
   "regulations": [],
   "permits": [],
   "accessLaw": {
-    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph \u2014 confirm the AGO/MDC citation once for the state.)",
-    "source": "https://mdc.mo.gov/ (MDC stream access) \u2014 confirm AGO citation once for MO",
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
     "confidence": "medium"
   },
   "seasonalClosures": [],
@@ -35,7 +35,7 @@
       "servesSections": [
         "upper-whitewater"
       ],
-      "knownBias": "VERIFIED \u2014 CRITICAL: USGS 07034000 discharge (00060) record ENDS 1997-09-30; the USGS gauge is discontinued. Live stage is available via NWS ROZM7 only (this is what the Eddy card's 'NOAA Gauge Details' uses). PROVIDER SET TO 'nws' (LID ROZM7), poll param 00065 gage height (ft) \u2014 the runnable ladder is in ft. Confirm the FlowProvider routes provider='nws' to ROZM7. USACE MVS St. Louis (SF_tab) is a fallback.",
+      "knownBias": "VERIFIED — CRITICAL: USGS 07034000 discharge (00060) record ENDS 1997-09-30; the USGS gauge is discontinued. Live stage is available via NWS ROZM7 only (this is what the Eddy card's 'NOAA Gauge Details' uses). PROVIDER SET TO 'nws' (LID ROZM7), poll param 00065 gage height (ft) — the runnable ladder is in ft. Confirm the FlowProvider routes provider='nws' to ROZM7. USACE MVS St. Louis (SF_tab) is a fallback.",
       "_verify": true
     },
     {
@@ -70,7 +70,7 @@
       "servesSections": [
         "lower-float"
       ],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 1990\u21922026, 00065 2007\u21922026). Mid gauge between Roselle and Patterson \u2014 candidate representative for the transition below the shut-ins; confirm which reach it best serves.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 1990→2026, 00065 2007→2026). Mid gauge between Roselle and Patterson — candidate representative for the transition below the shut-ins; confirm which reach it best serves.",
       "_verify": true
     },
     {
@@ -87,7 +87,7 @@
       "servesSections": [
         "lower-float"
       ],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 1994\u21922026). At Wappapello Lake \u2014 below the floated reaches; reference/limit only, not a float representative.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 1994→2026). At Wappapello Lake — below the floated reaches; reference/limit only, not a float representative.",
       "_verify": true
     }
   ],
@@ -95,7 +95,7 @@
     {
       "slug": "upper-whitewater",
       "name": "Upper Whitewater (Millstream Gardens to Silver Mines / Tiemann Shut-ins)",
-      "description": "The reason to add this river: a 2.3-mile Class II\u2013IV rain-fed pool-drop run through the Tiemann Shut-ins. Only whitewater on a Missouri river. Runnable mainly in spring high water; spikes and drops fast; committing at high flow. The condition badge here is a paddler runnable-range, not a lazy-float curve.",
+      "description": "The reason to add this river: a 2.3-mile Class II–IV rain-fed pool-drop run through the Tiemann Shut-ins. Only whitewater on a Missouri river. Runnable mainly in spring high water; spikes and drops fast; committing at high flow. The condition badge here is a paddler runnable-range, not a lazy-float curve.",
       "putIn": {
         "name": "Millstream Gardens Conservation Area",
         "lat": null,
@@ -119,7 +119,7 @@
           "unit": "ft",
           "referenceGauge": "07034000",
           "referenceGaugeIsPolled": true,
-          "source": "Eddy gauge display for 'St. Francis River near Roselle' (Stage Height ft; source: NOAA Gauge Details), hand-provided 2026-07-06 \u2014 legend '<3 ft Below Recommended'. Corroborated: American Whitewater #2921 'above 3 ft = at its best'.",
+          "source": "Eddy gauge display for 'St. Francis River near Roselle' (Stage Height ft; source: NOAA Gauge Details), hand-provided 2026-07-06 — legend '<3 ft Below Recommended'. Corroborated: American Whitewater #2921 'above 3 ft = at its best'.",
           "confidence": "high"
         },
         {
@@ -128,7 +128,7 @@
           "unit": "ft",
           "referenceGauge": "07034000",
           "referenceGaugeIsPolled": true,
-          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 \u2014 legend '3\u20134 ft Low Runnable'.",
+          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '3–4 ft Low Runnable'.",
           "confidence": "high"
         },
         {
@@ -137,7 +137,7 @@
           "unit": "ft",
           "referenceGauge": "07034000",
           "referenceGaugeIsPolled": true,
-          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 \u2014 legend '4\u20135 ft Medium Runnable' (the sweet spot); overall recommended Range 3\u20136 ft.",
+          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '4–5 ft Medium Runnable' (the sweet spot); overall recommended Range 3–6 ft.",
           "confidence": "high"
         },
         {
@@ -146,7 +146,7 @@
           "unit": "ft",
           "referenceGauge": "07034000",
           "referenceGaugeIsPolled": true,
-          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 \u2014 top of '4\u20135 ft Medium Runnable'.",
+          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — top of '4–5 ft Medium Runnable'.",
           "confidence": "high"
         },
         {
@@ -155,7 +155,7 @@
           "unit": "ft",
           "referenceGauge": "07034000",
           "referenceGaugeIsPolled": true,
-          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 \u2014 legend '5\u20136 ft High Runnable', '>6 ft Above Recommended'. Corroborated: paddler D-bridge rule keys off gauge <6.0 ft.",
+          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '5–6 ft High Runnable', '>6 ft Above Recommended'. Corroborated: paddler D-bridge rule keys off gauge <6.0 ft.",
           "confidence": "high"
         }
       ],
@@ -180,17 +180,17 @@
           "strainer",
           "committing_at_high_water"
         ],
-        "lowWaterMeaning": "Below the runnable minimum the shut-ins are unrunnable rock (drag/portage). NUMERIC too_low anchor UNKNOWN \u2014 capture AW min from #2921.",
-        "risingWaterHazards": "Rain-driven flash rises turn Class II\u2013IV into dangerous high water fast; pushy hydraulics in the shut-ins. High end can be lethal. NUMERIC high/dangerous anchors UNKNOWN \u2014 capture AW max + NWS ROZM7 flood stages.",
+        "lowWaterMeaning": "Below the runnable minimum the shut-ins are unrunnable rock (drag/portage). NUMERIC too_low anchor UNKNOWN — capture AW min from #2921.",
+        "risingWaterHazards": "Rain-driven flash rises turn Class II–IV into dangerous high water fast; pushy hydraulics in the shut-ins. High end can be lethal. NUMERIC high/dangerous anchors UNKNOWN — capture AW max + NWS ROZM7 flood stages.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "Drops fast after a rise (pool-drop, small drainage) \u2014 capture specifics"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "Drops fast after a rise (pool-drop, small drainage) — capture specifics"
       },
       "hazards": [],
       "localKnowledge": [
         "Only river in Missouri classified as whitewater; kayaked during spring high water (USFS Silver Mines).",
         "Pool-drop character: swift stretches separated by calm pools (USFS).",
-        "Missouri Whitewater Championships (MWA) run this reach each spring; race is contingent on variable water levels \u2014 'verify before traveling'."
+        "Missouri Whitewater Championships (MWA) run this reach each spring; race is contingent on variable water levels — 'verify before traveling'."
       ]
     },
     {
@@ -222,11 +222,11 @@
           "debris",
           "flash_flood_upstream"
         ],
-        "lowWaterMeaning": "UNKNOWN \u2014 capture; low water mainly affects speed on this reach",
+        "lowWaterMeaning": "UNKNOWN — capture; low water mainly affects speed on this reach",
         "risingWaterHazards": "Rises arrive from upstream rain; calmer than the shut-ins but still rain-responsive.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
@@ -236,99 +236,299 @@
   ],
   "accessPoints": [
     {
-      "name": "Millstream Gardens Conservation Area",
+      "name": "Millstream Gardens Conservation Area (Tiemann Shut-Ins put-in)",
+      "slug": "millstream-gardens-conservation-area",
       "type": "access",
-      "lat": 37.570829,
-      "lon": -90.462824,
-      "ownership": "Missouri Department of Conservation",
-      "section": "upper-whitewater",
-      "feeRequired": false,
-      "notes": "Whitewater put-in. S of Hwy 72 in Madison County, ~11 mi W of Fredericktown / ~11 mi E of Ironton. MCFA mile 20.2.",
-      "source": "https://missouriwhitewater.org/competition/mwc/",
-      "riverMile": 20.2,
+      "types": [
+        "access"
+      ],
+      "lat": 37.570865,
+      "lon": -90.46574,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/millstream-gardens-conservation-area",
-      "description": "MDC conservation area (915.9 acres) in Madison County, ~8 mi west of Fredericktown, that serves as the put-in for the St. Francis River whitewater run through the Tiemann Shut-ins - Missouri's only Class II-IV whitewater. Paddlers carry down a steep slope to a gravel ramp on river-left; the run from here to Silver Mines is about 2.3 miles at ~35 ft/mile gradient.",
-      "parkingInfo": "Designated graveled/paved parking lot off the access road; vehicle use restricted to established parking areas.",
-      "roadAccess": "South of Highway 72 in Madison County (Route D from the south).",
-      "facilities": "Picnic areas, hiking trails/boardwalk to the Tiemann Shut-ins overlook, and an archery range; primitive carry-down put-in (no developed ramp).",
-      "coordinateSource": "https://nominatim.openstreetmap.org/search?q=Millstream+Gardens+Conservation+Area+Missouri (OpenStreetMap area centroid); area confirmed via https://mdc.mo.gov/discover-nature/places/millstream-gardens-conservation-area",
-      "coordinateConfidence": "medium",
-      "coordinateNote": "OSM conservation-area centroid. The actual whitewater put-in is a gravel ramp at the river (river-left, ~MCFA mile 20.2) within the area, offset a few tenths of a mile south of this centroid; exact ramp not separately sourced."
-    },
-    {
-      "name": "Silver Mines Recreation Area (Hwy D)",
-      "type": "access",
-      "lat": 37.559161,
-      "lon": -90.43879,
-      "ownership": "U.S. Forest Service - Mark Twain National Forest",
-      "section": "upper-whitewater",
-      "feeRequired": true,
-      "notes": "Whitewater take-out / lower put-in. MCFA mile 23.2. USFS campground + day-use (loop count unverified).",
-      "source": "https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area",
-      "riverMile": 23.2,
-      "managingAgency": "USFS",
-      "officialSiteUrl": "https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area",
-      "description": "USFS recreation area on the St. Francis River off Highway D in the Mark Twain National Forest, serving as the take-out for the Millstream Gardens whitewater run (MCFA mile 23.2) and a put-in for lower floats. The Highway D bridge and former Silver Mine dam are here. Named for the historic Einstein silver mine.",
-      "parkingInfo": "Paved/gravel parking spurs at campsites and two day-use areas.",
-      "roadAccess": "Highway D, ~2.9 mi south of MO Highway 72 near Oak Grove (from Fredericktown, west on Hwy 72 ~4.3 mi to Hwy D).",
-      "facilities": "70 campsites in four loops (11 with 30-amp electric), two day-use areas, ADA vault toilets, drinking water, picnic tables and fire rings; no showers or dump station.",
-      "coordinateSource": "https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area (official USFS coordinates)",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Official USFS recreation-area reference point off Highway D; the exact Hwy D bridge take-out/put-in is within a few hundred feet."
-    },
-    {
-      "name": "Sam A. Baker State Park access",
-      "type": "access",
-      "lat": 37.256994,
-      "lon": -90.502239,
-      "ownership": "Missouri State Parks (Missouri DNR)",
-      "section": "lower-float",
-      "notes": "MCFA mile 66.5; water slower below here.",
-      "source": "https://www.missouricanoe.org/river-maps/stfrancis.html",
-      "riverMile": 66.5,
-      "managingAgency": "State Park",
-      "officialSiteUrl": "https://mostateparks.com/park/sam-baker-state-park",
-      "description": "St. Francis River access within Sam A. Baker State Park (Wayne County). Below this point (MCFA mile 66.5) the river becomes slower, flatter float water. The park offers camping, hiking trails, a dining lodge and a camp store.",
-      "roadAccess": "Via Missouri Route 143 off Highway 34, Wayne County (north of Patterson).",
-      "facilities": "State park with campgrounds, trails, dining lodge, store and cabins.",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://paddling.com/paddle/locations/sam-a-baker-state-park (St. Francis access coordinate); latitude cross-checked against OSM park centroid 37.2572",
-      "coordinateConfidence": "medium",
-      "coordinateNote": "paddling.com St. Francis access coordinate; latitude matches the OSM park centroid (37.2572) with an eastward shift to the river. Park frontage spans several river miles, so the exact MCFA-mile-66.5 put-in within the park may vary by up to ~1 mi."
+      "riverMile": 20.2,
+      "description": "MDC conservation area in Madison County that is the put-in for Missouri's only Class II-IV whitewater run, the 2.3-mile Tiemann Shut-Ins reach down to Silver Mines. Paddlers carry down a short slope to a gravel put-in on river-left just above the rapids. The Missouri Whitewater Championships run this reach each spring.",
+      "parkingInfo": "Designated gravel/paved lots inside the conservation area near the put-in; vehicle use restricted to established parking areas.",
+      "roadAccess": "From Fredericktown take Highway 72 west 8 miles to the area entrance, then follow the area road south to the river parking lots; Route D reaches the area from the south side of the river.",
+      "facilities": "Carry-down gravel put-in on river-left above the Tiemann Shut-Ins (no constructed boat ramp); picnic areas, hiking trails and an accessible boardwalk to the shut-ins overlook within the 915.9-acre area.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/millstream-gardens-conservation-area",
+      "coordinateSource": "https://www.openstreetmap.org/node/12694632624",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Pin moved ~260 m west from the prior mid-rapids point to the OSM-mapped MDC 'Rapid Access' canoe put-in slipway (canoe=put_in, operator=MDC, no trailer). MDC place page gives no coordinate; slipway node corroborated by MWA run descriptions (Lower St. Francis put-in at Tiemann Shut-Ins). Set is_public=true (was false in DB).",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/millstream-gardens-conservation-area",
+        "https://www.openstreetmap.org/node/12694632624",
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/",
+        "https://missouriwhitewater.org/"
+      ]
     },
     {
-      "name": "Hwy 34 bridge",
+      "name": "Silver Mines Recreation Area (D-Bridge take-out)",
+      "slug": "silver-mines-recreation-area-hwy-d",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 37.555039,
+      "lon": -90.438287,
+      "ownership": "USFS",
+      "managingAgency": "USFS",
+      "isPublic": true,
+      "feeRequired": true,
+      "feeNotes": "$5 per vehicle per day day-use fee ($10/bus, $40 season pass); camping $15-$35 per night depending on site/electric.",
+      "riverMile": 23.2,
+      "description": "Mark Twain National Forest recreation area at the old Highway D bridge, the take-out for the Millstream Gardens/Tiemann Shut-Ins whitewater run and a put-in for the calmer float below. Slipways flank the old bridge (now a footbridge) with day-use areas on both banks and campgrounds on both sides of the river. Site of the historic Einstein silver mine and dam.",
+      "parkingInfo": "Day-use parking lots by the old Highway D bridge (the standard whitewater take-out meeting spot) plus paved/gravel spurs in the campground loops.",
+      "roadAccess": "From Fredericktown go west on Highway 72 about 4.3 miles, turn left (south) on Highway D for 2.9 miles, then turn right at the bottom of the hill at the USFS camping sign into the recreation area.",
+      "facilities": "USFS campground with 70 individual sites (11 electric) in four loops plus a group site, ADA vault toilets, potable water, picnic tables; two day-use areas with river access at the old D bridge. Carry-in access, no constructed boat ramp. No showers or dump station.",
+      "officialSiteUrl": "https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area",
+      "coordinateSource": "https://www.openstreetmap.org/node/12695221470",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Pin moved ~460 m south from the USFS area reference coordinate (which sits 328 m off the river) to the OSM 'HWY D' slipway at the old D bridge day-use area, where paddlers actually take out. Twin slipway nodes exist on both banks (12695221470/12695221471), ~80 m apart; which bank hosts the main take-out lot was not fully resolved. Chart mile 23.2 retained (AW quotes the Millstream-to-D run as 2.3 mi, which would imply ~22.5; chart datum kept). Set is_public=true (was false).",
+      "sources": [
+        "https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area",
+        "https://www.openstreetmap.org/node/12695221470",
+        "https://missouriwhitewater.org/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/"
+      ]
+    },
+    {
+      "name": "Sam A. Baker State Park boat launch (Campground 1)",
+      "slug": "sam-a-baker-state-park-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "park"
+      ],
+      "lat": 37.235258,
+      "lon": -90.512944,
+      "ownership": "state_park",
+      "managingAgency": "State Park",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "No boat launch fee; camping/cabin fees apply for overnight stays.",
+      "riverMile": 66.5,
+      "description": "The state park's river access is a concrete boat launch at Campground 1 on the St. Francis River, usually shallow enough that only canoes, kayaks and small boats can launch. The park store rents canoes, kayaks and rafts for floats of roughly 4-18 miles on the St. Francis (Big Creek is kayak-only in high water). Below the park the river noticeably slows toward Wappapello Lake.",
+      "parkingInfo": "Paved campground/day-use parking at Campground 1 near the launch.",
+      "roadAccess": "From Highway 34 take Highway 143 north into the park (Patterson, Wayne County); the launch is at Campground 1 at the south end of the park on the St. Francis River.",
+      "facilities": "Concrete boat launch on the St. Francis River at Campground 1, open except during heavy flooding; no launch fee. Full-service state park: campgrounds with showers, cabins, dining lodge, and the Mudlick Mountain park store with canoe/kayak/raft rental (floats April-November).",
+      "officialSiteUrl": "https://mostateparks.com/park/sam-baker-state-park",
+      "coordinateSource": "https://www.openstreetmap.org/node/3327686747",
+      "coordinateConfidence": "high",
+      "coordinateNote": "MAJOR COORDINATE FIX: prior pin (37.256994,-90.502239) sat at Campground 2 on BIG CREEK, 1.74 km from the St. Francis line (Big Creek fronts most of the park). New pin is the OSM slipway 45 m from the St. Francis line adjacent to Campground 1, matching the park's documented 'concrete boat launch at Campground 1'. Moved ~2.6 km. Set is_public=true (was false).",
+      "sources": [
+        "https://www.openstreetmap.org/node/3327686747",
+        "https://www.exploretheozarksonline.com/activities/parksnature/stateparks/missouri/samabaker/watersports.html",
+        "https://samabaker.com/floating/",
+        "https://mostateparks.com/park/sam-baker-state-park",
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/"
+      ]
+    },
+    {
+      "name": "Hwy 34 bridge (Patterson gauge)",
+      "slug": "hwy-34-bridge",
       "type": "bridge",
+      "types": [
+        "bridge"
+      ],
       "lat": 37.194528,
       "lon": -90.503306,
-      "section": "lower-float",
-      "notes": "MCFA mile 69.8.",
-      "source": "https://www.missouricanoe.org/river-maps/stfrancis.html",
-      "ownership": "Missouri DOT highway bridge (public road right-of-way)",
-      "riverMile": 69.8,
-      "description": "St. Francis River access at the Missouri Route 34 bridge, about 3 miles east of Patterson (MCFA mile 69.8). USGS gaging station 07037500 ('St. Francis River near Patterson') is located at this bridge.",
-      "roadAccess": "Missouri Route 34, ~3 mi east of Patterson (Wayne County).",
+      "ownership": "public road right-of-way (MoDOT)",
+      "managingAgency": null,
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "USGS gage 07037500 (at the MO-34 bridge), waterservices.usgs.gov/nwis/site site service",
-      "coordinateConfidence": "high",
-      "coordinateNote": "USGS streamgage 07037500 'St. Francis River near Patterson' is located at the Missouri Route 34 bridge (~3 mi east of Patterson); decimal degrees from the USGS site service. Represents the bridge crossing/access."
+      "riverMile": 69.8,
+      "description": "Road-bridge access on the flatwater reach 3.3 miles below Sam A. Baker State Park, at the USGS Patterson gauge. Used as a put-in/take-out for floats between the park and the Greenville area at the head of Wappapello Lake.",
+      "parkingInfo": "Informal roadside parking at the bridge right-of-way only.",
+      "roadAccess": "Missouri Route 34 about 3 miles east of Patterson (Wayne County); park in the road right-of-way at the bridge.",
+      "facilities": "Undeveloped bridge access; no ramp, toilets or water. USGS gaging station 07037500 (St. Francis River near Patterson, NWS PAZM7) is at this bridge.",
+      "coordinateSource": "https://waterdata.usgs.gov/monitoring-location/USGS-07037500/",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Coordinate verified against USGS site 07037500 (co-located at the MO 34 bridge, pin 20-38 m from river line). Set is_public=true (was false).",
+      "sources": [
+        "https://waterdata.usgs.gov/monitoring-location/USGS-07037500/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/",
+        "https://www.openstreetmap.org/way/324909278"
+      ]
     },
     {
-      "name": "Lake Creek",
+      "name": "Greenville Recreation Area (Wappapello Lake, COE)",
+      "slug": "lake-creek",
+      "type": "campground",
+      "types": [
+        "campground",
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.116994,
+      "lon": -90.468903,
+      "ownership": "COE",
+      "managingAgency": "COE",
+      "isPublic": true,
+      "feeRequired": true,
+      "feeNotes": "A fee/day-use pass is required to use the boat ramp (Greenville Recreation Area Day Use Pass via Recreation.gov); amount not verified. Camping fees via Recreation.gov.",
+      "riverMile": 76.8,
+      "description": "COE recreation area on the right bank of the St. Francis River at the head of Wappapello Lake, the standard last take-out below Sam A. Baker before the lake. Boat ramp with courtesy dock in the day-use area plus a large full-hookup campground on the Old Greenville townsite. Big Lake Creek enters on river-right just upstream (the old float charts' 'Lake Creek, campground' point at mile 76.4).",
+      "parkingInfo": "Paved day-use parking beside the ramp (OSM-mapped lot adjacent).",
+      "roadAccess": "From US 67 at Greenville use the Old Greenville exit; the day-use boat ramp is on the east side of Highway 67 on the west bank of the St. Francis River.",
+      "facilities": "US Army Corps of Engineers campground (106 full-hookup sites, showers, renovated 2019) with a day-use area: boat ramp with courtesy dock, 14 picnic sites, shelter, playground. Staffed April-November; built on the Old Greenville townsite.",
+      "officialSiteUrl": "https://www.recreation.gov/camping/campgrounds/233688",
+      "coordinateSource": "https://www.openstreetmap.org/node/9451590315",
+      "coordinateConfidence": "high",
+      "coordinateNote": "IDENTITY RESOLVED: the coordinate-less MCFA 'Lake Creek (campground), mile 76.4' point is the modern Greenville Recreation Area - OSM geometry puts the Big Lake Creek mouth at exactly chart mile 76.4 with the COE campground/ramp on the same right bank 0.4 mi below (ramp = mile ~76.8). Enrichment pin (37.131558,-90.463563) was on the river line but ~1.7 km upstream of the actual facility; moved to the ramp. Consider renaming the slug to greenville-recreation-area. Ramp sits ~200 m off the OSM river centerline in the day-use inlet. guide_mile corrected 76.4 -> 76.8 within the same datum (creek mouth vs ramp). The Hwy 67 bridge (chart mile 78.6) downstream is a modern expressway crossing with no documented parking and was NOT added.",
+      "sources": [
+        "https://www.recreation.gov/camping/campgrounds/233688",
+        "https://mdc.mo.gov/discover-nature/places/wappapello-lake-greenville-recreation-area-us-army-corps-engineers",
+        "https://www.openstreetmap.org/node/9451590315",
+        "https://www.recreation.gov/activitypass/AP24158",
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/"
+      ]
+    },
+    {
+      "name": "Roselle Access",
+      "slug": "roselle-access",
       "type": "access",
-      "lat": null,
-      "lon": null,
-      "section": "lower-float",
-      "notes": "MCFA mile 76.4.",
-      "source": "https://www.missouricanoe.org/river-maps/stfrancis.html",
-      "riverMile": 76.4,
-      "description": "River-right access with a reported campground where Lake Creek enters the St. Francis River (MCFA mile 76.4), a short distance above the Highway 67 bridge - the last access before Lake Wappapello.",
-      "roadAccess": "Near the Highway 67 crossing of the St. Francis River above Lake Wappapello; exact access road unconfirmed.",
-      "facilities": "Campground reported at the access (per MCFA/float guide); details unconfirmed.",
-      "coordinateSource": "none - OpenStreetMap/GNIS candidates only, not confidently resolved",
-      "coordinateConfidence": "none",
-      "coordinateNote": "No authoritative coordinate found for the 'Lake Creek' access/mouth. GNIS services were unavailable; OSM shows candidate right-bank tributaries in the correct latitude band near mile 76.4 - 'Center Lake Creek' (~37.118, -90.524) and 'Big Lake Creek' (~37.108, -90.512) - but the exact mouth could not be confirmed. Per float guides it lies on river-right a short distance above the Highway 67 bridge (~mile 78.6), the last access before Lake Wappapello. Safe to interpolate from mile 76.4."
+      "types": [
+        "access",
+        "boat_ramp"
+      ],
+      "lat": 37.595069,
+      "lon": -90.498782,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 17.7,
+      "description": "MDC access at the Highway 72 bridge, the put-in for the 'Upper St. Francis' Class I-II whitewater run down to Millstream Gardens. The NWS/USGS Roselle gauge (07034000/ROZM7) that paddlers use for the runnable range is at this bridge. Gravel ramp serves the slow pool above the bridge for fishing when levels are low.",
+      "parkingInfo": "Gravel parking lot next to the ramp.",
+      "roadAccess": "From Fredericktown take Highway 72 west 12 miles to the St. Francis River bridge and turn left immediately past the bridge (access is southwest of the bridge).",
+      "facilities": "Gravel/dirt boat ramp near the parking lot; 21.9-acre MDC access at the confluence area of the St. Francis River and Stouts Creek. No camping (prohibited). Cafe and store historically nearby on Hwy 72.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/roselle-access",
+      "coordinateSource": "https://www.openstreetmap.org/node/12694618289",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Was missing from DB despite being the river's reference-gauge access. OSM slipway note 'HWY 72 Access' matches MDC directions and the gauge coordinate (37.5961,-90.4986). floatmissouri/MCFA chart mile 17.7.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/roselle-access",
+        "https://www.openstreetmap.org/node/12694618289",
+        "https://dailyjournalonline.com/2013/09/28/mdc-offers-two-st-francis-river-access-points-on-mo-72/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/",
+        "https://missouriwhitewater.org/"
+      ]
+    },
+    {
+      "name": "Millstream Gardens Fisherman's Access",
+      "slug": "millstream-gardens-fishermans-access",
+      "type": "access",
+      "types": [
+        "access"
+      ],
+      "lat": 37.573331,
+      "lon": -90.47151,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 19.7,
+      "description": "The upstream (western) river access in Millstream Gardens Conservation Area, used as the take-out for the Class I-II 'Upper St. Francis' run from Roselle and as a fishing access on the pool above the shut-ins. About half a mile upstream of the whitewater put-in.",
+      "parkingInfo": "Gravel lot at the access; no trailers (carry-in only).",
+      "roadAccess": "Inside Millstream Gardens Conservation Area (Highway 72 west 8 miles from Fredericktown); follow the area road to the westernmost river parking lot.",
+      "facilities": "Gravel carry-in put-in/take-out on the flatwater above the Tiemann Shut-Ins; no ramp, no camping.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/millstream-gardens-conservation-area",
+      "coordinateSource": "https://www.openstreetmap.org/node/12694618270",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Distinct from the Tiemann Shut-Ins put-in 0.5 mi downstream; MWA documents it as the Upper-run take-out ('Fisherman's Access in Millstream Gardens'). OSM node tagged canoe=put_in, operator=MDC, fee=no, trailer=no. Mile 19.7 interpolated from OSM geometry against the chart's Millstream 20.2.",
+      "sources": [
+        "https://www.openstreetmap.org/node/12694618270",
+        "https://missouriwhitewater.org/",
+        "https://mdc.mo.gov/discover-nature/places/millstream-gardens-conservation-area"
+      ]
+    },
+    {
+      "name": "Gruner Ford (Hwy H bridge)",
+      "slug": "gruner-ford-hwy-h-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge"
+      ],
+      "lat": 37.73973,
+      "lon": -90.42918,
+      "ownership": "public road right-of-way",
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 0.0,
+      "description": "The mile-0 point of the traditional St. Francis float chart: the upper Route H crossing south of Farmington, a carry-in bridge access on the small headwaters stream. Only floatable at higher water; most paddlers start at Syenite or Roselle instead.",
+      "parkingInfo": "Informal roadside parking; boats must be carried a short distance to the river.",
+      "roadAccess": "From Farmington take Route H south about 3 miles to the St. Francis River bridge (St. Francois County).",
+      "facilities": "Undeveloped road-bridge access; no facilities.",
+      "coordinateSource": "https://www.openstreetmap.org/way/397133998",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "Documented only by the MCFA/floatmissouri chart ('Gruner Ford, Hwy H bridge, 3 mi S of Farmington, must carry boats a short distance'); no modern trip reports found for this exact spot, so usability today is unverified - hence medium confidence and pending. Coordinate is the exact OSM MO-H bridge over the river matching the chart's description. Distinct from the second Route H crossing near Syenite at mile 7.0.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/",
+        "https://www.openstreetmap.org/way/397133998"
+      ]
+    },
+    {
+      "name": "Syenite Access (Hwy H bridge)",
+      "slug": "syenite-access",
+      "type": "access",
+      "types": [
+        "access",
+        "bridge"
+      ],
+      "lat": 37.68131,
+      "lon": -90.40947,
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 7.0,
+      "description": "Gravel-ramp access at the lower Route H crossing near Syenite, the usual put-in for the Class I-II 'Syenite to Roselle' upper run (10.7 miles to the Hwy 72 bridge) when the river is up. Southwestpaddler's 15.7-mile Hwy H-to-Silver Mines reach starts here.",
+      "parkingInfo": "Small gravel area at the ramp; otherwise roadside.",
+      "roadAccess": "Route H about 1 mile west of Syenite (south of Farmington/US 67, St. Francois County); the access is on river-right just downstream of the bridge.",
+      "facilities": "Gravel ramp on the right bank just downstream of the Route H bridge; no other facilities.",
+      "coordinateSource": "https://www.openstreetmap.org/way/397133997",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Pin is the OSM bridge; the gravel ramp is on river-right immediately downstream (within ~150 m). Ownership/managing agency unverified - no MDC atlas page found, likely county/road right-of-way. Corroborated by three independent float sources (floatmissouri chart mile 7.0, southwestpaddler put-in, MWA forum 'Syenite to Roselle').",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/",
+        "http://southwestpaddler.com/docs/saint2.html",
+        "https://missouriwhitewater.org/forums/topic/syenite-to-roselle/",
+        "https://www.openstreetmap.org/way/397133997"
+      ]
+    },
+    {
+      "name": "Jewett Access (Hwy C bridge)",
+      "slug": "jewett-access-hwy-c-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge"
+      ],
+      "lat": 37.38487,
+      "lon": -90.47412,
+      "ownership": "public road right-of-way (MoDOT)",
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 43.4,
+      "description": "The only documented access in the 43-mile gap between Silver Mines and Sam A. Baker State Park, at the Route C crossing near Jewett/Saco. The float chart notes a 'high bank but can be used as an access'; it splits the long middle float roughly in half (20 miles below Silver Mines, 23 above the park).",
+      "parkingInfo": "Informal roadside parking only.",
+      "roadAccess": "Route C bridge over the St. Francis River between Saco and Jewett, Madison County; park in the right-of-way at the bridge.",
+      "facilities": "Undeveloped bridge access with a high bank - a steep carry, usable but rough. No facilities. USGS gauge 07036100 (St. Francis River near Saco) is at this crossing. Bridge replaced by MoDOT (2020s project).",
+      "coordinateSource": "https://waterdata.usgs.gov/monitoring-location/USGS-07036100/",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Coordinate = USGS Saco gauge (07036100), co-located with the OSM Route C bridge (37.38487,-90.47412). The other mid-reach crossing, the Route E bridge at ~mile 27.8 (37.5025,-90.4579), has NO float-guide documentation as an access and was deliberately not added.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/st-francis-river/",
+        "https://waterdata.usgs.gov/monitoring-location/USGS-07036100/",
+        "https://www.openstreetmap.org/way/382136562",
+        "https://modot.org/route-c-bridge-over-st-francis-river"
+      ]
     }
   ],
   "weatherPoint": {
@@ -362,17 +562,18 @@
       "https://water.noaa.gov/gauges/pazm7"
     ],
     "openQuestions": [
-      "CALIBRATION CORE (RESOLVED run 3): full Roselle ft runnable ladder \u2014 too_low 3 / low 4 / optimal 4\u20135 / high 6 (Range 3\u20136 ft), confidence high. DB-verified there is no existing Eddy config to reconcile (production has no St. Francis). Optional: a true 'dangerous' anchor above 6 ft from NWS ROZM7 flood stage.",
+      "CALIBRATION CORE (RESOLVED run 3): full Roselle ft runnable ladder — too_low 3 / low 4 / optimal 4–5 / high 6 (Range 3–6 ft), confidence high. DB-verified there is no existing Eddy config to reconcile (production has no St. Francis). Optional: a true 'dangerous' anchor above 6 ft from NWS ROZM7 flood stage.",
       "Is the Roselle gauge (07034000) currently live and pollable? It has a history of USGS network drops (funding, ~2016); what is the fallback (USACE MVS SF_tab)?",
-      "Per-section river_type: upper = whitewater (does the system need a whitewater archetype, or is rain_flashy + Class II-IV difficulty enough?); lower = calmer float \u2014 and which of Saco (07036100) / Patterson (07037500) / Wappapello (07039500) best represents the lower float reach.",
+      "Per-section river_type: upper = whitewater (does the system need a whitewater archetype, or is rain_flashy + Class II-IV difficulty enough?); lower = calmer float — and which of Saco (07036100) / Patterson (07037500) / Wappapello (07039500) best represents the lower float reach.",
       "Lower reach: floatable/dangerous guidance below Sam A. Baker toward Wappapello (none captured)."
     ],
     "toVerify": [
-      "USGS 07034000 (Roselle), 07036100 (Saco), 07037500 (Patterson), 07039500 (Wappapello): transcribe site #, name, lat/lon, params (00060/00065), drainage area from each monitoring-location page \u2014 CANDIDATES ONLY until then; then write verified-identifiers-st-francis.md",
-      "Roselle optimal_min = 3 ft \u2014 verify against the American Whitewater #2921 page (currently SEARCH-DERIVED, confidence low); capture the runnable MAX",
-      "NWS AHPS flood/action stages (ft) for ROZM7 and PAZM7 \u2014 leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
+      "USGS 07034000 (Roselle), 07036100 (Saco), 07037500 (Patterson), 07039500 (Wappapello): transcribe site #, name, lat/lon, params (00060/00065), drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-st-francis.md",
+      "Roselle optimal_min = 3 ft — verify against the American Whitewater #2921 page (currently SEARCH-DERIVED, confidence low); capture the runnable MAX",
+      "NWS AHPS flood/action stages (ft) for ROZM7 and PAZM7 — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
       "Full MDC/USFS/State-Parks access-point list with coordinates (human places every point)"
     ]
-  }
+  },
+  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed."
 }

@@ -1,5 +1,5 @@
 {
-  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN1 \u2014 identity/access/character populated and gauges drafted from WebSearch-tier research (see black-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-black.md written; lat/lon + params + drainage backfilled. KEY FIX: Lesterville 07061400 confirmed DISCONTINUED (water-quality only) \u2014 Annapolis 07061500 is the ONLY pollable representative for the float reach; E.Fork 07061270 active (tributary); below-Annapolis 07061600 last reported 2025-12. [FIRST ANCHOR ENCODED 2026-07-06] optimal_min = 180 cfs @ Annapolis from the moherp OBSERVED paddler rating (corroborated by two Good trips at 189/192 cfs); the site's model-ESTIMATED values are recorded as reference only (estimated Good 536 vs observed 180 \u2014 a 3\u00d7 model miss that re-validates the calibration decision). Two lower-river gauge CANDIDATES logged for the future dam_tailwater reach: Poplar Bluff 07063000 (active) and Williamsville 07062575 (likely dead) \u2014 not in gauges[] pending USGS verification. STILL NEEDED: (1) the rest of the floatability ladder (too_low/low/optimal_max/high) from an Agnew Navigability table or Lesterville outfitter guidance, (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from nwsLid=ANNM7 at ingest (the 6/8/15/25 ft set found in search is recorded only as a single-source cross-check in research.openQuestions). Direct fetch of USGS/NWS/MCFA is 403-blocked here; re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-black.md, then flip _status to SIGNED-OFF.",
+  "_status": "SIGNED-OFF 2026-07-07 — owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN1 — identity/access/character populated and gauges drafted from WebSearch-tier research (see black-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-black.md written; lat/lon + params + drainage backfilled. KEY FIX: Lesterville 07061400 confirmed DISCONTINUED (water-quality only) — Annapolis 07061500 is the ONLY pollable representative for the float reach; E.Fork 07061270 active (tributary); below-Annapolis 07061600 last reported 2025-12. [FIRST ANCHOR ENCODED 2026-07-06] optimal_min = 180 cfs @ Annapolis from the moherp OBSERVED paddler rating (corroborated by two Good trips at 189/192 cfs); the site's model-ESTIMATED values are recorded as reference only (estimated Good 536 vs observed 180 — a 3× model miss that re-validates the calibration decision). Two lower-river gauge CANDIDATES logged for the future dam_tailwater reach: Poplar Bluff 07063000 (active) and Williamsville 07062575 (likely dead) — not in gauges[] pending USGS verification. STILL NEEDED: (1) the rest of the floatability ladder (too_low/low/optimal_max/high) from an Agnew Navigability table or Lesterville outfitter guidance, (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from nwsLid=ANNM7 at ingest (the 6/8/15/25 ft set found in search is recorded only as a single-source cross-check in research.openQuestions). Direct fetch of USGS/NWS/MCFA is 403-blocked here; re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-black.md, then flip _status to SIGNED-OFF.",
   "name": "Black River",
   "slug": "black",
   "primaryGaugeSiteId": "07061500",
@@ -15,8 +15,8 @@
   "regulations": [],
   "permits": [],
   "accessLaw": {
-    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph \u2014 confirm the AGO/MDC citation once for the state.)",
-    "source": "https://mdc.mo.gov/ (MDC stream access) \u2014 confirm AGO citation once for MO",
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
     "confidence": "medium"
   },
   "seasonalClosures": [],
@@ -36,7 +36,7 @@
       "servesSections": [
         "upper-lesterville"
       ],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 1985\u21922026, 00065 2007\u21922026). Long-record HCDN main gauge for the upper Black above Clearwater Lake, Reynolds Co. THE ONLY pollable representative for the float reach (Lesterville 07061400 is discontinued). Represents the downstream end of the Lesterville\u2192Hwy K reach.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 1985→2026, 00065 2007→2026). Long-record HCDN main gauge for the upper Black above Clearwater Lake, Reynolds Co. THE ONLY pollable representative for the float reach (Lesterville 07061400 is discontinued). Represents the downstream end of the Lesterville→Hwy K reach.",
       "_verify": true
     },
     {
@@ -48,7 +48,7 @@
       "paramsAvailable": [],
       "drainageAreaSqMi": 430,
       "servesSections": [],
-      "knownBias": "VERIFIED but NOT real-time: USGS site service shows water-quality only (1993), no uv 00060/00065 \u2014 DISCONTINUED. Do NOT poll or use as representative despite being closer to the put-in. (Removed from servesSections.)",
+      "knownBias": "VERIFIED but NOT real-time: USGS site service shows water-quality only (1993), no uv 00060/00065 — DISCONTINUED. Do NOT poll or use as representative despite being closer to the put-in. (Removed from servesSections.)",
       "_verify": true
     },
     {
@@ -63,7 +63,7 @@
       ],
       "drainageAreaSqMi": 493,
       "servesSections": [],
-      "knownBias": "VERIFIED. uv 00060/00065 ran 2006 \u2192 2025-12-03 then stops \u2014 possibly recently discontinued; verify it is still reporting before use. Just downstream of Annapolis.",
+      "knownBias": "VERIFIED. uv 00060/00065 ran 2006 → 2025-12-03 then stops — possibly recently discontinued; verify it is still reporting before use. Just downstream of Annapolis.",
       "_verify": true
     },
     {
@@ -78,7 +78,7 @@
       ],
       "drainageAreaSqMi": 52.2,
       "servesSections": [],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 2003\u21922026, also temp/DO; AW gauge id 6922). Tributary \u2014 represents the East Fork only, not the main-stem float reach; do not key main-stem floatability to it.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 2003→2026, also temp/DO; AW gauge id 6922). Tributary — represents the East Fork only, not the main-stem float reach; do not key main-stem floatability to it.",
       "_verify": true
     },
     {
@@ -139,9 +139,9 @@
           "unit": "cfs",
           "referenceGauge": "07061500",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org Missouri paddler gauge ratings, Black River Annapolis 07061500 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) rating \u2014 Good begins at 180 cfs. The ONLY observed anchor on this gauge; the site's ESTIMATED values (e.g. Good 536) are model-derived and rejected per the calibration decision.",
+          "source": "rivers.moherp.org Missouri paddler gauge ratings, Black River Annapolis 07061500 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) rating — Good begins at 180 cfs. The ONLY observed anchor on this gauge; the site's ESTIMATED values (e.g. Good 536) are model-derived and rejected per the calibration decision.",
           "corroboratingSources": [
-            "moherp trip reports rated Good at 192 cfs / 4.18 ft (2016-11-12, Mill Creek\u2192Bluff Cave, 8.3 mi) and 189 cfs / 4.17 ft (2016-11-13, Bluff Cave\u2192Rt K, 6.0 mi)"
+            "moherp trip reports rated Good at 192 cfs / 4.18 ft (2016-11-12, Mill Creek→Bluff Cave, 8.3 mi) and 189 cfs / 4.17 ft (2016-11-13, Bluff Cave→Rt K, 6.0 mi)"
           ],
           "confidence": "medium"
         },
@@ -184,16 +184,16 @@
           "gravel_bar",
           "bluff"
         ],
-        "lowWaterMeaning": "UNKNOWN (numeric) \u2014 no gauge-keyed cfs/ft floatability threshold was captured; only generic guidance (boats drag on most riffles when low). Capture a Lesterville/Annapolis-keyed minimum from MDC/outfitter sources.",
-        "risingWaterHazards": "Rain-responsive; rises bring strong current and strainers. NWS ANNM7 flood/action stages auto-fill at ingest (search found action 6 / minor 8 / moderate 15 / major 25 ft \u2014 SINGLE-SOURCE, treat as cross-check only).",
+        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs/ft floatability threshold was captured; only generic guidance (boats drag on most riffles when low). Capture a Lesterville/Annapolis-keyed minimum from MDC/outfitter sources.",
+        "risingWaterHazards": "Rain-responsive; rises bring strong current and strainers. NWS ANNM7 flood/action stages auto-fill at ingest (search found action 6 / minor 8 / moderate 15 / major 25 ft — SINGLE-SOURCE, treat as cross-check only).",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
-        "Al Agnew: the three forks (West largest, Middle second, East smallest) converge near Lesterville; the main stem from there to Clearwater Reservoir is one of the more popular canoeing streams in Missouri \u2014 big campgrounds and canoe rentals in/below Lesterville. Exceptionally clear water (perhaps the clearest in the Ozarks), vast gravel bars, occasional sheer cliffs. Smallmouth + goggle-eye; sucker 'grabbing' (snagging) popular.",
-        "Clearwater Dam (flood control) sits below this reach: normal pool inundates only 5\u20136 mi of channel, but the HIGH-WATER pool backs all the way to the Highway K area (~10 mi upstream) \u2014 so the effective downstream limit of the float reach moves with lake level.",
+        "Al Agnew: the three forks (West largest, Middle second, East smallest) converge near Lesterville; the main stem from there to Clearwater Reservoir is one of the more popular canoeing streams in Missouri — big campgrounds and canoe rentals in/below Lesterville. Exceptionally clear water (perhaps the clearest in the Ozarks), vast gravel bars, occasional sheer cliffs. Smallmouth + goggle-eye; sucker 'grabbing' (snagging) popular.",
+        "Clearwater Dam (flood control) sits below this reach: normal pool inundates only 5–6 mi of channel, but the HIGH-WATER pool backs all the way to the Highway K area (~10 mi upstream) — so the effective downstream limit of the float reach moves with lake level.",
         "West Fork floatable from ~Centerville; Middle Fork often floated from the Hwy 21-72 bridge; East Fork (Taum Sauk / Johnson Shut-ins / Bell Mountain Wilderness) is NOT considered floatable.",
         "Below Clearwater Dam the river is a separate, slower, dam-influenced reach (warmer/murkier releases favor spotted bass over smallmouth); canoe liveries only just below the dam; much of the lower river is within Mark Twain NF. Leaves the Ozarks at Poplar Bluff into slow lowland water."
       ]
@@ -263,71 +263,326 @@
   ],
   "accessPoints": [
     {
+      "name": "Parks Bluff Campground",
+      "slug": "parks-bluff-campground",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 37.442269,
+      "lon": -90.845392,
+      "ownership": "private",
+      "managingAgency": "Private",
+      "isPublic": false,
+      "feeRequired": true,
+      "feeNotes": "Private outfitter base - rental/camping customers (camping ~$8/person/night per their site, 2026).",
+      "riverMile": 8.4,
+      "description": "Private outfitter campground in Lesterville at the West Fork/Middle Fork junction, one of the main commercial put-ins for the upper Black River float reach. Rents canoes, kayaks, rafts, and tubes for floats down to the Lesterville/Mill Creek area and beyond.",
+      "parkingInfo": "Customer parking at the campground.",
+      "roadAccess": "Just off MO Highway 21 in Lesterville; campground entrance on the river at the West Fork/Middle Fork junction.",
+      "facilities": "Private family campground and outfitter (canoe/kayak/raft/tube rental, shuttle); riverside beach launch. Customer access only.",
+      "officialSiteUrl": "https://www.parksbluff.com/floating.html",
+      "coordinateSource": "https://www.openstreetmap.org/node/12545662793 (named slipway, access=customers); location corroborated by parksbluff.com ('just off Highway 21 in Lesterville... right where the West Fork and the Middle Fork connect')",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "is_public=false (customer landing). Included because most upper-Black floats start from the Lesterville outfitter bases. Guide mile 8.4 = the West/Middle Fork junction on the floatmissouri chart, matching the business's own location description.",
+      "sources": [
+        "https://www.openstreetmap.org/node/12545662793",
+        "https://www.parksbluff.com/floating.html",
+        "https://www.floatmissouri.com/plan/camp/parks-bluff/",
+        "https://www.lestervillemissouri.com/float-trips/"
+      ]
+    },
+    {
+      "name": "Twin Rivers Landing",
+      "slug": "twin-rivers-landing",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 37.438631,
+      "lon": -90.827823,
+      "ownership": "private",
+      "managingAgency": "Private",
+      "isPublic": false,
+      "feeRequired": true,
+      "feeNotes": "Private outfitter base - rental/camping customers.",
+      "riverMile": 9.6,
+      "description": "Family-run outfitter landing and campground (50+ years) on the Black River at Lesterville, near the East Fork junction - the 'twin rivers'. A major commercial put-in/take-out for upper Black River floats.",
+      "parkingInfo": "Customer parking at the campground.",
+      "roadAccess": "Off MO Highway 21 at Lesterville via Twin Rivers Road; landing is on the Black River near the East Fork junction.",
+      "facilities": "Private campground/outfitter (raft, canoe, tube floats; primitive and electric campsites; cabins). Customer access only.",
+      "officialSiteUrl": "https://twinriversmo-gotoblu.com/",
+      "coordinateSource": "https://www.openstreetmap.org/node/12545702392 (named slipway, access=customers); business at 375 Twin Rivers Rd, Lesterville (Hwy 21)",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "is_public=false (customer landing). Guide mile ~9.6 (East Fork junction on the floatmissouri chart) inferred from the name and OSM position ~1 river mile below Parks Bluff; not confirmed by an official mileage source.",
+      "sources": [
+        "https://www.openstreetmap.org/node/12545702392",
+        "https://twinriversmo-gotoblu.com/",
+        "https://www.lestervillemissouri.com/float-trips/"
+      ]
+    },
+    {
       "name": "Mill Creek",
+      "slug": "mill-creek",
       "type": "access",
+      "types": [
+        "access"
+      ],
       "lat": 37.43359,
       "lon": -90.81932,
-      "section": "upper-lesterville",
-      "notes": "Named put-in in moherp trip reports; 8.3 mi above Bluff Cave.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=07061500",
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
       "riverMile": 10.7,
-      "description": "Informal put-in at the mouth of Mill Creek where it enters the upper Black River (Lesterville reach, Reynolds County), above Clearwater Lake. Regional float guides cite the Mill Creek mouth (guide mile ~10.7) as the best starting point at normal or low water, with an iron bridge crossing just upstream at mile 10.3.",
-      "coordinateSource": "OpenStreetMap via Overpass: mouth of Mill Creek (waterway way 1355701762) shares a node with the Black River channel; https://www.openstreetmap.org/way/1355701762",
+      "description": "Informal put-in at the mouth of Mill Creek on the upper Black River below Lesterville (Reynolds County). The floatmissouri chart calls this the best starting point at normal or low water, with an iron-bridge road crossing 0.4 mile upstream at chart mile 10.3. Used as the put-in for documented moherp trips (8.3 mi to the mile-19 bluff, 14.3 mi to Hwy K).",
+      "roadAccess": "Reached from the Lesterville area via Peola Road (CR 342); the floatmissouri chart notes an iron bridge crossing 0.4 mile upstream (mile 10.3) as the better put-in/take-out spot.",
+      "facilities": "Informal gravel-bar put-in at the Mill Creek confluence; no developed facilities.",
+      "coordinateSource": "OpenStreetMap: mouth of Mill Creek at the Black River (way 1355701762); floatmissouri chart mile 10.7 'Mill Creek on left'",
       "coordinateConfidence": "medium",
-      "coordinateNote": "Confluence of Mill Creek with the Black River, ~1 km ESE of the USGS 'Black River at Lesterville' gauge (37.4306,-90.8229). Upper Black, guide mile ~10.7; the informal put-in gravel bar / iron bridge (mile 10.3) is within ~0.5 mi."
+      "coordinateNote": "HUMAN REVIEW: land tenure unverified - this is a guide/chart put-in, not an official MDC/USFS access; actual launching is likely at the iron-bridge crossing (mile 10.3) or nearby gravel bars. The official public access for this stretch is the MDC Lesterville Access ~1.4 river miles downstream (added separately). Kept is_public=true because it is a long-documented, road-reachable put-in.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/black-river/",
+        "https://rivers.moherp.org/gauge/?gauge=07061500",
+        "https://www.openstreetmap.org/way/1355701762"
+      ]
     },
     {
-      "name": "Bluff Cave",
+      "name": "Lesterville Access",
+      "slug": "lesterville-access",
       "type": "access",
-      "lat": null,
-      "lon": null,
-      "section": "upper-lesterville",
-      "notes": "Named access in moherp trip reports; 6.0 mi above Rt K.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=07061500",
-      "riverMile": 19.0,
-      "description": "Informal access on the upper Black River (Lesterville reach, above Clearwater Lake) at a right-bank bluff containing a spring and cave, roughly guide mile 19.0 between Coil Bluff (mile 14.5) and the Route K bridge (mile 25.0). No official facility; exact coordinates not established from authoritative sources.",
-      "coordinateSource": "floatmissouri.com Black River mile chart (mile 19.0, 'Spring and cave in bluff on right side'); no authoritative point coordinate found",
-      "coordinateConfidence": "none",
-      "coordinateNote": "Informal upper-Black landmark/put-in at ~guide mile 19.0, about 6.0 mi above the Rt K bridge (mile 25.0) and ~8.3 mi below Mill Creek; right-bank spring and cave in a bluff, above Clearwater Lake. Not the same as 'Cave Spring' at mile 19.7 (left bank). Left null for downstream interpolation."
-    },
-    {
-      "name": "Markham Springs",
-      "type": "access",
-      "lat": 36.97887,
-      "lon": -90.60364,
-      "ownership": "U.S. Forest Service - Mark Twain National Forest, Poplar Bluff Ranger District",
-      "notes": "LOWER river (below Clearwater Dam, Williamsville area) \u2014 named put-in in a moherp trip (2.7 mi to Hammer, Good at 507 cfs on the Williamsville gauge, 2021-10-17). Belongs to the future dam_tailwater lower reach, no section yet.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=07062575",
-      "riverMile": 59.4,
-      "managingAgency": "USFS",
-      "officialSiteUrl": "https://www.fs.usda.gov/r09/marktwain/recreation/markham-springs-recreation-area",
-      "description": "Markham Springs Recreation Area is a developed USFS site (Mark Twain National Forest) on the lower Black River below Clearwater Dam, about 3 miles west of Williamsville. It provides a river put-in/access along with a campground, day-use/picnic area, hiking trails, and namesake springs feeding a 2-acre pond.",
-      "parkingInfo": "Recreation-area parking",
-      "roadAccess": "From Poplar Bluff, Hwy 67 N ~14 mi, then Hwy 49 W ~9 mi (about 3 mi past Williamsville); take the first right after crossing the Black River",
-      "facilities": "River/boat access, campground (electric hookups, showers, drinking water, vault toilets, tables, fire rings), day-use/picnic area, springs and 2-acre pond, hiking trails",
-      "feeRequired": false,
-      "coordinateSource": "OpenStreetMap (Markham Spring, natural=spring, Wayne County); corroborated by Recreation.gov facility 234490 and USFS Markham Springs Recreation Area page",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Point is the Markham Spring / day-use area inside the USFS recreation area on the lower Black River (below Clearwater Dam, ~3 mi W of Williamsville); the boat access/put-in is adjacent at the riverbank. Guide mile ~59.4."
-    },
-    {
-      "name": "Hammer access",
-      "type": "access",
-      "lat": 36.96331,
-      "lon": -90.55438,
-      "notes": "LOWER river take-out 2.7 mi below Markham Springs (moherp trip). Future dam_tailwater reach.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=07062575",
-      "ownership": "Missouri Department of Conservation (Bradley A. Hammer Memorial Conservation Area)",
-      "riverMile": 62.1,
+      "types": [
+        "access"
+      ],
+      "lat": 37.417148,
+      "lon": -90.825574,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/bradley-hammer-memorial-conservation-area",
-      "description": "Bradley A. Hammer Memorial Conservation Area is a 344-acre MDC area on the lower Black River about one-half mile south of Williamsville, with roughly 1.4 miles of river frontage and a primitive boat/canoe access. Commonly used as a take-out about 2.7 river miles below the Markham Springs put-in.",
-      "roadAccess": "From Williamsville, Hwy 49 west, then Wayne County Rd 417 south, CR 419 west, and CR 424 north to the river",
-      "facilities": "Primitive boat/canoe access; no developed facilities",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "OpenStreetMap slipway/boat-launch node 13205787623 'Hammer Memorial Conservation Area' (https://www.openstreetmap.org/node/13205787623); corroborated by MDC area page centroid ~36.9592,-90.5606",
+      "riverMile": 12.1,
+      "description": "53-acre MDC walk-in access on the upper Black River below Lesterville (Reynolds County), the only official public access on the Lesterville-to-Hwy K float reach above the COE Highway K park. The river channel shifted away from the parking area, so canoes must be carried about 1/3 mile along the old gravel channel to the water.",
+      "parkingInfo": "Paved MDC parking lot; trailers not allowed.",
+      "roadAccess": "From Lesterville, take Highway 21 east 1 mile, then Peola Road (County Road 342) south to the junction with County Road 364; take County Road 364 south 1.5 miles to the access (MDC directions).",
+      "facilities": "Walk-in access only: the river channel has moved, and reaching the water requires a ~1/3-mile hike along the gravel path of the former channel. No ramp, no restrooms. No camping.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/lesterville-access",
+      "coordinateSource": "MDC GIS (gisblue.mdc.mo.gov Discover_Nature/Area_Feature_Layers, Parking Lots layer 26, Area_ID 9201: Lat 37.417148, Long -90.825574, paved, no trailers); area centerpoint 37.4179,-90.8258",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin is the official MDC parking lot; the water's edge is ~0.3-0.5 mi east of it (walk-in). guide_mile 12.1 interpolated between Mill Creek (10.7) and Coil Bluff (14.5) from map position ~1.4 river miles below the Mill Creek mouth - needs confirmation. Trailer boats not practical (walk-in only).",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/lesterville-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26"
+      ]
+    },
+    {
+      "name": "Highway K Recreation Area (Clearwater Lake)",
+      "slug": "highway-k-rec-area",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 37.324674,
+      "lon": -90.7651,
+      "ownership": "COE",
+      "managingAgency": "COE",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Camping fees apply (Recreation.gov). Campground is seasonal (approximately mid-May to mid-September); day-use/launch fee policy not published.",
+      "riverMile": 25.0,
+      "description": "COE recreation area at the MO Hwy K bridge west of Annapolis - the standard take-out for the Lesterville float reach and, per the floatmissouri chart (mile 25.0), the last take-out above Clearwater Lake when the lake is at full pool. Campground with 83 sites straddles both banks at the bridge.",
+      "parkingInfo": "Campground and day-use parking within the COE park.",
+      "roadAccess": "From Annapolis, follow MO Highway K west for 5 miles; the park is on both sides of the Hwy K bridge over the Black River (address 5347 Co. Rd. 452, Annapolis).",
+      "facilities": "US Army Corps of Engineers campground at the upper end of Clearwater Lake: 83 sites (many electric, some water hookups), showers, dump station, picnic shelter, playground, concessions; sand/gravel river launch at the bridge.",
+      "officialSiteUrl": "https://www.recreation.gov/camping/campgrounds/232604",
+      "coordinateSource": "OpenStreetMap slipway node 12546710482 'Highway K' (sand river access at the bridge), 140 m from the official Recreation.gov facility 232604 coordinate (37.3241667, -90.7666667)",
       "coordinateConfidence": "high",
-      "coordinateNote": "OSM boat-launch (slipway) node on Wayne County Rd 417; matches MDC's 'one-half mile south of Williamsville'. Lower Black, ~2.7 river mi below Markham Springs (river_mile derived from that note)."
+      "coordinateNote": "Pin is the OSM river launch (sand) at the bridge; Recreation.gov's facility coordinate is 140 m away. When Clearwater Lake's flood pool is high, slack water can back up to this area (documented in river dossier). Gate/season closures may limit vehicle access off-season - flag for outfitter confirmation.",
+      "sources": [
+        "https://www.recreation.gov/camping/campgrounds/232604",
+        "https://www.openstreetmap.org/node/12546710482",
+        "https://www.floatmissouri.com/plan/missouri-rivers/black-river/",
+        "https://www.swl.usace.army.mil/Missions/Recreation/Lakes/Clearwater-Lake/"
+      ]
+    },
+    {
+      "name": "River Road Park (below Clearwater Dam)",
+      "slug": "river-road-park",
+      "type": "campground",
+      "types": [
+        "campground",
+        "boat_ramp"
+      ],
+      "lat": 37.133611,
+      "lon": -90.766944,
+      "ownership": "COE",
+      "managingAgency": "COE",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Camping fees apply (Recreation.gov); day-use policy not published.",
+      "riverMile": 38.2,
+      "description": "COE park on the Black River tailwater immediately below Clearwater Dam - the uppermost public put-in for the lower (dam-release) Black River reach that runs down past Markham Springs and Hammer Access. 107-site campground with a boat ramp; trout-like clear releases, year-round access.",
+      "parkingInfo": "Paved roads and sites; campground and day-use parking.",
+      "roadAccess": "From Piedmont, follow State Highway HH about 6 miles; the campground is immediately below Clearwater Lake Dam on the Black River.",
+      "facilities": "US Army Corps of Engineers campground with 107 sites (most electric/water), hot showers, flush toilets, dump station, boat ramp, fish-cleaning stations, three group picnic shelters, playground. Open year-round.",
+      "officialSiteUrl": "https://www.recreation.gov/camping/campgrounds/232691",
+      "coordinateSource": "Recreation.gov facility 232691 (37.1336111, -90.7669444), corroborated by OSM 'River Road Public Use Area' node (37.1336635, -90.7681888)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin is the official Recreation.gov facility point at the campground below the dam. An OSM slipway 1.2 km further downstream (37.128065, -90.755650, with adjacent waste basket and campsites) is probably the park's actual boat ramp at the east end of the campground - human should verify against satellite and move the pin if confirmed. guide_mile 38.2 interpolated (~0.6 mi below Clearwater Dam, chart mile 37.6).",
+      "sources": [
+        "https://www.recreation.gov/camping/campgrounds/232691",
+        "https://overpass-api.de/api/interpreter (River Road Public Use Area node + slipway 1653894223)",
+        "https://www.swl.usace.army.mil/Missions/Recreation/Lakes/Clearwater-Lake/"
+      ]
+    },
+    {
+      "name": "Mill Spring (Hwy 49) City Park",
+      "slug": "mill-spring-city-park",
+      "type": "access",
+      "types": [
+        "access",
+        "park"
+      ],
+      "lat": 37.05901,
+      "lon": -90.6868,
+      "ownership": "city",
+      "managingAgency": "Municipal",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 50.6,
+      "description": "City park launch at the Hwy 49 bridge in Mill Spring, between Clearwater Dam and Markham Springs on the lower Black River. MDC's watershed inventory lists it (with Hammer CA) as one of the small-boat/canoe launch points on this reach; the floatmissouri chart (mile 50.6) notes camping available at Mill Spring.",
+      "roadAccess": "At the MO Highway 49 bridge over the Black River on the west edge of the village of Mill Spring (Wayne County).",
+      "facilities": "Small-town riverside park; carry-in launch for canoes/kayaks/small boats. No developed ramp documented.",
+      "coordinateSource": "OSM MO 49 bridge over the Black River at Mill Spring (way 512659205, east end 37.0590134,-90.6868039); launch documented by the MDC Black River Watershed Inventory ('small boats or canoes can be launched from... Highway 49 (Mill Spring City Park)')",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "HUMAN REVIEW: exact park/launch spot inferred - pin is the east (village) end of the Hwy 49 bridge; adjust to the park drive on satellite. Chart's 'camping available' not verified against a current source, so camping was left out of amenities.",
+      "sources": [
+        "https://mdc.mo.gov/sites/default/files/mdcd7/watersheds/BlackRiver030.pdf",
+        "https://www.floatmissouri.com/plan/missouri-rivers/black-river/",
+        "https://www.openstreetmap.org/way/512659205"
+      ]
+    },
+    {
+      "name": "Markham Springs Recreation Area",
+      "slug": "markham-springs",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground"
+      ],
+      "lat": 36.976387,
+      "lon": -90.599656,
+      "ownership": "USFS",
+      "managingAgency": "USFS",
+      "isPublic": true,
+      "feeRequired": true,
+      "feeNotes": "Day use $5/vehicle (fee tubes on site); camping $10-$17/night single (2026, Recreation.gov facility 234490).",
+      "riverMile": 59.4,
+      "description": "Developed USFS recreation area on the right bank of the lower Black River below Clearwater Dam, 3 miles west of Williamsville. Concrete single-lane boat launch plus campground, picnic area, springs, and trails; the usual put-in for the short float down to Hammer Access (2.7 miles).",
+      "parkingInfo": "8 spaces at the boat-ramp lot plus campground/day-use parking.",
+      "roadAccess": "From Poplar Bluff take US 67 north ~14 miles, then MO 49 west ~9 miles (past Williamsville); take the first right after crossing the Black River.",
+      "facilities": "Mark Twain NF recreation area: single-lane concrete boat launch, campground (electric loop + 3 primitive loops, showers, drinking water, vault toilets), day-use/picnic area with pavilion, 2-acre mill pond and springs, Fuchs House cabin rental. Campground season May 1 - Oct 1; day-use 6 AM-10 PM year-round.",
+      "officialSiteUrl": "https://www.fs.usda.gov/r09/marktwain/recreation/markham-springs-recreation-area",
+      "coordinateSource": "OpenStreetMap slipway node 13205346380 'Markham' at the riverbank, bracketed by the USFS page coordinate (36.981279, -90.605007) and Recreation.gov facility 234490 (36.9733333, -90.6016667); USFS page confirms a single-lane concrete boat launch with 8 parking spots",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Pin moved from the spring/day-use area (36.97887, -90.60364, 248 m off-river) to the riverbank launch. Coordinate is the OSM slipway; USFS and Recreation.gov points are 450-700 m away at the area entrance/campground. Types upgraded to boat_ramp per USFS 'single lane concrete boat launch'. The floatmissouri chart's 'Browns Crossing (Hwy A), mile 59.6, take-out + fee camping' appears to be the road crossing at this same area (highway renumbered to MO 49) - not added separately.",
+      "sources": [
+        "https://www.fs.usda.gov/r09/marktwain/recreation/markham-springs-recreation-area",
+        "https://www.recreation.gov/camping/campgrounds/234490",
+        "https://www.openstreetmap.org/node/13205346380",
+        "https://www.floatmissouri.com/plan/missouri-rivers/black-river/"
+      ]
+    },
+    {
+      "name": "Hammer Access (Bradley A. Hammer Memorial CA)",
+      "slug": "hammer-access",
+      "type": "access",
+      "types": [
+        "access"
+      ],
+      "lat": 36.963281,
+      "lon": -90.554368,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 62.1,
+      "description": "344-acre MDC conservation area on the lower Black River about a half mile south of Williamsville, with 1.4 miles of river frontage. Primitive canoe/small-boat access off County Road 424, commonly used as the take-out 2.7 river miles below Markham Springs; primitive camping allowed.",
+      "parkingInfo": "Paved MDC lot at the river access; trailers not allowed per MDC GIS.",
+      "roadAccess": "From Williamsville, take Highway 49 west, then County Road 417 south, County Road 419 west, and County Road 424 north to the river (MDC directions).",
+      "facilities": "Primitive small-boat/canoe launch (MDC watershed inventory: only small boats or canoes can be launched). Designated individual campsites on the area; no restrooms or drinking water.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/bradley-hammer-memorial-conservation-area",
+      "coordinateSource": "MDC GIS Boat Ramps layer 17, Area_ID 9629 (UTM 15N 717725.8, 4093594.1 = 36.963281, -90.554368); adjacent MDC paved parking lot at 36.963165, -90.554485; matches OSM slipway node 13205787623",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Existing pin was already correct (matches the official MDC ramp feature within 20 m); coordinate refined to the MDC GIS boat-ramp point. MDC GIS also shows a second river-access parking spot ~0.8 km upstream inside the area (paved lot at ~36.96374, -90.56267, OSM slipway 13205787650) - single point kept at the main CR 424 access. Kept type 'access' (not boat_ramp) because MDC describes it as primitive/small-boat only.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/bradley-hammer-memorial-conservation-area",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.openstreetmap.org/node/13205787623",
+        "https://mdc.mo.gov/sites/default/files/mdcd7/watersheds/BlackRiver030.pdf"
+      ]
+    },
+    {
+      "name": "Hilliard Access",
+      "slug": "hilliard-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 36.821377,
+      "lon": -90.422786,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 79.1,
+      "description": "1-acre MDC ramp access on the Black River at the Highway W bridge, 2.6 miles north of Poplar Bluff. Take-out for floats coming down from the Williamsville/Hammer area; the floatmissouri chart (mile 79.1, 'Hillard') notes the river flattens from here downstream. Popular walleye water between here and Clearwater Dam.",
+      "parkingInfo": "Paved MDC lot at the ramp.",
+      "roadAccess": "From Poplar Bluff, take Highway W north 2.6 miles; turn left into the area immediately after crossing the Black River bridge (MDC directions).",
+      "facilities": "MDC boat ramp and parking at the Hwy W bridge. No restrooms; camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/hilliard-access",
+      "coordinateSource": "MDC GIS Boat Ramps layer 17, Area_ID 6614 (UTM 15N 729867.6, 4078157.1 = 36.821377, -90.422786); paved parking at 36.8216, -90.422598; matches OSM slipway node 13235621436 (canoe=yes, trailer=yes, fee=no)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Official MDC spelling is 'Hilliard' (floatmissouri spells it 'Hillard'). This is the facility the old bluff-cave pin was accidentally sitting on. MDC GIS parking says trailers not allowed while OSM says trailer=yes - ramp launching implies trailers are used; left parking capacity unknown.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/hilliard-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.openstreetmap.org/node/13235621436",
+        "https://www.floatmissouri.com/plan/missouri-rivers/black-river/"
+      ]
+    },
+    {
+      "name": "Sportsman's Park Access (Poplar Bluff)",
+      "slug": "sportsmans-park-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "park"
+      ],
+      "lat": 36.764235,
+      "lon": -90.378037,
+      "ownership": "city",
+      "managingAgency": "Municipal",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 87.3,
+      "description": "Municipal boat ramp in Sportsman's Park on the southwest side of Poplar Bluff (floatmissouri chart mile 87.3, one mile above the US 60 bridge). Downstream limit of the commonly floated Black River in Missouri and a standard take-out/launch for the flatwater below Hilliard Access; excellent walleye and bass water.",
+      "parkingInfo": "Paved lot with an accessible parking area added in 2019.",
+      "roadAccess": "From the Highway 60 / Business 60 (E. Pine Street) junction in Poplar Bluff, take Business 60 southwest 2 miles; the park is on the right (1301 Black River Industrial Park Rd).",
+      "facilities": "City park boat ramp on the Black River with pavilion, picnic tables, and an ADA-accessible fishing platform (built 2019). Operated by Poplar Bluff Parks & Recreation under a cooperative agreement with MDC.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/sportsmans-park-access-poplar-bluff",
+      "coordinateSource": "MDC GIS Boat Ramps layer 17, Area_ID 8929 (UTM 15N 734033.6, 4071925.0 = 36.764235, -90.378037); paved parking at 36.763987, -90.378062; matches OSM slipway node 13235577780",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Not MDC-owned; MDC lists it under a cooperative agreement with the city (ownership=city, managing_agency=Municipal). ADA=Yes on the MDC GIS ramp feature.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/sportsmans-park-access-poplar-bluff",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.openstreetmap.org/node/13235577780",
+        "https://www.floatmissouri.com/plan/missouri-rivers/black-river/"
+      ]
     }
   ],
   "weatherPoint": {
@@ -358,7 +613,7 @@
     ],
     "appRenderConfirmed": "Eddy Black/Gasconade gauge wiring verified end-to-end 2026-07-06 (owner screenshots): aggregate streamflow, per-gauge cards, and trend chart render on live USGS data.",
     "flowStatisticsUsgs": {
-      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source \u2014 frequency statistics do not encode channel geometry (falsified by Bourbeuse: Agnew's verified table shows median summer flow there = scraping, while median summer flow on the Black floats fine; the stats cannot distinguish the two). Retain ONLY as context (% of normal) and sanity-check data. Thresholds must come from human floatability sources (Agnew navigability table > outfitter minimums > MDC), per the calibration hierarchy.",
+      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source — frequency statistics do not encode channel geometry (falsified by Bourbeuse: Agnew's verified table shows median summer flow there = scraping, while median summer flow on the Black floats fine; the stats cannot distinguish the two). Retain ONLY as context (% of normal) and sanity-check data. Thresholds must come from human floatability sources (Agnew navigability table > outfitter minimums > MDC), per the calibration hierarchy.",
       "07061500_annapolis_cfs": {
         "basis": "87 years, July 6 daily mean",
         "low": 93.7,
@@ -372,7 +627,7 @@
       }
     },
     "moherpRatings": {
-      "note": "rivers.moherp.org paddler gauge ratings (owner-provided 2026-07-06). OBSERVED = trip-calibrated \u2192 encoded as thresholds. ESTIMATED = site model \u2192 reference only. FALSIFICATION ON THIS GAUGE: estimated Good 536 cfs vs OBSERVED Good 180 cfs (~3\u00d7 off), with two real trips floating Good at 189/192 \u2014 model-derived thresholds mis-calibrate, which is exactly why the calibration decision rejects them.",
+      "note": "rivers.moherp.org paddler gauge ratings (owner-provided 2026-07-06). OBSERVED = trip-calibrated → encoded as thresholds. ESTIMATED = site model → reference only. FALSIFICATION ON THIS GAUGE: estimated Good 536 cfs vs OBSERVED Good 180 cfs (~3× off), with two real trips floating Good at 189/192 — model-derived thresholds mis-calibrate, which is exactly why the calibration decision rejects them.",
       "07061500_annapolis": {
         "observed_cfs": {
           "good": 180
@@ -384,7 +639,7 @@
           "high": 956,
           "flood": 2013
         },
-        "latest": "Good (288 cfs), median 204 \u2014 2026-07-06"
+        "latest": "Good (288 cfs), median 204 — 2026-07-06"
       },
       "07063000_poplarbluff_CANDIDATE": {
         "observed_cfs": null,
@@ -395,8 +650,8 @@
           "high": 2065,
           "flood": 4093
         },
-        "latest": "Low (947 cfs), median 713 \u2014 2026-07-06 (ACTIVE)",
-        "note": "The gauge for the future dam_tailwater lower reach. NOT added to gauges[] \u2014 needs USGS site-service verification first (the [verify] gate)."
+        "latest": "Low (947 cfs), median 713 — 2026-07-06 (ACTIVE)",
+        "note": "The gauge for the future dam_tailwater lower reach. NOT added to gauges[] — needs USGS site-service verification first (the [verify] gate)."
       },
       "07062575_williamsville_CANDIDATE": {
         "observed_cfs": null,
@@ -407,25 +662,26 @@
           "high": 2565,
           "flood": 4725
         },
-        "latest": "STALE \u2014 last update 2025-11-28, 'no discharge data to display'; likely discontinued",
-        "note": "Historical reference: Markham Springs\u2192Hammer trip (2021-10-17, 2.7 mi) rated Good at 507 cfs / 3.40 ft. Verify status via USGS site service before any use."
+        "latest": "STALE — last update 2025-11-28, 'no discharge data to display'; likely discontinued",
+        "note": "Historical reference: Markham Springs→Hammer trip (2021-10-17, 2.7 mi) rated Good at 507 cfs / 3.40 ft. Verify status via USGS site service before any use."
       }
     },
     "openQuestions": [
-      "CALIBRATION CORE (PARTIALLY RESOLVED 2026-07-06): optimal_min = 180 cfs @ 07061500 encoded from the moherp OBSERVED rating, corroborated by two Good trips at 189/192 cfs. STILL MISSING: too_low / low / optimal_max / high anchors \u2014 moherp has no other observed values on this gauge (its estimated set is rejected). Sources to complete the ladder: an Agnew 'Navigability' table for the Black, or Lesterville outfitter minimum/maximum guidance, or accumulating moherp trip reports at other levels.",
-      "REACH STRUCTURE (Agnew-confirmed): upper float reach = forks/Lesterville \u2192 Highway K (moves with Clearwater high pool) = clear spring-fed float @ Annapolis 07061500. A SEPARATE lower reach below Clearwater Dam toward Poplar Bluff is dam-influenced (warmer/murkier, slower) \u2014 would be river_type=dam_tailwater with its own gauge (a Black River at Poplar Bluff gauge, not in the current set); out of scope until that gauge is added.",
+      "CALIBRATION CORE (PARTIALLY RESOLVED 2026-07-06): optimal_min = 180 cfs @ 07061500 encoded from the moherp OBSERVED rating, corroborated by two Good trips at 189/192 cfs. STILL MISSING: too_low / low / optimal_max / high anchors — moherp has no other observed values on this gauge (its estimated set is rejected). Sources to complete the ladder: an Agnew 'Navigability' table for the Black, or Lesterville outfitter minimum/maximum guidance, or accumulating moherp trip reports at other levels.",
+      "REACH STRUCTURE (Agnew-confirmed): upper float reach = forks/Lesterville → Highway K (moves with Clearwater high pool) = clear spring-fed float @ Annapolis 07061500. A SEPARATE lower reach below Clearwater Dam toward Poplar Bluff is dam-influenced (warmer/murkier, slower) — would be river_type=dam_tailwater with its own gauge (a Black River at Poplar Bluff gauge, not in the current set); out of scope until that gauge is added.",
       "Representative gauge choice [signoff]: Annapolis (07061500, has the NWS LID) vs Lesterville (07061400, closer to the put-in). Confirm which the app should poll for this reach.",
-      "Lower reach below Clearwater Lake is a dam-influenced tailwater toward Poplar Bluff \u2014 not researched here; if added it likely needs river_type=dam_tailwater and its own gauge (e.g. Black River at Poplar Bluff).",
-      "CROSS-CHECK (do not ingest as-is): search reported ANNM7 flood categories Action 6 / Minor 8 / Moderate 15 / Major 25 ft \u2014 single-source; the authoritative values come from fetch-nws-flood-stages.ts."
+      "Lower reach below Clearwater Lake is a dam-influenced tailwater toward Poplar Bluff — not researched here; if added it likely needs river_type=dam_tailwater and its own gauge (e.g. Black River at Poplar Bluff).",
+      "CROSS-CHECK (do not ingest as-is): search reported ANNM7 flood categories Action 6 / Minor 8 / Moderate 15 / Major 25 ft — single-source; the authoritative values come from fetch-nws-flood-stages.ts."
     ],
     "toVerify": [
-      "USGS 07061500 (Annapolis), 07061400 (Lesterville), 07061600 (below Annapolis), 07061270 (E.Fork), 07061170 (M.Fork): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page \u2014 CANDIDATES ONLY until then; then write verified-identifiers-black.md",
-      "Gauge-keyed floatability thresholds (cfs or ft) for the Lesterville\u2192Annapolis reach (MDC / outfitter)",
-      "NWS ANNM7 flood/action stages \u2014 leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
+      "USGS 07061500 (Annapolis), 07061400 (Lesterville), 07061600 (below Annapolis), 07061270 (E.Fork), 07061170 (M.Fork): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-black.md",
+      "Gauge-keyed floatability thresholds (cfs or ft) for the Lesterville→Annapolis reach (MDC / outfitter)",
+      "NWS ANNM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check)",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
       "Full MDC access-point list with coordinates (human places every point)"
     ],
     "ladderNote2026_07_08": "high=1470/dangerous=3880 cfs added from USGS 07061500 exsa rating x NWS ANNM7 action/flood stages (session claude/rivers-missing-admin). too_low/low/optimal_max left null: no OBSERVED source (moherp estimates rejected); ideal band open-topped 180->1470, sub-180 reads scraping/too_low. Safe to activate.",
     "lowerReachNote2026_07_08": "Lower Black (Markham Springs->Hammer) added as a second section keyed to the LIVE Poplar Bluff gauge 07063000 (Williamsville 07062575 is discontinued). River-level badge stays on the primary Annapolis (upper) gauge; the segment-condition function routes lower put-ins to Poplar Bluff via river_mile (Annapolis rm=25, Poplar Bluff rm=55). Applied directly to prod (session claude/rivers-missing-admin), not via ingest."
-  }
+  },
+  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed."
 }

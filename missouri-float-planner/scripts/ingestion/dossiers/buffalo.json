@@ -1,5 +1,5 @@
 {
-  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: AWAITING SIGNOFF \u2014 calibrated in CFS from the authoritative NPS BUFF Float Guide tables (see buffalo-thresholds-captured.md), cross-validated against the live NPS dashboard for all 5 reference gauges. 24 anchors across 4 reaches, threshold_unit=cfs, all reference gauges are the polled USGS sites (poll param 00060 discharge). Supersedes the earlier Wild Bill's stage(ft) chart (Ponca ft-vs-flow discrepancy resolved: NPS categorizes by flow). Remaining [signoff]: (1) confirm the good/flowing split (best-effort lower-third good / upper-two-thirds flowing), (2) Pruitt gauge USGS number if a finer upper/middle split is wanted. Mechanical items status: park code 'buff' VERIFIED (nps.gov/buff, parkplanning.nps.gov/buff, NPS API parkCode=buff). NHD feature id and gauge coordinates/params/drainage areas remain UNKNOWN because USGS + NPS + National Map hosts are all denied by the current network policy (hard 403 on CONNECT) \u2014 NOT fabricated. Gauge coords/params/drainageArea should be auto-pulled from the USGS site service at ingest time (more reliable than hand transcription); NHD geometry via seed path or National Map query once egress allows (see scripts/config/nhd-rivers.json $buffalo_nhd_todo). Thresholds themselves are NPS-authoritative and dashboard-validated.",
+  "_status": "SIGNED-OFF 2026-07-07 — owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: AWAITING SIGNOFF — calibrated in CFS from the authoritative NPS BUFF Float Guide tables (see buffalo-thresholds-captured.md), cross-validated against the live NPS dashboard for all 5 reference gauges. 24 anchors across 4 reaches, threshold_unit=cfs, all reference gauges are the polled USGS sites (poll param 00060 discharge). Supersedes the earlier Wild Bill's stage(ft) chart (Ponca ft-vs-flow discrepancy resolved: NPS categorizes by flow). Remaining [signoff]: (1) confirm the good/flowing split (best-effort lower-third good / upper-two-thirds flowing), (2) Pruitt gauge USGS number if a finer upper/middle split is wanted. Mechanical items status: park code 'buff' VERIFIED (nps.gov/buff, parkplanning.nps.gov/buff, NPS API parkCode=buff). NHD feature id and gauge coordinates/params/drainage areas remain UNKNOWN because USGS + NPS + National Map hosts are all denied by the current network policy (hard 403 on CONNECT) — NOT fabricated. Gauge coords/params/drainageArea should be auto-pulled from the USGS site service at ingest time (more reliable than hand transcription); NHD geometry via seed path or National Map query once egress allows (see scripts/config/nhd-rivers.json $buffalo_nhd_todo). Thresholds themselves are NPS-authoritative and dashboard-validated.",
   "name": "Buffalo National River",
   "slug": "buffalo",
   "primaryGaugeSiteId": "07056000",
@@ -12,32 +12,32 @@
   "description": "America's first National River (1972), a free-flowing, rain-driven Ozark river draining the Boston Mountains of northwest Arkansas. Flashy and seasonal in its upper reaches, near year-round floatable in its lower reaches. Managed by the National Park Service.",
   "riverType": "rain_flashy",
   "parkCode": "buff",
-  "managingAuthority": "National Park Service \u2014 Buffalo National River",
+  "managingAuthority": "National Park Service — Buffalo National River",
   "regulations": [
     {
       "text": "Every vessel must carry a U.S. Coast Guard approved life vest (PFD) for each person aboard; children under age 13 must wear a securely fastened life vest while aboard any vessel.",
-      "authority": "NPS \u2014 Buffalo National River",
+      "authority": "NPS — Buffalo National River",
       "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
     },
     {
       "text": "Glass containers are prohibited within 100 feet of any river or stream in the park (and in caves, on trails or waterways), except in designated campgrounds, picnic sites, or vehicles on designated roads/parking areas.",
-      "authority": "NPS \u2014 Buffalo National River",
+      "authority": "NPS — Buffalo National River",
       "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
     },
     {
-      "text": "Possession of polystyrene (Styrofoam) items \u2014 cups, plates, coolers, ice chests, containers \u2014 is prohibited while floating or camping, except in developed campgrounds, picnic areas, landings, roads and parking lots.",
-      "authority": "NPS \u2014 Buffalo National River",
+      "text": "Possession of polystyrene (Styrofoam) items — cups, plates, coolers, ice chests, containers — is prohibited while floating or camping, except in developed campgrounds, picnic areas, landings, roads and parking lots.",
+      "authority": "NPS — Buffalo National River",
       "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
     },
     {
       "text": "Vessels carrying food or beverages must have an attached closable mesh litter bag; food/beverages must be kept in a sealed cooler or spill-proof container.",
-      "authority": "NPS \u2014 Buffalo National River",
+      "authority": "NPS — Buffalo National River",
       "sourceUrl": "https://www.nps.gov/buff/planyourvisit/river-rules.htm"
     }
   ],
   "permits": [],
   "accessLaw": {
-    "value": "UNKNOWN \u2014 Arkansas stream-access / navigability doctrine not yet captured",
+    "value": "UNKNOWN — Arkansas stream-access / navigability doctrine not yet captured",
     "source": "",
     "confidence": "low"
   },
@@ -172,7 +172,7 @@
           "unit": "cfs",
           "referenceGauge": "07055646",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -181,7 +181,7 @@
           "unit": "cfs",
           "referenceGauge": "07055646",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -190,7 +190,7 @@
           "unit": "cfs",
           "referenceGauge": "07055646",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -199,7 +199,7 @@
           "unit": "cfs",
           "referenceGauge": "07055646",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -208,7 +208,7 @@
           "unit": "cfs",
           "referenceGauge": "07055646",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -217,7 +217,7 @@
           "unit": "cfs",
           "referenceGauge": "07055646",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         }
       ],
@@ -230,11 +230,11 @@
           "strainer",
           "committing_wilderness"
         ],
-        "lowWaterMeaning": "UNKNOWN \u2014 capture from NPS/USGS floatability guidance",
+        "lowWaterMeaning": "UNKNOWN — capture from NPS/USGS floatability guidance",
         "risingWaterHazards": "Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": []
@@ -242,7 +242,7 @@
     {
       "slug": "upper-ponca-pruitt",
       "name": "Upper (Ponca to Pruitt)",
-      "description": "The classic upper Buffalo: Ponca to Kyle's Landing / Erbie / Ozark / Pruitt. Class I\u2013II, flashy, spring-season float; Big Bluff and Hemmed-in Hollow scenery. The most level-sensitive reach.",
+      "description": "The classic upper Buffalo: Ponca to Kyle's Landing / Erbie / Ozark / Pruitt. Class I–II, flashy, spring-season float; Big Bluff and Hemmed-in Hollow scenery. The most level-sensitive reach.",
       "putIn": {
         "name": "Ponca (Steel Creek when too low to launch at Ponca)",
         "lat": null,
@@ -266,7 +266,7 @@
           "unit": "cfs",
           "referenceGauge": "07055660",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -275,7 +275,7 @@
           "unit": "cfs",
           "referenceGauge": "07055660",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -284,7 +284,7 @@
           "unit": "cfs",
           "referenceGauge": "07055660",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -293,7 +293,7 @@
           "unit": "cfs",
           "referenceGauge": "07055660",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -302,7 +302,7 @@
           "unit": "cfs",
           "referenceGauge": "07055660",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -311,7 +311,7 @@
           "unit": "cfs",
           "referenceGauge": "07055660",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         }
       ],
@@ -334,11 +334,11 @@
           "strainer",
           "bluff_hazard_at_high_water"
         ],
-        "lowWaterMeaning": "When too low to launch at Ponca, outfitters shift the put-in ~2 mi downriver to Steel Creek (8 mi to Kyle's). No numeric gauge cutoff is published \u2014 outfitters make a daily operational call. NUMERIC too_low anchor still UNKNOWN.",
+        "lowWaterMeaning": "When too low to launch at Ponca, outfitters shift the put-in ~2 mi downriver to Steel Creek (8 mi to Kyle's). No numeric gauge cutoff is published — outfitters make a daily operational call. NUMERIC too_low anchor still UNKNOWN.",
         "risingWaterHazards": "Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
@@ -364,7 +364,7 @@
       "representativeGauge": {
         "siteId": "07056000",
         "rationale": "St. Joe is the commonly cited middle-district gauge; Carver (07055780) covers the upper-middle transition",
-        "knownBias": "NPS chart keys the middle thresholds to 'Grinder's Ferry/Tyler Bend' \u2014 confirm that reference is USGS 07056000 (St. Joe) vs. a separate Tyler Bend gauge before ingest"
+        "knownBias": "NPS chart keys the middle thresholds to 'Grinder's Ferry/Tyler Bend' — confirm that reference is USGS 07056000 (St. Joe) vs. a separate Tyler Bend gauge before ingest"
       },
       "thresholds": [
         {
@@ -373,7 +373,7 @@
           "unit": "cfs",
           "referenceGauge": "07056000",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -382,7 +382,7 @@
           "unit": "cfs",
           "referenceGauge": "07056000",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -391,7 +391,7 @@
           "unit": "cfs",
           "referenceGauge": "07056000",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -400,7 +400,7 @@
           "unit": "cfs",
           "referenceGauge": "07056000",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -409,7 +409,7 @@
           "unit": "cfs",
           "referenceGauge": "07056000",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -418,7 +418,7 @@
           "unit": "cfs",
           "referenceGauge": "07056000",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         }
       ],
@@ -430,11 +430,11 @@
           "flash_flood",
           "strainer"
         ],
-        "lowWaterMeaning": "UNKNOWN \u2014 capture",
+        "lowWaterMeaning": "UNKNOWN — capture",
         "risingWaterHazards": "Rain-driven rises; more forgiving than the upper but still flashy.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": []
@@ -457,7 +457,7 @@
       "representativeGauge": {
         "siteId": "07056700",
         "rationale": "Harriet covers the upper-lower reach; Rush (07057000) covers the lowest reach before the confluence",
-        "knownBias": "NPS chart keys the lower thresholds to 'Dillard's Ferry/Buffalo Point' (Hwy 14) \u2014 confirm that reference is USGS 07056700 (Harriet) vs. a separate Buffalo Point gauge before ingest"
+        "knownBias": "NPS chart keys the lower thresholds to 'Dillard's Ferry/Buffalo Point' (Hwy 14) — confirm that reference is USGS 07056700 (Harriet) vs. a separate Buffalo Point gauge before ingest"
       },
       "thresholds": [
         {
@@ -466,7 +466,7 @@
           "unit": "cfs",
           "referenceGauge": "07056700",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -475,7 +475,7 @@
           "unit": "cfs",
           "referenceGauge": "07056700",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -484,7 +484,7 @@
           "unit": "cfs",
           "referenceGauge": "07056700",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -493,7 +493,7 @@
           "unit": "cfs",
           "referenceGauge": "07056700",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -502,7 +502,7 @@
           "unit": "cfs",
           "referenceGauge": "07056700",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         },
         {
@@ -511,7 +511,7 @@
           "unit": "cfs",
           "referenceGauge": "07056700",
           "referenceGaugeIsPolled": true,
-          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) \u2014 cfs float-level tables, cross-validated against the live Levels dashboard",
+          "source": "NPS BUFF Float Guide official dashboard, Tables & Graphs tab (nps.maps.arcgis.com) — cfs float-level tables, cross-validated against the live Levels dashboard",
           "confidence": "high"
         }
       ],
@@ -523,78 +523,719 @@
           "debris",
           "flash_flood_upstream"
         ],
-        "lowWaterMeaning": "UNKNOWN \u2014 capture; low water mainly affects speed here, not runnability",
+        "lowWaterMeaning": "UNKNOWN — capture; low water mainly affects speed here, not runnability",
         "risingWaterHazards": "Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
-        "Note: this reach reads more as flatwater than the flashy upper \u2014 a candidate for per-section river_type divergence if the uniform rain_flashy framing proves too conservative here."
+        "Note: this reach reads more as flatwater than the flashy upper — a candidate for per-section river_type divergence if the uniform rain_flashy framing proves too conservative here."
       ]
     }
   ],
   "accessPoints": [
     {
+      "name": "Boxley",
+      "slug": "boxley",
+      "type": "bridge",
+      "types": [
+        "bridge",
+        "access"
+      ],
+      "lat": 35.96094,
+      "lon": -93.40366,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 0.0,
+      "description": "Uppermost NPS river access at the Boxley Bridge (AR 21), mile 0 of the NPS mileage chart. The 6.1-mile Boxley-to-Ponca reach is the most technical section of the Buffalo — NPS recommends it only for highly experienced whitewater paddlers, and the river runs straight into willow thickets below the bridge. Rain-dependent; floatable only at seasonal high flows.",
+      "parkingInfo": "Small roadside pull-in at the bridge; no developed lot documented.",
+      "roadAccess": "At the AR Highway 21 bridge over the Buffalo in Boxley Valley, about 5 miles south of Ponca. Paved highway to the bridge; put in beneath the bridge.",
+      "facilities": "Undeveloped, unpaved put-in beneath the Hwy 21 bridge. No toilets, water, or camping.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer, 'Boxley Bridge'); corroborated by OSM slipway node 12544120379 (35.961291,-93.404230, ~64 m)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "NPS GIS layer and brochure name this 'Boxley Bridge'; the online mileage chart uses 'Boxley'. Parking is an undeveloped pull-in (unverified capacity).",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddle-boxley-to-ponca.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544120379"
+      ]
+    },
+    {
       "name": "Ponca",
+      "slug": "ponca",
       "type": "access",
+      "types": [
+        "access",
+        "bridge"
+      ],
       "lat": 36.021098,
       "lon": -93.355116,
-      "ownership": "National Park Service (Buffalo National River)",
-      "section": "upper-ponca-pruitt",
-      "notes": "primary upper put-in; used when level permits",
-      "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/",
-      "riverMile": 6.0,
+      "ownership": "NPS",
       "managingAgency": "NPS",
-      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
-      "description": "NPS-managed river access at the Ponca low-water bridge on the upper Buffalo National River. Serves as the primary upper put-in for the Ponca-to-Pruitt district when water levels permit; boaters must portage the low-water bridge.",
-      "roadAccess": "At the low-water bridge off AR Highways 74/43 near the community of Ponca; paved highway access.",
-      "facilities": "Low-water bridge day-use river access; no campground or hookups at this access point.",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "OpenStreetMap node 12544103523 (leisure=slipway, 'Ponca River Access Point'); corroborated by USGS gage 07055660 'Buffalo River at Ponca' https://waterdata.usgs.gov/monitoring-location/USGS-07055660/ (36.0225, -93.3547222, ~160m upstream)",
-      "coordinateConfidence": "high",
-      "coordinateNote": "OSM slipway explicitly named 'Ponca River Access Point' at the Ponca low-water bridge; USGS gage ~160m away agrees. Within upper-Buffalo bounds."
+      "riverMile": 6.0,
+      "description": "The classic upper-Buffalo put-in at the Ponca low-water bridge, used when the USGS Ponca gauge (07055660) shows floatable flows. Launches the famous Ponca-to-Kyles Landing run (10.7 mi) past Big Bluff and Hemmed-in Hollow. Boaters coming from Boxley must portage the low-water bridge.",
+      "parkingInfo": "Gravel parking on both sides of the low-water bridge. No overnight parking at this access — arrange a shuttle for multi-day trips.",
+      "roadAccess": "Near the AR 43/74 junction in Ponca; a short gravel spur about 40 yards past the junction leads down to the historic low-water bridge put-in.",
+      "facilities": "Gravel launch at the 1943 WPA low-water bridge. No drinking water; no campground at the access (Steel Creek is 2.7 miles downstream).",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "OSM slipway node 12544103523 ('Ponca River Access Point') at the low-water bridge; NPS BUFF_River_Accesses layer point (36.0209,-93.355118) is ~22 m away; USGS gauge 07055660 ~160 m upstream",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Restroom presence at the access could not be verified from official sources — flagged for human check. Overnight parking prohibited per BRT trailhead guidance.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddle-ponca-to-steel-creek.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544103523",
+        "https://waterdata.usgs.gov/monitoring-location/USGS-07055660/"
+      ]
     },
     {
       "name": "Steel Creek",
-      "type": "access",
-      "lat": 36.040287,
-      "lon": -93.346119,
-      "ownership": "National Park Service (Buffalo National River)",
-      "section": "upper-ponca-pruitt",
-      "notes": "low-water alternate put-in ~2 mi below Ponca",
-      "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/",
-      "riverMile": 8.7,
+      "slug": "steel-creek",
+      "type": "campground",
+      "types": [
+        "campground",
+        "gravel_bar"
+      ],
+      "lat": 36.0387,
+      "lon": -93.33567,
+      "ownership": "NPS",
       "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use and launching are free. Camping $20/night Mar 15-Nov 14 (Recreation.gov reservations required in season); free primitive camping in winter.",
+      "riverMile": 8.7,
+      "description": "NPS campground and gravel-bar access beneath Roark Bluff, 2.7 miles below Ponca. The standard low-water alternate put-in when Ponca is too shallow, giving an 8-mile run to Kyles Landing through the Ponca Wilderness. Tent and horse camping only.",
+      "parkingInfo": "Day-use parking at the river access below Roark Bluff.",
+      "roadAccess": "Off AR 74 about 3 miles east of Ponca; a steep entrance road descends to the campground and river (NPS describes the Ponca-Steel Creek shuttle as almost entirely paved).",
+      "facilities": "26 tent-only sites plus 14 horse sites; seasonal flush restrooms and water spigots (vault toilet in winter); no showers or hookups; camper trailers/RVs prohibited. Gravel-bar launch at the day-use area.",
       "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/steel-creek-campground.htm",
-      "description": "NPS-managed access and campground on the upper Buffalo National River about 2 miles below Ponca, commonly used as a low-water alternate put-in. The campground has walk-in tent sites and a separate equestrian area with seasonal flush restrooms and water.",
-      "roadAccess": "Off AR Highway 74 about 3 miles east of Ponca; steep gravel entrance road descends to the campground and river.",
-      "facilities": "Walk-in tent sites and equestrian sites; flush restrooms and water spigots (approx. mid-March to mid-November); no RV hookups.",
-      "feeRequired": true,
-      "coordinateSource": "OpenStreetMap node (tourism=camp_site, 'Steel Creek Campground'); corroborated by Recreation.gov facility 10001451 https://www.recreation.gov/camping/campgrounds/10001451 (~36.0408, -93.3440)",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Campground/access coordinate; two independent sources agree to ~150m. River put-in is at the campground's river frontage."
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544125462 ~85 m; Recreation.gov facility 10001451",
+      "coordinateConfidence": "official",
+      "coordinateNote": "DB had fee_required=true; changed to false because the fee is for overnight camping only — there is no day-use or launch fee anywhere on the Buffalo (NPS fees page).",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/steel-creek-campground.htm",
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddle-steel-creek-to-kyles-landing.htm",
+        "https://www.recreation.gov/camping/campgrounds/10001451",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
     },
     {
-      "name": "Kyle's Landing",
-      "type": "access",
-      "lat": 36.055741,
-      "lon": -93.280731,
-      "ownership": "National Park Service (Buffalo National River)",
-      "section": "upper-ponca-pruitt",
-      "notes": "common upper take-out",
-      "source": "https://www.buffaloriver.com/float-the-buffalo/ponca-to-kyles-landing/",
-      "riverMile": 16.7,
+      "name": "Kyles Landing",
+      "slug": "kyles-landing",
+      "type": "campground",
+      "types": [
+        "campground",
+        "gravel_bar"
+      ],
+      "lat": 36.05702,
+      "lon": -93.27927,
+      "ownership": "NPS",
       "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use and launching free. Camping $20/night Mar 15-Nov 14 (reservations via Recreation.gov beginning Sept 1, 2026); free winter primitive camping.",
+      "riverMile": 16.7,
+      "description": "NPS tent campground and gravel-bar access in the Ponca Wilderness, the standard take-out for the Ponca/Steel Creek floats and put-in for the quieter 5.7-mile run to Erbie. Reached by one of the park's roughest access roads. Very busy on spring weekends.",
+      "parkingInfo": "Lot at the landing; since March 2023 no parking is allowed anywhere along Kyles Landing Road (CR 56) to keep it open for emergency vehicles — NPS suggests weekday trips and carpooling.",
+      "roadAccess": "From AR 74 west of Jasper via Kyles Landing Road (County Road 56): a steep, rough, ~3-mile gravel descent. NPS recommends high-clearance, 4-wheel-drive vehicles.",
+      "facilities": "33 tent-only sites (RVs, trailers, and camper vans prohibited); seasonal flush restrooms and water, vault toilet in winter; no showers. Gravel-bar launch and Buffalo River Trail trailhead.",
       "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
-      "description": "NPS-managed access and tent campground on the upper Buffalo National River between Ponca and Jasper, a common take-out for the upper (Ponca/Steel Creek) float. Offers 33 tent-only sites (no RVs) with seasonal flush restrooms and water; reached by a steep, rough gravel road.",
-      "roadAccess": "Off AR Highway 74; a steep, rough ~3-mile gravel access road, high-clearance/4WD vehicles recommended.",
-      "facilities": "33 tent-only sites (RVs/motorhomes prohibited); flush restrooms and water (approx. mid-March to mid-November); first-come, first-served.",
-      "feeRequired": true,
-      "coordinateSource": "OpenStreetMap node 4173015846 (tourism=camp_site, operator=NPS, 'Kyle's Landing'); corroborated by Recreation.gov POI 258693 / campflare (36.0558, -93.2808) and allstays (36.05576, -93.28130)",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 4173015866 ~42 m; Recreation.gov facility 258693 (campground, 36.055772,-93.280747)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Name updated from \"Kyle's Landing\" to NPS spelling \"Kyles Landing\". Roadside parking ban along CR 56 (2023) is worth surfacing to users.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddle-kyles-landing-to-erbie.htm",
+        "https://www.recreation.gov/camping/campgrounds/258693",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/4173015866"
+      ]
+    },
+    {
+      "name": "Erbie",
+      "slug": "erbie",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 36.07098,
+      "lon": -93.21229,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use free. Camping $20/night individual, $50/night group Mar 15-Nov 14; free winter primitive camping.",
+      "riverMile": 22.3,
+      "description": "Campground and river access in the Erbie historic district (Parker-Hickman Farmstead nearby), between Kyles Landing and Ozark. The take-out is on river right about a mile below the concrete Erbie Ford vehicle crossing. Gateway to a serene 5.4-mile float down to Ozark.",
+      "parkingInfo": "Parking at the boat launch and campground.",
+      "roadAccess": "About 6 miles down the gravel Erbie Campground Road from AR 7 north of Jasper; a rougher unpaved road also comes in from the Compton side. NPS announced road improvements for Erbie in recent years.",
+      "facilities": "Boat launch area with picnic tables, vault toilet, and an emergency phone. Adjacent campground: 14 drive-in (RV-suitable), 13 walk-in, and 5 group sites; seasonal water and flush restrooms; vault toilet in winter.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544131631 ('Erbie River Access Point') ~8 m; Recreation.gov facility 10341416",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddle-erbie-to-ozark.htm",
+        "https://www.nps.gov/thingstodo/paddle-kyles-landing-to-erbie.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.recreation.gov/camping/campgrounds/10341416"
+      ]
+    },
+    {
+      "name": "Ozark",
+      "slug": "ozark",
+      "type": "campground",
+      "types": [
+        "campground",
+        "gravel_bar"
+      ],
+      "lat": 36.06481,
+      "lon": -93.1592,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use free. Camping $20/night Mar 15-Nov 14 (Recreation.gov reservations in season); free winter primitive camping.",
+      "riverMile": 27.8,
+      "description": "Campground and sandy-beach access on river right, the common put-in for the short 2.1-mile Ozark-to-Pruitt day float and take-out for the Erbie run. The campground sits just uphill from the launch beach.",
+      "parkingInfo": "Parking at the campground/day-use area above the beach.",
+      "roadAccess": "3 miles down a graded gravel road off AR 7 north of Jasper.",
+      "facilities": "33-site campground (some sites RV-suitable, no hookups) with seasonal water and flush restrooms, vault toilet in winter; no showers. Sandy-beach launch below the campground; popular swimming hole.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544145206 ('Ozark River Access Point', surface=sand) ~40 m; Recreation.gov facility 233120",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://home.nps.gov/thingstodo/paddle-ozark-to-pruitt.htm",
+        "https://www.nps.gov/thingstodo/paddle-erbie-to-ozark.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.recreation.gov/camping/campgrounds/233120"
+      ]
+    },
+    {
+      "name": "Pruitt",
+      "slug": "pruitt",
+      "type": "access",
+      "types": [
+        "access"
+      ],
+      "lat": 36.05735,
+      "lon": -93.1359,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 29.9,
+      "description": "Highway 7 access at Pruitt, take-out for the Ozark run and put-in for the 6.8-mile float to Hasty. The landing sits about a half mile downstream of the Hwy 7 bridge on river left, near the Pruitt Ranger Station and the mouth of the Little Buffalo River.",
+      "parkingInfo": "Day-use parking at the landing.",
+      "roadAccess": "Off AR 7 at Pruitt, about 6 miles north of Jasper; the landing (Lower Pruitt Landing) is roughly half a river mile below the Highway 7 bridge on river left, with a short spur road to the water.",
+      "facilities": "Day-use gravel landing with picnic area and restroom at the lower launch; Pruitt Ranger Station nearby on AR 7. No camping at the landing.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544103595 ('Pruitt Landing River Access Point', surface=gravel) ~24 m",
+      "coordinateConfidence": "official",
+      "coordinateNote": "The AR 7 bridge was replaced/demolished in recent years with temporary area closures — worth a live-conditions check before publishing directions.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://home.nps.gov/thingstodo/paddle-ozark-to-pruitt.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544103595"
+      ]
+    },
+    {
+      "name": "Hasty",
+      "slug": "hasty",
+      "type": "access",
+      "types": [
+        "access",
+        "gravel_bar"
+      ],
+      "lat": 36.00831,
+      "lon": -93.08184,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 36.7,
+      "description": "Low-key sandy/gravel-bank access between Pruitt and Carver, put-in for the easy 4.2-mile float to Carver past the locally famous Blue Hole swimming spot. No developed facilities.",
+      "parkingInfo": "Informal parking at the access.",
+      "roadAccess": "On Hasty Cutoff Road between Jasper and the community of Hasty (off AR 74/123); short gravel approach to the bank.",
+      "facilities": "Undeveloped launch — NPS: 'slide your boat into the water from the sandy bank at Hasty.' No toilets or water documented. Primitive gravel-bar camping exists downstream near Blue Hole.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544150004 ('Hasty River Access Point', surface=gravel) ~43 m",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddle-hasty-to-carver.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544150004"
+      ]
+    },
+    {
+      "name": "Carver",
+      "slug": "carver",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 35.98307,
+      "lon": -93.04152,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use free. Camping $16/night Mar 15-Nov 14 (Recreation.gov reservations in season); free winter primitive camping.",
+      "riverMile": 40.9,
+      "description": "Small campground and gravel access at the Highway 123 bridge, a frequent take-out for middle-river day floats and put-in for the remote 6.8-mile run to Mt. Hersey. The USGS 'Buffalo River at Carver' gauge (07055780) is at this access.",
+      "parkingInfo": "Parking at the campground/access.",
+      "roadAccess": "At the AR 123 bridge ('Big Bridge') between Hasty and Mount Judea; the access is just downstream of the bridge on river left, with paved highway approach.",
+      "facilities": "8 tent-only campsites with vault toilet and seasonal drinking water; no flush restrooms or showers. Gravel launch; popular swimming and fishing area where Big Creek enters the Buffalo.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer, snaps 1 m to river); OSM slipway node 12544127385 ~82 m; Recreation.gov facility 10378448 (35.984167,-93.041603)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddle-hasty-to-carver.htm",
+        "https://www.recreation.gov/camping/campgrounds/10378448",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
+    },
+    {
+      "name": "Mt. Hersey",
+      "slug": "mt-hersey",
+      "type": "access",
+      "types": [
+        "access",
+        "campground"
+      ],
+      "lat": 36.00909,
+      "lon": -92.95306,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Free primitive camping, first-come first-served.",
+      "riverMile": 47.7,
+      "description": "Remote gravel access and free primitive camping area between Carver and Woolum. Put-in for the scenic 8.6-mile float past The Narrows and Skull Bluff to Woolum. One of the quietest vehicle accesses on the middle river.",
+      "parkingInfo": "Informal parking at the access.",
+      "roadAccess": "6 miles of sometimes-rough gravel road from US 65 between Pindall and Western Grove.",
+      "facilities": "Primitive, free camping area with no designated sites; vault toilet; no drinking water or trash service. Gravel launch (no ramp).",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544153003 ('Mt Hersey River Access Point') ~5 m",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Some third-party sources describe the road as requiring care after rain; NPS calls it 'sometimes rough gravel road' — no official high-clearance requirement found.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddling-mt-hersey-to-woolum.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544153003"
+      ]
+    },
+    {
+      "name": "Woolum",
+      "slug": "woolum",
+      "type": "access",
+      "types": [
+        "access",
+        "campground"
+      ],
+      "lat": 35.97041,
+      "lon": -92.88599,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Free primitive camping, first-come first-served.",
+      "riverMile": 56.3,
+      "description": "Gravel access and free primitive camp at the mouth of Richland Creek, take-out for the Mt. Hersey run and put-in for the 10.9-mile float to Baker Ford. The river below Woolum is a losing stream that can run dry in low water — check Tyler Bend Visitor Center before floating this reach.",
+      "parkingInfo": "Gravel parking area (also serves Buffalo River Trail / Ozark Highlands Trail hikers).",
+      "roadAccess": "7 miles from US 65 at St. Joe — the first 4 miles paved, the last 3 graded gravel. The access is on river left at the Richland Creek confluence; continuing beyond Woolum requires fording Richland Creek (impassable at high water).",
+      "facilities": "Free primitive campground with vault toilet; no drinking water or trash service; horse camping permitted. Gravel launch at the Richland Creek confluence.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544283497 ('Woolum River Access Point') ~68 m and OSM camp_site node 12157704581",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddling-woolum-to-baker-ford.htm",
+        "https://www.nps.gov/thingstodo/paddling-mt-hersey-to-woolum.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
+    },
+    {
+      "name": "Baker Ford",
+      "slug": "baker-ford",
+      "type": "access",
+      "types": [
+        "access"
+      ],
+      "lat": 35.98083,
+      "lon": -92.81361,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 67.2,
+      "description": "Quiet ford access on river left between Woolum and Tyler Bend, take-out for the 10.9-mile Woolum float and put-in for the short 4.3-mile run to Tyler Bend. The reach upstream is a losing stream that can be dry at low water.",
+      "parkingInfo": "Informal parking at the access.",
+      "roadAccess": "Via county roads west from US 65 (roughly half of the 11-mile shuttle from Woolum is gravel); the access is on river left.",
+      "facilities": "Undeveloped ford/gravel access; no toilets, water, or designated camping documented.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544334808 ('Baker Ford Access Point') ~12 m",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Exact county-road routing (from US 65 near St. Joe/Snowball side) not confirmed from an official source; road surface inferred from the NPS shuttle description ('about half is gravel road').",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddling-woolum-to-baker-ford.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544334808"
+      ]
+    },
+    {
+      "name": "Tyler Bend",
+      "slug": "tyler-bend",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 35.99011,
+      "lon": -92.76543,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use free. Camping $20/night individual, $50 group Mar 15-Nov 14 (Recreation.gov); free Nov 15-Mar 14 (group/walk-in areas closed in winter).",
+      "riverMile": 71.5,
+      "description": "The main developed access of the middle Buffalo, with the park's visitor center, a full-service campground, and upper and lower gravel launches. Common overnight base for Baker Ford-to-Gilbert floats; the St. Joe USGS gauge (07056000) used for middle-river float levels is nearby.",
+      "parkingInfo": "Paved lots at the visitor center, campground, and river access.",
+      "roadAccess": "2 miles off US 65 about 6 miles south of St. Joe on a paved park road; the Tyler Bend Visitor Center is at the entrance area.",
+      "facilities": "Middle-district hub: visitor center, 27 drive-in + 10 walk-in + 5 group sites; water, hot showers, and flush restrooms year-round; seasonal dump station; no hookups. Two gravel launch lanes (upper and lower) — no concrete boat ramp.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/tyler-bend-campground.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); sits between OSM 'Tyler Bend River Access Point Upper' (12140706379) and 'Lower' (12544336091) gravel slipways; NPS campground page GPS 35.9867152,-92.7639029; Recreation.gov facility 233119",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Verified launch type: both launches are gravel (OSM surface=gravel; NPS notes no ADA ramps park-wide) — NOT classified boat_ramp despite being a 'developed' access.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/tyler-bend-campground.htm",
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.recreation.gov/camping/campgrounds/233119",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12140706379"
+      ]
+    },
+    {
+      "name": "Grinders Ferry",
+      "slug": "grinders-ferry",
+      "type": "gravel_bar",
+      "types": [
+        "gravel_bar",
+        "campground"
+      ],
+      "lat": 35.9848,
+      "lon": -92.74454,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Free primitive gravel-bar camping.",
+      "riverMile": 72.6,
+      "description": "Busy Highway 65 gravel-bar access next door to Tyler Bend, the main put-in for the popular 4.3-mile float to Gilbert past Shine Eye Bluff. NPS float-level charts key the middle district to 'Grinder's Ferry/Highway 65'.",
+      "parkingInfo": "Parking on the gravel bar; the river floods it regularly, so surfaces can be soft — park at your own risk.",
+      "roadAccess": "At the US 65 bridge over the Buffalo, just downhill from the Tyler Bend entrance. Vehicles may drive onto the large gravel bar at their own risk.",
+      "facilities": "Large sand/gravel bar launch with free primitive camping; vault toilet; no water or trash service. Can be crowded on holiday weekends.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544334438 ('Grinders Ferry River Access Point') ~25 m",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://home.nps.gov/thingstodo/grinder-s-ferry-to-gilbert.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544334438"
+      ]
+    },
+    {
+      "name": "Gilbert",
+      "slug": "gilbert",
+      "type": "access",
+      "types": [
+        "access",
+        "gravel_bar"
+      ],
+      "lat": 35.98656,
+      "lon": -92.71494,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Free primitive gravel-bar camping.",
+      "riverMile": 76.9,
+      "description": "Village access and outfitter hub on river left at Gilbert, take-out for the Grinders Ferry float and put-in for the long 11.6-mile pool-and-riffle run to Maumee. One of the few accesses with a store nearby; year-round floating usually possible from here down.",
+      "parkingInfo": "Park on the gravel bar upstream of the access road, at your own risk (regularly flooded).",
+      "roadAccess": "Paved AR 333 ends at a T intersection in Gilbert; the river access is to the right past the old general store. The gravel road onto the bar can be rough with deep sandy areas.",
+      "facilities": "Gravel-bar launch with free primitive camping downstream of the access road; vault toilet; no water. Gilbert General Store (est. 1901) and a canoe outfitter are in the village a short walk away.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544344086 ('Gilbert River Access Point') ~17 m",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddling-gilbert-to-south-maumee.htm",
+        "https://home.nps.gov/thingstodo/grinder-s-ferry-to-gilbert.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
+    },
+    {
+      "name": "North Maumee",
+      "slug": "north-maumee",
+      "type": "access",
+      "types": [
+        "access",
+        "gravel_bar"
+      ],
+      "lat": 36.03485,
+      "lon": -92.62939,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 88.5,
+      "description": "North-bank gravel access at the Maumee bend, half a mile upstream of South Maumee. Put-in for the 4.7-mile float to Spring Creek and a take-out for the long run down from Gilbert. Day-use only.",
+      "parkingInfo": "Informal parking at the access.",
+      "roadAccess": "About 6 miles by county road from AR 14 near the community of Mull (north side of the river).",
+      "facilities": "Launch access only — no camping facilities, toilets, or water.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer, 'Maumee North'); OSM slipway node 12544342542 ~17 m",
+      "coordinateConfidence": "official",
+      "coordinateNote": "NPS GIS names it 'Maumee North'; the mileage chart uses 'North Maumee'. Chart order (N 88.5, S 89.0) matches the NPS paddling article ('North Maumee access is 1/2 mile upstream' of South Maumee).",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddling-north-maumee-to-spring-creek.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544342542"
+      ]
+    },
+    {
+      "name": "South Maumee",
+      "slug": "south-maumee",
+      "type": "access",
+      "types": [
+        "access",
+        "campground"
+      ],
+      "lat": 36.0395,
+      "lon": -92.63657,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Free primitive camping, first-come first-served.",
+      "riverMile": 89.0,
+      "description": "South-bank access and small primitive camp at the Maumee bend, on river right half a mile below North Maumee. Take-out for the 12.1-mile Gilbert float; long pools and gentle riffles characterize this lower-middle reach.",
+      "parkingInfo": "Parking at the camping area; no drive-on access to the gravel bar.",
+      "roadAccess": "Via gravel county roads from the south (AR 27 near Morning Star / AR 14 side); about 7 of the shuttle miles from Gilbert are gravel.",
+      "facilities": "6 designated free primitive campsites with vault toilet; no water or trash service. Gravel launch; vehicles may not drive onto the bar.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer, 'Maumee South'); OSM slipway node 12544347926 ~58 m",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddling-gilbert-to-south-maumee.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544347926"
+      ]
+    },
+    {
+      "name": "Spring Creek",
+      "slug": "spring-creek",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 36.0299,
+      "lon": -92.5844,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Camping free year-round, first-come first-served.",
+      "riverMile": 93.7,
+      "description": "Free lower-river campground and hand-carry access between South Maumee and Dillards Ferry. Take-out for the 4.7-mile Maumee float and put-in for the 4.6-mile run to the Highway 14 bridge, which passes the narrow Tie Chute about a mile above Dillards Ferry.",
+      "parkingInfo": "Parking at the campground; boats must be hand-carried from the lot to the water.",
+      "roadAccess": "About 3 miles from AR 14 near Harriet (Searcy County) via gravel road.",
+      "facilities": "12 free tent sites with vault toilet; no drinking water or showers. NPS: 'Spring Creek Landing has been closed to vehicle-assisted launches' — watercraft may still be put in/taken out but must be hand carried.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544348086 ('Spring Creek Access Point') ~83 m toward the water",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Vehicle-assisted launching prohibited (NPS camping page) — the planner should not suggest trailer launches here.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddling-spring-creek-to-dillards-ferry.htm",
+        "https://www.nps.gov/thingstodo/paddling-north-maumee-to-spring-creek.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
+    },
+    {
+      "name": "Dillards Ferry",
+      "slug": "dillards-ferry",
+      "type": "access",
+      "types": [
+        "access",
+        "bridge"
+      ],
+      "lat": 36.06681,
+      "lon": -92.57806,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 98.3,
+      "description": "The Highway 14 bridge access, hub of the lower river and reference point for NPS lower-district float levels ('Dillard's Ferry/Highway 14'). Currently the NPS-recommended launch in the Buffalo Point area while the Buffalo Point launch road is closed — Buffalo Point is 1.4 miles downstream, Rush 8.9.",
+      "parkingInfo": "Parking area beside the bridge with a small picnic area and canoe landing.",
+      "roadAccess": "At the AR 14 bridge over the Buffalo between the communities of Mull and Harriet; paved highway directly to the access.",
+      "facilities": "Gravel launch beside the Highway 14 bridge with parking and small picnic area; minimal facilities, no drinking water. Informal primitive camping occurs on nearby gravel bars.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544348090 ('Dillards Ferry River Access Point', surface=gravel) ~29 m",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Toilet presence at the access unverified from official sources — flagged for human check.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddling-dillards-ferry-to-rush-landing.htm",
+        "https://www.nps.gov/thingstodo/paddling-spring-creek-to-dillards-ferry.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
+    },
+    {
+      "name": "Buffalo Point",
+      "slug": "buffalo-point",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 36.06935,
+      "lon": -92.55479,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use free. Camping $30/night drive-in, $20 walk-in, $50 group, pavilions $50/day (Mar 15-Nov 14); Loop B free primitive camping in winter.",
+      "riverMile": 99.7,
+      "description": "The lower river's developed hub — full-amenity campground, ranger station, and Indian Rockhouse trails — 1.4 miles below Dillards Ferry. NPS currently recommends launching/taking out at Dillards Ferry instead because the Buffalo Point launch road is closed and the bank is a steep gravel-bar carry.",
+      "parkingInfo": "Paved lots in the developed area; launch-road closure means a steep carry between the lot and the water.",
+      "roadAccess": "Via paved AR 268 off AR 14, about 3 miles to the developed area (ranger station). The road down to the river launch is CLOSED — boats and gear must be carried across a steep gravel bar between the river and the parking lot.",
+      "facilities": "Largest developed campground on the river: 80+ drive-in sites with water and 30/50-amp electric hookups, 21 walk-in tent sites, 5 group sites, 3 pavilions; hot showers, flush restrooms, seasonal dump station; ranger station and cabins/restaurant concession nearby. River launch is currently a gravel-bar carry (no usable ramp while the launch road is closed).",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/buffalo-point-campground.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544318632 ('Buffalo Point River Access Point', surface=gravel) ~20 m; Recreation.gov facility 234043 (campground area 36.085365,-92.565655)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Launch road closure is current per the NPS mileage page (fetched 2026-07); re-check periodically. Not classified boat_ramp: launch is gravel and currently carry-only.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/buffalo-point-campground.htm",
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.recreation.gov/camping/campgrounds/234043",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0"
+      ]
+    },
+    {
+      "name": "Rush",
+      "slug": "rush",
+      "type": "access",
+      "types": [
+        "access",
+        "campground"
+      ],
+      "lat": 36.12429,
+      "lon": -92.54892,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Day use free. Camping $16/night Mar 15-Nov 14 (Recreation.gov reservations in season); free winter primitive camping.",
+      "riverMile": 107.2,
+      "description": "Gateway to the Lower Buffalo Wilderness and the last vehicle access on the Buffalo — the next take-out is 24.2 miles downstream at Buffalo City on the White River. Clabber Creek Shoals, a quarter mile below the landing, is the notable rapid (portage possible on river left).",
+      "parkingInfo": "Parking at the landing; overnight vehicles common for Lower Wilderness floats.",
+      "roadAccess": "From AR 14 near Caney, about 5.5 miles down Rush Road (CR 6035) through the Rush Historic District — asphalt most of the way, gravel on the final stretch to the landing. The campground entrance crosses Rush Creek and may be inaccessible during high water.",
+      "facilities": "Rush Landing gravel launch; 12-site tent-only campground just upstream with vault toilet and seasonal water spigot (no launch at the campground itself). Rush Historic District 1880s zinc-mining ghost town adjacent.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0 (NPS BUFF_River_Accesses layer); OSM slipway node 12544392404 ('Rush Landing River Access Point') ~3 m; Recreation.gov facility 10378435 (campground 36.126224,-92.552195)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Road surface verified via OSM: Rush Rd (CR 6035) tagged asphalt for the main descent, gravel for the last segment.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://www.nps.gov/thingstodo/paddling-rush-landing-to-the-white-river.htm",
+        "https://www.nps.gov/thingstodo/paddling-dillards-ferry-to-rush-landing.htm",
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/BUFF_River_Accesses/FeatureServer/0",
+        "https://www.openstreetmap.org/node/12544392404"
+      ]
+    },
+    {
+      "name": "Buffalo City",
+      "slug": "buffalo-city",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 36.164575,
+      "lon": -92.440257,
+      "ownership": "AGFC (public access; ownership unverified)",
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 131.4,
+      "description": "The traditional final take-out for the Buffalo, listed at mile 131.4 on the NPS mileage chart but located outside the park at the White River confluence. The last leg is on the White River, whose cold, swift dam-release flows demand caution in small craft; NPS also notes Shipps Ferry, 6 miles further down the White, as an alternative take-out. Boat rentals, camping, and cabins are available in the Buffalo City community.",
+      "parkingInfo": "Vehicle and trailer parking on site with marked trailer spaces.",
+      "roadAccess": "At the end of paved AR 126 at Buffalo City (Baxter County), on the west bank of the White River just downstream of the Buffalo's mouth.",
+      "facilities": "Concrete public launch ramp on the White River with trailer parking. The take-out for Buffalo floats: paddle past the confluence and about 0.7 mile down the White to the ramp on the left (west) bank. Ramp can flood during high White River releases from Bull Shoals Dam.",
+      "coordinateSource": "OSM slipway node 12544893837 (surface=concrete) and node 12544343667 ('Buffalo City River Access Point', surface=paved), west bank of the White River ~0.7 mi below the Buffalo confluence; corrected from the NPS BUFF_River_Accesses layer point (36.170235,-92.438392) which sits in the Buffalo City community ~640 m NNE of the ramp",
       "coordinateConfidence": "high",
-      "coordinateNote": "Three independent sources agree to under 50m. Lies just east of the -93.30 guide bound, which is consistent with river mile 16.7 (downstream/east of Ponca and Steel Creek)."
+      "coordinateNote": "COORDINATE CORRECTED: old pin (36.170240,-92.438390, from the NPS GIS layer) was the community/rail area 796 m off the river line; new pin is the concrete ramp per OSM. HUMAN REVIEW: confirm ramp ownership (AGFC vs county/private — listed as 'Buffalo City Public Water Access' on boat-ramp directories) and confirm the ramp is the canonical take-out spot. managing_agency left null because AGFC is not in the allowed enum.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/river-accesses-mileage.htm",
+        "https://www.nps.gov/thingstodo/paddling-rush-landing-to-the-white-river.htm",
+        "https://www.openstreetmap.org/node/12544893837",
+        "https://www.openstreetmap.org/node/12544343667",
+        "https://www.boatlaunchmap.com/ramps/buffalo-city-buffalo-city-arkansas-boat-launch-21683"
+      ]
+    },
+    {
+      "name": "Shine Eye",
+      "slug": "shine-eye",
+      "type": "gravel_bar",
+      "types": [
+        "gravel_bar",
+        "campground"
+      ],
+      "lat": 35.987979,
+      "lon": -92.734507,
+      "ownership": "NPS",
+      "managingAgency": "NPS",
+      "isPublic": true,
+      "feeRequired": false,
+      "feeNotes": "Free primitive camping.",
+      "riverMile": 73.3,
+      "description": "NPS primitive camping gravel bar on river left about half a mile below Grinders Ferry, opposite Shine Eye Bluff. A popular overnight or swim stop on the Grinders Ferry-to-Gilbert float; walk-in or float-in only, so it is a camp/stop rather than a vehicle launch.",
+      "parkingInfo": "Small parking where the gravel road ends; no drive-on access to the bar.",
+      "roadAccess": "Short gravel detour off US 65 south of the Grinders Ferry bridge where the Buffalo River Trail crosses; per the current NPS camping page the site is walk-in or float-in only.",
+      "facilities": "Large sand and gravel bar with 1 designated free primitive campsite; vault toilet open year-round (limited service); no water or trash service.",
+      "officialSiteUrl": "https://www.nps.gov/buff/planyourvisit/camping.htm",
+      "coordinateSource": "thedyrt.com/camping/arkansas/buffalo-national-river-shine-eye-gravel-bar and campingroadtrip.com listing (35.987979,-92.734507); consistent with NPS description of a large sand/gravel bar on river left ~0.5 mile downstream of Grinders Ferry, opposite Shine Eye Bluff",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "NOT on the official NPS access/mileage chart — listed on the NPS camping page as a primitive camping area. guide_mile estimated (72.6 + ~0.7). Coordinate is from campground directories (single-lineage source): medium confidence, keep pending for human pin check. Add mainly as an overnight-stop POI, not a put-in.",
+      "sources": [
+        "https://www.nps.gov/buff/planyourvisit/camping.htm",
+        "https://home.nps.gov/thingstodo/grinder-s-ferry-to-gilbert.htm",
+        "https://thedyrt.com/camping/arkansas/buffalo-national-river-shine-eye-gravel-bar"
+      ]
     }
   ],
   "weatherPoint": {
@@ -629,20 +1270,21 @@
       "https://waterdata.usgs.gov/monitoring-location/USGS-07057000/"
     ],
     "openQuestions": [
-      "Threshold calibration DONE in cfs from NPS tables (dashboard-validated). Remaining calibration judgment: the good/flowing split within NPS 'Moderate' is best-effort \u2014 refine with local/outfitter knowledge.",
+      "Threshold calibration DONE in cfs from NPS tables (dashboard-validated). Remaining calibration judgment: the good/flowing split within NPS 'Moderate' is best-effort — refine with local/outfitter knowledge.",
       "Does the lower reach warrant its own river_type (flatwater) vs. the river-wide rain_flashy default? Flagged for the pilot to answer.",
       "Exact reach boundaries / mileages and per-reach float times for Middle and Lower.",
       "Rain-to-rise lag and drop-rate per reach.",
       "Arkansas stream-access / navigability law (once-per-state research)."
     ],
     "toVerify": [
-      "NHD Permanent Identifier for the Buffalo River flowline (UNKNOWN \u2014 National Map host policy-blocked at draft time; see scripts/config/nhd-rivers.json $buffalo_nhd_todo for the fill recipe; long multi-segment main stem may need the seed-file geometry path)",
-      "Gauge coordinates + drainage areas \u2014 DONE 2026-07-07: backfilled for all 7 gauges from the USGS site service (siteOutput=expanded), owner-provided. Carver 07055780 and D.S.-of-Carver 07055820 have no published drainage area (left null). Poll param 00060 (discharge) set \u2014 matches the cfs calibration; gage height (00065) availability NOT confirmed (only the site file, not seriesCatalog, was provided) \u2014 confirm if a stage badge is ever wanted.",
+      "NHD Permanent Identifier for the Buffalo River flowline (UNKNOWN — National Map host policy-blocked at draft time; see scripts/config/nhd-rivers.json $buffalo_nhd_todo for the fill recipe; long multi-segment main stem may need the seed-file geometry path)",
+      "Gauge coordinates + drainage areas — DONE 2026-07-07: backfilled for all 7 gauges from the USGS site service (siteOutput=expanded), owner-provided. Carver 07055780 and D.S.-of-Carver 07055820 have no published drainage area (left null). Poll param 00060 (discharge) set — matches the cfs calibration; gage height (00065) availability NOT confirmed (only the site file, not seriesCatalog, was provided) — confirm if a stage badge is ever wanted.",
       "Numeric floatable ranges cross-check (thresholds already calibrated from NPS tables): wildbillsoutfitter.com/floating-levels-guides, the ArcGIS float dashboard (3606e2401fdd428cbbdff9518cbe11af), wise.er.usgs.gov/dp/buffaloriver, ar.water.usgs.gov/buffaloriver, bnrpartners.org/riverlevels",
-      "Full NPS access-point list with coordinates (put-ins/take-outs per district) \u2014 human places every point on the map"
+      "Full NPS access-point list with coordinates (put-ins/take-outs per district) — human places every point on the map"
     ],
     "verified": [
-      "NPS park code 'buff' \u2014 confirmed via nps.gov/buff, parkplanning.nps.gov/buff, and the NPS API pattern developer.nps.gov/api/v1/parks?parkCode=buff (WebSearch, 2026-07-04)"
+      "NPS park code 'buff' — confirmed via nps.gov/buff, parkplanning.nps.gov/buff, and the NPS API pattern developer.nps.gov/api/v1/parks?parkCode=buff (WebSearch, 2026-07-04)"
     ]
-  }
+  },
+  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed."
 }

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
-import { publishConditionChangeAlert, isElevatedCrossing, publishStormDigest } from '@/lib/social/condition-alerts';
+import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
 import { toNum } from '@/lib/utils/num';
 
@@ -20,10 +20,6 @@ export const maxDuration = 60;
 
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
-
-// When >= this many rivers cross into elevated water in one cron pass, publish a
-// single storm digest instead of a barrage of individual warnings.
-const STORM_THRESHOLD = 3;
 
 // Cap on awaited event-driven Eddy regenerations per cron pass. Each river can
 // mean several sequential Sonnet calls (one per section), so this keeps the
@@ -143,7 +139,7 @@ async function runUpdate(request: NextRequest) {
       }
     }
 
-    // Update database and calculate rate of change
+    // Counters (declared up front so both stages can bump them)
     let updated = 0;
     let errors = 0;
     let highFrequencyFlagsSet = 0;
@@ -167,39 +163,90 @@ async function runUpdate(request: NextRequest) {
       }
     };
 
+    // ── Stage 1: land EVERY reading in one batch upsert ─────────────
+    // The old per-reading loop did ~4 sequential DB roundtrips × ~250
+    // readings — far past maxDuration — so Vercel killed the run mid-loop
+    // every hour: only the first ~40% of readings persisted, and the NWS
+    // group (appended after all USGS readings) never persisted at all.
+    // Persisting everything first makes ingestion immune to enrichment cost.
+    const stationBySiteId = new Map(stations.map((s) => [s.siteId, s]));
+    type BatchEntry = { reading: GaugeReading; station: (typeof stations)[number] };
+    // Postgres rejects two rows with the same conflict key in one
+    // INSERT .. ON CONFLICT statement — dedupe on the key, last wins.
+    const entryByKey = new Map<string, BatchEntry>();
     for (const reading of readings) {
-      const station = stations.find(s => s.siteId === reading.siteId);
+      const station = stationBySiteId.get(reading.siteId);
       if (!station) continue;
-
       if (!reading.readingTimestamp) {
         console.warn(`No timestamp for gauge ${reading.siteId}`);
         continue;
       }
-
-      // Insert or update reading
-      const { error: insertError } = await supabase
+      entryByKey.set(`${station.id}|${reading.readingTimestamp}`, { reading, station });
+    }
+    const entries = Array.from(entryByKey.values());
+    const fetchedAt = new Date().toISOString();
+    const UPSERT_CHUNK = 500;
+    for (let i = 0; i < entries.length; i += UPSERT_CHUNK) {
+      const chunk = entries.slice(i, i + UPSERT_CHUNK);
+      const { error: upsertError } = await supabase
         .from('gauge_readings')
         .upsert(
-          {
+          chunk.map(({ reading, station }) => ({
             gauge_station_id: station.id,
             reading_timestamp: reading.readingTimestamp,
             gauge_height_ft: reading.gaugeHeightFt,
             discharge_cfs: reading.dischargeCfs,
             qualifiers: reading.qualifiers?.length ? reading.qualifiers : null,
-            fetched_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'gauge_station_id,reading_timestamp',
-          }
+            fetched_at: fetchedAt,
+          })),
+          { onConflict: 'gauge_station_id,reading_timestamp' }
         );
-
-      if (insertError) {
-        console.error(`Error updating gauge ${reading.siteId}:`, insertError);
-        errors++;
-        continue;
+      if (upsertError) {
+        console.error(`[update-gauges] Batch upsert failed (${chunk.length} rows):`, upsertError.message);
+        errors += chunk.length;
+      } else {
+        updated += chunk.length;
       }
+    }
 
-      updated++;
+    // ── Stage 2: enrichment, scoped to river-wired stations ─────────
+    // Flatline detection, rate-of-change / high-frequency flags, and
+    // condition-change alerts only matter for gauges wired to a river via
+    // river_gauges — everything user-facing joins through it. Running them
+    // for all ~275 stations is what made the old loop unbounded.
+    const { data: wiredData, error: wiredError } = await supabase
+      .from('river_gauges')
+      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)');
+    if (wiredError) {
+      console.error('[update-gauges] river_gauges prefetch failed:', wiredError.message);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wiredByStation = new Map<string, any[]>();
+    for (const rg of wiredData || []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stationId = (rg as any).gauge_station_id as string;
+      const group = wiredByStation.get(stationId) || [];
+      group.push(rg);
+      wiredByStation.set(stationId, group);
+    }
+
+    // Even scoped, enrichment runs under a time budget: readings are already
+    // safe in the DB, so skipping the tail of the checks always beats letting
+    // Vercel kill the run before the awaited alerts/regens publish.
+    const ENRICH_BUDGET_MS = 30_000;
+    const enrichStart = Date.now();
+    let enrichmentSkipped = 0;
+    const wiredEntries = entries.filter(({ station }) => wiredByStation.has(station.id));
+
+    for (const [index, { reading, station }] of wiredEntries.entries()) {
+      if (Date.now() - enrichStart > ENRICH_BUDGET_MS) {
+        enrichmentSkipped = wiredEntries.length - index;
+        console.warn(
+          `[update-gauges] Enrichment budget exhausted after ${index}/${wiredEntries.length} wired stations; ` +
+          'skipping the rest (readings already persisted)'
+        );
+        break;
+      }
 
       // Stuck-sensor / flatline detection: a sensor emitting the identical value across
       // many readings while timestamps advance is likely frozen, not genuinely steady.
@@ -257,24 +304,14 @@ async function runUpdate(request: NextRequest) {
             );
 
             // Rapid change detected — queue Eddy regeneration for affected
-            // rivers (awaited after the loop)
-            try {
-              const { data: affectedRivers } = await supabase
-                .from('river_gauges')
-                .select('rivers!inner(slug)')
-                .eq('gauge_station_id', station.id);
-
-              if (affectedRivers) {
-                for (const rawRg of affectedRivers) {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const riverSlug = (rawRg as any).rivers?.slug;
-                  if (riverSlug) {
-                    queueEddyRegen(riverSlug, 'rapid_change');
-                  }
-                }
+            // rivers (awaited after the loop; slugs come from the Stage-2
+            // river_gauges prefetch)
+            for (const rawRg of wiredByStation.get(station.id) || []) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const riverSlug = (rawRg as any).rivers?.slug;
+              if (riverSlug) {
+                queueEddyRegen(riverSlug, 'rapid_change');
               }
-            } catch (regenErr) {
-              console.error(`Rapid-change regen lookup error for station ${station.id}:`, regenErr);
             }
           }
         } else if (!isRapidChange && station.high_frequency_flag) {
@@ -295,13 +332,9 @@ async function runUpdate(request: NextRequest) {
       }
 
       // --- Condition change detection ---
-      // Look up river_gauges rows for this station to check for condition changes
+      // river_gauges rows for this station come from the Stage-2 prefetch
       try {
-        // Join to rivers to get slug for social posting
-        const { data: riverGauges } = await supabase
-          .from('river_gauges')
-          .select('id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)')
-          .eq('gauge_station_id', station.id);
+        const riverGauges = wiredByStation.get(station.id);
 
         if (riverGauges && riverGauges.length > 0) {
           for (const rawRg of riverGauges) {
@@ -309,6 +342,13 @@ async function runUpdate(request: NextRequest) {
             const rg = rawRg as any;
             const riverSlug: string | undefined = rg.rivers?.slug;
             if (!riverSlug) continue;
+            // Only the PRIMARY gauge drives a river's condition + alerts. A river
+            // with several gauges (e.g. the Meramec's upper/lower stations) would
+            // otherwise post a separate reel per gauge — often at conflicting
+            // states (one "high", another "dangerous"). The primary gauge is the
+            // one the whole app treats as the river's condition (loadGaugeContext,
+            // the river page). Readings for every gauge are still stored upstream.
+            if (!rg.is_primary) continue;
 
             const thresholds: ConditionThresholds = {
               levelTooLow: rg.level_too_low,
@@ -368,40 +408,15 @@ async function runUpdate(request: NextRequest) {
     }
 
     // ── Post-loop alert publishing (awaited) ────────────────────────
-    // Elevated crossings: dedupe by river (a river can have multiple gauges),
-    // keeping the most severe crossing. >= STORM_THRESHOLD rivers → one
-    // shareable storm digest; otherwise individual warnings. Other transitions
-    // (recoveries etc.) publish individually — publishConditionChangeAlert
-    // classifies and no-ops the non-notable ones.
+    // Elevated crossings run through publishElevatedCrossings, which dedupes per
+    // river (multiple gauges → one entry, most severe) and uses a rolling window
+    // to prefer ONE storm digest over a barrage of individual reels. Other
+    // transitions (recoveries etc.) publish individually — publishCondition
+    // ChangeAlert classifies and no-ops the non-notable ones.
     if (elevatedCrossings.length > 0) {
-      const bySlug = new Map<string, Transition>();
-      for (const c of elevatedCrossings) {
-        const prev = bySlug.get(c.riverSlug);
-        if (!prev || (c.newCondition === 'dangerous' && prev.newCondition !== 'dangerous')) {
-          bySlug.set(c.riverSlug, c);
-        }
-      }
-      const unique = Array.from(bySlug.values());
-
       try {
-        if (unique.length >= STORM_THRESHOLD) {
-          const digest = await publishStormDigest(
-            unique.map((c) => ({ riverSlug: c.riverSlug, newCondition: c.newCondition })),
-          );
-          // A second wave inside the digest's 2h cooldown still deserves
-          // per-river warnings — otherwise a dangerous crossing goes silent.
-          // (Individual alerts carry their own 4h per-river cooldown, so
-          // rivers already covered by the earlier digest won't double-post.)
-          if (digest.skipped && digest.reason === 'cooldown') {
-            for (const c of unique) {
-              await publishConditionChangeAlert(c);
-            }
-          }
-        } else {
-          for (const c of unique) {
-            await publishConditionChangeAlert(c);
-          }
-        }
+        const result = await publishElevatedCrossings(elevatedCrossings);
+        console.log(`[update-gauges] Elevated crossings (${elevatedCrossings.length}): ${result.mode}, published ${result.published}`);
       } catch (alertErr) {
         console.error('Elevated-crossing alert error:', alertErr);
       }
@@ -458,6 +473,8 @@ async function runUpdate(request: NextRequest) {
       highFrequencyFlagsCleared,
       conditionChanges,
       flatlined,
+      wiredStations: wiredEntries.length,
+      enrichmentSkipped,
       eddyRegensGenerated,
       eddyRegensSkipped,
       executionTime,

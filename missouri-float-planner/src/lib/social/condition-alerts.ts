@@ -5,9 +5,11 @@
 //   - 'warning'  — river crossed INTO elevated water (high / dangerous)
 //   - 'recovery' — river dropped back OUT of elevated water into a floatable
 //                  state (the "all-clear" the warning caption promises)
-// Plus a batched STORM DIGEST: when several rivers cross into elevated water in
-// the same cron pass, the cron posts ONE "rivers rising" digest instead of a
-// barrage (see publishStormDigest + the caller in update-gauges).
+// Plus a batched STORM DIGEST: publishElevatedCrossings watches a rolling window
+// and, once enough rivers have gone elevated (this pass + recent passes), posts
+// ONE "rivers rising" digest and suppresses individual reels for the rest of the
+// window — so a multi-hour storm produces one post, not a barrage. Multiple
+// gauges on the same river collapse to a single most-severe entry.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FacebookAdapter } from './facebook-adapter';
@@ -18,7 +20,7 @@ import {
   formatStormDigestCaption,
   getRiverName,
 } from './content-formatter';
-import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise } from '@shared/condition-copy';
+import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from '@shared/condition-copy';
 import { getOrCreateConfig } from './config-helpers';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform, PlatformAdapter } from './types';
@@ -36,7 +38,7 @@ const ELEVATED = new Set(['high', 'dangerous']);
 // a celebration, just a drought).
 const FLOATABLE = new Set(['flowing', 'good']);
 
-type AlertKind = 'warning' | 'recovery';
+type AlertKind = 'warning' | 'recovery' | 'easing';
 
 function isNotableTransition(oldCondition: string, newCondition: string): boolean {
   if (oldCondition === 'unknown') return false;     // don't alert on a first-ever reading
@@ -49,6 +51,15 @@ function isRecoveryTransition(oldCondition: string, newCondition: string): boole
   return ELEVATED.has(oldCondition) && FLOATABLE.has(newCondition);
 }
 
+// De-escalation while STILL elevated: a river dropping from dangerous back to
+// high. It's neither a crossing INTO elevated water (so it stays out of the
+// storm-digest batching) nor an all-clear (high isn't floatable) — it gets its
+// own "coming down, but still running high" notice so the dangerous alert's
+// story has a follow-up instead of going silent until the full all-clear.
+function isEasingTransition(oldCondition: string, newCondition: string): boolean {
+  return oldCondition === 'dangerous' && newCondition === 'high';
+}
+
 /** True when the river crossed INTO elevated water — exported so the gauge cron
  *  can COUNT crossings in a pass and decide single-alerts vs a storm digest. */
 export function isElevatedCrossing(oldCondition: string, newCondition: string): boolean {
@@ -56,7 +67,9 @@ export function isElevatedCrossing(oldCondition: string, newCondition: string): 
 }
 
 function classifyTransition(oldCondition: string, newCondition: string): AlertKind | null {
+  if (oldCondition === 'unknown') return null; // don't alert on a first-ever reading
   if (isNotableTransition(oldCondition, newCondition)) return 'warning';
+  if (isEasingTransition(oldCondition, newCondition)) return 'easing';
   if (isRecoveryTransition(oldCondition, newCondition)) return 'recovery';
   return null;
 }
@@ -100,6 +113,8 @@ interface GaugeContext {
   levelDangerous?: number;
   /** "up 2.4 ft in 6h" (or "down …"), null when flat / no history. */
   riseText: string | null;
+  /** Signed 6h gauge delta (now − 6h ago), null when no history — drives trend. */
+  riseDeltaFt: number | null;
 }
 
 /** Load the primary gauge's thresholds + a plain-language 6h rise phrase. */
@@ -130,6 +145,7 @@ async function loadGaugeContext(
   }
 
   let riseText: string | null = null;
+  let riseDeltaFt: number | null = null;
   if (gaugeStationId && currentFt != null) {
     // Nearest reading in a 5–9h-ago window → a clean ~6h delta.
     const sixAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
@@ -144,11 +160,12 @@ async function loadGaugeContext(
       .limit(1)
       .maybeSingle();
     if (past?.gauge_height_ft != null) {
-      riseText = formatRise(currentFt - past.gauge_height_ft, 6);
+      riseDeltaFt = currentFt - past.gauge_height_ft;
+      riseText = formatRise(riseDeltaFt, 6);
     }
   }
 
-  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText };
+  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText, riseDeltaFt };
 }
 
 /** A cached AI cover-art URL by key ('danger' or a river slug), for the reel. */
@@ -177,7 +194,8 @@ export async function publishConditionChangeAlert(params: {
   if (!kind) return { published: 0, skipped: true, reason: 'not_notable' };
 
   const supabase = createAdminClient();
-  const postType = kind === 'recovery' ? 'condition_recovery' : 'condition_change';
+  const postType =
+    kind === 'recovery' ? 'condition_recovery' : kind === 'easing' ? 'condition_easing' : 'condition_change';
 
   const recent = await hasRecentPost(postType, riverSlug, newCondition, 4, supabase);
   if (recent) {
@@ -200,6 +218,10 @@ export async function publishConditionChangeAlert(params: {
   const platforms: SocialPlatform[] = ['facebook', 'instagram'];
 
   const ctx = await loadGaugeContext(supabase, riverSlug, gaugeHeightFt);
+  // Trend for trend-aware copy: a river receding from dangerous into high is
+  // FALLING and must not read as "risen into high water" (the 6h delta is the
+  // primary signal; the condition-change direction is the fallback).
+  const trend: TrendDir = resolveTrend(ctx.riseDeltaFt, oldCondition, newCondition);
   // Warning covers/reels use the generic 'danger' art; recovery uses the
   // river's own art (a calm, on-brand backdrop).
   const backgroundUrl = await loadBackgroundUrl(supabase, kind === 'recovery' ? riverSlug : 'danger');
@@ -210,12 +232,13 @@ export async function publishConditionChangeAlert(params: {
     new_condition: newCondition,
     gauge_height_ft: gaugeHeightFt,
     rise_text: ctx.riseText,
+    trend,
   };
 
   const shared = {
     supabase, baseUrl, platforms, postType, kind,
     riverSlug, oldCondition, newCondition, gaugeHeightFt,
-    ctx, backgroundUrl, metadata,
+    ctx, backgroundUrl, metadata, trend,
   };
 
   return asVideo ? publishAsVideo(shared) : publishAsImage(shared);
@@ -234,6 +257,7 @@ type PublishParams = {
   gaugeHeightFt: number | null;
   ctx: GaugeContext;
   backgroundUrl?: string;
+  trend: TrendDir;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any>;
 };
@@ -265,7 +289,7 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind, riseText: ctx.riseText,
+      kind: kind === 'recovery' ? 'recovery' : 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -338,7 +362,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind, riseText: ctx.riseText,
+      kind: kind === 'recovery' ? 'recovery' : 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -368,7 +392,9 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
   if (postIds.length === 0) return { published: 0, skipped: true, reason: 'no_credentials' };
 
-  const quoteText = (kind === 'recovery' ? recoveryCopy : warningCopy)(newCondition, riverName).quote;
+  const quoteText = kind === 'recovery'
+    ? recoveryCopy(newCondition, riverName).quote
+    : warningCopy(newCondition, riverName, p.trend).quote;
   const dateLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const dispatched = await triggerVideoRender({
@@ -378,7 +404,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
       riverName,
       conditionCode: newCondition,
       previousCondition: oldCondition,
-      warningMode: kind === 'warning',
+      warningMode: kind === 'warning' || kind === 'easing',
       recovery: kind === 'recovery',
       gaugeHeightFt: gaugeHeightFt ?? 0,
       optimalMin: ctx.optimalMin,
@@ -410,10 +436,124 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
   return { published: 0, skipped: false, reason: 'rendering' };
 }
 
+// ─── Storm batching (rolling window) ─────────────────────────────
+// A storm raises rivers over HOURS, so batching only within a single cron pass
+// let a drip of individual reels through (each pass saw < threshold crossings).
+// Instead we look back over a rolling window: as soon as the running total of
+// rivers that have gone elevated reaches STORM_THRESHOLD, collapse into ONE
+// digest and suppress individual reels for the rest of the window — the digest
+// already tells people "rivers are rising, check conditions."
+const STORM_THRESHOLD = 2;                 // rivers elevated within the window → digest
+const STORM_WINDOW_HOURS = 2;              // rolling look-back (matches digest cooldown)
+const ELEVATED_SEVERITY: Record<string, number> = { high: 1, dangerous: 2 };
+
+/** Most-severe-per-river dedup: a river with two gauges crossing (high + later
+ *  dangerous) collapses to a single entry so it never double-posts. */
+function dedupeBySeverity<T extends { riverSlug: string; newCondition: string }>(items: T[]): T[] {
+  const bySlug = new Map<string, T>();
+  for (const it of items) {
+    const prev = bySlug.get(it.riverSlug);
+    if (!prev || (ELEVATED_SEVERITY[it.newCondition] ?? 0) > (ELEVATED_SEVERITY[prev.newCondition] ?? 0)) {
+      bySlug.set(it.riverSlug, it);
+    }
+  }
+  return Array.from(bySlug.values());
+}
+
+/** Count DISTINCT rivers that posted an individual warning in the window — the
+ *  running tally of a storm building across cron passes (fb+ig collapse to one). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function countRecentWarningRivers(supabase: any, windowHours: number): Promise<number> {
+  const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from('social_posts')
+    .select('river_slug')
+    .eq('post_type', 'condition_change')
+    .gte('created_at', cutoff)
+    .in('status', ['pending', 'publishing', 'rendering', 'published']);
+  if (!data) return 0;
+  return new Set(data.map((r: { river_slug: string | null }) => r.river_slug).filter(Boolean)).size;
+}
+
+/** All rivers currently sitting in elevated water (most-severe per river), read
+ *  from the gauge condition codes the cron just wrote — so the digest represents
+ *  the WHOLE storm, not only the rivers that happened to cross this pass. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadElevatedRivers(supabase: any): Promise<Array<{ riverSlug: string; newCondition: string }>> {
+  const { data } = await supabase
+    .from('river_gauges')
+    .select('river_id, last_condition_code')
+    .eq('is_primary', true) // one condition per river — mirror the primary-gauge rule in update-gauges
+    .in('last_condition_code', Array.from(ELEVATED));
+  if (!data) return [];
+  return dedupeBySeverity(
+    data
+      .filter((g: { river_id: string | null }) => g.river_id)
+      .map((g: { river_id: string; last_condition_code: string }) => ({
+        riverSlug: g.river_id,
+        newCondition: g.last_condition_code,
+      })),
+  );
+}
+
 /**
- * STORM DIGEST — one image post for MANY rivers rising in the same cron pass,
- * instead of a barrage of individual warnings (cheaper + more shareable). Called
- * by the gauge cron when >= STORM_THRESHOLD rivers cross into elevated water.
+ * Orchestrates elevated-crossing alerts for one cron pass. Dedupes per river,
+ * then decides between ONE storm digest and individual warning reels using a
+ * rolling window so a multi-hour storm produces a single digest instead of a
+ * barrage. Returns which path was taken (for cron logging).
+ */
+export async function publishElevatedCrossings(
+  transitions: Array<{
+    riverSlug: string;
+    oldCondition: string;
+    newCondition: string;
+    gaugeHeightFt: number | null;
+  }>,
+): Promise<{ mode: 'storm' | 'individual' | 'suppressed' | 'none'; published: number }> {
+  const unique = dedupeBySeverity(transitions);
+  if (unique.length === 0) return { mode: 'none', published: 0 };
+
+  const supabase = createAdminClient();
+
+  // A digest posted within the window already announced this storm — suppress
+  // the new individual reels (the digest points people at live conditions).
+  if (await hasRecentPost('storm_digest', null, null, STORM_WINDOW_HOURS, supabase)) {
+    console.log(`${LOG_PREFIX} Storm digest active — suppressing ${unique.length} individual warning(s): ${unique.map((u) => u.riverSlug).join(', ')}`);
+    return { mode: 'suppressed', published: 0 };
+  }
+
+  // Running storm tally = rivers crossing this pass + rivers already warned in
+  // the window. At/over threshold → one digest covering ALL elevated rivers.
+  const recentRivers = await countRecentWarningRivers(supabase, STORM_WINDOW_HOURS);
+  if (unique.length + recentRivers >= STORM_THRESHOLD) {
+    const elevated = await loadElevatedRivers(supabase);
+    const digestRivers = elevated.length > 0 ? elevated : unique.map((u) => ({ riverSlug: u.riverSlug, newCondition: u.newCondition }));
+    const digest = await publishStormDigest(digestRivers);
+    if (digest.published > 0) return { mode: 'storm', published: digest.published };
+    // Digest cooldown means one just posted → still suppress (don't fall back to
+    // a barrage of individual reels, which is exactly what we're avoiding).
+    if (digest.skipped && digest.reason === 'cooldown') return { mode: 'suppressed', published: 0 };
+    // Any other skip (posting disabled / no credentials) → nothing to do.
+    return { mode: 'suppressed', published: 0 };
+  }
+
+  // Below threshold: an isolated crossing still deserves a timely warning.
+  let published = 0;
+  for (const c of unique) {
+    try {
+      const r = await publishConditionChangeAlert(c);
+      published += r.published;
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Individual warning error for ${c.riverSlug}:`, err);
+    }
+  }
+  return { mode: 'individual', published };
+}
+
+/**
+ * STORM DIGEST — one image post for MANY rivers rising in a storm, instead of a
+ * barrage of individual warnings (cheaper + more shareable). Called by
+ * publishElevatedCrossings when >= STORM_THRESHOLD rivers are elevated.
  */
 export async function publishStormDigest(
   changes: Array<{ riverSlug: string; newCondition: string }>,
