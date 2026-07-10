@@ -216,7 +216,7 @@ async function runUpdate(request: NextRequest) {
     // for all ~275 stations is what made the old loop unbounded.
     const { data: wiredData, error: wiredError } = await supabase
       .from('river_gauges')
-      .select('id, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)');
+      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)');
     if (wiredError) {
       console.error('[update-gauges] river_gauges prefetch failed:', wiredError.message);
     }
@@ -342,6 +342,13 @@ async function runUpdate(request: NextRequest) {
             const rg = rawRg as any;
             const riverSlug: string | undefined = rg.rivers?.slug;
             if (!riverSlug) continue;
+            // Only the PRIMARY gauge drives a river's condition + alerts. A river
+            // with several gauges (e.g. the Meramec's upper/lower stations) would
+            // otherwise post a separate reel per gauge — often at conflicting
+            // states (one "high", another "dangerous"). The primary gauge is the
+            // one the whole app treats as the river's condition (loadGaugeContext,
+            // the river page). Readings for every gauge are still stored upstream.
+            if (!rg.is_primary) continue;
 
             const thresholds: ConditionThresholds = {
               levelTooLow: rg.level_too_low,

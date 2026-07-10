@@ -4,7 +4,7 @@
 
 import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
-import { warningCopy, recoveryCopy, FOLLOW_CTA } from '@shared/condition-copy';
+import { warningCopy, recoveryCopy, FOLLOW_CTA, type TrendDir } from '@shared/condition-copy';
 import { canoeHours } from './post-types';
 import type { ConditionCode } from '@/types/api';
 import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
@@ -682,13 +682,16 @@ export function formatConditionChangeCaption(params: {
   kind?: 'warning' | 'recovery';
   /** Plain-language rate, e.g. "up 2.4 ft in 6h". */
   riseText?: string | null;
+  /** Which way the water is moving, so the body never says "risen" while falling. */
+  trend?: TrendDir;
 }): { caption: string; hashtags: string[] } {
   const riverName = RIVER_SHORT_NAMES[params.riverSlug] || params.riverSlug;
   const isRecovery = params.kind === 'recovery';
+  const trend: TrendDir = params.trend ?? 'steady';
   // Severity label shared with the OG cover + reel (shared/condition-copy.ts).
   const copy = isRecovery
     ? recoveryCopy(params.newCondition, riverName)
-    : warningCopy(params.newCondition, riverName);
+    : warningCopy(params.newCondition, riverName, trend);
   const gaugeText = params.gaugeHeightFt !== null ? ` · ${params.gaugeHeightFt.toFixed(1)} ft` : '';
   const riseSuffix = params.riseText ? ` · ${params.riseText}` : '';
 
@@ -707,14 +710,23 @@ export function formatConditionChangeCaption(params: {
     lines.push(`⚠️ ${copy.severityLabel} — ${riverName}${gaugeText}${riseSuffix}`);
     lines.push('');
     if (params.newCondition === 'dangerous') {
+      // "Rising levels" only when it's actually climbing; a river easing off a
+      // dangerous peak is still dangerous but not rising.
+      const levelsPhrase = trend === 'falling' ? 'Elevated levels' : 'Rising levels';
       lines.push(
-        `${riverName} has crossed into dangerous water. Rising levels bring strainers, submerged hazards, and fast current that can overwhelm even experienced paddlers.`,
+        `${riverName} has crossed into dangerous water. ${levelsPhrase} bring strainers, submerged hazards, and fast current that can overwhelm even experienced paddlers.`,
       );
       lines.push('');
       lines.push('DO NOT FLOAT until levels drop. Check back in 24–48 hours or wait for the all-clear.');
     } else if (params.newCondition === 'high') {
+      const lead =
+        trend === 'rising'
+          ? 'has risen into high water'
+          : trend === 'falling'
+            ? 'is dropping but still running high'
+            : 'is running high';
       lines.push(
-        `${riverName} has risen into high water. Stronger current, faster travel, and more hazards than normal — floatable only for experienced paddlers in appropriate boats.`,
+        `${riverName} ${lead}. Stronger current, faster travel, and more hazards than normal — floatable only for experienced paddlers in appropriate boats.`,
       );
       lines.push('');
       lines.push('Beginners and families should wait it out. If you go: PFDs on everyone, scout access points, plan a shorter float.');
