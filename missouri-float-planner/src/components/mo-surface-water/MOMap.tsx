@@ -472,6 +472,8 @@ export default function MOMap(props: MOMapProps) {
         startViewY: number;
         moved: boolean;
         captured: boolean;
+        /** Recent pointer positions — flick velocity is read off the tail. */
+        samples: Array<{ t: number; x: number; y: number }>;
       }
     | null
   >(null);
@@ -576,14 +578,27 @@ export default function MOMap(props: MOMapProps) {
     if (markerSvgRef.current) markerSvgRef.current.style.transform = t;
   }, [writeViewBox]);
 
+  // Flick-glide state (startMomentum lives with the pointer handlers below).
+  const momentumRafRef = useRef(0);
+  const stopMomentum = useCallback(() => {
+    if (momentumRafRef.current) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = 0;
+    }
+  }, []);
+  useEffect(() => stopMomentum, [stopMomentum]); // no glide past unmount
+
   // Every committed view (gesture end, zoom buttons, wheel settle, aspect
   // remap, entry/fit checkpoints) re-bases before paint. The SVGs carry no
   // viewBox in JSX — this effect is the single writer, so a mid-gesture
   // React render can never stomp the imperative camera with stale state.
+  // It also kills any in-flight glide: a commit from elsewhere (zoom button,
+  // aspect remap) must not fight a momentum animation for the camera.
   useLayoutEffect(() => {
+    stopMomentum();
     viewRef.current = view; // pre-paint, so the flow canvas can't skew a frame
     writeViewBox(view);
-  }, [view, writeViewBox]);
+  }, [view, writeViewBox, stopMomentum]);
 
   // ─── Cinematic entry ───────────────────────────────────────────────────
   // One-shot fly-down from high altitude to the home framing. Pure
@@ -787,6 +802,8 @@ export default function MOMap(props: MOMapProps) {
       return;
     }
     if (e.button !== 0) return;
+    // A touch-down grabs a gliding map exactly where it is.
+    stopMomentum();
     // Track a potential single-finger drag, but DO NOT capture the pointer
     // yet — capturing here retargets the trailing click to the SVG and
     // markers/buttons never receive it. We capture lazily past the threshold.
@@ -799,8 +816,9 @@ export default function MOMap(props: MOMapProps) {
       startViewY: viewRef.current.y,
       moved: false,
       captured: false,
+      samples: [{ t: e.timeStamp, x: e.clientX, y: e.clientY }],
     };
-  }, [onHoverGauge]);
+  }, [onHoverGauge, stopMomentum]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (pointersRef.current.has(e.pointerId)) {
@@ -835,7 +853,10 @@ export default function MOMap(props: MOMapProps) {
     if (!drag.moved &&
         (Math.abs(dx) > threshold || Math.abs(dy) > threshold)) {
       drag.moved = true;
-      setDragging(true);
+      // `dragging` only drives the grab cursor — pointless on touch, and
+      // the state flip re-renders the whole map tree right at drag start,
+      // which is exactly when the frame budget is tightest on phones.
+      if (drag.pointerType !== 'touch') setDragging(true);
       gestureRef.current = true; // pause the flow canvas while panning
       // A pan invalidates the hover overlay's captured screen position;
       // drop the hover so it doesn't float detached from its marker.
@@ -848,6 +869,8 @@ export default function MOMap(props: MOMapProps) {
       } catch { /* nothing useful we can do */ }
     }
     if (!drag.moved) return;
+    drag.samples.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+    if (drag.samples.length > 8) drag.samples.shift();
     const rect = e.currentTarget.getBoundingClientRect();
     const v = viewRef.current;
     const sx = v.w / rect.width;
@@ -860,6 +883,56 @@ export default function MOMap(props: MOMapProps) {
     }));
   }, [clampView, onHoverGauge, applyView]);
 
+  // Flick glide — the inertia carry after a fast pan lifts. Velocity is the
+  // screen-space slope across the drag's last ~90ms of samples; slower
+  // releases are positioned drops (no glide). Exponential decay (τ≈325ms,
+  // the iOS feel). Each glide frame is a compositor transform via applyView,
+  // so the animation costs ~nothing; React commits once, when it stops.
+  const startMomentum = useCallback((
+    samples: Array<{ t: number; x: number; y: number }>,
+    rect: DOMRect,
+    tUp: number,
+  ): boolean => {
+    if (samples.length < 2 || rect.width < 1 || rect.height < 1) return false;
+    const newest = samples[samples.length - 1];
+    if (tUp - newest.t > 90) return false; // finger paused before lifting
+    let oldest = samples[0];
+    for (const s of samples) {
+      if (newest.t - s.t <= 90) { oldest = s; break; }
+    }
+    const span = newest.t - oldest.t;
+    if (span < 20) return false;
+    const vxPx = (newest.x - oldest.x) / span; // screen px / ms
+    const vyPx = (newest.y - oldest.y) / span;
+    if (Math.hypot(vxPx, vyPx) < 0.25) return false;
+    // Drag right slides the view left — camera velocity opposes the finger.
+    let vx = -vxPx * (viewRef.current.w / rect.width);
+    let vy = -vyPx * (viewRef.current.h / rect.height);
+    gestureRef.current = true;
+    let last = performance.now();
+    const step = (t: number) => {
+      const dt = Math.min(50, t - last);
+      last = t;
+      const cur = viewRef.current;
+      const next = clampView({ x: cur.x + vx * dt, y: cur.y + vy * dt, w: cur.w, h: cur.h });
+      const moved = Math.abs(next.x - cur.x) > 1e-9 || Math.abs(next.y - cur.y) > 1e-9;
+      applyView(next);
+      const decay = Math.exp(-dt / 325);
+      vx *= decay;
+      vy *= decay;
+      const pxPerMs = (Math.hypot(vx, vy) * rect.width) / next.w;
+      if (!moved || pxPerMs < 0.02) { // hit the pan clamp, or slowed to a stop
+        momentumRafRef.current = 0;
+        gestureRef.current = false;
+        setView(viewRef.current);
+        return;
+      }
+      momentumRafRef.current = requestAnimationFrame(step);
+    };
+    momentumRafRef.current = requestAnimationFrame(step);
+    return true;
+  }, [clampView, applyView]);
+
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
@@ -869,9 +942,12 @@ export default function MOMap(props: MOMapProps) {
       // Resume the flow animation a beat after the gesture settles — the
       // pointer-up also commits `setView`, which re-renders the marker/river
       // layers; resuming on that same frame would stack the particle redraw
-      // onto the commit. Guard against a fresh gesture starting in the gap.
+      // onto the commit. A glide keeps drawing through this (the canvas
+      // isn't transformed, so per-frame redraws stay registered mid-glide).
       setTimeout(() => {
-        if (pointersRef.current.size === 0) gestureRef.current = false;
+        if (pointersRef.current.size === 0 && !momentumRafRef.current) {
+          gestureRef.current = false;
+        }
       }, 160);
     }
     const drag = dragRef.current;
@@ -879,15 +955,20 @@ export default function MOMap(props: MOMapProps) {
       try { e.currentTarget.releasePointerCapture(drag.pointerId); } catch { /* ignore */ }
     }
     setDragging(false);
-    // Commit the imperatively-applied view to React state so the markers
-    // re-scale to the final zoom and the scale bar updates. A no-op (same
-    // ref) when nothing moved — React bails, so taps don't re-render.
-    setView(viewRef.current);
+    // A fast release glides; the glide commits state when it stops. Anything
+    // else commits the imperatively-applied view now so the markers re-scale
+    // to the final zoom and the scale bar updates. A no-op (same ref) when
+    // nothing moved — React bails, so taps don't re-render.
+    const gliding =
+      drag?.moved && pointersRef.current.size === 0
+        ? startMomentum(drag.samples, e.currentTarget.getBoundingClientRect(), e.timeStamp)
+        : false;
+    if (!gliding) setView(viewRef.current);
     // Don't null `dragRef` synchronously — onClick reads `moved` to know
     // whether this was a real click or the tail of a drag. Cleared next
     // tick.
     setTimeout(() => { dragRef.current = null; }, 0);
-  }, []);
+  }, [startMomentum]);
 
   const resetView = useCallback(() => setView(HOME_VIEW), [HOME_VIEW]);
 
