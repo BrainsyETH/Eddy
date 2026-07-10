@@ -11,7 +11,7 @@ import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weath
 import { toNum } from '@/lib/utils/num';
 // Long display names ("Current River", "Huzzah Creek") — shared with the OG
 // covers + reels via river-display so a rename can't drift across surfaces.
-import { RIVER_DISPLAY_LONG as RIVER_NAMES } from './river-display';
+import { riverDisplayLong } from './river-display';
 
 // ---------------------------------------------------------------------------
 // Canonical link builder — river pages live at /rivers/<slug>. Building bare
@@ -24,7 +24,7 @@ function riverUrl(slug: string): string {
 
 // ---------------------------------------------------------------------------
 // River display names — long forms ("Current River") come from the shared
-// river-display map (imported as RIVER_NAMES above). Short casual forms
+// river-display map (via riverDisplayLong above). Short casual forms
 // ("the Current") stay local; they're prose-specific to captions.
 // ---------------------------------------------------------------------------
 const RIVER_SHORT_NAMES: Record<string, string> = {
@@ -36,6 +36,9 @@ const RIVER_SHORT_NAMES: Record<string, string> = {
   'big-piney': 'Big Piney',
   huzzah: 'Huzzah',
   courtois: 'Courtois',
+  gasconade: 'the Gasconade',
+  black: 'the Black',
+  bourbeuse: 'the Bourbeuse',
 };
 
 // Short condition labels for scannable digest lines — derived from the canonical
@@ -638,7 +641,7 @@ export function formatDailyDigestCaption(
 
   // 3. Per-river conditions — clean, scannable format with emoji
   for (const update of updates) {
-    const riverName = RIVER_NAMES[update.river_slug] || update.river_slug;
+    const riverName = riverDisplayLong(update.river_slug);
     const shortLabel = SHORT_CONDITION_LABELS[update.condition_code] || '?';
     const emoji = CONDITION_EMOJI[update.condition_code] || '';
     const gaugeNum = toNum(update.gauge_height_ft);
@@ -736,8 +739,8 @@ export function formatConditionChangeCaption(params: {
 
 /**
  * Storm-digest caption — one post covering several rivers that crossed into
- * elevated water in the same pass (see publishStormDigest). More shareable and
- * far less spammy than a barrage of single-river warnings.
+ * elevated water within the storm window (see publishElevatedCrossings). More
+ * shareable and far less spammy than a barrage of single-river warnings.
  */
 export function formatStormDigestCaption(
   changes: Array<{ riverSlug: string; newCondition: string }>,
@@ -784,5 +787,5 @@ function getActiveSnippets(
 }
 
 export function getRiverName(slug: string): string {
-  return RIVER_NAMES[slug] || slug;
+  return riverDisplayLong(slug);
 }

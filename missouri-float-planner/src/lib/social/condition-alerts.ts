@@ -5,9 +5,11 @@
 //   - 'warning'  — river crossed INTO elevated water (high / dangerous)
 //   - 'recovery' — river dropped back OUT of elevated water into a floatable
 //                  state (the "all-clear" the warning caption promises)
-// Plus a batched STORM DIGEST: when several rivers cross into elevated water in
-// the same cron pass, the cron posts ONE "rivers rising" digest instead of a
-// barrage (see publishStormDigest + the caller in update-gauges).
+// Plus a batched STORM DIGEST: publishElevatedCrossings watches a rolling window
+// and, once enough rivers have gone elevated (this pass + recent passes), posts
+// ONE "rivers rising" digest and suppresses individual reels for the rest of the
+// window — so a multi-hour storm produces one post, not a barrage. Multiple
+// gauges on the same river collapse to a single most-severe entry.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FacebookAdapter } from './facebook-adapter';
@@ -410,10 +412,123 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
   return { published: 0, skipped: false, reason: 'rendering' };
 }
 
+// ─── Storm batching (rolling window) ─────────────────────────────
+// A storm raises rivers over HOURS, so batching only within a single cron pass
+// let a drip of individual reels through (each pass saw < threshold crossings).
+// Instead we look back over a rolling window: as soon as the running total of
+// rivers that have gone elevated reaches STORM_THRESHOLD, collapse into ONE
+// digest and suppress individual reels for the rest of the window — the digest
+// already tells people "rivers are rising, check conditions."
+const STORM_THRESHOLD = 2;                 // rivers elevated within the window → digest
+const STORM_WINDOW_HOURS = 2;              // rolling look-back (matches digest cooldown)
+const ELEVATED_SEVERITY: Record<string, number> = { high: 1, dangerous: 2 };
+
+/** Most-severe-per-river dedup: a river with two gauges crossing (high + later
+ *  dangerous) collapses to a single entry so it never double-posts. */
+function dedupeBySeverity<T extends { riverSlug: string; newCondition: string }>(items: T[]): T[] {
+  const bySlug = new Map<string, T>();
+  for (const it of items) {
+    const prev = bySlug.get(it.riverSlug);
+    if (!prev || (ELEVATED_SEVERITY[it.newCondition] ?? 0) > (ELEVATED_SEVERITY[prev.newCondition] ?? 0)) {
+      bySlug.set(it.riverSlug, it);
+    }
+  }
+  return Array.from(bySlug.values());
+}
+
+/** Count DISTINCT rivers that posted an individual warning in the window — the
+ *  running tally of a storm building across cron passes (fb+ig collapse to one). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function countRecentWarningRivers(supabase: any, windowHours: number): Promise<number> {
+  const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from('social_posts')
+    .select('river_slug')
+    .eq('post_type', 'condition_change')
+    .gte('created_at', cutoff)
+    .in('status', ['pending', 'publishing', 'rendering', 'published']);
+  if (!data) return 0;
+  return new Set(data.map((r: { river_slug: string | null }) => r.river_slug).filter(Boolean)).size;
+}
+
+/** All rivers currently sitting in elevated water (most-severe per river), read
+ *  from the gauge condition codes the cron just wrote — so the digest represents
+ *  the WHOLE storm, not only the rivers that happened to cross this pass. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadElevatedRivers(supabase: any): Promise<Array<{ riverSlug: string; newCondition: string }>> {
+  const { data } = await supabase
+    .from('river_gauges')
+    .select('river_id, last_condition_code')
+    .in('last_condition_code', Array.from(ELEVATED));
+  if (!data) return [];
+  return dedupeBySeverity(
+    data
+      .filter((g: { river_id: string | null }) => g.river_id)
+      .map((g: { river_id: string; last_condition_code: string }) => ({
+        riverSlug: g.river_id,
+        newCondition: g.last_condition_code,
+      })),
+  );
+}
+
 /**
- * STORM DIGEST — one image post for MANY rivers rising in the same cron pass,
- * instead of a barrage of individual warnings (cheaper + more shareable). Called
- * by the gauge cron when >= STORM_THRESHOLD rivers cross into elevated water.
+ * Orchestrates elevated-crossing alerts for one cron pass. Dedupes per river,
+ * then decides between ONE storm digest and individual warning reels using a
+ * rolling window so a multi-hour storm produces a single digest instead of a
+ * barrage. Returns which path was taken (for cron logging).
+ */
+export async function publishElevatedCrossings(
+  transitions: Array<{
+    riverSlug: string;
+    oldCondition: string;
+    newCondition: string;
+    gaugeHeightFt: number | null;
+  }>,
+): Promise<{ mode: 'storm' | 'individual' | 'suppressed' | 'none'; published: number }> {
+  const unique = dedupeBySeverity(transitions);
+  if (unique.length === 0) return { mode: 'none', published: 0 };
+
+  const supabase = createAdminClient();
+
+  // A digest posted within the window already announced this storm — suppress
+  // the new individual reels (the digest points people at live conditions).
+  if (await hasRecentPost('storm_digest', null, null, STORM_WINDOW_HOURS, supabase)) {
+    console.log(`${LOG_PREFIX} Storm digest active — suppressing ${unique.length} individual warning(s): ${unique.map((u) => u.riverSlug).join(', ')}`);
+    return { mode: 'suppressed', published: 0 };
+  }
+
+  // Running storm tally = rivers crossing this pass + rivers already warned in
+  // the window. At/over threshold → one digest covering ALL elevated rivers.
+  const recentRivers = await countRecentWarningRivers(supabase, STORM_WINDOW_HOURS);
+  if (unique.length + recentRivers >= STORM_THRESHOLD) {
+    const elevated = await loadElevatedRivers(supabase);
+    const digestRivers = elevated.length > 0 ? elevated : unique.map((u) => ({ riverSlug: u.riverSlug, newCondition: u.newCondition }));
+    const digest = await publishStormDigest(digestRivers);
+    if (digest.published > 0) return { mode: 'storm', published: digest.published };
+    // Digest cooldown means one just posted → still suppress (don't fall back to
+    // a barrage of individual reels, which is exactly what we're avoiding).
+    if (digest.skipped && digest.reason === 'cooldown') return { mode: 'suppressed', published: 0 };
+    // Any other skip (posting disabled / no credentials) → nothing to do.
+    return { mode: 'suppressed', published: 0 };
+  }
+
+  // Below threshold: an isolated crossing still deserves a timely warning.
+  let published = 0;
+  for (const c of unique) {
+    try {
+      const r = await publishConditionChangeAlert(c);
+      published += r.published;
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Individual warning error for ${c.riverSlug}:`, err);
+    }
+  }
+  return { mode: 'individual', published };
+}
+
+/**
+ * STORM DIGEST — one image post for MANY rivers rising in a storm, instead of a
+ * barrage of individual warnings (cheaper + more shareable). Called by
+ * publishElevatedCrossings when >= STORM_THRESHOLD rivers are elevated.
  */
 export async function publishStormDigest(
   changes: Array<{ riverSlug: string; newCondition: string }>,
