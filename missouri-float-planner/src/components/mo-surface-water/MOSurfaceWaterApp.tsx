@@ -676,7 +676,7 @@ export default function MOSurfaceWaterApp() {
             collapsed (mobile), giving the map back its height. */}
         <div
           className="absolute inset-x-0 top-0"
-          style={{ bottom: timelineExpanded ? 150 : 60 }}
+          style={{ bottom: timelineExpanded ? 192 : 60 }}
         >
         <MOMap
           rivers={rivers}

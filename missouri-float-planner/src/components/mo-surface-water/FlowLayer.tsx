@@ -104,6 +104,7 @@ export default function FlowLayer({
   viewRef,
   enabled,
   maxParticles,
+  pauseRef,
   style,
 }: {
   rivers: FlowRiver[];
@@ -111,6 +112,13 @@ export default function FlowLayer({
   viewRef: RefObject<ViewBox>;
   enabled: boolean;
   maxParticles: number;
+  /**
+   * When set true, the rAF loop keeps ticking but skips the canvas redraw.
+   * MOMap flips this during an active pan/pinch so the particle repaint
+   * doesn't pile onto the imperative viewBox mutation and stall the frame.
+   * A ref (not a prop toggle) so starting a gesture never re-inits the loop.
+   */
+  pauseRef?: RefObject<boolean>;
   /** Optional canvas styling (MOMap fades the layer up with the rivers). */
   style?: React.CSSProperties;
 }) {
@@ -213,6 +221,7 @@ export default function FlowLayer({
     let raf = 0;
     let last = performance.now();
     let running = true;
+    let clearedForPause = false;
     // Rolling degradation check. The small-budget tier is already on
     // constrained hardware, so it gets half the reaction window — ~0.75s
     // of slow frames instead of ~1.5s before the particle count halves.
@@ -238,6 +247,25 @@ export default function FlowLayer({
 
     const tick = (now: number) => {
       if (!running) return;
+      // Frozen mid-gesture: during an active pan/pinch the map is rewriting
+      // its viewBox and re-deriving marker transforms every frame; layering a
+      // few hundred particle redraws on top is what tips a mid-tier phone
+      // under 30fps. Keep the loop alive but skip the canvas work, and hold
+      // `last` so the current doesn't lurch forward when the gesture ends.
+      // Clear once on entry: the SVG rivers pan under a static canvas, so a
+      // retained frame would leave particles stranded off their channels —
+      // cleaner to drop them for the gesture and fade them back on release.
+      if (pauseRef?.current) {
+        if (!clearedForPause) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          clearedForPause = true;
+        }
+        last = now;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      clearedForPause = false;
       const dtMs = now - last;
       last = now;
       const dt = Math.min(0.05, dtMs / 1000); // clamp: background tabs, GC pauses
@@ -335,7 +363,7 @@ export default function FlowLayer({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [rivers, enabled, maxParticles, viewRef]);
+  }, [rivers, enabled, maxParticles, viewRef, pauseRef]);
 
   return (
     <canvas
