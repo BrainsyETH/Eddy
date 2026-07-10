@@ -33,6 +33,16 @@ export interface LiveCondition {
  */
 export const STALE_READING_HOURS = 6;
 
+/**
+ * Prose-blanking ceiling for user-facing website surfaces (the river cards and
+ * the full report). Readings are refreshed hourly, so anything under a day old
+ * still describes essentially the current river; blanking the whole quote for a
+ * routine multi-hour gap needlessly drops the reader to the static one-liner.
+ * A day-plus gap means a dead gauge, which blanks anyway. Social keeps the
+ * stricter 6 h default.
+ */
+export const WEBSITE_PROSE_STALE_HOURS = 24;
+
 interface RiverGaugeRow {
   rivers: { slug: string } | null;
   gauge_stations: { id: string } | null;
@@ -102,14 +112,18 @@ export async function buildLiveConditionsMap(
   const stationIds = Array.from(thresholdMap.values()).map((t) => t.stationId);
   if (stationIds.length === 0) return result;
 
-  const { data: readings, error: rError } = await supabase
-    .from('gauge_readings')
-    .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
-    .in('gauge_station_id', stationIds)
-    .order('reading_timestamp', { ascending: false });
+  // Latest reading PER station via a DISTINCT ON RPC (migration 00161). The old
+  // `.in(stationIds).order(desc)` had no LIMIT and PostgREST caps result sets
+  // (~1000 rows); once gauge_readings grew past that for the primary stations,
+  // some station's newest reading fell outside the window, so it looked stale
+  // and its Eddy prose got blanked. The RPC returns exactly one (newest) row
+  // per station, so coverage can't degrade with table size.
+  const { data: readings, error: rError } = await supabase.rpc('latest_readings_for_stations', {
+    p_station_ids: stationIds,
+  });
 
   if (rError) {
-    console.error(`${LOG} gauge_readings query failed:`, rError.message);
+    console.error(`${LOG} latest_readings_for_stations RPC failed:`, rError.message);
     return result;
   }
 
@@ -149,6 +163,55 @@ export interface OverlayOptions {
    * caller has its own staleness handling.
    */
   clearProseOnConditionChange?: boolean;
+  /**
+   * Reading-age (hours) beyond which prose is blanked for staleness ALONE
+   * (independent of a condition change). Defaults to STALE_READING_HOURS (6),
+   * which is right for social posts — a scheduled tweet shouldn't narrate
+   * six-hour-old specifics as current. Website surfaces pass a larger value:
+   * a reading gap of a few hours shouldn't nuke the whole quote (forecast,
+   * safety notes, and float tips stay valid) and drop the reader to the bland
+   * static one-liner. A genuinely dead gauge still blanks two ways — via this
+   * ceiling, and because a very old reading usually computes a different
+   * condition bucket than the morning snapshot (conditionChanged).
+   */
+  proseStaleHours?: number;
+  /** Optional tag for the diagnostic log line (e.g. 'eddy-updates'). */
+  logLabel?: string;
+}
+
+/**
+ * Coarse floatability class for a condition code. Prose is blanked only when
+ * the live reading moves the river to a DIFFERENT class than the quote was
+ * written for — not on every code change.
+ *
+ * Why: the overlay recomputes the live condition and compares it to the code
+ * stored on the morning quote. Blanking on any code difference makes the whole
+ * quote (weather, safety, tips) vanish over cosmetic jitter — e.g. a river
+ * drifting 'good' → 'low' while both are perfectly floatable, or the overlay's
+ * banding disagreeing by one notch with whatever stamped the stored code. Both
+ * collapse to the bland static one-liner. Grouping the floatable codes together
+ * keeps the quote through that jitter while still blanking on a real,
+ * contradictory move (floatable → dangerous, or floatable → too shallow), which
+ * is the case the blanking actually exists for. 'unknown' is a wildcard (lost
+ * telemetry) and never counts as a class change on its own.
+ */
+type FloatabilityClass = 'too_low' | 'floatable' | 'high' | 'dangerous' | 'unknown';
+function floatabilityClass(code: string): FloatabilityClass {
+  switch (code) {
+    case 'too_low':
+      return 'too_low';
+    case 'low':
+    case 'good':
+    case 'flowing':
+    case 'optimal':
+      return 'floatable';
+    case 'high':
+      return 'high';
+    case 'dangerous':
+      return 'dangerous';
+    default:
+      return 'unknown';
+  }
 }
 
 /**
@@ -171,25 +234,52 @@ export async function overlayLiveConditions<
   options: OverlayOptions = {},
 ): Promise<T[]> {
   if (updates.length === 0) return updates;
-  const { clearProseOnConditionChange = true } = options;
+  const {
+    clearProseOnConditionChange = true,
+    proseStaleHours = STALE_READING_HOURS,
+    logLabel,
+  } = options;
   const liveMap = await buildLiveConditionsMap(supabase);
   if (liveMap.size === 0) return updates; // fall back to stored codes
-  return updates.map((u) => {
+  const blanked: string[] = [];
+  const out = updates.map((u) => {
     const live = liveMap.get(u.river_slug);
     if (!live) return u;
-    const conditionChanged = live.condition_code !== u.condition_code;
+    // Blank prose only when the floatability CLASS moves (good↔low is not a
+    // class move), not on every code change. Transitions to/from 'unknown'
+    // (lost telemetry) don't count — the morning quote stays the best info.
+    const storedClass = floatabilityClass(u.condition_code);
+    const liveClass = floatabilityClass(live.condition_code);
+    const classChanged =
+      storedClass !== 'unknown' && liveClass !== 'unknown' && storedClass !== liveClass;
+    // Prose is "too stale" only past the caller's threshold (default 6 h). A
+    // missing reading (null age) counts as too stale; but a genuinely dead
+    // gauge also computes a different condition, so a class change usually
+    // fires first anyway.
+    const proseTooStale =
+      live.reading_age_hours == null || live.reading_age_hours > proseStaleHours;
     const next: T = {
       ...u,
       condition_code: live.condition_code,
       gauge_height_ft: live.gauge_height_ft ?? toNum(u.gauge_height_ft),
     };
-    // Blank the AI prose when (a) the condition bucket moved, OR (b) the
-    // "live" reading is itself stale — day-old specifics ("holding steady at
-    // 2.8 ft") must not be narrated as current when the gauge went quiet.
-    if ((conditionChanged || live.stale) && clearProseOnConditionChange) {
+    if ((classChanged || proseTooStale) && clearProseOnConditionChange) {
       if ('quote_text' in next) (next as { quote_text?: string }).quote_text = '';
       if ('summary_text' in next) (next as { summary_text?: string | null }).summary_text = null;
+      const reason = classChanged
+        ? `class ${u.condition_code}→${live.condition_code}`
+        : `stale ${live.reading_age_hours == null ? 'no-reading' : live.reading_age_hours.toFixed(1) + 'h'}`;
+      blanked.push(`${u.river_slug}(${reason})`);
     }
     return next;
   });
+  // One concise line so production logs reveal exactly which rivers dropped to
+  // the static fallback and why (condition change vs stale reading).
+  if (blanked.length > 0) {
+    console.log(
+      `[LiveConditions]${logLabel ? ` ${logLabel}` : ''} blanked ${blanked.length}/${updates.length} ` +
+      `(proseStaleHours=${proseStaleHours}): ${blanked.join(', ')}`,
+    );
+  }
+  return out;
 }
