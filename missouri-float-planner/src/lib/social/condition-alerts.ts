@@ -20,7 +20,7 @@ import {
   formatStormDigestCaption,
   getRiverName,
 } from './content-formatter';
-import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise } from '@shared/condition-copy';
+import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from '@shared/condition-copy';
 import { getOrCreateConfig } from './config-helpers';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform, PlatformAdapter } from './types';
@@ -102,6 +102,8 @@ interface GaugeContext {
   levelDangerous?: number;
   /** "up 2.4 ft in 6h" (or "down …"), null when flat / no history. */
   riseText: string | null;
+  /** Signed 6h gauge delta (now − 6h ago), null when no history — drives trend. */
+  riseDeltaFt: number | null;
 }
 
 /** Load the primary gauge's thresholds + a plain-language 6h rise phrase. */
@@ -132,6 +134,7 @@ async function loadGaugeContext(
   }
 
   let riseText: string | null = null;
+  let riseDeltaFt: number | null = null;
   if (gaugeStationId && currentFt != null) {
     // Nearest reading in a 5–9h-ago window → a clean ~6h delta.
     const sixAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
@@ -146,11 +149,12 @@ async function loadGaugeContext(
       .limit(1)
       .maybeSingle();
     if (past?.gauge_height_ft != null) {
-      riseText = formatRise(currentFt - past.gauge_height_ft, 6);
+      riseDeltaFt = currentFt - past.gauge_height_ft;
+      riseText = formatRise(riseDeltaFt, 6);
     }
   }
 
-  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText };
+  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText, riseDeltaFt };
 }
 
 /** A cached AI cover-art URL by key ('danger' or a river slug), for the reel. */
@@ -202,6 +206,10 @@ export async function publishConditionChangeAlert(params: {
   const platforms: SocialPlatform[] = ['facebook', 'instagram'];
 
   const ctx = await loadGaugeContext(supabase, riverSlug, gaugeHeightFt);
+  // Trend for trend-aware copy: a river receding from dangerous into high is
+  // FALLING and must not read as "risen into high water" (the 6h delta is the
+  // primary signal; the condition-change direction is the fallback).
+  const trend: TrendDir = resolveTrend(ctx.riseDeltaFt, oldCondition, newCondition);
   // Warning covers/reels use the generic 'danger' art; recovery uses the
   // river's own art (a calm, on-brand backdrop).
   const backgroundUrl = await loadBackgroundUrl(supabase, kind === 'recovery' ? riverSlug : 'danger');
@@ -212,12 +220,13 @@ export async function publishConditionChangeAlert(params: {
     new_condition: newCondition,
     gauge_height_ft: gaugeHeightFt,
     rise_text: ctx.riseText,
+    trend,
   };
 
   const shared = {
     supabase, baseUrl, platforms, postType, kind,
     riverSlug, oldCondition, newCondition, gaugeHeightFt,
-    ctx, backgroundUrl, metadata,
+    ctx, backgroundUrl, metadata, trend,
   };
 
   return asVideo ? publishAsVideo(shared) : publishAsImage(shared);
@@ -236,6 +245,7 @@ type PublishParams = {
   gaugeHeightFt: number | null;
   ctx: GaugeContext;
   backgroundUrl?: string;
+  trend: TrendDir;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any>;
 };
@@ -267,7 +277,7 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind, riseText: ctx.riseText,
+      kind, riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -340,7 +350,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind, riseText: ctx.riseText,
+      kind, riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -370,7 +380,9 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
   if (postIds.length === 0) return { published: 0, skipped: true, reason: 'no_credentials' };
 
-  const quoteText = (kind === 'recovery' ? recoveryCopy : warningCopy)(newCondition, riverName).quote;
+  const quoteText = kind === 'recovery'
+    ? recoveryCopy(newCondition, riverName).quote
+    : warningCopy(newCondition, riverName, p.trend).quote;
   const dateLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const dispatched = await triggerVideoRender({
