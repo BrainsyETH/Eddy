@@ -670,6 +670,10 @@ export default function MOMap(props: MOMapProps) {
     | null
   >(null);
   const hadMultiTouchRef = useRef(false);
+  // True while a pan/pinch is actively moving the camera. FlowLayer reads it
+  // per frame and skips its particle redraw so the animation doesn't compete
+  // with the imperative viewBox mutation for the frame budget (mobile jank).
+  const gestureRef = useRef(false);
 
   const [dragging, setDragging] = useState(false);
   const { onHoverGauge } = props;
@@ -717,6 +721,7 @@ export default function MOMap(props: MOMapProps) {
     // midpoint (so pinch pans as well as zooms).
     const pinch = pinchRef.current;
     if (pinch && pointersRef.current.size >= 2) {
+      gestureRef.current = true; // pause the flow canvas while zooming
       const pts = [...pointersRef.current.values()];
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
       const curMidX = (pts[0].x + pts[1].x) / 2;
@@ -741,6 +746,7 @@ export default function MOMap(props: MOMapProps) {
         (Math.abs(dx) > threshold || Math.abs(dy) > threshold)) {
       drag.moved = true;
       setDragging(true);
+      gestureRef.current = true; // pause the flow canvas while panning
       // A pan invalidates the hover overlay's captured screen position;
       // drop the hover so it doesn't float detached from its marker.
       onHoverGauge(null, null);
@@ -770,6 +776,13 @@ export default function MOMap(props: MOMapProps) {
     // Reset the pinch-click guard only after the trailing click has fired.
     if (pointersRef.current.size === 0) {
       setTimeout(() => { hadMultiTouchRef.current = false; }, 0);
+      // Resume the flow animation a beat after the gesture settles — the
+      // pointer-up also commits `setView`, which re-renders the marker/river
+      // layers; resuming on that same frame would stack the particle redraw
+      // onto the commit. Guard against a fresh gesture starting in the gap.
+      setTimeout(() => {
+        if (pointersRef.current.size === 0) gestureRef.current = false;
+      }, 160);
     }
     const drag = dragRef.current;
     if (drag?.captured) {
@@ -1584,6 +1597,7 @@ export default function MOMap(props: MOMapProps) {
         viewRef={viewRef}
         enabled={!props.flowPaused}
         maxParticles={maxParticles}
+        pauseRef={gestureRef}
         style={fadeIn(950)}
       />
     )}

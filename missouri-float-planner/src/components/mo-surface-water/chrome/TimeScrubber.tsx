@@ -60,7 +60,15 @@ export function TimeScrubber({
     <div
       className="absolute inset-x-3 z-20 rounded-md border-2 px-4 pb-3 pt-2.5"
       style={{
-        bottom: 12, height: expanded ? 130 : 44,
+        // Expanded height fits the full stack (header + 80px chart + axis
+        // row + padding ≈ 170px measured). It was 130 — the chart bottom and
+        // the "30d…today" axis labels spilled below the rounded border,
+        // reading as detached, misaligned text floating over the map.
+        // `overflow: hidden` clips at the border as a belt-and-suspenders
+        // guard against per-device font-metric variance.
+        bottom: 'max(12px, env(safe-area-inset-bottom, 0px))',
+        height: expanded ? 176 : 44,
+        overflow: 'hidden',
         background: THEME.primaryDark,
         // The scrubber is dark chrome over the dark map — it keeps its own
         // near-black border/shadow rather than the light Field-Notebook card
