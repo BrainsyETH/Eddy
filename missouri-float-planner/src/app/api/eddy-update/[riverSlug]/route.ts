@@ -7,7 +7,7 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
-import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
+import { overlayLiveConditions, buildLiveConditionsMap, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +32,38 @@ async function _GET(
   try {
     const { riverSlug } = await params;
     const supabase = createAdminClient();
+
+    // TEMPORARY diagnostic (remove before merge): ?debug=1 returns what
+    // buildLiveConditionsMap computes INSIDE the serverless runtime, so we can
+    // see why prose is blanked in prod when it isn't locally. Condition codes
+    // are public, so no gating needed for a short-lived probe.
+    if (request.nextUrl.searchParams.get('debug') === '1') {
+      const liveMap = await buildLiveConditionsMap(supabase);
+      const { data: stored } = await supabase
+        .from('eddy_updates')
+        .select('river_slug, condition_code, generated_at')
+        .gt('expires_at', new Date().toISOString())
+        .is('section_slug', null)
+        .order('generated_at', { ascending: false });
+      const storedBySlug = new Map<string, string>();
+      for (const r of stored || []) {
+        if (r.river_slug && !storedBySlug.has(r.river_slug)) storedBySlug.set(r.river_slug, r.condition_code);
+      }
+      const rows = Array.from(liveMap.entries()).map(([slug, live]) => ({
+        slug,
+        stored: storedBySlug.get(slug) ?? null,
+        live: live.condition_code,
+        ageH: live.reading_age_hours == null ? null : Math.round(live.reading_age_hours * 100) / 100,
+        stale: live.stale,
+        h: live.gauge_height_ft,
+        cfs: live.discharge_cfs,
+      }));
+      return NextResponse.json({
+        serverNow: new Date().toISOString(),
+        liveMapSize: liveMap.size,
+        rows,
+      });
+    }
 
     const sectionSlug = request.nextUrl.searchParams.get('section') || null;
 
