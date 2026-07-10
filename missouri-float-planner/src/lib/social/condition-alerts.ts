@@ -38,7 +38,7 @@ const ELEVATED = new Set(['high', 'dangerous']);
 // a celebration, just a drought).
 const FLOATABLE = new Set(['flowing', 'good']);
 
-type AlertKind = 'warning' | 'recovery';
+type AlertKind = 'warning' | 'recovery' | 'easing';
 
 function isNotableTransition(oldCondition: string, newCondition: string): boolean {
   if (oldCondition === 'unknown') return false;     // don't alert on a first-ever reading
@@ -51,6 +51,15 @@ function isRecoveryTransition(oldCondition: string, newCondition: string): boole
   return ELEVATED.has(oldCondition) && FLOATABLE.has(newCondition);
 }
 
+// De-escalation while STILL elevated: a river dropping from dangerous back to
+// high. It's neither a crossing INTO elevated water (so it stays out of the
+// storm-digest batching) nor an all-clear (high isn't floatable) — it gets its
+// own "coming down, but still running high" notice so the dangerous alert's
+// story has a follow-up instead of going silent until the full all-clear.
+function isEasingTransition(oldCondition: string, newCondition: string): boolean {
+  return oldCondition === 'dangerous' && newCondition === 'high';
+}
+
 /** True when the river crossed INTO elevated water — exported so the gauge cron
  *  can COUNT crossings in a pass and decide single-alerts vs a storm digest. */
 export function isElevatedCrossing(oldCondition: string, newCondition: string): boolean {
@@ -58,7 +67,9 @@ export function isElevatedCrossing(oldCondition: string, newCondition: string): 
 }
 
 function classifyTransition(oldCondition: string, newCondition: string): AlertKind | null {
+  if (oldCondition === 'unknown') return null; // don't alert on a first-ever reading
   if (isNotableTransition(oldCondition, newCondition)) return 'warning';
+  if (isEasingTransition(oldCondition, newCondition)) return 'easing';
   if (isRecoveryTransition(oldCondition, newCondition)) return 'recovery';
   return null;
 }
@@ -183,7 +194,8 @@ export async function publishConditionChangeAlert(params: {
   if (!kind) return { published: 0, skipped: true, reason: 'not_notable' };
 
   const supabase = createAdminClient();
-  const postType = kind === 'recovery' ? 'condition_recovery' : 'condition_change';
+  const postType =
+    kind === 'recovery' ? 'condition_recovery' : kind === 'easing' ? 'condition_easing' : 'condition_change';
 
   const recent = await hasRecentPost(postType, riverSlug, newCondition, 4, supabase);
   if (recent) {
@@ -277,7 +289,7 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind, riseText: ctx.riseText, trend: p.trend,
+      kind: kind === 'recovery' ? 'recovery' : 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -350,7 +362,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind, riseText: ctx.riseText, trend: p.trend,
+      kind: kind === 'recovery' ? 'recovery' : 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -392,7 +404,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
       riverName,
       conditionCode: newCondition,
       previousCondition: oldCondition,
-      warningMode: kind === 'warning',
+      warningMode: kind === 'warning' || kind === 'easing',
       recovery: kind === 'recovery',
       gaugeHeightFt: gaugeHeightFt ?? 0,
       optimalMin: ctx.optimalMin,
@@ -471,6 +483,7 @@ async function loadElevatedRivers(supabase: any): Promise<Array<{ riverSlug: str
   const { data } = await supabase
     .from('river_gauges')
     .select('river_id, last_condition_code')
+    .eq('is_primary', true) // one condition per river — mirror the primary-gauge rule in update-gauges
     .in('last_condition_code', Array.from(ELEVATED));
   if (!data) return [];
   return dedupeBySeverity(
