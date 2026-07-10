@@ -1,9 +1,59 @@
 # River Onboarding — Deployment Status & Runbook
 
-_Last updated 2026-07-07 (DEPLOYED to production, project FloatMe / ilefwfpvphadsbptiaur)._
+_Last updated 2026-07-09 (access-point data review, project FloatMe / ilefwfpvphadsbptiaur)._
 
 Covers the 4 new Missouri rivers + Buffalo (AR). **The deploy has run**: this
 file is now the record of what shipped and what remains.
+
+## Access-point data review (2026-07-09)
+
+Reviewed and corrected every access point on the 5 new rivers **plus Big Piney**,
+which the owner flagged for bad coordinates, wrong/missing types, and missing
+data. Coordinates verified against the MDC Conservation Atlas, NPS, USFS,
+Recreation.gov, and USGS; missing public accesses added; scraped junk retired.
+Migrations (idempotent upsert on `UNIQUE(river_id, slug)`), one per river:
+
+- `00154_bourbeuse_access_point_corrections.sql` — 16 updated, 3 added, 1 retired.
+- `00155_gasconade_access_point_corrections.sql` — 9 updated, 16 added (lower
+  river had almost no coverage), 3 retired (confluence landmarks / unfindable).
+- `00156_black_access_point_corrections.sql` — 3 updated, 8 added, 1 retired
+  (`bluff-cave` was a float-chart landmark misplaced ~70 mi downstream).
+- `00157_st_francis_access_point_corrections.sql` — 5 updated, 5 added. Big fix:
+  Sam A. Baker was pinned on Big Creek 1.7 km off-river; moved to the park's
+  St. Francis launch. `lake-creek` resolved to the COE Greenville Rec Area.
+- `00158_buffalo_access_point_corrections.sql` — 22 updated (all had **empty
+  `types` arrays** and no amenities/facilities — now classified/enriched), 1 added.
+- `00159_big_piney_geometry_reimport.sql` — **prerequisite.** Prod `big-piney`
+  geometry was a 47 km junk polyline (not the river). Re-imported from NHD HR
+  HUC8 10290202 via `scripts/import-nhd-rivers-from-tnm.ts` (big-piney added to
+  its `RIVERS` list); 107.9 mi main stem, `length_miles` 68.4→107.9, points
+  force-resnapped. **Applied to prod 2026-07-09.**
+- `00160_big_piney_access_point_rebuild.sql` — 18 canonical points (coords fixed,
+  types corrected incl. Baptist Camp `boat_ramp`→`access` per its own "no ramp,
+  carry-in" facilities note), 14 scraped junk/duplicate/landmark rows retired,
+  miles recomputed from the corrected geometry.
+
+Approval: points whose coordinate was verified against an official source
+(`official`/`high` confidence) are set `approved=true` by the migrations; medium/
+low-confidence points stay `approved=false` for human review in `/admin/geography`.
+Already-live points (Buffalo, some Big Piney) at medium confidence are kept
+approved so nothing disappears. Retires DELETE unless a `float_plans` FK
+references the row, in which case they soft-retire (`approved=false`). Each
+migration also purges `drive_time_cache` for its river. Big Piney remains
+`active=false` in prod (not public) — activation is a separate decision.
+Research records synced into `dossiers/*.json`; Big Piney fixes mirrored into
+`supabase/seed/access_points.sql`. Per-point review report with satellite links:
+generated for the owner.
+
+**All migrations applied to prod 2026-07-09.** Post-apply verification:
+`validate_river_data()` returns 0 errors/warnings for all six rivers; 0 empty/
+mismatched `types`; 0 mile-order-vs-geometry violations; all 14 Big Piney scraped
+junk rows retired. Three points remain intentionally off-channel or pending and
+excluded from the planner: `buffalo-city` (take-out sits on the White River ~0.7 mi
+below the confluence, approved), `gasconade/odin-access` (on the Woods Fork
+tributary, pending, `river_mile` NULL), `black/parks-bluff-campground` (private
+outfitter, pending). 13 medium/low-confidence points across the rivers stay
+`approved=false` for human sign-off in `/admin/geography`.
 
 ## ⚠ Canonical target + known gaps (updated 2026-07-08)
 

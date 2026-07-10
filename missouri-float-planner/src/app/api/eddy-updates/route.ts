@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
-import { overlayLiveConditions } from '@/lib/social/live-conditions';
+import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +71,9 @@ async function _GET() {
         summary_text: r.summary_text,
         generated_at: r.generated_at ?? new Date().toISOString(),
       })),
+      // Website surface: keep the rich quote through routine reading gaps;
+      // only blank on a real condition change or a day-plus dead gauge.
+      { proseStaleHours: WEBSITE_PROSE_STALE_HOURS, logLabel: 'eddy-updates' },
     );
 
     const updates: Record<string, EddyUpdateEntry> = {};

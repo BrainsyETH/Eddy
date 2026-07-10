@@ -79,6 +79,7 @@ const RIVERS: RiverSpec[] = [
   { slug: 'huzzah',       gnisNames: ['Huzzah Creek'],       hucs: ['07140102'], mode: 'update' },
   { slug: 'courtois',     gnisNames: ['Courtois Creek'],     hucs: ['07140102'], mode: 'update' },
   { slug: 'niangua',      gnisNames: ['Niangua River'],      hucs: ['10290110'], mode: 'update' },
+  { slug: 'big-piney',    gnisNames: ['Big Piney River'],    hucs: ['10290202'], mode: 'update' },
   // 2026-07 onboarding batch (see scripts/ingestion/DEPLOYMENT-STATUS.md)
   { slug: 'bourbeuse',  gnisNames: ['Bourbeuse River'],  hucs: ['07140103'], mode: 'insert' },
   { slug: 'gasconade',  gnisNames: ['Gasconade River'],  hucs: ['10290201', '10290203'], mode: 'insert' },
