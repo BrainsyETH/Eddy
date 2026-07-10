@@ -45,6 +45,16 @@ Research records synced into `dossiers/*.json`; Big Piney fixes mirrored into
 `supabase/seed/access_points.sql`. Per-point review report with satellite links:
 generated for the owner.
 
+**All migrations applied to prod 2026-07-09.** Post-apply verification:
+`validate_river_data()` returns 0 errors/warnings for all six rivers; 0 empty/
+mismatched `types`; 0 mile-order-vs-geometry violations; all 14 Big Piney scraped
+junk rows retired. Three points remain intentionally off-channel or pending and
+excluded from the planner: `buffalo-city` (take-out sits on the White River ~0.7 mi
+below the confluence, approved), `gasconade/odin-access` (on the Woods Fork
+tributary, pending, `river_mile` NULL), `black/parks-bluff-campground` (private
+outfitter, pending). 13 medium/low-confidence points across the rivers stay
+`approved=false` for human sign-off in `/admin/geography`.
+
 ## ⚠ Canonical target + known gaps (updated 2026-07-08)
 
 - **Production Supabase project is `ilefwfpvphadsbptiaur` (FloatMe).** The app
