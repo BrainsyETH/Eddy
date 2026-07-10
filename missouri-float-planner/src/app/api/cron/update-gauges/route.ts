@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
-import { publishConditionChangeAlert, isElevatedCrossing, publishStormDigest } from '@/lib/social/condition-alerts';
+import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
 import { toNum } from '@/lib/utils/num';
 
@@ -20,10 +20,6 @@ export const maxDuration = 60;
 
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
-
-// When >= this many rivers cross into elevated water in one cron pass, publish a
-// single storm digest instead of a barrage of individual warnings.
-const STORM_THRESHOLD = 3;
 
 // Cap on awaited event-driven Eddy regenerations per cron pass. Each river can
 // mean several sequential Sonnet calls (one per section), so this keeps the
@@ -405,40 +401,15 @@ async function runUpdate(request: NextRequest) {
     }
 
     // ── Post-loop alert publishing (awaited) ────────────────────────
-    // Elevated crossings: dedupe by river (a river can have multiple gauges),
-    // keeping the most severe crossing. >= STORM_THRESHOLD rivers → one
-    // shareable storm digest; otherwise individual warnings. Other transitions
-    // (recoveries etc.) publish individually — publishConditionChangeAlert
-    // classifies and no-ops the non-notable ones.
+    // Elevated crossings run through publishElevatedCrossings, which dedupes per
+    // river (multiple gauges → one entry, most severe) and uses a rolling window
+    // to prefer ONE storm digest over a barrage of individual reels. Other
+    // transitions (recoveries etc.) publish individually — publishCondition
+    // ChangeAlert classifies and no-ops the non-notable ones.
     if (elevatedCrossings.length > 0) {
-      const bySlug = new Map<string, Transition>();
-      for (const c of elevatedCrossings) {
-        const prev = bySlug.get(c.riverSlug);
-        if (!prev || (c.newCondition === 'dangerous' && prev.newCondition !== 'dangerous')) {
-          bySlug.set(c.riverSlug, c);
-        }
-      }
-      const unique = Array.from(bySlug.values());
-
       try {
-        if (unique.length >= STORM_THRESHOLD) {
-          const digest = await publishStormDigest(
-            unique.map((c) => ({ riverSlug: c.riverSlug, newCondition: c.newCondition })),
-          );
-          // A second wave inside the digest's 2h cooldown still deserves
-          // per-river warnings — otherwise a dangerous crossing goes silent.
-          // (Individual alerts carry their own 4h per-river cooldown, so
-          // rivers already covered by the earlier digest won't double-post.)
-          if (digest.skipped && digest.reason === 'cooldown') {
-            for (const c of unique) {
-              await publishConditionChangeAlert(c);
-            }
-          }
-        } else {
-          for (const c of unique) {
-            await publishConditionChangeAlert(c);
-          }
-        }
+        const result = await publishElevatedCrossings(elevatedCrossings);
+        console.log(`[update-gauges] Elevated crossings (${elevatedCrossings.length}): ${result.mode}, published ${result.published}`);
       } catch (alertErr) {
         console.error('Elevated-crossing alert error:', alertErr);
       }
