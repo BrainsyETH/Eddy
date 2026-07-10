@@ -7,7 +7,7 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
-import { overlayLiveConditions } from '@/lib/social/live-conditions';
+import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,7 +78,12 @@ async function _GET(
       quote_text: data.quote_text,
       summary_text: data.summary_text,
     };
-    const [overlaid] = await overlayLiveConditions(supabase, [overlayInput]);
+    const [overlaid] = await overlayLiveConditions(supabase, [overlayInput], {
+      // Website surface: keep the rich quote through routine reading gaps;
+      // only blank on a real condition change or a day-plus dead gauge.
+      proseStaleHours: WEBSITE_PROSE_STALE_HOURS,
+      logLabel: 'eddy-update',
+    });
     const proseAvailable = Boolean(overlaid.quote_text || overlaid.summary_text);
 
     if (!proseAvailable) {
