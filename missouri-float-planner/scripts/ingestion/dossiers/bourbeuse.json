@@ -1,5 +1,5 @@
 {
-  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN3 \u2014 identity/access/character populated and a FULL two-reach cfs floatability ladder + access-point mileages transcribed from the authoritative Al Agnew / OzarkAnglers 'Bourbeuse River Overview' (hand-provided by owner 2026-07-06). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-bourbeuse.md written from the USGS site service; lat/lon, params (00060/00065) and drainage areas backfilled for all gauges; representative gauges High Gate 07015720 + Union 07016500 confirmed POLLABLE (07016400/07015750 confirmed discontinued, reference only). [SAFETY GATE CLEARED 2026-07-06] the 4 danger anchors (upper high 120/dangerous 200; lower high 500/dangerous 1000 cfs) bumped medium->high on owner approval \u2014 Agnew's published navigability table is the authoritative Missouri float reference. Dry-run now passes [verify] + [safety]; ONLY [signoff] remains. NOT ingestable until the owner sets _status to begin with the literal token SIGNED-OFF (and geometry/apply run from an unblocked env per DEPLOYMENT-STATUS.md). Thresholds are single-source (Agnew): too_low/low/optimal are confidence 'high' (explicit published navigability table); high/dangerous are 'medium' pending NWS UNNM7/HTGM7 corroboration (auto-fetch at ingest) \u2014 the [safety] gate will require that before a live danger badge. RIVER-TYPE: Agnew explicitly confirms runoff-fed/murky/slow \u2014 'spring_fed_float' is WRONG for the speed curve; owner must reclassify [signoff] (isSpringFed set false on both reaches). Once the USGS paste lands, write verified-identifiers-bourbeuse.md and flip _status to SIGNED-OFF.",
+  "_status": "SIGNED-OFF 2026-07-07 — owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN3 — identity/access/character populated and a FULL two-reach cfs floatability ladder + access-point mileages transcribed from the authoritative Al Agnew / OzarkAnglers 'Bourbeuse River Overview' (hand-provided by owner 2026-07-06). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-bourbeuse.md written from the USGS site service; lat/lon, params (00060/00065) and drainage areas backfilled for all gauges; representative gauges High Gate 07015720 + Union 07016500 confirmed POLLABLE (07016400/07015750 confirmed discontinued, reference only). [SAFETY GATE CLEARED 2026-07-06] the 4 danger anchors (upper high 120/dangerous 200; lower high 500/dangerous 1000 cfs) bumped medium->high on owner approval — Agnew's published navigability table is the authoritative Missouri float reference. Dry-run now passes [verify] + [safety]; ONLY [signoff] remains. NOT ingestable until the owner sets _status to begin with the literal token SIGNED-OFF (and geometry/apply run from an unblocked env per DEPLOYMENT-STATUS.md). Thresholds are single-source (Agnew): too_low/low/optimal are confidence 'high' (explicit published navigability table); high/dangerous are 'medium' pending NWS UNNM7/HTGM7 corroboration (auto-fetch at ingest) — the [safety] gate will require that before a live danger badge. RIVER-TYPE: Agnew explicitly confirms runoff-fed/murky/slow — 'spring_fed_float' is WRONG for the speed curve; owner must reclassify [signoff] (isSpringFed set false on both reaches). Once the USGS paste lands, write verified-identifiers-bourbeuse.md and flip _status to SIGNED-OFF.",
   "name": "Bourbeuse River",
   "slug": "bourbeuse",
   "primaryGaugeSiteId": "07016500",
@@ -9,14 +9,14 @@
   "region": "Ozarks",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I",
-  "description": "The slowest large stream in the Ozarks and one of its crookedest: from its head of navigation at Mint Spring the Bourbeuse runs ~116 river-miles in under 38 airline miles to the Meramec. Runoff-fed and murky (its watershed is largely cleared farmland over Pennsylvanian sandstone), with an inconsistent water supply \u2014 the upper half is seldom floatable without dragging in a dry summer. Not popular with the rental-canoe crowd (one small outfitter on the whole river); mostly local anglers. Catfish throughout; smallmouth in the upper reaches, spotted bass increasingly dominant below Noser Mill.",
+  "description": "The slowest large stream in the Ozarks and one of its crookedest: from its head of navigation at Mint Spring the Bourbeuse runs ~116 river-miles in under 38 airline miles to the Meramec. Runoff-fed and murky (its watershed is largely cleared farmland over Pennsylvanian sandstone), with an inconsistent water supply — the upper half is seldom floatable without dragging in a dry summer. Not popular with the rental-canoe crowd (one small outfitter on the whole river); mostly local anglers. Catfish throughout; smallmouth in the upper reaches, spotted bass increasingly dominant below Noser Mill.",
   "riverType": "rain_flashy",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
   "permits": [],
   "accessLaw": {
-    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph \u2014 confirm the AGO/MDC citation once for the state.)",
-    "source": "https://mdc.mo.gov/ (MDC stream access) \u2014 confirm AGO citation once for MO",
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
     "confidence": "medium"
   },
   "seasonalClosures": [],
@@ -36,7 +36,7 @@
       "servesSections": [
         "upper-mintspring-nosermill"
       ],
-      "knownBias": "CANDIDATE, NOT primary-verified. At the Hwy B bridge, several miles above the head of navigation at Mint Spring. Agnew: usefulness is QUESTIONABLE for much of the upper river because many tributaries add considerable water after rain \u2014 if it has rained, cross-check the Union gauge for a rise. Reads the upper reach.",
+      "knownBias": "CANDIDATE, NOT primary-verified. At the Hwy B bridge, several miles above the head of navigation at Mint Spring. Agnew: usefulness is QUESTIONABLE for much of the upper river because many tributaries add considerable water after rain — if it has rained, cross-check the Union gauge for a rise. Reads the upper reach.",
       "_verify": true
     },
     {
@@ -54,7 +54,7 @@
       "servesSections": [
         "lower-nosermill-meramec"
       ],
-      "knownBias": "CANDIDATE, NOT primary-verified. At the Highway 50 bridge at Union. Agnew: fairly reliable for the entire lower river EXCEPT the Noser Mill\u2192Spring Creek stretch, which runs lower than the rest. Long record (to 1897).",
+      "knownBias": "CANDIDATE, NOT primary-verified. At the Highway 50 bridge at Union. Agnew: fairly reliable for the entire lower river EXCEPT the Noser Mill→Spring Creek stretch, which runs lower than the rest. Long record (to 1897).",
       "_verify": true
     },
     {
@@ -66,7 +66,7 @@
       "paramsAvailable": [],
       "drainageAreaSqMi": 808,
       "servesSections": [],
-      "knownBias": "VERIFIED but NOT real-time: USGS site service shows water-quality only, no uv 00060/00065 \u2014 discontinued for flow. Do NOT poll. Reference only.",
+      "knownBias": "VERIFIED but NOT real-time: USGS site service shows water-quality only, no uv 00060/00065 — discontinued for flow. Do NOT poll. Reference only.",
       "_verify": true
     },
     {
@@ -77,7 +77,7 @@
       "lon": -91.4477778,
       "paramsAvailable": [],
       "servesSections": [],
-      "knownBias": "VERIFIED but NOT real-time: only field visits 1943\u20132006, no uv. Discontinued. Do NOT poll. Reference only.",
+      "knownBias": "VERIFIED but NOT real-time: only field visits 1943–2006, no uv. Discontinued. Do NOT poll. Reference only.",
       "_verify": true
     }
   ],
@@ -85,7 +85,7 @@
     {
       "slug": "upper-mintspring-nosermill",
       "name": "Upper Bourbeuse (Mint Spring to Noser Mill)",
-      "description": "The upper half from the head of navigation at Mint Spring to Noser Mill (~59 river-miles). Very inconsistent flow \u2014 seldom floatable without dragging in a dry summer; anglers walk riffles to reach the big pools. Gradient 2.6 ft/mi. Public access is scarce, so visiting paddlers often face multi-day floats between usable accesses.",
+      "description": "The upper half from the head of navigation at Mint Spring to Noser Mill (~59 river-miles). Very inconsistent flow — seldom floatable without dragging in a dry summer; anglers walk riffles to reach the big pools. Gradient 2.6 ft/mi. Public access is scarce, so visiting paddlers often face multi-day floats between usable accesses.",
       "putIn": {
         "name": "Mint Spring MDC Access",
         "lat": null,
@@ -100,7 +100,7 @@
       "representativeGauge": {
         "siteId": "07015720",
         "rationale": "Agnew keys the upper-river navigability table to the Bourbeuse River near High Gate gauge (Hwy B bridge)",
-        "knownBias": "questionable for much of the upper river \u2014 tributaries add water after rain; cross-check Union for rises"
+        "knownBias": "questionable for much of the upper river — tributaries add water after rain; cross-check Union for rises"
       },
       "thresholds": [
         {
@@ -109,7 +109,7 @@
           "unit": "cfs",
           "referenceGauge": "07015720",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, 'Bourbeuse River Overview', OzarkAnglers (2017-08-01), upper-reach navigability table @ High Gate gauge: 'Less than 10 cfs\u2014the whole upper river will require walking many riffles.'",
+          "source": "Al Agnew, 'Bourbeuse River Overview', OzarkAnglers (2017-08-01), upper-reach navigability table @ High Gate gauge: 'Less than 10 cfs—the whole upper river will require walking many riffles.'",
           "confidence": "high"
         },
         {
@@ -118,7 +118,7 @@
           "unit": "cfs",
           "referenceGauge": "07015720",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '10-30 cfs\u2014low but floatable with a lot of scraping bottom, especially in upper portions.'",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '10-30 cfs—low but floatable with a lot of scraping bottom, especially in upper portions.'",
           "confidence": "high"
         },
         {
@@ -127,7 +127,7 @@
           "unit": "cfs",
           "referenceGauge": "07015720",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '30-60 cfs\u2014easily floatable in lower portions, some scraping bottom likely in upper portions.'",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '30-60 cfs—easily floatable in lower portions, some scraping bottom likely in upper portions.'",
           "confidence": "high"
         },
         {
@@ -145,7 +145,7 @@
           "unit": "cfs",
           "referenceGauge": "07015720",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '60-120 cfs\u2014high but floatable'; '120-200 cfs\u2014very high, muddy water likely.' (confidence HIGH: Agnew's published navigability table is the authoritative Missouri float reference \u2014 owner-approved 2026-07-06.)",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '60-120 cfs—high but floatable'; '120-200 cfs—very high, muddy water likely.' (confidence HIGH: Agnew's published navigability table is the authoritative Missouri float reference — owner-approved 2026-07-06.)",
           "confidence": "high"
         },
         {
@@ -154,7 +154,7 @@
           "unit": "cfs",
           "referenceGauge": "07015720",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: 'Over 200 cfs\u2014Probably too high.' (confidence HIGH: authoritative Agnew navigability table \u2014 owner-approved 2026-07-06.)",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: 'Over 200 cfs—Probably too high.' (confidence HIGH: authoritative Agnew navigability table — owner-approved 2026-07-06.)",
           "confidence": "high"
         }
       ],
@@ -168,17 +168,17 @@
           "low_water_bridge",
           "dragging_low_water"
         ],
-        "lowWaterMeaning": "Below ~10 cfs at High Gate the whole upper river requires walking many riffles; 10\u201330 cfs is low but floatable with a lot of bottom-scraping. In a dry summer (Jun\u2013Nov normal 2\u201320 cfs) the upper river is frequently unfloatable.",
+        "lowWaterMeaning": "Below ~10 cfs at High Gate the whole upper river requires walking many riffles; 10–30 cfs is low but floatable with a lot of bottom-scraping. In a dry summer (Jun–Nov normal 2–20 cfs) the upper river is frequently unfloatable.",
         "risingWaterHazards": "Runoff-fed and flashy from tributaries; over ~120 cfs it is high and muddy, over ~200 cfs probably too high. Low-water bridges (Glaser Ford, Hog Trough Rd) and logjams are the practical hazards. NWS HTGM7 flood/action stages auto-fill at ingest.",
         "rainLagHours": null,
-        "rainLagNote": "Tributaries add water fast after rain; High Gate can under-read a tributary-driven rise \u2014 cross-check Union.",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "Tributaries add water fast after rain; High Gate can under-read a tributary-driven rise — cross-check Union.",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
-        "Normal flow @ High Gate \u2014 Dec\u2013Feb 30\u201360 cfs; Mar\u2013May 40\u2013100; Jun\u2013Nov 2\u201320; low flows 0.2\u20132; highest fishable 150\u2013200 (Agnew).",
+        "Normal flow @ High Gate — Dec–Feb 30–60 cfs; Mar–May 40–100; Jun–Nov 2–20; low flows 0.2–2; highest fishable 150–200 (Agnew).",
         "Gradient 2.6 ft/mi. Seldom jetboatable even when high.",
-        "Public access scarce on the upper river \u2014 plan multi-day floats between accesses."
+        "Public access scarce on the upper river — plan multi-day floats between accesses."
       ]
     },
     {
@@ -199,7 +199,7 @@
       "representativeGauge": {
         "siteId": "07016500",
         "rationale": "Agnew keys the lower-river navigability table to the Bourbeuse River at Union gauge (Hwy 50 bridge)",
-        "knownBias": "reliable for the whole lower river except Noser Mill\u2192Spring Creek, which runs lower than the gauge suggests"
+        "knownBias": "reliable for the whole lower river except Noser Mill→Spring Creek, which runs lower than the gauge suggests"
       },
       "thresholds": [
         {
@@ -208,7 +208,7 @@
           "unit": "cfs",
           "referenceGauge": "07016500",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview, lower-reach navigability table @ Union gauge: 'Less than 40 cfs\u2014Most riffles will have to be walked.'",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview, lower-reach navigability table @ Union gauge: 'Less than 40 cfs—Most riffles will have to be walked.'",
           "confidence": "high"
         },
         {
@@ -217,7 +217,7 @@
           "unit": "cfs",
           "referenceGauge": "07016500",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '40-70 cfs\u2014Most riffles will be runnable with considerable scraping bottom.'",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '40-70 cfs—Most riffles will be runnable with considerable scraping bottom.'",
           "confidence": "high"
         },
         {
@@ -226,7 +226,7 @@
           "unit": "cfs",
           "referenceGauge": "07016500",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '70-120 cfs\u2014low but floatable'; '120-250 cfs\u2014easily floatable' \u2192 easily-floatable band begins at 120.",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '70-120 cfs—low but floatable'; '120-250 cfs—easily floatable' → easily-floatable band begins at 120.",
           "confidence": "high"
         },
         {
@@ -235,7 +235,7 @@
           "unit": "cfs",
           "referenceGauge": "07016500",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '120-250 cfs\u2014easily floatable'; '250-500 cfs\u2014high but floatable' \u2192 top of easily-floatable at 250.",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '120-250 cfs—easily floatable'; '250-500 cfs—high but floatable' → top of easily-floatable at 250.",
           "confidence": "high"
         },
         {
@@ -244,7 +244,7 @@
           "unit": "cfs",
           "referenceGauge": "07016500",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '250-500 cfs\u2014high but floatable'; '500-1000 cfs\u2014very high...strong currents and willow jungles may be dangerous.' (confidence HIGH: authoritative Agnew navigability table \u2014 owner-approved 2026-07-06.)",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: '250-500 cfs—high but floatable'; '500-1000 cfs—very high...strong currents and willow jungles may be dangerous.' (confidence HIGH: authoritative Agnew navigability table — owner-approved 2026-07-06.)",
           "confidence": "high"
         },
         {
@@ -253,7 +253,7 @@
           "unit": "cfs",
           "referenceGauge": "07016500",
           "referenceGaugeIsPolled": true,
-          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: 'Over 1000 cfs\u2014too high.' (500\u20131000 already flagged 'may be dangerous'; confidence HIGH: authoritative Agnew navigability table \u2014 owner-approved 2026-07-06.)",
+          "source": "Al Agnew, OzarkAnglers Bourbeuse Overview: 'Over 1000 cfs—too high.' (500–1000 already flagged 'may be dangerous'; confidence HIGH: authoritative Agnew navigability table — owner-approved 2026-07-06.)",
           "confidence": "high"
         }
       ],
@@ -267,16 +267,16 @@
           "logjam",
           "strong_current_high_water"
         ],
-        "lowWaterMeaning": "Below ~40 cfs at Union most riffles must be walked; 40\u201370 cfs runs with considerable scraping. The Noser Mill\u2192Spring Creek stretch runs lower than the Union gauge reads. Jun\u2013Nov normal (60\u2013150 cfs) sits in the low-to-marginal range.",
-        "risingWaterHazards": "500\u20131000 cfs is very high and probably muddy, with strong currents and willow jungles that 'may be dangerous'; over 1000 cfs is too high. NWS UNNM7 flood/action stages auto-fill at ingest.",
+        "lowWaterMeaning": "Below ~40 cfs at Union most riffles must be walked; 40–70 cfs runs with considerable scraping. The Noser Mill→Spring Creek stretch runs lower than the Union gauge reads. Jun–Nov normal (60–150 cfs) sits in the low-to-marginal range.",
+        "risingWaterHazards": "500–1000 cfs is very high and probably muddy, with strong currents and willow jungles that 'may be dangerous'; over 1000 cfs is too high. NWS UNNM7 flood/action stages auto-fill at ingest.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
-        "Normal flow @ Union \u2014 Dec\u2013Feb 150\u2013250 cfs; Mar\u2013May 300\u2013500; Jun\u2013Nov 60\u2013150; low flows 30\u201360; highest fishable 600\u20131000 (Agnew).",
-        "Spring Creek (Kratz Spring, ~25 cfs avg) enters ~10 mi below Noser Mill and can nearly double the flow \u2014 below it the river is nearly always floatable.",
+        "Normal flow @ Union — Dec–Feb 150–250 cfs; Mar–May 300–500; Jun–Nov 60–150; low flows 30–60; highest fishable 600–1000 (Agnew).",
+        "Spring Creek (Kratz Spring, ~25 cfs avg) enters ~10 mi below Noser Mill and can nearly double the flow — below it the river is nearly always floatable.",
         "Gradient 2.2 ft/mi. Below Union the river is incised into alluvial banks and typically very murky."
       ]
     }
@@ -284,316 +284,531 @@
   "accessPoints": [
     {
       "name": "Mint Spring MDC Access",
-      "type": "access",
-      "lat": 38.2092,
-      "lon": -91.5346,
-      "ownership": "Missouri Department of Conservation (10.5 acres)",
-      "section": "upper-mintspring-nosermill",
-      "notes": "Head of navigation. Upper reach mile 0.0.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 0.0,
+      "slug": "mint-spring-mdc-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.210037,
+      "lon": -91.534871,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mint-spring-access",
-      "description": "MDC river access on the upper Bourbeuse in the northwest corner of Crawford County, about 9.5 miles south of Owensville via Route EE; effectively the head of navigation. A gravel ramp can take a vehicle and trailer, but the river here is shallow and best run by canoe.",
-      "parkingInfo": "Gravel parking lot (accommodates vehicle + trailer)",
-      "roadAccess": "From Owensville, Route EE south ~9.5 mi (NW Crawford County)",
-      "facilities": "Gravel boat/canoe ramp, parking",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/mint-spring-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Lat/lon from MDC area-page embedded map data; effectively the head of navigation on the upper Bourbeuse."
+      "riverMile": 0.0,
+      "description": "10.5-acre MDC access on the upper Bourbeuse in northwest Crawford County, effectively the head of navigation and mile 0.0 for this river. A gravel boat ramp launches to a shallow reach best suited to canoes; the upper river is seldom floatable without dragging in dry summers. Open 4 a.m.-10 p.m. (boating 24 hours).",
+      "parkingInfo": "Paved parking lot (MDC GIS; lot not sized for trailers).",
+      "roadAccess": "From Owensville, take Route EE south 9.5 miles (MDC directions); the access is in the northwest corner of Crawford County, just off the Route EE bridge over the river.",
+      "facilities": "Gravel boat ramp (listed in MDC's statewide boat-ramp inventory; MDC photo captions it 'Mint Spring Access boat ramp'). No restrooms, no drinking water. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mint-spring-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17 (MDC Boat Ramps layer, Area_ID 8409)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin moved ~90 m from area point to the MDC-mapped boat ramp at the river. Route EE (MO EE) bridge crosses immediately upstream.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/mint-spring-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/"
+      ]
     },
     {
       "name": "Glaser Ford low-water bridge (Koenig Road)",
+      "slug": "glaser-ford-low-water-bridge-koenig-road",
       "type": "bridge",
+      "types": [
+        "bridge"
+      ],
       "lat": 38.2326,
       "lon": -91.51931,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 2.3. Low-water bridge hazard.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "ownership": "Public road right-of-way (county road)",
-      "riverMile": 2.3,
+      "ownership": "county",
       "managingAgency": "County",
-      "description": "Low-water bridge where Koenig Road crosses the upper Bourbeuse, known locally as Glaser Ford (Crawford County). Undeveloped roadside put-in; the concrete low-water slab can be overtopped and is hazardous at high flows.",
-      "roadAccess": "Koenig Road low-water bridge crossing",
-      "coordinateSource": "OpenStreetMap (Overpass) - Koenig Road x Bourbeuse River crossing (bridge=yes)",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 2.3,
+      "description": "Low-water bridge where Koenig Road crosses the upper Bourbeuse, known locally as Glaser Ford. Undeveloped put-in/take-out on the county right-of-way, 2.3 miles below Mint Spring. The slab is a strainer/pin hazard when overtopped.",
+      "parkingInfo": "No lot; roadside shoulder only within the county right-of-way.",
+      "roadAccess": "Where Koenig Road (county road off Route EE/Highway 19 south of Owensville) crosses the upper Bourbeuse on a concrete low-water slab, Crawford County.",
+      "facilities": "None. Undeveloped roadside crossing; the concrete low-water slab can be overtopped and is a hazard at high flows.",
+      "coordinateSource": "OpenStreetMap - Koenig Road bridge=yes segment over the Bourbeuse (verified against river geometry 2026-07-09)",
       "coordinateConfidence": "high",
-      "coordinateNote": "Genuine road-over-river crossing in OSM tagged bridge=yes, ~2.3 mi below Mint Spring; local name Glaser Ford, on Koenig Road. A separate 'Glaser Hollow Road' ford lies upstream of the head of navigation and is NOT this point."
+      "coordinateNote": "OSM crossing matches the existing pin (29 m off river line). Do not confuse with the Glaser Hollow Road ford upstream of Mint Spring (above the head of navigation).",
+      "sources": [
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
       "name": "Enke Road bridge",
+      "slug": "enke-road-bridge",
       "type": "bridge",
-      "lat": 38.23467,
-      "lon": -91.45653,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 7.7. Very poor access.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "ownership": "Public road right-of-way (county road)",
-      "riverMile": 7.7,
+      "types": [
+        "bridge"
+      ],
+      "lat": 38.23445,
+      "lon": -91.45671,
+      "ownership": "county",
       "managingAgency": "County",
-      "description": "Bridge where Enke Road crosses the upper Bourbeuse. Roadside crossing only, with very limited/poor access.",
-      "roadAccess": "Enke Road bridge",
-      "coordinateSource": "OpenStreetMap (Overpass) - Enke Road x Bourbeuse River crossing (bridge=yes)",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 7.7,
+      "description": "County road bridge over the upper Bourbeuse at mile 7.7, about a river mile above the Highway 19 crossing. Very poor access - steep, brushy right-of-way; an emergency exit more than a planned put-in. The Hawksley/floatmissouri chart notes it as 'another bridge 1.1 miles upstream' of Hwy 19, 'reached from Hwy. 19'.",
+      "parkingInfo": "No lot; roadside only.",
+      "roadAccess": "Enke Road (county road reached from Highway 19 south of Owensville) bridge over the upper Bourbeuse, Gasconade County.",
+      "facilities": "None. Roadside crossing with very limited/poor access to the water (Agnew).",
+      "coordinateSource": "OpenStreetMap - Enke Road bridge=yes segment over the Bourbeuse (verified against river geometry 2026-07-09)",
       "coordinateConfidence": "high",
-      "coordinateNote": "OSM road-over-river crossing, bridge=yes; longitude/mile consistent with position between Glaser Ford and Hog Trough."
+      "coordinateNote": "Pin adjusted ~25 m onto the OSM bridge segment.",
+      "sources": [
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://www.openstreetmap.org/"
+      ]
+    },
+    {
+      "name": "Hwy 19 bridge",
+      "slug": "hwy-19-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge"
+      ],
+      "lat": 38.22373,
+      "lon": -91.447848,
+      "ownership": "state (MoDOT right-of-way)",
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 8.4,
+      "description": "State Highway 19 bridge over the upper Bourbeuse, mile 0.0 of the classic Hawksley/floatmissouri mile chart, which calls it a possible put-in. Roadside access on the public right-of-way; no facilities. Useful upper-river alternative when Mint Spring's reach is too low to bother with.",
+      "parkingInfo": "No lot; highway shoulder parking only.",
+      "roadAccess": "Where Missouri Highway 19 crosses the Bourbeuse about 8 road-miles south of Owensville, between Enke Road and Hog Trough Road.",
+      "facilities": "None. Undeveloped state-highway bridge crossing.",
+      "coordinateSource": "OpenStreetMap - computed intersection of MO 19 (bridge=yes) with the Bourbeuse River line",
+      "coordinateConfidence": "high",
+      "coordinateNote": "Added from the floatmissouri.com (Hawksley) chart ('State Hwy. 19 Bridge... possible put-in'). Guide mile interpolated along the river line between Enke Road (7.7) and Hog Trough (10.7); chart offset cross-check gives 7.7-8.5.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
       "name": "Hog Trough Road low-water bridge",
+      "slug": "hog-trough-road-low-water-bridge",
       "type": "bridge",
-      "lat": 38.24759,
-      "lon": -91.42426,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 10.7. Low-water bridge hazard.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "ownership": "Public road right-of-way (county road)",
-      "riverMile": 10.7,
+      "types": [
+        "bridge"
+      ],
+      "lat": 38.24768,
+      "lon": -91.42411,
+      "ownership": "county",
       "managingAgency": "County",
-      "description": "Low-water bridge carrying Hog Trough Road over the upper Bourbeuse. Slab crossing that can be overtopped at high water (hazard); undeveloped roadside access.",
-      "roadAccess": "Hog Trough Road low-water bridge",
-      "coordinateSource": "OpenStreetMap (Overpass) - Hog Trough Road x Bourbeuse River crossing (bridge=yes)",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 10.7,
+      "description": "Low-water bridge carrying Hog Trough Road over the upper Bourbeuse at mile 10.7. The Hawksley/floatmissouri chart lists it as a 'low-water bridge with access' - an undeveloped roadside put-in on the county right-of-way. The slab is a hazard for floaters at higher flows.",
+      "parkingInfo": "No lot; roadside only.",
+      "roadAccess": "Hog Trough Road (county road) low-water crossing of the upper Bourbeuse; Highway 19 is about 2.8 road-miles west (floatmissouri chart).",
+      "facilities": "None. Low-water slab crossing; overtopped and hazardous at high water.",
+      "coordinateSource": "OpenStreetMap - Hog Trough Road bridge=yes segment over the Bourbeuse (verified against river geometry 2026-07-09)",
       "coordinateConfidence": "high",
-      "coordinateNote": "OSM road-over-river crossing, bridge=yes; low-water slab."
+      "coordinateNote": "Pin adjusted ~15 m onto the OSM bridge segment. Corroborated by two independent charts (Agnew mile 10.7; Hawksley mile 3.0 + 7.7 offset).",
+      "sources": [
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
       "name": "Tea MDC Access",
+      "slug": "tea-mdc-access",
       "type": "access",
-      "lat": 38.2994,
-      "lon": -91.3979,
-      "ownership": "Missouri Department of Conservation",
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 17.6.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 17.6,
+      "types": [
+        "access"
+      ],
+      "lat": 38.299019,
+      "lon": -91.397216,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/tea-access",
-      "description": "MDC fishing and boat access on the upper Bourbeuse south of Owensville, Gasconade County. Provides a boat ramp to the river.",
-      "roadAccess": "South of Owensville (Gasconade County)",
-      "facilities": "Boat ramp",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/tea-access",
+      "riverMile": 17.6,
+      "description": "3.4-acre MDC fishing and boating access on the upper Bourbeuse in Gasconade County, south of Owensville at the hamlet of Tea. An unimproved ramp and paved lot sit beside the Route T bridge. First reliable public access below Mint Spring - 17.6 river miles of thinly-accessed water above it.",
+      "parkingInfo": "Paved parking lot at the launch (MDC GIS).",
+      "roadAccess": "From Owensville take Highway 19 south 2 miles, then Route V east 5 miles, and Route T south 4 miles to Tea Road (MDC directions). The access sits on the north bank just downstream of the Route T bridge.",
+      "facilities": "Unimproved launch ramp to the river (MDC photo captions 'the ramp at Tea Access'; OSM tags the slipway surface as unpaved; NOT in MDC's statewide boat-ramp inventory). No restrooms. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/tea-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26 (MDC parking lot, Area_ID 8007; coincides within ~15 m with the OSM slipway node)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Classified 'access' rather than 'boat_ramp': launch is unpaved/gravel and absent from MDC's official ramp inventory even though a page photo calls it a ramp.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/tea-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/"
+      ]
+    },
+    {
+      "name": "Hwy H bridge",
+      "slug": "hwy-h-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge"
+      ],
+      "lat": 38.318217,
+      "lon": -91.332719,
+      "ownership": "state (MoDOT right-of-way)",
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 31.1,
+      "description": "Route H highway bridge over the Bourbeuse at mile 31.1, the only mapped crossing in the 17-mile gap between Tea Access and Mill Rock Access. Listed in the Hawksley/floatmissouri chart as an access, with the caveat 'poor access'. Roadside right-of-way only; no facilities.",
+      "parkingInfo": "No lot; highway shoulder only.",
+      "roadAccess": "Where Missouri Route H crosses the Bourbeuse, roughly 10 miles north of Sullivan via Highway 185 and Route H (same approach as Mill Rock Access).",
+      "facilities": "None. Undeveloped state-highway bridge; the Hawksley/floatmissouri chart rates it 'poor access'.",
+      "coordinateSource": "OpenStreetMap - computed intersection of MO H (bridge=yes) with the Bourbeuse River line",
       "coordinateConfidence": "high",
-      "coordinateNote": "Lat/lon from MDC area-page embedded map data (Gasconade County)."
+      "coordinateNote": "Added from the floatmissouri.com (Hawksley) chart (their mile 23.4 = datum mile 31.1; interpolated river-line mile agrees at 31.1). Note: Shawnee Ford Road also bridges the river near mile ~25 but is documented nowhere as an access, so it was not added.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
       "name": "Mill Rock MDC Access",
-      "type": "access",
-      "lat": 38.3303,
-      "lon": -91.302,
-      "ownership": "Missouri Department of Conservation (~10 acres)",
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 34.8.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 34.8,
+      "slug": "mill-rock-mdc-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.331102,
+      "lon": -91.302751,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mill-rock-access",
-      "description": "MDC access on the Bourbeuse in Franklin County (~10 acres), reached from Sullivan via Hwy 185, Route H and Mill Rock Road. Facilities include a parking lot and canoe launch; a scenic reach noted for bass and sunfish fishing.",
-      "parkingInfo": "Parking lot",
-      "roadAccess": "From Sullivan, Hwy 185 north, Route H north ~10 mi, Mill Rock Road east ~3 mi",
-      "facilities": "Parking lot, canoe launch",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/mill-rock-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Lat/lon from MDC area-page embedded map data (Franklin County)."
+      "riverMile": 34.8,
+      "description": "10.1-acre MDC access on the middle Bourbeuse in Franklin County, reached from Sullivan via Highway 185, Route H and Mill Rock Road. Ramp launch on a scenic reach known for smallmouth, sunfish and catfish. Standard pairing: Tea to Mill Rock (~17 mi) or Mill Rock to Wenkel Ford (~7 mi).",
+      "parkingInfo": "Paved parking lot near the ramp (MDC GIS).",
+      "roadAccess": "From Sullivan, take Highway 185 north, then Route H north 10 miles, and Mill Rock Road east 3 miles to the area (MDC directions).",
+      "facilities": "Boat/canoe ramp (in MDC's statewide ramp inventory; OSM also maps a drive-down ford track beside it). Paved lot. No restrooms. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mill-rock-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17 (MDC Boat Ramps layer, Area_ID 7604; OSM slipway 'Mill Rock Access' within 10 m)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin moved ~110 m from the area point to the MDC-mapped ramp at the river (12 m off the river line). Mill Rock Road final approach assumed gravel (county road); field-verify.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/mill-rock-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/"
+      ]
     },
     {
       "name": "Hwy CC bridge",
+      "slug": "hwy-cc-bridge",
       "type": "bridge",
+      "types": [
+        "bridge"
+      ],
       "lat": 38.31199,
-      "lon": -91.27753,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 39.0. Very poor access.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "ownership": "Public road right-of-way (MoDOT Route CC)",
+      "lon": -91.277532,
+      "ownership": "state (MoDOT right-of-way)",
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
       "riverMile": 39.0,
-      "description": "MoDOT Route CC highway bridge over the Bourbeuse. Roadside crossing with very poor/limited access.",
-      "roadAccess": "MoDOT Route CC bridge",
-      "coordinateSource": "OpenStreetMap (Overpass) - MoDOT Route CC x Bourbeuse River crossing",
+      "description": "Route CC highway bridge at mile 39.0, four miles below Mill Rock. Both published charts warn there is little to no practical access here - treat it as a landmark/emergency exit, not a planned put-in. Wenkel Ford Access is 3 miles downstream.",
+      "parkingInfo": "No lot; highway shoulder only.",
+      "roadAccess": "Missouri Route CC (Champion City) bridge over the Bourbeuse between Mill Rock and Wenkel Ford accesses.",
+      "facilities": "None. Agnew rates access here 'very poor'; the Hawksley/floatmissouri chart says 'Champion City (Hwy CC) Bridge. No access.'",
+      "coordinateSource": "OpenStreetMap - computed intersection of MO CC (bridge=yes) with the Bourbeuse River line (matches existing pin exactly)",
       "coordinateConfidence": "high",
-      "coordinateNote": "OSM state-route x river crossing; longitude/mile consistent with position between Mill Rock and Wenkel Ford."
+      "coordinateNote": "Kept because Agnew lists it as a (very poor) access; Hawksley says none. Consider excluding from trip-planner suggestions.",
+      "sources": [
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
-      "name": "Wenkle Ford MDC Access",
+      "name": "Wenkel Ford MDC Access",
+      "slug": "wenkle-ford-mdc-access",
       "type": "access",
-      "lat": 38.3224,
-      "lon": -91.257,
-      "ownership": "Missouri Department of Conservation",
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 42.0.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 42.0,
+      "types": [
+        "access"
+      ],
+      "lat": 38.323177,
+      "lon": -91.256379,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/wenkel-ford-access",
-      "description": "MDC access providing fishing and canoe access to the Bourbeuse near Spring Bluff, reached via Hwy 185 and Wenkel Ford Road. Gravel ford-type launch (OSM tags the river crossing ford=yes).",
-      "roadAccess": "From Spring Bluff, Hwy 185 north, then Wenkel Ford Road north and west ~4 mi",
-      "facilities": "Gravel ford/canoe launch",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/wenkel-ford-access",
+      "riverMile": 42.0,
+      "description": "5.4-acre MDC fishing and canoe access at the old Wenkel Ford crossing near Spring Bluff, Franklin County. Gravel drive-to-water launch rather than a constructed ramp. Common take-out for the 7-mile float from Mill Rock.",
+      "parkingInfo": "Paved parking lot ~90 m from the launch (MDC GIS).",
+      "roadAccess": "From Spring Bluff, take Highway 185 north, then Wenkel Ford Road north and west 4 miles to the river (MDC directions).",
+      "facilities": "Unimproved gravel ford/carry-down canoe launch (OSM tags the crossing ford=yes; no ramp in MDC's inventory). No restrooms. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/wenkel-ford-access",
+      "coordinateSource": "OpenStreetMap slipway node 'Wenkel Ford' at the water, cross-checked against MDC GIS parking lot (Area_ID 8225) 90 m south",
       "coordinateConfidence": "high",
-      "coordinateNote": "MDC area-page map data (MDC spells it 'Wenkel Ford Access'); an OSM ford=yes node at 38.32314,-91.25679 corroborates within ~100 m."
+      "coordinateNote": "MDC spells it 'Wenkel Ford' (DB slug says 'wenkle' - keep slug, display name uses MDC spelling). Pin placed at the OSM launch/ford node, 21 m off the river line; official MDC lot is 90 m away.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/wenkel-ford-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
       "name": "Laubinger Ford",
+      "slug": "laubinger-ford",
       "type": "access",
+      "types": [
+        "access"
+      ],
       "lat": 38.34075,
       "lon": -91.2446,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 45.0. Very obscure and hard to find.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
       "riverMile": 45.0,
-      "description": "Very obscure, unimproved ford at the river end of Laubinger Ford Road (per OpenStreetMap), between Wenkel Ford and Peters Ford. Hard to find and without developed facilities.",
-      "roadAccess": "River end of Laubinger Ford Road",
-      "coordinateSource": "OpenStreetMap - 'Laubinger Ford Road' river terminus (snapped to Bourbeuse channel)",
+      "description": "Very obscure unimproved ford where Laubinger Ford Road historically crossed the Bourbeuse, three miles below Wenkel Ford. Agnew lists it as an access but calls it hard to find; there are no facilities and effectively no parking. Interpolated river-line mile (44.8) confirms Agnew's mile 45.0.",
+      "parkingInfo": "No parking; unimproved road end.",
+      "roadAccess": "At the river end of Laubinger Ford Road (named on both banks), between Wenkel Ford and Peters Ford. Very obscure and hard to find (Agnew).",
+      "facilities": "None. Unimproved former ford; no developed access.",
+      "coordinateSource": "OpenStreetMap - gap in Laubinger Ford Road alignment at the river (road mapped on both banks), point snapped to channel",
       "coordinateConfidence": "medium",
-      "coordinateNote": "Approximate: river point ~110 m from the mapped river-end of 'Laubinger Ford Road' in OSM. Very obscure/hard to find; verify on the ground."
+      "coordinateNote": "HUMAN REVIEW: OSM maps Laubinger Ford Road on both banks but the mapped road stops ~110 m short of the water with no ford way; the crossing right-of-way status is unverified and the approach may cross private land. Not in the Hawksley/floatmissouri chart. Kept (pending) because the road is named for the ford on both banks and Agnew lists it; retire if ground-truthing shows posted land.",
+      "sources": [
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
       "name": "Peters Ford",
+      "slug": "peters-ford",
       "type": "access",
+      "types": [
+        "access"
+      ],
       "lat": 38.37457,
       "lon": -91.2066,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 53.0. Unimproved ford; parking non-existent without permission.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+      "ownership": "county",
+      "managingAgency": "County",
+      "isPublic": true,
+      "feeRequired": false,
       "riverMile": 53.0,
-      "description": "Unimproved low-water ford where Peters Ford Road meets the Bourbeuse, at the Peters Ford locality in Franklin County. No developed access.",
-      "roadAccess": "End of Peters Ford Road (Peters Ford locality)",
-      "coordinateSource": "OpenStreetMap (Overpass) - Peters Ford Road x Bourbeuse River; corroborated by OSM 'Peters Ford' locality node (38.3745,-91.2076)",
+      "description": "Unimproved public ford where Peters Ford Road meets the Bourbeuse in Franklin County, 6 miles above Noser Mill. The Hawksley/floatmissouri chart lists it plainly: 'Access. County road right of way only.' No facilities and virtually no parking - a bare-bones put-in for locals.",
+      "parkingInfo": "County road right-of-way only; Agnew notes parking is essentially non-existent without landowner permission.",
+      "roadAccess": "Reached by county road (Peters Ford Road) from Highway 185 at Noser Mill, which is 2 miles northeast (Hawksley chart). The last stretch is an unpaved track to the low-water ford.",
+      "facilities": "None. Unimproved low-water ford; vehicles historically crossed the riverbed here.",
+      "coordinateSource": "OpenStreetMap - Peters Ford Road ford=yes track crossing the Bourbeuse, matching the GNIS 'Peters Ford' locality",
       "coordinateConfidence": "high",
-      "coordinateNote": "Road-over-river crossing of Peters Ford Road in OSM, matching the named Peters Ford locality."
+      "coordinateNote": "Genuine public access confirmed by two independent charts plus an OSM ford crossing; existing pin verified (sits mid-ford, 4 m off river line).",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
-      "name": "Hwy 185 at Noser Mill / Devils Back Campground",
-      "type": "access",
-      "lat": 38.3913,
-      "lon": -91.18944,
-      "section": "upper-mintspring-nosermill",
-      "notes": "Upper mile 59.0 / lower mile 0.0. Bridge has no access; access below the mill dam (from the north) may be posted; safest is Devils Back Campground above the bridge (entails portaging Noser Mill dam).",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "ownership": "Devil's Back Floats (private campground/outfitter)",
-      "riverMile": 59.0,
+      "name": "Devils Back Floats (Noser Mill)",
+      "slug": "hwy-185-at-noser-mill-devils-back-campground",
+      "type": "campground",
+      "types": [
+        "campground",
+        "boat_ramp"
+      ],
+      "lat": 38.398077,
+      "lon": -91.19728,
+      "ownership": "private",
       "managingAgency": "Private",
-      "officialSiteUrl": "http://www.devilsbackfloats.com/",
-      "description": "Access on the Bourbeuse at Noser Mill, below the historic mill dam, where MoDOT Route 185 bridges the river (Franklin County). The adjacent Devil's Back Floats is a private, family-run campground and float outfitter operating here since 1980.",
-      "roadAccess": "MoDOT Route 185 bridge at Noser Mill",
-      "facilities": "Private riverside campground (Devil's Back Floats); public Hwy 185 bridge put-in below the old mill dam",
+      "isPublic": false,
       "feeRequired": true,
-      "coordinateSource": "OpenStreetMap (Overpass) - MO Route 185 x Bourbeuse River at Noser Mill; corroborated by 'Noser Mill' locality node (38.3931,-91.1924)",
+      "feeNotes": "Private outfitter: rental, camping and launch fees apply. Phone (573) 484-3231.",
+      "riverMile": 58.7,
+      "description": "Private campground and float outfitter on the north bank above the Noser Mill dam - the practical access at Noser Mill, since the Highway 185 bridge itself has no public access. Floating downstream from here requires portaging the low mill dam about half a mile below. Marks the traditional boundary between the upper and lower Bourbeuse (upper mile 59 = lower mile 0).",
+      "parkingInfo": "Customer parking at the campground.",
+      "roadAccess": "From the Highway 185 bridge over the Bourbeuse at Noser Mill, take Noser Mill Road west along the north bank to 5103 Noser Mill Road, Leslie (about an hour from St. Louis).",
+      "facilities": "Concrete boat ramp, primitive riverside campsites, canoe/kayak/jon boat rentals. Family-run outfitter operating since 1980 - the only outfitter on the Bourbeuse. Ramp and campground customer-access; reservations required for floats.",
+      "officialSiteUrl": "http://www.devilsbackfloats.com/",
+      "coordinateSource": "OpenStreetMap slipway 'Devils Back Floats' (access=customers) at the water, with OSM camp_site node 38.3951,-91.19654; devilsbackfloats.com confirms concrete ramp at 5103 Noser Mill Rd, Leslie",
       "coordinateConfidence": "high",
-      "coordinateNote": "MO 185 bridge crossing at Noser Mill (put-in is just below the historic mill dam); marks upper mile 59.0 = lower mile 0.0."
+      "coordinateNote": "Pin MOVED ~750 m from the Hwy 185 bridge (38.3913,-91.1894) to the outfitter's ramp above the dam, per Agnew ('bridge has no access... safest is Devils Back Campground above the bridge') and Hawksley ('State Hwy. 185 Bridge at old Noser Mill... Private - no access'). is_public set false (customer access). Noser Mill dam hazard at 38.39374,-91.19144 (portage). Guide mile set 58.7 (ramp is ~0.3 mi above the old bridge datum point at 59.0).",
+      "sources": [
+        "http://www.devilsbackfloats.com/",
+        "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+        "https://www.openstreetmap.org/"
+      ]
     },
     {
-      "name": "Schmitt Ford",
+      "name": "Noser Mill Conservation Area",
+      "slug": "noser-mill-conservation-area",
       "type": "access",
-      "lat": 38.36462,
-      "lon": -91.1776,
-      "section": "lower-nosermill-meramec",
-      "notes": "Lower mile 4.2. Obscure, may be posted; end of Stuesse Road.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 63.2,
-      "description": "Obscure ford at the downstream end of Stuesse Road (per OpenStreetMap), Franklin County, just below Noser Mill. No developed facilities; hard to find.",
-      "roadAccess": "Downstream end of Stuesse Road",
-      "coordinateSource": "OpenStreetMap - 'Stuesse Road' downstream terminus (snapped to Bourbeuse channel)",
-      "coordinateConfidence": "medium",
-      "coordinateNote": "Approximate: river point ~210 m from the terminus of Stuesse Road in OSM, matching the 'end of Stuesse Road' hint. river_mile is cumulative from head of navigation (Noser Mill 59.0 + lower 4.2)."
+      "types": [
+        "access"
+      ],
+      "lat": 38.38805,
+      "lon": -91.18503,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 59.7,
+      "description": "210.6-acre MDC conservation area on the Bourbeuse just downstream of the historic Noser Mill dam, acquired from the Corps of Engineers in 2015. Offers the only public land at the Noser Mill upper/lower river boundary - a carry-in put-in below the dam that avoids both the private Devils Back ramp and the dam portage. Undeveloped; expect a short walk from the parking lot to the water.",
+      "parkingInfo": "Two MDC parking lots; the south lot sits ~120 m from the left bank below Noser Mill dam.",
+      "roadAccess": "From the intersection of Highways 50 and 185 in Beaufort, head south on 185 for 2 miles to the area (MDC directions); the south parking lot is east of 185 below the mill dam.",
+      "facilities": "Undeveloped - no ramp, no restrooms. Walk-in carry to the river across MDC land from the south parking lot.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/noser-mill-conservation-area",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26 (MDC parking lot, Area_ID 201501, south lot ~120 m from the river below the dam)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "HUMAN REVIEW: MDC's page does not explicitly advertise boat access; carry distance ~120 m across MDC land measured from official lot coordinate to river line. Field-verify bank condition before promoting as a recommended put-in.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/noser-mill-conservation-area",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26"
+      ]
     },
     {
       "name": "Reiker Ford MDC Access",
+      "slug": "reiker-ford-mdc-access",
       "type": "access",
-      "lat": 38.3805,
-      "lon": -91.0743,
-      "ownership": "Missouri Department of Conservation (~10.9 acres)",
-      "section": "lower-nosermill-meramec",
-      "notes": "Lower mile 21.5.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 80.5,
+      "types": [
+        "access"
+      ],
+      "lat": 38.378902,
+      "lon": -91.074041,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/reiker-ford-access",
-      "description": "MDC access providing public fishing and boat access to the lower Bourbeuse (~10.9 acres), reached from Union via Hwy 50, Route UU, Snake Hill Road and Reiker Ford Road. Camping and target shooting are prohibited.",
-      "roadAccess": "From Union, Hwy 50 west 1 mi, Route UU south 5 mi, Snake Hill Rd south 0.5 mi, Reiker Ford Rd east",
-      "facilities": "Boat/canoe access (no camping)",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/reiker-ford-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC area-page map data. river_mile is cumulative from head of navigation (Noser Mill 59.0 + lower 21.5)."
+      "riverMile": 80.5,
+      "description": "10.9-acre MDC access on the lower Bourbeuse southwest of Union, the first public access below Noser Mill - a long 21.5-mile reach. Popular 11-mile float from here to Mayers Landing. Carry-down launch from the parking area; no developed ramp.",
+      "parkingInfo": "Paved parking lot ~90 m from the water (MDC GIS).",
+      "roadAccess": "From Union, take Highway 50 west 1 mile, then Route UU south 5 miles, then Snake Hill Road south 0.5 mile, and Reiker Ford Road east to the area (MDC directions).",
+      "facilities": "Unimproved carry-down boat/canoe access - no constructed ramp (absent from MDC's ramp inventory). No restrooms. Camping and target shooting prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/reiker-ford-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26 (MDC parking lot / entry point, Area_ID 7507, 91 m from the river)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin moved ~180 m from area point to the official MDC lot. Snake Hill/Reiker Ford Road final approach surface assumed gravel; field-verify.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/reiker-ford-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/26",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/"
+      ]
     },
     {
       "name": "Mayers Landing MDC Access",
-      "type": "access",
-      "lat": 38.427,
-      "lon": -91.0461,
-      "ownership": "Missouri Department of Conservation (~6.6 acres)",
-      "section": "lower-nosermill-meramec",
-      "notes": "Lower mile 32.5.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 91.5,
+      "slug": "mayers-landing-mdc-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.426668,
+      "lon": -91.046605,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mayers-landing-access",
-      "description": "MDC access on the lower Bourbeuse (~6.6 acres), reached from Union via Hwy 50 west and Route UU south. The main channel has shifted away from the boat ramp, so direct channel access is limited.",
-      "roadAccess": "From Union, Hwy 50 west 1 mi, then Route UU south 1 mi",
-      "facilities": "Boat ramp (limited - channel has shifted away)",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/mayers-landing-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC area-page map data; MDC warns the main channel has shifted away from the boat ramp (limited access). river_mile cumulative = 59.0 + 32.5."
+      "riverMile": 91.5,
+      "description": "6.6-acre MDC access on the lower Bourbeuse just southwest of Union. The ramp remains, but the river's main channel has migrated away from it (MDC), so expect a shallow-side landing at normal flows. Common take-out for the 11-mile float from Reiker Ford; Union Access is 8.4 miles downstream.",
+      "parkingInfo": "Paved parking lot at the ramp (MDC GIS).",
+      "roadAccess": "From Union, take Highway 50 west 1 mile, then Route UU south 1 mile (MDC directions).",
+      "facilities": "Boat ramp and paved lot - but MDC warns the main channel has shifted away from the ramp, so direct channel access is limited. No restrooms. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mayers-landing-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17 (MDC Boat Ramps layer, Area_ID 7920; OSM slipway \"Mayer's Landing\" within 20 m)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin verified at the MDC-mapped ramp (36 m off river line).",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/mayers-landing-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/"
+      ]
     },
     {
       "name": "Union MDC Access",
-      "type": "access",
-      "lat": 38.4428,
-      "lon": -90.995,
-      "ownership": "Missouri Department of Conservation (~10.3 acres)",
-      "section": "lower-nosermill-meramec",
-      "notes": "Lower mile 40.9. Near the Hwy 50 / Union gauge.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 99.9,
+      "slug": "union-mdc-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.443052,
+      "lon": -90.996244,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/union-access",
-      "description": "MDC boat and fishing access on the Bourbeuse at the town of Union, off Hwy 50 near the Hwy 47 junction (~10.3 acres). Located near the USGS Union streamgage.",
-      "roadAccess": "In Union off Hwy 50 near the Hwy 47 junction (adjacent to a QuikTrip)",
-      "facilities": "Boat launch, gravel-bar fishing access",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/union-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC area-page map data; in the town of Union near the USGS Union streamgage. river_mile cumulative = 59.0 + 40.9."
+      "riverMile": 99.9,
+      "description": "10.3-acre MDC boat and fishing access in the town of Union at the US 50 bridge, beside the USGS Union streamgage (07016500) that governs lower-river floatability. Concrete ramp with in-town convenience. Take-out for the 8.4-mile float from Mayers Landing; note Guths Mill Dam (portage) 3.5 miles downstream.",
+      "parkingInfo": "Paved parking lot at the ramp (MDC GIS).",
+      "roadAccess": "In Union off of Highway 50, near the intersection of Highway 47, adjacent to the QuikTrip (MDC directions).",
+      "facilities": "Concrete boat ramp (OSM surface=concrete; in MDC's ramp inventory) plus gravel-bar bank access. No restrooms on site; convenience store adjacent. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/union-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17 (MDC Boat Ramps layer, Area_ID 6508; OSM slipway 'Union Access', surface=concrete)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin verified at the MDC-mapped ramp. Guths Mill Dam hazard at 38.46186,-90.96618 (~mile 103.5, Hawksley: 'Portage') lies between here and Uhlemeyer - hazard, not an access; consider a hazard layer entry.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/union-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/"
+      ]
     },
     {
       "name": "Dr. Henry A. and Amalia Uhlemeyer MDC Access",
-      "type": "access",
-      "lat": 38.4395,
-      "lon": -90.9062,
-      "ownership": "Missouri Department of Conservation",
-      "section": "lower-nosermill-meramec",
-      "notes": "Lower mile 49.9.",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 108.9,
+      "slug": "dr-henry-a-and-amalia-uhlemeyer-mdc-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.439466,
+      "lon": -90.907357,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/dr-henry-amalia-uhlemeyer-access",
-      "description": "MDC access (Dr. Henry A. and Amalia Uhlemeyer) providing fishing and boat access to the lower Bourbeuse in Franklin County.",
-      "facilities": "Boat and bank fishing access",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/dr-henry-amalia-uhlemeyer-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC area-page map data. river_mile cumulative = 59.0 + 49.9."
+      "riverMile": 108.9,
+      "description": "12.3-acre MDC access on the lowest Bourbeuse beneath the I-44/Historic Route 66 crossings east of Union. ADA boat ramp, privy and paved lot make it the best-equipped access on the river. Last easy access before Chouteau Claim at the Meramec confluence, 5.3 miles downstream.",
+      "parkingInfo": "Paved ADA parking lot (MDC GIS).",
+      "roadAccess": "Exit I-44 at Route O and go south to the access, which is immediately to the west (MDC directions); the access sits where I-44/US 50 and Historic Route 66 (Route AT) cross the Bourbeuse.",
+      "facilities": "Concrete boat ramp (ADA) and privy/vault toilet (ADA) - the only restroom on the river's MDC accesses. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/dr-henry-amalia-uhlemeyer-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17 (MDC Boat Ramps layer, Area_ID 9407, ADA ramp; OSM slipway 'Uhlemeyer' within 25 m)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "MDC page's '9 miles' figure not stated; acreage updated to 12.3 per MDC. Privy confirmed from MDC GIS Privies layer.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/dr-henry-amalia-uhlemeyer-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/21"
+      ]
     },
     {
       "name": "Chouteau Claim MDC Access",
-      "type": "access",
-      "lat": 38.3977,
-      "lon": -90.891,
-      "ownership": "Missouri Department of Conservation (~15 acres)",
-      "section": "lower-nosermill-meramec",
-      "notes": "Lower mile 55.2. At the mouth of the Bourbeuse (Meramec confluence).",
-      "source": "https://forums.ozarkanglers.com/waters/rivers/bourbeuse-river/bourbeuse-river-overview-r398/",
-      "riverMile": 114.2,
+      "slug": "chouteau-claim-mdc-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.398778,
+      "lon": -90.890926,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/chouteau-claim-access",
-      "description": "MDC access (~15 acres) at the confluence of the Bourbeuse and Meramec rivers, reached from Moselle via St. Mary's Road. Largely undeveloped, with no boat ramp noted - primarily walk-in/canoe and bank fishing access.",
-      "roadAccess": "From Moselle, St. Mary's Road northeast to the confluence",
-      "facilities": "Undeveloped access at the Meramec confluence (no developed ramp noted)",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/chouteau-claim-access",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC area-page map data; at the Bourbeuse-Meramec confluence. river_mile cumulative = 59.0 + 55.2."
+      "riverMile": 114.2,
+      "description": "15-acre MDC access at the mouth of the Bourbeuse where it joins the Meramec near Moselle - the final take-out for Bourbeuse floats and a put-in/take-out for middle Meramec trips. Concrete ramp with paved and gravel parking. 5.3 miles below Uhlemeyer Access.",
+      "parkingInfo": "Two lots at the ramp: paved, plus a gravel ADA lot (MDC GIS).",
+      "roadAccess": "From Moselle, take St. Mary's Road northeast to the confluence of the Meramec and Bourbeuse rivers (MDC directions).",
+      "facilities": "Concrete boat ramp at the Bourbeuse-Meramec confluence (MDC ramp inventory; OSM surface=concrete). No restrooms. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/chouteau-claim-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17 (MDC Boat Ramps layer, Area_ID 7928; OSM slipway 'Chouteau Claim', surface=concrete, access=yes)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "CORRECTION: prior record said 'no boat ramp noted - primarily walk-in'; MDC's official ramp inventory and OSM both show a concrete ramp here (also listed as 'Choteau Claim Access Boat Ramp' on paddleguide.com). Two private slipways nearby on the Bourbeuse's last bend (OSM access=private) are not this access.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/chouteau-claim-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+        "https://www.paddleguide.com/united-states/missouri/access-points/choteau-claim-access--2198214684410631"
+      ]
     }
   ],
   "weatherPoint": {
@@ -624,17 +839,18 @@
       "https://waterdata.usgs.gov/monitoring-location/USGS-07015720/"
     ],
     "openQuestions": [
-      "RIVER-TYPE [signoff]: Agnew explicitly confirms runoff-fed / murky / slowest-large-Ozark-stream character \u2014 'spring_fed_float' mis-models the speed curve. Reclassify (a runoff/lowland float archetype, or 'flatwater'); not flipped unilaterally because riverType drives speed curves. isSpringFed already set false on both reaches.",
+      "RIVER-TYPE [signoff]: Agnew explicitly confirms runoff-fed / murky / slowest-large-Ozark-stream character — 'spring_fed_float' mis-models the speed curve. Reclassify (a runoff/lowland float archetype, or 'flatwater'); not flipped unilaterally because riverType drives speed curves. isSpringFed already set false on both reaches.",
       "DANGER ANCHORS [RESOLVED 2026-07-06]: high/dangerous cfs (upper 120/200 @ High Gate; lower 500/1000 @ Union) set to confidence 'high' on owner approval (Agnew's navigability table is authoritative). [safety] gate cleared. NWS UNNM7/HTGM7 flood stages remain an independent ft-based danger layer via auto-fetch.",
       "Upper-reach gauge caveat: High Gate under-reads tributary-driven rises; consider surfacing the 'check Union after rain' rule in the app's upper-reach guidance.",
-      "Float times per reach not published by Agnew \u2014 derive from mileage + speed curve once river_type is settled."
+      "Float times per reach not published by Agnew — derive from mileage + speed curve once river_type is settled."
     ],
     "toVerify": [
-      "USGS 07015720 (High Gate), 07016500 (Union), 07016400 (above Union), 07015750 (Owensville): transcribe site #, name, lat/lon, params (00060/00065), drainage area from the USGS site service \u2014 CANDIDATES ONLY until then; then write verified-identifiers-bourbeuse.md",
-      "The brief's earlier '07016000 near Noser Mill' guess is NOT in Agnew's account and was unconfirmed in search \u2014 treat as non-existent unless the USGS paste shows it",
-      "NWS UNNM7 (Union) and HTGM7 (High Gate) flood/action stages \u2014 leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); use as the danger-anchor corroboration",
+      "USGS 07015720 (High Gate), 07016500 (Union), 07016400 (above Union), 07015750 (Owensville): transcribe site #, name, lat/lon, params (00060/00065), drainage area from the USGS site service — CANDIDATES ONLY until then; then write verified-identifiers-bourbeuse.md",
+      "The brief's earlier '07016000 near Noser Mill' guess is NOT in Agnew's account and was unconfirmed in search — treat as non-existent unless the USGS paste shows it",
+      "NWS UNNM7 (Union) and HTGM7 (High Gate) flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); use as the danger-anchor corroboration",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "Access-point coordinates \u2014 human places every point in admin [manual]; names + river-miles captured from Agnew"
+      "Access-point coordinates — human places every point in admin [manual]; names + river-miles captured from Agnew"
     ]
-  }
+  },
+  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed."
 }

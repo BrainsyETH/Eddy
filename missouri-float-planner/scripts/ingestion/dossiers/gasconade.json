@@ -1,5 +1,5 @@
 {
-  "_status": "SIGNED-OFF 2026-07-07 \u2014 owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN1 \u2014 identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-gasconade.md written; lat/lon + params + drainage backfilled for all 3 reach gauges (Hazelgreen/Jerome/Rich Fountain, all ACTIVE + pollable). NWS JRMM7 flood set resolved to a clean 13/15/25/30 ft. [UPPER LADDER ENCODED 2026-07-06] Hazelgreen reach now carries a moherp OBSERVED (paddler trip-calibrated) cfs ladder \u2014 Low 100 / Good 200 / High 1000, trip-corroborated, confidence medium; moherp ESTIMATED values recorded as reference only per the calibration decision. STILL NEEDED: (1) Jerome + Rich Fountain ladders (moherp Jerome page may have observed values; Rich Fountain does not \u2014 Agnew per-reach Navigability tables remain the corroboration target), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage \u2014 impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
+  "_status": "SIGNED-OFF 2026-07-07 — owner go-ahead ('push the rivers to prod', session claude/rivers-prod-deploy-env-es86lu). Danger anchors resolved 2026-07-06; Bourbeuse reclassified spring_fed_float->rain_flashy per Agnew (runoff-fed) at signoff. PRIOR STATUS: STUB+RUN1 — identity/access/character populated and 3 reach gauges drafted from WebSearch-tier research (see gasconade-findings-partial.md). [VERIFY GATE CLEARED 2026-07-06] verified-identifiers-gasconade.md written; lat/lon + params + drainage backfilled for all 3 reach gauges (Hazelgreen/Jerome/Rich Fountain, all ACTIVE + pollable). NWS JRMM7 flood set resolved to a clean 13/15/25/30 ft. [UPPER LADDER ENCODED 2026-07-06] Hazelgreen reach now carries a moherp OBSERVED (paddler trip-calibrated) cfs ladder — Low 100 / Good 200 / High 1000, trip-corroborated, confidence medium; moherp ESTIMATED values recorded as reference only per the calibration decision. STILL NEEDED: (1) Jerome + Rich Fountain ladders (moherp Jerome page may have observed values; Rich Fountain does not — Agnew per-reach Navigability tables remain the corroboration target), (3) NWS flood/action stages are NOT hand-entered; fetch-nws-flood-stages.ts auto-pulls them from each nwsLid at ingest. WARNING: the Jerome (JRMM7) flood numbers surfaced in search were INTERNALLY INCONSISTENT (reported an action stage ABOVE the minor stage — impossible), so they are recorded only as a flagged-conflated cross-check, NOT as data. Direct fetch of USGS/NWS/MCFA is 403-blocked here; the deep-research workflow also failed twice on this river under session load. Re-run the primary-source pass from unblocked egress, capture reach floatability, write verified-identifiers-gasconade.md, then flip _status to SIGNED-OFF.",
   "name": "Gasconade River",
   "slug": "gasconade",
   "primaryGaugeSiteId": "06928000",
@@ -9,14 +9,14 @@
   "region": "Ozarks",
   "nhdFeatureId": "UNKNOWN",
   "difficultyRating": "Class I",
-  "description": "The longest river entirely within Missouri (~280 mi) and 'one of the world's crookedest', a winding low-gradient Ozark float stream that rises in the southeastern Webster/Wright County Ozarks and flows generally north-northeast through the Salem Plateau to the Missouri River at Gasconade. Incised meanders and scenic dolostone/sandstone bluffs (the plateau stands ~300 ft above the river near Waynesville); numerous springs and caves. Difficulty Class I\u2013II (II seldom); a good, uncrowded float stream \u2014 common to go miles without seeing another boat. Largemouth and smallmouth bass. Major tributaries: Osage Fork, Roubidoux Creek, and Big Piney River. Spring-influenced but runoff-responsive; long floatable season; many low-water access bridges. Long enough to warrant multiple calibration reaches (upper near Hazelgreen, middle at Jerome, lower near Rich Fountain).",
+  "description": "The longest river entirely within Missouri (~280 mi) and 'one of the world's crookedest', a winding low-gradient Ozark float stream that rises in the southeastern Webster/Wright County Ozarks and flows generally north-northeast through the Salem Plateau to the Missouri River at Gasconade. Incised meanders and scenic dolostone/sandstone bluffs (the plateau stands ~300 ft above the river near Waynesville); numerous springs and caves. Difficulty Class I–II (II seldom); a good, uncrowded float stream — common to go miles without seeing another boat. Largemouth and smallmouth bass. Major tributaries: Osage Fork, Roubidoux Creek, and Big Piney River. Spring-influenced but runoff-responsive; long floatable season; many low-water access bridges. Long enough to warrant multiple calibration reaches (upper near Hazelgreen, middle at Jerome, lower near Rich Fountain).",
   "riverType": "spring_fed_float",
   "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
   "regulations": [],
   "permits": [],
   "accessLaw": {
-    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph \u2014 confirm the AGO/MDC citation once for the state.)",
-    "source": "https://mdc.mo.gov/ (MDC stream access) \u2014 confirm AGO citation once for MO",
+    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
+    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
     "confidence": "medium"
   },
   "seasonalClosures": [],
@@ -36,7 +36,7 @@
       "servesSections": [
         "upper-hazelgreen"
       ],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 2001\u21922026, 00065 2007\u21922026). Upper-river reference, Pulaski Co, drainage 1250 sq mi.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 2001→2026, 00065 2007→2026). Upper-river reference, Pulaski Co, drainage 1250 sq mi.",
       "_verify": true
     },
     {
@@ -54,7 +54,7 @@
       "servesSections": [
         "mid-jerome"
       ],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 1995\u21922026, 00065 2007\u21922026). Mid-river reference at the Jerome/Waynesville float hub, Phelps Co, drainage 2840 sq mi; the most-cited Gasconade float gauge.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 1995→2026, 00065 2007→2026). Mid-river reference at the Jerome/Waynesville float hub, Phelps Co, drainage 2840 sq mi; the most-cited Gasconade float gauge.",
       "_verify": true
     },
     {
@@ -72,7 +72,7 @@
       "servesSections": [
         "lower-richfountain"
       ],
-      "knownBias": "VERIFIED, ACTIVE (uv 00060 1995\u21922026, 00065 2007\u21922026). Lower-river reference toward the Missouri confluence, Osage Co, drainage 3180 sq mi.",
+      "knownBias": "VERIFIED, ACTIVE (uv 00060 1995→2026, 00065 2007→2026). Lower-river reference toward the Missouri confluence, Osage Co, drainage 3180 sq mi.",
       "_verify": true
     }
   ],
@@ -104,7 +104,7 @@
           "unit": "cfs",
           "referenceGauge": "06928000",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org Missouri paddler gauge ratings, Hazelgreen 06928000 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) thresholds \u2014 Low 100 cfs.",
+          "source": "rivers.moherp.org Missouri paddler gauge ratings, Hazelgreen 06928000 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) thresholds — Low 100 cfs.",
           "confidence": "medium"
         },
         {
@@ -115,7 +115,7 @@
           "referenceGaugeIsPolled": true,
           "source": "rivers.moherp.org Hazelgreen OBSERVED rating: Good begins at 200 cfs ('ideal for a canoe or kayak; boats drag on fewer than one-quarter of riffles').",
           "corroboratingSources": [
-            "moherp trip reports rated Good at 443 cfs/1.88 ft (2018-09-15 Cave Lodge\u2192Ruby's Landing), 616 cfs/2.48 ft (2010-06-12 Osage Fork\u2192Hazelgreen), 1230 cfs/3.10 ft (2026-05-04 Blacks Ford\u2192Gasconade Hills Resort)"
+            "moherp trip reports rated Good at 443 cfs/1.88 ft (2018-09-15 Cave Lodge→Ruby's Landing), 616 cfs/2.48 ft (2010-06-12 Osage Fork→Hazelgreen), 1230 cfs/3.10 ft (2026-05-04 Blacks Ford→Gasconade Hills Resort)"
           ],
           "confidence": "medium"
         },
@@ -134,9 +134,9 @@
           "unit": "cfs",
           "referenceGauge": "06928000",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org Hazelgreen OBSERVED rating: High 1000 cfs (site taxonomy: 'high and potentially dangerous\u2026 canoe travel may not be advisable').",
+          "source": "rivers.moherp.org Hazelgreen OBSERVED rating: High 1000 cfs (site taxonomy: 'high and potentially dangerous… canoe travel may not be advisable').",
           "corroboratingSources": [
-            "moherp trips rated High at 1090 cfs/3.16 ft (2016-10-23) and 3350 cfs/5.78 ft (2022-04-23). CONTRARY datum: one 2019-05-27 trip at 2840 cfs was logged Good \u2014 the 1000-cfs boundary is soft; owner review at signoff."
+            "moherp trips rated High at 1090 cfs/3.16 ft (2016-10-23) and 3350 cfs/5.78 ft (2022-04-23). CONTRARY datum: one 2019-05-27 trip at 2840 cfs was logged Good — the 1000-cfs boundary is soft; owner review at signoff."
           ],
           "confidence": "medium"
         }
@@ -173,23 +173,23 @@
           "strainer",
           "gravel_bar"
         ],
-        "lowWaterMeaning": "UNKNOWN (numeric, gauge-keyed) \u2014 no cfs navigability table captured yet (the Agnew narrative provided character but not the table). CRITICAL CAVEAT: the upper Gasconade has a documented LOSING REACH (Ozark Springs \u2192 Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to <30 cfs below as the river sinks underground \u2014 weed-choked, often walk-the-canoe. Water returns ~a mile downstream at Rockslide Bluff via Falling, Creasy, and Bartless Mill Springs. An upstream gauge reading can therefore badly OVERSTATE floatability through the losing reach; confirm the Hazelgreen gauge's position relative to the Narrows.",
+        "lowWaterMeaning": "UNKNOWN (numeric, gauge-keyed) — no cfs navigability table captured yet (the Agnew narrative provided character but not the table). CRITICAL CAVEAT: the upper Gasconade has a documented LOSING REACH (Ozark Springs → Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to <30 cfs below as the river sinks underground — weed-choked, often walk-the-canoe. Water returns ~a mile downstream at Rockslide Bluff via Falling, Creasy, and Bartless Mill Springs. An upstream gauge reading can therefore badly OVERSTATE floatability through the losing reach; confirm the Hazelgreen gauge's position relative to the Narrows.",
         "risingWaterHazards": "Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. NWS HZLM7 flood/action stages auto-fill at ingest.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
-        "LOSING REACH (Al Agnew): Ozark Springs \u2192 Hwy 17, upper end of the Narrows bend above Schlict Spring \u2014 a large part of the river disappears underground in low water (~75 cfs above the Narrows, <30 cfs below). Put in at Schlict Spring in low water and it can be a barely-flowing, weed-choked trickle.",
-        "Rockslide Bluff: a 200 ft \u00d7 60 ft \u00d7 20 ft section of cliff collapsed into the river on 1971-11-03, still an interesting rapid; springs bubble up from the river bottom here and the flow (and floating) picks up markedly below it.",
-        "Longest river entirely within Missouri and the longest undammed river in the Ozarks; ~250 mi of floatable water. Floatable from ~Hwy E (\u224811 mi below the highest put-in) down."
+        "LOSING REACH (Al Agnew): Ozark Springs → Hwy 17, upper end of the Narrows bend above Schlict Spring — a large part of the river disappears underground in low water (~75 cfs above the Narrows, <30 cfs below). Put in at Schlict Spring in low water and it can be a barely-flowing, weed-choked trickle.",
+        "Rockslide Bluff: a 200 ft × 60 ft × 20 ft section of cliff collapsed into the river on 1971-11-03, still an interesting rapid; springs bubble up from the river bottom here and the flow (and floating) picks up markedly below it.",
+        "Longest river entirely within Missouri and the longest undammed river in the Ozarks; ~250 mi of floatable water. Floatable from ~Hwy E (≈11 mi below the highest put-in) down."
       ]
     },
     {
       "slug": "mid-jerome",
       "name": "Middle Gasconade (Jerome / Waynesville)",
-      "description": "The popular middle float reach around Jerome and Waynesville, represented by the Jerome gauge \u2014 the most-cited Gasconade float gauge.",
+      "description": "The popular middle float reach around Jerome and Waynesville, represented by the Jerome gauge — the most-cited Gasconade float gauge.",
       "putIn": {
         "name": "Waynesville / upstream of Jerome",
         "lat": null,
@@ -213,7 +213,7 @@
           "unit": "cfs",
           "referenceGauge": "06933500",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org Gasconade Jerome 06933500 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) rating \u2014 Good begins at 400 cfs. The only observed anchor on this gauge; the site's ESTIMATED Good (1633) is model-derived and rejected per the calibration decision (a real trip floated Good at 475 cfs, ~4x below the model).",
+          "source": "rivers.moherp.org Gasconade Jerome 06933500 page (owner-provided capture 2026-07-06): OBSERVED (community trip-calibrated) rating — Good begins at 400 cfs. The only observed anchor on this gauge; the site's ESTIMATED Good (1633) is model-derived and rejected per the calibration decision (a real trip floated Good at 475 cfs, ~4x below the model).",
           "corroboratingSources": [
             "moherp trip reports rated Good at 475 cfs/1.36 ft (2012-08-18 Jerome->Whitehouse Ford, 3.0 mi), 1040 cfs/2.27 ft (2011-07-10 Little Piney Creek->Jerome, 1.2 mi), 1660 cfs/2.91 ft (2011-08-13 MO 28->Jerome, 10.8 mi)"
           ],
@@ -245,11 +245,11 @@
           "strainer",
           "gravel_bar"
         ],
-        "lowWaterMeaning": "UNKNOWN (numeric) \u2014 no gauge-keyed cfs floatability captured; generic guidance only. Capture a Jerome-keyed minimum.",
-        "risingWaterHazards": "Runoff-responsive; low-water bridges and strainers become hazards as water rises. NWS JRMM7 flood/action stages auto-fill at ingest. (Search-reported Jerome flood numbers were internally inconsistent \u2014 see openQuestions; do NOT use them.)",
+        "lowWaterMeaning": "UNKNOWN (numeric) — no gauge-keyed cfs floatability captured; generic guidance only. Capture a Jerome-keyed minimum.",
+        "risingWaterHazards": "Runoff-responsive; low-water bridges and strainers become hazards as water rises. NWS JRMM7 flood/action stages auto-fill at ingest. (Search-reported Jerome flood numbers were internally inconsistent — see openQuestions; do NOT use them.)",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": [
@@ -274,7 +274,7 @@
       "representativeGauge": {
         "siteId": "06934000",
         "rationale": "Rich Fountain (06934000 / RIFM7) is the lower-river reference gauge",
-        "knownBias": "larger, lower river \u2014 floatability semantics differ from the upper reaches"
+        "knownBias": "larger, lower river — floatability semantics differ from the upper reaches"
       },
       "thresholds": [],
       "publishedFloatTimes": [],
@@ -285,11 +285,11 @@
           "strainer",
           "low_water_bridge"
         ],
-        "lowWaterMeaning": "UNKNOWN (numeric) \u2014 capture a Rich Fountain-keyed minimum; on the larger lower river low water mainly affects speed.",
+        "lowWaterMeaning": "UNKNOWN (numeric) — capture a Rich Fountain-keyed minimum; on the larger lower river low water mainly affects speed.",
         "risingWaterHazards": "Rises arrive from the large upstream drainage. NWS RIFM7 flood/action stages auto-fill at ingest.",
         "rainLagHours": null,
-        "rainLagNote": "UNKNOWN \u2014 capture",
-        "dropRateNote": "UNKNOWN \u2014 capture"
+        "rainLagNote": "UNKNOWN — capture",
+        "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
       "localKnowledge": []
@@ -297,211 +297,726 @@
   ],
   "accessPoints": [
     {
-      "name": "Buzzard Bluff",
-      "type": "access",
-      "lat": 37.3317,
-      "lon": -92.3938,
-      "section": "upper-hazelgreen",
-      "notes": "Named put-in in moherp trip reports; 7.2 mi above Wilbur Allen.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "ownership": "Missouri Department of Conservation",
+      "name": "Buzzard Bluff Access",
+      "slug": "buzzard-bluff",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.331897,
+      "lon": -92.394931,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
       "riverMile": 14.3,
-      "managingAgency": "MDC",
+      "description": "MDC access on the upper Gasconade with a concrete boat ramp and primitive picnic area, the uppermost commonly used put-in on the river (the reach above Hwy E is thin at normal flows). About 7.2 river miles above Wilbur Allen.",
+      "parkingInfo": "Three paved parking areas (MDC GIS); no trailer-designated stalls listed.",
+      "roadAccess": "From Hartville, take Highway 38 east 6.5 miles, then Route E north 2.25 miles to the access.",
+      "facilities": "Concrete boat ramp and primitive picnic area on an 89-acre MDC access. No camping, no drinking water.",
       "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/buzzard-bluff-access",
-      "description": "Missouri Department of Conservation access on the upper Gasconade River with a concrete boat ramp and primitive picnic area on 89 acres, reached via Route E north of Highway 38 near Hartville. It is the uppermost put-in here, about 7 river miles above Wilbur Allen.",
-      "roadAccess": "Route E north of Highway 38 (from Hartville: Hwy 38 east 6.5 mi, then Route E north 2.25 mi)",
-      "facilities": "Concrete boat ramp; primitive picnic area (89 acres)",
-      "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/buzzard-bluff-access (MDC Conservation Atlas geolocation)",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC atlas coord; ~20 m from river centerline (OSM); float-guide mile 14.3"
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point); corroborated by OSM slipway 'Buzzard Bluff Fishing Access' 37.33201,-92.394948",
+      "coordinateConfidence": "official",
+      "coordinateNote": "MDC place page says no camping, but the MDC GIS camping layer shows one primitive camping point near the picnic area - left camping out of amenities; human may verify. Pin moved ~90 m from area coordinate to the GIS ramp point.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/buzzard-bluff-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
     },
     {
-      "name": "Wilbur Allen",
-      "type": "access",
-      "lat": 37.3983,
-      "lon": -92.4009,
-      "section": "upper-hazelgreen",
-      "notes": "Named take-out in moherp trip reports (Buzzard Bluff \u2192 Wilbur Allen, 7.2 mi).",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "ownership": "Missouri Department of Conservation",
-      "riverMile": 21.5,
+      "name": "Wilbur Allen Memorial Conservation Area",
+      "slug": "wilbur-allen",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 37.396196,
+      "lon": -92.399156,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/wilbur-allen-memorial-conservation-area",
-      "description": "Wilbur Allen Memorial Conservation Area on the upper Gasconade River, with a gravel boat ramp off Highway 95 (Radford Road) near Manes. About a mile of the Gasconade runs through the area.",
-      "roadAccess": "Off Highway 95 via Radford Road, near Manes",
-      "facilities": "Gravel boat ramp",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/wilbur-allen-memorial-conservation-area (MDC area centerpoint)",
-      "coordinateConfidence": "medium",
-      "coordinateNote": "MDC conservation-area centerpoint (~95 m from river); gravel ramp is within the area; float-guide mile 21.5"
+      "riverMile": 21.5,
+      "description": "MDC conservation area on the upper Gasconade with a gravel launch, privy and primitive camping. Common take-out for the 7.2-mile float from Buzzard Bluff.",
+      "parkingInfo": "Two gravel parking areas (MDC GIS), one at the ramp/camping area.",
+      "roadAccess": "From Manes, take Highway 95 north 1 mile, then Radford Drive west 1.5 miles.",
+      "facilities": "Gravel boat ramp, privy, primitive individual campsites (14-day limit), picnic area on a 380-acre conservation area with about a mile of Gasconade frontage.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/wilbur-allen-memorial-conservation-area",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point - replaces area centerpoint)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin corrected from the conservation-area centerpoint (106 m off river) to the MDC GIS ramp point at the river.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/wilbur-allen-memorial-conservation-area",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
     },
     {
-      "name": "Blacks Ford",
+      "name": "Camp Branch Access",
+      "slug": "camp-branch-access",
       "type": "access",
-      "lat": 37.72021,
+      "types": [
+        "access",
+        "campground"
+      ],
+      "lat": 37.263392,
+      "lon": -92.465939,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 2.5,
+      "description": "Uppermost MDC access on the Gasconade/Woods Fork headwaters east of Hartville, with a gravel canoe launch and designated camping. This far up the river is only floatable at higher flows; the chart places it at mile 2.5, well above the usual Buzzard Bluff put-in.",
+      "parkingInfo": "Paved parking area (MDC GIS).",
+      "roadAccess": "From Hartville, take Highway 38 east 2.5 miles.",
+      "facilities": "Gravel canoe launch, picnic area, designated primitive camping sites on a 27.5-acre MDC access.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/camp-branch-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Headwaters access - most seasons this reach is too thin to float; keep but expect low use.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/camp-branch-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Odin Access",
+      "slug": "odin-access",
+      "type": "access",
+      "types": [
+        "access"
+      ],
+      "lat": 37.27028,
+      "lon": -92.605636,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": null,
+      "description": "124-acre MDC bank-fishing and walk-in access on the Woods Fork of the Gasconade west of Hartville. It lies upstream of the float chart's mile-0 datum (the Hwy 38 bridge east of Hartville) and the stream here is a wadeable headwater creek, not a float reach.",
+      "parkingInfo": "Single paved parking area off Highway 38.",
+      "roadAccess": "From Hartville, take Highway 38 west 6 miles to Odin; parking area on the south side of the highway.",
+      "facilities": "Parking only; walk-in bank access. No ramp, no privy, no camping.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/odin-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/26 (MDC parking-lot GIS point; no boat ramp exists)",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "guide_mile null: upstream of the chart datum zero on Woods Fork. Coordinate is the MDC parking lot (medium - MDC GIS official but distance to the creek unverified). Human may choose to exclude from a float planner.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/odin-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/26"
+      ]
+    },
+    {
+      "name": "Anna M. Adams Access",
+      "slug": "anna-m-adams-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.628801,
+      "lon": -92.328623,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 51.6,
+      "description": "MDC access at the Dawn Road bridge (the chart's 'Anna Adams Access, slab ford' at mile 51.6) in Laclede County. Breaks up the long, lightly accessed reach between Wilbur Allen and the Gasconade Hills/Hazelgreen area.",
+      "parkingInfo": "Parking lot adjacent to the Dawn Road bridge.",
+      "roadAccess": "From Lebanon, take Highway 32 east 18 miles, then Route K north 3 miles, and Dawn Road east 3 miles to the river.",
+      "facilities": "Concrete boat ramp and parking lot adjacent to the Dawn Road bridge; small bank-fishing stretch. Donated to MDC in 1994.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/anna-m-adams-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/anna-m-adams-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Barlow Ford",
+      "slug": "blacks-ford",
+      "type": "access",
+      "types": [
+        "access"
+      ],
+      "lat": 37.720215,
       "lon": -92.36171,
-      "section": "upper-hazelgreen",
-      "notes": "Named put-in; 6.0 mi above Gasconade Hills Resort.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "description": "Gravel-bar/ford put-in about 6 river miles above Gasconade Hills Resort, used as an outfitter shuttle put-in. Identity uncertain: matches the resort's 'Barlow Ford' 6-mile put-in, while the resort lists a separate 'Black Ford' 10-mile put-in.",
-      "roadAccess": "Reached by outfitter shuttle upstream from Gasconade Hills Resort",
-      "facilities": "Boat ramp/slipway (OpenStreetMap)",
-      "coordinateSource": "OpenStreetMap node 'Barlow Ford Access' (slipway) 37.72021,-92.36171",
-      "coordinateConfidence": "low",
-      "coordinateNote": "NAME/IDENTITY UNVERIFIED: input 'Blacks Ford' + '6.0 mi above resort' matches OSM 'Barlow Ford Access' (the resort's 6-mile shuttle put-in); the resort separately lists a 'Black Ford' 10-mile put-in, so name/identity needs human review"
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": false,
+      "feeRequired": false,
+      "riverMile": 65.2,
+      "description": "Unimproved low-water ford (chart mile 65.2) used as the 6-mile shuttle put-in for floats down to Gasconade Hills Resort and Froggy's River Resort. No developed facilities.",
+      "roadAccess": "Reached by outfitter shuttle from Gasconade Hills Resort or Froggy's River Resort; an unimproved low-water ford off the Route AB area roads.",
+      "facilities": "Unimproved gravel ford / gravel-bar launch; no facilities. Froggy's River Resort's landing is immediately adjacent.",
+      "coordinateSource": "OpenStreetMap slipway node 'Barlow Ford Access' 37.720215,-92.36171 (adjacent node 'Froggy's River Resort Landing' 37.720599,-92.36137)",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "Name resolved: the moherp trip report called this 'Blacks Ford', but the 6.0-mile distance above Gasconade Hills Resort matches OSM's 'Barlow Ford Access' at this exact pin; the outfitters' actual 'Black Ford' is a separate put-in ~10 miles above the resort (~chart mile 61.4) with no verifiable coordinate, so it was not added. Public legal status of the ford is unverified (kept is_public=false); needs human review.",
+      "sources": [
+        "https://www.openstreetmap.org/",
+        "https://www.froggysriverresort.com/floating",
+        "https://rivers.moherp.org/gauge/?gauge=06928000",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
     },
     {
       "name": "Gasconade Hills Resort",
-      "type": "access",
-      "lat": 37.75114,
-      "lon": -92.39735,
-      "ownership": "Private (Gasconade Hills Resort)",
-      "section": "upper-hazelgreen",
-      "notes": "Private resort take-out in moherp trip reports.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "riverMile": 71.4,
+      "slug": "gasconade-hills-resort",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 37.750182,
+      "lon": -92.397583,
+      "ownership": "private",
       "managingAgency": "Private",
-      "officialSiteUrl": "https://gasconadehills.com/",
-      "description": "Private family resort and canoe/kayak outfitter on the Gasconade River at 28425 Spring Road near Richland, with camping, cabins, RV sites, a store, and boat rentals. Serves as a put-in/take-out about 4 river miles above the MDC Hazelgreen access.",
-      "parkingInfo": "On-site resort parking",
-      "roadAccess": "28425 Spring Road, off Route 66, near Richland",
-      "facilities": "Cabins, RV and tent sites, camp store, pool, showers, canoe/kayak/raft/tube rental, river access",
+      "isPublic": false,
       "feeRequired": true,
-      "coordinateSource": "Campground listings (Harvest Hosts/Good Sam/Camping.org) 37.7511,-92.3973; on Gasconade River per OSM; https://gasconadehills.com/",
+      "feeNotes": "Customer/fee landing - private resort and outfitter.",
+      "riverMile": 71.4,
+      "description": "Private family resort and float outfitter near the Route K/AB bridge (chart mile 71.1), about 4 river miles above the MDC Hazelgreen Access. Put-in/take-out for resort customers.",
+      "parkingInfo": "On-site resort parking for guests.",
+      "roadAccess": "28425 Spring Road, off historic Route 66 near Richland (I-44 exit 150 area).",
+      "facilities": "Private resort: cabins, RV and tent sites, camp store, pool, showers, canoe/kayak/raft/tube rental, river landing.",
+      "officialSiteUrl": "https://gasconadehills.com/",
+      "coordinateSource": "OpenStreetMap slipway 'Gasconade Hills Resort' 37.750182,-92.397583 (river landing, ~120 m from the prior resort-buildings geocode)",
       "coordinateConfidence": "high",
-      "coordinateNote": "Consistent multi-source geocode; ~130 m from river centerline; ~4 river mi above Hazelgreen"
+      "coordinateNote": "Pin moved from the resort buildings to the OSM-mapped river landing.",
+      "sources": [
+        "https://gasconadehills.com/",
+        "https://www.openstreetmap.org/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
     },
     {
-      "name": "Osage Fork confluence access",
-      "type": "access",
-      "lat": 37.7506,
-      "lon": -92.4421,
-      "section": "upper-hazelgreen",
-      "notes": "0.8 mi above the Hazelgreen access per moherp trips.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "riverMile": 74.6,
-      "description": "Informal put-in at the mouth of the Osage Fork of the Gasconade River, about 0.8 river mile above the Hazelgreen access. No developed facilities; the coordinate is the confluence point.",
-      "coordinateSource": "Osage Fork-Gasconade confluence via GNIS/OSM (topozone/anyplaceamerica 'Osage Fork Gasconade River')",
-      "coordinateConfidence": "medium",
-      "coordinateNote": "Confluence point; ~11 m from river centerline; float-guide mile 74.6, ~0.8 mi above Hazelgreen; informal put-in"
-    },
-    {
-      "name": "Hazelgreen access",
-      "type": "access",
-      "lat": 37.7591,
-      "lon": -92.4528,
-      "section": "upper-hazelgreen",
-      "notes": "Take-out at/near the Hazelgreen gauge (I-44 area).",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "ownership": "Missouri Department of Conservation",
-      "riverMile": 75.4,
+      "name": "Hazelgreen Access",
+      "slug": "hazelgreen-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.759286,
+      "lon": -92.452556,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/hazelgreen-access",
-      "description": "Missouri Department of Conservation access on the Gasconade River at the old Route 66/I-44 bridge, with a concrete ramp for small boats and canoes, less than a mile below the Osage Fork mouth. The USGS Hazelgreen streamgage (06928000) is at this site.",
-      "roadAccess": "I-44 exit 140 (Route N), then south outer road east ~2 mi; old Route 66 bridge closed",
-      "facilities": "Concrete boat ramp (small boats/canoes)",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://mdc.mo.gov/discover-nature/places/hazelgreen-access (MDC atlas) + USGS gauge 06928000",
-      "coordinateConfidence": "high",
-      "coordinateNote": "MDC access coord matches USGS Hazelgreen gauge (37.75914,-92.45203); float-guide mile 75.4"
+      "riverMile": 75.4,
+      "description": "MDC access at the old Route 66/I-44 crossing, less than a mile below the Osage Fork mouth. The reference access for the upper-river Hazelgreen gauge.",
+      "parkingInfo": "Paved parking area at the ramp.",
+      "roadAccess": "From I-44 exit 140 (Route N), take the south outer road east about 2 miles; the old Route 66 bridge itself is closed.",
+      "facilities": "Concrete boat ramp suitable for small boats and canoes. No privy, no camping. USGS Hazelgreen gauge (06928000) is at this site.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/hazelgreen-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; matches USGS gauge 06928000 site and OSM 'Hazelgreen Access Canoe Ramp')",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/hazelgreen-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://waterdata.usgs.gov/monitoring-location/USGS-06928000/"
+      ]
     },
     {
-      "name": "Cave Lodge",
-      "type": "access",
-      "lat": null,
-      "lon": null,
-      "section": "upper-hazelgreen",
-      "notes": "Named put-in; 5.1 mi above Ruby's Landing.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "description": "Informal put-in cited in canoe trip reports about 5.1 river miles above Ruby's Landing (estimated river mile ~105, near the MDC Schlicht Springs access). No citable coordinate was found.",
-      "coordinateConfidence": "none",
-      "coordinateNote": "No citable coordinate found; canoe reports place it ~5.1 river mi above Ruby's Landing (est. river mile ~103-107, near MDC Schlicht Springs access). 'The Cave Restaurant/Resort' at 37.83931,-92.33662 is ~river mile 97 and does NOT match the 5.1-mi hint. Interpolate from hint."
+      "name": "Mitschele Access",
+      "slug": "mitschele-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.800837,
+      "lon": -92.340908,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 92.5,
+      "description": "Small MDC ramp at the Highway 7 bridge (chart mile 92.5), the main public access between Hazelgreen and Schlicht Springs. Note the retired 'Cave Lodge' DB point had mistakenly been pinned at this exact spot.",
+      "parkingInfo": "Paved parking area (MDC GIS).",
+      "roadAccess": "From Richland, take Highway 7 south about 5 miles; or from the Highway 7 exit on I-44, take Highway 7 north 3 miles.",
+      "facilities": "Boat ramp and parking on a 1-acre MDC access at the Highway 7 bridge. No camping, no privy.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/mitschele-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM slipway 'MO 7' at same spot)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/mitschele-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Schlicht Springs Access",
+      "slug": "schlicht-springs-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 37.903369,
+      "lon": -92.284785,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 106.1,
+      "description": "MDC access at Schlicht Spring on the Moccasin Bend/Narrows reach (chart mile 106.1), just below the old grist mill spring branch. Sits inside the documented losing reach - in low water the river can nearly disappear just upstream, so check flows before putting in here.",
+      "parkingInfo": "Two paved parking areas, one ADA (MDC GIS).",
+      "roadAccess": "From Crocker, take Highway 133 south/west about 5 miles, then Resort Road south 1.25 miles, then Riverside Road east 1 mile to the access.",
+      "facilities": "Boat ramp, ADA privy, primitive individual campsites, picnic area on 12.8 acres at Schlicht Spring.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/schlicht-springs-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pulaski County per MDC GIS centroid layer (the place-page fetch mis-reported Gasconade County). Ruby's Landing 5-mile customer floats effectively run Schlicht Springs area to the resort.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/schlicht-springs-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
     },
     {
       "name": "Ruby's Landing",
-      "type": "access",
-      "lat": 37.87203,
-      "lon": -92.2539,
-      "section": "upper-hazelgreen",
-      "notes": "Named take-out in moherp trip reports.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06928000",
-      "ownership": "Private (Ruby's Landing River Resort)",
+      "slug": "rubys-landing",
+      "type": "campground",
+      "types": [
+        "campground",
+        "access"
+      ],
+      "lat": 37.868533,
+      "lon": -92.261069,
+      "ownership": "private",
       "managingAgency": "Private",
-      "officialSiteUrl": "https://rubyslanding.com/",
-      "description": "Ruby's Landing River Resort, a private campground and float outfitter on the Gasconade River at 22474 Restful Lane, about 5.6 miles north of Waynesville off Highway 17. Offers cabins, tent camping, and canoe/kayak/raft rentals with a roughly 5-mile float.",
-      "parkingInfo": "On-site resort parking",
-      "roadAccess": "22474 Restful Lane off Highway 17, ~5.6 mi north of Waynesville",
-      "facilities": "Cabins, tent camping, canoe/kayak/raft rental, river access",
+      "isPublic": false,
       "feeRequired": true,
-      "coordinateSource": "Yelp business listing (37.872034,-92.253898); corroborated by OSM way 'Ruby's Landing Drive'; https://rubyslanding.com/",
+      "feeNotes": "Customer-only landing - private resort and outfitter (est. 2017).",
+      "riverMile": 110.5,
+      "description": "Private resort and float outfitter on the east side of the Narrows reach, offering 5- and 10-mile customer floats ending at the resort. Verified as a real, active landing (customer-only).",
+      "parkingInfo": "On-site resort parking for guests.",
+      "roadAccess": "22474 Restful Lane off Highway 17, between Waynesville and Crocker (about 5.6 miles north of Waynesville), then Ruby's Landing Drive (gravel) to the river.",
+      "facilities": "Private 115-acre resort: 11 cabins, 99 RV sites, primitive tent sites, canoe/kayak/raft/tube rental; customer river landing.",
+      "officialSiteUrl": "https://rubyslanding.com/",
+      "coordinateSource": "OpenStreetMap customer boat-ramp node 37.868533,-92.261069 at the river end of Ruby's Landing Drive (resort at 22474 Restful Lane)",
       "coordinateConfidence": "medium",
-      "coordinateNote": "Resort location ~0.5 km off the riverbank (actual landing at river end of Ruby's Landing Drive); est. river mile ~108-112"
+      "coordinateNote": "Pin moved from the resort office (594 m off river) to the OSM-mapped customer ramp on the river; three customer ramps are mapped within 800 m (37.8685/-92.2611, 37.8716/-92.2621, 37.8644/-92.2583) and the one nearest the end of Ruby's Landing Drive was chosen. guide_mile 110.5 computed as 4.43 river miles below Schlicht Springs (106.1) along OSM river geometry.",
+      "sources": [
+        "https://rubyslanding.com/",
+        "https://rubyslanding.com/floats/",
+        "https://www.openstreetmap.org/",
+        "https://visitpulaskicounty.org/listing/rubys-landing-river-resort/"
+      ]
     },
     {
-      "name": "MO 28 bridge",
-      "type": "bridge",
-      "lat": 37.89193,
-      "lon": -92.08123,
-      "section": "mid-jerome",
-      "notes": "Named put-in; 10.8 mi above Jerome (moherp trip 2011-08-13).",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06933500",
-      "ownership": "MoDOT Route 28 bridge; private cabin access per float guide",
-      "riverMile": 140.4,
-      "description": "The Missouri Route 28 'Veterans Bridge' over the Gasconade River southwest of Dixon, used as a put-in about 10.8 river miles above the Jerome access. A float guide notes the usable access here is private (adjacent cabins).",
-      "roadAccess": "Missouri Route 28 (Veterans Bridge), southwest of Dixon",
-      "coordinateSource": "OpenStreetMap: Missouri Route 28 crossing of Gasconade River ('Veterans Bridge')",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Road-river intersection computed from OSM geometry; on river; float-guide mile 140.4, 10.8 mi above Jerome; guide notes private put-in at adjacent cabins"
-    },
-    {
-      "name": "Little Piney Creek confluence",
-      "type": "access",
-      "lat": 37.92028,
-      "lon": -91.97528,
-      "section": "mid-jerome",
-      "notes": "Put-in 1.2 mi above Jerome; Little Piney backwater affects Jerome gauge stage above ~23 ft (moherp trip 2011-07-10).",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06933500",
-      "riverMile": 150.0,
-      "description": "Put-in at the mouth of Little Piney Creek where it joins the Gasconade River at Arlington, just below the Route D bridge and about 1.2 river miles above the Jerome access.",
-      "roadAccess": "Near the Route D bridge at Arlington",
-      "coordinateSource": "https://en.wikipedia.org/wiki/Little_Piney_Creek_(Missouri) (creek mouth; GNIS)",
-      "coordinateConfidence": "high",
-      "coordinateNote": "Mouth of Little Piney Creek at Arlington; ~26 m from river centerline; float-guide mile 150.0, ~1.2 mi above Jerome"
-    },
-    {
-      "name": "Jerome access",
-      "type": "access",
-      "lat": 37.92992,
-      "lon": -91.97733,
-      "section": "mid-jerome",
-      "notes": "Take-out at/near the Jerome gauge; also a put-in for the run to Whitehouse Ford.",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06933500",
-      "ownership": "Missouri Department of Conservation (Jerome Access)",
-      "riverMile": 151.2,
+      "name": "Riddle Bridge Access",
+      "slug": "riddle-bridge-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.909545,
+      "lon": -92.132669,
+      "ownership": "MDC",
       "managingAgency": "MDC",
-      "description": "Gasconade River access at Jerome by the Route D bridge, at the site of the USGS Jerome streamgage (06933500). The MDC access has a concrete boat ramp, ADA and gravel parking, and bank access to both the Gasconade River and Little Piney Creek.",
-      "parkingInfo": "ADA and gravel parking",
-      "roadAccess": "Route D bridge at Jerome",
-      "facilities": "Concrete boat ramp, ADA and gravel parking, bank access to Gasconade River and Little Piney Creek",
+      "isPublic": true,
       "feeRequired": false,
-      "coordinateSource": "https://waterdata.usgs.gov/monitoring-location/USGS-06933500 (USGS Jerome gauge 06933500)",
+      "riverMile": 129.9,
+      "description": "MDC concrete-ramp access at the Route Y bridge north of St. Robert (chart mile 129.9). BSC Outdoors uses it as the put-in for its 14-mile float down to Boiling Spring, corroborating the mileage.",
+      "parkingInfo": "Paved parking area (MDC GIS).",
+      "roadAccess": "From St. Robert at Interstate 44, take Route Y north 6 miles.",
+      "facilities": "Concrete boat ramp, privy, parking on 9 acres. No camping.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/riddle-bridge-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM slipway 'Riddle Bridge Access' at same spot)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/riddle-bridge-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.bscoutdoors.com/floating/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "MO 28 Bridge (Veterans Bridge)",
+      "slug": "mo-28-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge",
+        "access"
+      ],
+      "lat": 37.892603,
+      "lon": -92.08128,
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": false,
+      "feeRequired": false,
+      "riverMile": 140.4,
+      "description": "Route 28 'Veterans Bridge' crossing (chart mile 140.4), used as a put-in 3.3 miles above Boiling Spring Campground - BSC Outdoors starts its 3-mile tube floats here. An OSM slipway is mapped at the bridge.",
+      "parkingInfo": "No developed parking; roadside only.",
+      "roadAccess": "Missouri Route 28 (Veterans Bridge) over the Gasconade southwest of Dixon.",
+      "facilities": "No facilities. Informal launch at the bridge; the float guide notes the usable bank access belongs to private cabins.",
+      "coordinateSource": "OpenStreetMap slipway 'Veterans Bridge' 37.892603,-92.08128 at the Route 28 crossing (matches prior road-river intersection)",
       "coordinateConfidence": "high",
-      "coordinateNote": "USGS Jerome gauge coordinate; MDC Jerome access is at the adjacent Route D bridge; float-guide mile 151.2"
+      "coordinateNote": "Kept is_public=false: Hawksley chart says the usable access here is private (adjacent cabins); outfitters shuttle customers to it. Needs human review if MoDOT right-of-way access is acceptable.",
+      "sources": [
+        "https://www.openstreetmap.org/",
+        "https://www.bscoutdoors.com/floating/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Boiling Spring Campground (BSC Outdoors)",
+      "slug": "boiling-spring-campground",
+      "type": "campground",
+      "types": [
+        "campground",
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.88816,
+      "lon": -92.036828,
+      "ownership": "private",
+      "managingAgency": "Private",
+      "isPublic": false,
+      "feeRequired": true,
+      "feeNotes": "Customer landing - private campground and float outfitter.",
+      "riverMile": 143.7,
+      "description": "Private campground and float outfitter at Boiling Spring (a ~42 million gal/day spring, chart mile 143.7), two miles below the Big Piney mouth. Hub for Big Piney and Gasconade floats ending at the campground; float-trip significant despite being customer-only.",
+      "parkingInfo": "On-site campground parking for guests.",
+      "roadAccess": "18700 Cliff Road, Dixon (from Dixon take Route C/Boiling Springs Road south to Cliff Road).",
+      "facilities": "Private campground and outfitter: tent/RV sites, cabins, camp store, showers/laundry, lighted boat ramp, canoe/kayak/raft/tube/jon-boat rental.",
+      "officialSiteUrl": "https://www.bscoutdoors.com/",
+      "coordinateSource": "OpenStreetMap slipway 'Boiling Spring' 37.88816,-92.036828; campground at 18700 Cliff Road, Dixon; position matches chart mile 143.7 spring and BSC's own float distances (Veterans Bridge 3 mi, Riddle Bridge 14 mi upstream)",
+      "coordinateConfidence": "high",
+      "coordinateNote": "The task hint 'MDC Boiling Spring Access (Pulaski Co)' resolved to this PRIVATE campground - MDC's only Boiling Spring Access is on the Big Piney in Texas County (different river).",
+      "sources": [
+        "https://www.bscoutdoors.com/",
+        "https://www.bscoutdoors.com/floating/",
+        "https://www.openstreetmap.org/",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Jerome Access",
+      "slug": "jerome-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 37.919903,
+      "lon": -91.975089,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 150.0,
+      "description": "The main mid-river MDC access at Jerome, at the mouth of Little Piney Creek just upstream of the Route D bridge and I-44. The USGS Jerome gauge (06933500), the most-cited Gasconade float gauge, is at the bridge just downstream.",
+      "parkingInfo": "Gravel lot; the only Gasconade MDC lot flagged as allowing trailers in MDC GIS.",
+      "roadAccess": "In Jerome, from Route D/Main Street take Prewett Road north 0.1 mile.",
+      "facilities": "Concrete boat ramp and gravel parking on 12.2 acres at the Little Piney Creek mouth, with bank access to both streams. Camping prohibited.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/jerome-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM slipway 'Jerome Access', operator MDC, at same spot)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Pin corrected ~1.1 km: previously at the USGS gauge/Route D bridge; the actual MDC ramp is at the Little Piney mouth. guide_mile corrected 151.2 -> 150.0 within the chart datum (the chart's 'Jerome Access 151.2' appears to describe an older site below the bridge; the modern ramp sits at the mouth the DB datum already carried as 150.0). +/-1 mile uncertainty.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/jerome-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://waterdata.usgs.gov/monitoring-location/USGS-06933500/"
+      ]
     },
     {
       "name": "Whitehouse Ford",
+      "slug": "whitehouse-ford",
       "type": "access",
+      "types": [
+        "access"
+      ],
       "lat": 37.96365,
       "lon": -91.99655,
-      "section": "mid-jerome",
-      "notes": "Take-out 3.0 mi below Jerome (moherp trip 2012-08-18).",
-      "source": "https://rivers.moherp.org/gauge/?gauge=06933500",
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": false,
+      "feeRequired": false,
       "riverMile": 154.2,
-      "description": "Take-out about 3 river miles below Jerome at Table Rock, a large mushroom-shaped rock marking the Old Whitehouse Ferry site (float-guide mile 154.2). The coordinate is the OpenStreetMap 'Table Rock' locality beside the river.",
-      "coordinateSource": "OpenStreetMap 'Table Rock' locality (Old Whitehouse Ferry site); float-guide mile 154.2 (floatmissouri.com)",
+      "description": "Informal gravel-bar take-out about 3 miles below Jerome at Table Rock, the mushroom-shaped rock marking the Old Whitehouse Ferry site (chart mile 154.2). Used in paddler trip reports as a short-float take-out.",
+      "roadAccess": "Via County Road 9020 through the cabin community north of Jerome; several approach lanes are mapped private in OSM.",
+      "facilities": "No facilities - gravel-bar ford at Table Rock, the Old Whitehouse Ferry site.",
+      "coordinateSource": "OpenStreetMap 'Table Rock' locality at the Old Whitehouse Ferry site (unchanged); nearest public-ish road is County Road 9020 through a river-cabin community",
+      "coordinateConfidence": "low",
+      "coordinateNote": "Kept but flagged: no official source; surrounding road network is a private-leaning cabin subdivision, so legal public access is unverified. Candidate for retirement if human review finds no public route.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/",
+        "https://rivers.moherp.org/gauge/?gauge=06933500",
+        "https://www.openstreetmap.org/"
+      ]
+    },
+    {
+      "name": "Bell Chute Access",
+      "slug": "bell-chute-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 38.075153,
+      "lon": -91.888554,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 167.2,
+      "description": "MDC ramp-and-camping access off Route Y (chart mile 167.2, 'Bell Chute Access off Hwy Y'), the first developed public access below Whitehouse Ford and the anchor of the lightly floated Jerome-to-Vienna reach.",
+      "parkingInfo": "Paved lot at the ramp (MDC GIS), ADA stall.",
+      "roadAccess": "From Vienna, take Highway 63 south 2.5 miles, then Highway 28 south 2 miles, then Route Y east 6 miles (the last 2 miles are County Road 513).",
+      "facilities": "Concrete boat ramp, ADA privy, primitive individual campsites on 6 acres.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/bell-chute-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM slipway at same spot)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/bell-chute-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Indian Ford (MO 42 Bridge)",
+      "slug": "indian-ford-mo-42-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge",
+        "access"
+      ],
+      "lat": 38.188774,
+      "lon": -91.908016,
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 179.5,
+      "description": "The Route 42 bridge at Indian Ford (chart mile 179.5), the traditional take-out for the ~104-mile run from I-44 and a mid-point between Bell Chute and Paydown. Undeveloped bridge access.",
+      "parkingInfo": "No developed parking; roadside only.",
+      "roadAccess": "Missouri Route 42 bridge over the Gasconade, about 7 miles west of Vienna.",
+      "facilities": "No facilities - informal bridge access at the historic Indian Ford crossing.",
+      "coordinateSource": "OpenStreetMap: MO 42 bridge way over the Gasconade River (verified against OSM river geometry, 48 m)",
       "coordinateConfidence": "medium",
-      "coordinateNote": "OSM 'Table Rock' node at the Old Whitehouse Ferry site; ~200 m from the on-river mile-154.2 interpolation; 3 mi below Jerome"
+      "coordinateNote": "No official managing agency; long-documented in float guides but facilities/legal parking unverified - medium confidence, stays pending.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/",
+        "https://www.floatmissouri.com/floating-missouris-gasconade-river/",
+        "https://www.openstreetmap.org/"
+      ]
+    },
+    {
+      "name": "Paydown Access",
+      "slug": "paydown-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 38.230143,
+      "lon": -91.814122,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 187.6,
+      "description": "MDC access at Paydown Spring (chart mile 187.6), site of former mills. Agnew's guide treats Paydown as the gateway to the last ~80 miles of the lower river.",
+      "parkingInfo": "Two paved parking areas (MDC GIS).",
+      "roadAccess": "From Vienna, take Highway 63 north 5.5 miles, then County Road 201 east 8 miles.",
+      "facilities": "Boat ramp, ADA privy, six primitive campsites on 4.6 acres at the old Paydown mill/spring site.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/paydown-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "County: Maries per MDC GIS centroid layer.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/paydown-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Rollins Ferry Access",
+      "slug": "rollins-ferry-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 38.393556,
+      "lon": -91.820345,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 203.4,
+      "description": "MDC access at the Highway 89 bridge south of Linn (chart mile 203.4, 'Hwy 89 Bridge; Rollins Ferry Access'). Main access for the lower-middle river below Paydown.",
+      "parkingInfo": "Gravel parking area (MDC GIS).",
+      "roadAccess": "From Linn, take Highway 89 south 7 miles to the access at the Highway 89 bridge.",
+      "facilities": "Boat ramp, ADA privy, 11 primitive campsites on 16 acres.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/rollins-ferry-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/rollins-ferry-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Pointers Creek Access",
+      "slug": "pointers-creek-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 38.424935,
+      "lon": -91.742161,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 210.8,
+      "description": "MDC access at Pointers Creek (chart mile 210.8), 7.4 miles below Rollins Ferry on the big-water lower river.",
+      "parkingInfo": "Paved parking area (MDC GIS).",
+      "roadAccess": "From Linn, take Route CC southeast 8 miles, then Route RA east to the access.",
+      "facilities": "Boat ramp, ADA privy, primitive individual campsites on 8.7 acres near the Pointers Creek mouth.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/pointers-creek-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM slipway at same spot)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/pointers-creek-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Mt. Sterling Bridge (US 50)",
+      "slug": "mt-sterling-bridge",
+      "type": "bridge",
+      "types": [
+        "bridge",
+        "access"
+      ],
+      "lat": 38.466788,
+      "lon": -91.628898,
+      "ownership": null,
+      "managingAgency": null,
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 219.8,
+      "description": "US 50 crossing at Mt. Sterling (chart mile 219.8, 'access under bridge'), an informal put-in/take-out splitting the 25-mile Pointers Creek to Helds Island gap.",
+      "parkingInfo": "No developed parking; roadside only.",
+      "roadAccess": "US Highway 50 bridge over the Gasconade at Mt. Sterling; local River Road/Riverview Drive run along the east bank.",
+      "facilities": "No facilities - informal access under the highway bridge per float guides.",
+      "coordinateSource": "OpenStreetMap: US 50 bridge way over the Gasconade River at Mt. Sterling (verified against OSM river geometry, 21 m)",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "Documented only by the float chart/guides; no managing agency. Medium confidence, stays pending.",
+      "sources": [
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/",
+        "https://www.floatmissouri.com/floating-missouris-gasconade-river/",
+        "https://www.openstreetmap.org/"
+      ]
+    },
+    {
+      "name": "Helds Island Access",
+      "slug": "helds-island-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 38.553022,
+      "lon": -91.597762,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 235.4,
+      "description": "MDC ramp-and-camping access at Helds Island off Route K (chart mile 235.4), the main access between Mt. Sterling and Fredericksburg on the lower river.",
+      "parkingInfo": "Two paved lots (MDC GIS), one ADA.",
+      "roadAccess": "From Mt. Sterling, take Highway 50 east, then Route K north 4 miles until it turns to gravel, then continue 2 miles to the access entrance.",
+      "facilities": "Boat ramp, ADA privy, about 8 primitive campsites on 9.6 acres at Helds Island.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/helds-island-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM slipway at same spot)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "Likely what the task hint 'Helms Ford' referred to - no access named Helms Ford exists on the Gasconade (web search: no results; nearest match is Hull Ford on the Osage Fork).",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/helds-island-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Fredericksburg Ferry Access",
+      "slug": "fredericksburg-ferry-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "campground",
+        "access"
+      ],
+      "lat": 38.603241,
+      "lon": -91.633194,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 244.8,
+      "description": "MDC access at the historic Fredericksburg ferry crossing off Route J (chart mile 244.8), the last camping access before the mouth reach.",
+      "parkingInfo": "Gravel parking area (MDC GIS).",
+      "roadAccess": "From Linn, take Highway 50 east 3 miles, then Highway 89 north 3.5 miles, then Route J east 6 miles, Routes J/N north 4 miles, Route J east 2 miles, and Old Ferry Road 1 mile to the river.",
+      "facilities": "Boat ramp, privy, roughly 10 primitive campsites on 5.1 acres at the old ferry site.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/fredericksburg-ferry-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM 'Fredericksburg Boat Ramp' at same spot)",
+      "coordinateConfidence": "official",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/fredericksburg-ferry-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
+    },
+    {
+      "name": "Gasconade Park Access",
+      "slug": "gasconade-park-access",
+      "type": "boat_ramp",
+      "types": [
+        "boat_ramp",
+        "access"
+      ],
+      "lat": 38.668267,
+      "lon": -91.555183,
+      "ownership": "MDC",
+      "managingAgency": "MDC",
+      "isPublic": true,
+      "feeRequired": false,
+      "riverMile": 252.4,
+      "description": "MDC ramp in the town of Gasconade on the west bank, about half a mile above the Missouri River confluence (chart mile 252.4) - the last take-out before the Missouri River.",
+      "parkingInfo": "Gravel lot with ADA stall (MDC GIS).",
+      "roadAccess": "In the town of Gasconade, take Main Street north, then Oak Street east to the end of the street.",
+      "facilities": "Boat ramp and parking on 2.2 acres on the west bank. No camping.",
+      "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/gasconade-park-access",
+      "coordinateSource": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17 (MDC boat-ramp GIS point; OSM 'Gasconade Access' slipway at same spot)",
+      "coordinateConfidence": "official",
+      "coordinateNote": "A separate USACE launch ramp 0.6 km downstream at 38.673559,-91.550232 is tagged private in OSM and was not added.",
+      "sources": [
+        "https://mdc.mo.gov/discover-nature/places/gasconade-park-access",
+        "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/MapServer/17",
+        "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
+      ]
     }
   ],
   "weatherPoint": {
@@ -539,7 +1054,7 @@
     ],
     "appRenderConfirmed": "Eddy Gasconade page verified end-to-end 2026-07-06 (owner screenshot): aggregate streamflow 5,064 cfs (78% of normal), 3 gauge cards (max discharge Rich Fountain 2,450 cfs / 3.96 ft; highest-elevation Hazelgreen 845 ft), and daily trend chart all render on live USGS data.",
     "flowStatisticsUsgs": {
-      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source \u2014 frequency statistics do not encode channel geometry (see black.json for the Bourbeuse falsification), and on this river the LOSING REACH makes gauge-vs-reality divergence even worse. Retain ONLY as context (% of normal, already rendered by the app) and sanity checks. Thresholds must come from the Agnew Gasconade article's per-reach 'Navigability' tables (the owner's paste was the intro narrative; the reach sections with Gradient/gauge/Normal flow/Navigability/Accesses follow further down the article) \u2014 that is the target source for all three reaches. Only the UPPER-reach (Hazelgreen) percentile set is on file; Jerome/Rich Fountain flows are 3\u20134\u00d7 larger.",
+      "note": "VERIFIED USGS daily-mean statistics (July 6, seasonal), owner-provided 2026-07-06. DECISION 2026-07-06: percentile-derived floatability ladders are REJECTED as a threshold source — frequency statistics do not encode channel geometry (see black.json for the Bourbeuse falsification), and on this river the LOSING REACH makes gauge-vs-reality divergence even worse. Retain ONLY as context (% of normal, already rendered by the app) and sanity checks. Thresholds must come from the Agnew Gasconade article's per-reach 'Navigability' tables (the owner's paste was the intro narrative; the reach sections with Gradient/gauge/Normal flow/Navigability/Accesses follow further down the article) — that is the target source for all three reaches. Only the UPPER-reach (Hazelgreen) percentile set is on file; Jerome/Rich Fountain flows are 3–4× larger.",
       "06928000_hazelgreen_cfs": {
         "basis": "68 years, July 6 daily mean",
         "low": 60.0,
@@ -553,7 +1068,7 @@
       }
     },
     "moherpRatings": {
-      "note": "rivers.moherp.org paddler gauge ratings (owner-provided 2026-07-06). OBSERVED = consolidated from community trip reports at known discharge (human/geometry-calibrated \u2192 encoded as thresholds at confidence medium). ESTIMATED = site model \u2192 reference only, per the calibration decision.",
+      "note": "rivers.moherp.org paddler gauge ratings (owner-provided 2026-07-06). OBSERVED = consolidated from community trip reports at known discharge (human/geometry-calibrated → encoded as thresholds at confidence medium). ESTIMATED = site model → reference only, per the calibration decision.",
       "06928000_hazelgreen": {
         "observed_cfs": {
           "low": 100,
@@ -567,7 +1082,7 @@
           "high": 943,
           "flood": 4809
         },
-        "latest": "Good (708 cfs), median 262 \u2014 2026-07-06"
+        "latest": "Good (708 cfs), median 262 — 2026-07-06"
       },
       "06933500_jerome": {
         "observed_cfs": {
@@ -580,8 +1095,8 @@
           "high": 2578,
           "flood": 9886
         },
-        "latest": "Good (1720 cfs), median 1110 \u2014 2026-07-06",
-        "note": "OBSERVED Good 400 encoded (optimal_min). Estimated Good 1633 is ~4x the observed and is rejected \u2014 a real trip floated Good at 475 cfs. Only observed anchor is Good; no observed Low/High yet."
+        "latest": "Good (1720 cfs), median 1110 — 2026-07-06",
+        "note": "OBSERVED Good 400 encoded (optimal_min). Estimated Good 1633 is ~4x the observed and is rejected — a real trip floated Good at 475 cfs. Only observed anchor is Good; no observed Low/High yet."
       },
       "06934000_richfountain": {
         "observed_cfs": null,
@@ -592,22 +1107,23 @@
           "high": 3151,
           "flood": 13580
         },
-        "latest": "Good (2190 cfs), median 1200 \u2014 2026-07-06",
-        "note": "NO observed values on the moherp page \u2192 no thresholds encoded for the lower reach. Needs Agnew Navigability table or accumulated trip reports."
+        "latest": "Good (2190 cfs), median 1200 — 2026-07-06",
+        "note": "NO observed values on the moherp page → no thresholds encoded for the lower reach. Needs Agnew Navigability table or accumulated trip reports."
       }
     },
     "openQuestions": [
-      "CALIBRATION CORE (UPPER + MID RESOLVED 2026-07-06): Hazelgreen ladder (Low 100 / Good 200 / High 1000 cfs) and Jerome optimal_min (Good 400 cfs) encoded from moherp OBSERVED community ratings, trip-corroborated, confidence medium. STILL MISSING: Rich Fountain (lower) ladder \u2014 its moherp page has NO observed values; needs the Agnew 'Navigability' table or accumulated trip reports. Jerome has only an observed Good (optimal_min); its Low/High anchors are still open. Agnew tables would also let Hazelgreen/Jerome confidences rise medium->high. Losing-reach datum: ~75 cfs above the Narrows / <30 cfs below in low water (hazard datum, not a float threshold).",
-      "ACCESS LANDMARKS from Agnew (no mileages/coords yet \u2014 [manual] capture): Hwy E (\u224811 mi below the highest put-in), Hwy 17 at Waynesville, Hwy 28, Ozark Springs, Schlict Spring (in the losing reach), Jerome, Paydown (\u224880 mi of lower river remain below Paydown). Build the full MCFA/MDC mileage table.",
+      "CALIBRATION CORE (UPPER + MID RESOLVED 2026-07-06): Hazelgreen ladder (Low 100 / Good 200 / High 1000 cfs) and Jerome optimal_min (Good 400 cfs) encoded from moherp OBSERVED community ratings, trip-corroborated, confidence medium. STILL MISSING: Rich Fountain (lower) ladder — its moherp page has NO observed values; needs the Agnew 'Navigability' table or accumulated trip reports. Jerome has only an observed Good (optimal_min); its Low/High anchors are still open. Agnew tables would also let Hazelgreen/Jerome confidences rise medium->high. Losing-reach datum: ~75 cfs above the Narrows / <30 cfs below in low water (hazard datum, not a float threshold).",
+      "ACCESS LANDMARKS from Agnew (no mileages/coords yet — [manual] capture): Hwy E (≈11 mi below the highest put-in), Hwy 17 at Waynesville, Hwy 28, Ozark Springs, Schlict Spring (in the losing reach), Jerome, Paydown (≈80 mi of lower river remain below Paydown). Build the full MCFA/MDC mileage table.",
       "Reach division: 3 reaches drafted (Hazelgreen upper, Jerome mid, Rich Fountain lower); confirm boundaries and whether all three warrant separate calibration.",
-      "CROSS-CHECK \u2014 FLAGGED CONFLATED (do not ingest): search reported Jerome JRMM7 'minor 15 ft / moderate 25 ft / major >30 ft' but also 'action 18.5\u201320.5 ft' (higher than minor \u2014 impossible ladder). Record stage 35.06 ft (2017-05-01). Authoritative categories come from fetch-nws-flood-stages.ts; HZLM7 and RIFM7 flood categories were not captured at all."
+      "CROSS-CHECK — FLAGGED CONFLATED (do not ingest): search reported Jerome JRMM7 'minor 15 ft / moderate 25 ft / major >30 ft' but also 'action 18.5–20.5 ft' (higher than minor — impossible ladder). Record stage 35.06 ft (2017-05-01). Authoritative categories come from fetch-nws-flood-stages.ts; HZLM7 and RIFM7 flood categories were not captured at all."
     ],
     "toVerify": [
-      "USGS 06928000 (Hazelgreen), 06933500 (Jerome), 06934000 (Rich Fountain): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page \u2014 CANDIDATES ONLY until then; then write verified-identifiers-gasconade.md",
+      "USGS 06928000 (Hazelgreen), 06933500 (Jerome), 06934000 (Rich Fountain): transcribe site #, name, lat/lon, params, drainage area from each monitoring-location page — CANDIDATES ONLY until then; then write verified-identifiers-gasconade.md",
       "Gauge-keyed floatability thresholds (cfs) for each reach (MDC / outfitter)",
-      "NWS HZLM7 / JRMM7 / RIFM7 flood/action stages \u2014 leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); the search-derived Jerome set is conflated, do not use",
+      "NWS HZLM7 / JRMM7 / RIFM7 flood/action stages — leave to fetch-nws-flood-stages.ts (auto-pull from LID with USGS-id cross-check); the search-derived Jerome set is conflated, do not use",
       "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
       "Full MDC access-point list with coordinates + reach mileage/float times (human places every point)"
     ]
-  }
+  },
+  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed."
 }
