@@ -7,7 +7,7 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
-import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
+import { overlayLiveConditions, buildLiveConditionsMap, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +32,40 @@ async function _GET(
   try {
     const { riverSlug } = await params;
     const supabase = createAdminClient();
+
+    // TEMPORARY diagnostic (?debug=1): dumps what the overlay computes inside
+    // the serverless runtime — stored code + its generated_at (to catch a
+    // stale-cached read), live code, and reading age — so we can see why prod
+    // blanks when identical code serves locally. Condition data is public.
+    if (request.nextUrl.searchParams.get('debug') === '1') {
+      const liveMap = await buildLiveConditionsMap(supabase);
+      const { data: stored } = await supabase
+        .from('eddy_updates')
+        .select('river_slug, condition_code, generated_at, expires_at')
+        .gt('expires_at', new Date().toISOString())
+        .is('section_slug', null)
+        .order('generated_at', { ascending: false });
+      const storedBySlug = new Map<string, { code: string; gen: string }>();
+      for (const r of stored || []) {
+        if (r.river_slug && !storedBySlug.has(r.river_slug)) {
+          storedBySlug.set(r.river_slug, { code: r.condition_code, gen: r.generated_at });
+        }
+      }
+      const nowMs = Date.now();
+      const rows = Array.from(liveMap.entries()).map(([slug, live]) => {
+        const s = storedBySlug.get(slug);
+        return {
+          slug,
+          stored: s?.code ?? null,
+          storedGenH: s ? Math.round(((nowMs - new Date(s.gen).getTime()) / 3.6e6) * 10) / 10 : null,
+          live: live.condition_code,
+          ageH: live.reading_age_hours == null ? null : Math.round(live.reading_age_hours * 100) / 100,
+          stale: live.stale,
+          cfs: live.discharge_cfs,
+        };
+      });
+      return NextResponse.json({ serverNow: new Date().toISOString(), liveMapSize: liveMap.size, storedRows: (stored || []).length, rows });
+    }
 
     const sectionSlug = request.nextUrl.searchParams.get('section') || null;
 
