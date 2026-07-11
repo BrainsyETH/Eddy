@@ -100,6 +100,9 @@ interface MOMapProps {
   percentileByGauge: Record<string, number | null>;
   hoveredRiverId: string | null;
   focusedRiverId: string | null;
+  /** Active condition filter from the dock. Empty/undefined = no filter;
+   *  otherwise reaches whose verdict isn't in the set dim back. */
+  conditionFilter?: Set<StageVerdict>;
   hoveredGaugeId: string | null;
   focusedGaugeId: string | null;
   showCampgrounds: boolean;
@@ -1566,10 +1569,19 @@ export default function MOMap(props: MOMapProps) {
         const fallbackColor = STAGE_VERDICTS[verdict].color;
         const isHovered = props.hoveredRiverId === r.id;
         const isFocused = props.focusedRiverId === r.id;
+        const isActive = isHovered || isFocused;
         const sw = strokeWidthForRiver(r.length_miles, isHovered, isFocused);
-        const dim =
-          (props.focusedRiverId && !isFocused) ||
-          (props.hoveredRiverId && !isHovered && !isFocused);
+        // Two ways a reach recedes. Hover/focus is a soft de-emphasis (0.32,
+        // keeps the rest of the map legible). A condition filter is a harder
+        // exclusion — the reach isn't part of the answer — so it fades further
+        // (0.16), enough that a bright, glowing flood reach stops out-shouting
+        // the one muted match. The actively hovered/focused reach always wins.
+        const filterActive = (props.conditionFilter?.size ?? 0) > 0;
+        const outOfFilter =
+          filterActive && !isActive && !props.conditionFilter!.has(verdict);
+        const focusDim =
+          !isActive && (!!props.focusedRiverId || !!props.hoveredRiverId);
+        const reachOpacity = outOfFilter ? 0.16 : focusDim ? 0.32 : 1;
         const grad = riverGradients[r.id];
         const gradId = `mo-river-grad-${r.id}`;
         const gradStrokeRef = grad ? `url(#${gradId})` : fallbackColor;
@@ -1581,7 +1593,7 @@ export default function MOMap(props: MOMapProps) {
         return (
           <g
             key={r.id}
-            style={{ opacity: dim ? 0.32 : 1, transition: 'opacity 200ms', cursor: 'pointer' }}
+            style={{ opacity: reachOpacity, transition: 'opacity 200ms', cursor: 'pointer' }}
             // Pointer (not mouse) events so touch is excluded — iOS fires a
             // synthetic mouseenter before click, which flashed the hover
             // rail for a frame before the tap focused the river.

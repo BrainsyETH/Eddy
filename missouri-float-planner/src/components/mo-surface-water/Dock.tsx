@@ -53,6 +53,9 @@ export default function DataDock({
   history,
   hoveredRiverId,
   focusedRiverId,
+  conditionFilter,
+  onToggleCondition,
+  onClearConditionFilter,
   dayOffset,
   readingsAsOf,
   cadenceSeconds,
@@ -81,6 +84,10 @@ export default function DataDock({
   history: MoHistoryBundleEntry[];
   hoveredRiverId: string | null;
   focusedRiverId: string | null;
+  /** Verdicts the user has toggled on to filter by. Empty = show all. */
+  conditionFilter: Set<StageVerdict>;
+  onToggleCondition: (code: StageVerdict) => void;
+  onClearConditionFilter: () => void;
   dayOffset: number;
   /** Newest actual USGS reading timestamp — NOT server response time. */
   readingsAsOf: string | null;
@@ -136,6 +143,19 @@ export default function DataDock({
         order.indexOf(verdictByRiver[b.slug] ?? 'unknown'),
     );
   }, [rivers, verdictByRiver]);
+
+  // When conditions are toggled on, the list becomes a hard filter (the map
+  // dims the rest) — you asked "which rivers are flowing?", the list answers
+  // with only those. The verdict tiles keep showing full counts so you never
+  // lose sight of what you're filtering from.
+  const filterActive = conditionFilter.size > 0;
+  const visibleRivers = useMemo(
+    () =>
+      filterActive
+        ? sorted.filter((r) => conditionFilter.has(verdictByRiver[r.slug] ?? 'unknown'))
+        : sorted,
+    [sorted, filterActive, conditionFilter, verdictByRiver],
+  );
 
   // "As of" = the newest actual gauge reading. Same-day shows time only;
   // an older stamp (offline snapshot, USGS outage) keeps its date so the
@@ -253,12 +273,50 @@ export default function DataDock({
           {/* 3×2, not 6-across: six tiles in a 320px rail left ~40px per
               label, truncating "TOO LOW"/"FLOWING" mid-word at any legible
               size. The share bar below still reads the distribution in one
-              glance. */}
+              glance. Each tile is a filter toggle — tap to show only that
+              condition on the map + list; tap again to clear it. */}
           <div className="mt-2 grid grid-cols-3 gap-1">
             {CONDITION_ORDER.map((code) => (
-              <VerdictMini key={code} code={code} n={counts[code]} active={mounted} />
+              <VerdictMini
+                key={code}
+                code={code}
+                n={counts[code]}
+                mounted={mounted}
+                selected={conditionFilter.has(code)}
+                filterActive={filterActive}
+                onToggle={onToggleCondition}
+              />
             ))}
           </div>
+
+          {/* Filter status / discoverability line. When filtering: the match
+              count + a clear button. Otherwise: a faint prompt so the tiles
+              read as interactive, not just a readout. */}
+          {filterActive ? (
+            <button
+              type="button"
+              onClick={onClearConditionFilter}
+              className="mt-2 flex w-full items-center justify-between rounded-sm border px-2 py-1 transition-colors duration-150"
+              style={{
+                borderColor: 'var(--color-accent-500)',
+                background: 'rgba(240,112,82,0.12)',
+                fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.08em',
+                color: '#F4A38E',
+              }}
+            >
+              <span className="uppercase font-bold">
+                Filtering · {visibleRivers.length} {visibleRivers.length === 1 ? 'river' : 'rivers'}
+              </span>
+              <span className="uppercase font-bold">Clear ×</span>
+            </button>
+          ) : (
+            <div
+              className="mt-2 uppercase"
+              style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: PARCH_FAINT }}
+            >
+              Tap a condition to filter
+            </div>
+          )}
 
           {/* Condition share — same story as the tiles, read as proportion */}
           <div
@@ -322,7 +380,29 @@ export default function DataDock({
             maskImage: 'linear-gradient(180deg, #000 calc(100% - 28px), transparent)',
           }}
         >
-          {sorted.map((r, i) => (
+          {filterActive && visibleRivers.length === 0 && (
+            // A selected condition can empty out when the timeline is scrubbed
+            // to a day where no river matched — say so instead of a blank list.
+            <div
+              className="rounded-md border px-3 py-4 text-center"
+              style={{
+                borderColor: 'rgba(242,234,216,0.12)', background: 'rgba(242,234,216,0.03)',
+                fontFamily: MONO, fontSize: 10, letterSpacing: '0.06em', color: PARCH_DIM, lineHeight: 1.6,
+              }}
+            >
+              No rivers match this filter
+              {scrubbed ? ' on the scrubbed day' : ' right now'}.
+              <button
+                type="button"
+                onClick={onClearConditionFilter}
+                className="mt-2 block w-full uppercase font-bold"
+                style={{ color: 'var(--color-accent-400)', letterSpacing: '0.1em' }}
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
+          {visibleRivers.map((r, i) => (
             <RiverRow
               key={r.id}
               river={r}
@@ -511,19 +591,53 @@ function LayerToggle({
   );
 }
 
-function VerdictMini({ code, n, active }: { code: StageVerdict; n: number; active: boolean }) {
+function VerdictMini({
+  code,
+  n,
+  mounted,
+  selected,
+  filterActive,
+  onToggle,
+}: {
+  code: StageVerdict;
+  n: number;
+  mounted: boolean;
+  /** True when this condition is one of the active filters. */
+  selected: boolean;
+  /** True when any filter is active (dims the non-selected tiles). */
+  filterActive: boolean;
+  onToggle: (code: StageVerdict) => void;
+}) {
   const v = STAGE_VERDICTS[code];
-  const value = useCountUp(n, active, 900);
+  const value = useCountUp(n, mounted, 900);
   const lit = n > 0;
+  // A condition with no rivers right now can't be filtered to (it'd empty
+  // the list), so its tile is inert — visibly dim, not a button.
+  const interactive = lit;
+  // While filtering, tiles that aren't selected recede so the chosen ones pop.
+  const recede = filterActive && !selected;
   return (
-    <div
-      className="rounded-md border px-1 pb-1 pt-1.5 text-center transition-all duration-300"
-      title={`${v.label} — ${v.desc || 'no reading'}`}
+    <button
+      type="button"
+      disabled={!interactive}
+      aria-pressed={selected}
+      onClick={interactive ? () => onToggle(code) : undefined}
+      className="rounded-md border px-1 pb-1 pt-1.5 text-center transition-all duration-200"
+      title={
+        interactive
+          ? `${selected ? 'Clear' : 'Show only'} ${v.label}${v.desc ? ` — ${v.desc}` : ''}`
+          : `${v.label} — none right now`
+      }
       style={{
-        borderColor: lit ? `${v.color}66` : 'rgba(242,234,216,0.08)',
-        background: lit ? `${v.color}1a` : 'rgba(242,234,216,0.03)',
-        boxShadow: lit && code === 'dangerous' ? `0 0 14px ${v.color}55` : undefined,
-        opacity: lit ? 1 : 0.45,
+        borderColor: selected ? v.color : lit ? `${v.color}66` : 'rgba(242,234,216,0.08)',
+        background: selected ? `${v.color}2e` : lit ? `${v.color}1a` : 'rgba(242,234,216,0.03)',
+        boxShadow: selected
+          ? `inset 0 0 0 1px ${v.color}, 0 0 14px ${v.color}55`
+          : lit && code === 'dangerous'
+            ? `0 0 14px ${v.color}55`
+            : undefined,
+        opacity: lit ? (recede ? 0.5 : 1) : 0.4,
+        cursor: interactive ? 'pointer' : 'default',
       }}
     >
       <div className="font-bold" style={{ fontFamily: MONO, fontSize: 17, lineHeight: 1, color: lit ? v.color : PARCH_DIM }}>
@@ -535,7 +649,7 @@ function VerdictMini({ code, n, active }: { code: StageVerdict; n: number; activ
       >
         {v.label}
       </div>
-    </div>
+    </button>
   );
 }
 

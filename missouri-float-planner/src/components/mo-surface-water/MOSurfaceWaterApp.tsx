@@ -69,6 +69,21 @@ export default function MOSurfaceWaterApp() {
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
   const [focusedRiverId, setFocusedRiverId] = useState<string | null>(null);
+  // Condition filter: which float verdicts the user has toggled on. Empty =
+  // show everything. Drives both the dock list (hard filter) and the map
+  // (non-matching reaches dim). A Set so multi-select is a union.
+  const [conditionFilter, setConditionFilter] = useState<Set<StageVerdict>>(
+    () => new Set(),
+  );
+  const toggleCondition = useCallback((code: StageVerdict) => {
+    setConditionFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
+  const clearConditionFilter = useCallback(() => setConditionFilter(new Set()), []);
   const [hoveredGaugeId, setHoveredGaugeId] = useState<string | null>(null);
   const [hoveredGaugePos, setHoveredGaugePos] = useState<{ x: number; y: number } | null>(null);
   const [focusedGaugeId, setFocusedGaugeId] = useState<string | null>(null);
@@ -653,6 +668,9 @@ export default function MOSurfaceWaterApp() {
         history={historyEntries}
         hoveredRiverId={hoveredRiverId}
         focusedRiverId={focusedRiverId}
+        conditionFilter={conditionFilter}
+        onToggleCondition={toggleCondition}
+        onClearConditionFilter={clearConditionFilter}
         dayOffset={dayOffset}
         readingsAsOf={newestReadingAt}
         cadenceSeconds={statewide?.cadenceSeconds ?? null}
@@ -693,6 +711,7 @@ export default function MOSurfaceWaterApp() {
           percentileByGauge={percentileByGauge}
           hoveredRiverId={hoveredRiverId}
           focusedRiverId={focusedRiverId}
+          conditionFilter={conditionFilter}
           hoveredGaugeId={hoveredGaugeId}
           focusedGaugeId={focusedGaugeId}
           showCampgrounds={showCampgrounds}
