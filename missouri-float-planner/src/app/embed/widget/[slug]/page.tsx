@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { eddyDeepLink } from '@/lib/embed/branding';
 import type { ConditionCode, RiverListItem } from '@/types/api';
 
 interface GaugeThreshold {
@@ -326,7 +327,8 @@ export default function EmbedWidgetPage() {
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionHelper = conditionCode ? CONDITION_HELPERS[conditionCode] : CONDITION_HELPERS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const riverHref = `${origin}${river.path || `/rivers/${river.slug}`}`;
+  const utm = { widget: 'widget', key: slug, partner };
+  const riverHref = eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm);
   const suspectGauge = gauges.find(g => g.readingSuspect && g.qualifierNote);
 
   return (
@@ -716,7 +718,7 @@ export default function EmbedWidgetPage() {
             See full report &rarr;
           </a>
           <a
-            href={`${origin}/gauges?river=${river.slug}`}
+            href={eddyDeepLink(origin, `/gauges?river=${river.slug}`, utm)}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
@@ -724,7 +726,7 @@ export default function EmbedWidgetPage() {
             Water levels &rarr;
           </a>
           <a
-            href={`${origin}/plan?river=${river.slug}`}
+            href={eddyDeepLink(origin, `/plan?river=${river.slug}`, utm)}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
@@ -739,7 +741,7 @@ export default function EmbedWidgetPage() {
             </span>
           )}
           <a
-            href={origin}
+            href={eddyDeepLink(origin, '/', utm)}
             target="_blank"
             rel="noopener noreferrer"
             style={{

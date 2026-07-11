@@ -171,7 +171,7 @@ const WIDGETS: WidgetDef[] = [
     buildCode: (c) => standardIframe(`${c.embedBase}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - River Conditions from Eddy`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
     ],
   },
   {
@@ -183,7 +183,7 @@ const WIDGETS: WidgetDef[] = [
     buildCode: (c) => standardIframe(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
     ],
   },
   {
@@ -198,7 +198,7 @@ const WIDGETS: WidgetDef[] = [
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'river', values: 'slug', note: 'Pre-select a river (e.g. current, meramec).' },
-      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
     ],
   },
   {
@@ -215,6 +215,7 @@ const WIDGETS: WidgetDef[] = [
       { name: 'theme', values: 'light / dark' },
       { name: 'type', values: 'outfitter / campground / cabin_lodge', note: 'Set with the category filter above.' },
       { name: 'highlight', values: 'slug,slug,...', note: 'Show only specific listings (set above).' },
+      { name: 'exclude', values: 'outfitter / campground / cabin_lodge', note: 'Hide service types (comma-separated; ignored when type is set).' },
       { name: 'partner', values: 'your business name' },
     ],
   },
@@ -955,8 +956,8 @@ export default function EmbedWorkbench() {
             <div className="bg-primary-50 border-2 border-primary-200 rounded-lg px-3.5 py-3">
               <div className="text-xs font-bold text-primary-700 mb-1">All widgets are free</div>
               <div className="text-xs text-primary-600 leading-relaxed">
-                No account, no API key. Outfitters get co-branding via the{' '}
-                <span style={{ fontFamily: 'var(--font-mono)' }}>partner</span> param.
+                No account, no API key. Businesses get co-branding — your logo, color and
+                booking link — via the Floatable From Here card.
               </div>
             </div>
             <nav aria-label="Site" className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
@@ -1028,6 +1029,7 @@ export default function EmbedWorkbench() {
                         <tbody>
                           <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type." />
                           <ParamRow name="highlight" values="slug,slug,..." description="Show only specific listings. Comma-separated slugs." />
+                          <ParamRow name="exclude" values="type,type,..." description="Hide service types. Comma-separated; ignored when type is set." />
                         </tbody>
                       </table>
                     </div>
@@ -1114,7 +1116,7 @@ export default function EmbedWorkbench() {
                           maxWidth={active.isBadge ? 320 : 540}
                         />
                         <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
-                          Placeholder preview — the production widget renders live USGS gauge data for the selected river and auto-resizes to its content.
+                          Live preview — real USGS gauge data for the selected river. The embedded widget auto-resizes to its content.
                         </p>
                       </>
                     ) : (

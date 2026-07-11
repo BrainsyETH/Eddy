@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { eddyDeepLink } from '@/lib/embed/branding';
 import type { ConditionCode } from '@/types/api';
 
 interface EddyUpdate {
@@ -166,6 +167,7 @@ export default function EddyQuoteEmbedPage() {
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const utm = { widget: 'eddy-quote', key: slug, partner };
   const quoteColors = getQuoteColors(conditionCode, isDark);
   const recommendation = FLOAT_RECOMMENDATIONS[conditionCode] || FLOAT_RECOMMENDATIONS.unknown;
 
@@ -308,14 +310,14 @@ export default function EddyQuoteEmbedPage() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: partner ? 'space-between' : 'space-between',
+          justifyContent: 'space-between',
           borderTop: `1px solid ${borderColor}`,
           paddingTop: 8,
           marginTop: 2,
         }}
       >
         <a
-          href={`${origin}${river.path || `/rivers/${river.slug}`}`}
+          href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm)}
           target="_blank"
           rel="noopener noreferrer"
           style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
@@ -329,7 +331,7 @@ export default function EddyQuoteEmbedPage() {
             </span>
           )}
           <a
-            href={origin}
+            href={eddyDeepLink(origin, '/', utm)}
             target="_blank"
             rel="noopener noreferrer"
             style={{

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
+import { eddyDeepLink } from '@/lib/embed/branding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -141,6 +142,7 @@ export default function EmbedServicesPage() {
   const borderColor = isDark ? '#333' : '#e5e5e5';
   const cardBg = isDark ? '#222' : '#f9fafb';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const utm = { widget: 'services', key: slug, partner };
 
   if (loading) {
     return (
@@ -409,14 +411,14 @@ export default function EmbedServicesPage() {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: partner ? 'space-between' : 'space-between',
+        justifyContent: 'space-between',
         borderTop: `1px solid ${borderColor}`,
         paddingTop: 8,
         marginTop: 2,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <a
-            href={`${origin}${river.path || `/rivers/${river.slug}`}`}
+            href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm)}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
@@ -430,7 +432,7 @@ export default function EmbedServicesPage() {
           )}
         </div>
         <a
-          href={origin}
+          href={eddyDeepLink(origin, '/', utm)}
           target="_blank"
           rel="noopener noreferrer"
           style={{

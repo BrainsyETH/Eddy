@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
+import { eddyDeepLink } from '@/lib/embed/branding';
 import type { RiverListItem, AccessPoint } from '@/types/api';
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
@@ -114,6 +115,7 @@ export default function EmbedPlannerPage() {
 
   const canSubmit = selectedRiver && selectedPutIn && selectedTakeOut;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const utm = { widget: 'planner', key: selectedRiver || 'none', partner };
 
   const bg = isDark ? '#1a1a1a' : '#ffffff';
   const cardBg = isDark ? '#252525' : '#f5f5f5';
@@ -297,7 +299,7 @@ export default function EmbedPlannerPage() {
       {/* Submit */}
       {canSubmit ? (
         <a
-          href={`${origin}/plan?river=${selectedRiver}&putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`}
+          href={eddyDeepLink(origin, `/plan?river=${selectedRiver}&putIn=${selectedPutIn}&takeOut=${selectedTakeOut}`, utm)}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -403,7 +405,7 @@ export default function EmbedPlannerPage() {
           </span>
         )}
         <a
-          href={origin}
+          href={eddyDeepLink(origin, '/', utm)}
           target="_blank"
           rel="noopener noreferrer"
           style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: textSecondary, textDecoration: 'none' }}

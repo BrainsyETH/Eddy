@@ -8,6 +8,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+import { eddyDeepLink } from '@/lib/embed/branding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -195,6 +196,7 @@ export default function EmbedGaugeReportPage() {
   const borderColor = isDark ? '#333' : '#e5e5e5';
   const cardBg = isDark ? '#222' : '#f9fafb';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const utm = { widget: 'gauge-report', key: slug, partner };
 
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
@@ -419,16 +421,16 @@ export default function EmbedGaugeReportPage() {
       )}
 
       {/* Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: partner ? 'space-between' : 'space-between', borderTop: `1px solid ${borderColor}`, paddingTop: 8, marginTop: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${borderColor}`, paddingTop: 8, marginTop: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a href={`${origin}${river.path || `/rivers/${river.slug}`}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
+          <a href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
             Full river guide &rarr;
           </a>
           {partner && (
             <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>via {partner}</span>
           )}
         </div>
-        <a href={origin} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: textSecondary, textDecoration: 'none' }}>
+        <a href={eddyDeepLink(origin, '/', utm)} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: textSecondary, textDecoration: 'none' }}>
           <Image src={EDDY_LOGO} alt="Eddy" width={16} height={16} style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }} />
           Powered by Eddy
         </a>

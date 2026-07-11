@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+import { eddyDeepLink } from '@/lib/embed/branding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -74,7 +75,7 @@ export default function EmbedBadgePage() {
   return (
     <div style={{ background: 'transparent', padding: 0 }}>
       <a
-        href={`${origin}${river.path || `/rivers/${river.slug}`}`}
+        href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, { widget: 'badge', key: slug })}
         target="_blank"
         rel="noopener noreferrer"
         style={{
