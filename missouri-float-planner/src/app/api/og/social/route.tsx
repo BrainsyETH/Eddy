@@ -197,6 +197,25 @@ function heroFontSize(name: string, isPortrait: boolean): number {
   return n <= 10 ? 128 : n <= 14 ? 110 : n <= 17 ? 96 : 84;
 }
 
+/** Size + bottom/right offsets for the corner mascot, kept inside the frame's
+ *  visible band. Portrait covers (Instagram) are cropped to a 4:5 tile in the
+ *  profile grid — and to 4:5 max in-feed — which lops ~285px off the bottom of a
+ *  1080×1920 canvas; anchoring Eddy to `bottom: 48` there put his body below the
+ *  cut, so the grid showed only his head + flag. Lift him above the crop line so
+ *  he's never decapitated. Square (Facebook) covers render in full, so Eddy keeps
+ *  the true bottom-right corner. */
+function otterBox(
+  size: { width: number; height: number },
+  portraitSize = 300,
+  landscapeSize = 240,
+): { size: number; bottom: number; right: number } {
+  if (size.height <= size.width) return { size: landscapeSize, bottom: 40, right: 40 };
+  // Height of the strip cropped away below the centered 4:5 tile, + a margin so
+  // Eddy's feet clear the cut line (≈330px on 1080×1920).
+  const cropGap = (size.height - (size.width * 5) / 4) / 2;
+  return { size: portraitSize, bottom: Math.round(cropGap + 45), right: 48 };
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const platform = searchParams.get('platform');
@@ -569,6 +588,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   } catch {
     // Skip otter
   }
+  const otterPos = otterBox(size);
 
   return new ImageResponse(
     (
@@ -687,7 +707,9 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               fontSize: isPortrait ? 44 : 42,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.4,
-              maxWidth: isPortrait ? '100%' : (otterImage ? 700 : '100%'),
+              // Keep the copy clear of the corner mascot (now lifted into the
+              // grid-safe band on portrait) so long summaries never run under Eddy.
+              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
             }}
           >
             {truncate(snippet, isPortrait ? 400 : 300)}
@@ -727,22 +749,23 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           eddy.guide
         </span>
 
-        {/* Otter — absolute positioned */}
+        {/* Otter — anchored inside the grid-safe band (see otterBox) so the
+            portrait cover survives Instagram's 4:5 profile-grid crop. */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
+              bottom: otterPos.bottom,
+              right: otterPos.right,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 340 : 240}
-              height={isPortrait ? 340 : 240}
+              width={otterPos.size}
+              height={otterPos.size}
               alt=""
               style={{ objectFit: 'contain' }}
             />
@@ -996,6 +1019,7 @@ async function generateTipImage(contentId: string, size: { width: number; height
   } catch {
     // Skip otter
   }
+  const otterPos = otterBox(size, 260, 200);
 
   return new ImageResponse(
     (
@@ -1054,22 +1078,23 @@ async function generateTipImage(contentId: string, size: { width: number; height
           eddy.guide
         </span>
 
-        {/* Otter */}
+        {/* Otter — grid-safe placement (see otterBox) so the portrait cover
+            clears Instagram's 4:5 profile-grid crop. */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
+              bottom: otterPos.bottom,
+              right: otterPos.right,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 280 : 200}
-              height={isPortrait ? 280 : 200}
+              width={otterPos.size}
+              height={otterPos.size}
               alt=""
               style={{ objectFit: 'contain' }}
             />
@@ -2089,6 +2114,7 @@ async function generateWarningImage(
   } catch {
     otterImage = null;
   }
+  const otterPos = otterBox(size);
 
   // Recovery is an all-clear: swap the red-tinted frame for a calmer teal-green.
   const eyebrowIcon = isRecovery ? '✅' : '⚠️';
@@ -2285,22 +2311,24 @@ async function generateWarningImage(
           {actionCta}
         </span>
 
-        {/* Otter — series identity, absolute bottom-right (matches the reel) */}
+        {/* Otter — series identity, anchored inside the grid-safe band (see
+            otterBox); square keeps the true corner, portrait lifts above the
+            Instagram 4:5 crop so Eddy isn't decapitated in the profile grid. */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
+              bottom: otterPos.bottom,
+              right: otterPos.right,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 340 : 240}
-              height={isPortrait ? 340 : 240}
+              width={otterPos.size}
+              height={otterPos.size}
               alt=""
               style={{ objectFit: 'contain' }}
             />
