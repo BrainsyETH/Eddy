@@ -36,6 +36,7 @@ import type {
 } from '@/app/api/usgs/mo-forecast/route';
 import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
 import type { MoContextSite } from '@/lib/usgs/mo-sites';
+import { CONDITION_ORDER } from '@shared/condition-system';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
 import DataDock, { type DockRiverReading, type DockRiverTrend } from './Dock';
 import {
@@ -84,6 +85,10 @@ export default function MOSurfaceWaterApp() {
     });
   }, []);
   const clearConditionFilter = useCallback(() => setConditionFilter(new Set()), []);
+  const setConditions = useCallback(
+    (codes: StageVerdict[]) => setConditionFilter(new Set(codes)),
+    [],
+  );
   const [hoveredGaugeId, setHoveredGaugeId] = useState<string | null>(null);
   const [hoveredGaugePos, setHoveredGaugePos] = useState<{ x: number; y: number } | null>(null);
   const [focusedGaugeId, setFocusedGaugeId] = useState<string | null>(null);
@@ -622,18 +627,33 @@ export default function MOSurfaceWaterApp() {
     } else if (gaugeNo && gauges.some((g) => g.site_no === gaugeNo)) {
       setFocusedGaugeId(gaugeNo);
     }
+    // Restore a shared condition filter (?conditions=flowing,good). Ignore any
+    // unknown codes so a hand-edited URL can't wedge the filter.
+    const condsParam = params.get('conditions');
+    if (condsParam) {
+      const known = new Set<StageVerdict>(CONDITION_ORDER);
+      const codes = condsParam
+        .split(',')
+        .filter((c): c is StageVerdict => known.has(c as StageVerdict));
+      if (codes.length) setConditionFilter(new Set(codes));
+    }
   }, [rivers, gauges]);
   useEffect(() => {
     if (!urlApplied.current) return;
     const params = new URLSearchParams(window.location.search);
     params.delete('river');
     params.delete('gauge');
+    params.delete('conditions');
     const r = rivers.find((x) => x.id === focusedRiverId);
     if (r) params.set('river', r.slug);
     else if (focusedGaugeId) params.set('gauge', focusedGaugeId);
+    if (conditionFilter.size > 0) {
+      // CONDITION_ORDER for a stable, canonical param regardless of tap order.
+      params.set('conditions', CONDITION_ORDER.filter((c) => conditionFilter.has(c)).join(','));
+    }
     const qs = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
-  }, [focusedRiverId, focusedGaugeId, rivers]);
+  }, [focusedRiverId, focusedGaugeId, rivers, conditionFilter]);
 
   // Escape backs out of whatever is pinned: modal → site card → rail.
   useEffect(() => {
@@ -671,6 +691,7 @@ export default function MOSurfaceWaterApp() {
         conditionFilter={conditionFilter}
         onToggleCondition={toggleCondition}
         onClearConditionFilter={clearConditionFilter}
+        onSetConditions={setConditions}
         dayOffset={dayOffset}
         readingsAsOf={newestReadingAt}
         cadenceSeconds={statewide?.cadenceSeconds ?? null}

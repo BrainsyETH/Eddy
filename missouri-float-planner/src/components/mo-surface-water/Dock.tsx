@@ -6,7 +6,7 @@
 // is scrubbed the rows repaint to that day. Desktop: a fixed left panel.
 // Mobile: a slide-in drawer behind a floating live chip.
 
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   STAGE_VERDICTS,
   classifyPercentile,
@@ -15,7 +15,16 @@ import {
 } from '@/lib/usgs/mo-statewide-data';
 import { CONDITION_ORDER } from '@shared/condition-system';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
+import { FLOATABLE } from './derive';
 import { useCountUp, useInView, usePrefersReducedMotion } from './fx';
+
+type SortKey = 'verdict' | 'name' | 'flow' | 'trend';
+const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
+  { key: 'verdict', label: 'Best' },
+  { key: 'name', label: 'A–Z' },
+  { key: 'flow', label: 'Flow' },
+  { key: 'trend', label: 'Rising' },
+];
 
 const MONO = 'var(--font-mono), ui-monospace, monospace';
 const DISPLAY = 'var(--font-display), system-ui, sans-serif';
@@ -56,6 +65,7 @@ export default function DataDock({
   conditionFilter,
   onToggleCondition,
   onClearConditionFilter,
+  onSetConditions,
   dayOffset,
   readingsAsOf,
   cadenceSeconds,
@@ -88,6 +98,8 @@ export default function DataDock({
   conditionFilter: Set<StageVerdict>;
   onToggleCondition: (code: StageVerdict) => void;
   onClearConditionFilter: () => void;
+  /** Replace the whole filter at once (the "floatable only" shortcut). */
+  onSetConditions: (codes: StageVerdict[]) => void;
   dayOffset: number;
   /** Newest actual USGS reading timestamp — NOT server response time. */
   readingsAsOf: string | null;
@@ -134,27 +146,61 @@ export default function DataDock({
     return m;
   }, [history]);
 
-  // Best water first, matching the verdict strip's reading order.
+  const [sortKey, setSortKey] = useState<SortKey>('verdict');
+  const [query, setQuery] = useState('');
+
   const sorted = useMemo(() => {
-    const order: StageVerdict[] = ['flowing', 'good', 'high', 'low', 'too_low', 'dangerous', 'unknown'];
-    return [...rivers].sort(
-      (a, b) =>
-        order.indexOf(verdictByRiver[a.slug] ?? 'unknown') -
-        order.indexOf(verdictByRiver[b.slug] ?? 'unknown'),
-    );
-  }, [rivers, verdictByRiver]);
+    // Best water first, matching the verdict strip's reading order.
+    const verdictOrder: StageVerdict[] = ['flowing', 'good', 'high', 'low', 'too_low', 'dangerous', 'unknown'];
+    // Flow in comparable units: cfs when we have it, else the raw reading.
+    const flowOf = (r: MORiver) => {
+      const rd = readingByRiver[r.slug];
+      return rd?.dischargeCfs ?? rd?.value ?? -Infinity;
+    };
+    // Rising first, then steady, then falling, then unknown.
+    const trendRank = (r: MORiver) => {
+      const t = trendByRiver[r.slug];
+      if (!t) return 3;
+      return t.dir === 'rising' ? 0 : t.dir === 'steady' ? 1 : 2;
+    };
+    const arr = [...rivers];
+    switch (sortKey) {
+      case 'name':
+        arr.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'flow':
+        arr.sort((a, b) => flowOf(b) - flowOf(a));
+        break;
+      case 'trend':
+        arr.sort((a, b) => trendRank(a) - trendRank(b) || a.name.localeCompare(b.name));
+        break;
+      default:
+        arr.sort(
+          (a, b) =>
+            verdictOrder.indexOf(verdictByRiver[a.slug] ?? 'unknown') -
+            verdictOrder.indexOf(verdictByRiver[b.slug] ?? 'unknown'),
+        );
+    }
+    return arr;
+  }, [rivers, verdictByRiver, readingByRiver, trendByRiver, sortKey]);
 
   // When conditions are toggled on, the list becomes a hard filter (the map
   // dims the rest) — you asked "which rivers are flowing?", the list answers
-  // with only those. The verdict tiles keep showing full counts so you never
-  // lose sight of what you're filtering from.
+  // with only those. A name search narrows further. The verdict tiles keep
+  // showing full counts so you never lose sight of what you're filtering from.
   const filterActive = conditionFilter.size > 0;
+  const isFloatableFilter =
+    conditionFilter.size === FLOATABLE.size &&
+    [...FLOATABLE].every((c) => conditionFilter.has(c));
+  const q = query.trim().toLowerCase();
   const visibleRivers = useMemo(
     () =>
-      filterActive
-        ? sorted.filter((r) => conditionFilter.has(verdictByRiver[r.slug] ?? 'unknown'))
-        : sorted,
-    [sorted, filterActive, conditionFilter, verdictByRiver],
+      sorted.filter(
+        (r) =>
+          (!filterActive || conditionFilter.has(verdictByRiver[r.slug] ?? 'unknown')) &&
+          (!q || r.name.toLowerCase().includes(q)),
+      ),
+    [sorted, filterActive, conditionFilter, verdictByRiver, q],
   );
 
   // "As of" = the newest actual gauge reading. Same-day shows time only;
@@ -265,10 +311,26 @@ export default function DataDock({
             >
               {scrubbed ? `Verdict · ${Math.abs(dayOffset)}d ago` : 'Verdict · right now'}
             </span>
-            {/* The single number the page exists to answer — reads first. */}
-            <span style={{ fontFamily: MONO, fontSize: 13, color: '#10b981', fontWeight: 700 }}>
+            {/* The single number the page exists to answer — and a one-tap
+                shortcut to "just show me what I can float" (good + flowing).
+                Toggles off when it's already the active filter. */}
+            <button
+              type="button"
+              aria-pressed={isFloatableFilter}
+              title={isFloatableFilter ? 'Clear the floatable filter' : 'Show only floatable rivers'}
+              onClick={() =>
+                isFloatableFilter ? onClearConditionFilter() : onSetConditions([...FLOATABLE])
+              }
+              className="rounded-sm px-1.5 py-0.5 transition-colors duration-150"
+              style={{
+                fontFamily: MONO, fontSize: 13, color: '#10b981', fontWeight: 700,
+                border: `1px solid ${isFloatableFilter ? '#10b981' : 'transparent'}`,
+                background: isFloatableFilter ? 'rgba(16,185,129,0.14)' : 'transparent',
+                cursor: 'pointer',
+              }}
+            >
               {floatable}/{rivers.length} go
-            </span>
+            </button>
           </div>
           {/* 3×2, not 6-across: six tiles in a 320px rail left ~40px per
               label, truncating "TOO LOW"/"FLOWING" mid-word at any legible
@@ -369,20 +431,80 @@ export default function DataDock({
           )}
         </div>
 
+        {/* ── List controls: search + sort ── */}
+        <div className="mt-3 px-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search rivers…"
+              aria-label="Search rivers by name"
+              className="w-full rounded-md border py-1.5 pl-2.5 pr-7"
+              style={{
+                fontFamily: MONO, fontSize: 11, letterSpacing: '0.04em',
+                color: PARCH, background: 'rgba(242,234,216,0.05)',
+                borderColor: 'rgba(242,234,216,0.16)',
+              }}
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setQuery('')}
+                className="absolute right-1 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-sm"
+                style={{ color: PARCH_DIM, fontSize: 13 }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1">
+            <span
+              className="uppercase"
+              style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.14em', color: PARCH_FAINT }}
+            >
+              Sort
+            </span>
+            <div className="ml-auto flex gap-1">
+              {SORT_OPTIONS.map((o) => {
+                const on = sortKey === o.key;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSortKey(o.key)}
+                    className="rounded-sm border px-1.5 py-0.5 font-bold uppercase transition-colors duration-150"
+                    style={{
+                      fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.08em',
+                      borderColor: on ? 'rgba(114,181,196,0.5)' : 'rgba(242,234,216,0.16)',
+                      background: on ? 'rgba(45,120,137,0.28)' : 'transparent',
+                      color: on ? '#A3D1DB' : PARCH_DIM,
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* ── River rows ── */}
         {/* The bottom mask fades the last visible row into the legend edge —
             a scroll affordance, so the list reads as "more below" instead of
             a card chopped in half at the panel boundary. */}
         <div
-          className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-3"
+          className="mt-2 min-h-0 flex-1 overflow-y-auto px-3 pb-3"
           style={{
             WebkitMaskImage: 'linear-gradient(180deg, #000 calc(100% - 28px), transparent)',
             maskImage: 'linear-gradient(180deg, #000 calc(100% - 28px), transparent)',
           }}
         >
-          {filterActive && visibleRivers.length === 0 && (
-            // A selected condition can empty out when the timeline is scrubbed
-            // to a day where no river matched — say so instead of a blank list.
+          {visibleRivers.length === 0 && (filterActive || q) && (
+            // The condition filter (a scrubbed day can empty a selected one)
+            // or the search can zero out the list — say so, don't just blank.
             <div
               className="rounded-md border px-3 py-4 text-center"
               style={{
@@ -390,15 +512,16 @@ export default function DataDock({
                 fontFamily: MONO, fontSize: 10, letterSpacing: '0.06em', color: PARCH_DIM, lineHeight: 1.6,
               }}
             >
-              No rivers match this filter
-              {scrubbed ? ' on the scrubbed day' : ' right now'}.
+              {q
+                ? `No rivers match “${query.trim()}”.`
+                : `No rivers match this filter${scrubbed ? ' on the scrubbed day' : ' right now'}.`}
               <button
                 type="button"
-                onClick={onClearConditionFilter}
+                onClick={() => { onClearConditionFilter(); setQuery(''); }}
                 className="mt-2 block w-full uppercase font-bold"
                 style={{ color: 'var(--color-accent-400)', letterSpacing: '0.1em' }}
               >
-                Clear filter
+                {q && !filterActive ? 'Clear search' : 'Clear filter'}
               </button>
             </div>
           )}
@@ -436,20 +559,10 @@ export default function DataDock({
             paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
           }}
         >
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {CONDITION_ORDER.map((code) => (
-              <div key={code} className="flex items-center gap-1.5">
-                <span
-                  className="h-1 w-4 flex-shrink-0 rounded-full"
-                  style={{ background: STAGE_VERDICTS[code].color }}
-                />
-                <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.06em', color: PARCH_DIM }}>
-                  {STAGE_VERDICTS[code].label}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
+          {/* The verdict tiles up top now carry the color key (and are the
+              filter), so the legend drops its swatch grid — just the one thing
+              the tiles don't say: what the color on the map actually means. */}
+          <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
           <div className="mt-2.5 grid grid-cols-2 gap-1.5">
