@@ -14,7 +14,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadFredokaFont, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
+import { loadFredokaFont, loadOgFonts, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
 import {
   hasRainComing,
   weatherChip,
@@ -1864,7 +1864,8 @@ async function generateWarningImage(
   riseText?: string,
 ) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
+  // Alert covers carry instrument numerals — Fredoka + Geist Mono.
+  const fonts = loadOgFonts();
   const isPortrait = size.height > size.width;
 
   const { data: rawUpdate } = await supabase
@@ -1947,17 +1948,17 @@ async function generateWarningImage(
       >
         {photoLayers(photoDataUri, size)}
 
-        {/* Warning eyebrow banner */}
+        {/* Warning eyebrow banner — field-instrument chrome (hard shadow) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 16,
-            backgroundColor: styles.bg,
+            backgroundColor: 'rgba(15,45,53,0.92)',
             border: `3px solid ${styles.solid}`,
             borderRadius: 999,
             padding: isPortrait ? '18px 42px' : '14px 32px',
-            boxShadow: `0 0 40px ${styles.solid}`,
+            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
             alignSelf: 'flex-start',
             marginBottom: isPortrait ? 40 : 28,
           }}
@@ -2032,7 +2033,7 @@ async function generateWarningImage(
           </div>
         )}
 
-        {/* Current gauge reading */}
+        {/* Current gauge reading — instrument numerals (Geist Mono, no glow) */}
         {gaugeFt !== null && (
           <div
             style={{
@@ -2044,21 +2045,21 @@ async function generateWarningImage(
           >
             <span
               style={{
-                fontFamily: 'Fredoka',
+                fontFamily: 'Geist Mono',
                 fontSize: isPortrait ? 140 : 96,
                 fontWeight: 700,
                 color: styles.solid,
                 lineHeight: 1,
-                textShadow: `0 0 30px ${styles.solid}`,
+                letterSpacing: -4,
               }}
             >
               {gaugeFt.toFixed(1)}
             </span>
             <span
               style={{
-                fontFamily: 'Fredoka',
+                fontFamily: 'Geist Mono',
                 fontSize: isPortrait ? 48 : 36,
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'rgba(255,255,255,0.6)',
               }}
             >
@@ -2067,24 +2068,25 @@ async function generateWarningImage(
           </div>
         )}
 
-        {/* Rate-of-rise/fall pill */}
+        {/* Rate-of-rise/fall pill — mono numerals, hard shadow */}
         {riseText && (
           <div
             style={{
               display: 'flex',
               alignSelf: 'flex-start',
               alignItems: 'center',
-              backgroundColor: `${styles.solid}22`,
-              border: `2px solid ${styles.solid}`,
+              backgroundColor: 'rgba(15,45,53,0.92)',
+              border: `3px solid ${styles.solid}`,
               borderRadius: 999,
               padding: isPortrait ? '12px 26px' : '10px 20px',
+              boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
               marginBottom: isPortrait ? 40 : 28,
             }}
           >
             <span
               style={{
-                fontFamily: 'Fredoka',
-                fontSize: isPortrait ? 38 : 30,
+                fontFamily: 'Geist Mono',
+                fontSize: isPortrait ? 36 : 28,
                 fontWeight: 700,
                 color: styles.solid,
               }}
@@ -2094,17 +2096,18 @@ async function generateWarningImage(
           </div>
         )}
 
-        {/* Action CTA */}
+        {/* Action CTA — hard-shadow panel */}
         <span
           style={{
             fontFamily: 'Fredoka',
             fontSize: isPortrait ? 44 : 32,
             fontWeight: 600,
             color: '#fff',
-            backgroundColor: `${styles.solid}33`,
-            border: `2px solid ${styles.solid}`,
+            backgroundColor: 'rgba(15,45,53,0.92)',
+            border: `3px solid ${styles.solid}`,
             padding: isPortrait ? '18px 32px' : '14px 24px',
             borderRadius: 16,
+            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
             alignSelf: 'flex-start',
           }}
         >
@@ -2175,7 +2178,8 @@ async function generateStormImage(
   size: { width: number; height: number },
   riversParam: string | null,
 ) {
-  const fonts = loadFredokaFont();
+  // Alert-family cover — same font pair as the warning cover.
+  const fonts = loadOgFonts();
   const isPortrait = size.height > size.width;
 
   // Parse `slug:condition` pairs; keep up to 5 so the list stays legible.
@@ -2203,17 +2207,17 @@ async function generateStormImage(
           position: 'relative',
         }}
       >
-        {/* Rising eyebrow banner */}
+        {/* Rising eyebrow banner — field-instrument chrome (hard shadow) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 16,
-            backgroundColor: 'rgba(239,68,68,0.16)',
+            backgroundColor: 'rgba(15,45,53,0.92)',
             border: `3px solid ${BRAND_COLORS.accentCoral}`,
             borderRadius: 999,
             padding: isPortrait ? '18px 42px' : '14px 32px',
-            boxShadow: `0 0 40px ${BRAND_COLORS.accentCoral}`,
+            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
             alignSelf: 'flex-start',
             marginBottom: isPortrait ? 40 : 28,
           }}
@@ -2266,10 +2270,12 @@ async function generateStormImage(
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 24,
-                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  backgroundColor: 'rgba(15,45,53,0.92)',
+                  border: '2px solid rgba(255,255,255,0.1)',
                   borderLeft: `5px solid ${styles.solid}`,
                   borderRadius: 16,
                   padding: isPortrait ? '22px 32px' : '18px 28px',
+                  boxShadow: '8px 8px 0 rgba(0,0,0,0.45)',
                 }}
               >
                 <span
@@ -2288,8 +2294,7 @@ async function generateStormImage(
                     fontSize: isPortrait ? 36 : 28,
                     fontWeight: 700,
                     color: styles.solid,
-                    backgroundColor: styles.bg,
-                    border: `2px solid ${styles.border}`,
+                    border: `3px solid ${styles.border}`,
                     borderRadius: 999,
                     padding: isPortrait ? '10px 26px' : '8px 20px',
                     whiteSpace: 'nowrap',
