@@ -74,9 +74,7 @@ interface MediaSchedule {
   daily_digest: DayMediaMap;
   weekly_forecast?: WeeklyDayMediaMap;
   section_guide?: WeeklyDayMediaMap;
-  favorite_float?: WeeklyDayMediaMap;
   weekly_trend?: WeeklyDayMediaMap;
-  eddy_says?: WeeklyDayMediaMap;
 }
 
 interface SocialConfig {
@@ -96,9 +94,7 @@ interface SocialConfig {
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
   section_guide: WeeklyReelConfig;
-  favorite_float: WeeklyReelConfig;
   weekly_trend: WeeklyReelConfig;
-  eddy_says: WeeklyReelConfig;
 }
 
 const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -185,7 +181,7 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
 };
 
 // Post types that can be triggered from the Posting Schedule row's "Post Now" button.
-type PostNowType = 'digest' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend' | 'eddy_says';
+type PostNowType = 'digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
 
 // Declarative config for each row in the unified Posting Schedule matrix.
 // `time` is either a getter/setter pair into SocialConfig, or the literal
@@ -197,7 +193,7 @@ type RowTimeField = 'per_river' | {
 };
 
 interface ScheduleRow {
-  key: 'river_highlight' | 'daily_digest' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend' | 'eddy_says';
+  key: 'river_highlight' | 'daily_digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
   label: string;
   time: RowTimeField;
   action: PostNowType | 'none';
@@ -233,7 +229,7 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
   },
   {
     key: 'section_guide',
-    label: 'Float of the Day',
+    label: 'Float Pick',
     time: {
       get: (c) => c.section_guide?.time_cst ?? '17:00',
       set: (c, v, set) => set({
@@ -242,18 +238,6 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
       }),
     },
     action: 'section_guide',
-  },
-  {
-    key: 'favorite_float',
-    label: "Eddy's Favorite Float",
-    time: {
-      get: (c) => c.favorite_float?.time_cst ?? '12:00',
-      set: (c, v, set) => set({
-        ...c,
-        favorite_float: { ...(c.favorite_float || { enabled: true, day_of_week: 6, time_cst: '12:00', media: 'video' }), time_cst: v },
-      }),
-    },
-    action: 'favorite_float',
   },
   {
     key: 'weekly_trend',
@@ -267,31 +251,22 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     },
     action: 'weekly_trend',
   },
-  {
-    key: 'eddy_says',
-    label: 'Eddy Says',
-    time: {
-      get: (c) => c.eddy_says?.time_cst ?? '11:00',
-      set: (c, v, set) => set({
-        ...c,
-        eddy_says: { ...(c.eddy_says || { enabled: true, day_of_week: 2, time_cst: '11:00', media: 'video' }), time_cst: v },
-      }),
-    },
-    action: 'eddy_says',
-  },
 ];
 
 // Display names for post_type values — aligned with the post formats we ship.
+// eddy_says / favorite_float / route_draw are retired types kept only so
+// historical rows in the post table still render a label.
 const POST_TYPE_LABELS: Record<string, string> = {
   daily_digest: 'Digest',
-  river_highlight: 'Highlight',
-  eddy_says: 'Eddy Says',
+  river_highlight: 'Eddy Says Report',
+  eddy_says: 'Eddy Says (legacy)',
   weekly_forecast: 'Weekend Forecast',
-  section_guide: 'Float of the Day',
-  favorite_float: "Eddy's Favorite Float",
+  section_guide: 'Float Pick',
+  favorite_float: 'Favorite Float (legacy)',
   weekly_trend: 'Weekly Trend',
-  route_draw: 'Float of the Day', // legacy rows
+  route_draw: 'Float of the Day (legacy)',
   condition_change: 'Alert',
+  condition_easing: 'Easing',
   condition_recovery: 'All Clear',
   storm_digest: 'Storm Digest',
   manual: 'Tip',
@@ -338,7 +313,7 @@ export default function SocialAdminPage() {
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
   const [quickPostType, setQuickPostType] = useState<
-    'digest' | 'highlight' | 'eddy_says' | 'weekly_forecast' | 'section_guide' | 'favorite_float' | 'weekly_trend' | 'tip'
+    'digest' | 'highlight' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'tip'
   >('digest');
   const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
@@ -706,10 +681,7 @@ export default function SocialAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: quickPostType,
-          riverSlug:
-            quickPostType === 'highlight' ? quickPostRiver
-            : quickPostType === 'eddy_says' ? (quickPostRiver || undefined)
-            : undefined,
+          riverSlug: quickPostType === 'highlight' ? quickPostRiver : undefined,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
           platforms: quickPostPlatforms,
         }),
@@ -932,29 +904,24 @@ export default function SocialAdminPage() {
                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
               >
                 <option value="digest">Daily Digest (all rivers)</option>
-                <option value="highlight">River Highlight</option>
-                <option value="eddy_says">Eddy Says (quote reel)</option>
+                <option value="highlight">Eddy Says Report (per river)</option>
                 <option value="weekly_forecast">Weekend Forecast</option>
-                <option value="section_guide">Float of the Day</option>
-                <option value="favorite_float">Eddy&apos;s Favorite Float</option>
+                <option value="section_guide">Float Pick</option>
                 <option value="weekly_trend">Weekly Trend</option>
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>
 
-            {/* River selector — required for highlights, optional for Eddy Says
-                (blank = let the scheduler rotate to today's river). */}
-            {(quickPostType === 'highlight' || quickPostType === 'eddy_says') && (
+            {/* River selector — required for the per-river report. */}
+            {quickPostType === 'highlight' && (
               <div>
-                <label className="block text-sm text-neutral-300 mb-1">
-                  River{quickPostType === 'eddy_says' ? ' (optional — blank rotates by day)' : ''}
-                </label>
+                <label className="block text-sm text-neutral-300 mb-1">River</label>
                 <select
                   value={quickPostRiver}
                   onChange={(e) => setQuickPostRiver(e.target.value)}
                   className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
                 >
-                  <option value="">{quickPostType === 'eddy_says' ? "Today's rotation" : 'Select a river...'}</option>
+                  <option value="">Select a river...</option>
                   {rivers.map((r) => (
                     <option key={r.slug} value={r.slug}>{r.name}</option>
                   ))}

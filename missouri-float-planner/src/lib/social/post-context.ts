@@ -14,7 +14,7 @@
 import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
-import { pickSectionForRivers, dayIndex } from './section-picker';
+import { pickSectionForRivers } from './section-picker';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
@@ -23,7 +23,6 @@ import { upcomingHolidayWeekend } from './holiday-weekends';
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
-  formatEddySaysCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
   formatFavoriteFloatCaption,
@@ -183,9 +182,13 @@ export async function buildPostContext(
   }
 
   if (postType === 'section_guide') {
+    // Float Pick — the SINGLE decision point for which float gets posted (the
+    // scheduler delegates here, so caption, cover, and render always describe
+    // the same float). Live-first: a condition-aware section pick when any
+    // river is ideal-floatable (flowing / good, 5-9 mi); otherwise fall back to
+    // an evergreen favorite from the river-guide blogs so the slot always
+    // publishes. Skip only when neither source yields a float.
     const deduped = await freshRivers();
-    // Float of the Day: only ideal-floatable rivers (flowing / good — never
-    // too_low/low/high/dangerous), on a 5-9 mi section. Skip the post if none.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const floatable = (deduped as any[]).filter(
       (u) => u.condition_code === 'flowing' || u.condition_code === 'good',
@@ -195,33 +198,32 @@ export async function buildPostContext(
       floatable.map((u) => u.river_slug as string),
       { minMi: 5, maxMi: 9 },
     );
-    if (!section) return null;
-    const latest = floatable.find((u) => u.river_slug === section.riverSlug);
-    const conditionCode = latest?.condition_code || 'flowing';
-    // Cover image carries the exact section + condition so it renders the SAME
-    // float as the reel (instead of re-picking), and so the URL is unique per
-    // section — Meta caches OG images by URL, and a shared URL served a stale
-    // cover from a previous post.
-    const coverParams =
-      `&river=${section.riverSlug}` +
-      `&putInMile=${section.putInMile}` +
-      `&takeOutMile=${section.takeOutMile}` +
-      `&condition=${conditionCode}`;
-    return {
-      postType,
-      riverSlug: section.riverSlug,
-      // No photoUrl: Float of the Day renders on the solid live background with a
-      // condition-colored route + pulsing boat (a live instrument), deliberately
-      // distinct from Eddy's Favorite Float, which keeps its editorial photo backdrop.
-      renderData: { ...section, conditionCode, dateLabel: longDate() },
-      caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
-      // route is video-only; reuse the section thumbnail as the cover.
-      imageUrl: (platform) => og('section', platform, coverParams),
-    };
-  }
+    if (section) {
+      const latest = floatable.find((u) => u.river_slug === section.riverSlug);
+      const conditionCode = latest?.condition_code || 'flowing';
+      // Cover image carries the exact section + condition so it renders the SAME
+      // float as the reel (instead of re-picking), and so the URL is unique per
+      // section — Meta caches OG images by URL, and a shared URL served a stale
+      // cover from a previous post.
+      const coverParams =
+        `&river=${section.riverSlug}` +
+        `&putInMile=${section.putInMile}` +
+        `&takeOutMile=${section.takeOutMile}` +
+        `&condition=${conditionCode}`;
+      return {
+        postType,
+        riverSlug: section.riverSlug,
+        // No photoUrl: the live pick renders on the solid live background with a
+        // condition-colored route + pulsing boat (a live instrument); the
+        // evergreen fallback below keeps its editorial photo backdrop.
+        renderData: { ...section, conditionCode, dateLabel: longDate() },
+        caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
+        // route is video-only; reuse the section thumbnail as the cover.
+        imageUrl: (platform) => og('section', platform, coverParams),
+      };
+    }
 
-  if (postType === 'favorite_float') {
-    // Evergreen, editorial — a curated section from the river-guide blogs. No
+    // Evergreen fallback — a curated section from the river-guide blogs. No
     // live-conditions overlay; rotates deterministically by day.
     const fav = await pickFavoriteFloat(supabase);
     if (!fav) return null;
@@ -239,6 +241,7 @@ export async function buildPostContext(
       riverSlug: fav.riverSlug,
       renderData: {
         ...fav,
+        evergreen: true,
         // 'flowing' is the evergreen baseline: it makes hoursToday === hoursTypical
         // in the shared route props, so the reel shows typical pace with no delta.
         conditionCode: 'flowing',
@@ -318,72 +321,6 @@ export async function buildPostContext(
       },
       caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
       imageUrl: (platform) => og('highlight', platform, `&river=${update.river_slug}`),
-    };
-  }
-
-  if (postType === 'eddy_says') {
-    // Per-river quote spotlight. A specific river (quick-post) is honored; the
-    // scheduled path rotates deterministically by day among rivers that have a
-    // fresh quote, so the same read isn't reposted day after day.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let update: any;
-    if (opts.eddyUpdateId || opts.riverSlug) {
-      let query = supabase
-        .from('eddy_updates')
-        .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
-        .is('section_slug', null);
-      query = opts.eddyUpdateId
-        ? query.eq('id', opts.eddyUpdateId)
-        : query.eq('river_slug', opts.riverSlug).gt('expires_at', nowIso)
-            .order('generated_at', { ascending: false }).limit(1);
-      const { data: rawUpdate } = await query.maybeSingle();
-      if (!rawUpdate) return null;
-      [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-    } else {
-      const fresh = await freshRivers();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const withQuote = (fresh as any[])
-        .filter((u) => (u.quote_text || '').trim().length > 0)
-        .sort((a, b) => a.river_slug.localeCompare(b.river_slug));
-      if (withQuote.length === 0) return null;
-      update = withQuote[dayIndex() % withQuote.length];
-    }
-    if (!update) return null;
-
-    // Optimal band keeps the shared gauge props valid (the bar is hidden in
-    // quote-forward mode, but the composition still expects the fields).
-    let optimalMin = 1.5;
-    let optimalMax = 4.0;
-    const { data: gauge } = await supabase
-      .from('river_gauges')
-      .select('level_optimal_min, level_optimal_max')
-      .eq('river_id', update.river_slug)
-      .eq('is_primary', true)
-      .maybeSingle();
-    if (gauge) {
-      optimalMin = gauge.level_optimal_min ?? optimalMin;
-      optimalMax = gauge.level_optimal_max ?? optimalMax;
-    }
-
-    // Same cached AI art the cover uses, composited behind the quote so the reel
-    // matches its thumbnail (null → the reel's solid brand background).
-    const backgroundUrl = (await bgUrl(supabase, update.river_slug)) ?? undefined;
-
-    return {
-      postType,
-      riverSlug: update.river_slug,
-      renderData: {
-        riverName: titleize(update.river_slug),
-        conditionCode: update.condition_code,
-        gaugeHeightFt: update.gauge_height_ft,
-        optimalMin,
-        optimalMax,
-        quoteText: truncateForVideo(update.quote_text ?? null),
-        summaryText: truncateForVideo(update.summary_text ?? null),
-        backgroundUrl,
-      },
-      caption: (platform, custom) => formatEddySaysCaption(update, custom, platform),
-      imageUrl: (platform) => og('eddy_says', platform, `&river=${update.river_slug}`),
     };
   }
 

@@ -282,56 +282,6 @@ export function formatRiverHighlightCaption(
 }
 
 // ---------------------------------------------------------------------------
-// Eddy Says Caption — quote-forward. Where the highlight caption leads with the
-// gauge facts and tucks the quote in as a "full report" payoff, this one makes
-// Eddy's local read the headline: the quote IS the post.
-// ---------------------------------------------------------------------------
-
-export function formatEddySaysCaption(
-  update: EddyUpdate,
-  customContent: SocialCustomContent[],
-  platform: SocialPlatform
-): { caption: string; hashtags: string[] } {
-  const riverName = RIVER_SHORT_NAMES[update.river_slug] || update.river_slug;
-  const condition = update.condition_code;
-  const seed = `${update.river_slug}-${new Date().toISOString().split('T')[0]}`;
-
-  const lines: string[] = [];
-
-  // 0. Deterministic headline for the feed-preview fold — Eddy's voice leads.
-  lines.push(`Eddy says — ${riverName}`);
-  lines.push('');
-
-  // 1. The read itself (the hero). Fall back to the summary if no quote.
-  const fullQuote = update.quote_text || update.summary_text;
-  if (fullQuote) {
-    lines.push(`“${fullQuote}”`);
-    lines.push('');
-  }
-
-  // 2. Weekend engagement question (only for floatable conditions).
-  if (isWeekendWindow() && (condition === 'flowing' || condition === 'good')) {
-    lines.push(pickTemplate(ENGAGEMENT_QUESTIONS, seed + '-q'));
-    lines.push('');
-  }
-
-  // 3. CTA with deep link to the river's live report.
-  const cta = interpolate(pickTemplate(RIVER_CTAS, seed + '-cta'), {
-    slug: update.river_slug,
-  });
-  lines.push(cta);
-
-  // 4. Custom content snippets.
-  const snippets = getActiveSnippets(customContent, platform);
-  if (snippets.length > 0) {
-    lines.push('');
-    lines.push(snippets.join('\n'));
-  }
-
-  return { caption: lines.join('\n'), hashtags: [] };
-}
-
-// ---------------------------------------------------------------------------
 // Weekly Forecast Caption
 // ---------------------------------------------------------------------------
 
@@ -436,7 +386,7 @@ export function formatSectionGuideCaption(
 
   // Headline is the river only — the put-in/take-out appear once below, in the
   // emphasized detail lines, so they're not duplicated in the caption.
-  lines.push(`Float of the Day — ${section.riverName}`);
+  lines.push(`Float Pick — ${section.riverName}`);
   lines.push('');
   lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs with no stops`);
   lines.push('');
@@ -502,7 +452,7 @@ export function formatFavoriteFloatCaption(
   // Typical canoe pace at normal "flowing" flow — evergreen, no live delta.
   const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
 
-  lines.push(`Eddy's Favorite Float — ${fav.riverName}`);
+  lines.push(`Float Pick — ${fav.riverName}`);
   if (fav.tagline) {
     lines.push('');
     lines.push(`“${fav.tagline}”`);

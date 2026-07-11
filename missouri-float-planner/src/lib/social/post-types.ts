@@ -19,10 +19,8 @@ import { FOLLOW_CTA } from '@shared/condition-copy';
 export type PostKind =
   | 'daily_digest'
   | 'river_highlight'
-  | 'eddy_says'
   | 'weekly_forecast'
   | 'section_guide'
-  | 'favorite_float'
   | 'weekly_trend'
   | 'tip';
 
@@ -63,14 +61,17 @@ export interface RenderData {
   takeOutMile?: number;
   distanceMi?: number;
   hoursCanoe?: number;
-  // Favorite Float (evergreen, editorial) extras
+  // Float Pick evergreen-fallback extras (sourced from the river-guide blogs)
+  /** True when the Float Pick fell back to an evergreen favorite (no floatable
+   *  river today) — switches the route reel to editorial mode. */
+  evergreen?: boolean;
   /** Guide section's catchy name, shown under the river name (replaces the date). */
   tagline?: string;
   /** Guide "Best for" audience line. */
   bestFor?: string;
   /** Difficulty class label from the guide (e.g. "I–II"). */
   difficulty?: string;
-  /** Favorites only: guide section photo (public URL) composited behind the reel. */
+  /** Evergreen only: guide section photo (public URL) composited behind the reel. */
   photoUrl?: string;
   // Weekly trend extras
   currentHeightFt?: number | null;
@@ -156,9 +157,12 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
 }
 
 export const POST_TYPES: Record<PostKind, PostTypeDef> = {
+  // The daily per-river report — "Eddy Says" branding over the gauge-forward
+  // layout, with Eddy's quote as the payoff. (Merged: the separate quote-forward
+  // eddy_says type is retired; this single format carries both jobs.)
   river_highlight: {
     id: 'river_highlight',
-    label: 'River Highlight',
+    label: 'Eddy Says Report',
     needs: 'river',
     media: ['video'],
     composition: 'social-gauge-portrait',
@@ -171,39 +175,12 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       optimalMax: data.optimalMax ?? 4.0,
       quoteText: data.quoteText || data.summaryText || '',
       dateLabel: data.dateLabel || defaultDate(),
+      eyebrow: 'Eddy Says',
       backgroundUrl: data.backgroundUrl,
       followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
     outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
-  },
-
-  // "Eddy Says" — reuses the river-highlight reel (social-gauge-portrait) in
-  // quote-forward mode: Eddy's local read on a river is the hero instead of the
-  // live gauge instrument. Per-river, rotating daily.
-  eddy_says: {
-    id: 'eddy_says',
-    label: 'Eddy Says',
-    needs: 'river',
-    media: ['video'],
-    composition: 'social-gauge-portrait',
-    ogType: 'eddy_says',
-    renderProps: (data) => ({
-      riverName: data.riverName || 'Unknown River',
-      conditionCode: data.conditionCode || 'unknown',
-      gaugeHeightFt: data.gaugeHeightFt ?? 0,
-      optimalMin: data.optimalMin ?? 1.5,
-      optimalMax: data.optimalMax ?? 4.0,
-      // Lead with Eddy's full read (summary as fallback) — this post IS the quote.
-      quoteText: data.quoteText || data.summaryText || '',
-      dateLabel: data.dateLabel || defaultDate(),
-      eyebrow: 'Eddy Says',
-      quoteForward: true,
-      backgroundUrl: data.backgroundUrl,
-      followCta: FOLLOW_CTA,
-      format: FORMAT,
-    }),
-    outputFilename: (data) => `eddy-says-${slugify(data.riverName || 'river')}`,
   },
 
   daily_digest: {
@@ -242,44 +219,36 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     outputFilename: () => `forecast-${isoDay()}`,
   },
 
-  // "Float of the Day" — the animated self-drawing route. The static section
-  // card (social-section-portrait) is retired; section_guide now renders the
-  // route composition. The OG section image is kept only as the video cover.
+  // "Float Pick" — the animated self-drawing route reel. Live-first: the weekly
+  // pick is a condition-aware section when any river is floatable; when none is,
+  // post-context falls back to an evergreen favorite from the river-guide blogs
+  // (data.evergreen=true → editorial mode: no live float-time delta, tagline +
+  // difficulty as the "why", guide photo behind the route). One slot, always
+  // publishable. (Merged: the separate favorite_float type is retired.)
   section_guide: {
     id: 'section_guide',
-    label: 'Float of the Day',
+    label: 'Float Pick',
     needs: 'none',
     media: ['video'],
     composition: 'social-route-portrait',
     ogType: 'section',
-    renderProps: sectionRouteProps,
-    outputFilename: () => `float-of-day-${isoDay()}`,
-  },
-
-  // "Eddy's Favorite Floats" — same self-drawing route reel as Float of the Day,
-  // but evergreen (no live float-time delta) and editorial: the eyebrow becomes
-  // "Eddy's Favorite Float" and the guide's section name + difficulty ride along
-  // as the "why". Source sections come from the river-guide blogs.
-  favorite_float: {
-    id: 'favorite_float',
-    label: "Eddy's Favorite Float",
-    needs: 'none',
-    media: ['video'],
-    composition: 'social-route-portrait',
-    ogType: 'favorite',
-    renderProps: (data) => ({
-      ...sectionRouteProps(data),
-      // Evergreen: float time is the typical "flowing" pace (post-context sets
-      // conditionCode='flowing'), so hoursToday === hoursTypical and the reel
-      // hides the faster/slower delta. Neutral accent + editorial copy below.
-      label: "Eddy's Favorite Float",
-      tagline: data.tagline,
-      difficulty: data.difficulty,
-      evergreen: true,
-      // Real guide photography behind the route (favorites only); absent → solid bg.
-      photoUrl: data.photoUrl,
-    }),
-    outputFilename: () => `favorite-float-${isoDay()}`,
+    renderProps: (data) =>
+      data.evergreen
+        ? {
+            ...sectionRouteProps(data),
+            // Evergreen: float time is the typical "flowing" pace (post-context
+            // sets conditionCode='flowing'), so hoursToday === hoursTypical and
+            // the reel hides the faster/slower delta.
+            label: 'Float Pick',
+            tagline: data.tagline,
+            difficulty: data.difficulty,
+            evergreen: true,
+          }
+        : {
+            ...sectionRouteProps(data),
+            label: 'Float Pick',
+          },
+    outputFilename: () => `float-pick-${isoDay()}`,
   },
 
   weekly_trend: {
