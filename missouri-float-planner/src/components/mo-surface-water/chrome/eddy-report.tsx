@@ -5,7 +5,7 @@ import { STAGE_VERDICTS, THEME, type StageVerdict } from '@/lib/usgs/mo-statewid
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
-import { MONO, SANS, VerdictChipSpan } from './shared';
+import { MONO, SANS, VerdictChipSpan, floatabilityClass, relativeTime } from './shared';
 
 export type EddyReport = {
   quoteText: string;
@@ -54,7 +54,19 @@ function fetchReport(gauge: MoStatewideGauge): Promise<EddyReport | null> {
 // (one canonical narrative per river). Secondary gauges have their own
 // Haiku update from /api/gauge-update. The card looks identical either way;
 // only the source endpoint differs.
-export function useGaugeRailReport(gauge: MoStatewideGauge | null): EddyReport | null | undefined {
+export function useGaugeRailReport(
+  gauge: MoStatewideGauge | null,
+  /**
+   * The LIVE editorial verdict for this gauge/river (what colors the reading
+   * badge). When Eddy's daily note has drifted into a different floatability
+   * class than the live gauge — the flood-vs-"good" case — the note is
+   * suppressed (returns null, as if none existed) so a card never shows two
+   * contradicting conditions. Mirrors the server's overlayLiveConditions,
+   * but client-side and instant, so it can't be defeated by ingest lag in
+   * the overlay's own live-conditions source.
+   */
+  liveVerdict?: StageVerdict | null,
+): EddyReport | null | undefined {
   const cached = useMemo(() => {
     if (!gauge) return undefined;
     const key = `${gauge.is_primary ? 'p' : 's'}:${gauge.is_primary ? gauge.river_slug : gauge.site_no}`;
@@ -75,6 +87,16 @@ export function useGaugeRailReport(gauge: MoStatewideGauge | null): EddyReport |
     // new `gauge` object reference would re-fire on each parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gauge?.site_no, gauge?.is_primary, gauge?.river_slug]);
+  // Reconcile against the live verdict at return time (not in the cache) —
+  // the note is shared across surfaces but the live verdict is per-render.
+  if (
+    report &&
+    liveVerdict &&
+    liveVerdict !== 'unknown' &&
+    floatabilityClass(report.conditionCode) !== floatabilityClass(liveVerdict)
+  ) {
+    return null;
+  }
   return report;
 }
 
@@ -115,6 +137,14 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
           Eddy says
         </span>
         <VerdictChipSpan code={report.conditionCode} label={verdict.label} />
+        {/* When Eddy wrote this note. The prose is a daily snapshot, so an
+            age here keeps a day-old read from looking live. */}
+        <span
+          className="ml-auto whitespace-nowrap"
+          style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.04em', color: THEME.inkDim }}
+        >
+          {relativeTime(report.generatedAt)}
+        </span>
       </div>
       {report.summaryText && (
         <p

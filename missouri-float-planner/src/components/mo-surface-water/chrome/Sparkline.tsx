@@ -131,6 +131,14 @@ export function Sparkline({
       : mode === 'cfs' ? `${Math.round(v).toLocaleString()} ${unit}`
         : `${v.toFixed(2)} ${unit}`;
 
+  // Current-value label position. Above the dot by default; when the latest
+  // reading IS the 30-day high (a flood spike at the right edge) that puts
+  // the baseline above the viewBox and the text renders cut in half — flip
+  // it below the dot instead, clamped inside the chart.
+  const curLabelY = cur != null
+    ? (yAt(cur) - 6 >= 10 ? yAt(cur) - 6 : Math.min(height - 3, yAt(cur) + 14))
+    : 0;
+
   // Map the pointer to the nearest day, snapping past null gaps.
   const onMove = (e: React.MouseEvent<SVGRectElement>) => {
     const svg = svgRef.current;
@@ -184,23 +192,29 @@ export function Sparkline({
           <text x="3" y={yAt(75) - 2} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>P75</text>
           <text x="3" y={yAt(25) - 2} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>P25</text>
           {cur != null && (
-            <text x={width - 3} y={yAt(cur) - 6} textAnchor="end"
-              fontSize="9" fontWeight="700" fill={curColor} style={{ fontFamily: MONO }}>
+            <text x={width - 3} y={curLabelY} textAnchor="end"
+              fontSize="9" fontWeight="700" fill={curColor}
+              stroke="#fff" strokeWidth="3" paintOrder="stroke"
+              style={{ fontFamily: MONO }}>
               P{Math.round(cur)}
             </text>
           )}
         </>
       ) : (
         <>
-          <text x="3" y={11} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>
+          <text x="3" y={11} fontSize="8" fill={THEME.inkDim}
+            stroke="#fff" strokeWidth="2.5" paintOrder="stroke" style={{ fontFamily: MONO }}>
             {fmtVal(max)}
           </text>
-          <text x="3" y={height - 3} fontSize="8" fill={THEME.inkDim} style={{ fontFamily: MONO }}>
+          <text x="3" y={height - 3} fontSize="8" fill={THEME.inkDim}
+            stroke="#fff" strokeWidth="2.5" paintOrder="stroke" style={{ fontFamily: MONO }}>
             {fmtVal(min)}
           </text>
           {cur != null && (
-            <text x={width - 3} y={yAt(cur) - 6} textAnchor="end"
-              fontSize="9" fontWeight="700" fill={curColor} style={{ fontFamily: MONO }}>
+            <text x={width - 3} y={curLabelY} textAnchor="end"
+              fontSize="9" fontWeight="700" fill={curColor}
+              stroke="#fff" strokeWidth="3" paintOrder="stroke"
+              style={{ fontFamily: MONO }}>
               {fmtVal(cur)}
             </text>
           )}

@@ -1040,3 +1040,17 @@ h1, h2, h3, h4, h5, h6 {
   height: calc(100vh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
   height: calc(100dvh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
 }
+
+/* ── /river-map SVG marker focus ─────────────────────────────────────────
+   Gauge markers are tabbable (<g tabIndex={0}>), and browsers draw their
+   default focus ring around the group's bounding box — on tap that read as
+   a huge blue pill swallowing the marker. Suppress the default ring for
+   pointer interactions and draw a branded ring only for keyboard focus. */
+.mosw-marker:focus {
+  outline: none;
+}
+.mosw-marker:focus-visible {
+  outline: 2.5px solid var(--color-primary-500);
+  outline-offset: 3px;
+  border-radius: 9999px;
+}

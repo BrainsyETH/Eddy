@@ -187,9 +187,17 @@ function RailSheet({
   const [height, setHeight] = useState(PEEK);
   const [snap, setSnapState] = useState<'peek' | 'expanded'>('peek');
   const [dragging, setDragging] = useState(false);
-  // lastH mirrors the in-flight height so onHandleEnd never reads a stale
+  // lastH mirrors the in-flight height so endDrag never reads a stale
   // render closure — touch events can arrive faster than React re-renders.
-  const dragRef = useRef<{ startY: number; startH: number; lastH: number } | null>(null);
+  // samples feed the flick-velocity read at release.
+  const dragRef = useRef<{
+    startY: number;
+    startH: number;
+    lastH: number;
+    active: boolean;
+    samples: Array<{ t: number; y: number }>;
+  } | null>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const onExpandedChangeRef = useRef(onExpandedChange);
   onExpandedChangeRef.current = onExpandedChange;
   const setSnap = (s: 'peek' | 'expanded') => {
@@ -211,27 +219,95 @@ function RailSheet({
   useEffect(() => { setHeight(PEEK); setSnap('peek'); }, [ariaLabel, PEEK]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onExpandedChangeRef.current?.(false), []);
 
-  const onHandleStart = (e: React.TouchEvent) => {
-    dragRef.current = { startY: e.touches[0].clientY, startH: height, lastH: height };
-    setDragging(true);
+  // ── Drag mechanics (standard bottom-sheet behavior) ──
+  // The whole card is the drag surface, not just the 4px handle: at PEEK any
+  // vertical pan moves the sheet (content is scroll-locked until expanded);
+  // at EXPANDED the content scrolls normally, and a pull-down with the
+  // scroller at top drags the sheet back down — the Apple/Google Maps sheet
+  // contract. An 8px dead zone keeps taps working, and release applies a
+  // flick: a fast swipe commits in its direction even if the midpoint wasn't
+  // crossed.
+  const DRAG_DEAD_ZONE = 8;
+  const FLICK_PX_PER_MS = 0.45;
+
+  const beginDrag = (y: number) => {
+    dragRef.current = {
+      startY: y, startH: height, lastH: height, active: false,
+      samples: [{ t: performance.now(), y }],
+    };
   };
-  const onHandleMove = (e: React.TouchEvent) => {
-    if (!dragRef.current) return;
-    const dy = dragRef.current.startY - e.touches[0].clientY; // up = grow
-    const h = Math.max(80, Math.min(EXPANDED, dragRef.current.startH + dy));
-    dragRef.current.lastH = h;
+  const moveDrag = (y: number, downOnly = false) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dy = d.startY - y; // up = grow
+    if (!d.active) {
+      // At expanded, an upward pan belongs to the content scroller — keep
+      // re-anchoring so a later pull-down starts from here without a jump.
+      if (downOnly && dy > 0) { d.startY = y; return; }
+      if (Math.abs(dy) < DRAG_DEAD_ZONE) return;
+      d.active = true;
+      setDragging(true);
+    }
+    const h = Math.max(80, Math.min(EXPANDED, d.startH + dy));
+    d.lastH = h;
+    d.samples.push({ t: performance.now(), y });
+    if (d.samples.length > 6) d.samples.shift();
     setHeight(h);
   };
-  const onHandleEnd = () => {
-    setDragging(false);
-    if (!dragRef.current) return;
-    const h = dragRef.current.lastH;
+  const endDrag = () => {
+    const d = dragRef.current;
     dragRef.current = null;
-    if (h < PEEK * 0.6) { onClose?.(); return; } // dragged well below peek → dismiss
+    setDragging(false);
+    if (!d?.active) return; // never crossed the dead zone — it was a tap
+    const h = d.lastH;
+    // Signed flick velocity (px/ms, + = upward) over the last ~100ms.
+    const newest = d.samples[d.samples.length - 1];
+    let oldest = d.samples[0];
+    for (const s of d.samples) {
+      if (newest.t - s.t <= 100) { oldest = s; break; }
+    }
+    const span = newest.t - oldest.t;
+    const v = span > 15 ? (oldest.y - newest.y) / span : 0;
     const target = expandedTarget();
+    if (v > FLICK_PX_PER_MS) { setHeight(target); setSnap('expanded'); return; }
+    if (v < -FLICK_PX_PER_MS) {
+      // Flick down: expanded settles at peek (unless thrown well past it);
+      // peek dismisses.
+      if (snap === 'expanded' && h > PEEK * 0.7) { setHeight(PEEK); setSnap('peek'); return; }
+      onClose?.();
+      return;
+    }
+    if (h < PEEK * 0.6) { onClose?.(); return; } // dragged well below peek → dismiss
     const toExpanded = Math.abs(h - target) < Math.abs(h - PEEK);
     setHeight(toExpanded ? target : PEEK);
     setSnap(toExpanded ? 'expanded' : 'peek');
+  };
+
+  // Handle strip: always drags, and stops propagation so the card-body
+  // handlers below don't double-track the same touch.
+  const onHandleStart = (e: React.TouchEvent) => { e.stopPropagation(); beginDrag(e.touches[0].clientY); };
+  const onHandleMove = (e: React.TouchEvent) => { e.stopPropagation(); moveDrag(e.touches[0].clientY); };
+  const onHandleEnd = (e: React.TouchEvent) => { e.stopPropagation(); endDrag(); };
+
+  // Card body: drags at peek; at expanded only a pull-down from scroll-top.
+  const onBodyStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    beginDrag(e.touches[0].clientY);
+  };
+  const onBodyMove = (e: React.TouchEvent) => {
+    if (!isMobile || !dragRef.current) return;
+    const y = e.touches[0].clientY;
+    if (snap === 'expanded') {
+      const sc = scrollerRef.current;
+      if ((sc?.scrollTop ?? 0) > 0) { dragRef.current.startY = y; return; } // content owns it
+      moveDrag(y, true);
+      return;
+    }
+    moveDrag(y);
+  };
+  const onBodyEnd = () => {
+    if (!isMobile) return;
+    endDrag();
   };
 
   return (
@@ -248,15 +324,27 @@ function RailSheet({
         />
       )}
       <div
+        ref={scrollerRef}
         role="dialog"
         aria-modal={!isMobile || snap === 'expanded'}
         aria-label={ariaLabel}
-        className={`${z} overflow-auto border-2 fixed inset-x-0 bottom-0 rounded-t-2xl md:absolute md:inset-x-auto md:right-3 md:top-12 md:h-auto md:rounded-md ${tall ? 'md:bottom-[156px]' : ''} ${className}`}
+        className={`${z} border-2 fixed inset-x-0 bottom-0 rounded-t-2xl md:absolute md:inset-x-auto md:right-3 md:top-12 md:h-auto md:rounded-md ${tall ? 'md:bottom-[156px]' : ''} ${className}`}
+        onTouchStart={onBodyStart}
+        onTouchMove={onBodyMove}
+        onTouchEnd={onBodyEnd}
+        onTouchCancel={onBodyEnd}
         style={{
           ...RAIL_BASE_STYLE,
           // Explicit height only on phones (peek/expanded); desktop lets the
           // md: inset classes govern.
           ...(isMobile ? { height: `calc(${height}px + env(safe-area-inset-bottom, 0px))` } : {}),
+          // Scroll-locked at peek so a pan anywhere on the card moves the
+          // SHEET (expand/dismiss), not the content — content scrolling is
+          // an expanded-only affordance. touch-action none at peek keeps
+          // Chrome's pull-to-refresh out of the gesture; taps are unaffected.
+          overflowY: isMobile && snap === 'peek' ? 'hidden' : 'auto',
+          overscrollBehaviorY: 'none',
+          touchAction: isMobile && snap === 'peek' ? 'none' : undefined,
           transform: entered ? 'translateY(0)' : 'translateY(100%)',
           transition: dragging
             ? 'none'
@@ -272,6 +360,7 @@ function RailSheet({
           onTouchStart={onHandleStart}
           onTouchMove={onHandleMove}
           onTouchEnd={onHandleEnd}
+          onTouchCancel={onHandleEnd}
         >
           <div style={{ width: 40, height: 4, borderRadius: 99, background: 'rgba(45,42,36,0.28)' }} />
         </div>
@@ -327,7 +416,9 @@ function RiverCard({
   // The river's "Eddy says" report — the primary gauge carries is_primary +
   // river_slug, so this resolves to the river-level report (same source the
   // gauge card uses), giving the popup the same voice as the report + blog.
-  const eddy = useGaugeRailReport(primaryGauge);
+  // Passing the live verdict suppresses the note if the gauge has since
+  // crossed into a different condition class than the note was written for.
+  const eddy = useGaugeRailReport(primaryGauge, verdict);
 
   const allAccess = river.access_points ?? [];
   const [showAllAccess, setShowAllAccess] = useState(false);
@@ -439,6 +530,20 @@ function RiverCard({
             )}
           </div>
         )}
+        {primaryGauge && (
+          <a
+            href={`https://waterdata.usgs.gov/monitoring-location/${primaryGauge.site_no}/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-block uppercase font-bold hover:underline"
+            style={{
+              fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.1em',
+              color: 'var(--color-primary-600)',
+            }}
+          >
+            USGS #{primaryGauge.site_no} station page ↗
+          </a>
+        )}
       </div>
 
       {allAccess.length > 0 && (
@@ -541,7 +646,9 @@ function GaugeDetail({
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
-  const eddy = useGaugeRailReport(gauge);
+  // Live verdict gates the note: a Flood reading must never sit under a
+  // "good, dialed in" quote from Eddy's last daily pass.
+  const eddy = useGaugeRailReport(gauge, verdict);
   // Prefer the editorial verdict (matches the marker color + the rest of
   // the app); fall back to the USGS percentile classification when the
   // gauge has no curated thresholds.
@@ -648,6 +755,25 @@ function GaugeDetail({
         Source: USGS NWIS · IV/DV/STAT endpoints. Percentile rank is computed against
         this gauge&apos;s daily period of record for today&apos;s calendar date.
       </div>
+
+      {/* Straight to the horse's mouth — the official USGS station page with
+          the full record, rating tables, and annual peaks. */}
+      <a
+        href={`https://waterdata.usgs.gov/monitoring-location/${gauge.site_no}/`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2.5 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2 uppercase"
+        style={{
+          background: 'var(--color-secondary-50)',
+          color: 'var(--color-primary-700)',
+          borderColor: 'var(--color-primary-700)',
+          boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+          fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
+        }}
+      >
+        USGS station page
+        <span aria-hidden>↗</span>
+      </a>
     </div>
     </RailSheet>
   );

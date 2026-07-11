@@ -1146,6 +1146,42 @@ export default function MOMap(props: MOMapProps) {
     return m;
   }, [props.rivers]);
 
+  // Rating gauges that aren't physically ON their river's drawn line don't
+  // get a map marker — a pin floating in a blank basin reads as a data bug
+  // ("phantom gauge"). Two ways this happens: deliberate proxies on streams
+  // the map doesn't draw (07017200 Big River at Irondale rates the ungauged
+  // Huzzah + Courtois; 07018500 Big River at Byrnesville rates the Meramec),
+  // and curated geometry that stops short of a mainstem gauge (Cook Station
+  // above the Meramec line's old upstream end). The threshold is generous —
+  // NHD simplification keeps true on-river gauges within a few hundred
+  // meters — and the check self-heals: extend the geometry and the marker
+  // appears. The gauge itself still rates its river (dock, cards, reaches).
+  const offRiverKeys = useMemo(() => {
+    const KX = 54.6, KY = 69.0; // ≈ miles per degree at Missouri latitudes
+    const MAX_MI = 1.5;
+    const out = new Set<string>();
+    for (const r of props.rivers) {
+      const coords = r.geometry?.coordinates as Array<[number, number]> | undefined;
+      if (!coords || coords.length < 2) continue;
+      for (const g of r.gauges ?? []) {
+        const px = g.lon * KX, py = g.lat * KY;
+        let best = Infinity;
+        for (let i = 0; i < coords.length - 1 && best > 0.01; i++) {
+          const ax = coords[i][0] * KX, ay = coords[i][1] * KY;
+          const bx = coords[i + 1][0] * KX, by = coords[i + 1][1] * KY;
+          const dx = bx - ax, dy = by - ay;
+          const L2 = dx * dx + dy * dy || 1e-9;
+          const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
+          const qx = ax + t * dx, qy = ay + t * dy;
+          const d = Math.hypot(px - qx, py - qy);
+          if (d < best) best = d;
+        }
+        if (best > MAX_MI) out.add(condKey(r.id, g.site_id));
+      }
+    }
+    return out;
+  }, [props.rivers]);
+
   // Hoisted from the marker loop so the memoized layer deps on a boolean,
   // not the continuously-changing view object.
   const otterZoom = view.w < HOME_VIEW.w * 0.5;
@@ -1160,6 +1196,7 @@ export default function MOMap(props: MOMapProps) {
         {props.gauges.map((g) => {
           const meta = gaugeMetaByKey.get(condKey(g.river_id, g.site_no));
           if (!meta) return null;
+          if (offRiverKeys.has(condKey(g.river_id, g.site_no))) return null;
           const gauge = meta.gauge;
           const [x, y] = project(gauge.lon, gauge.lat);
           const p = props.percentileByGauge[g.site_no] ?? g.percentile;
@@ -1194,6 +1231,10 @@ export default function MOMap(props: MOMapProps) {
               // produced duplicate React keys.
               key={condKey(g.river_id, g.site_no)}
               transform={`translate(${x} ${y})`}
+              // .mosw-marker: default focus ring off (a tap left a giant
+              // blue pill around the group), branded ring on :focus-visible
+              // so keyboard users keep their indicator (globals.css).
+              className="mosw-marker"
               style={{ cursor: 'pointer' }}
               // Keyboard path: ten curated gauges are tabbable; Enter or
               // Space pins the detail rail, same as a click. The label
@@ -1267,7 +1308,7 @@ export default function MOMap(props: MOMapProps) {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    props.gauges, gaugeMetaByKey, kStable, otterZoom,
+    props.gauges, gaugeMetaByKey, offRiverKeys, kStable, otterZoom,
     props.hoveredGaugeId, props.focusedGaugeId,
     props.conditionByGauge, props.percentileByGauge, props.showGauges,
     reducedMotion, fadeIn, guardClick, project,
