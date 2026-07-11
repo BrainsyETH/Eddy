@@ -99,6 +99,7 @@ interface WidgetCtx {
   resizeScript: string;
   cardEmbedId: string | null; // set once the location-pinned card is created
   brandingId: string | null;  // set once "Add your branding" has been completed
+  multiRivers: string[];      // rivers shown by the multi-river overview
 }
 
 // Append the co-branding registration (?e=emb_xxxxxxxx) to a widget URL.
@@ -143,6 +144,7 @@ interface WidgetDef {
   hasDays?: boolean;
   isBadge?: boolean;
   hasCardSetup?: boolean; // location-pinned card: onboarding form instead of river picker
+  hasMultiRivers?: boolean; // multi-river overview: picks several rivers instead of one
 }
 
 // Standard responsive iframe snippet (auto-resizes, no hardcoded height).
@@ -179,6 +181,13 @@ function servicesQuery(c: WidgetCtx) {
   return p.toString();
 }
 
+// Multi-river overview accepts theme + an ordered rivers list.
+function riversQuery(c: WidgetCtx) {
+  const p = new URLSearchParams({ theme: c.theme });
+  if (c.multiRivers.length > 0) p.set('rivers', c.multiRivers.join(','));
+  return p.toString();
+}
+
 const WIDGETS: WidgetDef[] = [
   {
     key: 'card',
@@ -206,6 +215,20 @@ const WIDGETS: WidgetDef[] = [
     previewHeight: 480,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, c),
     buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Conditions from Eddy`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
+    ],
+  },
+  {
+    key: 'river-day',
+    title: 'River Day Card',
+    badge: 'LODGING',
+    badgeBg: '#B89D72',
+    desc: "Built for Airbnbs, cabins and campgrounds: today's float verdict, the weather at the river, and Eddy's what-to-pack tip — guests get their answer without leaving your page.",
+    previewHeight: 320,
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Day from Eddy`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
@@ -267,6 +290,22 @@ const WIDGETS: WidgetDef[] = [
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'days', values: '7 / 14 / 30', note: 'Default chart period.' },
+      { name: 'partner', values: 'your business name' },
+    ],
+  },
+  {
+    key: 'rivers',
+    title: 'Multi-River Overview',
+    badge: 'NEW',
+    badgeBg: '#419959',
+    desc: 'Live condition rows for several rivers at once — for outfitters serving more than one river and regional tourism pages. Pick which rivers to show below.',
+    previewHeight: 340,
+    hasMultiRivers: true,
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/rivers?${riversQuery(c)}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/rivers?${riversQuery(c)}`, c), 'River Conditions from Eddy', c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'rivers', values: 'slug,slug,...', note: 'Which rivers to show, in order (max 8). Omit for all rivers.' },
       { name: 'partner', values: 'your business name' },
     ],
   },
@@ -417,6 +456,7 @@ export default function EmbedWorkbench() {
   const [highlightDropdownOpen, setHighlightDropdownOpen] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
   const [preset, setPreset] = useState<string | null>(null);
+  const [multiRivers, setMultiRivers] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const highlightRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WidgetTab, HTMLButtonElement | null>>>({});
@@ -558,6 +598,8 @@ export default function EmbedWorkbench() {
     if (d === '7' || d === '14' || d === '30') setGaugeDays(Number(d));
     const pr = sp.get('preset');
     if (pr && AUDIENCES.some(a => a.key === pr)) setPreset(pr);
+    const mr = sp.get('rivers');
+    if (mr) setMultiRivers(mr.split(',').map(s => s.trim()).filter(s => /^[a-z0-9-]+$/.test(s)).slice(0, 8));
     const e = sp.get('e');
     if (e && /^emb_[0-9a-f]{8}$/.test(e)) setBrandingId(e);
     if (sp.get('view') === 'reference') setShowReference(true);
@@ -577,10 +619,11 @@ export default function EmbedWorkbench() {
     if (gaugeDays !== 14) sp.set('days', String(gaugeDays));
     if (preset) sp.set('preset', preset);
     if (brandingId) sp.set('e', brandingId);
+    if (multiRivers.length > 0) sp.set('rivers', multiRivers.join(','));
     if (showReference) sp.set('view', 'reference');
     const qs = sp.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
-  }, [hydrated, activeWidget, selectedRiver, theme, activeTab, serviceFilter, gaugeDays, preset, brandingId, showReference]);
+  }, [hydrated, activeWidget, selectedRiver, theme, activeTab, serviceFilter, gaugeDays, preset, brandingId, multiRivers, showReference]);
 
   // Load the live river list (DB-driven) so new rivers show up without a deploy.
   useEffect(() => {
@@ -646,7 +689,7 @@ export default function EmbedWorkbench() {
 
   const ctx: WidgetCtx = {
     baseUrl, embedBase: EMBED_BASE, selectedRiver, selectedRiverName, theme,
-    serviceFilter, highlightSlugs, gaugeDays, resizeScript, cardEmbedId, brandingId,
+    serviceFilter, highlightSlugs, gaugeDays, resizeScript, cardEmbedId, brandingId, multiRivers,
   };
 
   const active = WIDGETS.find(w => w.key === activeWidget) ?? WIDGETS[0];
@@ -807,6 +850,42 @@ export default function EmbedWorkbench() {
               )}
             </>
           )}
+        </div>
+      );
+    }
+
+    if (active.hasMultiRivers) {
+      return (
+        <div className="mb-5 bg-white border-2 border-neutral-200 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-neutral-800 mb-1">Which rivers?</h4>
+          <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
+            Toggle up to 8 rivers, in the order you want them shown. Leave all off to show every river.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {riverOptions.map(r => {
+              const idx = multiRivers.indexOf(r.slug);
+              const isOn = idx !== -1;
+              return (
+                <button
+                  key={r.slug}
+                  onClick={() => {
+                    setMultiRivers(prev => isOn
+                      ? prev.filter(s => s !== r.slug)
+                      : prev.length >= 8 ? prev : [...prev, r.slug]);
+                  }}
+                  aria-pressed={isOn}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
+                    isOn
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  }`}
+                >
+                  {isOn && <span className="text-[10px] font-bold mr-1.5 text-primary-500">{idx + 1}</span>}
+                  {r.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }
@@ -1001,8 +1080,9 @@ export default function EmbedWorkbench() {
 
           <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>2 &middot; Configure</div>
 
-          {/* River (the location-pinned card resolves its river from your address instead) */}
-          {!active.hasCardSetup ? (
+          {/* River (the location-pinned card resolves its river from your address;
+              the multi-river overview picks several rivers in its own control) */}
+          {!active.hasCardSetup && !active.hasMultiRivers ? (
             <>
               <label htmlFor="embed-river" className="block text-[13px] font-bold text-neutral-700 mb-2">River</label>
               <div className="relative mb-5">
@@ -1025,7 +1105,10 @@ export default function EmbedWorkbench() {
             </>
           ) : (
             <div className="mb-5 text-[13px] text-neutral-500 bg-white border-2 border-neutral-200 rounded-md px-3.5 py-2.5">
-              <span className="font-bold text-neutral-700">River:</span> resolved from your business address in the setup form.
+              <span className="font-bold text-neutral-700">River{active.hasMultiRivers ? 's' : ''}:</span>{' '}
+              {active.hasMultiRivers
+                ? 'picked with the river toggles next to the preview.'
+                : 'resolved from your business address in the setup form.'}
             </div>
           )}
 
@@ -1142,6 +1225,16 @@ export default function EmbedWorkbench() {
                       <table className="w-full">
                         <tbody>
                           <ParamRow name="days" values="7 | 14 | 30" description="Default chart period shown on load." />
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                      <h3 className="text-sm font-semibold text-neutral-800">Multi-River Overview</h3>
+                    </div>
+                    <div className="px-4 py-2">
+                      <table className="w-full">
+                        <tbody>
+                          <ParamRow name="rivers" values="slug,slug,..." description="Which rivers to show, in order (max 8). Omit to show all rivers." />
                         </tbody>
                       </table>
                     </div>
