@@ -49,6 +49,12 @@ import {
 } from './Chrome';
 
 const MOMap = dynamic(() => import('./MOMap'), { ssr: false });
+// Start the map-chunk download the moment this module executes. next/dynamic
+// alone only kicks off the request when the component first RENDERS — i.e.
+// after hydration completes — which on a mid-tier phone serializes one to two
+// seconds of blank stage behind the JS parse. Webpack dedupes this import
+// with dynamic()'s, so the chunk is fetched exactly once, just earlier.
+if (typeof window !== 'undefined') void import('./MOMap');
 
 export default function MOSurfaceWaterApp() {
   const [dataset, setDataset] = useState<MODataset | null>(null);

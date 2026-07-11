@@ -45,7 +45,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except static files and image files
-    '/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|api/og/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    // Match all paths except static files, image files, and the public
+    // read-only USGS data APIs. Those endpoints are identical for every
+    // visitor and already send s-maxage for the CDN — running the Supabase
+    // session middleware on them added per-request auth work and kept
+    // Vercel's edge cache from serving them (every hit was a MISS against
+    // a cold-startable function; the history bundle ran ~7s cold).
+    '/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|api/og/|api/usgs/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
