@@ -14,10 +14,15 @@ export default function EmbedAutoResize() {
     if (typeof window === 'undefined' || window.parent === window) return;
 
     const post = () => {
-      const height = Math.max(
-        document.documentElement.scrollHeight,
-        document.body.scrollHeight,
-      );
+      // Report the body's own content height. Do NOT use
+      // documentElement.scrollHeight: when the content is shorter than the
+      // iframe's current viewport it inflates to that viewport height, so the
+      // iframe latches tall and leaves dead space below the widget. The body
+      // wraps the widget with no margin/padding, so its scrollHeight is the
+      // true content height and shrinks back correctly.
+      const height = document.body
+        ? document.body.scrollHeight
+        : document.documentElement.scrollHeight;
       window.parent.postMessage({ type: 'eddy-embed:resize', height }, '*');
     };
 
