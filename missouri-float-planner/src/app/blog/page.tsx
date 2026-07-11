@@ -20,7 +20,10 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = 'force-dynamic';
+// 5-minute ISR: the published-posts list changes rarely and the query is
+// request-independent, so serve it from cache and cut Supabase load — the
+// blog-post detail pages already use this same cadence.
+export const revalidate = 300;
 
 interface BlogPost {
   slug: string;
