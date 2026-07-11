@@ -111,6 +111,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     return {
       title,
       description,
+      alternates: { canonical: pageUrl },
       openGraph: {
         type: 'website',
         title: `${riverName} - ${putInName} to ${takeOutName}`,

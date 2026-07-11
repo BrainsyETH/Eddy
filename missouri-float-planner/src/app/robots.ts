@@ -24,14 +24,14 @@ export default function robots(): MetadataRoute.Robots {
       // Regular search engines
       {
         userAgent: '*',
-        allow: ['/', '/api/og/'],
+        allow: ['/', '/api/og/', '/api/openapi.json'],
         disallow: ['/admin', '/api/', '/embed/', '/simple'],
       },
       // AI crawlers - allowed on content pages for discoverability,
       // blocked from API endpoints (x402 payment required for programmatic access)
       ...AI_CRAWLERS.map((agent) => ({
         userAgent: agent,
-        allow: ['/', '/rivers/', '/blog/', '/gauges/', '/about', '/llms.txt'],
+        allow: ['/', '/rivers/', '/blog/', '/river-map', '/about', '/llms.txt', '/api/openapi.json'],
         disallow: ['/admin', '/api/', '/embed/', '/simple'],
       })),
     ],

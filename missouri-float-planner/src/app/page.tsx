@@ -4,6 +4,7 @@
 // band, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is unchanged;
 // only the section structure was reworked.
 
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
@@ -12,6 +13,13 @@ import EddySaysReport from '@/components/home/EddySaysReport';
 import EddyHeroBubble from '@/components/home/EddyHeroBubble';
 import FloatingWellNow from '@/components/home/FloatingWellNow';
 import SiteFooter from '@/components/ui/SiteFooter';
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: '/',
+    types: { 'application/rss+xml': '/blog/feed.xml' },
+  },
+};
 
 export const revalidate = 300; // ISR every 5 minutes
 

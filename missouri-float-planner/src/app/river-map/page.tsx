@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Live River Map — Eddy',
   description:
     'Missouri float water, live: every curated river painted by its USGS gauges with animated flow, a data dock with the statewide floater’s verdict and 30-day trends, gauge detail, forecast-aware flood warnings, and a drag-to-replay month timeline.',
+  alternates: { canonical: '/river-map' },
 };
 
 // Bypass static generation; the live USGS feed is the point.

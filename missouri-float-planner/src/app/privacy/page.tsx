@@ -5,6 +5,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 export const metadata: Metadata = {
   title: 'Privacy Policy | Eddy',
   description: 'Privacy policy for Eddy, your river float trip companion.',
+  alternates: { canonical: '/privacy' },
 };
 
 export default function PrivacyPage() {

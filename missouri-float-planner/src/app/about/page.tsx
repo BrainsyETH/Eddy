@@ -13,6 +13,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 export const metadata: Metadata = {
   title: 'How Eddy Works',
   description: 'Learn how Eddy uses real-time USGS gauge data to provide live river conditions, float time estimates, and access point information for planning your float trip.',
+  alternates: { canonical: '/about' },
 };
 
 // Eddy otter images for different conditions

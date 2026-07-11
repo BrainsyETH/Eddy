@@ -18,13 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .order('name', { ascending: true }),
     supabase
       .from('blog_posts')
-      .select('slug, published_at')
+      .select('slug, published_at, updated_at')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false }),
     supabase
       .from('access_points')
-      .select('slug, river_id, rivers!inner(slug, state)')
+      .select('slug, river_id, updated_at, rivers!inner(slug, state)')
       .eq('approved', true)
       .order('name', { ascending: true }),
   ]);
@@ -39,7 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
     { url: `${BASE_URL}/plan`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
     { url: `${BASE_URL}/rivers`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${BASE_URL}/gauges`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
+    { url: `${BASE_URL}/river-map`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
     { url: `${BASE_URL}/blog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/about`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/privacy`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.3 },
@@ -47,11 +47,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/api/openapi.json`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
   ];
 
-  // State index pages (one per distinct state with rivers)
-  const stateCodes = Array.from(new Set((riversResult.data || []).map((r) => r.state).filter(Boolean)));
+  // State index pages (one per distinct state with rivers). A state page's
+  // freshness is the most recently updated river it lists, so recrawls track
+  // real content changes instead of bumping on every sitemap fetch.
+  const stateLastModified = new Map<string, number>();
+  for (const river of riversResult.data || []) {
+    if (!river.state) continue;
+    const updatedMs = river.updated_at ? new Date(river.updated_at).getTime() : 0;
+    if (updatedMs > (stateLastModified.get(river.state) ?? 0)) {
+      stateLastModified.set(river.state, updatedMs);
+    }
+  }
+  const stateCodes = Array.from(stateLastModified.keys());
   const statePages: MetadataRoute.Sitemap = stateCodes.map((code) => ({
     url: `${BASE_URL}${statePath(code)}`,
-    lastModified: new Date(),
+    lastModified: stateLastModified.get(code) ? new Date(stateLastModified.get(code)!) : new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.7,
   }));
@@ -64,10 +74,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // Dynamic blog post pages
+  // Dynamic blog post pages. Prefer updated_at (reflects later edits) and fall
+  // back to published_at so an edited post signals a recrawl.
   const blogPages: MetadataRoute.Sitemap = (blogResult.data || []).map((post) => ({
     url: `${BASE_URL}/blog/${post.slug}`,
-    lastModified: post.published_at ? new Date(post.published_at) : new Date(),
+    lastModified: post.updated_at
+      ? new Date(post.updated_at)
+      : post.published_at
+        ? new Date(post.published_at)
+        : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));
@@ -79,7 +94,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const river = ap.rivers as Record<string, string>;
       return {
         url: `${BASE_URL}${riverAccessPath(river.state, river.slug, ap.slug as string)}`,
-        lastModified: new Date(),
+        lastModified: ap.updated_at ? new Date(ap.updated_at as string) : new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.5,
       };

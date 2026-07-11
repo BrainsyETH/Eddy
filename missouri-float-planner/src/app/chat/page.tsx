@@ -1,9 +1,17 @@
 // src/app/chat/page.tsx
 // Chat feature is currently disabled while we optimize the experience.
 
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { EDDY_IMAGES } from '@/constants';
+
+// Placeholder page while chat is disabled — keep it out of the index so it
+// doesn't compete as a thin page; drop this once the feature ships.
+export const metadata: Metadata = {
+  title: 'Chat Coming Soon',
+  robots: { index: false, follow: true },
+};
 
 export default function ChatPage() {
   return (

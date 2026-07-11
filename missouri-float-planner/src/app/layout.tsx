@@ -94,16 +94,24 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: 'Eddy',
-              url: BASE_URL,
-              description: 'Plan your next float trip with live water conditions, access points, float times & weather.',
-              sameAs: SOCIAL_SAME_AS,
-              potentialAction: {
-                '@type': 'SearchAction',
-                target: `${BASE_URL}/rivers/{slug}`,
-                'query-input': 'required name=slug',
-              },
+              '@graph': [
+                {
+                  '@type': 'Organization',
+                  '@id': `${BASE_URL}/#organization`,
+                  name: 'Eddy',
+                  url: BASE_URL,
+                  logo: EDDY_FAVICON_URL,
+                  sameAs: SOCIAL_SAME_AS,
+                },
+                {
+                  '@type': 'WebSite',
+                  '@id': `${BASE_URL}/#website`,
+                  name: 'Eddy',
+                  url: BASE_URL,
+                  description: 'Plan your next float trip with live water conditions, access points, float times & weather.',
+                  publisher: { '@id': `${BASE_URL}/#organization` },
+                },
+              ],
             }),
           }}
         />
