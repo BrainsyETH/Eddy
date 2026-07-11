@@ -12,7 +12,7 @@
     "generate": "tsx scripts/generate-video.ts",
     "generate:assets": "tsx scripts/generate-video.ts --assets-only",
     "generate:render": "tsx scripts/generate-video.ts --render-only",
-    "render:check-stills": "mkdir -p /tmp/stills && for comp in social-route-portrait social-section-portrait social-gauge social-trend-portrait social-digest; do remotion still --entry-point=src/index.ts --public-dir=./public \"$comp\" \"/tmp/stills/$comp.png\" --frame=120; done",
+    "render:check-stills": "mkdir -p /tmp/stills && for comp in social-route-portrait social-section-portrait social-gauge social-gauge-alert social-trend-portrait social-digest; do remotion still --entry-point=src/index.ts --public-dir=./public \"$comp\" \"/tmp/stills/$comp.png\" --frame=120; done",
     "test:visual": "node test/visual-diff.mjs",
     "test:visual:update": "node test/visual-diff.mjs --update"
   },

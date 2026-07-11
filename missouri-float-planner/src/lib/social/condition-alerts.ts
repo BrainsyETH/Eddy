@@ -115,9 +115,19 @@ interface GaugeContext {
   riseText: string | null;
   /** Signed 6h gauge delta (now − 6h ago), null when no history — drives trend. */
   riseDeltaFt: number | null;
+  /** Last ~24h of readings (oldest→newest, ≤24 pts) for the reel's animated
+   *  rise. Undefined when history is too thin (<3 valid points). */
+  series?: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
+  /** USGS station's human name (e.g. "Meramec River near Sullivan, MO") for
+   *  the reel's instrument citation. */
+  stationLabel?: string;
 }
 
-/** Load the primary gauge's thresholds + a plain-language 6h rise phrase. */
+/** Max points passed to the reel — enough shape for a 3s rise, tiny payload. */
+const SERIES_MAX_POINTS = 24;
+
+/** Load the primary gauge's thresholds, station label, a plain-language 6h
+ *  rise phrase, and the last-24h series that drives the reel's animated rise. */
 async function loadGaugeContext(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -129,10 +139,14 @@ async function loadGaugeContext(
   let levelHigh: number | undefined;
   let levelDangerous: number | undefined;
   let gaugeStationId: string | null = null;
+  let stationLabel: string | undefined;
 
   const { data: gauge } = await supabase
     .from('river_gauges')
-    .select('level_optimal_min, level_optimal_max, level_high, level_dangerous, gauge_station_id')
+    .select(
+      'level_optimal_min, level_optimal_max, level_high, level_dangerous, gauge_station_id, ' +
+      'gauge_stations (name, usgs_site_id)',
+    )
     .eq('river_id', riverSlug)
     .eq('is_primary', true)
     .maybeSingle();
@@ -142,10 +156,13 @@ async function loadGaugeContext(
     levelHigh = gauge.level_high ?? undefined;
     levelDangerous = gauge.level_dangerous ?? undefined;
     gaugeStationId = gauge.gauge_station_id ?? null;
+    const station = Array.isArray(gauge.gauge_stations) ? gauge.gauge_stations[0] : gauge.gauge_stations;
+    stationLabel = station?.name || station?.usgs_site_id || undefined;
   }
 
   let riseText: string | null = null;
   let riseDeltaFt: number | null = null;
+  let series: GaugeContext['series'];
   if (gaugeStationId && currentFt != null) {
     // Nearest reading in a 5–9h-ago window → a clean ~6h delta.
     const sixAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
@@ -163,9 +180,42 @@ async function loadGaugeContext(
       riseDeltaFt = currentFt - past.gauge_height_ft;
       riseText = formatRise(riseDeltaFt, 6);
     }
+
+    // Last-24h series for the animated rise (mirrors trend-picker's
+    // downsample: fixed step + force-include the newest reading).
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: readings } = await supabase
+      .from('gauge_readings')
+      .select('gauge_height_ft, reading_timestamp')
+      .eq('gauge_station_id', gaugeStationId)
+      .gte('reading_timestamp', dayAgo)
+      .order('reading_timestamp', { ascending: true });
+    const valid = ((readings || []) as Array<{ gauge_height_ft: unknown; reading_timestamp: string }>)
+      .map((r) => ({ ft: Number(r.gauge_height_ft), ts: r.reading_timestamp }))
+      .filter((r) => Number.isFinite(r.ft));
+    if (valid.length >= 3) {
+      const nowMs = Date.now();
+      const step = Math.max(1, Math.floor(valid.length / SERIES_MAX_POINTS));
+      const pts: NonNullable<GaugeContext['series']> = [];
+      for (let i = 0; i < valid.length; i += step) {
+        const r = valid[i];
+        pts.push({
+          hoursAgo: ((nowMs - new Date(r.ts).getTime()) / (1000 * 60 * 60)) * -1,
+          gaugeHeightFt: r.ft,
+        });
+      }
+      const last = valid[valid.length - 1];
+      if (pts[pts.length - 1]?.gaugeHeightFt !== last.ft) {
+        pts.push({
+          hoursAgo: ((nowMs - new Date(last.ts).getTime()) / (1000 * 60 * 60)) * -1,
+          gaugeHeightFt: last.ft,
+        });
+      }
+      series = pts;
+    }
   }
 
-  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText, riseDeltaFt };
+  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText, riseDeltaFt, series, stationLabel };
 }
 
 /** A cached AI cover-art URL by key ('danger' or a river slug), for the reel. */
@@ -412,6 +462,10 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
       levelHigh: ctx.levelHigh,
       levelDangerous: ctx.levelDangerous,
       riseText: ctx.riseText ?? undefined,
+      // Real last-24h readings drive the reel's animated rise; the station
+      // label is the instrument citation under the gauge.
+      series: ctx.series,
+      stationLabel: ctx.stationLabel,
       backgroundUrl,
       followCta: FOLLOW_CTA,
       quoteText,

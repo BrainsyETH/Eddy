@@ -95,6 +95,14 @@ export type GaugeAnimationProps = {
   /** Human rate-of-change phrase (e.g. "▲ up 2.4 ft in 6h") shown as an urgency
    *  pill near the gauge reading in warning/recovery mode. Absent → no pill. */
   riseText?: string;
+  /** Real recent gauge readings (oldest→newest, same shape as TrendReel's
+   *  series). When present (alert reels), the gauge fill ANIMATES THROUGH the
+   *  series — time-compressed and eased — landing exactly on gaugeHeightFt.
+   *  Absent → the classic single fill-up to gaugeHeightFt. */
+  series?: Array<{ hoursAgo: number; gaugeHeightFt: number | null }>;
+  /** USGS station's human name (e.g. "Meramec River near Sullivan, MO") —
+   *  rendered as an instrument citation under the gauge. Absent → no citation. */
+  stationLabel?: string;
   /** Recovery ("all-clear") mode — mutually exclusive with warningMode. Uses
    *  recoveryCopy() + the condition's own calm (green/teal) color and positive
    *  framing instead of the red/orange alarmed warning chrome. */
