@@ -7,6 +7,17 @@ import SiteFooter from '@/components/ui/SiteFooter';
 export const metadata: Metadata = {
   title: "Eddy's Thoughts - Float Trip Guides & Resources",
   description: 'Expert guides and tips for planning the perfect float trip. Learn about water conditions, access points, and the best times to float.',
+  alternates: {
+    canonical: '/blog',
+    types: { 'application/rss+xml': '/blog/feed.xml' },
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'Eddy',
+    url: '/blog',
+    title: "Eddy's Thoughts - Float Trip Guides & Resources",
+    description: 'Expert guides and tips for planning the perfect float trip.',
+  },
 };
 
 export const dynamic = 'force-dynamic';
