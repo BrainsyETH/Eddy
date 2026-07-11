@@ -36,6 +36,7 @@ import type {
 } from '@/app/api/usgs/mo-forecast/route';
 import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
 import type { MoContextSite } from '@/lib/usgs/mo-sites';
+import { CONDITION_ORDER } from '@shared/condition-system';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
 import DataDock, { type DockRiverReading, type DockRiverTrend } from './Dock';
 import {
@@ -49,6 +50,12 @@ import {
 } from './Chrome';
 
 const MOMap = dynamic(() => import('./MOMap'), { ssr: false });
+// Start the map-chunk download the moment this module executes. next/dynamic
+// alone only kicks off the request when the component first RENDERS — i.e.
+// after hydration completes — which on a mid-tier phone serializes one to two
+// seconds of blank stage behind the JS parse. Webpack dedupes this import
+// with dynamic()'s, so the chunk is fetched exactly once, just earlier.
+if (typeof window !== 'undefined') void import('./MOMap');
 
 export default function MOSurfaceWaterApp() {
   const [dataset, setDataset] = useState<MODataset | null>(null);
@@ -63,6 +70,25 @@ export default function MOSurfaceWaterApp() {
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
   const [focusedRiverId, setFocusedRiverId] = useState<string | null>(null);
+  // Condition filter: which float verdicts the user has toggled on. Empty =
+  // show everything. Drives both the dock list (hard filter) and the map
+  // (non-matching reaches dim). A Set so multi-select is a union.
+  const [conditionFilter, setConditionFilter] = useState<Set<StageVerdict>>(
+    () => new Set(),
+  );
+  const toggleCondition = useCallback((code: StageVerdict) => {
+    setConditionFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
+  const clearConditionFilter = useCallback(() => setConditionFilter(new Set()), []);
+  const setConditions = useCallback(
+    (codes: StageVerdict[]) => setConditionFilter(new Set(codes)),
+    [],
+  );
   const [hoveredGaugeId, setHoveredGaugeId] = useState<string | null>(null);
   const [hoveredGaugePos, setHoveredGaugePos] = useState<{ x: number; y: number } | null>(null);
   const [focusedGaugeId, setFocusedGaugeId] = useState<string | null>(null);
@@ -601,18 +627,33 @@ export default function MOSurfaceWaterApp() {
     } else if (gaugeNo && gauges.some((g) => g.site_no === gaugeNo)) {
       setFocusedGaugeId(gaugeNo);
     }
+    // Restore a shared condition filter (?conditions=flowing,good). Ignore any
+    // unknown codes so a hand-edited URL can't wedge the filter.
+    const condsParam = params.get('conditions');
+    if (condsParam) {
+      const known = new Set<StageVerdict>(CONDITION_ORDER);
+      const codes = condsParam
+        .split(',')
+        .filter((c): c is StageVerdict => known.has(c as StageVerdict));
+      if (codes.length) setConditionFilter(new Set(codes));
+    }
   }, [rivers, gauges]);
   useEffect(() => {
     if (!urlApplied.current) return;
     const params = new URLSearchParams(window.location.search);
     params.delete('river');
     params.delete('gauge');
+    params.delete('conditions');
     const r = rivers.find((x) => x.id === focusedRiverId);
     if (r) params.set('river', r.slug);
     else if (focusedGaugeId) params.set('gauge', focusedGaugeId);
+    if (conditionFilter.size > 0) {
+      // CONDITION_ORDER for a stable, canonical param regardless of tap order.
+      params.set('conditions', CONDITION_ORDER.filter((c) => conditionFilter.has(c)).join(','));
+    }
     const qs = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
-  }, [focusedRiverId, focusedGaugeId, rivers]);
+  }, [focusedRiverId, focusedGaugeId, rivers, conditionFilter]);
 
   // Escape backs out of whatever is pinned: modal → site card → rail.
   useEffect(() => {
@@ -647,6 +688,10 @@ export default function MOSurfaceWaterApp() {
         history={historyEntries}
         hoveredRiverId={hoveredRiverId}
         focusedRiverId={focusedRiverId}
+        conditionFilter={conditionFilter}
+        onToggleCondition={toggleCondition}
+        onClearConditionFilter={clearConditionFilter}
+        onSetConditions={setConditions}
         dayOffset={dayOffset}
         readingsAsOf={newestReadingAt}
         cadenceSeconds={statewide?.cadenceSeconds ?? null}
@@ -687,6 +732,7 @@ export default function MOSurfaceWaterApp() {
           percentileByGauge={percentileByGauge}
           hoveredRiverId={hoveredRiverId}
           focusedRiverId={focusedRiverId}
+          conditionFilter={conditionFilter}
           hoveredGaugeId={hoveredGaugeId}
           focusedGaugeId={focusedGaugeId}
           showCampgrounds={showCampgrounds}
