@@ -7,7 +7,9 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
-import { eddyDeepLink } from '@/lib/embed/branding';
+import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
+import EmbedFooter from '@/components/embed/EmbedFooter';
+import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -90,6 +92,7 @@ export default function EmbedServicesPage() {
   const highlightSlugs = highlightParam ? highlightParam.split(',').map(s => s.trim()).filter(Boolean) : [];
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
+  const { branding } = useEmbedBranding();
 
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [river, setRiver] = useState<RiverBasic | null>(null);
@@ -136,13 +139,10 @@ export default function EmbedServicesPage() {
     fetchData();
   }, [slug, typeFilter, excludeFilter, highlightParam]);
 
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
-  const textSecondary = isDark ? '#888' : '#777';
-  const borderColor = isDark ? '#333' : '#e5e5e5';
-  const cardBg = isDark ? '#222' : '#f9fafb';
+  const palette = embedPalette(isDark);
+  const { bg, textPrimary, textSecondary, cardBg } = palette;
+  const borderColor = palette.border;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'services', key: slug, partner };
 
   if (loading) {
     return (
@@ -183,7 +183,7 @@ export default function EmbedServicesPage() {
   return (
     <div
       style={{
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: EMBED_FONTS.body,
         background: bg,
         color: textPrimary,
         padding: '14px 16px',
@@ -203,7 +203,7 @@ export default function EmbedServicesPage() {
           style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
+          <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, fontFamily: EMBED_FONTS.display }}>
             {typeFilter ? TYPE_CONFIG[typeFilter]?.label + 's' : 'Services'} on the {river.name}
           </div>
           <div style={{ fontSize: 11, color: textSecondary, marginTop: 1 }}>
@@ -356,7 +356,7 @@ export default function EmbedServicesPage() {
                       const links: React.ReactNode[] = [];
                       if (service.phone) {
                         links.push(
-                          <a key="phone" href={`tel:${service.phone}`} style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
+                          <a key="phone" href={`tel:${service.phone}`} style={{ color: palette.link, textDecoration: 'none', fontWeight: 600 }}>
                             {service.phone}
                           </a>
                         );
@@ -370,14 +370,14 @@ export default function EmbedServicesPage() {
                       }
                       if (service.website && !service.reservationUrl) {
                         links.push(
-                          <a key="website" href={service.website.startsWith('http') ? service.website : `https://${service.website}`} target="_blank" rel="noopener noreferrer" style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}>
+                          <a key="website" href={service.website.startsWith('http') ? service.website : `https://${service.website}`} target="_blank" rel="noopener noreferrer" style={{ color: palette.link, textDecoration: 'none', fontWeight: 500 }}>
                             Website
                           </a>
                         );
                       }
                       if (service.latitude && service.longitude) {
                         links.push(
-                          <a key="map" href={`https://www.google.com/maps/search/?api=1&query=${service.latitude},${service.longitude}`} target="_blank" rel="noopener noreferrer" style={{ color: '#2D7889', textDecoration: 'none', fontWeight: 500 }}>
+                          <a key="map" href={`https://www.google.com/maps/search/?api=1&query=${service.latitude},${service.longitude}`} target="_blank" rel="noopener noreferrer" style={{ color: palette.link, textDecoration: 'none', fontWeight: 500 }}>
                             Map
                           </a>
                         );
@@ -408,52 +408,15 @@ export default function EmbedServicesPage() {
       </div>
 
       {/* Footer */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderTop: `1px solid ${borderColor}`,
-        paddingTop: 8,
-        marginTop: 2,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a
-            href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
-          >
-            Full river guide &rarr;
-          </a>
-          {partner && (
-            <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>
-              via {partner}
-            </span>
-          )}
-        </div>
-        <a
-          href={eddyDeepLink(origin, '/', utm)}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            fontSize: 10,
-            color: textSecondary,
-            textDecoration: 'none',
-          }}
-        >
-          <Image
-            src={EDDY_LOGO}
-            alt="Eddy"
-            width={16}
-            height={16}
-            style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
-          />
-          Powered by Eddy
-        </a>
-      </div>
+      <EmbedFooter
+        origin={origin}
+        widget="services"
+        widgetKey={slug}
+        isDark={isDark}
+        partner={partner}
+        branding={branding}
+        links={[{ label: 'Full river guide', path: river.path || `/rivers/${river.slug}` }]}
+      />
     </div>
   );
 }

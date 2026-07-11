@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
+import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -40,9 +41,10 @@ export default function EmbedBadgePage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const textColor = isDark ? '#e5e5e5' : '#1a1a1a';
-  const border = isDark ? '#333' : '#e5e5e5';
+  const palette = embedPalette(isDark);
+  const bg = palette.bg;
+  const textColor = palette.textPrimary;
+  const border = palette.border;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
 
   if (loading) {
@@ -57,10 +59,10 @@ export default function EmbedBadgePage() {
         height: 36,
         padding: '0 14px',
         background: bg,
-        color: isDark ? '#888' : '#777',
+        color: palette.textSecondary,
         border: `1.5px solid ${border}`,
         borderRadius: 8,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: EMBED_FONTS.body,
         fontSize: 12,
       }}>
         River conditions temporarily unavailable
@@ -88,10 +90,11 @@ export default function EmbedBadgePage() {
           border: `1.5px solid ${border}`,
           borderRadius: 8,
           textDecoration: 'none',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontFamily: EMBED_FONTS.body,
           fontSize: 13,
           fontWeight: 600,
           cursor: 'pointer',
+          boxShadow: `2px 2px 0 ${palette.shadow}`,
           transition: 'box-shadow 0.15s',
         }}
       >

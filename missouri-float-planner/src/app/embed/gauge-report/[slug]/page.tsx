@@ -8,7 +8,9 @@ import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
-import { eddyDeepLink } from '@/lib/embed/branding';
+import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
+import EmbedFooter from '@/components/embed/EmbedFooter';
+import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
@@ -83,6 +85,7 @@ export default function EmbedGaugeReportPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
+  const { branding } = useEmbedBranding();
 
   const days = parseInt(searchParams.get('days') || '', 10) || DEFAULT_DAYS;
   const [river, setRiver] = useState<RiverBasic | null>(null);
@@ -190,13 +193,10 @@ export default function EmbedGaugeReportPage() {
       .catch(() => {});
   }, [primarySiteId, days]);
 
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
-  const textSecondary = isDark ? '#888' : '#777';
-  const borderColor = isDark ? '#333' : '#e5e5e5';
-  const cardBg = isDark ? '#222' : '#f9fafb';
+  const palette = embedPalette(isDark);
+  const { bg, textPrimary, textSecondary, cardBg } = palette;
+  const borderColor = palette.border;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'gauge-report', key: slug, partner };
 
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
@@ -232,12 +232,12 @@ export default function EmbedGaugeReportPage() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', background: bg, color: textPrimary, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div style={{ fontFamily: EMBED_FONTS.body, background: bg, color: textPrimary, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', overflow: 'hidden' }}>
       {/* Header: Eddy favicon + River name + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Image src={EDDY_LOGO} alt="Eddy" width={32} height={32} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }} />
-          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{river.name}</div>
+          <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, fontFamily: EMBED_FONTS.display }}>{river.name}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 12, backgroundColor: `${conditionColor}15`, border: `1px solid ${conditionColor}30` }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: conditionColor }} />
@@ -249,7 +249,7 @@ export default function EmbedGaugeReportPage() {
       <div>
         {displayHeight != null ? (
           <>
-            <span style={{ fontSize: 28, fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
+            <span style={{ fontSize: 28, fontWeight: 800, color: textPrimary, lineHeight: 1, fontFamily: EMBED_FONTS.mono }}>
               {chartUnit === 'cfs' ? Math.round(displayHeight).toLocaleString() : displayHeight.toFixed(1)}
             </span>
             <span style={{ fontSize: 13, fontWeight: 500, color: textSecondary, marginLeft: 3 }}>{chartUnit}</span>
@@ -369,8 +369,8 @@ export default function EmbedGaugeReportPage() {
                 {/* Area fill */}
                 <defs>
                   <linearGradient id="grAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2D7889" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#2D7889" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor={palette.link} stopOpacity="0.2" />
+                    <stop offset="100%" stopColor={palette.link} stopOpacity="0.02" />
                   </linearGradient>
                 </defs>
                 <path d={areaPath} fill="url(#grAreaGrad)" />
@@ -381,10 +381,10 @@ export default function EmbedGaugeReportPage() {
                 ))}
 
                 {/* Data line */}
-                <path d={linePath} fill="none" stroke="#2D7889" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                <path d={linePath} fill="none" stroke={palette.link} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
 
                 {/* Current value dot */}
-                <circle cx={toX(chartReadings.length - 1)} cy={toY(chartReadings[chartReadings.length - 1].value)} r="3" fill="#2D7889" stroke={isDark ? '#222' : '#fff'} strokeWidth="1.5" />
+                <circle cx={toX(chartReadings.length - 1)} cy={toY(chartReadings[chartReadings.length - 1].value)} r="3" fill={palette.link} stroke={isDark ? palette.cardBg : '#fff'} strokeWidth="1.5" />
 
                 {/* Y-axis labels */}
                 {yLabels.map((yl, i) => (
@@ -421,20 +421,15 @@ export default function EmbedGaugeReportPage() {
       )}
 
       {/* Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${borderColor}`, paddingTop: 8, marginTop: 2 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}>
-            Full river guide &rarr;
-          </a>
-          {partner && (
-            <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>via {partner}</span>
-          )}
-        </div>
-        <a href={eddyDeepLink(origin, '/', utm)} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: textSecondary, textDecoration: 'none' }}>
-          <Image src={EDDY_LOGO} alt="Eddy" width={16} height={16} style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }} />
-          Powered by Eddy
-        </a>
-      </div>
+      <EmbedFooter
+        origin={origin}
+        widget="gauge-report"
+        widgetKey={slug}
+        isDark={isDark}
+        partner={partner}
+        branding={branding}
+        links={[{ label: 'Full river guide', path: river.path || `/rivers/${river.slug}` }]}
+      />
     </div>
   );
 }

@@ -10,10 +10,12 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
+import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
+import EmbedFooter from '@/components/embed/EmbedFooter';
+import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import type { RiverListItem, AccessPoint } from '@/types/api';
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
-const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 // Condition helper labels (#17)
 const CONDITION_LABELS: Record<string, string> = {
@@ -38,6 +40,7 @@ export default function EmbedPlannerPage() {
   const preselectedRiver = searchParams.get('river') || '';
   const partner = searchParams.get('partner') || ''; // (#19) partner branding
   const isDark = theme === 'dark';
+  const { branding } = useEmbedBranding();
 
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>([]);
@@ -115,15 +118,14 @@ export default function EmbedPlannerPage() {
 
   const canSubmit = selectedRiver && selectedPutIn && selectedTakeOut;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'planner', key: selectedRiver || 'none', partner };
+  const utm = { widget: 'planner', key: selectedRiver || 'none', partner: branding?.businessName || partner };
 
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const cardBg = isDark ? '#252525' : '#f5f5f5';
-  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
-  const textSecondary = isDark ? '#888' : '#777';
-  const inputBg = isDark ? '#333' : '#ffffff';
-  const inputBorder = isDark ? '#444' : '#d4d4d4';
-  const borderColor = isDark ? '#333' : '#e5e5e5';
+  const palette = embedPalette(isDark);
+  const { bg, cardBg, textPrimary, textSecondary } = palette;
+  const inputBg = isDark ? '#1D4854' : '#ffffff';
+  const inputBorder = palette.border;
+  const borderColor = palette.border;
+  const ctaColor = branding?.accentColor || palette.accent;
 
   function formatTime(minutes: number): string {
     const hours = Math.floor(minutes / 60);
@@ -136,7 +138,7 @@ export default function EmbedPlannerPage() {
   return (
     <div
       style={{
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: EMBED_FONTS.body,
         background: bg,
         color: textPrimary,
         padding: '16px',
@@ -146,7 +148,7 @@ export default function EmbedPlannerPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <Image src={EDDY_CANOE} alt="Eddy" width={36} height={36} style={{ width: 32, height: 32, objectFit: 'contain' }} />
-        <div style={{ fontWeight: 700, fontSize: 15 }}>Plan Your Float</div>
+        <div style={{ fontWeight: 600, fontSize: 16, fontFamily: EMBED_FONTS.display }}>Plan Your Float</div>
       </div>
 
       {/* River Select with condition dot (#17) */}
@@ -309,7 +311,7 @@ export default function EmbedPlannerPage() {
             gap: 6,
             width: '100%',
             padding: '10px 16px',
-            background: '#F07052',
+            background: ctaColor,
             color: '#fff',
             fontWeight: 700,
             fontSize: 13,
@@ -318,7 +320,7 @@ export default function EmbedPlannerPage() {
             border: 'none',
             cursor: 'pointer',
             boxSizing: 'border-box',
-            boxShadow: '0 1px 3px rgba(240,112,82,0.3)',
+            boxShadow: embedShadow(palette),
           }}
         >
           View Trip Details
@@ -398,21 +400,15 @@ export default function EmbedPlannerPage() {
       })()}
 
       {/* Footer with optional partner branding (#19) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: partner ? 'space-between' : 'flex-end', marginTop: 10, paddingTop: 8, borderTop: `1px solid ${borderColor}` }}>
-        {partner && (
-          <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>
-            via {partner}
-          </span>
-        )}
-        <a
-          href={eddyDeepLink(origin, '/', utm)}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: textSecondary, textDecoration: 'none' }}
-        >
-          <Image src={EDDY_LOGO} alt="Eddy" width={14} height={14} style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }} />
-          Powered by Eddy
-        </a>
+      <div style={{ marginTop: 10 }}>
+        <EmbedFooter
+          origin={origin}
+          widget="planner"
+          widgetKey={selectedRiver || 'none'}
+          isDark={isDark}
+          partner={partner}
+          branding={branding}
+        />
       </div>
     </div>
   );

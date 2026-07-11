@@ -246,6 +246,83 @@ export async function createEmbedCard(input: CreateEmbedCardInput): Promise<Embe
   };
 }
 
+// ---------------------------------------------------------------------------
+// Branding-only registrations (migration 00163): the same embed_widgets table
+// carries rows with widget_type='branding' — no pin, no river — that let any
+// widget render a partner's logo/color/backlink via ?e=<embed_id>.
+// ---------------------------------------------------------------------------
+
+export interface CreateEmbedBrandingInput {
+  businessName: string;
+  siteUrl?: string;
+  logoUrl?: string;
+  accentColor?: string;
+}
+
+export async function createEmbedBranding(
+  input: CreateEmbedBrandingInput
+): Promise<{ embedId: string } | null> {
+  const businessName = input.businessName.trim().slice(0, 120);
+  if (!businessName) return null;
+
+  const supabase = createAdminClient();
+  const embedId = mintEmbedId();
+  const { data, error } = await supabase
+    .from('embed_widgets')
+    .insert({
+      embed_id: embedId,
+      widget_type: 'branding',
+      business_name: businessName,
+      site_url: safeHttpUrl(input.siteUrl),
+      logo_url: safeHttpUrl(input.logoUrl),
+      accent_color: input.accentColor && HEX_COLOR.test(input.accentColor) ? input.accentColor : null,
+    })
+    .select('embed_id')
+    .single();
+
+  if (error || !data) {
+    console.error('[EmbedBranding] insert failed:', error);
+    return null;
+  }
+  return { embedId: data.embed_id };
+}
+
+export interface EmbedBrandingRecord {
+  businessName: string | null;
+  logoUrl: string | null;
+  accentColor: string | null;
+  siteUrl: string | null;
+}
+
+/**
+ * Public branding payload for co-branded widgets. Deliberately never selects
+ * the address or location — those stay service-role-private even though the
+ * embed_id itself is public in markup.
+ */
+export async function getEmbedBranding(embedId: string): Promise<EmbedBrandingRecord | null> {
+  if (!/^emb_[0-9a-f]{8}$/.test(embedId)) return null;
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('embed_widgets')
+    .select('business_name, logo_url, accent_color, site_url, cta_url, active')
+    .eq('embed_id', embedId)
+    .maybeSingle();
+
+  if (error || !data || data.active === false) {
+    if (error) console.error('[EmbedBranding] lookup failed:', error);
+    return null;
+  }
+  return {
+    businessName: data.business_name,
+    logoUrl: data.logo_url,
+    // Card rows registered before 00163 have no site_url — fall back to their
+    // booking link so the co-branded credit still points at the partner.
+    siteUrl: data.site_url || data.cta_url || null,
+    accentColor: data.accent_color,
+  };
+}
+
 interface SegmentCondition {
   code: ConditionCode;
   label: string;

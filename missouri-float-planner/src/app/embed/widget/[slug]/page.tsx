@@ -11,6 +11,9 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import { eddyDeepLink } from '@/lib/embed/branding';
+import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
+import EmbedFooter from '@/components/embed/EmbedFooter';
+import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import type { ConditionCode, RiverListItem } from '@/types/api';
 
 interface GaugeThreshold {
@@ -110,6 +113,7 @@ export default function EmbedWidgetPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
+  const { branding } = useEmbedBranding();
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [gauges, setGauges] = useState<GaugeWithCondition[]>([]);
@@ -291,11 +295,9 @@ export default function EmbedWidgetPage() {
     fetchData();
   }, [slug]);
 
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
-  const textSecondary = isDark ? '#888' : '#777';
-  const borderColor = isDark ? '#333' : '#e5e5e5';
-  const cardBg = isDark ? '#222' : '#f9fafb';
+  const palette = embedPalette(isDark);
+  const { bg, textPrimary, textSecondary, cardBg } = palette;
+  const borderColor = palette.border;
 
   if (loading) {
     return (
@@ -327,14 +329,14 @@ export default function EmbedWidgetPage() {
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
   const conditionHelper = conditionCode ? CONDITION_HELPERS[conditionCode] : CONDITION_HELPERS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'widget', key: slug, partner };
+  const utm = { widget: 'widget', key: slug, partner: branding?.businessName || partner };
   const riverHref = eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm);
   const suspectGauge = gauges.find(g => g.readingSuspect && g.qualifierNote);
 
   return (
     <div
       style={{
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: EMBED_FONTS.body,
         background: bg,
         color: textPrimary,
         padding: '14px 16px',
@@ -354,7 +356,7 @@ export default function EmbedWidgetPage() {
           style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: EMBED_FONTS.display }}>
             {river.name}
           </div>
           <div style={{ fontSize: 11, color: textSecondary, marginTop: 1 }}>
@@ -377,8 +379,8 @@ export default function EmbedWidgetPage() {
               padding: '5px 12px',
               borderRadius: 8,
               backgroundColor: `${conditionColor}15`,
-              border: `1.5px solid ${conditionColor}35`,
-              boxShadow: `0 1px 3px ${conditionColor}15`,
+              border: `1.5px solid ${conditionColor}55`,
+              boxShadow: embedShadow(palette),
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -457,7 +459,7 @@ export default function EmbedWidgetPage() {
                 {primaryGauge.name}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'ui-monospace, monospace' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: EMBED_FONTS.mono }}>
                   {primaryGauge.value}
                   <span style={{ fontWeight: 400, fontSize: 10, color: textSecondary, marginLeft: 2 }}>{primaryGauge.unit}</span>
                 </span>
@@ -530,7 +532,7 @@ export default function EmbedWidgetPage() {
                       <div style={{ flex: 1, minWidth: 0, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {gauge.name}
                       </div>
-                      <span style={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', flexShrink: 0 }}>
+                      <span style={{ fontWeight: 700, fontFamily: EMBED_FONTS.mono, flexShrink: 0 }}>
                         {gauge.value}
                         <span style={{ fontWeight: 400, fontSize: 9, color: textSecondary, marginLeft: 2 }}>{gauge.unit}</span>
                       </span>
@@ -661,8 +663,8 @@ export default function EmbedWidgetPage() {
                 {/* Area fill */}
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2D7889" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#2D7889" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor={palette.link} stopOpacity="0.2" />
+                    <stop offset="100%" stopColor={palette.link} stopOpacity="0.02" />
                   </linearGradient>
                 </defs>
                 <path d={areaPath} fill="url(#areaGrad)" />
@@ -673,10 +675,10 @@ export default function EmbedWidgetPage() {
                 ))}
 
                 {/* Data line */}
-                <path d={linePath} fill="none" stroke="#2D7889" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                <path d={linePath} fill="none" stroke={palette.link} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
 
                 {/* Current value dot */}
-                <circle cx={toX(chartData.readings.length - 1)} cy={toY(chartData.readings[chartData.readings.length - 1].value)} r="3" fill="#2D7889" stroke={isDark ? '#222' : '#fff'} strokeWidth="1.5" />
+                <circle cx={toX(chartData.readings.length - 1)} cy={toY(chartData.readings[chartData.readings.length - 1].value)} r="3" fill={palette.link} stroke={isDark ? palette.cardBg : '#fff'} strokeWidth="1.5" />
 
                 {/* Y-axis labels */}
                 {yLabels.map((yl, i) => (
@@ -698,72 +700,19 @@ export default function EmbedWidgetPage() {
       })()}
 
       {/* Bottom: Links (#10 friendlier language) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderTop: `1px solid ${borderColor}`,
-          paddingTop: 8,
-          marginTop: 2,
-        }}
-      >
-        <div style={{ display: 'flex', gap: 12 }}>
-          <a
-            href={riverHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
-          >
-            See full report &rarr;
-          </a>
-          <a
-            href={eddyDeepLink(origin, `/gauges?river=${river.slug}`, utm)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
-          >
-            Water levels &rarr;
-          </a>
-          <a
-            href={eddyDeepLink(origin, `/plan?river=${river.slug}`, utm)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
-          >
-            Find outfitters &rarr;
-          </a>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {partner && (
-            <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>
-              via {partner}
-            </span>
-          )}
-          <a
-            href={eddyDeepLink(origin, '/', utm)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              fontSize: 10,
-              color: textSecondary,
-              textDecoration: 'none',
-            }}
-          >
-            <Image
-              src={EDDY_LOGO}
-              alt="Eddy"
-              width={16}
-              height={16}
-              style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
-            />
-            Powered by Eddy
-          </a>
-        </div>
-      </div>
+      <EmbedFooter
+        origin={origin}
+        widget="widget"
+        widgetKey={slug}
+        isDark={isDark}
+        partner={partner}
+        branding={branding}
+        links={[
+          { label: 'See full report', path: river.path || `/rivers/${river.slug}` },
+          { label: 'Water levels', path: `/gauges?river=${river.slug}` },
+          { label: 'Find outfitters', path: `/plan?river=${river.slug}` },
+        ]}
+      />
     </div>
   );
 }
