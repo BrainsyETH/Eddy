@@ -327,7 +327,9 @@ function RiverCard({
   // The river's "Eddy says" report — the primary gauge carries is_primary +
   // river_slug, so this resolves to the river-level report (same source the
   // gauge card uses), giving the popup the same voice as the report + blog.
-  const eddy = useGaugeRailReport(primaryGauge);
+  // Passing the live verdict suppresses the note if the gauge has since
+  // crossed into a different condition class than the note was written for.
+  const eddy = useGaugeRailReport(primaryGauge, verdict);
 
   const allAccess = river.access_points ?? [];
   const [showAllAccess, setShowAllAccess] = useState(false);
@@ -541,7 +543,9 @@ function GaugeDetail({
 }) {
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
-  const eddy = useGaugeRailReport(gauge);
+  // Live verdict gates the note: a Flood reading must never sit under a
+  // "good, dialed in" quote from Eddy's last daily pass.
+  const eddy = useGaugeRailReport(gauge, verdict);
   // Prefer the editorial verdict (matches the marker color + the rest of
   // the app); fall back to the USGS percentile classification when the
   // gauge has no curated thresholds.

@@ -30,7 +30,11 @@ export function GaugeHoverOverlay({
   unchangedDays?: number | null;
   pos: { x: number; y: number } | null;
 }) {
-  const report = useGaugeRailReport(gauge);
+  // Live verdict gates the note (see useGaugeRailReport): if the gauge has
+  // crossed into a different condition class than Eddy's daily note, the hook
+  // returns null and we fall back to the live reading below — so the chip and
+  // Eddy avatar never show "good" over a flooding gauge.
+  const report = useGaugeRailReport(gauge, verdictCode);
 
   if (!gauge || !pos) return null;
 
