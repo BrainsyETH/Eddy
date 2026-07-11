@@ -9,6 +9,9 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
+import EmbedFooter from '@/components/embed/EmbedFooter';
+import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import type { ConditionCode } from '@/types/api';
 
 interface EddyUpdate {
@@ -96,6 +99,7 @@ export default function EddyQuoteEmbedPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
+  const { branding } = useEmbedBranding();
 
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [river, setRiver] = useState<RiverBasic | null>(null);
@@ -184,10 +188,8 @@ export default function EddyQuoteEmbedPage() {
   })();
 
   // Theme colors
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
-  const textSecondary = isDark ? '#888' : '#777';
-  const borderColor = isDark ? '#333' : '#e5e5e5';
+  const palette = embedPalette(isDark);
+  const { bg, textPrimary, textSecondary } = palette;
 
   if (loading) {
     return (
@@ -218,7 +220,7 @@ export default function EddyQuoteEmbedPage() {
   return (
     <div
       style={{
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: EMBED_FONTS.body,
         background: bg,
         color: textPrimary,
         padding: '14px 16px',
@@ -238,7 +240,7 @@ export default function EddyQuoteEmbedPage() {
           style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: EMBED_FONTS.display }}>
             {river.name}
           </div>
           {/* (#14) Show gauge reading instead of generic "Eddy says" */}
@@ -259,8 +261,8 @@ export default function EddyQuoteEmbedPage() {
             padding: '4px 10px',
             borderRadius: 6,
             backgroundColor: `${conditionColor}15`,
-            border: `1.5px solid ${conditionColor}35`,
-            boxShadow: `0 1px 3px ${conditionColor}15`,
+            border: `1.5px solid ${conditionColor}55`,
+            boxShadow: embedShadow(palette),
             flexShrink: 0,
           }}
         >
@@ -304,54 +306,15 @@ export default function EddyQuoteEmbedPage() {
       </div>
 
       {/* Footer: Links */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: partner ? 'space-between' : 'space-between',
-          borderTop: `1px solid ${borderColor}`,
-          paddingTop: 8,
-          marginTop: 2,
-        }}
-      >
-        <a
-          href={`${origin}${river.path || `/rivers/${river.slug}`}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontSize: 11, color: '#2D7889', textDecoration: 'none', fontWeight: 600 }}
-        >
-          Full conditions &rarr;
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {partner && (
-            <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500 }}>
-              via {partner}
-            </span>
-          )}
-          <a
-            href={origin}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              fontSize: 10,
-              color: textSecondary,
-              textDecoration: 'none',
-            }}
-          >
-            <Image
-              src={EDDY_LOGO}
-              alt="Eddy"
-              width={16}
-              height={16}
-              style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }}
-            />
-            Powered by Eddy
-          </a>
-        </div>
-      </div>
+      <EmbedFooter
+        origin={origin}
+        widget="eddy-quote"
+        widgetKey={slug}
+        isDark={isDark}
+        partner={partner}
+        branding={branding}
+        links={[{ label: 'Full conditions', path: river.path || `/rivers/${river.slug}` }]}
+      />
     </div>
   );
 }

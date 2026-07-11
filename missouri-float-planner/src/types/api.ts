@@ -568,7 +568,7 @@ export interface UpdateAccessPointRequest extends Partial<CreateAccessPointReque
 }
 
 // Feedback types
-export type FeedbackType = 'inaccurate_data' | 'missing_access_point' | 'suggestion' | 'bug_report' | 'other';
+export type FeedbackType = 'inaccurate_data' | 'missing_access_point' | 'suggestion' | 'bug_report' | 'other' | 'partner';
 export type FeedbackContextType = 'gauge' | 'access_point' | 'river' | 'general';
 export type FeedbackStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed';
 

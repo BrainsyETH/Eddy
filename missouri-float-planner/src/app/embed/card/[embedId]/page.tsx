@@ -12,6 +12,7 @@
 
 import type { Metadata } from 'next';
 import { getEmbedCardData } from '@/lib/embed/cards';
+import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { WEEKEND_FLOATABLE } from '@shared/condition-system';
 
@@ -44,11 +45,9 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
   const { theme } = await searchParams;
   const isDark = theme === 'dark';
 
-  const bg = isDark ? '#1a1a1a' : '#ffffff';
-  const textPrimary = isDark ? '#e5e5e5' : '#1a1a1a';
-  const textSecondary = isDark ? '#888' : '#777';
-  const borderColor = isDark ? '#333' : '#e5e5e5';
-  const cardBg = isDark ? '#222' : '#f9fafb';
+  const palette = embedPalette(isDark);
+  const { bg, textPrimary, textSecondary, cardBg } = palette;
+  const borderColor = palette.border;
 
   const card = await getEmbedCardData(embedId);
 
@@ -84,7 +83,7 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
   return (
     <div
       style={{
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: EMBED_FONTS.body,
         background: bg,
         color: textPrimary,
         padding: '16px',
@@ -144,7 +143,7 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
           }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2, color: floatable ? textPrimary : conditionColor }}>
+          <div style={{ fontWeight: 600, fontSize: 17, lineHeight: 1.2, color: floatable ? textPrimary : conditionColor, fontFamily: EMBED_FONTS.display }}>
             {verdict.headline}
           </div>
           <div style={{ fontSize: 11, color: textSecondary, marginTop: 2 }}>
@@ -187,7 +186,7 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
             Launch: {card.accessPointName}
           </span>
           {distanceLine && (
-            <span style={{ color: textSecondary, flexShrink: 0, fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>
+            <span style={{ color: textSecondary, flexShrink: 0, fontFamily: EMBED_FONTS.mono, fontSize: 11 }}>
               {distanceLine}
             </span>
           )}
@@ -211,6 +210,7 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
             textDecoration: 'none',
             fontWeight: 700,
             fontSize: 13,
+            boxShadow: embedShadow(palette),
           }}
         >
           {card.ctaLabel || 'Book your trip'}

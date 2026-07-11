@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Copy, Check, ChevronDown, X, Search, ArrowLeft } from 'lucide-react';
-import FeedbackModal from '@/components/ui/FeedbackModal';
+import PartnerModal from '@/components/embed/PartnerModal';
 import { EDDY_IMAGES } from '@/constants';
 
 // Production origin for the copy-paste snippet + API examples, so code copied
@@ -29,6 +29,35 @@ const FALLBACK_RIVER_OPTIONS = [
   { slug: 'big-piney', name: 'Big Piney River' },
   { slug: 'huzzah', name: 'Huzzah Creek' },
   { slug: 'courtois', name: 'Courtois Creek' },
+];
+
+// Audience presets — shortcuts, not gates: picking one jumps to the widget
+// that fits that business best, but every widget stays available to everyone.
+const AUDIENCES: { key: string; label: string; widget: string; blurb: string }[] = [
+  {
+    key: 'outfitter',
+    label: 'Outfitter',
+    widget: 'planner',
+    blurb: 'Turn lookers into bookings — visitors plan their float right on your site, with your co-branding.',
+  },
+  {
+    key: 'campground',
+    label: 'Campground',
+    widget: 'card',
+    blurb: 'Show guests the river is floatable from your campground, with your nearest launch and a real drive time.',
+  },
+  {
+    key: 'rental',
+    label: 'Airbnb / Cabin',
+    widget: 'card',
+    blurb: 'Answer every guest’s first question — "can we float today?" — right on your listing page.',
+  },
+  {
+    key: 'blogger',
+    label: 'Blogger / News',
+    widget: 'badge',
+    blurb: 'Drop a live condition badge or a gauge chart into any post — always current, zero maintenance.',
+  },
 ];
 
 const SERVICE_CATEGORIES = [
@@ -69,6 +98,15 @@ interface WidgetCtx {
   gaugeDays: number;
   resizeScript: string;
   cardEmbedId: string | null; // set once the location-pinned card is created
+  brandingId: string | null;  // set once "Add your branding" has been completed
+  multiRivers: string[];      // rivers shown by the multi-river overview
+}
+
+// Append the co-branding registration (?e=emb_xxxxxxxx) to a widget URL.
+// Card URLs are already keyed by their own embed id, so they never use this.
+function withBrandingId(url: string, c: WidgetCtx): string {
+  if (!c.brandingId) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}e=${c.brandingId}`;
 }
 
 interface WidgetParam {
@@ -106,6 +144,7 @@ interface WidgetDef {
   hasDays?: boolean;
   isBadge?: boolean;
   hasCardSetup?: boolean; // location-pinned card: onboarding form instead of river picker
+  hasMultiRivers?: boolean; // multi-river overview: picks several rivers instead of one
 }
 
 // Standard responsive iframe snippet (auto-resizes, no hardcoded height).
@@ -142,6 +181,13 @@ function servicesQuery(c: WidgetCtx) {
   return p.toString();
 }
 
+// Multi-river overview accepts theme + an ordered rivers list.
+function riversQuery(c: WidgetCtx) {
+  const p = new URLSearchParams({ theme: c.theme });
+  if (c.multiRivers.length > 0) p.set('rivers', c.multiRivers.join(','));
+  return p.toString();
+}
+
 const WIDGETS: WidgetDef[] = [
   {
     key: 'card',
@@ -167,11 +213,25 @@ const WIDGETS: WidgetDef[] = [
     badgeBg: '#256574',
     desc: 'Gauge readings, weather, condition badge and a 14-day trend chart. Updates automatically.',
     previewHeight: 480,
-    buildSrc: (c) => `${c.baseUrl}/embed/widget/${c.selectedRiver}?theme=${c.theme}`,
-    buildCode: (c) => standardIframe(`${c.embedBase}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - River Conditions from Eddy`, c.resizeScript),
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Conditions from Eddy`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
+    ],
+  },
+  {
+    key: 'river-day',
+    title: 'River Day Card',
+    badge: 'LODGING',
+    badgeBg: '#B89D72',
+    desc: "Built for Airbnbs, cabins and campgrounds: today's float verdict, the weather at the river, and Eddy's what-to-pack tip — guests get their answer without leaving your page.",
+    previewHeight: 320,
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Day from Eddy`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
     ],
   },
   {
@@ -179,11 +239,11 @@ const WIDGETS: WidgetDef[] = [
     title: "Eddy's Daily Quote",
     desc: "Eddy's plain-language read on the river, with a clear float / no-float verdict. Updates throughout the day.",
     previewHeight: 300,
-    buildSrc: (c) => `${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`,
-    buildCode: (c) => standardIframe(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
     ],
   },
   {
@@ -193,12 +253,12 @@ const WIDGETS: WidgetDef[] = [
     badgeBg: '#F07052',
     desc: 'Visitors pick a put-in and take-out and get shuttle distance, float time, conditions, and the outfitters on that stretch. The selected river is pre-selected but visitors can change it.',
     previewHeight: 420,
-    buildSrc: (c) => `${c.baseUrl}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`,
-    buildCode: (c) => standardIframe(`${c.embedBase}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, 'Plan Your Float - Eddy', c.resizeScript),
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, c), 'Plan Your Float - Eddy', c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'river', values: 'slug', note: 'Pre-select a river (e.g. current, meramec).' },
-      { name: 'partner', values: 'your business name', note: 'Adds your logo and a link back to you.' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
     ],
   },
   {
@@ -209,12 +269,13 @@ const WIDGETS: WidgetDef[] = [
     desc: 'Nearby outfitters, campgrounds (including NPS sites reservable via recreation.gov) and lodging with one-tap click-to-call, website, and reservation links.',
     previewHeight: 400,
     hasFilters: true,
-    buildSrc: (c) => `${c.baseUrl}/embed/services/${c.selectedRiver}?${servicesQuery(c)}`,
-    buildCode: (c) => standardIframe(`${c.embedBase}/embed/services/${c.selectedRiver}?${servicesQuery(c)}`, `${c.selectedRiverName} - Outfitters & Services from Eddy`, c.resizeScript),
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/services/${c.selectedRiver}?${servicesQuery(c)}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/services/${c.selectedRiver}?${servicesQuery(c)}`, c), `${c.selectedRiverName} - Outfitters & Services from Eddy`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'type', values: 'outfitter / campground / cabin_lodge', note: 'Set with the category filter above.' },
       { name: 'highlight', values: 'slug,slug,...', note: 'Show only specific listings (set above).' },
+      { name: 'exclude', values: 'outfitter / campground / cabin_lodge', note: 'Hide service types (comma-separated; ignored when type is set).' },
       { name: 'partner', values: 'your business name' },
     ],
   },
@@ -224,11 +285,27 @@ const WIDGETS: WidgetDef[] = [
     desc: 'A 7 / 14 / 30-day gauge height chart, current reading, and the "Eddy Says" weekly read. Great for a quick visual sense of conditions over time.',
     previewHeight: 480,
     hasDays: true,
-    buildSrc: (c) => `${c.baseUrl}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`,
-    buildCode: (c) => standardIframe(`${c.embedBase}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`, `${c.selectedRiverName} - Gauge Report from Eddy`, c.resizeScript),
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`, c), `${c.selectedRiverName} - Gauge Report from Eddy`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'days', values: '7 / 14 / 30', note: 'Default chart period.' },
+      { name: 'partner', values: 'your business name' },
+    ],
+  },
+  {
+    key: 'rivers',
+    title: 'Multi-River Overview',
+    badge: 'NEW',
+    badgeBg: '#419959',
+    desc: 'Live condition rows for several rivers at once — for outfitters serving more than one river and regional tourism pages. Pick which rivers to show below.',
+    previewHeight: 340,
+    hasMultiRivers: true,
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/rivers?${riversQuery(c)}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/rivers?${riversQuery(c)}`, c), 'River Conditions from Eddy', c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'rivers', values: 'slug,slug,...', note: 'Which rivers to show, in order (max 8). Omit for all rivers.' },
       { name: 'partner', values: 'your business name' },
     ],
   },
@@ -377,7 +454,9 @@ export default function EmbedWorkbench() {
   const [servicesError, setServicesError] = useState(false);
   const [highlightSearch, setHighlightSearch] = useState('');
   const [highlightDropdownOpen, setHighlightDropdownOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [partnerOpen, setPartnerOpen] = useState(false);
+  const [preset, setPreset] = useState<string | null>(null);
+  const [multiRivers, setMultiRivers] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const highlightRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WidgetTab, HTMLButtonElement | null>>>({});
@@ -396,6 +475,46 @@ export default function EmbedWorkbench() {
   const [cardBusy, setCardBusy] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
   const [cardEmbedId, setCardEmbedId] = useState<string | null>(null);
+
+  // --- "Add your branding" (co-branding for any widget) state ---
+  const [brandingId, setBrandingId] = useState<string | null>(null);
+  const [brandingOpen, setBrandingOpen] = useState(false);
+  const [brandingForm, setBrandingForm] = useState({
+    businessName: '',
+    siteUrl: '',
+    logoUrl: '',
+    accentColor: '#2D7889',
+  });
+  const [brandingBusy, setBrandingBusy] = useState(false);
+  const [brandingError, setBrandingError] = useState<string | null>(null);
+
+  const registerBranding = async () => {
+    if (!brandingForm.businessName.trim() || brandingBusy) return;
+    setBrandingBusy(true);
+    setBrandingError(null);
+    try {
+      const res = await fetch('/api/embed/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: brandingForm.businessName.trim(),
+          siteUrl: brandingForm.siteUrl.trim() || undefined,
+          logoUrl: brandingForm.logoUrl.trim() || undefined,
+          accentColor: brandingForm.accentColor,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.branding?.embedId) {
+        setBrandingError(data?.error || 'Could not save your branding. Try again.');
+        return;
+      }
+      setBrandingId(data.branding.embedId);
+    } catch {
+      setBrandingError('Something went wrong saving your branding. Try again.');
+    } finally {
+      setBrandingBusy(false);
+    }
+  };
 
   const resolveCardLocation = async () => {
     if (!cardForm.address.trim() || cardBusy) return;
@@ -477,6 +596,12 @@ export default function EmbedWorkbench() {
     if (f === 'outfitter' || f === 'campground' || f === 'cabin_lodge') setServiceFilter(f);
     const d = sp.get('days');
     if (d === '7' || d === '14' || d === '30') setGaugeDays(Number(d));
+    const pr = sp.get('preset');
+    if (pr && AUDIENCES.some(a => a.key === pr)) setPreset(pr);
+    const mr = sp.get('rivers');
+    if (mr) setMultiRivers(mr.split(',').map(s => s.trim()).filter(s => /^[a-z0-9-]+$/.test(s)).slice(0, 8));
+    const e = sp.get('e');
+    if (e && /^emb_[0-9a-f]{8}$/.test(e)) setBrandingId(e);
     if (sp.get('view') === 'reference') setShowReference(true);
     setHydrated(true);
   }, []);
@@ -492,10 +617,13 @@ export default function EmbedWorkbench() {
     if (activeTab !== 'preview') sp.set('tab', activeTab);
     if (serviceFilter !== 'all') sp.set('type', serviceFilter);
     if (gaugeDays !== 14) sp.set('days', String(gaugeDays));
+    if (preset) sp.set('preset', preset);
+    if (brandingId) sp.set('e', brandingId);
+    if (multiRivers.length > 0) sp.set('rivers', multiRivers.join(','));
     if (showReference) sp.set('view', 'reference');
     const qs = sp.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
-  }, [hydrated, activeWidget, selectedRiver, theme, activeTab, serviceFilter, gaugeDays, showReference]);
+  }, [hydrated, activeWidget, selectedRiver, theme, activeTab, serviceFilter, gaugeDays, preset, brandingId, multiRivers, showReference]);
 
   // Load the live river list (DB-driven) so new rivers show up without a deploy.
   useEffect(() => {
@@ -561,7 +689,7 @@ export default function EmbedWorkbench() {
 
   const ctx: WidgetCtx = {
     baseUrl, embedBase: EMBED_BASE, selectedRiver, selectedRiverName, theme,
-    serviceFilter, highlightSlugs, gaugeDays, resizeScript, cardEmbedId,
+    serviceFilter, highlightSlugs, gaugeDays, resizeScript, cardEmbedId, brandingId, multiRivers,
   };
 
   const active = WIDGETS.find(w => w.key === activeWidget) ?? WIDGETS[0];
@@ -572,6 +700,16 @@ export default function EmbedWorkbench() {
     setActiveWidget(key);
     setActiveTab('preview');
     setShowReference(false);
+  };
+
+  const selectPreset = (key: string) => {
+    if (preset === key) {
+      setPreset(null);
+      return;
+    }
+    setPreset(key);
+    const audience = AUDIENCES.find(a => a.key === key);
+    if (audience) selectWidget(audience.widget);
   };
 
   const openReference = (anchor: 'params' | 'api') => {
@@ -712,6 +850,42 @@ export default function EmbedWorkbench() {
               )}
             </>
           )}
+        </div>
+      );
+    }
+
+    if (active.hasMultiRivers) {
+      return (
+        <div className="mb-5 bg-white border-2 border-neutral-200 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-neutral-800 mb-1">Which rivers?</h4>
+          <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
+            Toggle up to 8 rivers, in the order you want them shown. Leave all off to show every river.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {riverOptions.map(r => {
+              const idx = multiRivers.indexOf(r.slug);
+              const isOn = idx !== -1;
+              return (
+                <button
+                  key={r.slug}
+                  onClick={() => {
+                    setMultiRivers(prev => isOn
+                      ? prev.filter(s => s !== r.slug)
+                      : prev.length >= 8 ? prev : [...prev, r.slug]);
+                  }}
+                  aria-pressed={isOn}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
+                    isOn
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  }`}
+                >
+                  {isOn && <span className="text-[10px] font-bold mr-1.5 text-primary-500">{idx + 1}</span>}
+                  {r.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }
@@ -861,7 +1035,7 @@ export default function EmbedWorkbench() {
           <button onClick={() => openReference('params')} className="hidden sm:inline text-sm font-medium text-primary-200 hover:text-white transition-colors">Docs</button>
           <button onClick={() => openReference('api')} className="hidden sm:inline text-sm font-medium text-primary-200 hover:text-white transition-colors">API</button>
           <button
-            onClick={() => setFeedbackOpen(true)}
+            onClick={() => setPartnerOpen(true)}
             className="inline-flex items-center gap-2 text-white text-sm font-semibold px-4 py-2 rounded-md"
             style={{ background: '#F07052', boxShadow: '2px 2px 0 #A33122' }}
           >
@@ -875,10 +1049,40 @@ export default function EmbedWorkbench() {
 
         {/* =============== LEFT RAIL =============== */}
         <aside className="w-full lg:w-[336px] lg:flex-none bg-secondary-50 border-b-2 lg:border-b-0 lg:border-r-2 border-neutral-900 p-6 lg:overflow-y-auto flex flex-col">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>1 &middot; Configure</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-3.5" style={{ fontFamily: 'var(--font-mono)' }}>1 &middot; Who are you?</div>
 
-          {/* River (the location-pinned card resolves its river from your address instead) */}
-          {!active.hasCardSetup ? (
+          {/* Audience presets — shortcuts to the best-fit widget, never gates */}
+          <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Audience presets">
+            {AUDIENCES.map(a => {
+              const isOn = preset === a.key;
+              return (
+                <button
+                  key={a.key}
+                  onClick={() => selectPreset(a.key)}
+                  aria-pressed={isOn}
+                  className={`px-3 py-1.5 rounded-full text-[13px] font-semibold border-2 transition-all ${
+                    isOn
+                      ? 'border-accent-500 bg-accent-500 text-white'
+                      : 'border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400'
+                  }`}
+                  style={isOn ? { boxShadow: '2px 2px 0 #A33122' } : undefined}
+                >
+                  {a.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-neutral-400 mb-6 leading-relaxed min-h-[2.5em]">
+            {preset
+              ? AUDIENCES.find(a => a.key === preset)?.blurb
+              : 'Pick your business type for a suggested setup — every widget stays available.'}
+          </p>
+
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>2 &middot; Configure</div>
+
+          {/* River (the location-pinned card resolves its river from your address;
+              the multi-river overview picks several rivers in its own control) */}
+          {!active.hasCardSetup && !active.hasMultiRivers ? (
             <>
               <label htmlFor="embed-river" className="block text-[13px] font-bold text-neutral-700 mb-2">River</label>
               <div className="relative mb-5">
@@ -901,7 +1105,10 @@ export default function EmbedWorkbench() {
             </>
           ) : (
             <div className="mb-5 text-[13px] text-neutral-500 bg-white border-2 border-neutral-200 rounded-md px-3.5 py-2.5">
-              <span className="font-bold text-neutral-700">River:</span> resolved from your business address in the setup form.
+              <span className="font-bold text-neutral-700">River{active.hasMultiRivers ? 's' : ''}:</span>{' '}
+              {active.hasMultiRivers
+                ? 'picked with the river toggles next to the preview.'
+                : 'resolved from your business address in the setup form.'}
             </div>
           )}
 
@@ -925,7 +1132,7 @@ export default function EmbedWorkbench() {
           </div>
           <p className="text-[11px] text-neutral-400 mt-1.5 mb-7">Sets the embedded widget&apos;s appearance — not this page.</p>
 
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-3.5" style={{ fontFamily: 'var(--font-mono)' }}>2 &middot; Pick a widget</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-3.5" style={{ fontFamily: 'var(--font-mono)' }}>3 &middot; Pick a widget</div>
 
           <div className="flex flex-col gap-2.5" role="list" aria-label="Widgets">
             {WIDGETS.map(w => {
@@ -955,8 +1162,8 @@ export default function EmbedWorkbench() {
             <div className="bg-primary-50 border-2 border-primary-200 rounded-lg px-3.5 py-3">
               <div className="text-xs font-bold text-primary-700 mb-1">All widgets are free</div>
               <div className="text-xs text-primary-600 leading-relaxed">
-                No account, no API key. Outfitters get co-branding via the{' '}
-                <span style={{ fontFamily: 'var(--font-mono)' }}>partner</span> param.
+                No account, no API key. Businesses get co-branding — your logo, color and
+                booking link — via the Floatable From Here card.
               </div>
             </div>
             <nav aria-label="Site" className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
@@ -997,6 +1204,7 @@ export default function EmbedWorkbench() {
                         <tbody>
                           <ParamRow name="theme" values="light | dark" description="Widget color scheme. Defaults to light." />
                           <ParamRow name="partner" values="string" description='Shows "via YourBusiness" in the widget footer.' />
+                          <ParamRow name="e" values="emb_xxxxxxxx" description='Co-branding ID from the free "Add your branding" setup — your logo and business name, linked to your site.' />
                         </tbody>
                       </table>
                     </div>
@@ -1021,6 +1229,16 @@ export default function EmbedWorkbench() {
                       </table>
                     </div>
                     <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
+                      <h3 className="text-sm font-semibold text-neutral-800">Multi-River Overview</h3>
+                    </div>
+                    <div className="px-4 py-2">
+                      <table className="w-full">
+                        <tbody>
+                          <ParamRow name="rivers" values="slug,slug,..." description="Which rivers to show, in order (max 8). Omit to show all rivers." />
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-b border-t border-neutral-100 bg-neutral-50">
                       <h3 className="text-sm font-semibold text-neutral-800">Services Directory</h3>
                     </div>
                     <div className="px-4 py-2">
@@ -1028,6 +1246,7 @@ export default function EmbedWorkbench() {
                         <tbody>
                           <ParamRow name="type" values="outfitter | campground | cabin_lodge" description="Show only one service type." />
                           <ParamRow name="highlight" values="slug,slug,..." description="Show only specific listings. Comma-separated slugs." />
+                          <ParamRow name="exclude" values="type,type,..." description="Hide service types. Comma-separated; ignored when type is set." />
                         </tbody>
                       </table>
                     </div>
@@ -1114,7 +1333,7 @@ export default function EmbedWorkbench() {
                           maxWidth={active.isBadge ? 320 : 540}
                         />
                         <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
-                          Placeholder preview — the production widget renders live USGS gauge data for the selected river and auto-resizes to its content.
+                          Live preview — real USGS gauge data for the selected river. The embedded widget auto-resizes to its content.
                         </p>
                       </>
                     ) : (
@@ -1134,6 +1353,99 @@ export default function EmbedWorkbench() {
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-3" style={{ fontFamily: 'var(--font-mono)' }}>{'Copy & paste this'}</div>
                       {renderWidgetOptions()}
+
+                      {/* Optional co-branding step — mints an embed_id the widget
+                          footer resolves to logo + linked business name. */}
+                      {!active.hasCardSetup && !active.isBadge && (
+                        <div className="mb-4 bg-white border-2 border-neutral-200 rounded-lg p-4">
+                          {brandingId ? (
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-xs text-neutral-600 leading-relaxed m-0">
+                                <span className="font-semibold text-support-700">Branding on.</span>{' '}
+                                The snippet below now shows your logo and business name in the widget footer
+                                (ID <code className="bg-neutral-100 px-1 py-0.5 rounded">{brandingId}</code> —
+                                save this page&apos;s URL to keep it).
+                              </p>
+                              <button
+                                onClick={() => { setBrandingId(null); setBrandingOpen(false); }}
+                                className="flex-none text-xs font-semibold text-neutral-500 hover:text-primary-700 border-2 border-neutral-200 rounded-md px-3 py-1.5"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : brandingOpen ? (
+                            <>
+                              <h4 className="text-sm font-semibold text-neutral-800 mb-1">Add your branding</h4>
+                              <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
+                                Free, no account. Your logo and business name appear in the widget footer,
+                                linked to your site.
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-name">Business name</label>
+                                  <input id="branding-name" type="text" value={brandingForm.businessName}
+                                    onChange={e => setBrandingForm(f => ({ ...f, businessName: e.target.value }))}
+                                    placeholder="Pine Valley Cabins"
+                                    className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-site">Your website</label>
+                                  <input id="branding-site" type="url" value={brandingForm.siteUrl}
+                                    onChange={e => setBrandingForm(f => ({ ...f, siteUrl: e.target.value }))}
+                                    placeholder="https://yoursite.com"
+                                    className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-logo">Logo URL (optional)</label>
+                                  <input id="branding-logo" type="url" value={brandingForm.logoUrl}
+                                    onChange={e => setBrandingForm(f => ({ ...f, logoUrl: e.target.value }))}
+                                    placeholder="https://yoursite.com/logo.png"
+                                    className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-accent">Accent color</label>
+                                  <input id="branding-accent" type="color" value={brandingForm.accentColor}
+                                    onChange={e => setBrandingForm(f => ({ ...f, accentColor: e.target.value }))}
+                                    className="h-9 w-16 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" />
+                                </div>
+                              </div>
+                              {brandingError && (
+                                <p className="text-xs font-medium text-red-600 mb-3" role="alert">{brandingError}</p>
+                              )}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={registerBranding}
+                                  disabled={brandingBusy || !brandingForm.businessName.trim()}
+                                  className="text-sm font-semibold text-white px-4 py-2 rounded-md disabled:opacity-50"
+                                  style={{ background: '#2D7889' }}
+                                >
+                                  {brandingBusy ? 'Saving…' : 'Save branding'}
+                                </button>
+                                <button
+                                  onClick={() => setBrandingOpen(false)}
+                                  className="text-sm font-semibold text-neutral-500 px-3 py-2 rounded-md hover:text-primary-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs text-neutral-600 leading-relaxed m-0">
+                                <span className="font-semibold">Add your branding (free):</span> your logo and
+                                business name in the widget footer, linked to your site.
+                              </p>
+                              <button
+                                onClick={() => setBrandingOpen(true)}
+                                className="flex-none text-xs font-semibold text-primary-700 border-2 border-primary-300 rounded-md px-3 py-1.5 hover:border-primary-500"
+                              >
+                                Set up
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <CodeBlock code={active.buildCode(ctx)} label={`HTML · ${active.key} · ${themeLabel}`} />
                       <div className="mt-3">
                         <CopyButton text={active.buildCode(ctx)} large />
@@ -1182,7 +1494,7 @@ export default function EmbedWorkbench() {
                         <p className="text-sm text-white/80 max-w-md leading-relaxed">Get a co-branded planner widget, a directory listing, and priority support — free for local businesses.</p>
                       </div>
                       <button
-                        onClick={() => setFeedbackOpen(true)}
+                        onClick={() => setPartnerOpen(true)}
                         className="flex-none inline-flex items-center gap-2 text-white text-[15px] font-semibold px-5 py-3 rounded-lg"
                         style={{ background: '#F07052', boxShadow: '3px 3px 0 #A33122' }}
                       >
@@ -1198,7 +1510,11 @@ export default function EmbedWorkbench() {
         </main>
       </div>
 
-      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      <PartnerModal
+        isOpen={partnerOpen}
+        onClose={() => setPartnerOpen(false)}
+        onSelectCard={() => selectWidget('card')}
+      />
     </div>
   );
 }

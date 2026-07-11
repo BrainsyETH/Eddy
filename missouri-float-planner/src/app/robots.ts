@@ -21,7 +21,11 @@ const AI_CRAWLERS = [
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      // Regular search engines
+      // Regular search engines.
+      // NOTE: the trailing slash in '/embed/' is load-bearing — it blocks the
+      // widget iframes (/embed/widget/..., /embed/card/..., etc.) while the
+      // /embed marketing/configurator page itself stays crawlable and is
+      // listed in the sitemap.
       {
         userAgent: '*',
         allow: ['/', '/api/og/', '/api/openapi.json'],

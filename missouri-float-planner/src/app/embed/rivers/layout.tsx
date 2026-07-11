@@ -1,5 +1,5 @@
-// src/app/embed/gauge-report/[slug]/layout.tsx
-// Layout for embeddable gauge report – wraps in Suspense for useSearchParams
+// src/app/embed/rivers/layout.tsx
+// Layout for the multi-river overview widget – wraps in Suspense for useSearchParams
 
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default function GaugeReportEmbedLayout({
+export default function EmbedRiversLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -18,7 +18,7 @@ export default function GaugeReportEmbedLayout({
   return (
     <Suspense>
       <EmbedAutoResize />
-      <EmbedImpression widgetType="gauge-report" />
+      <EmbedImpression widgetType="rivers" />
       {children}
     </Suspense>
   );
