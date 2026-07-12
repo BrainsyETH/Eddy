@@ -748,6 +748,7 @@ async function _GET(request: NextRequest) {
         code: conditionCode,
         gaugeHeightFt: toNum(condition?.gauge_height_ft),
         dischargeCfs: toNum(condition?.discharge_cfs),
+        thresholdUnit: (condition?.threshold_unit === 'cfs' ? 'cfs' : 'ft'),
         readingTimestamp: condition?.reading_timestamp,
         readingAgeHours: condition?.reading_age_hours,
         accuracyWarning: condition?.accuracy_warning || false,
