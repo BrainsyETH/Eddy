@@ -387,11 +387,13 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         />
       )}
 
-      {/* Threshold labels (inside, right-aligned — parent clips overflow) */}
+      {/* Threshold labels (inside, right-aligned — parent clips overflow).
+          Emphasis mode drops the word "High" — the dashed line's position
+          says what it is, and the alert eyebrow already names it. */}
       {highFraction != null && (
         <ThresholdLabel
           fraction={highFraction}
-          text={emphasis && levelHigh != null ? `High ${levelHigh.toFixed(1)} ft` : "high"}
+          text={emphasis && levelHigh != null ? `${levelHigh.toFixed(1)} ft` : "high"}
           color={thresholdColor}
           emphasis={emphasis}
           mono={emphasis}
