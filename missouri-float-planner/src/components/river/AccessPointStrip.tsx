@@ -5,6 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import Link from 'next/link';
 import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink, Car, ParkingCircle, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
@@ -76,12 +77,10 @@ function AccessPointCard({
       {/* Image or placeholder */}
       <div className="relative h-20 bg-neutral-100">
         {hasImage ? (
-          <Image
+          <AccessPointPhoto
             src={heroImage!}
             alt={point.name}
-            fill
-            className="object-cover"
-            sizes="144px"
+            className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-neutral-50">
@@ -257,12 +256,10 @@ function ExpandedDetail({
       {/* Enlarged centered image */}
       {hasImages ? (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
-          <Image
+          <AccessPointPhoto
             src={allImages[currentImageIndex]}
             alt={point.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 50vw"
+            className="absolute inset-0 w-full h-full object-cover"
           />
           {allImages.length > 1 && (
             <>

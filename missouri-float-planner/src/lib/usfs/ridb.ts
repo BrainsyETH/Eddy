@@ -8,6 +8,7 @@ import type {
   RIDBFacility,
   RIDBRecArea,
   RIDBCampsite,
+  RIDBMedia,
 } from '@/types/ridb';
 
 const RIDB_API_BASE = 'https://ridb.recreation.gov/api/v1';
@@ -142,6 +143,25 @@ export async function fetchFacility(facilityId: string): Promise<RIDBFacility | 
     return response.json();
   } catch {
     return null;
+  }
+}
+
+/**
+ * Fetch media (photos) for a facility. The single-facility endpoint omits the
+ * MEDIA array unless full=true, so we hit the dedicated /media sub-endpoint,
+ * which returns Recreation.gov-hosted image records (cdn.recreation.gov URLs).
+ * Federal facilities identified from the recreation.gov IDs already stored on
+ * access_points.official_site_url (COE dams/lakes, USFS rec areas, some NPS).
+ */
+export async function fetchFacilityMedia(facilityId: string): Promise<RIDBMedia[]> {
+  try {
+    const response = await fetchRIDB<RIDBMedia>(
+      `facilities/${facilityId}/media`,
+      { limit: '20', offset: '0' }
+    );
+    return response.RECDATA || [];
+  } catch {
+    return [];
   }
 }
 
