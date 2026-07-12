@@ -24,9 +24,10 @@ ingest-dossier.ts — every gauges[].siteId in james.json must appear here.
 - drainage area: UNKNOWN (toVerify). NWS LID: UNKNOWN (toVerify).
 - serves section: james-upper. Urban headwater; NO OBSERVED floatability calibration → thresholds[] empty by design.
 
-## Candidate NOT adopted (recorded for the record, NOT in gauges[])
+## Also adopted (now in gauges[])
 
-### 07052250 — James River near Boaz, MO  (middle/upper floatable candidate)
+### 07052250 — James River near Boaz, MO  ✅ ADOPTED (middle/upper reach representative)
+- USGS monitoring-location URL: https://waterdata.usgs.gov/monitoring-location/USGS-07052250/
 - USGS site id: 07052250
 - USGS monitoring-location URL: https://waterdata.usgs.gov/monitoring-location/USGS-07052250/
 - dec lat/lon: 37.00658, -93.36467 (NAD83) · drainage 462 sq mi · uv 00060 + 00065 · NWS LID JAMM7 (medium conf)

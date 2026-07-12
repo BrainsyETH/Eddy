@@ -49,7 +49,23 @@
       "servesSections": [
         "james-upper"
       ],
-      "knownBias": "urban headwater; uncalibrated"
+      "knownBias": "urban headwater signal; moherp OBSERVED Low 40 / Good 150 / Flood 1400 cfs — the Flood=1400 is a potential do-not-float anchor but on the urban-headwater datum (reads lower than the Boaz-reach floats)"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07052250",
+      "name": "James River near Boaz, MO",
+      "lat": 37.00658,
+      "lon": -93.36467,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 462,
+      "servesSections": [
+        "james-upper"
+      ],
+      "knownBias": "middle-reach gauge — best represents the Delaware Town / Shelvin Rock / Hootentown floats"
     }
   ],
   "sections": [
@@ -170,11 +186,30 @@
       },
       "publishedLengthMiles": null,
       "representativeGauge": {
-        "siteId": "07050700",
-        "rationale": "James River near Springfield (07050700) is the only USGS gauge on the upper/urban reach, but it is UNCALIBRATED — no OBSERVED floatability source exists for this reach, so it carries no thresholds and must not drive a live condition badge (insufficient-data).",
-        "knownBias": "urban headwater gauge; flashy Springfield runoff and WWTP influence; reads differently from the spring-fed lower reach. Drainage area and NWS LID unknown (toVerify)."
+        "siteId": "07052250",
+        "rationale": "Boaz 07052250 is the middle-reach gauge the floatable Delaware Town / Shelvin Rock / Hootentown trips reference; Springfield 07050700 is the urban headwater signal.",
+        "knownBias": "middle reach; smaller drainage (462 sqmi) than Galena — reads lower."
       },
-      "thresholds": [],
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 80,
+          "unit": "cfs",
+          "referenceGauge": "07052250",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for James near Boaz 07052250 (https://rivers.moherp.org/gauge/?gauge=07052250): OBSERVED 'Low' threshold 80 cfs (below = poor/scrapy).",
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_min",
+          "value": 150,
+          "unit": "cfs",
+          "referenceGauge": "07052250",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for James near Boaz 07052250 (https://rivers.moherp.org/gauge/?gauge=07052250): OBSERVED 'Good' threshold 150 cfs; Good floats observed ~140–1050 cfs.",
+          "confidence": "medium"
+        }
+      ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
@@ -279,6 +314,7 @@
       "https://mdc.mo.gov/ (MDC stream access / smallmouth SMA)"
     ],
     "openQuestions": [
+      "MIDDLE REACH CALIBRATED 2026-07-12 (owner moherp screenshots): james-upper re-keyed to Boaz 07052250 with moherp OBSERVED too_low 80 / optimal_min 150 cfs (estimated tier rejected). No observed High/Flood for Boaz, so the badge caps at 'good' above 150 — Springfield 07050700 carries an observed Flood=1400 that could seed a dangerous anchor if the reach is re-keyed to the urban-headwater datum. Consider splitting urban-headwater (Springfield) from the floatable middle (Boaz).",
       "UPPER/URBAN REACH DANGER IS UNKNOWN BY DESIGN: the Hwy 125 → Hootentown reach has NO OBSERVED floatability calibration — no moherp OBSERVED rating and no outfitter do-not-float number exist for it (the ESTIMATED tier is rejected per the calibration hierarchy). Its thresholds[] are intentionally EMPTY and representativeGauge 07050700 is uncalibrated. This reach must NOT drive a live condition badge; it reads insufficient-data until a floater-sourced anchor is captured.",
       "GALENA <180 cfs CURRENTLY READS 'too_low': no too_low/low anchor was sourced (moherp gives only an OBSERVED 'Good' breakpoint at 180 cfs; the ESTIMATED tier is rejected), so the too_low anchor is intentionally OMITTED. Condition logic reads [—, optimal_min=180) as 'too_low', which is acceptable for now, but a genuine low/too_low anchor (an Agnew navigability table or an outfitter minimum) should be captured so the badge can distinguish 'low but floatable' from 'too low to float'.",
       "GALENA UNIT DECISION (resolved, confirm at signoff): all four Galena anchors are encoded in cfs — the outfitter ft limits (7 ft caution / 8 ft do-not-float) were converted to cfs via the USGS 07052500 exsa rating so the whole ladder shares one unit (the [auto] one-unit-per-gauge gate requires it). The findings flagged an owner choice of badging in ft vs cfs; cfs was chosen to match the moherp optimal band. Owner to confirm.",
