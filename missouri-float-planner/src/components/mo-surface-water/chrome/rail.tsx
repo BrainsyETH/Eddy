@@ -398,18 +398,20 @@ function RiverCard({
   // value is below flood stage but the next 72h forecast crosses it.
   const verdict: StageVerdict = (() => {
     if (!primaryGauge || !primaryThresholds) return 'unknown';
+    const stageFt = primaryGauge.gaugeHeightFt;
     const value = primaryThresholds.threshold_unit === 'cfs'
       ? primaryGauge.dischargeCfs
-      : primaryGauge.gaugeHeightFt;
-    if (value == null) return 'unknown';
+      : stageFt;
+    // Forecast-aware flood override on STAGE (ft), regardless of display unit —
+    // the stored gauge height keeps anchoring "dangerous" for a cfs-primary gauge.
     if (
-      primaryThresholds.threshold_unit === 'ft' &&
       primaryThresholds.flood_stage_ft != null &&
-      Math.max(value, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
+      Math.max(stageFt ?? Number.NEGATIVE_INFINITY, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
     ) {
       return 'dangerous';
     }
-    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds);
+    if (value == null) return 'unknown';
+    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds, stageFt);
   })();
   const tone = STAGE_VERDICTS[verdict];
   const bannerChip = conditionChip(verdict);
@@ -455,11 +457,13 @@ function RiverCard({
         }}
       >
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
-          {primaryGauge?.gaugeHeightFt != null
-            ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
-            : primaryThresholds
-              ? '— ft'
-              : 'no live gauge'}
+          {(primaryThresholds?.threshold_unit ?? 'ft') === 'cfs'
+            ? (primaryGauge?.dischargeCfs != null
+                ? `${Math.round(primaryGauge.dischargeCfs).toLocaleString()} cfs`
+                : primaryThresholds ? '— cfs' : 'no live gauge')
+            : (primaryGauge?.gaugeHeightFt != null
+                ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
+                : primaryThresholds ? '— ft' : 'no live gauge')}
         </span>
         <span className="font-bold uppercase"
           style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em' }}>
@@ -492,9 +496,15 @@ function RiverCard({
       )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <KV label="Flow"
-          value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
-          sub="cfs" />
+        {(primaryThresholds?.threshold_unit ?? 'ft') === 'cfs' ? (
+          <KV label="Stage"
+            value={primaryGauge?.gaugeHeightFt != null ? primaryGauge.gaugeHeightFt.toFixed(2) : '—'}
+            sub="ft" />
+        ) : (
+          <KV label="Flow"
+            value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
+            sub="cfs" />
+        )}
         <KV label="Percentile"
           value={primaryGauge?.percentile != null ? `P${Math.round(primaryGauge.percentile)}` : '—'} />
         <KV label="Gauges" value={`${(river.gauges ?? []).length}`} />

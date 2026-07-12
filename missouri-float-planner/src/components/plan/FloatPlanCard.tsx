@@ -272,8 +272,17 @@ export function ShareableCapture({
             <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Est. Time</p>
           </div>
           <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
-            <p className="text-2xl font-bold text-neutral-900">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}<span className="text-sm text-neutral-400 ml-0.5">ft</span></p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Gauge</p>
+            {plan.condition.thresholdUnit === 'cfs' ? (
+              <>
+                <p className="text-2xl font-bold text-neutral-900">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'}<span className="text-sm text-neutral-400 ml-0.5">cfs</span></p>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Flow</p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold text-neutral-900">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}<span className="text-sm text-neutral-400 ml-0.5">ft</span></p>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Gauge</p>
+              </>
+            )}
           </div>
         </div>
 

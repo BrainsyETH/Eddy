@@ -296,18 +296,21 @@ export default function MOSurfaceWaterApp() {
       for (const g of r.gauges ?? []) {
         const live = gauges.find((x) => x.site_no === g.site_id);
         let value: number | null = null;
+        let stageFt: number | null = null;
         if (isToday) {
+          stageFt = live?.gaugeHeightFt ?? null;
           value = g.threshold_unit === 'ft'
-            ? live?.gaugeHeightFt ?? null
+            ? stageFt
             : live?.dischargeCfs ?? null;
         } else {
           const ent = historyEntries.find((e) => e.site_no === g.site_id);
           const day = ent?.daily[scrubIdx];
+          stageFt = day?.gaugeHeightFt ?? null;
           value = g.threshold_unit === 'ft'
-            ? day?.gaugeHeightFt ?? null
+            ? stageFt
             : day?.dischargeCfs ?? null;
         }
-        out[condKey(r.id, g.site_id)] = classifyStageFromThresholds(value, g.threshold_unit, g);
+        out[condKey(r.id, g.site_id)] = classifyStageFromThresholds(value, g.threshold_unit, g, stageFt);
       }
     }
     return out;
@@ -324,10 +327,11 @@ export default function MOSurfaceWaterApp() {
       if (!primary) { out[r.slug] = 'unknown'; continue; }
       const ent = historyEntries.find((e) => e.site_no === primary.site_id);
       const day = ent?.daily[scrubIdx];
+      const stageFt = day?.gaugeHeightFt ?? null;
       const value = primary.threshold_unit === 'ft'
-        ? day?.gaugeHeightFt ?? null
+        ? stageFt
         : day?.dischargeCfs ?? null;
-      out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary);
+      out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary, stageFt);
     }
     return out;
   }, [rivers, gauges, historyEntries, scrubIdx, isToday, forecastBySite]);
