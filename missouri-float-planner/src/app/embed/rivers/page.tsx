@@ -173,7 +173,9 @@ export default function EmbedRiversPage() {
               }}
             >
               <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {/* Wrap rather than truncate so the full river name always shows,
+                  even in a narrow sidebar. */}
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
                 {river.name}
               </span>
               {temps[river.slug] != null && (
