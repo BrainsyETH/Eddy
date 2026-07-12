@@ -214,8 +214,8 @@ function stubFor(r: MoRiverSeed) {
       toVerify: [
         'NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)',
         'USGS gauge site numbers for each representative gauge (verify on monitoring-location page)',
-        'NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source',
-        'MDC / outfitter floatability stage (ft) statements per reach',
+        'rivers.moherp.org OBSERVED ratings per gauge (primary floatability source, usually cfs; REJECT the ESTIMATED tier + USGS percentiles)',
+        'Floater "do-not-float" level per reach (outfitter / American Whitewater ceiling / MDC) — the dangerous anchor; NWS flood stage is a CROSS-CHECK only, not the anchor',
         'Full MDC access-point list with coordinates (human places every point)',
         `County list for NWS alert terms (seeded: ${r.counties.join(', ')})`,
       ],

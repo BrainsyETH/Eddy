@@ -150,13 +150,17 @@
           "confidence": "high"
         },
         {
-          "level": "high",
+          "level": "dangerous",
           "value": 6,
           "unit": "ft",
           "referenceGauge": "07034000",
           "referenceGaugeIsPolled": true,
-          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '5–6 ft High Runnable', '>6 ft Above Recommended'. Corroborated: paddler D-bridge rule keys off gauge <6.0 ft.",
-          "confidence": "high"
+          "source": "Eddy gauge display (NOAA Gauge Details), 2026-07-06 — legend '>6 ft Above Recommended' is the do-not-float ceiling on Missouri's only whitewater river. Anchored here (not the NWS flood stage) on purpose: NWS ROZM7 minor-flood stage is 15 ft — valley flooding, ~9 ft above the paddler runnable ceiling — so it is NOT a floater-danger datum for this reach. The 5–6 ft 'High Runnable' band is preserved by optimal_max=5 ft (>5 ft reads 'high').",
+          "confidence": "high",
+          "corroboratingSources": [
+            "American Whitewater reach #2921 (St. Francis — Millstream Gardens / Silver Mines): recommended range tops out near 6 ft",
+            "Paddler 'D-bridge' rule: do not run above gauge 6.0 ft"
+          ]
         }
       ],
       "publishedFloatTimes": [
@@ -562,7 +566,7 @@
       "https://water.noaa.gov/gauges/pazm7"
     ],
     "openQuestions": [
-      "CALIBRATION CORE (RESOLVED run 3): full Roselle ft runnable ladder — too_low 3 / low 4 / optimal 4–5 / high 6 (Range 3–6 ft), confidence high. DB-verified there is no existing Eddy config to reconcile (production has no St. Francis). Optional: a true 'dangerous' anchor above 6 ft from NWS ROZM7 flood stage.",
+      "CALIBRATION CORE (RESOLVED run 3): full Roselle ft runnable ladder — too_low 3 / low 4 / optimal 4–5 (sweet spot) / high band 5–6 / dangerous >6 (Range 3–6 ft), confidence high. DB-verified there is no existing Eddy config to reconcile (production has no St. Francis). DANGEROUS ANCHOR RESOLVED 2026-07-12: set to 6 ft (the legend's '>6 ft Above Recommended' ceiling), NOT the NWS ROZM7 flood stage — that is 15 ft (valley flooding), ~9 ft above the paddler ceiling, so it would let a lethal 8–14 ft torrent badge merely 'high'. The 'high' anchor was dropped; the 5–6 ft high band is carried by optimal_max=5. LESSON: on this reach the NWS flood stage is the WRONG basis for floater-danger — anchor to paddler runnable ceilings instead.",
       "Is the Roselle gauge (07034000) currently live and pollable? It has a history of USGS network drops (funding, ~2016); what is the fallback (USACE MVS SF_tab)?",
       "Per-section river_type: upper = whitewater (does the system need a whitewater archetype, or is rain_flashy + Class II-IV difficulty enough?); lower = calmer float — and which of Saco (07036100) / Patterson (07037500) / Wappapello (07039500) best represents the lower float reach.",
       "Lower reach: floatable/dangerous guidance below Sam A. Baker toward Wappapello (none captured)."

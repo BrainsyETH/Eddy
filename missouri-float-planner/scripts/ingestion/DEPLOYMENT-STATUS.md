@@ -1,9 +1,34 @@
 # River Onboarding — Deployment Status & Runbook
 
-_Last updated 2026-07-09 (access-point data review, project FloatMe / ilefwfpvphadsbptiaur)._
+_Last updated 2026-07-12 (safety-threshold hardening)._
 
 Covers the 4 new Missouri rivers + Buffalo (AR). **The deploy has run**: this
-file is now the record of what shipped and what remains.
+file is now the record of what shipped and what remains. **For the repeatable
+add-a-river process, see `README.md` in this directory (the canonical, finalized
+guide).**
+
+## Safety-threshold hardening (2026-07-12, branch claude/river-ingestion-status-o1rvt2)
+
+Audited the Wave-1 condition ladders and found three gaps that passed
+`validate_river_data()` because it only checked ordering + "has any threshold",
+never a primary missing the top/bottom of the ladder:
+
+- **St. Francis had no `dangerous`** — the badge could never warn floaters off
+  MO's only whitewater river. `computeCondition()` has no flood-stage fallback,
+  so a null `dangerous` caps the badge at "High" at any flow. **Fixed: `dangerous`
+  = 6 ft** (the Roselle legend's ">6 ft Above Recommended" paddler ceiling + AW
+  #2921 / D-bridge rule), NOT the NWS ROZM7 flood stage (15 ft = valley flooding).
+  The 5–6 ft high band is now carried by `optimal_max=5`; `level_high` cleared.
+  Applied to prod + verified.
+- **Gasconade (`dangerous`, `too_low`) and Black (`optimal_max`, `too_low`)** stay
+  open — their remaining anchors have **no valid source**. Documented in the
+  dossiers: NWS flood stage is NOT usable (Hazelgreen minor flood = 31,013 cfs,
+  ~30× floatable), and moherp's estimated tier is rejected. Left null on purpose.
+- **`validate_river_data()` hardened** (`00164`): now WARNS on an active primary
+  gauge missing `level_dangerous` / `level_optimal_max` / `level_too_low`.
+  Migration file committed; the function DDL should be applied via the Supabase
+  SQL editor (the MCP rejected the large payload). Logic verified against prod via
+  read-only SELECTs — it fires on exactly Gasconade + Black and nothing else.
 
 ## Access-point data review (2026-07-09)
 

@@ -18,7 +18,7 @@
 | `state` / `country` | `MO` / `US` |
 | `timezone` | `America/Chicago` |
 | `riverType` default | `spring_fed_float` (prompts + speed curve already tuned) — **but see the St. Francis exception below; confirm per river** |
-| threshold unit convention | **`ft` (stage)** for MO gauges (one cfs exception exists on the Current at Van Buren 07068000) |
+| threshold unit convention | **whatever the calibration source publishes** — `cfs` when the anchor comes from a moherp OBSERVED rating (most Wave-1 rivers), `ft` when it comes from a stage legend (St. Francis/Roselle). Do NOT default to ft; do NOT convert without the USGS rating. |
 | `accessLaw` | Missouri navigability doctrine — **reuse the shared MO paragraph**, do not re-research per river (see below) |
 | NWS alert wiring | MO county + town + river-name terms, same pattern as the existing rivers |
 
@@ -48,31 +48,60 @@ source and mark `toVerify` once for the state.
    refers to, quoting the source. If the source doesn't say which gauge, record
    the number but mark the reference `UNSTATED`.
 4. **Corroboration for danger levels.** Any number driving `high` or
-   `dangerous` needs **two independent sources**. For Missouri the standard
-   second source is the **NWS AHPS action-stage / flood-stage (ft)** for that
-   USGS gauge — anchor `dangerous` at/above flood stage and `high` at/near
-   action stage, then reconcile with outfitter "too high to float" prose.
-   Single-source danger numbers go in with `confidence: low` and a note.
+   `dangerous` needs **two independent sources**. `dangerous` is a *recreation*
+   number — **the level at which a floater should not put on** — NOT the level at
+   which the river floods its valley. **Anchor `dangerous` to floater
+   "do-not-float" guidance** (outfitter "too high to float," the American
+   Whitewater gauge-correlation ceiling on whitewater reaches, MDC safety
+   language). **Use the NWS AHPS/NWPS flood stage as a CROSS-CHECK, not as the
+   anchor** — treat flood stage as the `dangerous` source *only* where the gauge
+   sits on the float reach and bank-full overflow roughly equals the do-not-float
+   level (small reaches). On large downstream gauges and whitewater reaches the
+   flood stage is far above floater-danger and will let a lethal flow badge merely
+   "high" — see the WORKED WARNING below. Single-source danger numbers go in with
+   `confidence: low` and a note; if no floater do-not-float source exists, leave
+   `dangerous` UNSET and say so in `openQuestions` — do not fabricate it from
+   flood stage.
+
+   > **WORKED WARNING (first-wave evidence).** NWS minor-flood flow at
+   > Gasconade/Hazelgreen (06928000) is ~31,013 cfs — about 30× the ~1,000 cfs
+   > floatable max. St. Francis/Roselle (07034000) floods at 15 ft but the
+   > whitewater paddler ceiling is 6 ft. Flood-stage → `dangerous` worked on
+   > Black/Annapolis only because that small reach goes bank-full (8 ft ≈
+   > 3,880 cfs) at roughly the do-not-float level. Do not generalize it.
 5. **Distinguish what the source said from what you infer.** Label
    interpolations, unit conversions, and syntheses as yours.
 6. **Record dates.** Flag anything stale (pre-2020).
 
 ## MANDATORY calibration sources — capture per gauge, verbatim
 
-For each representative gauge on the river, capture BOTH before anything else:
+For each representative gauge on the river, capture ALL that exist before
+anything else:
 
-1. **NWS AHPS page for the USGS gauge** (`water.noaa.gov` / `water.weather.gov`,
-   the "flood categories" table): the **action / minor-flood / moderate /
-   major** stages in ft. These are the authoritative safety anchors — `high`
-   ≈ action stage, `dangerous` ≈ flood stage. Capture verbatim with the URL.
+1. **`rivers.moherp.org` OBSERVED ratings** (the Missouri paddler gauge-rating
+   site): the community trip-calibrated too_low/low/good/high bands for the
+   gauge, quoted in the gauge's own unit (usually **cfs**). This is the PRIMARY
+   floatability source. **Capture only the OBSERVED tier** — moherp's ESTIMATED
+   (model) values and USGS percentiles are REJECTED as thresholds (Annapolis
+   proved it: estimated Good 536 cfs vs observed 180 cfs, real trips at 189/192).
+   Capture the corroborating trip reports (flow + date) too.
 2. **MDC / outfitter floatability guidance** for the reach: the "too low to
-   float / good / too high" stage (ft) statements, quoting the gauge. MDC's
-   stream pages and the local outfitters (see per-river scaffold) publish these.
-   This is the independent second source that lets the danger anchors clear the
-   two-source bar.
+   float / good / too high" statements, quoting the gauge and unit. Independent
+   second source; also the best source for the **`dangerous` (do-not-float)**
+   level, which moherp usually does not give.
+3. **NWS AHPS/NWPS page for the USGS gauge** (`api.water.noaa.gov/nwps/v1/gauges/<LID>`
+   or `water.noaa.gov`, the "flood categories" table): the **action / minor /
+   moderate / major** stages in ft (and flow, if the gauge has a rating —
+   often `-9999`/absent). Capture verbatim with the URL. **This is a CROSS-CHECK
+   for the danger anchors, not the anchor itself** (see rule 4). Flood stage
+   equals `dangerous` only on a small reach where bank-full ≈ do-not-float.
 
-If either is missing for a gauge, say so in `openQuestions`/`toVerify` — do not
-backfill from another gauge or from generic Ozark assumptions.
+Record the **unit and reference gauge on every anchor**; do not convert ft↔cfs
+without the USGS rating curve
+(`waterdata.usgs.gov/nwisweb/get_ratings/?site_no=<id>&file_type=exsa`), and label
+any conversion as your inference. If a source is missing for a gauge, say so in
+`openQuestions`/`toVerify` — do not backfill from another gauge or from generic
+Ozark assumptions.
 
 ## The reaches (research per-section, this is the core)
 
@@ -84,10 +113,11 @@ long one like the Gasconade several). Per reach, fill:
    between gauge and reach; how far the gauge sits from the reach).
 2. **Threshold anchors** — every level statement, mapped to `too_low` (not
    floatable) / `low` (scraping but floatable) / `optimal_min` & `optimal_max`
-   (ideal range) / `high` (caution, ≈ action stage) / `dangerous` (do not
-   float, ≈ flood stage). Record each as: level, value, unit (**ft**),
-   reference gauge, `referenceGaugeIsPolled`, source, corroborating sources,
-   confidence.
+   (ideal range) / `high` (caution) / `dangerous` (do not float — a floater
+   ceiling, per rule 4, NOT the flood stage). Record each as: level, value,
+   **unit in whatever the source publishes (cfs for moherp OBSERVED; ft for a
+   stage legend — never guess or convert without the USGS rating)**, reference
+   gauge, `referenceGaugeIsPolled`, source, corroborating sources, confidence.
 3. **Published float times** — put-in → take-out, distance, hours (range if
    given), craft, source. Get at least one per reach (MDC/outfitter trip pages).
 4. **Hydrology character** — spring-fed vs rain-driven, seasonal window,
