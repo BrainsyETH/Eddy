@@ -4,20 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { FacebookAdapter } from '@/lib/social/facebook-adapter';
-import { InstagramAdapter } from '@/lib/social/instagram-adapter';
-import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
-import type { SocialPlatform, PlatformAdapter } from '@/lib/social/types';
+import { getAdapter } from '@/lib/social/adapters';
+import type { SocialPlatform } from '@/lib/social/types';
 
 export const dynamic = 'force-dynamic';
 
 const LOG_PREFIX = '[VideoCallback]';
-
-function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
-  if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
-  if (platform === 'instagram' && hasInstagramCredentials()) return new InstagramAdapter();
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');

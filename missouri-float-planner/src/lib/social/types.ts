@@ -1,7 +1,7 @@
 // src/lib/social/types.ts
 // Shared types for social media posting system
 
-export type SocialPlatform = 'instagram' | 'facebook';
+export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok';
 export type PostType =
   | 'daily_digest'
   | 'river_highlight'
