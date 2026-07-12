@@ -21,7 +21,6 @@ const WIDGET_TYPES = new Set([
   'services',
   'gauge-report',
   'badge',
-  'river-day',
   'rivers',
 ]);
 
