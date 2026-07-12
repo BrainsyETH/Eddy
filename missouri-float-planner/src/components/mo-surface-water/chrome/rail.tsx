@@ -398,18 +398,20 @@ function RiverCard({
   // value is below flood stage but the next 72h forecast crosses it.
   const verdict: StageVerdict = (() => {
     if (!primaryGauge || !primaryThresholds) return 'unknown';
+    const stageFt = primaryGauge.gaugeHeightFt;
     const value = primaryThresholds.threshold_unit === 'cfs'
       ? primaryGauge.dischargeCfs
-      : primaryGauge.gaugeHeightFt;
-    if (value == null) return 'unknown';
+      : stageFt;
+    // Forecast-aware flood override on STAGE (ft), regardless of display unit —
+    // the stored gauge height keeps anchoring "dangerous" for a cfs-primary gauge.
     if (
-      primaryThresholds.threshold_unit === 'ft' &&
       primaryThresholds.flood_stage_ft != null &&
-      Math.max(value, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
+      Math.max(stageFt ?? Number.NEGATIVE_INFINITY, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
     ) {
       return 'dangerous';
     }
-    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds);
+    if (value == null) return 'unknown';
+    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds, stageFt);
   })();
   const tone = STAGE_VERDICTS[verdict];
   const bannerChip = conditionChip(verdict);

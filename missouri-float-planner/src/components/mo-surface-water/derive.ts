@@ -39,18 +39,21 @@ export function computeTodayVerdicts(
     const primary = (r.gauges ?? []).find((g) => g.is_primary);
     if (!primary) { out[r.slug] = 'unknown'; continue; }
     const live = liveBySite.get(primary.site_id);
+    const stageFt = live?.gaugeHeightFt ?? null;
     const value = primary.threshold_unit === 'ft'
-      ? live?.gaugeHeightFt ?? null
+      ? stageFt
       : live?.dischargeCfs ?? null;
-    if (primary.threshold_unit === 'ft' && primary.flood_stage_ft != null) {
+    // Forecast-aware flood override on STAGE (ft), regardless of display unit —
+    // the stored gauge height still anchors "dangerous" for a cfs-primary gauge.
+    if (primary.flood_stage_ft != null) {
       const fc = forecastBySite[primary.site_id];
       const peak = Math.max(
-        value ?? Number.NEGATIVE_INFINITY,
+        stageFt ?? Number.NEGATIVE_INFINITY,
         fc?.peakFt ?? Number.NEGATIVE_INFINITY,
       );
       if (peak >= primary.flood_stage_ft) { out[r.slug] = 'dangerous'; continue; }
     }
-    out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary);
+    out[r.slug] = classifyStageFromThresholds(value, primary.threshold_unit, primary, stageFt);
   }
   return out;
 }
@@ -99,10 +102,11 @@ export function computeDailyConditionSeries(
     let known = 0;
     for (const { primary, ent } of series) {
       const day = ent.daily[i];
+      const stageFt = day?.gaugeHeightFt ?? null;
       const value = primary.threshold_unit === 'ft'
-        ? day?.gaugeHeightFt ?? null
+        ? stageFt
         : day?.dischargeCfs ?? null;
-      const c = classifyStageFromThresholds(value, primary.threshold_unit, primary);
+      const c = classifyStageFromThresholds(value, primary.threshold_unit, primary, stageFt);
       counts[c]++;
       if (c !== 'unknown') {
         known++;
