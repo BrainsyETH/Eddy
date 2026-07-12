@@ -18,6 +18,7 @@ export interface GaugeConditionResult {
   gaugeName: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  thresholdUnit: 'ft' | 'cfs';
   conditionCode: ConditionCode;
   conditionLabel: string;
   readingTimestamp: string | null;
@@ -142,6 +143,7 @@ export async function getGaugeConditions(riverSlug: string): Promise<GaugeCondit
     gaugeName: station.name || 'Unknown gauge',
     gaugeHeightFt,
     dischargeCfs,
+    thresholdUnit: unit,
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,

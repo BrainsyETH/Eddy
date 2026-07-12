@@ -99,6 +99,7 @@ async function handleGetRiverConditions(input: Record<string, unknown>) {
     gaugeName: gauge.gaugeName,
     gaugeHeightFt: gauge.gaugeHeightFt,
     dischargeCfs: gauge.dischargeCfs,
+    thresholdUnit: gauge.thresholdUnit,
     conditionCode: gauge.conditionCode,
     conditionLabel: gauge.conditionLabel,
     optimalRange: gauge.optimalRange,

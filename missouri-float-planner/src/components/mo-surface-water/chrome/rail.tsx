@@ -457,11 +457,13 @@ function RiverCard({
         }}
       >
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
-          {primaryGauge?.gaugeHeightFt != null
-            ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
-            : primaryThresholds
-              ? '— ft'
-              : 'no live gauge'}
+          {(primaryThresholds?.threshold_unit ?? 'ft') === 'cfs'
+            ? (primaryGauge?.dischargeCfs != null
+                ? `${Math.round(primaryGauge.dischargeCfs).toLocaleString()} cfs`
+                : primaryThresholds ? '— cfs' : 'no live gauge')
+            : (primaryGauge?.gaugeHeightFt != null
+                ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
+                : primaryThresholds ? '— ft' : 'no live gauge')}
         </span>
         <span className="font-bold uppercase"
           style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em' }}>
@@ -494,9 +496,15 @@ function RiverCard({
       )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <KV label="Flow"
-          value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
-          sub="cfs" />
+        {(primaryThresholds?.threshold_unit ?? 'ft') === 'cfs' ? (
+          <KV label="Stage"
+            value={primaryGauge?.gaugeHeightFt != null ? primaryGauge.gaugeHeightFt.toFixed(2) : '—'}
+            sub="ft" />
+        ) : (
+          <KV label="Flow"
+            value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
+            sub="cfs" />
+        )}
         <KV label="Percentile"
           value={primaryGauge?.percentile != null ? `P${Math.round(primaryGauge.percentile)}` : '—'} />
         <KV label="Gauges" value={`${(river.gauges ?? []).length}`} />
