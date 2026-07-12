@@ -10,7 +10,7 @@ import {
   staticFile,
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
-import { GaugeBar } from "../../components/GaugeBar";
+import { GaugeBar, gaugeFillModel } from "../../components/GaugeBar";
 import { Watermark } from "../../components/Watermark";
 import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
@@ -64,6 +64,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   riseText,
   recovery,
   followCta,
+  series,
+  stationLabel,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -131,6 +133,28 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const arrowBounce = frame > ctaStart ? Math.sin((frame - ctaStart) / 8) * 4 : 0;
 
   const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
+
+  // Shared fill model — the big counting numeral reads the SAME math as the
+  // bar's fill (see GaugeBar.gaugeFillModel) so the two can never disagree.
+  const RISE_START = 15;
+  const RISE_DURATION = 90;
+  const fill = gaugeFillModel(frame, fps, {
+    currentHeight: gaugeHeightFt,
+    series,
+    levelHigh,
+    riseStartFrame: RISE_START,
+    riseDurationFrames: RISE_DURATION,
+    delay: 30,
+  });
+  const crossedHigh = fill.crossingFrame != null && frame >= fill.crossingFrame;
+
+  // Field-instrument chip chrome — solid panel, condition border, hard shadow
+  // (replaces the old glow + glassmorphism).
+  const chipStyle = (borderColor: string): React.CSSProperties => ({
+    backgroundColor: "rgba(15,45,53,0.92)",
+    border: `3px solid ${borderColor}`,
+    boxShadow: "8px 8px 0 rgba(0,0,0,0.45)",
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.primary[900], opacity: loopOpacity }}>
@@ -203,7 +227,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: isPortrait ? 28 : 20,
+          // Alert packs more rows (numeral/citation/rise) — tighter rhythm.
+          gap: isPortrait ? (alertMode ? 22 : 28) : 20,
         }}
       >
         {/* Severity eyebrow (warning OR recovery). Rendered from frame 0 (no
@@ -217,11 +242,9 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               display: "flex",
               alignItems: "center",
               gap: 16,
-              backgroundColor: condition.bg,
-              border: `2px solid ${condition.solid}`,
+              ...chipStyle(condition.solid),
               borderRadius: 999,
               padding: isPortrait ? "12px 36px" : "10px 28px",
-              boxShadow: `0 0 30px ${condition.glow}`,
               marginBottom: 8,
             }}
           >
@@ -323,60 +346,32 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         <div
           style={{
             display: "flex",
-            alignItems: alertMode ? "flex-start" : "flex-end",
+            // Alert: Eddy floats beside the instrument's midline; default
+            // keeps him planted at the bar's base.
+            alignItems: alertMode ? "center" : "flex-end",
             gap: isPortrait ? (alertMode ? 24 : 36) : 32,
             justifyContent: "center",
           }}
         >
           {!quoteForward && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 14,
-              }}
-            >
-              <GaugeBar
-                currentHeight={gaugeHeightFt}
-                optimalMin={optimalMin}
-                optimalMax={optimalMax}
-                levelHigh={levelHigh}
-                levelDangerous={levelDangerous}
-                conditionColor={condition.solid}
-                conditionGlow={condition.glow}
-                delay={30}
-                emphasis={alertMode}
-                width={alertMode ? (isPortrait ? 140 : 110) : isPortrait ? 100 : 85}
-                height={alertMode ? (isPortrait ? 560 : 380) : isPortrait ? 420 : 300}
-              />
-
-              {/* Rise pill — the urgency signal, right under the gauge reading.
-                  Orange/red in warning, teal/green (condition color) in recovery. */}
-              {alertMode && riseText && (
-                <div
-                  style={{
-                    opacity: warningPulse,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    backgroundColor: condition.bg,
-                    border: `2px solid ${condition.solid}`,
-                    borderRadius: 999,
-                    padding: isPortrait ? "10px 24px" : "8px 18px",
-                    fontFamily: "'Fredoka', system-ui, sans-serif",
-                    fontSize: isPortrait ? 34 : 26,
-                    fontWeight: 700,
-                    letterSpacing: 0.5,
-                    color: condition.solid,
-                    boxShadow: `0 0 24px ${condition.glow}`,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {riseText}
-                </div>
-              )}
-            </div>
+            <GaugeBar
+              currentHeight={gaugeHeightFt}
+              optimalMin={optimalMin}
+              optimalMax={optimalMax}
+              levelHigh={levelHigh}
+              levelDangerous={levelDangerous}
+              conditionColor={condition.solid}
+              conditionGlow={condition.glow}
+              delay={30}
+              emphasis={alertMode}
+              series={alertMode ? series : undefined}
+              riseStartFrame={RISE_START}
+              riseDurationFrames={RISE_DURATION}
+              width={alertMode ? (isPortrait ? 140 : 110) : isPortrait ? 100 : 85}
+              // Alert bar cedes ~100px to the counting numeral + citation
+              // below it so the whole instrument column stays in REEL_SAFE.
+              height={alertMode ? (isPortrait ? 460 : 320) : isPortrait ? 420 : 300}
+            />
           )}
           <div style={{ marginBottom: alertMode ? 0 : 12 }}>
             <EddyMascot
@@ -384,7 +379,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               size={
                 isPortrait
                   ? alertMode
-                    ? 130
+                    ? 165
                     : quoteForward
                       ? 180
                       : 220
@@ -397,43 +392,121 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </div>
         </div>
 
-        {/* Condition Badge */}
-        <div
-          style={{
-            opacity: badgeEntrance,
-            transform: `translateX(${badgeX}px)`,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            backgroundColor: condition.bg,
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            padding: "10px 24px",
-            borderRadius: 999,
-            border: `1.5px solid ${condition.solid}`,
-            boxShadow: `0 0 16px ${condition.glow}`,
-          }}
-        >
+        {/* Big counting numeral — a direct child of the centered column so it
+            shares ONE axis with the name/quote/CTA (nesting it under the bar
+            left it off-center beside Eddy). Reads the same fill model as the
+            bar, so the number and the water level always agree; white below
+            the high threshold, condition-colored the moment it crosses. */}
+        {alertMode && !quoteForward && (
           <div
             style={{
-              width: 12,
-              height: 12,
-              borderRadius: "50%",
-              backgroundColor: condition.solid,
-              boxShadow: `0 0 8px ${condition.solid}`,
-            }}
-          />
-          <span
-            style={{
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: 28,
-              fontWeight: 600,
-              color: condition.solid,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            {condition.label}
-          </span>
-        </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span
+                style={{
+                  fontFamily: "'Geist Mono', monospace",
+                  fontSize: isPortrait ? 118 : 88,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  letterSpacing: -3,
+                  color: crossedHigh ? condition.solid : "#fff",
+                }}
+              >
+                {fill.value.toFixed(1)}
+              </span>
+              <span
+                style={{
+                  fontFamily: "'Geist Mono', monospace",
+                  fontSize: isPortrait ? 40 : 30,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.55)",
+                }}
+              >
+                ft
+              </span>
+            </div>
+
+            {/* Instrument citation — where this number comes from. */}
+            {stationLabel && (
+              <div
+                style={{
+                  fontFamily: "'Geist Sans', system-ui, sans-serif",
+                  fontSize: isPortrait ? 22 : 17,
+                  color: "rgba(255,255,255,0.55)",
+                }}
+              >
+                USGS · {stationLabel}
+              </div>
+            )}
+
+            {/* Rise pill — the urgency signal, right under the gauge reading.
+                Orange/red in warning, teal/green (condition color) in recovery. */}
+            {riseText && (
+              <div
+                style={{
+                  opacity: warningPulse,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  ...chipStyle(condition.solid),
+                  borderRadius: 999,
+                  padding: isPortrait ? "10px 24px" : "8px 18px",
+                  fontFamily: "'Fredoka', system-ui, sans-serif",
+                  fontSize: isPortrait ? 34 : 26,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  color: condition.solid,
+                  whiteSpace: "nowrap",
+                  marginTop: 4,
+                }}
+              >
+                {riseText}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Condition Badge — field-instrument chrome. Hidden in alert mode:
+            the severity eyebrow + transition already say "High"; a third
+            mention read as clutter. */}
+        {!alertMode && (
+          <div
+            style={{
+              opacity: badgeEntrance,
+              transform: `translateX(${badgeX}px)`,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              ...chipStyle(condition.solid),
+              padding: "10px 24px",
+              borderRadius: 999,
+            }}
+          >
+            <div
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                backgroundColor: condition.solid,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "'Fredoka', system-ui, sans-serif",
+                fontSize: 28,
+                fontWeight: 600,
+                color: condition.solid,
+              }}
+            >
+              {condition.label}
+            </span>
+          </div>
+        )}
 
         {/* Quote — a teaser by default; the centered hero in quote-forward mode */}
         <div

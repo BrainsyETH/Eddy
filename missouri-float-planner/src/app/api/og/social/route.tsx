@@ -2,19 +2,19 @@
 // Generates square (1080x1080) or portrait (1080x1920) OG images for social posts.
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
-//   ?type=highlight&river=slug         — single river highlight thumbnail
-//   ?type=eddy_says&river=slug         — dedicated quote cover (Eddy's read is the hero)
+//   ?type=highlight&river=slug         — single-river "Eddy Says" report thumbnail
+//   ?type=eddy_says&river=slug         — legacy alias for ?type=highlight (merged format)
 //   ?type=tip&id=uuid                  — custom content snippet thumbnail
 //   ?type=forecast                     — weekly forecast: top 3 floatable rivers
-//   ?type=section                      — section guide: float of the week
-//   ?type=favorite&river=&fromSlug=&toSlug= — Eddy's Favorite Float (evergreen, from guides)
+//   ?type=section                      — Float Pick: live condition-aware section
+//   ?type=favorite&river=&fromSlug=&toSlug= — Float Pick evergreen fallback (from guides)
 //   ?type=trend                        — 7-day trend: river with biggest gauge move
 //   ?type=warning&river=slug&from=...  — condition-change warning (flowing → high/dangerous)
 
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadFredokaFont, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
+import { loadFredokaFont, loadOgFonts, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
 import {
   hasRainComing,
   weatherChip,
@@ -197,6 +197,25 @@ function heroFontSize(name: string, isPortrait: boolean): number {
   return n <= 10 ? 128 : n <= 14 ? 110 : n <= 17 ? 96 : 84;
 }
 
+/** Size + bottom/right offsets for the corner mascot, kept inside the frame's
+ *  visible band. Portrait covers (Instagram) are cropped to a 4:5 tile in the
+ *  profile grid — and to 4:5 max in-feed — which lops ~285px off the bottom of a
+ *  1080×1920 canvas; anchoring Eddy to `bottom: 48` there put his body below the
+ *  cut, so the grid showed only his head + flag. Lift him above the crop line so
+ *  he's never decapitated. Square (Facebook) covers render in full, so Eddy keeps
+ *  the true bottom-right corner. */
+function otterBox(
+  size: { width: number; height: number },
+  portraitSize = 300,
+  landscapeSize = 240,
+): { size: number; bottom: number; right: number } {
+  if (size.height <= size.width) return { size: landscapeSize, bottom: 40, right: 40 };
+  // Height of the strip cropped away below the centered 4:5 tile, + a margin so
+  // Eddy's feet clear the cut line (≈330px on 1080×1920).
+  const cropGap = (size.height - (size.width * 5) / 4) / 2;
+  return { size: portraitSize, bottom: Math.round(cropGap + 45), right: 48 };
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const platform = searchParams.get('platform');
@@ -211,8 +230,11 @@ export async function GET(request: NextRequest) {
       return await generateHighlightImage(riverSlug, size);
     }
 
+    // Legacy alias: eddy_says merged into the highlight report. Old posts'
+    // image_urls keep resolving (Meta re-crawls by URL), rendered as the
+    // current highlight cover.
     if (type === 'eddy_says' && riverSlug) {
-      return await generateEddySaysImage(riverSlug, size);
+      return await generateHighlightImage(riverSlug, size);
     }
 
     if (type === 'tip' && contentId) {
@@ -249,10 +271,6 @@ export async function GET(request: NextRequest) {
 
     if (type === 'trend') {
       return await generateTrendImage(size, searchParams.get('river'));
-    }
-
-    if (type === 'storm') {
-      return await generateStormImage(size, searchParams.get('rivers'));
     }
 
     if (type === 'storm') {
@@ -569,6 +587,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   } catch {
     // Skip otter
   }
+  const otterPos = otterBox(size);
 
   return new ImageResponse(
     (
@@ -687,7 +706,9 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
               fontSize: isPortrait ? 44 : 42,
               color: 'rgba(255,255,255,0.8)',
               lineHeight: 1.4,
-              maxWidth: isPortrait ? '100%' : (otterImage ? 700 : '100%'),
+              // Keep the copy clear of the corner mascot (now lifted into the
+              // grid-safe band on portrait) so long summaries never run under Eddy.
+              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
             }}
           >
             {truncate(snippet, isPortrait ? 400 : 300)}
@@ -727,226 +748,28 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           eddy.guide
         </span>
 
-        {/* Otter — absolute positioned */}
+        {/* Otter — anchored inside the grid-safe band (see otterBox) so the
+            portrait cover survives Instagram's 4:5 profile-grid crop. */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
+              bottom: otterPos.bottom,
+              right: otterPos.right,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 340 : 240}
-              height={isPortrait ? 340 : 240}
+              width={otterPos.size}
+              height={otterPos.size}
               alt=""
               style={{ objectFit: 'contain' }}
             />
           </div>
         )}
-
-        {/* Bottom gradient bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${gradientStart} 0%, ${BRAND_COLORS.accentCoral} 50%, ${gradientEnd} 100%)`,
-          }}
-        />
-      </div>
-    ),
-    {
-      ...size,
-      fonts,
-      headers: CACHE_HEADERS,
-    }
-  );
-}
-
-// "Eddy Says" — a dedicated quote cover. Where generateHighlightImage leads with
-// the summary and makes the gauge/condition the focus, this makes Eddy's quote the
-// hero, over the river's AI background art. The visible block is vertically centered
-// so it survives Facebook's worst-case 1.91:1 center-crop of the 1080x1080 square.
-async function generateEddySaysImage(riverSlug: string, size: { width: number; height: number }) {
-  const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-
-  const { data: rawUpdate } = await supabase
-    .from('eddy_updates')
-    .select('river_slug, condition_code, gauge_height_ft, summary_text, quote_text')
-    .eq('river_slug', riverSlug)
-    .is('section_slug', null)
-    .gt('expires_at', new Date().toISOString())
-    .order('generated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!rawUpdate) {
-    return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
-  }
-
-  // Overlay live gauge data so the condition chip matches reality.
-  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-
-  const riverName = RIVER_DISPLAY_LONG[riverSlug] || riverSlug;
-  const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
-  const statusStyles = getStatusStyles(conditionCode);
-  const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
-  const conditionLabel = CONDITION_LABELS[conditionCode as keyof typeof CONDITION_LABELS] || 'Unknown';
-  const quote = update.quote_text || update.summary_text || '';
-  const isPortrait = size.height > size.width;
-
-  // Facebook center-crop safe zone: a 1.91:1 crop of the 1080x1080 square keeps
-  // only the central ~566px tall band. We vertically center the hero block and
-  // keep the quote short enough (square) that the eyebrow + quote stay inside it.
-  const SIDE_PAD = isPortrait ? 80 : 88;
-  // Square gets a shorter teaser so the centered block stays inside Facebook's
-  // worst-case 1.91:1 center-crop band; portrait has the full height for the read.
-  const quoteText = truncate(quote, isPortrait ? 380 : 200);
-
-  // Background: the river's cached AI art (same family the reel/covers use), with
-  // a legibility scrim. Absent → the solid brand gradient below shows through.
-  const bgDataUri = await loadBackgroundDataUri(supabase, riverSlug);
-  const layers = photoLayers(bgDataUri, size);
-
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: 'linear-gradient(160deg, #0d2a2c 0%, #1A3D40 60%, #0d2a2c 100%)',
-          padding: `0 ${SIDE_PAD}px`,
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        {layers}
-
-        {/* Centered hero block — eyebrow + river + condition + quote */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-            maxWidth: size.width - SIDE_PAD * 2,
-          }}
-        >
-          {/* Eyebrow */}
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: isPortrait ? 40 : 34,
-              fontWeight: 600,
-              color: BRAND_COLORS.accentCoral,
-              textTransform: 'uppercase',
-              letterSpacing: 4,
-              marginBottom: 14,
-            }}
-          >
-            Eddy Says
-          </span>
-
-          {/* River name */}
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: isPortrait ? 84 : 64,
-              fontWeight: 600,
-              color: 'white',
-              lineHeight: 1,
-              letterSpacing: -1,
-              marginBottom: 24,
-            }}
-          >
-            {riverName}
-          </span>
-
-          {/* Condition chip */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              alignSelf: 'flex-start',
-              backgroundColor: statusStyles.bg,
-              border: `2px solid ${statusStyles.border}`,
-              borderRadius: 100,
-              padding: isPortrait ? '12px 28px' : '10px 24px',
-              marginBottom: isPortrait ? 40 : 32,
-            }}
-          >
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                backgroundColor: statusStyles.solid,
-              }}
-            />
-            <span style={{ fontSize: isPortrait ? 32 : 28, fontWeight: 700, color: statusStyles.text }}>
-              {conditionLabel}
-              {update.gauge_height_ft !== null ? ` · ${update.gauge_height_ft.toFixed(1)} ft` : ''}
-            </span>
-          </div>
-
-          {/* Quote — the hero */}
-          {quoteText && (
-            <span
-              style={{
-                fontSize: isPortrait ? 56 : 46,
-                fontStyle: 'italic',
-                color: 'rgba(255,255,255,0.95)',
-                lineHeight: 1.34,
-              }}
-            >
-              &ldquo;{quoteText}&rdquo;
-            </span>
-          )}
-        </div>
-
-        {/* CTA — portrait (Instagram Stories) only; sits below the safe band */}
-        {isPortrait && (
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: 38,
-              fontWeight: 600,
-              color: BRAND_COLORS.accentCoral,
-              opacity: 0.85,
-              position: 'absolute',
-              bottom: 120,
-              left: SIDE_PAD,
-            }}
-          >
-            Plan your float at eddy.guide
-          </span>
-        )}
-
-        {/* Footer — decorative; may fall outside the square center-crop */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 28,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.4)',
-            position: 'absolute',
-            bottom: isPortrait ? 72 : 56,
-            left: SIDE_PAD,
-          }}
-        >
-          eddy.guide
-        </span>
 
         {/* Bottom gradient bar */}
         <div
@@ -996,6 +819,7 @@ async function generateTipImage(contentId: string, size: { width: number; height
   } catch {
     // Skip otter
   }
+  const otterPos = otterBox(size, 260, 200);
 
   return new ImageResponse(
     (
@@ -1054,22 +878,23 @@ async function generateTipImage(contentId: string, size: { width: number; height
           eddy.guide
         </span>
 
-        {/* Otter */}
+        {/* Otter — grid-safe placement (see otterBox) so the portrait cover
+            clears Instagram's 4:5 profile-grid crop. */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
+              bottom: otterPos.bottom,
+              right: otterPos.right,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 280 : 200}
-              height={isPortrait ? 280 : 200}
+              width={otterPos.size}
+              height={otterPos.size}
               alt=""
               style={{ objectFit: 'contain' }}
             />
@@ -2039,7 +1864,8 @@ async function generateWarningImage(
   riseText?: string,
 ) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
+  // Alert covers carry instrument numerals — Fredoka + Geist Mono.
+  const fonts = loadOgFonts();
   const isPortrait = size.height > size.width;
 
   const { data: rawUpdate } = await supabase
@@ -2089,6 +1915,7 @@ async function generateWarningImage(
   } catch {
     otterImage = null;
   }
+  const otterPos = otterBox(size);
 
   // Recovery is an all-clear: swap the red-tinted frame for a calmer teal-green.
   const eyebrowIcon = isRecovery ? '✅' : '⚠️';
@@ -2121,17 +1948,17 @@ async function generateWarningImage(
       >
         {photoLayers(photoDataUri, size)}
 
-        {/* Warning eyebrow banner */}
+        {/* Warning eyebrow banner — field-instrument chrome (hard shadow) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 16,
-            backgroundColor: styles.bg,
+            backgroundColor: 'rgba(15,45,53,0.92)',
             border: `3px solid ${styles.solid}`,
             borderRadius: 999,
             padding: isPortrait ? '18px 42px' : '14px 32px',
-            boxShadow: `0 0 40px ${styles.solid}`,
+            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
             alignSelf: 'flex-start',
             marginBottom: isPortrait ? 40 : 28,
           }}
@@ -2206,7 +2033,7 @@ async function generateWarningImage(
           </div>
         )}
 
-        {/* Current gauge reading */}
+        {/* Current gauge reading — instrument numerals (Geist Mono, no glow) */}
         {gaugeFt !== null && (
           <div
             style={{
@@ -2218,21 +2045,21 @@ async function generateWarningImage(
           >
             <span
               style={{
-                fontFamily: 'Fredoka',
+                fontFamily: 'Geist Mono',
                 fontSize: isPortrait ? 140 : 96,
                 fontWeight: 700,
                 color: styles.solid,
                 lineHeight: 1,
-                textShadow: `0 0 30px ${styles.solid}`,
+                letterSpacing: -4,
               }}
             >
               {gaugeFt.toFixed(1)}
             </span>
             <span
               style={{
-                fontFamily: 'Fredoka',
+                fontFamily: 'Geist Mono',
                 fontSize: isPortrait ? 48 : 36,
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'rgba(255,255,255,0.6)',
               }}
             >
@@ -2241,24 +2068,25 @@ async function generateWarningImage(
           </div>
         )}
 
-        {/* Rate-of-rise/fall pill */}
+        {/* Rate-of-rise/fall pill — mono numerals, hard shadow */}
         {riseText && (
           <div
             style={{
               display: 'flex',
               alignSelf: 'flex-start',
               alignItems: 'center',
-              backgroundColor: `${styles.solid}22`,
-              border: `2px solid ${styles.solid}`,
+              backgroundColor: 'rgba(15,45,53,0.92)',
+              border: `3px solid ${styles.solid}`,
               borderRadius: 999,
               padding: isPortrait ? '12px 26px' : '10px 20px',
+              boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
               marginBottom: isPortrait ? 40 : 28,
             }}
           >
             <span
               style={{
-                fontFamily: 'Fredoka',
-                fontSize: isPortrait ? 38 : 30,
+                fontFamily: 'Geist Mono',
+                fontSize: isPortrait ? 36 : 28,
                 fontWeight: 700,
                 color: styles.solid,
               }}
@@ -2268,39 +2096,42 @@ async function generateWarningImage(
           </div>
         )}
 
-        {/* Action CTA */}
+        {/* Action CTA — hard-shadow panel */}
         <span
           style={{
             fontFamily: 'Fredoka',
             fontSize: isPortrait ? 44 : 32,
             fontWeight: 600,
             color: '#fff',
-            backgroundColor: `${styles.solid}33`,
-            border: `2px solid ${styles.solid}`,
+            backgroundColor: 'rgba(15,45,53,0.92)',
+            border: `3px solid ${styles.solid}`,
             padding: isPortrait ? '18px 32px' : '14px 24px',
             borderRadius: 16,
+            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
             alignSelf: 'flex-start',
           }}
         >
           {actionCta}
         </span>
 
-        {/* Otter — series identity, absolute bottom-right (matches the reel) */}
+        {/* Otter — series identity, anchored inside the grid-safe band (see
+            otterBox); square keeps the true corner, portrait lifts above the
+            Instagram 4:5 crop so Eddy isn't decapitated in the profile grid. */}
         {otterImage && (
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              bottom: isPortrait ? 48 : 40,
-              right: isPortrait ? 48 : 40,
+              bottom: otterPos.bottom,
+              right: otterPos.right,
               opacity: 0.9,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={otterImage}
-              width={isPortrait ? 340 : 240}
-              height={isPortrait ? 340 : 240}
+              width={otterPos.size}
+              height={otterPos.size}
               alt=""
               style={{ objectFit: 'contain' }}
             />
@@ -2347,7 +2178,8 @@ async function generateStormImage(
   size: { width: number; height: number },
   riversParam: string | null,
 ) {
-  const fonts = loadFredokaFont();
+  // Alert-family cover — same font pair as the warning cover.
+  const fonts = loadOgFonts();
   const isPortrait = size.height > size.width;
 
   // Parse `slug:condition` pairs; keep up to 5 so the list stays legible.
@@ -2375,17 +2207,17 @@ async function generateStormImage(
           position: 'relative',
         }}
       >
-        {/* Rising eyebrow banner */}
+        {/* Rising eyebrow banner — field-instrument chrome (hard shadow) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 16,
-            backgroundColor: 'rgba(239,68,68,0.16)',
+            backgroundColor: 'rgba(15,45,53,0.92)',
             border: `3px solid ${BRAND_COLORS.accentCoral}`,
             borderRadius: 999,
             padding: isPortrait ? '18px 42px' : '14px 32px',
-            boxShadow: `0 0 40px ${BRAND_COLORS.accentCoral}`,
+            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
             alignSelf: 'flex-start',
             marginBottom: isPortrait ? 40 : 28,
           }}
@@ -2438,10 +2270,12 @@ async function generateStormImage(
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 24,
-                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  backgroundColor: 'rgba(15,45,53,0.92)',
+                  border: '2px solid rgba(255,255,255,0.1)',
                   borderLeft: `5px solid ${styles.solid}`,
                   borderRadius: 16,
                   padding: isPortrait ? '22px 32px' : '18px 28px',
+                  boxShadow: '8px 8px 0 rgba(0,0,0,0.45)',
                 }}
               >
                 <span
@@ -2460,8 +2294,7 @@ async function generateStormImage(
                     fontSize: isPortrait ? 36 : 28,
                     fontWeight: 700,
                     color: styles.solid,
-                    backgroundColor: styles.bg,
-                    border: `2px solid ${styles.border}`,
+                    border: `3px solid ${styles.border}`,
                     borderRadius: 999,
                     padding: isPortrait ? '10px 26px' : '8px 20px',
                     whiteSpace: 'nowrap',

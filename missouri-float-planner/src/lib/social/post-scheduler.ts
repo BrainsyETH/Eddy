@@ -7,16 +7,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
-  formatEddySaysCaption,
   formatWeeklyForecastCaption,
-  formatSectionGuideCaption,
-  formatFavoriteFloatCaption,
   formatWeeklyTrendCaption,
 } from './content-formatter';
-import { pickSectionForRivers, dayIndex } from './section-picker';
-import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { overlayLiveConditions } from './live-conditions';
+import { buildPostContext } from './post-context';
 
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
@@ -239,7 +235,12 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     }
   }
 
-  // --- Section Guide (media_schedule.section_guide drives day/media) ---
+  // --- Float Pick (media_schedule.section_guide drives day/media) ---
+  // Delegates the pick + caption + cover to buildPostContext — the single
+  // decision point shared with the cron's render-time buildRenderData — so
+  // caption, cover, and reel always describe the SAME float. Live-first: a
+  // condition-aware 5-9 mi section when any river is flowing/good; otherwise
+  // an evergreen favorite from the river-guide blogs (always publishable).
   {
     const todayMedia = config.media_schedule?.section_guide?.[todayKey] ?? null;
     // Grid cell is the gate (see weekly_forecast note above) — not the legacy
@@ -250,129 +251,32 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
       const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
 
       if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Section guide: not near ${time_cst} CST — skipping`);
+        console.log(`${LOG_PREFIX} Float Pick: not near ${time_cst} CST — skipping`);
       } else if (alreadyPosted) {
-        console.log(`${LOG_PREFIX} Section guide: already posted today — skipping`);
+        console.log(`${LOG_PREFIX} Float Pick: already posted today — skipping`);
       } else {
-        // Float of the Day: only ideal-floatable rivers (flowing/good), 5-9 mi.
-        const floatableSlugs = updates
-          .filter((u) => u.condition_code === 'flowing' || u.condition_code === 'good')
-          .map((u) => u.river_slug);
-        const section = await pickSectionForRivers(supabase, floatableSlugs, { minMi: 5, maxMi: 9 });
-        if (!section) {
-          console.log(`${LOG_PREFIX} Section guide: no floatable 5-9mi section available — skipping`);
+        const ctx = await buildPostContext(supabase, { postType: 'section_guide' });
+        if (!ctx) {
+          console.log(`${LOG_PREFIX} Float Pick: no live section and no evergreen favorite — skipping`);
         } else {
-          const conditionCode =
-            updates.find((u) => u.river_slug === section.riverSlug)?.condition_code || 'flowing';
-          // Cover carries the exact section + condition so it renders the same
-          // float as the reel, and the URL is unique per section (Meta caches OG
-          // images by URL — a shared URL served a stale cover).
-          const coverParams =
-            `&river=${section.riverSlug}&putInMile=${section.putInMile}` +
-            `&takeOutMile=${section.takeOutMile}&condition=${conditionCode}`;
           const platforms: SocialPlatform[] = ['facebook', 'instagram'];
           for (const platform of platforms) {
-            const { caption, hashtags } = formatSectionGuideCaption(
-              { ...section, conditionCode },
-              customContent,
-              platform,
-            );
+            const { caption, hashtags } = ctx.caption(platform, customContent);
             posts.push({
               postType: 'section_guide',
               platform,
-              riverSlug: section.riverSlug,
+              riverSlug: ctx.riverSlug,
               caption,
-              imageUrl: `${baseUrl}/api/og/social?type=section&platform=${platform}${coverParams}`,
+              imageUrl: ctx.imageUrl(platform),
               mediaType: 'video', // video-only; the matrix cell is just the on/off gate
               hashtags,
               eddyUpdateId: null,
             });
           }
-        }
-      }
-    }
-  }
-
-  // --- Favorite Float (media_schedule.favorite_float drives day/media) ---
-  // Evergreen + editorial: a curated section from the river-guide blogs. No
-  // condition gating and no eddy_updates dependency — it posts year-round.
-  {
-    const todayMedia = config.media_schedule?.favorite_float?.[todayKey] ?? null;
-    if (todayMedia && config.favorite_float) {
-      const { time_cst } = config.favorite_float;
-      const timeMatches = skipTimeCheck || isDueNow(time_cst);
-      const alreadyPosted = await hasPostedToday('favorite_float', null, supabase);
-
-      if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Favorite float: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
-        console.log(`${LOG_PREFIX} Favorite float: already posted today — skipping`);
-      } else {
-        const fav = await pickFavoriteFloat(supabase);
-        if (!fav) {
-          console.log(`${LOG_PREFIX} Favorite float: no resolvable guide section — skipping`);
-        } else {
-          // Cover carries the exact endpoints so the poster matches the reel and
-          // the URL is unique per float (defeats Meta's by-URL OG cache).
-          const coverParams =
-            `&river=${fav.riverSlug}&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
-            `&toSlug=${encodeURIComponent(fav.toSlug)}`;
-          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-          for (const platform of platforms) {
-            const { caption, hashtags } = formatFavoriteFloatCaption(fav, customContent, platform);
-            posts.push({
-              postType: 'favorite_float',
-              platform,
-              riverSlug: fav.riverSlug,
-              caption,
-              imageUrl: `${baseUrl}/api/og/social?type=favorite&platform=${platform}${coverParams}`,
-              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
-              hashtags,
-              eddyUpdateId: null,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  // --- Eddy Says (media_schedule.eddy_says drives day/media) ---
-  // Per-river quote spotlight; rotates deterministically by day among rivers
-  // with a fresh quote so the same read isn't reposted day after day.
-  {
-    const todayMedia = config.media_schedule?.eddy_says?.[todayKey] ?? null;
-    if (todayMedia && config.eddy_says) {
-      const { time_cst } = config.eddy_says;
-      const timeMatches = skipTimeCheck || isDueNow(time_cst);
-      const alreadyPosted = await hasPostedToday('eddy_says', null, supabase);
-
-      if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Eddy Says: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
-        console.log(`${LOG_PREFIX} Eddy Says: already posted today — skipping`);
-      } else {
-        const withQuote = updates
-          .filter((u) => (u.quote_text || '').trim().length > 0)
-          .sort((a, b) => a.river_slug.localeCompare(b.river_slug));
-        if (withQuote.length === 0) {
-          console.log(`${LOG_PREFIX} Eddy Says: no fresh river quotes — skipping`);
-        } else {
-          const update = withQuote[dayIndex() % withQuote.length];
-          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
-          for (const platform of platforms) {
-            const { caption, hashtags } = formatEddySaysCaption(update, customContent, platform);
-            posts.push({
-              postType: 'eddy_says',
-              platform,
-              riverSlug: update.river_slug,
-              caption,
-              imageUrl: `${baseUrl}/api/og/social?type=eddy_says&river=${update.river_slug}&platform=${platform}`,
-              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
-              hashtags,
-              eddyUpdateId: update.id,
-            });
-          }
-          console.log(`${LOG_PREFIX} Scheduling Eddy Says for ${update.river_slug} (${todayKey})`);
+          console.log(
+            `${LOG_PREFIX} Scheduling Float Pick for ${ctx.riverSlug}` +
+            `${ctx.renderData.evergreen ? ' (evergreen fallback)' : ''}`,
+          );
         }
       }
     }

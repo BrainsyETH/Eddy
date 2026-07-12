@@ -85,7 +85,6 @@ async function handleSave(request: NextRequest) {
     media_schedule: body.media_schedule ?? existing.media_schedule,
     weekly_forecast: body.weekly_forecast ?? existing.weekly_forecast,
     section_guide: body.section_guide ?? existing.section_guide,
-    favorite_float: body.favorite_float ?? existing.favorite_float,
     weekly_trend: body.weekly_trend ?? existing.weekly_trend,
     updated_at: new Date().toISOString(),
   };

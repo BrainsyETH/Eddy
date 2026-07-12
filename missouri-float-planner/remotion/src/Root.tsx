@@ -408,6 +408,58 @@ export const RemotionRoot: React.FC = () => {
         } satisfies GaugeAnimationProps}
       />
 
+      {/* Gauge Animation — ALERT preview (warning mode + a synthetic rising
+          series). Same component + composition the alert path renders with
+          pinned props; registered separately so Studio, render:check-stills,
+          and the visual baselines exercise the rising-gauge alert chrome. */}
+      <Composition
+        id="social-gauge-alert"
+        component={GaugeAnimation}
+        durationInFrames={240}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          riverName: "Meramec River",
+          conditionCode: "high",
+          previousCondition: "flowing",
+          warningMode: true,
+          gaugeHeightFt: 6.8,
+          optimalMin: 2.0,
+          optimalMax: 4.5,
+          levelHigh: 5.0,
+          levelDangerous: 8.0,
+          riseText: "▲ up 2.4 ft in 6h",
+          stationLabel: "Meramec River near Sullivan, MO",
+          // Synthetic-but-realistic 18-point rising night: flat, first bump,
+          // steady climb through the threshold to the pinned current reading.
+          series: [
+            { hoursAgo: -24, gaugeHeightFt: 3.1 },
+            { hoursAgo: -22.6, gaugeHeightFt: 3.1 },
+            { hoursAgo: -21.2, gaugeHeightFt: 3.2 },
+            { hoursAgo: -19.8, gaugeHeightFt: 3.2 },
+            { hoursAgo: -18.4, gaugeHeightFt: 3.3 },
+            { hoursAgo: -17, gaugeHeightFt: 3.5 },
+            { hoursAgo: -15.5, gaugeHeightFt: 3.8 },
+            { hoursAgo: -14.1, gaugeHeightFt: 4.2 },
+            { hoursAgo: -12.7, gaugeHeightFt: 4.6 },
+            { hoursAgo: -11.3, gaugeHeightFt: 5.0 },
+            { hoursAgo: -9.9, gaugeHeightFt: 5.4 },
+            { hoursAgo: -8.5, gaugeHeightFt: 5.8 },
+            { hoursAgo: -7.1, gaugeHeightFt: 6.1 },
+            { hoursAgo: -5.6, gaugeHeightFt: 6.3 },
+            { hoursAgo: -4.2, gaugeHeightFt: 6.5 },
+            { hoursAgo: -2.8, gaugeHeightFt: 6.6 },
+            { hoursAgo: -1.4, gaugeHeightFt: 6.7 },
+            { hoursAgo: 0, gaugeHeightFt: 6.8 },
+          ],
+          quoteText: "Meramec jumped from Flowing into High overnight. Fast, pushy water — this is not the weekend to learn.",
+          dateLabel: "July 11, 2026",
+          followCta: "Follow for live Ozark river alerts",
+          format: "portrait",
+        } satisfies GaugeAnimationProps}
+      />
+
       {/* Digest Reel — all rivers daily report (1080x1080 square) */}
       <Composition
         id="social-digest"

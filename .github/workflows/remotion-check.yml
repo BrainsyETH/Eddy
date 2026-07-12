@@ -64,6 +64,7 @@ jobs:
             social-route-portrait \
             social-section-portrait \
             social-gauge \
+            social-gauge-alert \
             social-trend-portrait \
             social-digest; do
             echo "→ rendering still: $comp"

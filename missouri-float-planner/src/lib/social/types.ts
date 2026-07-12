@@ -5,15 +5,19 @@ export type SocialPlatform = 'instagram' | 'facebook';
 export type PostType =
   | 'daily_digest'
   | 'river_highlight'
-  | 'eddy_says'
   | 'manual'
   | 'condition_change'
+  | 'condition_easing'
   | 'condition_recovery'
   | 'storm_digest'
   | 'weekly_forecast'
   | 'section_guide'
-  | 'favorite_float'
   | 'weekly_trend'
+  // Legacy values — no longer scheduled, kept so historical social_posts rows
+  // still typecheck and render in admin. eddy_says merged into river_highlight;
+  // favorite_float merged into section_guide (Float Pick).
+  | 'eddy_says'
+  | 'favorite_float'
   | 'route_draw';
 export type PostStatus = 'pending' | 'rendering' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
@@ -60,12 +64,9 @@ export interface MediaSchedule {
   daily_digest: DayMediaMap;
   /** Weekly reels: cell = 'video' | 'image' | null (null = don't fire). */
   weekly_forecast?: DayMediaMap;
+  /** Float Pick — live section pick with evergreen favorite fallback. */
   section_guide?: DayMediaMap;
-  /** Evergreen Favorite Float (from the river-guide blogs). */
-  favorite_float?: DayMediaMap;
   weekly_trend?: DayMediaMap;
-  /** "Eddy Says" quote reel — per-river, rotating daily. */
-  eddy_says?: DayMediaMap;
 }
 
 /** Weekly reel: fires once per week on a specific weekday. */
@@ -98,9 +99,7 @@ export interface SocialConfig {
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
   section_guide: WeeklyReelConfig;
-  favorite_float: WeeklyReelConfig;
   weekly_trend: WeeklyReelConfig;
-  eddy_says: WeeklyReelConfig;
   updated_at: string;
 }
 

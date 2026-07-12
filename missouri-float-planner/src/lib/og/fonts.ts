@@ -1,8 +1,10 @@
 // src/lib/og/fonts.ts
 // Font loading utility for OG images using Satori
-// Fredoka SemiBold is embedded as base64 to avoid all bundler/file-system issues
+// Fonts are embedded as base64 to avoid all bundler/file-system issues:
+// Fredoka SemiBold (display) + Geist Mono Bold (instrument numerals).
 
 import { FREDOKA_SEMIBOLD_BASE64 } from './fredoka-font-data';
+import { GEIST_MONO_BOLD_BASE64 } from './geist-mono-font-data';
 
 export type OGFont = {
   name: string;
@@ -11,27 +13,43 @@ export type OGFont = {
   style: 'normal';
 };
 
-// Decode the embedded base64 font data once, then cache it
-let cachedFontData: ArrayBuffer | null = null;
+// Decode each embedded base64 font once, then cache it
+const fontCache = new Map<string, ArrayBuffer>();
 
-function getFredokaFontData(): ArrayBuffer {
-  if (!cachedFontData) {
-    const binaryString = atob(FREDOKA_SEMIBOLD_BASE64);
+function decodeFont(key: string, base64: string): ArrayBuffer {
+  let cached = fontCache.get(key);
+  if (!cached) {
+    const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    cachedFontData = bytes.buffer;
+    cached = bytes.buffer;
+    fontCache.set(key, cached);
   }
-  return cachedFontData;
+  return cached;
 }
 
 export function loadFredokaFont(): OGFont[] {
   return [
     {
       name: 'Fredoka',
-      data: getFredokaFontData(),
+      data: decodeFont('fredoka', FREDOKA_SEMIBOLD_BASE64),
       weight: 600 as const,
+      style: 'normal' as const,
+    },
+  ];
+}
+
+/** Fredoka + Geist Mono — for covers that render instrument numerals (the
+ *  warning/storm alert family). Mono glyphs cover ASCII + ▲▼→·°. */
+export function loadOgFonts(): OGFont[] {
+  return [
+    ...loadFredokaFont(),
+    {
+      name: 'Geist Mono',
+      data: decodeFont('geist-mono', GEIST_MONO_BOLD_BASE64),
+      weight: 700 as const,
       style: 'normal' as const,
     },
   ];
