@@ -52,7 +52,7 @@ export default function SiteFooter({
           <div>
             <h3 className="text-white font-semibold mb-2">Connect</h3>
             <ul className="space-y-1.5">
-              <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Embed Widgets</Link></li>
+              <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Widgets</Link></li>
               {SOCIAL_LINKS.map((s) => {
                 const Icon = SOCIAL_ICONS[s.icon];
                 return (

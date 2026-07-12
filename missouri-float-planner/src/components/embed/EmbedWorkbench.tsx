@@ -225,7 +225,7 @@ const WIDGETS: WidgetDef[] = [
     title: 'River Day Card',
     badge: 'LODGING',
     badgeBg: '#B89D72',
-    desc: "Built for Airbnbs, cabins and campgrounds: today's float verdict, the weather at the river, and Eddy's what-to-pack tip — guests get their answer without leaving your page.",
+    desc: "Built for Airbnbs, cabins and campgrounds: Eddy's plain-language read on the river, the current gauge reading, and today's weather — guests get their answer without leaving your page.",
     previewHeight: 320,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c),
     buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Day from Eddy`, c.resizeScript),
@@ -1029,7 +1029,7 @@ export default function EmbedWorkbench() {
           className="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider text-primary-300 border-l border-primary-600 pl-3.5"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
-          Embed widgets
+          Widgets
         </span>
         <div className="ml-auto flex items-center gap-3 md:gap-5">
           <button onClick={() => openReference('params')} className="hidden sm:inline text-sm font-medium text-primary-200 hover:text-white transition-colors">Docs</button>
@@ -1269,7 +1269,7 @@ export default function EmbedWorkbench() {
                       60 requests per minute; the plan endpoint allows 30. Exceeding the limit returns a{' '}
                       <code className="bg-amber-100 px-1 py-0.5 rounded">429</code> response with a{' '}
                       <code className="bg-amber-100 px-1 py-0.5 rounded">Retry-After</code> header.
-                      Embed widgets handle caching automatically.
+                      Widgets handle caching automatically.
                     </p>
                   </div>
                 </section>

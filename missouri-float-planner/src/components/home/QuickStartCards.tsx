@@ -29,7 +29,7 @@ const cards = [
   {
     href: '/embed',
     icon: <Code className="w-6 h-6 text-primary-600" />,
-    title: 'Embed Widgets',
+    title: 'Widgets',
     description: 'Add live river data to your site',
   },
 ] as const;
