@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2, Upload, Pencil, Landmark } from 'lucide-react';
-import Image from 'next/image';
+import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import Link from 'next/link';
 import AccessPointEditor from './AccessPointEditor';
 import POIEditor from './POIEditor';
@@ -1273,12 +1273,10 @@ export default function GeographyEditor() {
                 <div className="flex gap-2 flex-wrap mb-3">
                   {editingDetails.imageUrls.map((url, index) => (
                     <div key={index} className="relative w-16 h-16 rounded-lg overflow-hidden bg-purple-100 group">
-                      <Image
+                      <AccessPointPhoto
                         src={url}
                         alt={`Image ${index + 1}`}
-                        fill
-                        className="object-cover"
-                        sizes="64px"
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
                       <button
                         onClick={() => {

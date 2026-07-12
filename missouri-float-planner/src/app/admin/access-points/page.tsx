@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import Link from 'next/link';
 import {
   MapPin,
@@ -95,7 +96,12 @@ export default function AdminAccessPointsPage() {
       const river = rivers?.find(r => r.id === selectedRiver);
       if (!river) return [];
 
-      const response = await fetch(`/api/rivers/${river.slug}/access-points`);
+      // Cache-bust so the admin sees fresh image_urls right after an
+      // Auto-fetch backfill — the shared endpoint is CDN-cached (s-maxage=300).
+      const response = await fetch(
+        `/api/rivers/${river.slug}/access-points?t=${Date.now()}`,
+        { cache: 'no-store' },
+      );
       if (!response.ok) throw new Error('Failed to fetch access points');
       const data = await response.json();
       return data.accessPoints || [];
@@ -359,12 +365,10 @@ export default function AdminAccessPointsPage() {
                           key={index}
                           className="relative w-24 h-24 rounded-lg overflow-hidden bg-neutral-700 group"
                         >
-                          <Image
+                          <AccessPointPhoto
                             src={url}
                             alt={`${point.name} image ${index + 1}`}
-                            fill
-                            className="object-cover"
-                            sizes="96px"
+                            className="absolute inset-0 w-full h-full object-cover"
                           />
                           {/* Remove button */}
                           <button
