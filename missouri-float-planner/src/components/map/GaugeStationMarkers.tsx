@@ -11,6 +11,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+import { computeCondition } from '@/lib/conditions';
 import { escapeHtml } from '@/lib/escape-html';
 
 interface GaugeStationMarkersProps {
@@ -19,9 +20,15 @@ interface GaugeStationMarkersProps {
   nearestGaugeId?: string | null;
 }
 
-// Determine condition from gauge height and thresholds
+// Determine condition from a reading + thresholds using the SHARED, unit-aware
+// engine (src/lib/conditions.ts computeCondition). It must receive BOTH the gauge
+// height AND the discharge plus the threshold unit — otherwise cfs-rated gauges
+// (e.g. Current @ Doniphan, whose stage datum reads negative) get compared against
+// the wrong metric and mis-colored on the map. This also keeps the "high starts at
+// optimal_max" / "good floor" band logic identical to every other surface.
 function getConditionFromReading(
-  gaugeHeight: number | null,
+  gaugeHeightFt: number | null,
+  dischargeCfs: number | null,
   thresholds: GaugeStation['thresholds']
 ): { code: string; label: string; color: string } {
   const resolve = (code: string) => ({
@@ -30,34 +37,27 @@ function getConditionFromReading(
     color: CONDITION_COLORS[code as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown,
   });
 
-  if (gaugeHeight === null || !thresholds || thresholds.length === 0) {
+  if (!thresholds || thresholds.length === 0) {
     return resolve('unknown');
   }
 
-  // Use the first threshold set (primary river if available)
+  // Use the primary river's threshold set if available
   const t = thresholds.find(th => th.isPrimary) || thresholds[0];
 
-  if (t.levelDangerous !== null && gaugeHeight >= t.levelDangerous) {
-    return resolve('dangerous');
-  }
-  if (t.levelHigh !== null && gaugeHeight >= t.levelHigh) {
-    return resolve('high');
-  }
-  if (t.levelOptimalMin !== null && t.levelOptimalMax !== null &&
-      gaugeHeight >= t.levelOptimalMin && gaugeHeight <= t.levelOptimalMax) {
-    return resolve('flowing');
-  }
-  if (t.levelLow !== null && gaugeHeight >= t.levelLow) {
-    return resolve('good');
-  }
-  if (t.levelTooLow !== null && gaugeHeight >= t.levelTooLow) {
-    return resolve('low');
-  }
-  if (t.levelTooLow !== null && gaugeHeight < t.levelTooLow) {
-    return resolve('too_low');
-  }
-
-  return resolve('unknown');
+  const { code } = computeCondition(
+    gaugeHeightFt,
+    {
+      levelTooLow: t.levelTooLow,
+      levelLow: t.levelLow,
+      levelOptimalMin: t.levelOptimalMin,
+      levelOptimalMax: t.levelOptimalMax,
+      levelHigh: t.levelHigh,
+      levelDangerous: t.levelDangerous,
+      thresholdUnit: t.thresholdUnit,
+    },
+    dischargeCfs,
+  );
+  return resolve(code);
 }
 
 export default function GaugeStationMarkers({
@@ -96,7 +96,7 @@ export default function GaugeStationMarkers({
       const isNearest = gauge.id === nearestGaugeId;
 
       // Determine color based on condition
-      const condition = getConditionFromReading(gauge.gaugeHeightFt, gauge.thresholds);
+      const condition = getConditionFromReading(gauge.gaugeHeightFt, gauge.dischargeCfs, gauge.thresholds);
 
       // Highlight if it's for the selected river or is the nearest gauge
       const isHighlighted = isForSelectedRiver || isNearest;
@@ -174,6 +174,7 @@ export default function GaugeStationMarkers({
       let thresholdHtml = '';
       if (gauge.thresholds && gauge.thresholds.length > 0) {
         const t = gauge.thresholds.find(th => th.isPrimary) || gauge.thresholds[0];
+        const tUnit = t.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
         thresholdHtml = `
           <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">
             <p style="font-size: 11px; font-weight: 600; color: #c7b8a6; margin-bottom: 6px;">
@@ -185,28 +186,28 @@ export default function GaugeStationMarkers({
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.flowing};"></span>
                   <span style="color: #a3a3a3;">Flowing:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ft</span>
+                <span style="color: #ffffff; text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ${tUnit}</span>
               ` : ''}
               ${t.levelLow !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.good};"></span>
                   <span style="color: #a3a3a3;">Good:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelLow} ft</span>
+                <span style="color: #ffffff; text-align: right;">${t.levelLow} ${tUnit}</span>
               ` : ''}
               ${t.levelHigh !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.high};"></span>
                   <span style="color: #a3a3a3;">High:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelHigh} ft</span>
+                <span style="color: #ffffff; text-align: right;">${t.levelHigh} ${tUnit}</span>
               ` : ''}
               ${t.levelDangerous !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.dangerous};"></span>
                   <span style="color: #a3a3a3;">Dangerous:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelDangerous}+ ft</span>
+                <span style="color: #ffffff; text-align: right;">${t.levelDangerous}+ ${tUnit}</span>
               ` : ''}
             </div>
           </div>
