@@ -1,7 +1,8 @@
 {
-  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). ",
+  "_status": "AWAITING SIGNOFF — thresholds encoded (too_low/optimal_min/optimal_max/high, moherp OBSERVED cfs @ 07057500); PENDING before signoff: dangerous anchor unsourced (no floater do-not-float number — highest logged trip 1230 cfs rated only 'High'; call the 5 outfitters, esp. Sunburst 417-284-3443 / Dawt Mill 417-284-3540) and access-point GPS needs human pin placement (only Tecumseh has a coordinate).",
   "name": "North Fork River",
   "slug": "north-fork-white",
+  "primaryGaugeSiteId": "07057500",
   "state": "MO",
   "country": "US",
   "timezone": "America/Chicago",
@@ -10,7 +11,7 @@
   "difficultyRating": "Class I-II",
   "description": "The North Fork of the White River, a classic spring-fed south-central Missouri float and wild-trout stream fed by Rainbow and Blue Springs. Clear, cold, and reliably floatable; small ledges/rapids.",
   "riverType": "spring_fed_float",
-  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
+  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); USFS (Mark Twain NF) and USACE (Norfork Lake) at some points; streambed navigability per Missouri law",
   "regulations": [],
   "permits": [],
   "accessLaw": {
@@ -19,9 +20,364 @@
     "confidence": "medium"
   },
   "seasonalClosures": [],
-  "gauges": [],
-  "sections": [],
-  "accessPoints": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07057500",
+      "name": "North Fork River near Tecumseh, MO",
+      "lat": 36.62303,
+      "lon": -92.24814,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 561,
+      "servesSections": [
+        "north-fork-main"
+      ],
+      "knownBias": "at the end of the run (mile 49.1, The Forks); over-reads the upper reach"
+    }
+  ],
+  "sections": [
+    {
+      "slug": "north-fork-main",
+      "name": "North Fork main reach (SH 14 → Tecumseh)",
+      "description": "The popular lower/main reach: SH 14 bridge (Twin Bridges, mile 24.1) down to Tecumseh / Norfork Lake (mile 49.5) — the outfitter-hub stretch and the most-floated water on the North Fork. Clear, cold, spring-fed Class I–II with a 3-ft ledge (The Falls, mile 36.9) and the Dawt Mill low-head dam (mile 45.6); the lowest ~2 miles below The Forks are Norfork Lake backwater. The Tecumseh gauge (07057500) sits at the downstream end of the reach (mile 49.1) and over-reads the thinner water upstream.",
+      "putIn": {
+        "name": "SH 14 bridge / Twin Bridges (mile 24.1)"
+      },
+      "takeOut": {
+        "name": "Tecumseh / Norfork Lake Public Access (mile 49.5)",
+        "lat": 36.6230,
+        "lon": -92.2481
+      },
+      "publishedLengthMiles": 25.4,
+      "representativeGauge": {
+        "siteId": "07057500",
+        "rationale": "07057500 (North Fork River near Tecumseh) is the only pollable USGS gauge on the North Fork, and it is the gauge the rivers.moherp.org OBSERVED community ratings are keyed to. It sits at the downstream end of this reach (mile 49.1, The Forks).",
+        "knownBias": "at the end of the run (mile 49.1); over-reads the upper reach — the calibration fits this lower/main reach, and water upstream runs thinner than the number suggests"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 285,
+          "unit": "cfs",
+          "referenceGauge": "07057500",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_min",
+          "value": 475,
+          "unit": "cfs",
+          "referenceGauge": "07057500",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_max",
+          "value": 628,
+          "unit": "cfs",
+          "referenceGauge": "07057500",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
+          "confidence": "high"
+        },
+        {
+          "level": "high",
+          "value": 1000,
+          "unit": "cfs",
+          "referenceGauge": "07057500",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
+          "corroboratingSources": [
+            "moherp trip report 1230 cfs rated 'High' and still floated"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "publishedFloatTimes": [
+        {
+          "reachLabel": "Hebron to Twin Bridges",
+          "distanceMiles": 5.4,
+          "hoursTypical": 4,
+          "source": "owner-provided North Fork outfitter data 2026-07 — Twin Bridges Canoe & Campground (twinbridgescanoe.com)"
+        },
+        {
+          "reachLabel": "Twin Bridges to River of Life Farm",
+          "distanceMiles": 12,
+          "hoursLow": 5,
+          "hoursHigh": 6,
+          "source": "owner-provided North Fork outfitter data 2026-07 — River of Life Farm (riveroflifefarm.com)"
+        },
+        {
+          "reachLabel": "Hammond to River of Life Farm",
+          "distanceMiles": 7,
+          "hoursLow": 3,
+          "hoursHigh": 4,
+          "source": "owner-provided North Fork outfitter data 2026-07 — River of Life Farm (riveroflifefarm.com)"
+        },
+        {
+          "reachLabel": "Pettit's to Dawt Mill",
+          "distanceMiles": 7,
+          "hoursLow": 4,
+          "hoursHigh": 5,
+          "source": "owner-provided North Fork outfitter data 2026-07 — Pettit's Canoe & Campground (pettitscanoerental.com)"
+        },
+        {
+          "reachLabel": "Blair Bridge to Dawt Mill",
+          "distanceMiles": 8,
+          "hoursLow": 4,
+          "hoursHigh": 6,
+          "source": "owner-provided North Fork outfitter data 2026-07 — Dawt Mill Resort (dawtmill.com)"
+        },
+        {
+          "reachLabel": "Sunburst Ranch to The Landing",
+          "distanceMiles": 7,
+          "hoursLow": 3,
+          "hoursHigh": 4,
+          "source": "owner-provided North Fork outfitter data 2026-07 — Sunburst Ranch (sunburstranchcanoe.com)"
+        }
+      ],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": [
+          "low_water_dam",
+          "rapid",
+          "strainer"
+        ],
+        "lowWaterMeaning": "below ~285 cfs the riffles get scrapy",
+        "risingWaterHazards": "flash-flood capable despite the spring base flow (2017 flood)"
+      },
+      "hazards": [
+        {
+          "value": "The Falls — 3-ft river-wide ledge at mile 36.9, in front of River of Life Farm; run it or portage either bank.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Dawt Mill Dam (low-head dam) at mile 45.6 — run center at high flow or portage either bank.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Dawt Mill low-water bridge at mile 45.8 — VERY DANGEROUS in high water; take out well above it.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Hwy CC low-water bridge at Hammond / mile 29.2 — portage in high water.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Patrick Bridge low-water slab at mile 42.1 — portage in high water.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Repeating Riffle at mile 47.6 — kayak play spot that can flip novices.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Deadfall / strainers are the primary hazard through the upper two-thirds of the run.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "Cold spring water year-round — hypothermia risk on a swim or capsize.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 (Ozark County access guide + river-guide)",
+          "confidence": "high"
+        },
+        {
+          "value": "McKee Bridge (near River of Life Farm) — owner reports it as an occasional high-water obstacle; an American Whitewater source says it was removed Jul 2024. CONFLICT — verify before relying on either.",
+          "source": "owner-authoritative North Fork hazard list by float mile, 2026-07 vs American Whitewater (removal report)",
+          "confidence": "low",
+          "note": "Removed-or-not is unresolved; carried in research.openQuestions/toVerify."
+        }
+      ],
+      "localKnowledge": [
+        "Blue Ribbon wild rainbow trout fishery — one of Missouri's premier trout streams; strongly spring-fed (Blue, North Fork, Rainbow/Double, and Althea springs) keeps it clear, cold, and floatable near year-round.",
+        "The Tecumseh gauge (07057500) sits at the downstream end of the run (mile 49.1, The Forks) and OVER-READS the upper reach — the badge calibration fits this lower/main reach; upstream water runs thinner than the number suggests.",
+        "Three-part reach structure (owner river-guide): remote, strainer-heavy headwaters above SH 76 (~28.5 mi); scenic, lightly-used middle SH 76 → SH 14 (~24.1 mi); and the most-popular, crowded lower reach SH 14 → Tecumseh (~25.4 mi).",
+        "The lowest ~2 miles (below The Forks / mile 49.1 down to Tecumseh) are Norfork Lake backwater — flat lakewater that must be paddled; the Tecumseh access was rebuilt after the 2017 flood and is often submerged by high lake level (park on the Hwy 160 shoulder and carry).",
+        "Hebron / 'Steel Bridge' access (mile 18.7): repeated car break-in / crime reports — leave no valuables in vehicles.",
+        "Five outfitters serve the river — Twin Bridges (mile 24.1), River of Life Farm (mile 35), Pettit's (mile 39.9), Sunburst Ranch (mile 43.6), Dawt Mill Resort (mile ~47) — plus USFS campgrounds at Hammond (mile 29.2), Patrick Bridge (mile 42.1), and Sycamore (near SH 101 / SH 14). Post-2017-flood insurance rules: Dawt Mill allows private boats for registered guests only.",
+        "The 2017 flood reshaped both the trout fishery and outfitter infrastructure — a reminder the river is flash-flood capable despite its spring base flow."
+      ]
+    }
+  ],
+  "accessPoints": [
+    {
+      "name": "SH 76 bridge",
+      "type": "bridge",
+      "riverMile": 0.0,
+      "ownership": "public",
+      "notes": "Upper put-in for the main floatable stem (float index mile 0.0).",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Low-water bridge (SH 76–Hwy E connector)",
+      "type": "bridge",
+      "riverMile": 0.5,
+      "ownership": "public",
+      "notes": "Low-water bridge on the SH 76 to Hwy E connector.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Topaz low-water bridge",
+      "type": "bridge",
+      "riverMile": 6.6,
+      "ownership": "public",
+      "notes": "Old Topaz mill site.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Slab ford",
+      "type": "ford",
+      "riverMile": 11.1,
+      "ownership": "public",
+      "notes": "Concrete slab ford crossing.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Osborn Ford low-water bridge",
+      "type": "bridge",
+      "riverMile": 12.2,
+      "ownership": "public",
+      "notes": "Round Valley; CR AH-260.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Hale Ford Bridge",
+      "type": "bridge",
+      "riverMile": 14.8,
+      "ownership": "public",
+      "notes": "CR 275 / W-278.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Hebron / \"Steel Bridge\"",
+      "type": "access",
+      "riverMile": 18.7,
+      "ownership": "MDC",
+      "notes": "MDC gravel ramp with primitive campsites. CRIME reports — leave no valuables in vehicles. Directions: from Dora go N on Hwy 181, right at the Hwy 14 junction (stay on 181) 1.5 mi, then left on CR 279 at the Hebron sign 2 mi.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "SH 14 bridge / Twin Bridges",
+      "type": "access",
+      "riverMile": 24.1,
+      "ownership": "public",
+      "notes": "Outfitter hub and the popular start for the lower/main reach; put-in for the north-fork-main section.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Hammond / North Fork Recreation Area (NFRA)",
+      "type": "campground",
+      "riverMile": 29.2,
+      "ownership": "USFS",
+      "notes": "USFS day-use $2/veh (annual $20; Ava MTNF 417-683-4428); gate opens Mar 1 day-use / May 15 camping; 20 sites (1 electric), vault toilets, water; Blue Spring Trail 0.5 mi. Hazard: Hwy CC low-water bridge — portage in high water.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "River of Life Farm",
+      "type": "outfitter",
+      "riverMile": 35.0,
+      "ownership": "private",
+      "notes": "500-acre trout resort/outfitter (stilted treehouse cabins, fly guides); The Falls is directly in front. See services.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "The Falls",
+      "type": "hazard",
+      "riverMile": 36.9,
+      "notes": "3-ft river-wide ledge; run it or portage either bank.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Blair Bridge",
+      "type": "access",
+      "riverMile": 39.2,
+      "ownership": "MDC",
+      "notes": "Hwy KK; low-water bridge at mile 39.4; 7.1 ac MDC access; 3 primitive campsites; privy; paved parking. Directions: CR 354 off H Hwy, ~1 mi past Blair Bridge.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Pettit's private campground",
+      "type": "campground",
+      "riverMile": 39.9,
+      "ownership": "private",
+      "notes": "Fee campground/outfitter on river right (CR 354, W side). See services.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Patrick Bridge",
+      "type": "access",
+      "riverMile": 42.1,
+      "ownership": "MDC",
+      "notes": "Hwy H; low-water slab; gravel ramp on the NE side; 161 ac MDC access; 13 campsites, 2 pit toilets; Althea Spring (MO's 23rd largest) + old mill-dam waterfall via trail; near Caulfield (4 mi N on Hwy 160). Hazard: portage in high water.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Sunburst private campground (Sunburst Ranch)",
+      "type": "campground",
+      "riverMile": 43.6,
+      "ownership": "private",
+      "notes": "Fee campground/outfitter on river right (CR 352, ~0.25 mi N of Patrick Bridge). See services.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Hwy PP high bridge",
+      "type": "bridge",
+      "riverMile": 45.3,
+      "ownership": "public",
+      "notes": "High bridge; the old road leads down to a low-water bridge.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Dawt Mill Dam",
+      "type": "hazard",
+      "riverMile": 45.6,
+      "notes": "Low-head dam; run center at high flow or portage either bank.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Dawt Mill low-water bridge",
+      "type": "hazard",
+      "riverMile": 45.8,
+      "notes": "VERY DANGEROUS in high water — take out well above it.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Repeating Riffle",
+      "type": "hazard",
+      "riverMile": 47.6,
+      "notes": "Kayak play spot; can flip novices.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "The Forks (North Fork + Bryant Creek)",
+      "type": "landmark",
+      "riverMile": 49.1,
+      "notes": "Confluence of the North Fork and Bryant Creek; the USGS gauge 07057500 is here.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    },
+    {
+      "name": "Tecumseh / Norfork Lake Public Access",
+      "type": "access",
+      "lat": 36.6230,
+      "lon": -92.2481,
+      "riverMile": 49.5,
+      "ownership": "USACE",
+      "notes": "USACE access below US 160; rebuilt post-2017, currently submerged by high lake level (park on the Hwy 160 shoulder and carry). The lower ~2 mi is Norfork Lake backwater — paddle required. Coordinate ≈ the Tecumseh gauge (from-gauge estimate); human should confirm the pin.",
+      "source": "owner-provided Ozark County access guide + river-guide, 2026-07"
+    }
+  ],
   "weatherPoint": {
     "city": "West Plains",
     "lat": null,
@@ -38,19 +394,33 @@
     "west plains"
   ],
   "research": {
-    "date": null,
-    "sourcesConsulted": [],
+    "date": "2026-07-12",
+    "sourcesConsulted": [
+      "Owner-provided Ozark County access guide + river-guide reviewer writeup (2026-07) — authoritative access, outfitter, and hazard data (river-mile index SH 76 = mile 0.0)",
+      "https://rivers.moherp.org/gauge/?gauge=07057500 (OBSERVED community floatability ratings for North Fork River near Tecumseh — the encoded thresholds; ESTIMATED tier + USGS percentiles rejected per the calibration hierarchy)",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07057500/ (North Fork River near Tecumseh — site verification)",
+      "services-north-fork-white.csv (5 North Fork outfitters + USFS campgrounds, owner-authoritative)",
+      "Wikipedia / agent web research (length 109 mi; used only as a conflicting cross-check against the owner's 78 mi)"
+    ],
     "openQuestions": [
-      "Reach division: Spring-fed reach above Norfork Lake; likely 1–2 reaches.",
-      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): North Fork River near Tecumseh; Bryant Creek near Tecumseh"
+      "DANGEROUS ANCHOR UNSOURCED (dangerous anchor OMITTED, not guessed): no floater 'do-not-float' number exists — moherp OBSERVED tops out at 'High', and the highest logged trip, 1230 cfs, was still rated only 'High' and floated. The way to source a high-water cutoff is a phone call to the 5 North Fork outfitters — especially Sunburst Ranch 417-284-3443 and Dawt Mill Resort 417-284-3540 (also Twin Bridges 417-256-7507, River of Life Farm 417-261-7777, Pettit's 417-284-3290). Until then the badge cannot show 'dangerous' from this gauge. NWS flood 20 ft (TNZM7) is a CROSS-CHECK only (~10x floatable stage), not the anchor.",
+      "ACCESS GPS: every access point still needs a human pin — the owner access guide gives directions + river-mile, not lat/lon. Only Tecumseh (≈36.6230,-92.2481, from the gauge) has a coordinate, and even that needs confirmation.",
+      "LENGTH CONFLICT: 78 mi (owner river-guide, likely the main floatable stem) vs 109 mi (Wikipedia/agent, likely incl. headwaters); floatable ~50 mi (SH 76 → Tecumseh). Reconcile at sign-off.",
+      "The Falls river-mile: 36.9 (owner access table) vs 36 (agent) — reconcile.",
+      "Dawt Mill Dam river-mile: 45.6 (owner access table) vs ~47 (owner services note for Dawt Mill Resort) — reconcile.",
+      "McKee Bridge (near River of Life Farm): owner says still an occasional high-water obstacle; agent's American Whitewater source said REMOVED Jul 2024 — CONFLICT, verify.",
+      "Trout-management-area (Blue Ribbon) boundaries post-2017 flood — not pinned down.",
+      "Reach division: the main/lower reach SH 14 → Tecumseh is calibrated here; the upper reach (SH 76 → SH 14) reads thinner because the Tecumseh gauge over-reads it, and the headwaters above SH 76 are remote/strainer-heavy. Only the main reach carries the badge calibration.",
+      "Bryant Creek near Tecumseh (07058000) is a SEPARATE tributary with its own float community; it joins the North Fork at The Forks and is intentionally NOT in gauges[] for this river."
     ],
     "toVerify": [
-      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
-      "rivers.moherp.org OBSERVED ratings per gauge (primary floatability source, usually cfs; REJECT the ESTIMATED tier + USGS percentiles)",
-      "Floater \"do-not-float\" level per reach (outfitter / American Whitewater ceiling / MDC) — the dangerous anchor; NWS flood stage is a CROSS-CHECK only, not the anchor",
-      "Full MDC access-point list with coordinates (human places every point)",
-      "County list for NWS alert terms (seeded: Texas, Howell, Ozark, Douglas)"
+      "Whole-river NHD Permanent Identifier for the North Fork flowline (National Map NHDPlus_HR, MO HUC 11010006). Known at the Tecumseh gauge: NHD ComID 7650991 / reachcode 11010006000122; whole-river PID still UNKNOWN. (GNIS 77861.)",
+      "USGS 07057500 (North Fork River near Tecumseh): site #, name, lat/lon, params, drainage area transcribed from the monitoring-location page → verified-identifiers-north-fork-white.md (written).",
+      "Full access-point list with coordinates — a human places every point (owner guide gives river-miles + directions only; only Tecumseh has a from-gauge coordinate).",
+      "dangerous / high-water do-not-float ceiling from the 5 North Fork outfitters (phone) — the badge's dangerous anchor. NWS TNZM7 flood stage is a cross-check only.",
+      "McKee Bridge status — removed Jul 2024 (American Whitewater) vs still-present high-water obstacle (owner).",
+      "Trout management-area (Blue Ribbon) boundaries post-2017.",
+      "County list for NWS alert terms (seeded: Texas, Howell, Ozark, Douglas)."
     ]
   }
 }
