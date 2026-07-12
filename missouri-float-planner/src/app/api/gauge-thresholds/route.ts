@@ -13,6 +13,7 @@ export interface GaugeThreshold {
     gaugeName: string;
     usgsId: string;
     isPrimary: boolean;
+    unit: 'ft' | 'cfs';
     thresholds: {
       tooLow: number | null;
       low: number | null;
@@ -41,6 +42,7 @@ async function _GET() {
       .select(`
         river_id,
         is_primary,
+        threshold_unit,
         level_too_low,
         level_low,
         level_optimal_min,
@@ -93,6 +95,7 @@ async function _GET() {
         gaugeName: gauge.name,
         usgsId: gauge.usgs_site_id,
         isPrimary: rg.is_primary || false,
+        unit: (rg.threshold_unit === 'cfs' ? 'cfs' : 'ft'),
         thresholds: {
           tooLow: rg.level_too_low,
           low: rg.level_low,
