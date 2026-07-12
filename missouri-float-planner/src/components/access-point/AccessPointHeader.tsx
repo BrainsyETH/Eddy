@@ -3,6 +3,7 @@
 
 import type { AccessPointDetail, AccessPointGaugeStatus } from '@/types/api';
 import AccessPointGauge from './AccessPointGauge';
+import AccessPointPhoto from './AccessPointPhoto';
 import { formatParkingCapacity, getRoadSurfaceBadge } from '@/lib/navigation';
 
 interface AccessPointHeaderProps {
@@ -75,12 +76,10 @@ export default function AccessPointHeader({ accessPoint, gaugeStatus }: AccessPo
             null;
           return heroImageUrl ? (
             <div className="absolute inset-0">
-              {/* eslint-disable-next-line @next/next/no-img-element -- NPS hero images
-                  come from hosts not all whitelisted for next/image; plain img avoids
-                  runtime domain errors while still providing alt text + indexability. */}
-              <img
+              <AccessPointPhoto
                 src={heroImageUrl}
                 alt={`${accessPoint.name} on the ${accessPoint.river.name}`}
+                priority
                 className="absolute inset-0 w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />

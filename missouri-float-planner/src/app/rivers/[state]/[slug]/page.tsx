@@ -12,7 +12,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { stateSlug, stateName } from '@/lib/navigation/states';
 import { riverPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
-import Image from 'next/image';
+import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
@@ -358,13 +358,11 @@ export default async function RiverGuidePage({ params }: Props) {
               {/* Right: photo panel */}
               <div className="relative rounded-2xl overflow-hidden border border-white/10 min-h-[240px] lg:min-h-0 bg-white/5">
                 {heroImage ? (
-                  <Image
+                  <AccessPointPhoto
                     src={heroImage}
                     alt={`${river.name} river`}
-                    fill
                     priority
-                    sizes="(max-width: 1024px) 100vw, 45vw"
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                 ) : (
                   <div

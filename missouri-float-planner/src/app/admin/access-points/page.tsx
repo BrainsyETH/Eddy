@@ -19,6 +19,9 @@ import {
   ExternalLink,
   Trash2,
   Pencil,
+  Wand2,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface River {
@@ -44,6 +47,26 @@ interface ImageItem {
   isSystem: boolean;
 }
 
+interface BackfillResultRow {
+  id: string;
+  name: string;
+  status: 'resolved' | 'no-match' | 'error';
+  detail: string;
+  source: string | null;
+  url: string | null;
+}
+
+interface BackfillSummary {
+  river: { name: string };
+  dryRun: boolean;
+  processed: number;
+  resolved: number;
+  noMatch: number;
+  errors: number;
+  remaining: number;
+  results: BackfillResultRow[];
+}
+
 const EDDY_PLACEHOLDER = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png';
 
 export default function AdminAccessPointsPage() {
@@ -51,6 +74,7 @@ export default function AdminAccessPointsPage() {
   const [selectedRiver, setSelectedRiver] = useState<string | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState<{ pointId: string; currentImages: string[] } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [backfillResult, setBackfillResult] = useState<BackfillSummary | null>(null);
 
   // Fetch rivers
   const { data: rivers, isLoading: riversLoading } = useQuery<River[]>({
@@ -107,6 +131,47 @@ export default function AdminAccessPointsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-access-points', selectedRiver] });
     },
   });
+
+  // Auto-fetch imagery for the selected river from official agency sources
+  const backfillMutation = useMutation<BackfillSummary, Error, { riverId: string }>({
+    mutationFn: async ({ riverId }) => {
+      const response = await adminFetch('/api/admin/access-points/backfill-imagery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ riverId }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Auto-fetch failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setBackfillResult(data);
+      queryClient.invalidateQueries({ queryKey: ['admin-access-points', selectedRiver] });
+    },
+  });
+
+  const runBackfill = () => {
+    if (!selectedRiver) return;
+    const missing = accessPoints?.filter((a) => a.imageUrls.length === 0).length ?? 0;
+    if (missing === 0) {
+      if (!confirm('Every access point on this river already has an image. Nothing to auto-fetch.')) return;
+      return;
+    }
+    if (
+      !confirm(
+        `Auto-fetch imagery for ${missing} access point(s) without images?\n\n` +
+          'Photos are pulled from official agency sources (MDC, NPS, Recreation.gov, ' +
+          'USFS, State Parks) and outfitter sites, and stored as external links ' +
+          '(no upload). This can take up to a minute.',
+      )
+    ) {
+      return;
+    }
+    setBackfillResult(null);
+    backfillMutation.mutate({ riverId: selectedRiver });
+  };
 
   // Add image to an access point
   const addImage = (pointId: string, currentImages: string[], newImageUrl: string) => {
@@ -169,17 +234,82 @@ export default function AdminAccessPointsPage() {
         {/* Access Points List */}
         {selectedRiver && (
           <>
-            {/* Search */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-              <input
-                type="text"
-                placeholder="Search access points..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full md:w-80 pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
+            {/* Search + Auto-fetch */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="relative flex-1 min-w-[220px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                <input
+                  type="text"
+                  placeholder="Search access points..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <button
+                onClick={runBackfill}
+                disabled={backfillMutation.isPending}
+                title="Pull photos from official agency sources for access points without images"
+                className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white rounded-lg font-medium transition-colors"
+              >
+                {backfillMutation.isPending ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <Wand2 className="w-4 h-4" />
+                )}
+                {backfillMutation.isPending ? 'Fetching imagery…' : 'Auto-fetch imagery'}
+              </button>
             </div>
+
+            {/* Backfill error */}
+            {backfillMutation.isError && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-700 bg-red-900/20 p-3 text-sm text-red-200">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                {backfillMutation.error.message}
+              </div>
+            )}
+
+            {/* Backfill result summary */}
+            {backfillResult && (
+              <div className="mb-4 rounded-xl border border-neutral-700 bg-neutral-800 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-medium text-white">
+                    {backfillResult.resolved} resolved · {backfillResult.noMatch} no match · {backfillResult.errors} error{backfillResult.errors !== 1 ? 's' : ''}
+                    <span className="text-neutral-400 font-normal"> (of {backfillResult.processed} processed)</span>
+                  </span>
+                </div>
+                {backfillResult.remaining > 0 && (
+                  <p className="text-xs text-amber-300 mb-2">
+                    {backfillResult.remaining} more not processed this run — click Auto-fetch again to continue.
+                  </p>
+                )}
+                <details className="text-xs text-neutral-400">
+                  <summary className="cursor-pointer select-none hover:text-neutral-200">
+                    Per–access-point detail
+                  </summary>
+                  <ul className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                    {backfillResult.results.map((r) => (
+                      <li key={r.id} className="flex items-start gap-2">
+                        <span
+                          className={`mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0 ${
+                            r.status === 'resolved'
+                              ? 'bg-green-900/40 text-green-300'
+                              : r.status === 'error'
+                                ? 'bg-red-900/40 text-red-300'
+                                : 'bg-neutral-700 text-neutral-400'
+                          }`}
+                        >
+                          {r.source || r.status}
+                        </span>
+                        <span className="text-neutral-300">{r.name}</span>
+                        <span className="text-neutral-500">— {r.detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </div>
+            )}
 
             {accessPointsLoading ? (
               <div className="flex items-center justify-center py-12">

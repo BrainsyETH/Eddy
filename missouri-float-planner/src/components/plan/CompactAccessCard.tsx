@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Flag, Lightbulb, Store, Tent, Droplets, Flame } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
@@ -125,12 +126,10 @@ export default function CompactAccessCard({
       {/* Hero image — always visible when images exist */}
       {allImages.length > 0 && (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
-          <Image
+          <AccessPointPhoto
             src={allImages[currentImageIndex]}
             alt={point.name}
-            fill
-            className="object-cover"
-            sizes="400px"
+            className="absolute inset-0 w-full h-full object-cover"
           />
           {allImages.length > 1 && (
             <>

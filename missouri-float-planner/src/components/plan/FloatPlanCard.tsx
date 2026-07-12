@@ -5,6 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
@@ -541,12 +542,10 @@ function AccessPointDetailCard({
       {/* Image */}
       {hasImages && (
         <div className="relative w-full aspect-[16/9] bg-neutral-100">
-          <Image
+          <AccessPointPhoto
             src={allImages[currentImageIndex]}
             alt={point.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 33vw"
+            className="absolute inset-0 w-full h-full object-cover"
           />
           {allImages.length > 1 && (
             <>
