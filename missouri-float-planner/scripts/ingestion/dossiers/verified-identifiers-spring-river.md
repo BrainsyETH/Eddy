@@ -73,6 +73,4 @@ discharge + stage and an NWS forecast point; carries the reach-1 thresholds
   from the USGS gauge) is sourced. Mammoth Spring SP/Dam 1, Cold Springs (~mi1),
   Lassiter (walk-in), Dam 3/Riverside (~mi3.2), Bayou (~mi6), Many Islands
   (private), Ravenden, and Imboden need a human to place coordinates.
-- **'Rio Vista Falls' foot-entrapment fatality hazard** — Arkansas Canoe Club
-  forum only; name/location UNVERIFIED; safety-critical, confirm before sign-off.
 - **River length** — 57 mi (Wikipedia) vs ~75 mi (Encyclopedia of Arkansas).

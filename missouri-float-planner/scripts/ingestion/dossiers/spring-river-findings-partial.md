@@ -27,7 +27,6 @@ Arkansas recreational-navigability doctrine: *State v. McIlroy*, 268 Ark. 227 (1
 - **Saddler Falls** (Class II ledge, ~mi5, S-turn), **High Falls** (~6-ft waterfall) — PORTAGE in high water.
 - Low-head **Dam #1** & **Dam #3**; low-water bridge (Many Islands→Hardy) — portage.
 - **COLD water 58°F year-round** — hypothermia/cold-shock even in summer.
-- ⚠ FLAGGED (verify — safety-critical): forum-reported foot-entrapment ledge ("Rio Vista Falls"?), "at least one drowning + multiple near misses," advice "go left." Name/location UNVERIFIED.
 
 ## Access (coords mostly UNKNOWN; AGFC 2009 map gives river-miles)
 - Mammoth Spring SP/Dam1; Cold Springs (~mi1, ADA pier); Lassiter (walk-in); **Dam 3 / Riverside (main put-in, ~mi3.2)**; Bayou (~mi6); **Hardy take-out** (36.3136,-91.4828); Many Islands (private); Ravenden; Imboden.
@@ -41,4 +40,4 @@ Arkansas recreational-navigability doctrine: *State v. McIlroy*, 268 Ark. 227 (1
 ## Sign-off / gaps
 - dangerous anchor unsourced (call outfitters) — same universal gap.
 - Which gauge drives the badge: 07069305 Hardy (cfs+ft live, NWS pt) for Reach 1; 07069500 Imboden for Reach 2. Recommend.
-- AGFC ft-datum reconciliation; Hardy HUC anomaly (site says 11010008 vs NHD 11010010); access GPS; NHD single PID; "Rio Vista Falls" hazard; length 57 vs 75 mi.
+- AGFC ft-datum reconciliation; Hardy HUC anomaly (site says 11010008 vs NHD 11010010); access GPS; NHD single PID; length 57 vs 75 mi.
