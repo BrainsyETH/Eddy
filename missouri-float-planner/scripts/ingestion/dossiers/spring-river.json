@@ -1,0 +1,58 @@
+{
+  "_status": "STUB — scaffold only, NOT researched. Identity + AR access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md, adapted for AR, to research). River-specific caution: fed by Mammoth Spring (one of the largest springs in the U.S.) — reliably cold and floatable year-round, but confirm the dam influence (historic low-head Dams incl. 'Dam 3') and the Saddler Falls ledge (Class II). First Arkansas river outside the Buffalo — AR navigability doctrine must be confirmed for the state.",
+  "name": "Spring River",
+  "slug": "spring-river",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozark Foothills",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I-II (Saddler Falls ledge)",
+  "description": "A cold, clear, spring-fed float in north-central Arkansas rising at Mammoth Spring (one of the largest springs in the U.S.) and running past Hardy toward its confluence with the Black River near Black Rock. Reliable year-round flow from the spring; trout in the upper reach, smallmouth lower; a few ledges/rapids including Saddler Falls. A very popular canoe/kayak float.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Arkansas Game & Fish Commission (public accesses); Arkansas State Parks (Mammoth Spring State Park); streambed navigability per Arkansas law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Arkansas follows the \"navigable in fact\" doctrine: the public may float and wade streams that are navigable in fact, and the state holds title to the beds of truly navigable rivers, but banks and many gravel bars are privately owned, so lawful access is from public road crossings, public land, and established accesses (AGFC accesses, Mammoth Spring State Park), while trespass rules apply on private banks. The Spring River is a popular, historically navigable float. (Shared Arkansas paragraph — confirm the AR Supreme Court navigability citation / AGFC guidance once for the state.)",
+    "source": "https://www.agfc.com/ (AGFC access) — confirm Arkansas navigability citation once for AR",
+    "confidence": "low"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Hardy",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "spring river",
+    "fulton county",
+    "sharp county",
+    "lawrence county",
+    "mammoth spring",
+    "hardy",
+    "cherokee village",
+    "ravenden"
+  ],
+  "research": {
+    "date": null,
+    "sourcesConsulted": [],
+    "openQuestions": [
+      "Reach division: Mammoth Spring / Dam 3 → Hardy (the classic float, trout, Saddler Falls) vs. lower Hardy → Ravenden/Imboden → Black River confluence. Likely 2 reaches; confirm boundaries.",
+      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): 'Spring River near Hardy, AR' (likely 07069500); 'Spring River at Imboden, AR'. Confirm which best represents the Hardy float reach and whether readings are stage (ft) or discharge (cfs).",
+      "Dam / hydrology: confirm the influence of the historic low-head dams (incl. 'Dam 3') and whether Mammoth Spring's constant discharge makes flow unusually stable vs. rain-driven spikes.",
+      "SERVICES LEADS (business-DB PDF; research + load into nearby_services): outfitters — Spring River Camp & Canoe (Mammoth Spring), RiverStop, River Wilderness Sports; plus Many Islands / Southfork / Riverside resorts near Hardy. Campgrounds — Mammoth Spring State Park; AGFC/riverside campgrounds. Capture GPS, booking platform, phone/email, put-in/take-out served."
+    ],
+    "toVerify": [
+      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, AR HUC 11010012 White/Black drainage)",
+      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page); unit (ft vs cfs)",
+      "Arkansas navigability doctrine + AGFC stream-access guidance (confirm once for AR — first non-Buffalo AR river)",
+      "moherp/AGFC/outfitter floatability + do-not-float (dangerous) statements per reach, quoting the gauge",
+      "Full AGFC / state-park access-point list with coordinates (human places every point)",
+      "County list for NWS alert terms (seeded: Fulton, Sharp, Lawrence)"
+    ]
+  }
+}

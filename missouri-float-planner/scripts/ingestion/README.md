@@ -24,7 +24,8 @@
 ```
 scaffold → research (dossier) → verify (identifiers) → sign-off (thresholds)
    → geometry (NHD) → ingest --apply → validate_river_data() → place access
-   points [human] → activate [human] → cold-start Eddy prose
+   points [human] → services (outfitters/campgrounds) → activate [human]
+   → cold-start Eddy prose
 ```
 
 Every arrow is a gate. The two-layer design (research JSON ≠ DB write) is what
@@ -151,6 +152,33 @@ preload path is `preload-dossier-access-points.py`. Then a human verifies each p
 against an official source (MDC Atlas, NPS, USFS, Recreation.gov, USGS) and approves
 it in `/admin/geography`. Coordinates are **never** script-written to `approved`.
 
+### Phase 8.5 — Services [separate subsystem — now required]
+
+Outfitters, campgrounds, and shuttles are **not** in the dossier schema. They
+live in **`nearby_services`** (+ `service_rivers` M2M — `is_primary` = the river a
+business mostly serves) and, for NPS-park rivers, **`nps_campgrounds`** (synced
+from the NPS API by `park_code`). **This step was skipped for all five Wave-1
+rivers — they shipped with 0 services while the original rivers carry 20–30 each.
+Do not skip it again.**
+
+Research per corridor (outfitter sites, Google/Yelp/TripAdvisor, chamber
+directories; NPS / State Parks / USFS / MDC / AGFC for campgrounds). The repo's
+`Data Gap Analysis` and `Business Database` PDFs are prior groundwork (75
+businesses across 6 corridors, incl. Black, Gasconade, Spring AR). Load via CSV:
+
+```bash
+npx tsx scripts/import-services-csv.ts <file>.csv            # dry-run / validate
+npx tsx scripts/import-services-csv.ts <file>.csv --import   # write
+```
+
+CSV (`scripts/services.template.csv`): `name, type (outfitter|campground|
+cabin_lodge), river_slugs` (pipe-separated, first = `is_primary`), `phone, email,
+website, reservation_url, booking_platform, latitude, longitude, services_offered`
+(pipe-separated: `canoe_rental|shuttle|showers|…`), `tent_sites, rv_sites,
+cabin_count, fee_range, season_open_month, season_close_month`. Idempotent by
+`slug`. **Backlog:** backfill the five Wave-1 rivers (Black, Bourbeuse, Buffalo,
+Gasconade, St. Francis) from the Business Database PDF.
+
 ### Phase 9 — Activate [human] + cold-start
 
 ```sql
@@ -236,6 +264,7 @@ never guessed.
 - [ ] `validate_river_data()` → **0 errors**; ladder warnings resolved or consciously accepted.
 - [ ] `## <River>` section in `EDDY_KNOWLEDGE.md`; `npm run check:eddy-knowledge` passes.
 - [ ] Access points loaded PENDING; each verified + approved by a human in `/admin/geography`.
+- [ ] Services loaded (`nearby_services` + `service_rivers`) — outfitters/campgrounds/shuttles; do not ship at 0.
 - [ ] `rivers.active = true`; cold-start `generate-eddy-updates?river=<slug>` run.
 - [ ] First cron pass observed; `stale_gauge` cleared.
 
