@@ -29,6 +29,12 @@ interface RiverBasic {
   currentCondition?: { code: ConditionCode; label: string } | null;
 }
 
+interface WeatherData {
+  temp: number;
+  condition: string;
+  windSpeed: number;
+}
+
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
@@ -106,6 +112,7 @@ export default function EddyQuoteEmbedPage() {
   const [optimalRange, setOptimalRange] = useState<string | null>(null);
   const [gaugeReading, setGaugeReading] = useState<string | null>(null);
   const [gaugeName, setGaugeName] = useState<string | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -138,7 +145,7 @@ export default function EddyQuoteEmbedPage() {
         if (gaugesRes.ok && riverId) {
           const gaugeData = await gaugesRes.json();
           interface GaugeThreshold { riverId: string; isPrimary: boolean; thresholdUnit?: string; levelOptimalMin?: number | null; levelOptimalMax?: number | null }
-          interface GaugeEntry { name: string; gaugeHeightFt: number | null; dischargeCfs: number | null; thresholds?: GaugeThreshold[] | null }
+          interface GaugeEntry { name: string; gaugeHeightFt: number | null; dischargeCfs: number | null; coordinates?: { lng: number; lat: number }; thresholds?: GaugeThreshold[] | null }
           for (const gauge of (gaugeData.gauges as GaugeEntry[])) {
             const primary = gauge.thresholds?.find((t) => t.riverId === riverId && t.isPrimary);
             if (primary) {
@@ -152,6 +159,14 @@ export default function EddyQuoteEmbedPage() {
               if (val !== null) {
                 setGaugeReading(useCfs ? `${val.toLocaleString()} cfs` : `${val.toFixed(1)} ft`);
                 setGaugeName(gauge.name);
+              }
+              // Weather at the river's primary gauge (lodging value, merged in
+              // from the former River Day widget).
+              if (gauge.coordinates) {
+                fetch(`/api/weather?lat=${gauge.coordinates.lat}&lon=${gauge.coordinates.lng}`)
+                  .then(r => (r.ok ? r.json() : null))
+                  .then(data => { if (data) setWeather(data); })
+                  .catch(() => {});
               }
               break;
             }
@@ -272,6 +287,34 @@ export default function EddyQuoteEmbedPage() {
           </span>
         </div>
       </div>
+
+      {/* Weather at the river (merged in from River Day — lodging value) */}
+      {weather && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 11,
+            color: textSecondary,
+            padding: '5px 10px',
+            borderRadius: 6,
+            background: isDark ? '#163F4A' : '#F7F6F3',
+          }}
+        >
+          <span style={{ fontWeight: 700, color: textPrimary, fontFamily: EMBED_FONTS.mono }}>
+            {Math.round(weather.temp)}°F
+          </span>
+          <span>&middot;</span>
+          <span>{weather.condition}</span>
+          {weather.windSpeed > 5 && (
+            <>
+              <span>&middot;</span>
+              <span>Wind {Math.round(weather.windSpeed)} mph</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Bold float recommendation (#12) */}
       <div

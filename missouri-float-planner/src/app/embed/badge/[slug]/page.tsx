@@ -75,7 +75,9 @@ export default function EmbedBadgePage() {
   const conditionLabel = CONDITION_SHORT_LABELS[conditionCode] || 'Unknown';
 
   return (
-    <div style={{ background: 'transparent', padding: 0 }}>
+    // inline-block so EmbedAutoResize reports the pill's exact width and the
+    // host iframe hugs it (no dead space on the right).
+    <div style={{ background: 'transparent', padding: 0, display: 'inline-block' }}>
       <a
         href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, { widget: 'badge', key: slug })}
         target="_blank"

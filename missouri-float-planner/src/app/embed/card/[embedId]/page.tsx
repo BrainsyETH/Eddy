@@ -25,14 +25,16 @@ export const metadata: Metadata = {
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 const DEFAULT_ACCENT = '#2D7889';
 
-const VERDICT_TEXT: Record<string, { headline: string; detail: string }> = {
-  flowing: { headline: 'Yes — great day to float', detail: 'Ideal water levels right now' },
-  good: { headline: 'Yes — good to float', detail: 'Solid, floatable conditions' },
-  high: { headline: 'Floatable — use caution', detail: 'High water and fast current' },
-  low: { headline: 'Marginal today', detail: 'Shallow — expect some scraping' },
-  too_low: { headline: 'Not today', detail: 'Too low to float comfortably' },
-  dangerous: { headline: 'No — stay off the water', detail: 'Flood conditions, do not float' },
-  unknown: { headline: 'Check locally', detail: 'No current reading for this reach' },
+// Yes/No float verdict headline, derived from the real condition code. The
+// sub-line under it shows the actual gauge reading — no invented prose.
+const VERDICT_TEXT: Record<string, string> = {
+  flowing: 'Yes — great day to float',
+  good: 'Yes — good to float',
+  high: 'Floatable — use caution',
+  low: 'Marginal today',
+  too_low: 'Not today',
+  dangerous: 'No — stay off the water',
+  unknown: 'Check locally',
 };
 
 interface Props {
@@ -144,11 +146,10 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 17, lineHeight: 1.2, color: floatable ? textPrimary : conditionColor, fontFamily: EMBED_FONTS.display }}>
-            {verdict.headline}
+            {verdict}
           </div>
           <div style={{ fontSize: 11, color: textSecondary, marginTop: 2 }}>
-            {verdict.detail}
-            {gaugeLine ? ` · ${gaugeLine}` : ''}
+            {gaugeLine || 'No current reading'}
           </div>
         </div>
         <div

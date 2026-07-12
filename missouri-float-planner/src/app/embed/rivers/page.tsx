@@ -3,7 +3,8 @@
 // src/app/embed/rivers/page.tsx
 // Multi-river overview widget — compact live-condition rows for several
 // rivers at once. Built for outfitters that serve more than one river and
-// regional tourism sites. One /api/rivers fetch powers the whole widget.
+// regional tourism sites. Each row shows the live condition and the current
+// air temperature at the river.
 //
 // ?rivers=current,jacks-fork,eleven-point selects and orders the rows;
 // omitted, the widget shows all active rivers (capped).
@@ -23,11 +24,16 @@ const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_
 const MAX_ROWS = 8;
 
 interface RiverRow {
+  id?: string;
   slug: string;
   name: string;
   path?: string;
-  lengthMiles?: number;
   currentCondition?: { code: string; label: string } | null;
+}
+
+interface GaugeEntry {
+  coordinates?: { lng: number; lat: number };
+  thresholds?: { riverId: string; isPrimary?: boolean }[] | null;
 }
 
 export default function EmbedRiversPage() {
@@ -43,23 +49,43 @@ export default function EmbedRiversPage() {
     : [];
 
   const [rivers, setRivers] = useState<RiverRow[]>([]);
+  const [temps, setTemps] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/rivers')
-      .then(r => (r.ok ? r.json() : { rivers: [] }))
-      .then(data => {
-        const all: RiverRow[] = data.rivers || [];
+    let cancelled = false;
+    Promise.all([fetch('/api/rivers'), fetch('/api/gauges')])
+      .then(async ([rr, gr]) => {
+        const rdata = rr.ok ? await rr.json() : { rivers: [] };
+        const gdata = gr.ok ? await gr.json() : { gauges: [] };
+        const all: RiverRow[] = rdata.rivers || [];
+        let display: RiverRow[];
         if (requested.length > 0) {
           // Preserve the order the embedder asked for.
           const bySlug = new Map(all.map(r => [r.slug, r]));
-          setRivers(requested.map(slug => bySlug.get(slug)).filter((r): r is RiverRow => Boolean(r)).slice(0, MAX_ROWS));
+          display = requested.map(slug => bySlug.get(slug)).filter((r): r is RiverRow => Boolean(r)).slice(0, MAX_ROWS);
         } else {
-          setRivers(all.slice(0, MAX_ROWS));
+          display = all.slice(0, MAX_ROWS);
+        }
+        if (cancelled) return;
+        setRivers(display);
+        setLoading(false);
+
+        // Air temperature per river, from its primary gauge's coordinates.
+        const gauges: GaugeEntry[] = gdata.gauges || [];
+        for (const river of display) {
+          if (!river.id) continue;
+          const gauge = gauges.find(g => g.coordinates && g.thresholds?.some(t => t.riverId === river.id && t.isPrimary))
+            || gauges.find(g => g.coordinates && g.thresholds?.some(t => t.riverId === river.id));
+          if (!gauge?.coordinates) continue;
+          fetch(`/api/weather?lat=${gauge.coordinates.lat}&lon=${gauge.coordinates.lng}`)
+            .then(r => (r.ok ? r.json() : null))
+            .then(w => { if (w && !cancelled && typeof w.temp === 'number') setTemps(prev => ({ ...prev, [river.slug]: Math.round(w.temp) })); })
+            .catch(() => {});
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
     // riversParam is the string form of `requested`
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riversParam]);
@@ -150,9 +176,9 @@ export default function EmbedRiversPage() {
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {river.name}
               </span>
-              {river.lengthMiles != null && (
-                <span style={{ fontSize: 10, color: textSecondary, flexShrink: 0, fontFamily: EMBED_FONTS.mono }}>
-                  {river.lengthMiles} mi
+              {temps[river.slug] != null && (
+                <span style={{ fontSize: 11, color: textSecondary, flexShrink: 0, fontFamily: EMBED_FONTS.mono }}>
+                  {temps[river.slug]}°F
                 </span>
               )}
               <span
