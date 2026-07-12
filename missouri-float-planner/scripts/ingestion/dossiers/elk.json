@@ -62,36 +62,45 @@
       "thresholds": [
         {
           "level": "too_low",
+          "value": 2.5,
+          "unit": "ft",
+          "referenceGauge": "07189000",
+          "referenceGaugeIsPolled": true,
+          "source": "Elk River Floats Gauge Height Key: below 2.5 ft the lower trip runs canoes/kayaks only (scraping); the upper & full 12-mi trips are closed below 3.5 ft.",
+          "confidence": "high",
+          "corroboratingSources": [
+            "Elk River Floats Gauge Height Key (https://www.elkriverfloats.com/ — per-trip gauge-height table)"
+          ]
+        },
+        {
+          "level": "optimal_min",
           "value": 3.5,
           "unit": "ft",
           "referenceGauge": "07189000",
           "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key closes the full/upper trip below ~3.5 ft; corroborated by a moherp trip rated 'Low' at 3.56 ft",
-          "confidence": "medium"
+          "source": "Elk River Floats Gauge Height Key: at 3.5–5 ft all trips run all craft (canoes, kayaks, rafts, tubes) — the comfortable all-craft range.",
+          "confidence": "high"
         },
         {
-          "level": "high",
-          "value": 6,
+          "level": "optimal_max",
+          "value": 5,
           "unit": "ft",
           "referenceGauge": "07189000",
           "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key: at 6 ft 'no watercraft' on the upper & full trips (lower trip only)",
-          "corroboratingSources": [
-            "Elk River Floats Gauge Height Key PDF (elkriverfloats.com)"
-          ],
+          "source": "Elk River Floats Gauge Height Key: above 5 ft tubes and canoes drop out and craft are restricted to experienced kayaks/rafts.",
           "confidence": "high"
         },
         {
           "level": "dangerous",
-          "value": 6.5,
+          "value": 6,
           "unit": "ft",
           "referenceGauge": "07189000",
           "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key: at 6.5+ ft even the lower trip is rafts/experienced-adults-only — effective do-not-float. NOT the NWS flood stage (15 ft).",
+          "source": "Elk River Floats Gauge Height Key: at 6+ ft the upper & full (12-mi) trips close ('no watercraft — lower trip only') — do not float the main river. Deliberately NOT the NWS flood stage (15 ft).",
+          "confidence": "high",
           "corroboratingSources": [
-            "Elk River Floats Gauge Height Key PDF (elkriverfloats.com)"
-          ],
-          "confidence": "high"
+            "Elk River Floats Gauge Height Key (https://www.elkriverfloats.com/ — per-trip gauge-height table)"
+          ]
         }
       ],
       "publishedFloatTimes": [
@@ -207,6 +216,7 @@
       "USGS GNIS feature 01092538 (Elk River); NHD / National Map HUC 11070208"
     ],
     "openQuestions": [
+      "CALIBRATION UPDATED 2026-07-12 from the Elk River Floats gauge-height key (owner-provided): added the optimal band (3.5–5 ft all-craft) and set dangerous=6 ft (upper/full trips close). This RESOLVES the earlier 'no optimal → badge reads low everywhere' blocker. moherp confirms no observed cfs Good/High for the Elk mainstem (only an observed Low ~250 cfs), so the ft outfitter key is the calibration source.",
       "LAUNCH BLOCKER — OPTIMAL WINDOW UNPROVEN: there is NO moherp OBSERVED 'Good' rating anywhere on the Elk mainstem — only a single stale 2010 'Low' point (3.56 ft / ~238 cfs) — so optimal_min/optimal_max are OMITTED and the site's model-ESTIMATED 'Good' (~482 cfs) is REJECTED (same estimated-tier miscalibration seen on the Black). CONSEQUENCE: with no optimal band the condition badge reads 'low' across the ENTIRE floatable range, from the 3.5 ft too_low edge all the way up to the 6 ft high anchor. Elk needs an OBSERVED optimal calibration (a trip-rated 'Good' gage height, or Elk River Floats 'ideal-level' guidance) before it can badge accurately — this is the main launch blocker.",
       "HYDROLOGY (RESOLVED): reclassified spring_fed_float -> rain_flashy. Clear, spring-influenced base flow but strongly flash-flood prone — Big Sugar Creek headwaters swing from ~20 cfs to ~20,000 cfs. Thresholds are therefore encoded in FEET of gage height (matching the outfitter Gauge Height Key), NOT converted to cfs, because the current USGS stage-discharge rating disagrees with the historical observed cfs.",
       "REPRESENTATIVE-GAUGE BIAS: Elk River near Tiff City 07189000 sits near the OK line (~mile 45) BELOW the Indian Creek confluence (Indian Creek enters ~mile 30 and roughly doubles the flow), so it OVER-READS the popular upper Pineville–Noel reach. Quantify the over-read so upper-reach put-ins can be corrected.",

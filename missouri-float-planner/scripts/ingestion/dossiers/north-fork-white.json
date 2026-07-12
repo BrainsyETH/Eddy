@@ -48,7 +48,7 @@
       },
       "takeOut": {
         "name": "Tecumseh / Norfork Lake Public Access (mile 49.5)",
-        "lat": 36.6230,
+        "lat": 36.623,
         "lon": -92.2481
       },
       "publishedLengthMiles": 25.4,
@@ -59,31 +59,22 @@
       },
       "thresholds": [
         {
-          "level": "too_low",
-          "value": 285,
-          "unit": "cfs",
-          "referenceGauge": "07057500",
-          "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
-          "confidence": "high"
-        },
-        {
           "level": "optimal_min",
-          "value": 475,
+          "value": 282,
           "unit": "cfs",
           "referenceGauge": "07057500",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
-          "confidence": "high"
+          "source": "rivers.moherp.org OBSERVED community trip reports for North Fork near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500): lowest 'Good'-rated float 282 cfs (2003-08-10); Good floats observed 282–811 cfs. moherp's published Poor/Low/Good ESTIMATED thresholds (285/475/628) are model values, REJECTED per calibration policy — real trips at 363–428 cfs were rated 'Good', not 'Low'.",
+          "confidence": "medium"
         },
         {
           "level": "optimal_max",
-          "value": 628,
+          "value": 811,
           "unit": "cfs",
           "referenceGauge": "07057500",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
-          "confidence": "high"
+          "source": "rivers.moherp.org OBSERVED community trip reports for North Fork near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500): highest 'Good'-rated float 811 cfs (2002-06-08); above this, floats were rated 'High'.",
+          "confidence": "medium"
         },
         {
           "level": "high",
@@ -91,11 +82,11 @@
           "unit": "cfs",
           "referenceGauge": "07057500",
           "referenceGaugeIsPolled": true,
-          "source": "rivers.moherp.org OBSERVED community rating for North Fork River near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500)",
+          "source": "rivers.moherp.org OBSERVED community trip reports for North Fork near Tecumseh 07057500 (https://rivers.moherp.org/gauge/?gauge=07057500): moherp OBSERVED 'High' threshold = 1000 cfs.",
+          "confidence": "high",
           "corroboratingSources": [
-            "moherp trip report 1230 cfs rated 'High' and still floated"
-          ],
-          "confidence": "high"
+            "moherp trip 1230 cfs rated 'High' (2015-07-18, still floated)"
+          ]
         }
       ],
       "publishedFloatTimes": [
@@ -370,7 +361,7 @@
     {
       "name": "Tecumseh / Norfork Lake Public Access",
       "type": "access",
-      "lat": 36.6230,
+      "lat": 36.623,
       "lon": -92.2481,
       "riverMile": 49.5,
       "ownership": "USACE",
@@ -403,6 +394,7 @@
       "Wikipedia / agent web research (length 109 mi; used only as a conflicting cross-check against the owner's 78 mi)"
     ],
     "openQuestions": [
+      "CALIBRATION CORRECTED 2026-07-12 (owner-provided moherp screenshot): the earlier ladder (too_low 285 / optimal 475–628) used moherp's ESTIMATED column as if observed. Only High=1000 and Good=120 are OBSERVED. Reset to observed trip data: optimal 282–811 (observed Good range) / high 1000. No too_low anchor (moherp Poor observed = none; <282 reads too_low). dangerous still unsourced (call the outfitters).",
       "DANGEROUS ANCHOR UNSOURCED (dangerous anchor OMITTED, not guessed): no floater 'do-not-float' number exists — moherp OBSERVED tops out at 'High', and the highest logged trip, 1230 cfs, was still rated only 'High' and floated. The way to source a high-water cutoff is a phone call to the 5 North Fork outfitters — especially Sunburst Ranch 417-284-3443 and Dawt Mill Resort 417-284-3540 (also Twin Bridges 417-256-7507, River of Life Farm 417-261-7777, Pettit's 417-284-3290). Until then the badge cannot show 'dangerous' from this gauge. NWS flood 20 ft (TNZM7) is a CROSS-CHECK only (~10x floatable stage), not the anchor.",
       "ACCESS GPS: every access point still needs a human pin — the owner access guide gives directions + river-mile, not lat/lon. Only Tecumseh (≈36.6230,-92.2481, from the gauge) has a coordinate, and even that needs confirmation.",
       "LENGTH CONFLICT: 78 mi (owner river-guide, likely the main floatable stem) vs 109 mi (Wikipedia/agent, likely incl. headwaters); floatable ~50 mi (SH 76 → Tecumseh). Reconcile at sign-off.",
