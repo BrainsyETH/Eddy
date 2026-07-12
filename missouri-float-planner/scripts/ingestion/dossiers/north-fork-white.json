@@ -87,6 +87,19 @@
           "corroboratingSources": [
             "moherp trip 1230 cfs rated 'High' (2015-07-18, still floated)"
           ]
+        },
+        {
+          "level": "dangerous",
+          "value": 8440,
+          "unit": "cfs",
+          "referenceGauge": "07057500",
+          "referenceGaugeIsPolled": true,
+          "source": "NWS/NWPS TNZM7 flood impacts: at 8 ft gage height the State Highway H (Patrick) low-water bridge floods, affecting the canoe-rental accesses — a floater do-not-float level. 8.00 ft = 8440 cfs via the USGS 07057500 exsa rating (rating is consistent with live readings: 2.73 ft ~ 557-598 cfs). NOT the NWS action/flood stage (18/20 ft = valley flooding).",
+          "confidence": "high",
+          "corroboratingSources": [
+            "NWS/NWPS TNZM7 flood-impacts page (owner-provided 2026-07-12)",
+            "USGS 07057500 exsa rating: 8.00 ft = 8439 cfs"
+          ]
         }
       ],
       "publishedFloatTimes": [
@@ -394,6 +407,7 @@
       "Wikipedia / agent web research (length 109 mi; used only as a conflicting cross-check against the owner's 78 mi)"
     ],
     "openQuestions": [
+      "DANGEROUS ANCHOR RESOLVED 2026-07-12 (owner-provided NWS TNZM7 flood impacts): dangerous = 8440 cfs = 8 ft, where the Hwy H/Patrick low-water bridge floods and the canoe accesses are affected. Ladder now complete (optimal 282-811 / high 1000 / dangerous 8440). The wide high band reflects a big spring-fed river that carries high flows; refine if an outfitter publishes a lower do-not-float.",
       "CALIBRATION CORRECTED 2026-07-12 (owner-provided moherp screenshot): the earlier ladder (too_low 285 / optimal 475–628) used moherp's ESTIMATED column as if observed. Only High=1000 and Good=120 are OBSERVED. Reset to observed trip data: optimal 282–811 (observed Good range) / high 1000. No too_low anchor (moherp Poor observed = none; <282 reads too_low). dangerous still unsourced (call the outfitters).",
       "DANGEROUS ANCHOR UNSOURCED (dangerous anchor OMITTED, not guessed): no floater 'do-not-float' number exists — moherp OBSERVED tops out at 'High', and the highest logged trip, 1230 cfs, was still rated only 'High' and floated. The way to source a high-water cutoff is a phone call to the 5 North Fork outfitters — especially Sunburst Ranch 417-284-3443 and Dawt Mill Resort 417-284-3540 (also Twin Bridges 417-256-7507, River of Life Farm 417-261-7777, Pettit's 417-284-3290). Until then the badge cannot show 'dangerous' from this gauge. NWS flood 20 ft (TNZM7) is a CROSS-CHECK only (~10x floatable stage), not the anchor.",
       "ACCESS GPS: every access point still needs a human pin — the owner access guide gives directions + river-mile, not lat/lon. Only Tecumseh (≈36.6230,-92.2481, from the gauge) has a coordinate, and even that needs confirmation.",
