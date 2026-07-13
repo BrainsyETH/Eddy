@@ -1148,14 +1148,21 @@ export default function MOMap(props: MOMapProps) {
 
   // Rating gauges that aren't physically ON their river's drawn line don't
   // get a map marker — a pin floating in a blank basin reads as a data bug
-  // ("phantom gauge"). Two ways this happens: deliberate proxies on streams
-  // the map doesn't draw (07017200 Big River at Irondale rates the ungauged
-  // Huzzah + Courtois; 07018500 Big River at Byrnesville rates the Meramec),
-  // and curated geometry that stops short of a mainstem gauge (Cook Station
-  // above the Meramec line's old upstream end). The threshold is generous —
-  // NHD simplification keeps true on-river gauges within a few hundred
-  // meters — and the check self-heals: extend the geometry and the marker
-  // appears. The gauge itself still rates its river (dock, cards, reaches).
+  // ("phantom gauge"). Two ways this happens: a proxy gauge sitting on a
+  // different stream than the one it rates (a creek with no gauge of its own
+  // borrowing a neighbor's), and curated geometry that stops short of a
+  // mainstem gauge (e.g. a line whose upstream end falls short of the gauge).
+  // The threshold is generous — NHD simplification keeps true on-river gauges
+  // within a few hundred meters — and the check self-heals: point a river at
+  // its real on-river gauge, or extend the geometry, and the marker appears.
+  // (Concrete example: migration 00164 found Huzzah + Courtois mis-wired to
+  // Big River at Irondale — off in another basin, suppressed here — and
+  // repointed both to the real Huzzah gauge at Steelville, 07014000. That
+  // gauge sits ~0.02 mi off the Huzzah's own line, so the Huzzah marker now
+  // shows; Courtois borrows the same gauge as a proxy and it lands ~1.9 mi
+  // off the Courtois line, so Courtois stays suppressed here — still rated
+  // via the proxy in the dock/cards, just no floating pin.) The gauge itself
+  // rates its river in the dock, cards, and reach coloring regardless.
   const offRiverKeys = useMemo(() => {
     const KX = 54.6, KY = 69.0; // ≈ miles per degree at Missouri latitudes
     const MAX_MI = 1.5;
@@ -1870,26 +1877,11 @@ export default function MOMap(props: MOMapProps) {
       MISSOURI &amp; ARKANSAS · LIVE RIVER NETWORK
     </div>
 
-    {/* Footer notes — screen-space, desktop only (the dock carries the legend
-        on mobile). Attribution left, colour key right. */}
-    <div
-      className="pointer-events-none absolute bottom-2 left-3 z-10 hidden md:block"
-      style={{
-        fontFamily: 'var(--font-mono), ui-monospace, monospace',
-        fontSize: 9, letterSpacing: '0.1em', color: 'rgba(242,234,216,0.42)',
-      }}
-    >
-      Stream colour: float condition at the nearest gauge · small ink dots: statewide USGS sites, no float rating
-    </div>
-    <div
-      className="pointer-events-none absolute bottom-2 right-3 z-10 hidden md:block"
-      style={{
-        fontFamily: 'var(--font-mono), ui-monospace, monospace',
-        fontSize: 10, color: 'rgba(242,234,216,0.42)',
-      }}
-    >
-      Geometry: USGS NHD via Supabase · Live data: USGS NWIS
-    </div>
+    {/* The color key and source attribution used to live here as two floating
+        mono footer lines, but they duplicated the dock's legend ("color is the
+        float verdict at the nearest gauge" + the statewide-sites note) and the
+        NHD/NWIS provenance is plumbing, not something a floater needs to read.
+        Dropped to keep the map canvas clean. */}
 
     {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
         screen coordinates regardless of the current view. Slides out of
