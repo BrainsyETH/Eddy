@@ -1,0 +1,220 @@
+{
+  "_status": "SIGNED-OFF 2026-07-13 — owner-authorized go-live (3rd batch). Class I-II (II+ to III at high water)",
+  "name": "Mulberry River",
+  "slug": "mulberry",
+  "primaryGaugeSiteId": "07252000",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozark National Forest / Boston Mountains, NW Arkansas (Franklin, Johnson & Crawford Counties)",
+  "nhdFeatureId": null,
+  "difficultyRating": "Class I-II (II+ to III at high water)",
+  "description": "The Mulberry is Arkansas's premier float and whitewater river: a ~70-mile, free-flowing (undammed), spring- and rain-fed stream that drops out of the Boston Mountains of the Ozark National Forest and runs generally west-southwest to the Arkansas River near the town of Mulberry. It offers scenic Ozark canyon floating with tree-lined bluffs and reliable Class I-II rapids that stiffen to II+/III at higher water. It is notoriously FLASHY - rising and falling several feet within a day after rain - and is typically runnable only from late October to mid-June, often becoming too low to float in the hot summer months. Popular access runs cluster on the upper/middle river along Highway 215 (Wolf Pen, Byrd's, High Bank, Redding) down to Turner Bend at Cass on Highway 23.",
+  "riverType": "rain_flashy",
+  "managingAuthority": "U.S. Forest Service - Ozark-St. Francis National Forest (Boston Mountain & Pleasant Hill Ranger Districts). Also a component of the National Wild & Scenic Rivers System (designated 1992) and an Arkansas Natural & Scenic River / Extraordinary Resource Water (state-designated 1985).",
+  "accessLaw": "Arkansas navigable-waters access: the Mulberry is a legally navigable stream, so the public may float, fish, and wade on the water and below the ordinary high-water mark. However, the streambed banks and adjacent land are largely private or National Forest - there is no general right to trespass on private banks. Put in / take out only at established public accesses (USFS recreation areas such as Wolf Pen, Redding, and outfitter landings such as Byrd's and Turner Bend); some private accesses charge a fee.",
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07252000",
+      "name": "Mulberry River near Mulberry, AR",
+      "lat": 35.57694444,
+      "lon": -94.0152778,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 373,
+      "servesSections": [
+        "wolf-pen-to-redding",
+        "redding-to-turner-bend",
+        "byrds-to-turner-bend",
+        "turner-bend-to-campbell-cemetery",
+        "campbell-cemetery-to-mill-creek"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "slug": "wolf-pen-to-redding",
+      "name": "Wolf Pen to Redding",
+      "description": "Class II+",
+      "putIn": {
+        "name": "Wolf Pen Recreation Area (Hwy 215)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Redding Recreation Area / Campground",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 12.1,
+      "representativeGauge": {
+        "siteId": "07252000"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 1.2,
+          "unit": "ft",
+          "referenceGauge": "07252000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://www.turnerbend.com/WaterLevel.html"
+        },
+        {
+          "level": "low",
+          "value": 1.5,
+          "unit": "ft",
+          "referenceGauge": "07252000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://www.turnerbend.com/WaterLevel.html"
+        },
+        {
+          "level": "optimal_min",
+          "value": 2,
+          "unit": "ft",
+          "referenceGauge": "07252000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://www.turnerbend.com/WaterLevel.html",
+          "corroboratingSources": [
+            "https://byrdsadventurecenter.com/mulberry-river/"
+          ]
+        },
+        {
+          "level": "optimal_max",
+          "value": 3.5,
+          "unit": "ft",
+          "referenceGauge": "07252000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://www.americanwhitewater.org/content/River/view/river-detail/103/main",
+          "corroboratingSources": [
+            "https://www.turnerbend.com/WaterLevel.html"
+          ]
+        },
+        {
+          "level": "dangerous",
+          "value": 8,
+          "unit": "ft",
+          "referenceGauge": "07252000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://www.americanwhitewater.org/content/River/view/river-detail/103/main",
+          "corroboratingSources": [
+            "https://water.noaa.gov/gauges/mlba4"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "redding-to-turner-bend",
+      "name": "Redding to Turner Bend",
+      "description": "Class I-III",
+      "putIn": {
+        "name": "Redding Recreation Area / Campground",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Turner Bend (Hwy 23, Cass)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 3.6,
+      "representativeGauge": {
+        "siteId": "07252000"
+      }
+    },
+    {
+      "slug": "byrds-to-turner-bend",
+      "name": "Byrd's to Turner Bend",
+      "description": "Class I-II (II+)",
+      "putIn": {
+        "name": "Byrd's Adventure Center",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Turner Bend (Hwy 23, Cass)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "07252000"
+      }
+    },
+    {
+      "slug": "turner-bend-to-campbell-cemetery",
+      "name": "Turner Bend to Campbell Cemetery",
+      "description": "Class I-II",
+      "putIn": {
+        "name": "Turner Bend (Hwy 23, Cass)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Campbell Cemetery",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 10.5,
+      "representativeGauge": {
+        "siteId": "07252000"
+      }
+    },
+    {
+      "slug": "campbell-cemetery-to-mill-creek",
+      "name": "Campbell Cemetery to Mill Creek",
+      "description": "Class I-II",
+      "putIn": {
+        "name": "Campbell Cemetery",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Mill Creek",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 12.7,
+      "representativeGauge": {
+        "siteId": "07252000"
+      }
+    }
+  ],
+  "weatherPoint": {
+    "city": "Cass (Turner Bend), AR",
+    "lat": 35.6699,
+    "lon": -93.8283
+  },
+  "alertSearchTerms": [
+    "Mulberry River",
+    "Mulberry River near Mulberry",
+    "Franklin County",
+    "Johnson County",
+    "Crawford County",
+    "Cass",
+    "Oark",
+    "Ozark",
+    "Turner Bend"
+  ],
+  "accessPoints": [],
+  "research": {
+    "calibrationKeySource": "Turner Bend staff-gauge key transferred to USGS datum (optimal, 3 cross-checks) + American Whitewater USGS-gauge levels + NWS AHPS flood stages (danger)",
+    "calibrationNotes": "UNIT REASONING: USGS 07252000 reports both cfs (~283 today) and gage height (1.66 ft today). I chose FEET because every authoritative floatability source (Turner Bend, Byrd's, American Whitewater) and the NWS flood ladder is expressed in feet; the community publishes essentially no cfs floatability thresholds. CRITICAL TWO-GAUGE CAVEAT: the outfitter floatability key (too_low..optimal_max) originates on Turner Bend's OWN staff gauge at their Cass landing, a DIFFERENT physical gauge ~23 river-miles UPSTREAM of USGS 07252000, with a different stage datum (Turner Bend's channel 'floods'/refunds above ~4.5-5 ft; USGS 07252000 doesn't reach flood until 18 ft). The transfer of Turner Bend's ft numbers onto the USGS datum is justified by THREE consistent cross-checks in the ~1.5-3.6 ft range (prime 3.0-3.5 ft AW/USGS = 3.1-3.6 ft Turner Bend; USGS 1.66 ft = summer-low; USGS 2.54 ft = 'good'), but is NOT validated above ~3.6 ft, where the two gauges diverge. HIGH-CONFIDENCE anchors native to USGS 07252000 (NWS AHPS / MLBA4, NAVD88 datum ~433 ft): action stage 10 ft, minor flood 18 ft, moderate flood 20 ft, major flood 22 ft. OBSERVED stage-flow pairs (for rough cfs cross-reference only): 1.67 ft=283 cfs, 1.78 ft=348 cfs, 2.54 ft=830 cfs; all-time peak 41,300 cfs; median ~38 cfs. CLASSIC RULE OF THUMB: floatable roughly 1.5-4 ft (prime 2.5-3.5 ft); below ~1.2 ft you drag (kayaks only); >~4 ft is pushy, >8 ft experts-only; NWS flood at 18 ft. GAPS: high (6 ft) is LOW confidence; a true cfs-keyed floatability ladder could not be sourced. If the app can add a manual/secondary reference, Turner Bend's landing gauge is the single most authoritative floatability source but has no public API/site ID. It is currently summer-low and the river is 'generally not floatable in the hot summer months.'",
+    "hazards": [
+      "Flash flooding: very flashy, undammed river; can rise several feet within hours after rain (all-time USGS peak 41,300 cfs vs ~283 cfs today). Never launch on a rising gauge or with heavy rain forecast upstream.",
+      "Low-water bridge(s) near Turner Bend/Redding: 'stay to the right to get under the Low Water Bridge'; becomes an impassable, dangerous strainer at high water (Turner Bend refuses rentals once too high to get under it, ~4.5 ft on their gauge).",
+      "Named rapids that stiffen and can swamp/pin boats at higher flows: Whoop and Holler (big-wave playspot at 6-8+ ft on USGS gauge), Hell Roaring Falls, Hamm Falls (Hamm's Fall), Big Al's Twist, Chainsaw Jungle, Jump Start, Troll Shoal, Sacroiliac Rapid.",
+      "Strainers / fallen trees, notably in the second mile below Turner Bend; tight curves at high water that can pin or damage boats.",
+      "Class jumps to II+/III at high water; upper Wolf Pen-to-Redding reach is Class II+ and Redding-to-Turner Bend can be Class III at high flows - not for beginners when pushy.",
+      "Summer low water: below ~1.2 ft (gauge) most riffles must be dragged or portaged; river is often not floatable June-October.",
+      "Remote Ozark canyon with limited cell service; cold water hazard early in the season (spring/late fall)."
+    ]
+  }
+}

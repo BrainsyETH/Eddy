@@ -1,0 +1,158 @@
+{
+  "slug": "war-eagle-creek",
+  "name": "War Eagle Creek",
+  "state": "AR",
+  "calibration": {
+    "primaryGaugeSiteId": "07049000",
+    "gaugeName": "War Eagle Creek near Hindsville, AR",
+    "unit": "ft",
+    "keySource": "Outfitter / Arkansas State Parks / paddler consensus on gage height (the 'Hwy 45 gauge' = USGS 07049000). Ladder in gage height feet (00065), current NAVD88 datum.",
+    "keySourceUrls": [
+      "https://www.arownbackyard.com/2024/07/02/floating-war-eagle-creek-hwy-23-to-hwy-45/",
+      "https://www.arkansas.com/state-parks/parks/withrow-springs-state-park",
+      "https://www.arkansasonline.com/news/2007/mar/11/creek-tiquing-war-eagle-20070311-0/",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/2875/main",
+      "https://forums.arkansascanoeclub.com/viewtopic.php?t=28064",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07049000/"
+    ],
+    "ladder": {
+      "too_low": {
+        "value": 1.8,
+        "confidence": "medium",
+        "source": "American Whitewater reach 2875 May-2024 trip report: 'still floatable' at 1.8 ft with occasional rubbing; below ~1.8 ft too shallow (frequent dragging). https://www.americanwhitewater.org/content/River/view/river-detail/2875/main"
+      },
+      "low": {
+        "value": 2.0,
+        "confidence": "high",
+        "source": "Bottom of published ideal / floatable-but-scrapy. AR Own Backyard & Withrow Springs SP ('ideal 2.0-3.5 ft'), Ark Democrat-Gazette ('2 ft'), Arkansas Canoe Club forum (at 2.0 ft kayaker 'jumps out a couple times'), and today's live minimum 1.98 ft=276 cfs. https://www.arownbackyard.com/2024/07/02/floating-war-eagle-creek-hwy-23-to-hwy-45/"
+      },
+      "optimal_min": {
+        "value": 2.5,
+        "confidence": "medium",
+        "source": "Arkansas Canoe Club forum: comfortable floating ~2.5+ ft; 'under 2.5 will be slow / shallow, wouldn't take a canoe'. Within published 2.0-3.5 ideal band. https://forums.arkansascanoeclub.com/viewtopic.php?t=28064"
+      },
+      "optimal_max": {
+        "value": 3.5,
+        "confidence": "high",
+        "source": "Published ideal ceiling: AR Own Backyard & arkansas.com/Withrow Springs SP 'ideal 2.0-3.5 ft on the Hwy 45 gauge'; American Whitewater notes 'creekier nature' up to ~3.5 ft. https://www.arownbackyard.com/2024/07/02/floating-war-eagle-creek-hwy-23-to-hwy-45/"
+      },
+      "high": {
+        "value": 3.5,
+        "confidence": "medium",
+        "source": "Above ~3.5 ft (top of ideal) the creek runs high/pushy (American Whitewater 'creekier' beyond 3.5 ft). Boundary = optimal_max; 3.5-4.0 ft is elevated/caution water. https://www.americanwhitewater.org/content/River/view/river-detail/2875/main"
+      },
+      "dangerous": {
+        "value": 4.0,
+        "confidence": "medium",
+        "source": "AR Own Backyard: 'just over 4 feet is considered flood stage' on the Hwy 45 gauge. Treat >=4 ft as unsafe for general floating. NOT an official NWS flood stage (gauge is not an NWS AHPS forecast point with published categories). https://www.arownbackyard.com/2024/07/02/floating-war-eagle-creek-hwy-23-to-hwy-45/"
+      }
+    },
+    "notes": "UNIT: gage height feet (USGS 00065), current NAVD88 datum \u2014 the only unit every float key uses ('2.0-3.5 ft on the Hwy 45 gauge'; '2-3 ft at the USGS gauge'). The 'Hwy 45 gauge' IS USGS 07049000 (the Hwy 45 crossing at/near Hindsville); this section's take-out is at the gauge. Live confirm 2026-07-13 12:00 CDT: 1.98 ft / 276 cfs (USGS IV + USACE HDGA4), consistent with task (~2.01 ft / ~283 cfs) \u2014 today the creek sits right at the low/floatable floor (typical summer low). CFS CROSS-REFERENCE (approx, current rating): 2.0 ft\u2248280 cfs, 2.3 ft\u2248360 cfs (snoflo). A ladder was NOT built in cfs because sourced cfs values are unreliable: American Whitewater prose says '2.3'/120cfs (bare minimum) up to ~3.5'/800' but 2.3 ft is ~360 cfs today, so the 120-cfs figure is old-datum/typo \u2014 only the FEET values are internally consistent 2007-2026. TWO 'runnable' framings exist: casual FLOAT (outfitters/state park/on-water reports = 2.0-3.5 ft ideal, this ladder) vs WHITEWATER play (AW machine 'recommended' ~4 ft; whatsrunning.billdurr.com lists min 3 ft / optimal 6 ft) which target higher, pushier water \u2014 those higher whitewater numbers were EXCLUDED as inappropriate for a general float app and because they conflict with the ~4 ft flood line. FLASHY: creek spiked to ~2,200 cfs (10-day peak) in the days before 2026-07-13 and receded ~83%/day; flood of record ~40,500 cfs \u2014 a rapidly rising gauge is the real danger regardless of absolute stage. No official NWS/USACE flood-stage number could be sourced for this point."
+  },
+  "secondaryGauges": [],
+  "sections": [
+    {
+      "name": "Hwy 23 Fish Hatchery to Hwy 412 (upper)",
+      "slug": "hatchery-to-hwy-412",
+      "putIn": "Hwy 23 upper access near the fish hatchery / St. Paul-Boston area, SE Madison County",
+      "takeOut": "Hwy 412 bridge",
+      "miles": 10,
+      "difficulty": "Class I-II",
+      "primaryGaugeSiteId": "07049000"
+    },
+    {
+      "name": "Hwy 412 to Withrow Springs State Park (Hwy 23)",
+      "slug": "hwy-412-to-withrow-springs",
+      "putIn": "Hwy 412 bridge",
+      "takeOut": "Withrow Springs State Park / Hwy 23 bridge",
+      "miles": 5,
+      "difficulty": "Class I-II",
+      "primaryGaugeSiteId": "07049000"
+    },
+    {
+      "name": "Withrow Springs State Park (Hwy 23) to Hwy 45 (Hindsville)",
+      "slug": "withrow-springs-to-hwy-45",
+      "putIn": "Withrow Springs State Park / Hwy 23",
+      "takeOut": "Hwy 45 bridge near Hindsville (at USGS gauge 07049000)",
+      "miles": 12.7,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07049000"
+    },
+    {
+      "name": "Hwy 45 (Hindsville) to War Eagle Mill",
+      "slug": "hwy-45-to-war-eagle-mill",
+      "putIn": "Hwy 45 bridge near Hindsville",
+      "takeOut": "War Eagle Mill / War Eagle bridge, above the Beaver Lake backwater (Benton County)",
+      "miles": 10.7,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07049000"
+    }
+  ],
+  "metadata": {
+    "region": "Ozarks / Northwest Arkansas",
+    "difficultyRating": "Class I (American Whitewater rates the corridor Class I-II; upper reaches are the liveliest)",
+    "riverType": "rain_flashy",
+    "description": "War Eagle Creek is a scenic Class I Ozark float in northwest Arkansas (Madison and Benton counties) that flows north out of the hills near Huntsville and St. Paul, past Withrow Springs State Park \u2014 the traditional float base and canoe-rental point \u2014 and on past the historic 1830s War Eagle Mill before reaching the War Eagle arm of Beaver Lake. Framed by tall limestone bluffs with mostly easy Class I water (occasional Class I-II), it is a rain-dependent, flashy creek best floated during spring runoff (roughly March to mid-June) after rains; it drops low and scrapy by mid-to-late summer. Paddlers judge floatability from the USGS gauge near Hindsville (the 'Hwy 45 gauge'), where about 2.0-3.5 ft is the ideal range and just over 4 ft is flood stage.",
+    "timezone": "America/Chicago",
+    "country": "US",
+    "state": "AR",
+    "weatherCity": "Huntsville, AR",
+    "weatherLat": 36.0837,
+    "weatherLon": -93.746,
+    "nhdReachHint": "War Eagle Creek, NW Arkansas \u2014 headwaters near St. Paul/Boston in SE Madison County, flowing generally north through the Huntsville area and Withrow Springs State Park, past Hindsville (USGS 07049000) and the historic War Eagle Mill, into the War Eagle arm of Beaver Lake in Benton County (Upper White River / Beaver Reservoir basin, HUC 11010001).",
+    "alertSearchTerms": [
+      "War Eagle Creek",
+      "Hindsville",
+      "Huntsville AR",
+      "Madison County",
+      "War Eagle",
+      "Withrow Springs"
+    ],
+    "managingAuthority": "Arkansas State Parks (Withrow Springs State Park); Arkansas Game and Fish Commission (AGFC \u2014 fisheries/access, led the 2023 dam-removal project); U.S. Army Corps of Engineers (Beaver Lake and the lower backwater). No single river-wide manager.",
+    "accessLaw": "Arkansas: the public may float and fish navigable/floatable streams and use the streambed and water below the ordinary high-water mark; War Eagle Creek is a recognized floatable stream. Streambanks and adjacent land are private \u2014 put in / take out only at public road crossings, Withrow Springs State Park, or private outfitter access."
+  },
+  "hazards": [
+    {
+      "name": "War Eagle Mill low-head dam",
+      "type": "dam",
+      "severity": "high",
+      "description": "Low dam/weir at the historic War Eagle Mill (War Eagle community, Benton County, just above the Beaver Lake backwater). MUST be portaged; steep banks on both sides make it a difficult portage. Present and in place as of 2026."
+    },
+    {
+      "name": "Low-water bridges / concrete slabs",
+      "type": "low_water_crossing",
+      "severity": "medium",
+      "description": "County crossings such as Gar Hole Road ('the Slab') and others \u2014 only an inch or two of water over the slab at low flow (scrapy/exposed), but they form dangerous strainers/hydraulics at high water. Also commonly used as put-in/take-out access."
+    },
+    {
+      "name": "Strainers / log jams",
+      "type": "strainer",
+      "severity": "medium",
+      "description": "Typical Ozark-creek wood hazard; the channel can be fully blocked in places, occasionally requiring portages of up to ~100 yards. Worse after high-water events."
+    },
+    {
+      "name": "Flash flooding",
+      "type": "flash_flood",
+      "severity": "high",
+      "description": "Flashy, rain-dependent creek that rises fast \u2014 spiked to ~2,200 cfs (10-day peak) just before 2026-07-13 and receded ~83%/day; flood of record ~40,500 cfs. Do not float during or right after heavy rain; a rapidly rising gauge is the primary danger regardless of absolute stage. Flood stage is 'just over 4 ft' on the Hwy 45 gauge."
+    },
+    {
+      "name": "Summer low water",
+      "type": "low_water",
+      "severity": "low",
+      "description": "Below ~2 ft on the gauge expect frequent dragging/wading, especially in canoes; the creek is often too low to float from mid-to-late summer into fall."
+    },
+    {
+      "name": "Removed hazard (historical) \u2014 upper-reach concrete dam",
+      "type": "info",
+      "severity": "low",
+      "description": "A ~12-ft-high low-head concrete dam ~1.5 miles east of Huntsville (Hwy 23-to-Hwy 412 upper reach) was REMOVED Nov 1-6, 2023 by an AGFC-led restoration project; older guidebooks and American Whitewater still list it as a required portage. A nearby overflow structure was also slated for removal."
+    },
+    {
+      "name": "Withrow Springs SP access closure (logistics)",
+      "type": "info",
+      "severity": "low",
+      "description": "As of recent reports, Withrow Springs State Park has NO War Eagle Creek access or parking due to Hwy 23 bridge construction; use private outfitters (e.g., OAR War Eagle Kayak & Campground on Hwy 23; Float Eureka) for put-in/shuttle. Verify before a trip."
+    }
+  ]
+}

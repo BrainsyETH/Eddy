@@ -1,0 +1,203 @@
+{
+  "_status": "HELD-INACTIVE 2026-07-13: thin calibration (no published optimal band; danger anchor would be NWS flood stage). too_low/low ingested; complete + activate when an outfitter optimal/danger key exists.",
+  "name": "Kings River",
+  "slug": "kings-river",
+  "primaryGaugeSiteId": "07050500",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozark Mountains / Northwest Arkansas (Carroll & Madison counties)",
+  "nhdFeatureId": null,
+  "difficultyRating": "Class I (mostly I-I+) on the ~82-mi lower river; advanced Class III+ whitewater only on the upper 11 mi (Dripping Springs-Hwy 74)",
+  "description": "The Kings River is a free-flowing, undammed Ozark stream that runs generally north for about 90-93 miles from its headwaters in the Boston Mountains of Madison County, Arkansas (about 1.5 mi east of Boston) to the White River arm of Table Rock Lake at the Arkansas-Missouri state line. Its uppermost 11 miles (Dripping Springs to Hwy 74) form a turbulent Class III+ whitewater run with a waterfall for advanced paddlers only; the remaining ~82 miles are a gentle, scenic Class I float past tall bluffs, gravel bars, and clear pools, popular for smallmouth-bass fishing and family canoe/kayak trips. Because it is rain-fed and flashy, the Kings floats best from late winter through June and typically drops below floatable levels by mid-summer, though its lowest, lake-influenced reach holds water into August. Arkansas has designated it an Extraordinary Resource Waterbody.",
+  "riverType": "rain_flashy",
+  "managingAuthority": "Free-flowing/undammed with no single manager. Public floating access at road crossings plus private/fee accesses via outfitters (Kings River Outfitters and Trigger Gap Outfitters, both near Berryville/Eureka Springs). The Nature Conservancy owns riverfront land (Kings River Preserve / Rockhouse area). Arkansas Game & Fish Commission (fisheries). Arkansas Dept. of Energy & Environment / Division of Environmental Quality administers the 'Extraordinary Resource Waterbody' designation. Downstream mouth (Table Rock Lake) is managed by the USACE Little Rock District. Streamgauge 07050500 operated by the USGS.",
+  "accessLaw": "Arkansas: the public has the right to float and wade streams that are legally navigable and to use the water/streambed below the ordinary high-water mark, but banks and bordering land (including gravel bars above the high-water mark) are largely private -- entry/exit is generally limited to public road rights-of-way and designated (often private, fee) accesses. Do not trespass on private banks. The Kings is a state-designated Extraordinary Resource Waterbody with added protections against streambed alteration and pollution. Note: access is specifically NOT recommended at the US-412 bridge east of Marble.",
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07050500",
+      "name": "Kings River near Berryville, AR",
+      "lat": 36.4272222,
+      "lon": -93.6208333,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 527,
+      "servesSections": [
+        "upper-kings-dripping-springs-to-hwy-74",
+        "marble-to-marshall-ford",
+        "marshall-ford-to-rockhouse",
+        "rockhouse-to-trigger-gap",
+        "trigger-gap-to-hwy-62",
+        "hwy-62-to-mo-86"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "slug": "upper-kings-dripping-springs-to-hwy-74",
+      "name": "Upper Kings: Dripping Springs to Hwy 74 (advanced whitewater)",
+      "description": "Turbulent Class III+ whitewater with a waterfall; advanced paddlers only, NOT a casual float. Berryville gauge (07050500) is far downstream and only a rough proxy for this reach; it needs high spring flows. American Whitewater reach id 2637.",
+      "putIn": {
+        "name": "Dripping Springs",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Arkansas Hwy 74 bridge",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 11.5,
+      "representativeGauge": {
+        "siteId": "07050500"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 3.2,
+          "unit": "ft",
+          "referenceGauge": "07050500",
+          "referenceGaugeIsPolled": true,
+          "confidence": "high",
+          "source": "https://kingsriverarkansas.com/access-points/"
+        },
+        {
+          "level": "low",
+          "value": 3.5,
+          "unit": "ft",
+          "referenceGauge": "07050500",
+          "referenceGaugeIsPolled": true,
+          "confidence": "high",
+          "source": "https://kingsriverarkansas.com/access-points/"
+        }
+      ]
+    },
+    {
+      "slug": "marble-to-marshall-ford",
+      "name": "Marble to Marshall Ford",
+      "description": "Upper floatable reach; ~7 hrs. Put in at the Marble access -- Arkansas tourism advises AGAINST access at the US-412 bridge east of Marble. Includes a low-water bridge portage.",
+      "putIn": {
+        "name": "Marble access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Marshall Ford",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 11.3,
+      "representativeGauge": {
+        "siteId": "07050500"
+      }
+    },
+    {
+      "slug": "marshall-ford-to-rockhouse",
+      "name": "Marshall Ford to Rockhouse",
+      "description": "Long, remote reach (~8 hrs); good for overnight camping. Trigger Gap Outfitters lists it at ~15.7 mi.",
+      "putIn": {
+        "name": "Marshall Ford",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Rockhouse",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 15.85,
+      "representativeGauge": {
+        "siteId": "07050500"
+      }
+    },
+    {
+      "slug": "rockhouse-to-trigger-gap",
+      "name": "Rockhouse to Trigger Gap",
+      "description": "Most popular day float (~4 hrs). Runs through The Nature Conservancy land with rock features, gravel bars, and deep swimming holes; low-water bridge portage. Some outfitters list ~7.7 mi.",
+      "putIn": {
+        "name": "Rockhouse",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Trigger Gap",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 7.5,
+      "representativeGauge": {
+        "siteId": "07050500"
+      }
+    },
+    {
+      "slug": "trigger-gap-to-hwy-62",
+      "name": "Trigger Gap to Hwy 62 (JD Fletcher)",
+      "description": "Trophy smallmouth-bass section (18-inch minimum keeper); ~7 hrs, can be run as an overnight. HAZARD: low-water bridge near the end with its center blasted out -- outfitters advise going straight down the middle or portaging on the left. Some outfitters list ~12.9 mi.",
+      "putIn": {
+        "name": "Trigger Gap",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "US-62 bridge (JD Fletcher access)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 12.75,
+      "representativeGauge": {
+        "siteId": "07050500"
+      }
+    },
+    {
+      "slug": "hwy-62-to-mo-86",
+      "name": "Hwy 62 to MO 86 (into Table Rock Lake)",
+      "description": "Longest reach (8-12 hrs); enters the White River arm of Table Rock Lake at the AR/MO line -- expect slack backwater, motorboat traffic, and wind. Floatable into August thanks to lake influence.",
+      "putIn": {
+        "name": "US-62 bridge",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Missouri Hwy 86 / White River arm of Table Rock Lake",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 21.86,
+      "representativeGauge": {
+        "siteId": "07050500"
+      }
+    }
+  ],
+  "weatherPoint": {
+    "city": "Berryville, AR",
+    "lat": 36.3651,
+    "lon": -93.568
+  },
+  "alertSearchTerms": [
+    "Kings River",
+    "Kings River Arkansas",
+    "Kings River near Berryville",
+    "Berryville",
+    "Carroll County",
+    "Trigger Gap",
+    "Marble",
+    "Table Rock Lake"
+  ],
+  "accessPoints": [],
+  "research": {
+    "calibrationKeySource": "Kings River Outfitters / Trigger Gap published minimum-floatable levels (too_low/low only); HELD inactive — no published optimal band and the only danger anchor is the NWS flood stage",
+    "calibrationNotes": "GAUGE CORRECTION (safety-critical): the originally supplied ID 07050152 is 'Roaring River at Roaring River State Park', Barry County, MISSOURI (drainage 35.7 sq mi; 36.5810, -93.8337) -- a DIFFERENT river ~35 mi away, reading 84.7 cfs / 0.62 ft on 2026-07-13, which coincidentally matched the '~85 cfs / 0.62 ft' in the brief. The correct Kings River gauge is USGS 07050500 'Kings River near Berryville, AR' (Carroll County; drainage 527 sq mi; 36.4272, -93.6208), reading 199 cfs / 4.26 ft at 12:15 CDT on 2026-07-13 and rising on rain. Do NOT use 07050152 for the Kings. UNIT: gage height feet (USGS 00065) on 07050500; outfitter minimums (3.2/3.5 ft) and NWS flood stages (30/31/33/35 ft) share this NAVD88 963.53 ft datum, so the ladder is internally consistent. FLOATABILITY: minimum floatable 3.2 ft for the popular lower sections (Rockhouse->Trigger Gap->Hwy 62), 3.5 ft for the upper sections (Marble->Marshall Ford->Rockhouse). Best season late winter->June; the lowest, lake-influenced reach (Hwy 62->MO 86) holds water into August. The river is usually TOO LOW by July (Arkansas Canoe Club: 'the Kings is not runnable from Marshall down by June much less July'); despite that, a rain pulse has it floatable today. STAGE<->DISCHARGE reference points for future calibration (approx, gauge 07050500): ~83-89 cfs ~= 3.76 ft (summer baseflow, 'drier than normal'); 199 cfs ~= 4.26 ft (today); minimum-float 3.2 ft ~= roughly 50 cfs (unverified estimate). MIDDLE OF THE LADDER (optimal_min/optimal_max/high) is intentionally null -- no authoritative published thresholds exist and the flashy nature makes any single 'safe upper' number unreliable.",
+    "hazards": [
+      "Low-water bridges must be portaged. One near the end of the Trigger Gap->US-62 section has its center blasted out; outfitters advise running straight down the middle or portaging on the left. Never run a submerged/flooded low-water bridge.",
+      "Flash flooding: this rain-fed Ozark stream is very flashy and can rise many feet within hours after upstream rain; levels change dramatically. Check the 07050500 gauge and the forecast before and during trips.",
+      "Strainers, logjams, and sweepers: the undammed river collects fallen trees and deadfall (especially after high water) that can pin boats.",
+      "Bony/low water: by mid-summer (often July onward) the river commonly drops below the 3.2-3.5 ft minimum floatable level; expect dragging and portaging over gravel bars.",
+      "Upper Kings (Dripping Springs->Hwy 74) is Class III+ whitewater with a waterfall -- advanced paddlers only, and poorly represented by the downstream Berryville gauge.",
+      "Table Rock Lake backwater on the lowest reach (US-62->MO-86): slack water, motorboat traffic, and wind extend the paddle.",
+      "Access is not recommended at the US-412 bridge east of Marble."
+    ]
+  }
+}
