@@ -385,8 +385,8 @@ export default function MOMap(props: MOMapProps) {
       // where it meanders. (Flow is a separate neutral-white layer now and does
       // NOT read these stops; anchors are still preserved so a flood gauge
       // keeps a 'dangerous' stop for the dash overlay's filter.)
-      const BLEND_FRAC = 0.3; // share of each gauge-to-gauge gap spent blending
-      const STEPS = 6;
+      const BLEND_FRAC = 0.4; // share of each gauge-to-gauge gap spent blending
+      const STEPS = 10;
       const stops: typeof anchors = [anchors[0]];
       for (let i = 1; i < anchors.length; i++) {
         const prev = anchors[i - 1];
@@ -399,12 +399,17 @@ export default function MOMap(props: MOMapProps) {
         const halfW = (BLEND_FRAC * (cur.offset - prev.offset)) / 2;
         // Hold prev's color solid up to the blend band…
         stops.push({ offset: mid - halfW, color: prev.color, condition: prev.condition, siteId: prev.siteId });
-        // …cross-fade through hue across the short band…
+        // …cross-fade through hue across the band. Offsets stay even, but the
+        // MIX is smoothstepped so the color barely moves where the band meets
+        // the solid spans (velocity → 0 at both edges) and eases through the
+        // middle — no hard kink at the boundaries, and it passes through the
+        // midpoint hue quickly so the amber stays a sliver.
         for (let k = 1; k <= STEPS; k++) {
           const t = k / STEPS;
+          const e = t * t * (3 - 2 * t); // smoothstep
           stops.push({
             offset: mid - halfW + 2 * halfW * t,
-            color: mixHsl(prev.color, cur.color, t),
+            color: mixHsl(prev.color, cur.color, e),
             condition: t < 0.5 ? prev.condition : cur.condition,
             siteId: t < 0.5 ? prev.siteId : cur.siteId,
           });
@@ -1135,16 +1140,16 @@ export default function MOMap(props: MOMapProps) {
   // Terrain raster: AVIF first, PNG on decode failure (older Safari).
   const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
 
-  // Device-tier hint for the flow layer (lower = phone / low-end hardware):
-  // it widens the self-degrade reaction window on weak devices. The sweep
-  // count itself is geometry-driven, not budgeted by this. Sampled once per
-  // mount (docs/mo-surface-water-observatory.md).
+  // Particle budget for the flow layer: 420 desktop / 200 small screens or
+  // low-end hardware (docs/mo-surface-water-observatory.md). Distributed along
+  // rivers by length; their fading trails do the visual work, so it reads as
+  // fuller than the count suggests. Sampled once per mount.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 240;
+    if (typeof window === 'undefined') return 420;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 110 : 240;
+    return small || lowEnd ? 200 : 420;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
