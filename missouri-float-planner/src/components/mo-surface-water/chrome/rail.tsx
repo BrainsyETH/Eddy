@@ -762,9 +762,29 @@ function GaugeDetail({
           fontFamily: MONO, fontSize: 10, lineHeight: 1.5, color: THEME.inkDim,
         }}
       >
-        Source: USGS NWIS · IV/DV/STAT endpoints. Percentile rank is computed against
-        this gauge&apos;s daily period of record for today&apos;s calendar date.
+        Percentile ranks today&apos;s flow against this gauge&apos;s full daily
+        record for the date.
       </div>
+
+      {/* Cross-link to the full River Report — the richer destination (guide,
+          sections, outfitters, planner) for the river this gauge rates. It's
+          the primary action here, so it sits above the raw USGS station page
+          and borrows the RiverCard's coral CTA to keep the map's cards
+          consistent. */}
+      <a
+        href={`/rivers/${gauge.river_slug}`}
+        className="mt-3 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2.5 uppercase"
+        style={{
+          background: 'var(--color-accent-700)',
+          color: 'var(--color-surface)',
+          borderColor: THEME.cardBorder,
+          boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.12em',
+        }}
+      >
+        Full river report
+        <span aria-hidden>→</span>
+      </a>
 
       {/* Straight to the horse's mouth — the official USGS station page with
           the full record, rating tables, and annual peaks. */}
