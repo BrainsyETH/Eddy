@@ -78,12 +78,12 @@ function FacetSelect({
 }) {
   const active = value !== 'all';
   return (
-    <div className="relative">
+    <div className="relative w-full sm:w-auto">
       <select
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`appearance-none rounded-lg border pl-3 pr-8 py-2 text-sm font-medium cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+        className={`appearance-none w-full sm:w-auto sm:min-w-[8rem] rounded-lg border pl-3 pr-8 py-2 text-sm font-medium cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
           active
             ? 'border-primary-400 bg-primary-50 text-primary-800'
             : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -379,16 +379,16 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
               className="w-full pl-9 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
-          <div className="flex items-center gap-2 md:ml-auto">
-            <label htmlFor="river-sort" className="text-xs font-medium text-neutral-500 whitespace-nowrap">
+          <div className="flex items-center gap-2 w-full md:w-auto md:ml-auto">
+            <label htmlFor="river-sort" className="text-xs font-medium text-neutral-500 whitespace-nowrap shrink-0">
               Sort by
             </label>
-            <div className="relative">
+            <div className="relative flex-1 md:flex-none">
               <select
                 id="river-sort"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as RiverSortKey)}
-                className="appearance-none rounded-lg border border-neutral-300 bg-white text-neutral-700 pl-3 pr-8 py-2 text-sm font-medium cursor-pointer transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="appearance-none w-full md:w-auto rounded-lg border border-neutral-300 bg-white text-neutral-700 pl-3 pr-8 py-2 text-sm font-medium cursor-pointer transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 {SORT_ORDER.map((key) => (
                   <option key={key} value={key}>{SORT_LABELS[key]}</option>
@@ -399,10 +399,11 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
-                Clear
+                <span className="hidden sm:inline">Clear</span>
+                <span className="sr-only sm:hidden">Clear filters</span>
               </button>
             )}
           </div>
@@ -410,20 +411,23 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
 
         {/* Row 2: Floatable-now shortcut + condition pills */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={toggleFloatable}
-            aria-pressed={floatableNow}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              floatableNow ? 'shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
-            style={floatableNow ? { backgroundColor: conditionColor('flowing'), color: '#1A1814' } : undefined}
-          >
-            {!floatableNow && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
-            Floatable now
-            <span className={`tabular-nums ${floatableNow ? 'text-black/60' : 'text-neutral-500'}`}>{floatableCount}</span>
-          </button>
-
-          <span className="mx-0.5 h-5 w-px bg-neutral-200" aria-hidden="true" />
+          {/* Keep the chip and its divider together so the rule can't detach
+              onto its own line when the pills wrap; hide it on mobile. */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={toggleFloatable}
+              aria-pressed={floatableNow}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                floatableNow ? 'shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+              style={floatableNow ? { backgroundColor: conditionColor('flowing'), color: '#1A1814' } : undefined}
+            >
+              {!floatableNow && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
+              Floatable now
+              <span className={`tabular-nums ${floatableNow ? 'text-black/60' : 'text-neutral-500'}`}>{floatableCount}</span>
+            </button>
+            <span className="hidden sm:block h-5 w-px bg-neutral-200" aria-hidden="true" />
+          </div>
 
           {([
             { key: 'too_low' as ConditionCode, count: stats.tooLow, label: 'Too Low', dot: 'bg-neutral-500' },
@@ -458,7 +462,7 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
 
         {/* Row 3: Metadata facets (only shown once there's something to choose) */}
         {hasFacets && (
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-neutral-100">
+          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-neutral-100 sm:flex sm:flex-wrap sm:items-center">
             {facets.states.length >= 2 && (
               <FacetSelect label="Filter by state" allLabel="All states" value={selectedState} options={facets.states} onChange={setSelectedState} />
             )}
@@ -466,7 +470,7 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
               <FacetSelect label="Filter by river type" allLabel="All river types" value={selectedType} options={facets.types} onChange={setSelectedType} />
             )}
             {facets.diffs.length >= 2 && (
-              <FacetSelect label="Filter by difficulty" allLabel="All difficulty levels" value={selectedDifficulty} options={facets.diffs} onChange={(v) => setSelectedDifficulty(v as DifficultyTier | 'all')} />
+              <FacetSelect label="Filter by difficulty" allLabel="All difficulties" value={selectedDifficulty} options={facets.diffs} onChange={(v) => setSelectedDifficulty(v as DifficultyTier | 'all')} />
             )}
             {facets.lens.length >= 2 && (
               <FacetSelect label="Filter by length" allLabel="Any length" value={selectedLength} options={facets.lens} onChange={(v) => setSelectedLength(v as LengthBucket | 'all')} />
