@@ -1140,16 +1140,16 @@ export default function MOMap(props: MOMapProps) {
   // Terrain raster: AVIF first, PNG on decode failure (older Safari).
   const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
 
-  // Device-tier hint for the flow layer (lower = phone / low-end hardware):
-  // it widens the self-degrade reaction window on weak devices. The sweep
-  // count itself is geometry-driven, not budgeted by this. Sampled once per
-  // mount (docs/mo-surface-water-observatory.md).
+  // Particle budget for the flow layer: 420 desktop / 200 small screens or
+  // low-end hardware (docs/mo-surface-water-observatory.md). Distributed along
+  // rivers by length; their fading trails do the visual work, so it reads as
+  // fuller than the count suggests. Sampled once per mount.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 240;
+    if (typeof window === 'undefined') return 420;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 110 : 240;
+    return small || lowEnd ? 200 : 420;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
