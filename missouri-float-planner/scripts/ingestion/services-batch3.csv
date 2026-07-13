@@ -1,0 +1,48 @@
+name,type,river_slugs,phone,email,website,reservation_url,booking_platform,latitude,longitude,services_offered,tent_sites,rv_sites,cabin_count,fee_range,season_open_month,season_close_month,city,state
+Caddo River Camping & Canoe Rental,outfitter,caddo-river,(870) 356-5336,float@caddoriver.com,https://caddoriver.com,,camping.com,34.32139,-93.54945,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle|camping|cabins|restrooms|showers,,,4,$22-60,,,Caddo Gap,AR
+Arrowhead Cabin & Canoe Rental,outfitter,caddo-river,(870) 356-2944,,https://www.arrowheadcanoe.com,,roverpass,34.383662,-93.607360,canoe_rental|kayak_rental|tube_rental|shuttle|camping|cabins|lodging|store|showers|restrooms,,,,$25-48,,,Caddo Gap,AR
+Lucky's Canoe & Kayak Rental,outfitter,caddo-river,(870) 356-2772,info@caddocanoeandkayak.com,https://caddocanoeandkayak.com,,,34.35969,-93.57866,tube_rental|canoe_rental|kayak_rental|raft_rental|shuttle|camping|cabins,,,,,,,Caddo Gap,AR
+Caddo River Access RV Park,campground,caddo-river,(870) 356-2004,caddoriveraccessrv@yahoo.com,https://www.caddoriveraccessrv.com,https://fareharbor.com/embeds/book/caddoriveraccessrv/,fareharbor,,,camping|showers|restrooms,,,,$43-73,1,12,Caddo Gap,AR
+Fancy Hill Cabins & RV Park,campground,caddo-river,(870) 356-5311,,https://www.fancyhillcabinsandrvpark.com,,,,,camping|cabins,,,,,,,Caddo Gap,AR
+Caddo River Cabins,cabin_lodge,caddo-river,(870) 718-3072,,https://www.caddorivercabin.com,,,,,cabins|lodging,,,4,$150-195,,,Caddo Gap,AR
+Caddo River Crossing,cabin_lodge,caddo-river,(501) 762-6408,info@caddorivercrossing.com,http://www.caddorivercrossing.com,,vrbo,,,cabins|lodging,,,4,,,,Caddo Gap,AR
+Caddo River Ranch,cabin_lodge,caddo-river,(870) 490-0078,,https://atcaddoriverranch.com,,,,,cabins|lodging,,,6,,,,Caddo Gap,AR
+Caddo River Motel & Cabin Rentals,cabin_lodge,caddo-river,(870) 356-4117,,,,,,,lodging|cabins,,,,,1,12,Caddo Gap,AR
+Bean Creek Cabins,cabin_lodge,caddo-river,,,https://www.thebeancreekcabins.com,,,,,cabins|lodging,,,3,,,,Caddo Gap,AR
+Living Water Cabins,cabin_lodge,caddo-river,,,https://atlivingwatercabins.com,,,,,cabins|lodging,,,4,,,,Caddo Gap,AR
+Caddo Bend Lodge,cabin_lodge,caddo-river,(501) 463-6651,,,,,,,lodging|cabins,,,,,,,Caddo Gap,AR
+Hangout Properties LLC,cabin_lodge,caddo-river,,,https://www.hangoutpropertiesllc.com,https://www.hangoutpropertiesllc.com/book-now,,,,cabins|lodging,,,,,,,Caddo Gap,AR
+Rivers Bend Guest Cabin,cabin_lodge,caddo-river,,,https://caddoriversbend.com,,,,,cabins|lodging,,,1,,,,Caddo Gap,AR
+OAR War Eagle Kayak & Campground,outfitter,war-eagle-creek,(479) 431-0444,oar.outdoor@gmail.com,https://www.oaroutdoor.com,,,,,kayak_rental|tube_rental|shuttle|camping,,,,,,,Huntsville,AR
+Float Eureka,outfitter,war-eagle-creek,(479) 981-2689,,https://www.floateurekasprings.com,https://www.floateurekasprings.com/book-now,peek,,,canoe_rental|kayak_rental|tube_rental,,,,,,,Huntsville,AR
+War Eagle Canoeing & Camping (War Eagle R.V. Resort),outfitter,war-eagle-creek,(479) 530-3262,,,,,,,canoe_rental|kayak_rental|shuttle|camping,,,,,1,12,Huntsville,AR
+Withrow Springs State Park,campground,war-eagle-creek,(479) 559-2593,withrowsprings@arkansas.com,https://www.arkansasstateparks.com/parks/withrow-springs-state-park,https://reserve.arkansasstateparks.com/withrow-springs,,36.15463,-93.736269,camping|showers|restrooms,10,29,,,,,Huntsville,AR
+War Eagle Campground - Beaver Lake (COE),campground,war-eagle-creek,(479) 750-4722,,https://www.recreation.gov/camping/campgrounds/233279,https://www.recreation.gov/camping/campgrounds/233279,recreation.gov,36.21801,-94.01344,camping|showers|restrooms,,26,,$22-$75,4,10,Huntsville,AR
+War Eagle Creek Retreat - Cabin on the Creek,cabin_lodge,war-eagle-creek,,,,https://www.vrbo.com/3938780,vrbo,,,cabins,,,1,,,,Huntsville,AR
+Turner Bend Outfitter,outfitter,mulberry,479-209-3782,turnerbend23@gmail.com,https://www.turnerbend.com,,,35.66787,-93.82815,canoe_rental|kayak_rental|raft_rental|shuttle|camping|cabins|store|showers|restrooms,20,16,5,$36-100,1,12,Ozark,AR
+Byrd's Adventure Center,outfitter,mulberry,479-667-4066,,https://byrdsadventurecenter.com,,,35.67838,-93.74257,canoe_rental|kayak_rental|raft_rental|shuttle|camping|cabins|showers|restrooms,,,4,$7-10,,,Ozark,AR
+Wolf Pen Recreation Area,campground,mulberry,479-754-2864,,https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/wolf-pen-recreation-area,,,35.67539,-93.63074,camping|restrooms,6,,,$10,1,12,Ozark,AR
+Redding Recreation Area,campground,mulberry,479-754-2864,,https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/redding-recreation-area,,,35.68283,-93.78651,camping|showers|restrooms,20,,,$15,1,12,Ozark,AR
+Mulberry Mountain Lodging & RV Park,cabin_lodge,mulberry,479-667-1919,info@mulberrymountain.com,https://www.mulberrymountainlodge.com,https://www.roverpass.com/c/mulberry-mountain-lodging-and-events-ozark-ar/,roverpass,,,cabins|lodging|camping|showers|restrooms,,69,10,$8-24,1,12,Ozark,AR
+Cass House,cabin_lodge,mulberry,,bjwright11@gmail.com,https://casshousear.com,,airbnb,,,cabins|lodging,,,1,,,,Ozark,AR
+Crooked Creek Outfitters,outfitter,crooked-creek,417-365-3900,,https://fishandfloattheozarks.com/,https://fishandfloattheozarks.com/#contact,,,,kayak_rental|shuttle,,,,,,,Yellville,AR
+Crooked Creek Canoes,outfitter,crooked-creek,870-404-6054,,https://www.facebook.com/crookedcreekcanoe/,,,,,canoe_rental|kayak_rental|shuttle,,,,,,,Yellville,AR
+Crooked Creek Adventures,outfitter,crooked-creek,479-317-0278,,,,,,,canoe_rental|kayak_rental|shuttle,,,,,,,Yellville,AR
+Buffalo River Float Service,outfitter,crooked-creek,870-449-6042,info@buffaloriverfloatservice.com,https://buffaloriverfloatservice.com/,https://buffaloriverfloatservice.com/bookonline/,,36.10730,-92.61207,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle,,,,,,,Yellville,AR
+Wild Bill's Outfitter,outfitter,crooked-creek,870-449-6235,wildbill@yellville.net,https://www.wildbillsoutfitter.com/,https://fareharbor.com/embeds/book/wildbillsoutfitter/,fareharbor,,,canoe_rental|kayak_rental|raft_rental|shuttle|cabins|lodging|store,,,,,,,Yellville,AR
+Song Dog Shuttles,outfitter,crooked-creek,817-522-8048,,https://songdogshuttles.com/,,,,,kayak_rental|shuttle,,,,,,,Yellville,AR
+Steve Dally Outfitters,outfitter,crooked-creek,870-435-6166,steve@stevedallyoutfitters.com,https://stevedallyoutfitters.com/,,,,,shuttle|store,,,,,,,Yellville,AR
+Fred Berry Conservation Education Center on Crooked Creek,campground,crooked-creek,870-218-4387,,https://www.agfc.com/things-to-do/nature-centers/yellville/,,,,,camping|restrooms,,,,free,,,Yellville,AR
+Lost Cabins Resort,outfitter,bryant-creek|north-fork-white,417-261-1409,,https://www.lostcabinsresort.com,,,,,canoe_rental|kayak_rental|tube_rental|shuttle|camping|cabins|lodging,,,,$12-$45,,,Gainesville,MO
+Pettit's Canoe Rental,outfitter,bryant-creek|north-fork-white,417-284-3290,pettitcanoerental@yahoo.com,https://pettitscanoerental.wixsite.com/home,,,36.65822,-92.23458,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle|camping|cabins|store|showers|restrooms,,,,,1,12,Gainesville,MO
+Riverside Canoe Rental,outfitter,bryant-creek|north-fork-white,417-284-3043,,,,,,,canoe_rental|kayak_rental|raft_rental|shuttle|camping,,,,$28-$100,,,Gainesville,MO
+Sunburst Ranch,outfitter,bryant-creek|north-fork-white,417-284-3443,,https://www.sunburstranchcanoe.com,,,36.65085,-92.22048,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle|camping|cabins|lodging|store,,,5,$50-$550,,,Gainesville,MO
+Rockbridge Rainbow Trout & Game Ranch,cabin_lodge,bryant-creek,417-679-3619,,https://www.rockbridgemo.com,,,,,lodging|cabins,,,,,1,12,Gainesville,MO
+Rocky Top Campground & Cabins,campground,bryant-creek|north-fork-white,417-679-0149,deasterd@hotmail.com,http://www.rocky-top-campground.com,,,36.58546,-92.30564,camping|cabins|showers|restrooms,,20,,,1,12,Gainesville,MO
+Dawt Mill,outfitter,north-fork-white,417-284-3540,,https://dawtmill.com,,,36.60961,-92.27769,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle|camping|cabins|lodging|store,,,,$10-$165,1,12,Tecumseh,MO
+Washington State Park Concessions,outfitter,big-river,636-586-2995,info@washingtonstateparkmo.com,https://www.washingtonstateparkmo.com,https://fareharbor.com/embeds/book/washingtonstateparkmo/,fareharbor,38.08742,-90.69538,canoe_rental|kayak_rental|raft_rental|shuttle|cabins|lodging,,,11,$30-$295,5,9,De Soto,MO
+Cherokee Landing,outfitter,big-river,573-358-2805,,https://cherokeelanding.com,,,,,canoe_rental|kayak_rental|raft_rental|shuttle|camping,,,,,,,De Soto,MO
+Big River Trading Co.,outfitter,big-river,636-944-3210,,,,,,,canoe_rental|shuttle,,,,,,,De Soto,MO
+Washington State Park Campground,campground,big-river,877-422-6766,,https://mostateparks.com/park/washington-state-park,,,38.08742,-90.69538,camping|showers|restrooms,,35,,$12-$36,1,12,De Soto,MO
+St. Francois State Park Campground,campground,big-river,877-422-6766,,https://mostateparks.com/park/st-francois-state-park,,,37.95724,-90.53209,camping|showers|restrooms,,63,,$15-$27,,,De Soto,MO
+Big River Outdoors Campground,campground,big-river,573-315-0924,bigriveroutdoors@icloud.com,,https://www.hipcamp.com/en-US/land/missouri-big-river-outdoors-campground-dw9hm55e,hipcamp,37.86857,-90.65145,camping|showers|restrooms,,,,$40-$80,,,De Soto,MO
