@@ -72,3 +72,24 @@ gauge/threshold core is blocked. To finish Elk: pick 07188925 (Noel) as primary,
 then calibrate an OBSERVED floatable ladder on the Noel datum (needs outfitter /
 observed-level guidance — 6 weeks of record is not enough alone), or wait for
 07189000 to resume + confirm it emits real feet. Do NOT ship estimated thresholds.
+
+### Owner review 2026-07-13 — key CONFIRMED, decision = HOLD (option A)
+
+Owner supplied the Elk River Floats gage-height key + the moherp Tiff City page.
+This CONFIRMS the existing calibration is correct — it is not a mistake, the gauge
+just died:
+- Elk River Floats bands (canoe-floatable ~2.5–5, restricted 5–6.5, don't-float
+  6.5+) are on the **07189000 (Tiff City)** datum, matching the DB ladder
+  (too_low 2.5 / optimal 3.5–5 / dangerous 6). Cross-checks: moherp's observed
+  238 cfs = 3.56 ft float sits in the key's 3.5–4.5 "fully floatable" band;
+  1720 cfs = 5.3 ft = the key's restricted 5–6 band = moherp "High."
+- 07189000 dead since 2026-04-27; the new **07188925 (Noel)** gauge (first data
+  2026-06-02) is almost certainly its replacement, on a datum ~+2.3 ft higher
+  (Noel summer baseline ~5.8 ft vs Tiff City ~3.5 ft). No temporal overlap
+  between the two gauges → no way to derive an exact stage conversion, and a
+  single offset is least reliable at the high/dangerous end.
+
+**Owner decision: HOLD Elk** (do not ship a provisional offset-mapped ladder).
+Reactivate when Elk River Floats republishes their key against 07188925, or a
+proper observed Noel-datum ladder exists (then: set primary 07188925, apply the
+native ladder, run activate-rivers.ts). Everything else for Elk stays staged.
