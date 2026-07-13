@@ -1102,7 +1102,6 @@ export default function MOMap(props: MOMapProps) {
   // Curated polylines + gradient recipes for the particle flow layer.
   const flowRivers = useMemo<FlowRiver[]>(() => {
     return props.rivers.map((r) => {
-      const grad = riverGradients[r.id];
       // Primary-gauge percentile modulates particle speed within the
       // verdict's band (scrub-aware — the app swaps in the scrubbed day's
       // percentile, so replaying the month visibly changes the current).
@@ -1114,24 +1113,25 @@ export default function MOMap(props: MOMapProps) {
         ),
         verdict: props.verdictByRiver[r.slug] ?? 'unknown',
         percentile: primarySite != null ? props.percentileByGauge[primarySite] ?? null : null,
-        axis: grad ? { x1: grad.x1, y1: grad.y1, x2: grad.x2, y2: grad.y2 } : null,
-        stops: grad ? grad.stops.map((st) => ({ offset: st.offset, color: st.color })) : [],
       };
     });
+    // Color no longer flows through here — wisps are neutral white — so this
+    // intentionally does NOT depend on riverGradients.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.rivers, props.verdictByRiver, props.percentileByGauge, riverGradients, project]);
+  }, [props.rivers, props.verdictByRiver, props.percentileByGauge, project]);
 
   // Terrain raster: AVIF first, PNG on decode failure (older Safari).
   const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
 
-  // Particle budget: 700 desktop / 300 small screens or low-end hardware
-  // (docs/mo-surface-water-observatory.md). Sampled once per mount.
+  // Particle budget: 240 desktop / 110 small screens or low-end hardware
+  // (docs/mo-surface-water-observatory.md). Sampled once per mount. Wisps are
+  // longer and more legible than the old comet dots, so fewer read as more.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 460;
+    if (typeof window === 'undefined') return 240;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 210 : 460;
+    return small || lowEnd ? 110 : 240;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
