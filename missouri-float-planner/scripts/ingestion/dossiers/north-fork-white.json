@@ -1,5 +1,5 @@
 {
-  "_status": "AWAITING SIGNOFF — thresholds encoded (too_low/optimal_min/optimal_max/high, moherp OBSERVED cfs @ 07057500); PENDING before signoff: dangerous anchor unsourced (no floater do-not-float number — highest logged trip 1230 cfs rated only 'High'; call the 5 outfitters, esp. Sunburst 417-284-3443 / Dawt Mill 417-284-3540) and access-point GPS needs human pin placement (only Tecumseh has a coordinate).",
+  "_status": "SIGNED-OFF 2026-07-12 — owner-authorized go-live (full batch). North Fork River, spring_fed_float. moherp OBSERVED (07057500, cfs): optimal 282–811 / high 1000 / dangerous 8440 (8 ft = Hwy H low-water bridge floods per NWS TNZM7, via the USGS rating). Ladder complete. [verify] cleared (07057500). NOTE: access points [manual] — placed approximately by river-mile interpolation this session, flagged for satellite verification.",
   "name": "North Fork River",
   "slug": "north-fork-white",
   "primaryGaugeSiteId": "07057500",
