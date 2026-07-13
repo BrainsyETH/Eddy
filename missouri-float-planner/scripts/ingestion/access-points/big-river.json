@@ -1,0 +1,179 @@
+[
+  {
+    "name": "Bootleg Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 37.81369,
+    "lon": -90.77214,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/bootleg-access",
+    "facilities": "Primitive MDC canoe/kayak access, primitive camping (Sep 15-May 15), hiking loop; no concrete ramp. Washington County. Coord = MDC GIS Entry Point (road/parking); Big River channel ~450 m E (~37.8156,-90.7646).",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
+      "https://mdc.mo.gov/discover-nature/places/bootleg-access"
+    ]
+  },
+  {
+    "name": "Leadwood Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 37.8682,
+    "lon": -90.58509,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/leadwood-access",
+    "facilities": "Small MDC access (electric motors only), carry/gravel launch, parking. St. Francois County, Hwy 8 & Hunt St, Leadwood. Coord = MDC GIS Entry Point, corroborated by USGS gauge 'Big River Below Leadwood Access' (37.86804,-90.58293).",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
+      "https://waterdata.usgs.gov/monitoring-location/375205090345901"
+    ]
+  },
+  {
+    "name": "Jeremiah Blackwell Jr. Access",
+    "kind": "access",
+    "expected_mile": 12,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": null,
+    "facilities": "MDC 'Blackwell Access' at ~RM 12 (right bank) per floatmissouri; MDC watershed report notes a 12-ft vertical bank with NO boat/canoe launching. Absent from MDC GIS (Boat Ramps/Entry Points/Parking), OSM, and USGS -> no verifiable coordinate. Approx. near Blackwell community (~38.044,-90.621). UNVERIFIED.",
+    "confidence": "low",
+    "source_urls": [
+      "https://www.floatmissouri.com/plan/missouri-rivers/big-river/",
+      "https://mdc.mo.gov/sites/default/files/mdcd7/watersheds/big.pdf"
+    ]
+  },
+  {
+    "name": "Washington State Park Access",
+    "kind": "boat_ramp",
+    "expected_mile": 20,
+    "lat": 38.08758,
+    "lon": -90.6818,
+    "is_public": true,
+    "ownership": "State Park",
+    "managing_agency": "State Park",
+    "official_site_url": "https://mostateparks.com/park/washington-state-park",
+    "facilities": "Missouri State Parks main put-in / concession (canoe-raft-tube rental, shuttle service), concrete boat ramp, vault toilet, parking. St. Francois/Washington Co. Coord = OSM slipway, corroborated by USGS 'Big River at Washington State Park' (38.08762,-90.68071).",
+    "confidence": "high",
+    "source_urls": [
+      "https://waterdata.usgs.gov/monitoring-location/380515090405001",
+      "https://www.openstreetmap.org/node/12545520120",
+      "https://mostateparks.com/location/57936/boat-launch"
+    ]
+  },
+  {
+    "name": "Mammoth Access",
+    "kind": "boat_ramp",
+    "expected_mile": 23,
+    "lat": 38.12133,
+    "lon": -90.67588,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/mammoth-access",
+    "facilities": "MDC concrete boat ramp, parking. Washington County, off Mammoth Rd (Mammoth Bridge), ~RM 23.3. Coord = MDC GIS Boat Ramps layer, corroborated by USGS 07018000 + station 380722090403501 and OSM slipway.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://waterdata.usgs.gov/monitoring-location/380722090403501",
+      "https://www.openstreetmap.org/node/12544995726"
+    ]
+  },
+  {
+    "name": "Merrill Horse Access",
+    "kind": "boat_ramp",
+    "expected_mile": 29,
+    "lat": 38.16345,
+    "lon": -90.70937,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/merrill-horse-access",
+    "facilities": "MDC concrete boat ramp, parking. Jefferson County, Route H W of De Soto, ~RM 28.7. NOTE: official name is 'Merrill Horse' (not 'Merrill Horne'). Coord = MDC GIS Boat Ramps layer + OSM slipway (38.16349,-90.70927).",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://mdc.mo.gov/discover-nature/places/merrill-horse-access",
+      "https://www.openstreetmap.org/node/12545510746"
+    ]
+  },
+  {
+    "name": "Brown's Ford Access",
+    "kind": "boat_ramp",
+    "expected_mile": 34,
+    "lat": 38.21284,
+    "lon": -90.70618,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/browns-ford-access",
+    "facilities": "MDC boat ramp; grounds/facilities maintained by Jefferson County Parks (636-797-5334). Jefferson County, Brown's Ford Rd bridge, ~RM 34. Coord = MDC GIS Boat Ramps layer + OSM slipway (38.21262,-90.70613).",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://mdc.mo.gov/discover-nature/places/browns-ford-access",
+      "https://www.openstreetmap.org/node/4791602859"
+    ]
+  },
+  {
+    "name": "Morse Mill Access",
+    "kind": "boat_ramp",
+    "expected_mile": 52,
+    "lat": 38.274,
+    "lon": -90.65221,
+    "is_public": true,
+    "ownership": "County",
+    "managing_agency": "County",
+    "official_site_url": "https://www.jeffcomo.gov/607/Morse-Mill-Park",
+    "facilities": "Jefferson County (Morse Mill Park, 6700 Morse Mill Park Rd, Hillsboro): concrete boat ramp (upstream access), primitive camping, restrooms, picnic. HAZARD: Morse Mill Dam ~0.1 mi downstream - portage required. ~RM 52.3. Coord = OSM slipway, corroborated by adjacent Historic Morse Mill Bridge (38.27532,-90.65237).",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/node/12545520121",
+      "https://www.jeffcomo.gov/607/Morse-Mill-Park",
+      "https://www.floatmissouri.com/plan/missouri-rivers/big-river/"
+    ]
+  },
+  {
+    "name": "Cedar Hill Access",
+    "kind": "boat_ramp",
+    "expected_mile": 63,
+    "lat": 38.34977,
+    "lon": -90.64359,
+    "is_public": true,
+    "ownership": "County",
+    "managing_agency": "County",
+    "official_site_url": "https://www.jeffcomo.gov/602/Cedar-Hill-Park",
+    "facilities": "Jefferson County (Cedar Hill Park, 6801 Cedar Hill Rd): Big River access, picnic, restrooms. HAZARD: Cedar Hill Dam ruins immediately adjacent. ~RM 63.2. Coord = OSM slipway, corroborated by USGS 'Big River at Cedar Hill' (38.34990,-90.64444) and OSM Cedar Hill dam ruins (38.34992,-90.64405).",
+    "confidence": "high",
+    "source_urls": [
+      "https://waterdata.usgs.gov/monitoring-location/382100090384202",
+      "https://www.openstreetmap.org/node/12545520123",
+      "https://www.jeffcomo.gov/602/Cedar-Hill-Park"
+    ]
+  },
+  {
+    "name": "Rockford Beach Park",
+    "kind": "park",
+    "expected_mile": 73,
+    "lat": 38.42034,
+    "lon": -90.58968,
+    "is_public": true,
+    "ownership": "County",
+    "managing_agency": "County",
+    "official_site_url": "https://www.jeffcomo.gov/610/Rockford-Park",
+    "facilities": "Jefferson County (Rockford Park / Rockford Beach, 4320 State Rd W, House Springs): concrete boat ramp, sand beach, restrooms, parking. = floatmissouri 'House Springs Access' ~RM 73. Coord = OSM park polygon nearest Big River channel (no exact ramp node) - medium precision.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/relation/7064786",
+      "https://www.jeffcomo.gov/610/Rockford-Park",
+      "https://www.floatmissouri.com/plan/missouri-rivers/big-river/"
+    ]
+  }
+]

@@ -1,0 +1,123 @@
+[
+  {
+    "name": "Hwy 23 Upper Access (near fish hatchery / Witter)",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 35.90121,
+    "lon": -93.70138,
+    "is_public": true,
+    "ownership": "Public road ROW (Hwy 23 bridge)",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Uppermost AR-23 bridge crossing of War Eagle Creek, ~1 mi W of Witter (ZIP 72776), SE Madison Co; near War Eagle Fish Distributors/Minnow Farm (the 'fish hatchery', 23812 Hwy 23). Head of the ~38-mi Hwy 23-to-War Eagle Mill run per American Whitewater. Informal put-in; a locked gate has been reported. Bridge/channel point is precise (OSM); the minnow-farm landmark itself is not separately geocodable. NOTE alternate: a second AR-23xcreek crossing exists at 36.04215,-93.70427 (~4 mi S of Huntsville) if 'fish hatchery' was meant further north.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.americanwhitewater.org/content/River/detail/id/2875",
+      "https://www.openstreetmap.org/way/114911381",
+      "https://nominatim.openstreetmap.org/reverse?lat=35.90121&lon=-93.70138"
+    ]
+  },
+  {
+    "name": "Hwy 412 Bridge Access",
+    "kind": "bridge",
+    "expected_mile": null,
+    "lat": 36.12083,
+    "lon": -93.69346,
+    "is_public": true,
+    "ownership": "Public road ROW (US 412 bridge)",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "US-412 bridge E of Huntsville; documented upper put-in (~5 creek mi to Withrow Springs/Hwy 23 per Float Eureka). Schraeder Bend Class I ~1.8 mi downstream. Single US-412 x War Eagle Creek crossing.",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/98334462",
+      "https://www.floateurekasprings.com/war-eagle-creek",
+      "https://forums.arkansascanoeclub.com/viewtopic.php?t=13142"
+    ]
+  },
+  {
+    "name": "Withrow Springs State Park Boating Access (Hwy 23 Bridge)",
+    "kind": "park",
+    "expected_mile": null,
+    "lat": 36.15018,
+    "lon": -93.74052,
+    "is_public": true,
+    "ownership": "Arkansas State Parks (ASP)",
+    "managing_agency": "State Park",
+    "official_site_url": "https://www.arkansasstateparks.com/parks/withrow-springs-state-park",
+    "facilities": "Traditional float base at the Hwy 23 bridge ~4 mi N of Huntsville. STATUS: SP river access & parking CLOSED for the Hwy 23 bridge replacement (announced 2024); new boat ramp/lot planned post-construction. Park shuttle 479-559-2593. Coord from AGFC 'Public Use Facilities' (designated boating access); OSM AR-23 bridge x channel = 36.15014,-93.73977 (~70 m).",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.arkansasstateparks.com/parks/withrow-springs-state-park",
+      "https://mcrecordonline.com/stories/war-eagle-creek-bridge-on-hwy-23-to-be-relocated,49248"
+    ]
+  },
+  {
+    "name": "Hwy 45 Bridge (Hindsville) Access",
+    "kind": "bridge",
+    "expected_mile": null,
+    "lat": 36.20174,
+    "lon": -93.85701,
+    "is_public": true,
+    "ownership": "Public road ROW (AR 45 bridge)",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AR-45 bridge at Hindsville (ZIP 72738); common take-out for the Hwy 23-to-Hwy 45 float (~13.5 mi) and put-in for lower sections. USGS gauge 07049000 'War Eagle Creek near Hindsville' sits at 36.2000,-93.8550 (~250 m from bridge).",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/1137309344",
+      "https://waterdata.usgs.gov/monitoring-location/07049000"
+    ]
+  },
+  {
+    "name": "War Eagle Mill / War Eagle Bridge",
+    "kind": "bridge",
+    "expected_mile": null,
+    "lat": 36.26757,
+    "lon": -93.94325,
+    "is_public": true,
+    "ownership": "Benton County",
+    "managing_agency": "County",
+    "official_site_url": null,
+    "facilities": "Historic 1907 one-lane steel-truss War Eagle Bridge (NRHP) on Benton County Rd 98 at War Eagle Mill; just above Beaver Lake backwater. Common take-out. Double-corroborated: USGS gauge 07049050 'War Eagle Creek at War Eagle' = 36.26757,-93.94325 and Wikipedia/NRHP = 36.26750,-93.94333 (~10 m).",
+    "confidence": "high",
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/War_Eagle_Bridge",
+      "https://waterdata.usgs.gov/monitoring-location/07049050"
+    ]
+  },
+  {
+    "name": "Gar Hole Road Low-Water Crossing ('the Slab')",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.23494,
+    "lon": -93.90465,
+    "is_public": true,
+    "ownership": "Benton County",
+    "managing_agency": "County",
+    "official_site_url": null,
+    "facilities": "Low-water slab crossing where Gar Hole Rd (runs off AR-12 near Lookout) meets War Eagle Creek, between the Hwy 45 bridge and War Eagle Mill (~4.6 creek mi above the mill); used to split the lower float. Channel point projected from the OSM Gar Hole Rd terminus (36.23554,-93.90432, ~73 m to mapped channel).",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/12740866",
+      "https://www.arkansasonline.com/news/2007/mar/11/creek-tiquing-war-eagle-20070311-0/"
+    ]
+  },
+  {
+    "name": "War Eagle Creek Walk-in Access ('Chicken House Access')",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.1768,
+    "lon": -93.79898,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AGFC walk-in access on War Eagle Creek between Withrow Springs (Hwy 23) and the Hwy 45 bridge; locally called the 'Chicken House Access'. From AGFC 'Public Use Facilities' layer (AGFC-owned).",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ]
+  }
+]
