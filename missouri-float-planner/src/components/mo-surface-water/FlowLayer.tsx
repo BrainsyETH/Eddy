@@ -1,21 +1,26 @@
 'use client';
 
-// Animated flow layer — soft light "sweeps" gliding down the curated rivers'
-// real geometry, at a speed set by each river's condition. One canvas, one
-// rAF loop, zero React re-renders per frame.
+// Animated flow layer — a downstream particle field rendered with a FADING
+// ACCUMULATION BUFFER, the standard "wind map" technique (Windy, Mapbox's
+// WebGL wind map, Esri wind-js). One canvas, one rAF loop, zero React
+// re-renders per frame.
 //
 // Design: the condition COLOR lives on the SVG band underneath; this layer's
-// only job is MOTION. Each sweep is a stretch of the real polyline drawn as a
-// soft near-white glow — brightest at its center, fading to nothing at both
-// ends — that travels downstream, like light running along moving water. It
-// FOLLOWS the channel's curve (sampled along the polyline, never a straight
-// chord across a meander) and stays neutral white so it reads cleanly over
-// every condition color instead of competing with it. Sweeps are spaced
-// evenly along each reach, so long and short rivers pulse at a similar cadence.
+// only job is MOTION. Each particle advects downstream along its river's real
+// polyline; every frame we only STAMP its new head, and — crucially — instead
+// of clearing the canvas we fade it slightly toward transparent, so the trail
+// of recent heads lingers and decays into a smooth streak. That's what turns
+// moving dots into flowing water instead of scratchy specks. The marks are a
+// soft near-white so they read cleanly over every condition color rather than
+// competing with it. Trail length scales with flow speed for free (a faster
+// head outruns its own fade), so flood water streaks longer.
 //
-// Cheap by construction: a handful of sweeps per river, not hundreds of
-// particles. dt clamped; paused when the tab is hidden, the layer is toggled
-// off, or reduced motion is set; self-degrades if frame time creeps up.
+// When the camera moves the retained pixels are stale (they live in screen
+// space), so a moved frame hard-clears instead of fading; trails rebuild in a
+// few still frames. Perf budget (docs/mo-surface-water-observatory.md): ≤420
+// particles on desktop, ≤200 on small/low-end devices; one fillRect + one
+// short stroke per particle. dt clamped; paused when the tab is hidden, the
+// layer is toggled off, or reduced motion is set; self-degrades under load.
 
 import { useEffect, useRef, type RefObject } from 'react';
 import type { StageVerdict } from '@/lib/usgs/mo-statewide-data';
@@ -64,20 +69,12 @@ function speedFor(verdict: StageVerdict, percentile: number | null): number {
   return base * (0.8 + 0.4 * (p / 100));
 }
 
-// A light "sweep" is a glow that travels down a river's centerline: a stretch
-// of the real polyline, SWEEP_LEN long, drawn brightest at its center and
-// fading to nothing at both ends, advancing at the reach's flow speed. Sweeps
-// sit SWEEP_SPACING apart (capped per river) so the cadence reads the same on
-// a 200-mile river and a 20-mile creek. SWEEP_STEPS is how many short segments
-// each sweep is sampled into — enough to trace a meander smoothly. The tone is
-// a neutral near-white so the pulse reads as light on the water without
-// competing with the condition color the band already carries.
-const SWEEP_LEN = 46;
-const SWEEP_SPACING = 95;
-const SWEEP_MAX = 6;
-const SWEEP_STEPS = 12;
-const SWEEP_PEAK = 0.5;
-const SWEEP_COLOR = '248,252,254';
+// FADE_ALPHA sets how fast trails decay each frame (lower = longer tails);
+// PARTICLE_COLOR/HEAD_ALPHA are the soft near-white head mark. Particle COUNT
+// is the `maxParticles` budget, distributed along rivers by length.
+const FADE_ALPHA = 0.055;
+const PARTICLE_COLOR = '250,252,254';
+const HEAD_ALPHA = 0.6;
 
 interface Particle {
   river: number;
@@ -148,13 +145,22 @@ export default function FlowLayer({
       });
     if (!runtimes.length) return;
 
-    // ── Seed light sweeps: evenly spaced along each reach so they travel as
-    //    regular pulses, not a random field. Count scales with length. ──
+    // ── Seed particles along every reach, distributed by length so the whole
+    //    network carries a similar stream density (budget = maxParticles).
+    //    Random start positions + small speed jitter so streams don't march in
+    //    lockstep; deterministic LCG so a re-init lands the same layout (no
+    //    flicker on data ticks). Their fading trails reveal the flow. ──
+    const totalLen = runtimes.reduce((sum, r) => sum + r.total, 0) || 1;
+    let seed = 1234567;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
     let particles: Particle[] = [];
     runtimes.forEach((r, idx) => {
-      const n = Math.max(1, Math.min(SWEEP_MAX, Math.round(r.total / SWEEP_SPACING)));
+      const n = Math.max(2, Math.round((r.total / totalLen) * maxParticles));
       for (let i = 0; i < n; i++) {
-        particles.push({ river: idx, s: (i / n) * r.total, jitter: 1 });
+        particles.push({ river: idx, s: rand() * r.total, jitter: 0.85 + rand() * 0.3 });
       }
     });
 
@@ -174,10 +180,11 @@ export default function FlowLayer({
     let last = performance.now();
     let running = true;
     let clearedForPause = false;
+    let lastView: ViewBox | null = null; // for the accumulation-buffer reset
     // Rolling degradation check. The small-budget tier is already on
     // constrained hardware, so it gets half the reaction window — ~0.75s
     // of slow frames instead of ~1.5s before the particle count halves.
-    const SLOW_FRAME_LIMIT = maxParticles <= 150 ? 30 : 60;
+    const SLOW_FRAME_LIMIT = maxParticles <= 250 ? 30 : 60;
     let slowFrames = 0;
 
     const pointAt = (r: RiverRuntime, s: number): [number, number, number] => {
@@ -244,46 +251,56 @@ export default function FlowLayer({
       const oy = (ch - view.h * s) / 2 - view.y * s;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, cw, ch);
-      // Normal compositing — this paints over a LIGHT parchment landmass,
+      // Accumulation buffer: when the camera is STILL, fade the previous frame
+      // toward transparent (destination-out lowers existing alpha) so trails
+      // linger and decay. When it MOVED since last frame the retained pixels
+      // are stale (screen space), so hard-clear instead — trails rebuild within
+      // a few still frames.
+      const moved = !lastView || lastView.x !== view.x || lastView.y !== view.y
+        || lastView.w !== view.w || lastView.h !== view.h;
+      lastView = { x: view.x, y: view.y, w: view.w, h: view.h };
+      if (moved) {
+        ctx.clearRect(0, 0, cw, ch);
+      } else {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = `rgba(0,0,0,${FADE_ALPHA})`;
+        ctx.fillRect(0, 0, cw, ch);
+      }
+      // Normal compositing for the marks — over a LIGHT parchment landmass,
       // where additive ('lighter') would just wash everything toward white.
       ctx.globalCompositeOperation = 'source-over';
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
+      // Head marks are all the same soft near-white; set the style once.
+      const headR = Math.max(0.6, 0.9 * dpr);
+      ctx.fillStyle = `rgba(${PARTICLE_COLOR},${HEAD_ALPHA})`;
+      ctx.strokeStyle = `rgba(${PARTICLE_COLOR},${HEAD_ALPHA})`;
+      ctx.lineWidth = Math.max(1, 1.1 * dpr);
       for (const p of particles) {
         const r = runtimes[p.river];
-        p.s += r.speed * p.jitter * dt;
+        const step = r.speed * p.jitter * dt;
+        p.s += step;
         if (p.s >= r.total) p.s -= r.total;
 
-        // Draw the sweep as a run of short segments along the ACTUAL polyline
-        // (so the glow follows the channel), with a cos² bell on both alpha
-        // and width — brightest at the center, fading to nothing at both ends.
-        // Sampling is clamped to the reach so a sweep near an end fades out
-        // instead of wrapping a chord across the map from mouth to source.
-        const half = SWEEP_LEN / 2;
-        let px = 0;
-        let py = 0;
-        for (let k = 0; k <= SWEEP_STEPS; k++) {
-          const sk = p.s - half + (SWEEP_LEN * k) / SWEEP_STEPS;
-          const q = pointAt(r, Math.max(0.01, Math.min(r.total - 0.01, sk)));
-          const cx = q[0] * s + ox;
-          const cy = q[1] * s + oy;
-          if (k > 0) {
-            const center = (k - 0.5) / SWEEP_STEPS;           // 0..1 along sweep
-            const bell = Math.cos((center - 0.5) * Math.PI);  // 1 mid → 0 ends
-            const a = SWEEP_PEAK * bell * bell;
-            if (a > 0.02) {
-              ctx.strokeStyle = `rgba(${SWEEP_COLOR},${a.toFixed(3)})`;
-              ctx.lineWidth = Math.max(1, (1.3 + 1.4 * bell) * dpr);
-              ctx.beginPath();
-              ctx.moveTo(px, py);
-              ctx.lineTo(cx, cy);
-              ctx.stroke();
-            }
-          }
-          px = cx;
-          py = cy;
+        // Only the head is drawn each frame; the fade buffer turns the trail of
+        // past heads into a streak. Connect this head to last frame's with a
+        // short stroke so fast / zoomed-out streams stay continuous — but right
+        // after a wrap (p.s < step) just stamp a dot, so no chord is drawn from
+        // the river's mouth back to its source.
+        const q1 = pointAt(r, p.s);
+        const c1x = q1[0] * s + ox;
+        const c1y = q1[1] * s + oy;
+        if (p.s - step >= 0.01) {
+          const q0 = pointAt(r, p.s - step);
+          ctx.beginPath();
+          ctx.moveTo(q0[0] * s + ox, q0[1] * s + oy);
+          ctx.lineTo(c1x, c1y);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(c1x, c1y, headR, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
 
