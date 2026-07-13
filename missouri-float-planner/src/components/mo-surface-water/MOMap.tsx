@@ -374,14 +374,19 @@ export default function MOMap(props: MOMapProps) {
         anchors.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
       }
 
-      // Tessellate each span between adjacent gauge anchors into short HSL
-      // steps, so SVG only ever blends between near-identical colors and the
-      // transition sweeps through hue (green→orange→red) rather than fading
-      // straight through a dull off-hue mid-tone. Same-color spans stay one
-      // step. The flow layer reads these same stops, so its particles ride the
-      // identical ramp; anchors are preserved, so a flood gauge keeps a
-      // 'dangerous' stop at its offset for the dash overlay's filter.
-      const STEPS = 8;
+      // Hold each gauge's color across most of its reach and confine the
+      // crossfade to a short band (BLEND_FRAC of the gap) around the midpoint.
+      // Colors still flow into each other — no hard divider — but the
+      // intermediate hue (a green→red span passes through amber) shrinks from a
+      // wide band to a sliver, and a hot gauge's color no longer bleeds far
+      // down a calmer reach. The band samples HSL so it sweeps through hue, not
+      // a dull off-hue mid-tone; the long solid spans on either side are immune
+      // to the straight gradient axis, so most of each river reads true even
+      // where it meanders. (Flow is a separate neutral-white layer now and does
+      // NOT read these stops; anchors are still preserved so a flood gauge
+      // keeps a 'dangerous' stop for the dash overlay's filter.)
+      const BLEND_FRAC = 0.3; // share of each gauge-to-gauge gap spent blending
+      const STEPS = 6;
       const stops: typeof anchors = [anchors[0]];
       for (let i = 1; i < anchors.length; i++) {
         const prev = anchors[i - 1];
@@ -390,15 +395,22 @@ export default function MOMap(props: MOMapProps) {
           stops.push(cur);
           continue;
         }
+        const mid = (prev.offset + cur.offset) / 2;
+        const halfW = (BLEND_FRAC * (cur.offset - prev.offset)) / 2;
+        // Hold prev's color solid up to the blend band…
+        stops.push({ offset: mid - halfW, color: prev.color, condition: prev.condition, siteId: prev.siteId });
+        // …cross-fade through hue across the short band…
         for (let k = 1; k <= STEPS; k++) {
           const t = k / STEPS;
           stops.push({
-            offset: prev.offset + (cur.offset - prev.offset) * t,
+            offset: mid - halfW + 2 * halfW * t,
             color: mixHsl(prev.color, cur.color, t),
             condition: t < 0.5 ? prev.condition : cur.condition,
             siteId: t < 0.5 ? prev.siteId : cur.siteId,
           });
         }
+        // …then hold cur's color solid to its offset.
+        stops.push(cur);
       }
 
       out[r.id] = { x1: first[0], y1: first[1], x2: last[0], y2: last[1], stops };
@@ -1760,16 +1772,8 @@ export default function MOMap(props: MOMapProps) {
             )}
             {/* Hit target */}
             <path d={d} stroke="transparent" strokeWidth={Math.max(18, sw * 3)} fill="none" strokeLinecap="round" />
-            {/* Permanent dark casing — frames the colored reach so it reads
-                cleanly over both the parchment and the muted basemap. */}
-            <path
-              d={d}
-              stroke="rgba(15,45,53,0.55)"
-              strokeWidth={sw + 2.6}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            {/* No dark casing — the bold condition band sits straight on the
+                parchment now (the gray outline read as clutter). */}
             {/* Glow on hover/focus */}
             {(isHovered || isFocused) && (
               <path
