@@ -146,21 +146,28 @@ export function buildRiverFilterMeta(rivers: RiverMetaSource[]): Record<string, 
 }
 
 /** Sort options for the river list. */
-export type RiverSortKey = 'best' | 'name' | 'length_desc' | 'length_asc';
+export type RiverSortKey = 'best' | 'nearest' | 'name' | 'length_desc' | 'length_asc';
 
 export const SORT_LABELS: Record<RiverSortKey, string> = {
   best: 'Best conditions',
+  nearest: 'Nearest me',
   name: 'Name (A–Z)',
   length_desc: 'Longest',
   length_asc: 'Shortest',
 };
 
-export const SORT_ORDER: RiverSortKey[] = ['best', 'name', 'length_desc', 'length_asc'];
+export const SORT_ORDER: RiverSortKey[] = ['best', 'nearest', 'name', 'length_desc', 'length_asc'];
 
 export const DEFAULT_SORT: RiverSortKey = 'best';
 
 export function isRiverSortKey(value: string | null | undefined): value is RiverSortKey {
-  return value === 'best' || value === 'name' || value === 'length_desc' || value === 'length_asc';
+  return (
+    value === 'best' ||
+    value === 'nearest' ||
+    value === 'name' ||
+    value === 'length_desc' ||
+    value === 'length_asc'
+  );
 }
 
 /**
@@ -175,4 +182,44 @@ export function conditionSortRank(code: string): number {
 /** Whether a condition counts as floatable right now (canonical floatable set). */
 export function isFloatableNow(code: string): boolean {
   return WEEKEND_FLOATABLE.has(code);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Geo — "nearest me" sort
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * True only for coordinates that look like a real fix. The gauges API falls
+ * back to { lng: 0, lat: 0 } when a station's location can't be parsed, and
+ * Null Island is nowhere near any float river — treat that (and non-finite
+ * values) as "no location" so it sorts last instead of showing a bogus 5,000-mi
+ * distance.
+ */
+export function isValidCoords(c: Coordinates | null | undefined): c is Coordinates {
+  return (
+    !!c &&
+    Number.isFinite(c.lat) &&
+    Number.isFinite(c.lng) &&
+    !(c.lat === 0 && c.lng === 0)
+  );
+}
+
+const EARTH_RADIUS_MI = 3958.8;
+const toRadians = (deg: number) => (deg * Math.PI) / 180;
+
+/** Great-circle distance in miles between two lat/lng points (haversine). */
+export function haversineMiles(a: Coordinates, b: Coordinates): number {
+  const dLat = toRadians(b.lat - a.lat);
+  const dLng = toRadians(b.lng - a.lng);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_MI * Math.asin(Math.min(1, Math.sqrt(h)));
 }

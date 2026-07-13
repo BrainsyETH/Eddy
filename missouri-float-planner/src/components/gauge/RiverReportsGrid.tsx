@@ -7,9 +7,9 @@
 // difficulty, length) arrives as a prop from the server page and drives the
 // facet filters. All filter/sort state is mirrored in the URL.
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, X, ChevronDown } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin } from 'lucide-react';
 
 import type { ConditionCode } from '@/types/api';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
@@ -34,7 +34,11 @@ import {
   lengthBucket,
   conditionSortRank,
   isFloatableNow,
+  haversineMiles,
+  isValidCoords,
 } from '@/lib/rivers/filters';
+
+type GeoStatus = 'idle' | 'locating' | 'granted' | 'denied' | 'unsupported';
 
 // Full names for the states we serve (falls back to the raw code).
 const STATE_NAMES: Record<string, string> = {
@@ -123,6 +127,37 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
     return isRiverSortKey(s) ? s : DEFAULT_SORT;
   });
 
+  // Geolocation for the "Nearest me" sort. Location lives in component state
+  // only (never the URL) — a shared ?sort=nearest link re-asks each visitor
+  // rather than leaking a position.
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
+
+  const requestLocation = useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoStatus('unsupported');
+      return;
+    }
+    setGeoStatus('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoStatus('granted');
+      },
+      () => setGeoStatus('denied'),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 }
+    );
+  }, []);
+
+  // Ask for location the first time "Nearest me" is chosen (including from a
+  // ?sort=nearest deep link). Denials aren't auto-retried — the status line
+  // offers a manual retry instead.
+  useEffect(() => {
+    if (sortBy === 'nearest' && !userLocation && geoStatus === 'idle') {
+      requestLocation();
+    }
+  }, [sortBy, userLocation, geoStatus, requestLocation]);
+
   // Deep-link: ?gauge= redirects to the river hub (via the legacy gauge route)
   useEffect(() => {
     const gaugeParam = searchParams.get('gauge');
@@ -189,6 +224,18 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
     };
   }, [riverGroups, riverMeta]);
 
+  // Distance (miles) from the visitor to each river's primary gauge, once we
+  // have a location. Drives the "Nearest me" sort and the per-card "X mi away".
+  const distanceByRiverId = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!userLocation) return map;
+    for (const river of riverGroups) {
+      const coords = river.primaryGauge?.coordinates;
+      if (isValidCoords(coords)) map[river.riverId] = haversineMiles(userLocation, coords);
+    }
+    return map;
+  }, [userLocation, riverGroups]);
+
   // Filter + sort
   const filteredRivers = useMemo(() => {
     const filtered = riverGroups.filter(river => {
@@ -215,9 +262,15 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
 
     const lenOf = (id: string) => riverMeta[id]?.lengthMiles ?? null;
     const byName = (a: RiverGroup, b: RiverGroup) => a.riverName.localeCompare(b.riverName);
+    // "Nearest me" needs a location; until one arrives (locating, denied, or
+    // unsupported) fall back to best-first so the list still reads sensibly.
+    const effectiveSort: RiverSortKey = sortBy === 'nearest' && !userLocation ? 'best' : sortBy;
 
     return [...filtered].sort((a, b) => {
-      switch (sortBy) {
+      switch (effectiveSort) {
+        case 'nearest':
+          // Rivers with an unknown distance sink to the bottom.
+          return (distanceByRiverId[a.riverId] ?? Infinity) - (distanceByRiverId[b.riverId] ?? Infinity) || byName(a, b);
         case 'name':
           return byName(a, b);
         case 'length_desc':
@@ -230,7 +283,7 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
           return conditionSortRank(a.condition.code) - conditionSortRank(b.condition.code) || byName(a, b);
       }
     });
-  }, [riverGroups, riverMeta, searchQuery, floatableNow, selectedCondition, selectedState, selectedType, selectedDifficulty, selectedLength, sortBy]);
+  }, [riverGroups, riverMeta, searchQuery, floatableNow, selectedCondition, selectedState, selectedType, selectedDifficulty, selectedLength, sortBy, userLocation, distanceByRiverId]);
 
   // Stats for condition pills (count rivers, not gauges)
   const stats = useMemo(() => {
@@ -422,18 +475,46 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
         )}
       </div>
 
-      {/* Result count */}
+      {/* Result count + "nearest me" status */}
       {riverGroups.length > 0 && (
-        <p className="text-sm text-neutral-500 mb-4">
-          Showing <span className="font-semibold text-neutral-700">{filteredRivers.length}</span> of {riverGroups.length} rivers
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-4 text-sm text-neutral-500">
+          <p>
+            Showing <span className="font-semibold text-neutral-700">{filteredRivers.length}</span> of {riverGroups.length} rivers
+          </p>
+          {sortBy === 'nearest' && geoStatus === 'locating' && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 animate-pulse" aria-hidden="true" /> Finding rivers near you…
+            </span>
+          )}
+          {sortBy === 'nearest' && geoStatus === 'granted' && (
+            <span className="inline-flex items-center gap-1 text-primary-600">
+              <MapPin className="w-3.5 h-3.5" aria-hidden="true" /> Sorted by distance from you
+            </span>
+          )}
+          {sortBy === 'nearest' && geoStatus === 'denied' && (
+            <span className="inline-flex items-center gap-1">
+              Location off — showing best conditions.
+              <button onClick={requestLocation} className="font-semibold text-primary-600 hover:text-primary-700 underline">
+                Try again
+              </button>
+            </span>
+          )}
+          {sortBy === 'nearest' && geoStatus === 'unsupported' && (
+            <span>Location isn&rsquo;t available on this device — showing best conditions.</span>
+          )}
+        </div>
       )}
 
       {/* River Cards */}
       {filteredRivers.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredRivers.map((river) => (
-            <RiverCard key={river.riverId} riverGroup={river} meta={riverMeta[river.riverId]} />
+            <RiverCard
+              key={river.riverId}
+              riverGroup={river}
+              meta={riverMeta[river.riverId]}
+              distanceMiles={distanceByRiverId[river.riverId] ?? null}
+            />
           ))}
         </div>
       ) : (
