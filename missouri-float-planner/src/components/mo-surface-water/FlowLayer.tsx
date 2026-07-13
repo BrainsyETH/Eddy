@@ -1,23 +1,21 @@
 'use client';
 
-// Animated flow layer — soft light "wisps" riding the curated rivers' real
-// geometry downstream, at a speed set by each river's condition. One canvas,
-// one rAF loop, zero React re-renders per frame.
+// Animated flow layer — soft light "sweeps" gliding down the curated rivers'
+// real geometry, at a speed set by each river's condition. One canvas, one
+// rAF loop, zero React re-renders per frame.
 //
 // Design: the condition COLOR lives on the SVG band underneath; this layer's
-// only job is MOTION. Each wisp is a translucent, faintly-cool white streak
-// that FOLLOWS the channel's curve — sampled along the real polyline, never a
-// straight chord across a meander — and tapers from a soft leading glint back
-// to nothing, like light catching moving water. Neutral white reads cleanly
-// over every condition color; the old version tinted each particle its
-// reach's own color and drew it as a straight dash over a band of that same
-// color, which is exactly why it looked like scratchy, low-contrast noise.
+// only job is MOTION. Each sweep is a stretch of the real polyline drawn as a
+// soft near-white glow — brightest at its center, fading to nothing at both
+// ends — that travels downstream, like light running along moving water. It
+// FOLLOWS the channel's curve (sampled along the polyline, never a straight
+// chord across a meander) and stays neutral white so it reads cleanly over
+// every condition color instead of competing with it. Sweeps are spaced
+// evenly along each reach, so long and short rivers pulse at a similar cadence.
 //
-// Perf budget (docs/mo-surface-water-observatory.md): ≤240 wisps on desktop,
-// ≤110 on small/low-end devices; dt clamped; paused when the tab is hidden,
-// the layer is toggled off, or reduced motion is set. Self-degrading: if the
-// rolling frame time stays over ~24 ms, the count halves (floor 120) before
-// the map ever gets janky.
+// Cheap by construction: a handful of sweeps per river, not hundreds of
+// particles. dt clamped; paused when the tab is hidden, the layer is toggled
+// off, or reduced motion is set; self-degrades if frame time creeps up.
 
 import { useEffect, useRef, type RefObject } from 'react';
 import type { StageVerdict } from '@/lib/usgs/mo-statewide-data';
@@ -66,14 +64,20 @@ function speedFor(verdict: StageVerdict, percentile: number | null): number {
   return base * (0.8 + 0.4 * (p / 100));
 }
 
-// Trail sampled as this many short segments along the real river polyline —
-// enough to bend cleanly through a meander without over-drawing.
-const TRAIL_SEGMENTS = 6;
-// Wisp tone: a faint, barely-cool white that reads as a glint of light on the
-// colored water regardless of the condition color underneath. Motion only —
-// the band carries the color.
-const WISP_BODY = '240,248,251'; // faint full-length streak
-const WISP_HEAD = '248,252,254'; // brighter leading glint
+// A light "sweep" is a glow that travels down a river's centerline: a stretch
+// of the real polyline, SWEEP_LEN long, drawn brightest at its center and
+// fading to nothing at both ends, advancing at the reach's flow speed. Sweeps
+// sit SWEEP_SPACING apart (capped per river) so the cadence reads the same on
+// a 200-mile river and a 20-mile creek. SWEEP_STEPS is how many short segments
+// each sweep is sampled into — enough to trace a meander smoothly. The tone is
+// a neutral near-white so the pulse reads as light on the water without
+// competing with the condition color the band already carries.
+const SWEEP_LEN = 46;
+const SWEEP_SPACING = 95;
+const SWEEP_MAX = 6;
+const SWEEP_STEPS = 12;
+const SWEEP_PEAK = 0.5;
+const SWEEP_COLOR = '248,252,254';
 
 interface Particle {
   river: number;
@@ -144,19 +148,13 @@ export default function FlowLayer({
       });
     if (!runtimes.length) return;
 
-    // ── Seed particles (deterministic LCG — stable across re-inits) ──
-    const totalLen = runtimes.reduce((s, r) => s + r.total, 0);
-    const particleBudget = maxParticles;
-    let seed = 1234567;
-    const rand = () => {
-      seed = (seed * 1103515245 + 12345) % 2147483648;
-      return seed / 2147483648;
-    };
+    // ── Seed light sweeps: evenly spaced along each reach so they travel as
+    //    regular pulses, not a random field. Count scales with length. ──
     let particles: Particle[] = [];
     runtimes.forEach((r, idx) => {
-      const n = Math.max(6, Math.round((r.total / totalLen) * particleBudget));
+      const n = Math.max(1, Math.min(SWEEP_MAX, Math.round(r.total / SWEEP_SPACING)));
       for (let i = 0; i < n; i++) {
-        particles.push({ river: idx, s: rand() * r.total, jitter: 0.85 + rand() * 0.3 });
+        particles.push({ river: idx, s: (i / n) * r.total, jitter: 1 });
       }
     });
 
@@ -258,49 +256,35 @@ export default function FlowLayer({
         p.s += r.speed * p.jitter * dt;
         if (p.s >= r.total) p.s -= r.total;
 
-        // Trail streaks upstream, sampled along the ACTUAL polyline in short
-        // steps so the wisp bends with the channel instead of chording across
-        // a meander. Length grows gently with speed — flood water streaks
-        // longer. Clamped at the headwater, never wrapped (a wrapped tail
-        // would draw a chord clean across the map from mouth to source).
-        const tailLen = Math.min(18, 5 + r.speed * 0.5);
-
-        // Body: one faint soft-white stroke through every sample point, so it
-        // reads as a single curved wisp rather than a stack of segments.
-        let x0 = 0;
-        let y0 = 0;
-        let x1 = 0;
-        let y1 = 0;
-        ctx.strokeStyle = `rgba(${WISP_BODY},0.13)`;
-        ctx.lineWidth = Math.max(1, 1.25 * dpr);
-        ctx.beginPath();
-        for (let k = 0; k <= TRAIL_SEGMENTS; k++) {
-          const sk = Math.max(0.01, p.s - (tailLen * k) / TRAIL_SEGMENTS);
-          const q = pointAt(r, sk);
+        // Draw the sweep as a run of short segments along the ACTUAL polyline
+        // (so the glow follows the channel), with a cos² bell on both alpha
+        // and width — brightest at the center, fading to nothing at both ends.
+        // Sampling is clamped to the reach so a sweep near an end fades out
+        // instead of wrapping a chord across the map from mouth to source.
+        const half = SWEEP_LEN / 2;
+        let px = 0;
+        let py = 0;
+        for (let k = 0; k <= SWEEP_STEPS; k++) {
+          const sk = p.s - half + (SWEEP_LEN * k) / SWEEP_STEPS;
+          const q = pointAt(r, Math.max(0.01, Math.min(r.total - 0.01, sk)));
           const cx = q[0] * s + ox;
           const cy = q[1] * s + oy;
-          if (k === 0) {
-            ctx.moveTo(cx, cy);
-            x0 = cx;
-            y0 = cy;
-          } else {
-            ctx.lineTo(cx, cy);
-            if (k === 1) {
-              x1 = cx;
-              y1 = cy;
+          if (k > 0) {
+            const center = (k - 0.5) / SWEEP_STEPS;           // 0..1 along sweep
+            const bell = Math.cos((center - 0.5) * Math.PI);  // 1 mid → 0 ends
+            const a = SWEEP_PEAK * bell * bell;
+            if (a > 0.02) {
+              ctx.strokeStyle = `rgba(${SWEEP_COLOR},${a.toFixed(3)})`;
+              ctx.lineWidth = Math.max(1, (1.3 + 1.4 * bell) * dpr);
+              ctx.beginPath();
+              ctx.moveTo(px, py);
+              ctx.lineTo(cx, cy);
+              ctx.stroke();
             }
           }
+          px = cx;
+          py = cy;
         }
-        ctx.stroke();
-
-        // Leading glint: the head-most segment, brighter and a touch wider —
-        // light catching the front of the moving water. No dot, no speckle.
-        ctx.strokeStyle = `rgba(${WISP_HEAD},0.44)`;
-        ctx.lineWidth = Math.max(1, 1.7 * dpr);
-        ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
-        ctx.stroke();
       }
 
       if (!firstFrameLogged) {
