@@ -98,7 +98,7 @@ export default function RiverMapFeature() {
 
       <div className="relative z-10 mt-4">
         <h2 className="max-w-[15rem] text-xl md:text-2xl font-bold leading-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
-          See every Missouri river, live
+          See every Ozarks river, live
         </h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/75">
           One map — every curated river painted by its USGS gauges, with 30-day
