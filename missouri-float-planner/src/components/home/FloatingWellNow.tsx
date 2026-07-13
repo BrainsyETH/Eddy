@@ -1,9 +1,9 @@
 'use client';
 
 // src/components/home/FloatingWellNow.tsx
-// Compact "floating well now" list for the landing page — live river conditions
-// filtered to clean / floatable rivers. Pairs with RiverMapFeature in a 2-col
-// band and replaces the larger FeaturedRivers chart cards on the home page.
+// Compact "floating well now" list — live river conditions filtered to clean /
+// floatable rivers. Not currently mounted: the home 2-col band now pairs Eddy's
+// read with the River Map teaser. Retained for reuse.
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';

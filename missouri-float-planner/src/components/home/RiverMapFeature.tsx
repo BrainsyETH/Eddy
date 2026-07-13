@@ -1,13 +1,12 @@
 // src/components/home/RiverMapFeature.tsx
 // Landing-page feature band for /river-map — a self-contained visual teaser
 // (brand gradient + a stylized river/topo SVG) that sells the live statewide
-// map. Pairs with FloatingWellNow in the home "conditions at a glance" 2-col
-// band, replacing the old EddySaysReport card (Eddy's live voice already lives
-// in the hero bubble, so a second statewide quote read as redundant).
+// map. Pairs with EddySaysReport in the home "conditions at a glance" 2-col
+// band, in the slot the "Floating well now" list used to hold.
 //
 // Presentational only — no data hooks — so it renders instantly server-side
 // with no loading state or layout shift. The live data lives on /river-map
-// itself and in the FloatingWellNow list beside it.
+// itself.
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
