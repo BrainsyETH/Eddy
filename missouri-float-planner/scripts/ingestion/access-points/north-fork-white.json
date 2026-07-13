@@ -1,0 +1,199 @@
+[
+  {
+    "name": "Hebron Access (Steel Bridge)",
+    "kind": "access",
+    "expected_mile": 18.7,
+    "lat": 36.8509,
+    "lon": -92.187,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/hebron-access",
+    "facilities": "Gravel parking lot, a few primitive campsites, gravel-bar launch; locally called 'Steel Bridge' (concrete slab bridge).",
+    "description": "MDC access between Dora and Vanzant. MDC/float-guide directions: CR 279 north off Hwy 181. Reported thefts here per local news.",
+    "confidence": "high",
+    "source_urls": [
+      "https://paddling.com/paddle/locations/hebron-access",
+      "https://www.openstreetmap.org/way/364561457",
+      "https://mdc.mo.gov/discover-nature/places/hebron-access"
+    ]
+  },
+  {
+    "name": "Highway 14 bridge (Twin Bridges) over North Fork",
+    "kind": "bridge",
+    "expected_mile": 24.1,
+    "lat": 36.81089,
+    "lon": -92.14905,
+    "is_public": true,
+    "ownership": "MoDOT",
+    "managing_agency": "MoDOT",
+    "official_site_url": null,
+    "facilities": "Public MoDOT highway bridge / roadside; used as put-in/take-out.",
+    "description": "This is the PUBLIC Hwy 14 bridge coordinate. The private Twin Bridges Canoe & Campground resort sits at this crossing and is handled separately as a service. 'Twin Bridges' = the two adjacent Hwy 14 bridges (North Fork + Spring Creek).",
+    "confidence": "high",
+    "source_urls": [
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07057400/",
+      "https://www.openstreetmap.org/way/364561433"
+    ]
+  },
+  {
+    "name": "North Fork Recreation Area (Hammond)",
+    "kind": "campground",
+    "expected_mile": 29.2,
+    "lat": 36.75861,
+    "lon": -92.1528,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://www.fs.usda.gov/r09/marktwain/recreation/north-fork-recreation-area",
+    "facilities": "USFS campground (~19 sites), day-use/picnic area, non-motorized boat launch, vault toilets, drinking water. Also known as Hammond Camp.",
+    "description": "Located at the Route CC crossing of the North Fork. Periodically closed for construction in recent years.",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.fs.usda.gov/r09/marktwain/recreation/north-fork-recreation-area",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07057470/",
+      "https://www.openstreetmap.org/way/1025251272"
+    ]
+  },
+  {
+    "name": "Blair Bridge Access",
+    "kind": "boat_ramp",
+    "expected_mile": 39.2,
+    "lat": 36.65844,
+    "lon": -92.22961,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/blair-bridge-access",
+    "facilities": "Concrete boat ramp, two campsites, campfire rings, picnic tables, privy. Concrete low-water bridge crossing.",
+    "description": "Float guide lists mile 39.4. Access is on the right immediately after the low-water bridge on CR 354.",
+    "confidence": "high",
+    "source_urls": [
+      "https://paddling.com/paddle/locations/blair-bridge-access",
+      "https://mdc.mo.gov/discover-nature/places/blair-bridge-access"
+    ]
+  },
+  {
+    "name": "Patrick Bridge Access",
+    "kind": "access",
+    "expected_mile": 42.1,
+    "lat": 36.6431,
+    "lon": -92.2251,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/patrick-bridge-access",
+    "facilities": "Gravel canoe launch ramp, campsites, privies, Althea Spring Trail. Heavily used in summer.",
+    "description": "Reported coordinate is the bridge crossing on-channel. Per floatmissouri the gravel ramp is on the NE side of the H bridge (~36.6436, -92.2222 per the OSM access node). Directions: Hwy 160 W from Caulfield ~3.5 mi, then Route H north 4 mi.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/patrick-bridge-access",
+      "https://paddling.com/paddle/locations/patrick-bridge",
+      "https://www.floatmissouri.com/plan/missouri-rivers/north-fork/"
+    ]
+  },
+  {
+    "name": "Highway PP bridge (North Fork high bridge)",
+    "kind": "bridge",
+    "expected_mile": 45.3,
+    "lat": 36.616,
+    "lon": -92.2624,
+    "is_public": true,
+    "ownership": "MoDOT",
+    "managing_agency": "MoDOT",
+    "official_site_url": null,
+    "facilities": "Public MoDOT highway bridge. A low-water dam sits just downstream (a 'canoe-buster' \u2014 portage on the right).",
+    "description": "Coordinate is the OSM bridge centerline (single coordinate source, but route-ref + waterway-name + float-guide together make the identification unambiguous). River meanders here: PP (mile 45.3) sits slightly south of the Tecumseh take-out because the river loops through Dawt (mile 47) before bending north into Norfork Lake.",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.floatmissouri.com/plan/missouri-rivers/north-fork/",
+      "https://www.openstreetmap.org/api/interpreter"
+    ]
+  },
+  {
+    "name": "Tecumseh / Norfork Lake Public Access",
+    "kind": "access",
+    "expected_mile": 49.5,
+    "lat": 36.62303,
+    "lon": -92.24814,
+    "is_public": true,
+    "ownership": "unknown",
+    "managing_agency": "unknown",
+    "official_site_url": null,
+    "facilities": "Public access near Hwy 160 at the upper end of Norfork Lake; final ~2 mi of the float is slackwater lake.",
+    "description": "Pre-confirmed value VERIFIED via USGS. Ownership of the ramp itself unconfirmed (upper Norfork Lake is USACE-managed; may be MDC/USACE/county). Coordinate is the USGS gauge; verify the exact ramp if a distinct launch is needed.",
+    "confidence": "high",
+    "source_urls": [
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07057500/"
+    ]
+  },
+  {
+    "name": "Highway 76 bridge (upper put-in)",
+    "kind": "bridge",
+    "expected_mile": null,
+    "lat": 36.98414,
+    "lon": -92.16694,
+    "is_public": true,
+    "ownership": "MoDOT",
+    "managing_agency": "MoDOT",
+    "official_site_url": null,
+    "facilities": "Public MoDOT highway bridge, used as the uppermost float put-in.",
+    "description": "Bonus/upstream point. Coordinate from OSM only (single source) but unambiguous. This is the northernmost/top crossing near the Willow Springs headwaters.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/364561445",
+      "https://www.americanwhitewater.org/content/River/detail/id/3028"
+    ]
+  },
+  {
+    "name": "Osborn Ford",
+    "kind": "access",
+    "expected_mile": 12.2,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "unknown",
+    "managing_agency": "unknown",
+    "official_site_url": null,
+    "facilities": "Low-water bridge crossing used as informal float access.",
+    "description": "NOTE: the task's '(Hwy CC)' label appears incorrect \u2014 the Route CC crossing is at the North Fork Recreation Area (mile 29.2), not at Osborn Ford (mile 12.2). Verified upper-river North Fork road crossings that are CANDIDATES for Osborn/Hale Ford but could not be name-matched: CR 281 at 36.9773, -92.1667 and CR 'E-276' at 36.9473, -92.2021 (both confirmed over the North Fork via Overpass). Left null to avoid guessing the name-to-coordinate mapping.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://www.ozarkcountytimes.com/news-local-news-outdoor-news/access-answers-lower-north-fork-river"
+    ]
+  },
+  {
+    "name": "Hale Ford (Hale's Crossing)",
+    "kind": "access",
+    "expected_mile": 14.8,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "unknown",
+    "managing_agency": "unknown",
+    "official_site_url": null,
+    "facilities": "Low-water bridge crossing used as informal float access.",
+    "description": "Candidate verified North Fork crossings (unnamed match) same as Osborn Ford: CR 281 (36.9773, -92.1667) and CR E-276 (36.9473, -92.2021). Left null to avoid guessing.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://www.ozarkcountytimes.com/news-local-news-outdoor-news/access-answers-lower-north-fork-river"
+    ]
+  },
+  {
+    "name": "Kelly Ford",
+    "kind": "access",
+    "expected_mile": 34.2,
+    "lat": null,
+    "lon": null,
+    "is_public": false,
+    "ownership": "private",
+    "managing_agency": "private",
+    "official_site_url": null,
+    "facilities": "Tiny, remote informal river access on private (Rainbow Springs) land.",
+    "description": "Not on public land \u2014 tolerated informal use. Excluded from confident coordinates; likely should be treated cautiously (semi-private).",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://www.ozarkcountytimes.com/news-local-news-outdoor-news/access-answers-lower-north-fork-river"
+    ]
+  }
+]

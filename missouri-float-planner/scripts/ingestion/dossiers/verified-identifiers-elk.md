@@ -48,3 +48,27 @@ threshold/optimal signoff is still open (see elk.json `_status`).
   optimal, then flip elk.json `_status` to SIGNED-OFF.
 - Also pending: access-point coordinates (human places every point [manual]);
   Big Sugar Creek drainage area; Indian Creek gauge id; NHD representative PID.
+
+## 2026-07-13 — PRIMARY GAUGE IS DEAD; ELK HELD INACTIVE (blocker)
+
+Verified against USGS at go-live: **07189000 (Tiff City) can no longer drive the
+Elk badge.**
+- Its `00065` gage height returns the `-999999` no-data sentinel and the daily-
+  value record has **no gage-height series at all** — only discharge (`00060`),
+  and that stopped **2026-04-27** (301 days 2025-07-01→2026-04-27, then nothing).
+  So the sensor behind the stale-2010 3.56 ft 'Low' is defunct; the reach's
+  ft-based ladder (too_low 2.5 / optimal 3.5–5 / dangerous 6) has no live feet to
+  read. The research note here ("uv 00065 … POLLABLE") is now FALSE.
+- Only live mainstem gauge on the Elk is **07188925 "Elk Rv at MO-59, Noel, MO"**
+  (the research missed it). It reports gage height, but on a **different datum**:
+  6-week record (starts 2026-06-02) min 5.81 / median 6.42 / p90 7.62 / max 11.29,
+  currently 5.84 ft. The Tiff City ladder does NOT transfer — 6 ft "dangerous"
+  sits *below* Noel's normal stage, so keeping the old thresholds would read
+  "Dangerous" almost always. No NWS AHPS flood stages published for Noel.
+
+**Decision:** Elk rolled back to `active=false`. Access points (5 approved),
+services (7), prose, weather, geometry are all in place and correct — only the
+gauge/threshold core is blocked. To finish Elk: pick 07188925 (Noel) as primary,
+then calibrate an OBSERVED floatable ladder on the Noel datum (needs outfitter /
+observed-level guidance — 6 weeks of record is not enough alone), or wait for
+07189000 to resume + confirm it emits real feet. Do NOT ship estimated thresholds.

@@ -1,5 +1,5 @@
 {
-  "_status": "SIGNED-OFF 2026-07-12 — owner-authorized go-live (Elk + James first batch). Elk River, rain_flashy. Calibrated on the Elk River Floats gauge-height key (07189000, ft): too_low 2.5 / optimal 3.5–5 / dangerous 6 (upper & full trips close at 6+). moherp has no observed cfs Good/High for the Elk mainstem, so the ft outfitter key is the calibration source. [verify] cleared (07189000 in verified-identifiers-elk.md). NOTE: access points are [manual] — place put-ins/take-outs in /admin/geography before activation; ingest loads geometry/gauges/thresholds/sections only, active stays FALSE until access placement + owner activation.",
+  "_status": "HELD-INACTIVE 2026-07-13: primary gauge 07189000 is dead (cfs-only, offline since 2026-04-27; 00065 returns -999999). Access points/services/prose/geometry done. BLOCKER: recalibrate to live Noel gauge 07188925 (datum 5.8-11 ft, thresholds do not transfer) with an OBSERVED floatable ladder before reactivating. See verified-identifiers-elk.md 2026-07-13 note.",
   "name": "Elk River",
   "slug": "elk",
   "primaryGaugeSiteId": "07189000",

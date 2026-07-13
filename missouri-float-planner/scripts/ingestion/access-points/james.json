@@ -1,0 +1,96 @@
+[
+  {
+    "name": "Delaware Town Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 37.05,
+    "lon": -93.3919,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/delaware-town-access",
+    "facilities": "Boat ramp, two parking lots, day-use only, no camping; 24 acres",
+    "description": "Uppermost MDC access on the floatable main James. ~1.5 mi upstream of the USGS 'James River near Boaz' gauge 07052250 (37.0066,-93.3647).",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/delaware-town-access",
+      "https://paddling.com/paddle/locations/delaware-town-access",
+      "https://www.openstreetmap.org/way/18407376"
+    ]
+  },
+  {
+    "name": "Shelvin Rock Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.9962,
+    "lon": -93.3699,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shelvin-rock-access",
+    "facilities": "Two parking lots, boat/canoe access for fishing and canoeing, day-use; ~20 acres",
+    "description": "2nd of 5 MDC main-stem accesses (N->S: Delaware Town, Shelvin Rock, Hooten Town, H.L. Kerr, Ralph Cox).",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/shelvin-rock-access",
+      "https://www.openstreetmap.org/way/18412588"
+    ]
+  },
+  {
+    "name": "Hootentown Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.9383,
+    "lon": -93.3858,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/hooten-town-access",
+    "facilities": "Boat ramp, large parking lot, day-use only; marks upstream end of the James River special black-bass management area",
+    "description": "Popular put-in; classic ~9 mi float Hootentown -> Galena. MDC official name 'Hooten Town Access'.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/hooten-town-access",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-365618093230901/",
+      "https://www.openstreetmap.org/node/193359042"
+    ]
+  },
+  {
+    "name": "H.L. Kerr Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.8322,
+    "lon": -93.4466,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/h-l-kerr-access",
+    "facilities": "Concrete boat ramp, large parking lot, day-use only; 39.2 acres",
+    "description": "4th MDC access; ~5 river miles above the Galena/Ralph Cox take-out. Do not confuse with adjacent private outfitter drop-ins.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/h-l-kerr-access",
+      "https://paddling.com/paddle/locations/kerr-access",
+      "https://www.openstreetmap.org/node/13194534369"
+    ]
+  },
+  {
+    "name": "Galena Y-Bridge Access (Ralph Cox Memorial Access)",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.8069,
+    "lon": -93.4618,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/ralph-cox-memorial-access",
+    "facilities": "ADA concrete boat ramp, privy, large parking lot, day-use",
+    "description": "The confirmed 'Galena Y-Bridge' take-out IS the MDC Ralph Cox Memorial Access ramp, adjacent to the Galena Y-Bridge and the USGS 07052500 gauge. Southernmost/downstream MDC access before Table Rock Lake backwater.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/ralph-cox-memorial-access",
+      "https://waterdata.usgs.gov/monitoring-location/07052500/",
+      "https://www.openstreetmap.org/node/13194547657"
+    ]
+  }
+]
