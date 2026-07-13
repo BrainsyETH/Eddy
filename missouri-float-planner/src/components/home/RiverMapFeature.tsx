@@ -92,7 +92,7 @@ export default function RiverMapFeature() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: FLOWING }} />
             <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: FLOWING }} />
           </span>
-          Live · statewide
+          Live
         </span>
       </div>
 
@@ -101,8 +101,8 @@ export default function RiverMapFeature() {
           See every Ozarks river, live
         </h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/75">
-          One map — every curated river painted by its USGS gauges, with 30-day
-          trends, flood warnings, and a drag-to-replay timeline.
+          One map. Every river displays the river condition, flood warnings, and
+          water trends all in one place.
         </p>
         <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
           Open the River Map
