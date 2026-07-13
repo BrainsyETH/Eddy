@@ -1,22 +1,23 @@
 'use client';
 
-// Animated flow layer — comet particles riding the curated rivers'
-// real geometry, downstream, at a speed set by each river's condition.
-// One canvas, one rAF loop, zero React re-renders per frame.
+// Animated flow layer — soft light "wisps" riding the curated rivers' real
+// geometry downstream, at a speed set by each river's condition. One canvas,
+// one rAF loop, zero React re-renders per frame.
 //
-// This is NOT the nullschool/Windy additive-glow look: those render on
-// black, where 'lighter' compositing and white particle heads read as
-// light. Our rivers flow over a LIGHT parchment landmass, so additive
-// blending just washes toward white and the white heads dominate. We
-// instead draw "ink current" — each particle is a translucent streak in
-// its reach's condition color with a brighter same-hue crest, composited
-// normally, so it reads as colored water moving in the channel.
+// Design: the condition COLOR lives on the SVG band underneath; this layer's
+// only job is MOTION. Each wisp is a translucent, faintly-cool white streak
+// that FOLLOWS the channel's curve — sampled along the real polyline, never a
+// straight chord across a meander — and tapers from a soft leading glint back
+// to nothing, like light catching moving water. Neutral white reads cleanly
+// over every condition color; the old version tinted each particle its
+// reach's own color and drew it as a straight dash over a band of that same
+// color, which is exactly why it looked like scratchy, low-contrast noise.
 //
-// Perf budget (docs/mo-surface-water-observatory.md): ≤700 particles on
-// desktop, ≤300 on small/low-end devices; dt clamped; paused when the
-// tab is hidden, the layer is toggled off, or reduced motion is set.
-// Self-degrading: if the rolling frame time stays over ~24 ms, the
-// particle count halves (floor 120) before the map ever gets janky.
+// Perf budget (docs/mo-surface-water-observatory.md): ≤240 wisps on desktop,
+// ≤110 on small/low-end devices; dt clamped; paused when the tab is hidden,
+// the layer is toggled off, or reduced motion is set. Self-degrading: if the
+// rolling frame time stays over ~24 ms, the count halves (floor 120) before
+// the map ever gets janky.
 
 import { useEffect, useRef, type RefObject } from 'react';
 import type { StageVerdict } from '@/lib/usgs/mo-statewide-data';
@@ -34,9 +35,6 @@ export interface FlowRiver {
    * isn't comparable across rivers.
    */
   percentile: number | null;
-  /** Gradient axis + stops (matches the SVG linearGradient painting). */
-  axis: { x1: number; y1: number; x2: number; y2: number } | null;
-  stops: Array<{ offset: number; color: string }>;
 }
 
 interface ViewBox { x: number; y: number; w: number; h: number }
@@ -68,6 +66,15 @@ function speedFor(verdict: StageVerdict, percentile: number | null): number {
   return base * (0.8 + 0.4 * (p / 100));
 }
 
+// Trail sampled as this many short segments along the real river polyline —
+// enough to bend cleanly through a meander without over-drawing.
+const TRAIL_SEGMENTS = 6;
+// Wisp tone: a faint, barely-cool white that reads as a glint of light on the
+// colored water regardless of the condition color underneath. Motion only —
+// the band carries the color.
+const WISP_BODY = '240,248,251'; // faint full-length streak
+const WISP_HEAD = '248,252,254'; // brighter leading glint
+
 interface Particle {
   river: number;
   s: number;       // distance along polyline (viewBox units)
@@ -83,20 +90,6 @@ interface RiverRuntime {
   cum: Float64Array;  // cumulative segment lengths
   total: number;
   speed: number;
-  /** 24-bucket condition-color LUT along the reach (pre-stringified rgb). */
-  lut: string[];
-  /** Same LUT mixed toward white — the lit crest at each particle head. */
-  headLut: string[];
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  const v = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  return [
-    parseInt(v.slice(0, 2), 16),
-    parseInt(v.slice(2, 4), 16),
-    parseInt(v.slice(4, 6), 16),
-  ];
 }
 
 export default function FlowLayer({
@@ -135,7 +128,7 @@ export default function FlowLayer({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // ── Build runtimes ──
+    // ── Build runtimes (geometry + speed only; color lives on the band) ──
     const runtimes: RiverRuntime[] = rivers
       .filter((r) => r.pts.length >= 2)
       .map((r) => {
@@ -147,46 +140,7 @@ export default function FlowLayer({
           total += Math.hypot(dx, dy);
           cum[i] = total;
         }
-        // Color LUT along the gradient axis — matches the SVG paint.
-        const stops = r.stops.length
-          ? r.stops.map((s) => ({ offset: s.offset, rgb: hexToRgb(s.color) }))
-          : [{ offset: 0, rgb: [163, 209, 219] as [number, number, number] }];
-        const axis = r.axis;
-        const lut: string[] = [];
-        const headLut: string[] = [];
-        for (let b = 0; b < 24; b++) {
-          // Point at fraction f along the LINE; project onto gradient axis.
-          const f = b / 23;
-          let t = f;
-          if (axis) {
-            const target = f * total;
-            let idx = 1;
-            while (idx < cum.length - 1 && cum[idx] < target) idx++;
-            const p = r.pts[idx];
-            const dx = axis.x2 - axis.x1;
-            const dy = axis.y2 - axis.y1;
-            const lenSq = dx * dx + dy * dy || 1;
-            t = Math.max(0, Math.min(1, ((p[0] - axis.x1) * dx + (p[1] - axis.y1) * dy) / lenSq));
-          }
-          let lo = stops[0];
-          let hi = stops[stops.length - 1];
-          for (let i = 0; i < stops.length - 1; i++) {
-            if (t >= stops[i].offset && t <= stops[i + 1].offset) {
-              lo = stops[i];
-              hi = stops[i + 1];
-              break;
-            }
-          }
-          const span = hi.offset - lo.offset || 1;
-          const k = Math.max(0, Math.min(1, (t - lo.offset) / span));
-          const rgb = [0, 1, 2].map((c) => Math.round(lo.rgb[c] + (hi.rgb[c] - lo.rgb[c]) * k));
-          lut.push(`${rgb[0]},${rgb[1]},${rgb[2]}`);
-          // The lit crest: same hue mixed 42% toward white. Reads as a
-          // sunlit ripple on colored water — not a white pinprick.
-          const head = rgb.map((c) => Math.round(c + (255 - c) * 0.42));
-          headLut.push(`${head[0]},${head[1]},${head[2]}`);
-        }
-        return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile), lut, headLut };
+        return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile) };
       });
     if (!runtimes.length) return;
 
@@ -225,7 +179,7 @@ export default function FlowLayer({
     // Rolling degradation check. The small-budget tier is already on
     // constrained hardware, so it gets half the reaction window — ~0.75s
     // of slow frames instead of ~1.5s before the particle count halves.
-    const SLOW_FRAME_LIMIT = maxParticles <= 300 ? 30 : 60;
+    const SLOW_FRAME_LIMIT = maxParticles <= 150 ? 30 : 60;
     let slowFrames = 0;
 
     const pointAt = (r: RiverRuntime, s: number): [number, number, number] => {
@@ -297,35 +251,56 @@ export default function FlowLayer({
       // where additive ('lighter') would just wash everything toward white.
       ctx.globalCompositeOperation = 'source-over';
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
       for (const p of particles) {
         const r = runtimes[p.river];
         p.s += r.speed * p.jitter * dt;
         if (p.s >= r.total) p.s -= r.total;
-        const [x, y] = pointAt(r, p.s);
-        // Comet tail points upstream. CLAMPED at the headwater, never
-        // wrapped — a wrapped tail draws a chord clean across the map
-        // from the river's mouth back to its source.
-        const tailLen = Math.min(14, 2.5 + r.speed * 0.45);
-        const [tx, ty] = pointAt(r, Math.max(0.01, p.s - tailLen));
-        const bucket = Math.min(23, Math.floor((p.s / r.total) * 24));
-        const color = r.lut[bucket];
 
-        const hx = x * s + ox;
-        const hy = y * s + oy;
-        // Colored streak in the reach's condition hue — reads on parchment.
-        ctx.strokeStyle = `rgba(${color},0.5)`;
-        ctx.lineWidth = Math.max(1, 1.4 * dpr);
+        // Trail streaks upstream, sampled along the ACTUAL polyline in short
+        // steps so the wisp bends with the channel instead of chording across
+        // a meander. Length grows gently with speed — flood water streaks
+        // longer. Clamped at the headwater, never wrapped (a wrapped tail
+        // would draw a chord clean across the map from mouth to source).
+        const tailLen = Math.min(18, 5 + r.speed * 0.5);
+
+        // Body: one faint soft-white stroke through every sample point, so it
+        // reads as a single curved wisp rather than a stack of segments.
+        let x0 = 0;
+        let y0 = 0;
+        let x1 = 0;
+        let y1 = 0;
+        ctx.strokeStyle = `rgba(${WISP_BODY},0.13)`;
+        ctx.lineWidth = Math.max(1, 1.25 * dpr);
         ctx.beginPath();
-        ctx.moveTo(tx * s + ox, ty * s + oy);
-        ctx.lineTo(hx, hy);
+        for (let k = 0; k <= TRAIL_SEGMENTS; k++) {
+          const sk = Math.max(0.01, p.s - (tailLen * k) / TRAIL_SEGMENTS);
+          const q = pointAt(r, sk);
+          const cx = q[0] * s + ox;
+          const cy = q[1] * s + oy;
+          if (k === 0) {
+            ctx.moveTo(cx, cy);
+            x0 = cx;
+            y0 = cy;
+          } else {
+            ctx.lineTo(cx, cy);
+            if (k === 1) {
+              x1 = cx;
+              y1 = cy;
+            }
+          }
+        }
         ctx.stroke();
 
-        // Lit crest — brighter same-hue tone, not white.
-        ctx.fillStyle = `rgba(${r.headLut[bucket]},0.7)`;
+        // Leading glint: the head-most segment, brighter and a touch wider —
+        // light catching the front of the moving water. No dot, no speckle.
+        ctx.strokeStyle = `rgba(${WISP_HEAD},0.44)`;
+        ctx.lineWidth = Math.max(1, 1.7 * dpr);
         ctx.beginPath();
-        ctx.arc(hx, hy, Math.max(0.8, 0.9 * dpr), 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
       }
 
       if (!firstFrameLogged) {

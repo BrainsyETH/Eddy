@@ -398,18 +398,20 @@ function RiverCard({
   // value is below flood stage but the next 72h forecast crosses it.
   const verdict: StageVerdict = (() => {
     if (!primaryGauge || !primaryThresholds) return 'unknown';
+    const stageFt = primaryGauge.gaugeHeightFt;
     const value = primaryThresholds.threshold_unit === 'cfs'
       ? primaryGauge.dischargeCfs
-      : primaryGauge.gaugeHeightFt;
-    if (value == null) return 'unknown';
+      : stageFt;
+    // Forecast-aware flood override on STAGE (ft), regardless of display unit —
+    // the stored gauge height keeps anchoring "dangerous" for a cfs-primary gauge.
     if (
-      primaryThresholds.threshold_unit === 'ft' &&
       primaryThresholds.flood_stage_ft != null &&
-      Math.max(value, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
+      Math.max(stageFt ?? Number.NEGATIVE_INFINITY, forecast?.peakFt ?? Number.NEGATIVE_INFINITY) >= primaryThresholds.flood_stage_ft
     ) {
       return 'dangerous';
     }
-    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds);
+    if (value == null) return 'unknown';
+    return classifyStageFromThresholds(value, primaryThresholds.threshold_unit, primaryThresholds, stageFt);
   })();
   const tone = STAGE_VERDICTS[verdict];
   const bannerChip = conditionChip(verdict);
@@ -455,11 +457,13 @@ function RiverCard({
         }}
       >
         <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22 }}>
-          {primaryGauge?.gaugeHeightFt != null
-            ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
-            : primaryThresholds
-              ? '— ft'
-              : 'no live gauge'}
+          {(primaryThresholds?.threshold_unit ?? 'ft') === 'cfs'
+            ? (primaryGauge?.dischargeCfs != null
+                ? `${Math.round(primaryGauge.dischargeCfs).toLocaleString()} cfs`
+                : primaryThresholds ? '— cfs' : 'no live gauge')
+            : (primaryGauge?.gaugeHeightFt != null
+                ? `${primaryGauge.gaugeHeightFt.toFixed(2)} ft`
+                : primaryThresholds ? '— ft' : 'no live gauge')}
         </span>
         <span className="font-bold uppercase"
           style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em' }}>
@@ -492,9 +496,15 @@ function RiverCard({
       )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <KV label="Flow"
-          value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
-          sub="cfs" />
+        {(primaryThresholds?.threshold_unit ?? 'ft') === 'cfs' ? (
+          <KV label="Stage"
+            value={primaryGauge?.gaugeHeightFt != null ? primaryGauge.gaugeHeightFt.toFixed(2) : '—'}
+            sub="ft" />
+        ) : (
+          <KV label="Flow"
+            value={primaryGauge?.dischargeCfs != null ? `${Math.round(primaryGauge.dischargeCfs)}` : '—'}
+            sub="cfs" />
+        )}
         <KV label="Percentile"
           value={primaryGauge?.percentile != null ? `P${Math.round(primaryGauge.percentile)}` : '—'} />
         <KV label="Gauges" value={`${(river.gauges ?? []).length}`} />
@@ -752,9 +762,29 @@ function GaugeDetail({
           fontFamily: MONO, fontSize: 10, lineHeight: 1.5, color: THEME.inkDim,
         }}
       >
-        Source: USGS NWIS · IV/DV/STAT endpoints. Percentile rank is computed against
-        this gauge&apos;s daily period of record for today&apos;s calendar date.
+        Percentile ranks today&apos;s flow against this gauge&apos;s full daily
+        record for the date.
       </div>
+
+      {/* Cross-link to the full River Report — the richer destination (guide,
+          sections, outfitters, planner) for the river this gauge rates. It's
+          the primary action here, so it sits above the raw USGS station page
+          and borrows the RiverCard's coral CTA to keep the map's cards
+          consistent. */}
+      <a
+        href={`/rivers/${gauge.river_slug}`}
+        className="mt-3 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2.5 uppercase"
+        style={{
+          background: 'var(--color-accent-700)',
+          color: 'var(--color-surface)',
+          borderColor: THEME.cardBorder,
+          boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.12em',
+        }}
+      >
+        Full river report
+        <span aria-hidden>→</span>
+      </a>
 
       {/* Straight to the horse's mouth — the official USGS station page with
           the full record, rating tables, and annual peaks. */}

@@ -87,11 +87,15 @@ function ConditionsComparisonCard({ items }: { items: Record<string, unknown>[] 
 
               {/* Gauge + condition */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                {data.gaugeHeightFt != null && (
+                {(data.thresholdUnit === 'cfs' && data.dischargeCfs != null) ? (
+                  <span className="text-sm font-bold text-neutral-800 tabular-nums">
+                    {Number(data.dischargeCfs).toLocaleString()} cfs
+                  </span>
+                ) : data.gaugeHeightFt != null ? (
                   <span className="text-sm font-bold text-neutral-800 tabular-nums">
                     {Number(data.gaugeHeightFt).toFixed(1)} ft
                   </span>
-                )}
+                ) : null}
                 <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full" style={{ color, backgroundColor: `${color}15` }}>
                   {code === 'good' ? 'GOOD' : code === 'flowing' ? 'FLOW' : code === 'too_low' ? 'LOW' : code === 'dangerous' ? 'DANGER' : (code || '?').toUpperCase()}
                 </span>
@@ -131,10 +135,12 @@ function ConditionsCard({ data }: { data: Record<string, unknown> }) {
       <div className="px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-neutral-900">{data.riverName as string}</span>
-          {data.gaugeHeightFt != null && (
+          {((data.thresholdUnit === 'cfs' && data.dischargeCfs != null) || data.gaugeHeightFt != null) && (
             <span className="text-sm font-bold text-neutral-800">
               <Droplets className="w-3 h-3 text-primary-500 inline mr-0.5" />
-              {Number(data.gaugeHeightFt).toFixed(1)} ft
+              {(data.thresholdUnit === 'cfs' && data.dischargeCfs != null)
+                ? `${Number(data.dischargeCfs).toLocaleString()} cfs`
+                : `${Number(data.gaugeHeightFt).toFixed(1)} ft`}
               {typeof data.optimalRange === 'string' && data.optimalRange && (
                 <span className="text-[10px] text-neutral-400 ml-1">/ {data.optimalRange}</span>
               )}

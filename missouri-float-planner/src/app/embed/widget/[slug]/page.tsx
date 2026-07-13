@@ -65,17 +65,6 @@ interface WeatherData {
   humidity: number;
 }
 
-// Condition helper text for first-time floaters (#9)
-const CONDITION_HELPERS: Record<string, string> = {
-  flowing: 'Great day to float',
-  good: 'Good conditions',
-  low: 'Shallow — expect scraping',
-  too_low: 'Too low to float',
-  high: 'Fast water — use caution',
-  dangerous: 'Do not float',
-  unknown: 'Check locally',
-};
-
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 function formatReadingAge(hours: number | null): string {
@@ -327,7 +316,6 @@ export default function EmbedWidgetPage() {
 
   const conditionCode = river.currentCondition?.code;
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] : '#9ca3af';
-  const conditionHelper = conditionCode ? CONDITION_HELPERS[conditionCode] : CONDITION_HELPERS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const utm = { widget: 'widget', key: slug, partner: branding?.businessName || partner };
   const riverHref = eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm);
@@ -389,9 +377,6 @@ export default function EmbedWidgetPage() {
                 {conditionCode ? getConditionShortLabel(conditionCode) : 'Unknown'}
               </span>
             </div>
-            <span style={{ fontSize: 9, color: conditionColor, opacity: 0.8, whiteSpace: 'nowrap', fontWeight: 500 }}>
-              {conditionHelper}
-            </span>
           </div>
         </a>
       </div>

@@ -153,7 +153,7 @@ function standardIframe(src: string, title: string, resizeScript: string) {
   src="${src}"
   data-eddy-embed
   width="100%"
-  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block;"
+  style="border:none; border-radius:12px; max-width:600px; width:100%; display:block; margin:0 auto;"
   title="${title}"
   loading="lazy"
 ></iframe>
@@ -166,7 +166,7 @@ function badgeIframe(src: string, title: string, resizeScript: string) {
   src="${src}"
   data-eddy-embed
   width="280"
-  style="border:none; overflow:hidden; display:inline-block; vertical-align:middle;"
+  style="border:none; overflow:hidden; display:inline-block; vertical-align:middle; max-width:100%;"
   title="${title}"
   loading="lazy"
 ></iframe>
@@ -221,23 +221,9 @@ const WIDGETS: WidgetDef[] = [
     ],
   },
   {
-    key: 'river-day',
-    title: 'River Day Card',
-    badge: 'LODGING',
-    badgeBg: '#B89D72',
-    desc: "Built for Airbnbs, cabins and campgrounds: Eddy's plain-language read on the river, the current gauge reading, and today's weather — guests get their answer without leaving your page.",
-    previewHeight: 320,
-    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c),
-    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/river-day/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Day from Eddy`, c.resizeScript),
-    params: [
-      { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
-    ],
-  },
-  {
     key: 'quote',
     title: "Eddy's Daily Quote",
-    desc: "Eddy's plain-language read on the river, with a clear float / no-float verdict. Updates throughout the day.",
+    desc: "Eddy's plain-language read on the river, the current gauge reading, today's weather, and a clear float / no-float verdict. Great for lodging and outfitter sites. Updates throughout the day.",
     previewHeight: 300,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c),
     buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
@@ -376,14 +362,17 @@ function CodeBlock({ code, label = 'HTML' }: { code: string; label?: string }) {
 function WidgetPreview({ src, height, theme, maxWidth = 540 }: { src: string; height?: number; theme: ThemeMode; maxWidth?: number }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | undefined>(height);
+  const [measuredWidth, setMeasuredWidth] = useState<number | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      const data = e.data as { type?: string; height?: number } | null;
+      const data = e.data as { type?: string; height?: number; width?: number } | null;
       if (!data || data.type !== 'eddy-embed:resize' || typeof data.height !== 'number') return;
       if (ref.current && ref.current.contentWindow === e.source) {
         setMeasuredHeight(data.height);
+        // Shrink-to-fit widgets (badge) report a width so the preview hugs them.
+        if (typeof data.width === 'number') setMeasuredWidth(data.width);
       }
     }
     window.addEventListener('message', onMessage);
@@ -394,6 +383,7 @@ function WidgetPreview({ src, height, theme, maxWidth = 540 }: { src: string; he
   // frame (or a stale height) while the new widget loads.
   useEffect(() => {
     setMeasuredHeight(height);
+    setMeasuredWidth(undefined);
     setLoaded(false);
   }, [src, height]);
 
@@ -416,10 +406,10 @@ function WidgetPreview({ src, height, theme, maxWidth = 540 }: { src: string; he
         <iframe
           ref={ref}
           src={src}
-          width="100%"
+          width={measuredWidth ?? '100%'}
           height={measuredHeight}
           onLoad={() => setLoaded(true)}
-          style={{ border: 'none', borderRadius: '12px', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 150ms ease' }}
+          style={{ border: 'none', borderRadius: '12px', display: 'block', margin: '0 auto', opacity: loaded ? 1 : 0, transition: 'opacity 150ms ease' }}
           title="Widget preview"
         />
       </div>
@@ -685,7 +675,7 @@ export default function EmbedWorkbench() {
 
   // Tiny self-resize listener appended to every snippet. Installs once on the
   // host page; matches iframes by event.source so multiple Eddy widgets coexist.
-  const resizeScript = `<script>(function(){if(window.__eddyEmbedResizer)return;window.__eddyEmbedResizer=1;window.addEventListener("message",function(e){var d=e&&e.data;if(!d||d.type!=="eddy-embed:resize"||typeof d.height!=="number")return;var f=document.querySelectorAll("iframe[data-eddy-embed]");for(var i=0;i<f.length;i++){if(f[i].contentWindow===e.source){f[i].style.height=d.height+"px";break;}}});})();</script>`;
+  const resizeScript = `<script>(function(){if(window.__eddyEmbedResizer)return;window.__eddyEmbedResizer=1;window.addEventListener("message",function(e){var d=e&&e.data;if(!d||d.type!=="eddy-embed:resize"||typeof d.height!=="number")return;var f=document.querySelectorAll("iframe[data-eddy-embed]");for(var i=0;i<f.length;i++){if(f[i].contentWindow===e.source){f[i].style.height=d.height+"px";if(typeof d.width==="number"){f[i].style.width=d.width+"px";}break;}}});})();</script>`;
 
   const ctx: WidgetCtx = {
     baseUrl, embedBase: EMBED_BASE, selectedRiver, selectedRiverName, theme,

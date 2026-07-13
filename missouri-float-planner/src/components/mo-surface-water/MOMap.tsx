@@ -205,6 +205,71 @@ function strokeWidthForBasemapRiver(lengthMi: number): number {
   return 1.0;
 }
 
+// ── Hue-aware blend for the river condition gradient ────────────────────
+// SVG <linearGradient> blends stop colors straight in sRGB, so a green gauge
+// feeding into a red one paints a dull off-hue band across the middle of the
+// reach — a third color that reads as "conflicting" and makes one section
+// look like it's showing two colors at once. We instead sample each
+// gauge-to-gauge span in HSL (below) and emit the in-between colors as their
+// own stops, so the transition sweeps green → orange → red around the hue
+// wheel and the reach colors visibly flow into each other.
+function hexToHsl(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const v = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(v.slice(0, 2), 16) / 255;
+  const g = parseInt(v.slice(2, 4), 16) / 255;
+  const b = parseInt(v.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let hue = 0;
+  let s = 0;
+  if (d > 1e-6) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) hue = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) hue = (b - r) / d + 2;
+    else hue = (r - g) / d + 4;
+    hue *= 60;
+  }
+  return [hue, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const hh = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hh < 60) [r, g, b] = [c, x, 0];
+  else if (hh < 120) [r, g, b] = [x, c, 0];
+  else if (hh < 180) [r, g, b] = [0, c, x];
+  else if (hh < 240) [r, g, b] = [0, x, c];
+  else if (hh < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const to = (n: number) => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+// Blend two hex colors in HSL, rotating hue the SHORT way. A near-gray
+// endpoint (the "unknown"/too-low tones carry almost no saturation) borrows
+// the other end's hue so it fades in cleanly instead of swinging through an
+// arbitrary color.
+function mixHsl(a: string, b: string, t: number): string {
+  const A = hexToHsl(a);
+  const B = hexToHsl(b);
+  let ha = A[0];
+  let hb = B[0];
+  if (A[1] < 0.08) ha = hb;
+  if (B[1] < 0.08) hb = ha;
+  let dh = hb - ha;
+  if (dh > 180) dh -= 360;
+  if (dh < -180) dh += 360;
+  return hslToHex(ha + dh * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t);
+}
+
 // Compositor-camera tuning (see "Compositor-transform camera" below).
 // The SVGs render a VIEW_BUFFER margin beyond the stage on every side, so
 // gesture transforms can slide the stale raster around without exposing
@@ -296,17 +361,44 @@ export default function MOMap(props: MOMapProps) {
       // adjacent gauges fade smoothly. We extend the first/last stops
       // to offsets 0 and 1 so the river ends paint in their nearest
       // gauge's color rather than gradient-default.
-      const stops: Array<{ offset: number; color: string; condition: StageVerdict; siteId: string }> = [];
+      const anchors: Array<{ offset: number; color: string; condition: StageVerdict; siteId: string }> = [];
       const firstColor = STAGE_VERDICTS[gs[0].condition].color;
       const lastColor = STAGE_VERDICTS[gs[gs.length - 1].condition].color;
       if (gs[0].offset > 0.001) {
-        stops.push({ offset: 0, color: firstColor, condition: gs[0].condition, siteId: gs[0].siteId });
+        anchors.push({ offset: 0, color: firstColor, condition: gs[0].condition, siteId: gs[0].siteId });
       }
       for (const g of gs) {
-        stops.push({ offset: g.offset, color: STAGE_VERDICTS[g.condition].color, condition: g.condition, siteId: g.siteId });
+        anchors.push({ offset: g.offset, color: STAGE_VERDICTS[g.condition].color, condition: g.condition, siteId: g.siteId });
       }
       if (gs[gs.length - 1].offset < 0.999) {
-        stops.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
+        anchors.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
+      }
+
+      // Tessellate each span between adjacent gauge anchors into short HSL
+      // steps, so SVG only ever blends between near-identical colors and the
+      // transition sweeps through hue (green→orange→red) rather than fading
+      // straight through a dull off-hue mid-tone. Same-color spans stay one
+      // step. The flow layer reads these same stops, so its particles ride the
+      // identical ramp; anchors are preserved, so a flood gauge keeps a
+      // 'dangerous' stop at its offset for the dash overlay's filter.
+      const STEPS = 8;
+      const stops: typeof anchors = [anchors[0]];
+      for (let i = 1; i < anchors.length; i++) {
+        const prev = anchors[i - 1];
+        const cur = anchors[i];
+        if (prev.color === cur.color) {
+          stops.push(cur);
+          continue;
+        }
+        for (let k = 1; k <= STEPS; k++) {
+          const t = k / STEPS;
+          stops.push({
+            offset: prev.offset + (cur.offset - prev.offset) * t,
+            color: mixHsl(prev.color, cur.color, t),
+            condition: t < 0.5 ? prev.condition : cur.condition,
+            siteId: t < 0.5 ? prev.siteId : cur.siteId,
+          });
+        }
       }
 
       out[r.id] = { x1: first[0], y1: first[1], x2: last[0], y2: last[1], stops };
@@ -1010,7 +1102,6 @@ export default function MOMap(props: MOMapProps) {
   // Curated polylines + gradient recipes for the particle flow layer.
   const flowRivers = useMemo<FlowRiver[]>(() => {
     return props.rivers.map((r) => {
-      const grad = riverGradients[r.id];
       // Primary-gauge percentile modulates particle speed within the
       // verdict's band (scrub-aware — the app swaps in the scrubbed day's
       // percentile, so replaying the month visibly changes the current).
@@ -1022,24 +1113,25 @@ export default function MOMap(props: MOMapProps) {
         ),
         verdict: props.verdictByRiver[r.slug] ?? 'unknown',
         percentile: primarySite != null ? props.percentileByGauge[primarySite] ?? null : null,
-        axis: grad ? { x1: grad.x1, y1: grad.y1, x2: grad.x2, y2: grad.y2 } : null,
-        stops: grad ? grad.stops.map((st) => ({ offset: st.offset, color: st.color })) : [],
       };
     });
+    // Color no longer flows through here — wisps are neutral white — so this
+    // intentionally does NOT depend on riverGradients.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.rivers, props.verdictByRiver, props.percentileByGauge, riverGradients, project]);
+  }, [props.rivers, props.verdictByRiver, props.percentileByGauge, project]);
 
   // Terrain raster: AVIF first, PNG on decode failure (older Safari).
   const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
 
-  // Particle budget: 700 desktop / 300 small screens or low-end hardware
-  // (docs/mo-surface-water-observatory.md). Sampled once per mount.
+  // Particle budget: 240 desktop / 110 small screens or low-end hardware
+  // (docs/mo-surface-water-observatory.md). Sampled once per mount. Wisps are
+  // longer and more legible than the old comet dots, so fewer read as more.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 700;
+    if (typeof window === 'undefined') return 240;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 300 : 700;
+    return small || lowEnd ? 110 : 240;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
@@ -1148,14 +1240,21 @@ export default function MOMap(props: MOMapProps) {
 
   // Rating gauges that aren't physically ON their river's drawn line don't
   // get a map marker — a pin floating in a blank basin reads as a data bug
-  // ("phantom gauge"). Two ways this happens: deliberate proxies on streams
-  // the map doesn't draw (07017200 Big River at Irondale rates the ungauged
-  // Huzzah + Courtois; 07018500 Big River at Byrnesville rates the Meramec),
-  // and curated geometry that stops short of a mainstem gauge (Cook Station
-  // above the Meramec line's old upstream end). The threshold is generous —
-  // NHD simplification keeps true on-river gauges within a few hundred
-  // meters — and the check self-heals: extend the geometry and the marker
-  // appears. The gauge itself still rates its river (dock, cards, reaches).
+  // ("phantom gauge"). Two ways this happens: a proxy gauge sitting on a
+  // different stream than the one it rates (a creek with no gauge of its own
+  // borrowing a neighbor's), and curated geometry that stops short of a
+  // mainstem gauge (e.g. a line whose upstream end falls short of the gauge).
+  // The threshold is generous — NHD simplification keeps true on-river gauges
+  // within a few hundred meters — and the check self-heals: point a river at
+  // its real on-river gauge, or extend the geometry, and the marker appears.
+  // (Concrete example: migration 00164 found Huzzah + Courtois mis-wired to
+  // Big River at Irondale — off in another basin, suppressed here — and
+  // repointed both to the real Huzzah gauge at Steelville, 07014000. That
+  // gauge sits ~0.02 mi off the Huzzah's own line, so the Huzzah marker now
+  // shows; Courtois borrows the same gauge as a proxy and it lands ~1.9 mi
+  // off the Courtois line, so Courtois stays suppressed here — still rated
+  // via the proxy in the dock/cards, just no floating pin.) The gauge itself
+  // rates its river in the dock, cards, and reach coloring regardless.
   const offRiverKeys = useMemo(() => {
     const KX = 54.6, KY = 69.0; // ≈ miles per degree at Missouri latitudes
     const MAX_MI = 1.5;
@@ -1870,26 +1969,11 @@ export default function MOMap(props: MOMapProps) {
       MISSOURI &amp; ARKANSAS · LIVE RIVER NETWORK
     </div>
 
-    {/* Footer notes — screen-space, desktop only (the dock carries the legend
-        on mobile). Attribution left, colour key right. */}
-    <div
-      className="pointer-events-none absolute bottom-2 left-3 z-10 hidden md:block"
-      style={{
-        fontFamily: 'var(--font-mono), ui-monospace, monospace',
-        fontSize: 9, letterSpacing: '0.1em', color: 'rgba(242,234,216,0.42)',
-      }}
-    >
-      Stream colour: float condition at the nearest gauge · small ink dots: statewide USGS sites, no float rating
-    </div>
-    <div
-      className="pointer-events-none absolute bottom-2 right-3 z-10 hidden md:block"
-      style={{
-        fontFamily: 'var(--font-mono), ui-monospace, monospace',
-        fontSize: 10, color: 'rgba(242,234,216,0.42)',
-      }}
-    >
-      Geometry: USGS NHD via Supabase · Live data: USGS NWIS
-    </div>
+    {/* The color key and source attribution used to live here as two floating
+        mono footer lines, but they duplicated the dock's legend ("color is the
+        float verdict at the nearest gauge" + the statewide-sites note) and the
+        NHD/NWIS provenance is plumbing, not something a floater needs to read.
+        Dropped to keep the map canvas clean. */}
 
     {/* Zoom controls — overlay, not inside the SVG, so they stay fixed in
         screen coordinates regardless of the current view. Slides out of

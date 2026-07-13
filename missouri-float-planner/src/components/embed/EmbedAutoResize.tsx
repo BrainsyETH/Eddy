@@ -13,6 +13,10 @@ export default function EmbedAutoResize() {
   useEffect(() => {
     if (typeof window === 'undefined' || window.parent === window) return;
 
+    // The widget's own root element (the child of <main id="main-content">).
+    const widgetRoot = () =>
+      document.getElementById('main-content')?.firstElementChild ?? null;
+
     const post = () => {
       // Report the body's own content height. Do NOT use
       // documentElement.scrollHeight: when the content is shorter than the
@@ -23,13 +27,28 @@ export default function EmbedAutoResize() {
       const height = document.body
         ? document.body.scrollHeight
         : document.documentElement.scrollHeight;
-      window.parent.postMessage({ type: 'eddy-embed:resize', height }, '*');
+
+      // Compact, shrink-to-fit widgets (the condition badge) render their root
+      // as inline-block. For those, also report the content width so the host
+      // can hug the pill instead of leaving a gap on the right. Full-width
+      // widgets render as block/flex and never post a width, so they keep
+      // their responsive width:100%.
+      const root = widgetRoot();
+      const fitsWidth = root ? getComputedStyle(root).display === 'inline-block' : false;
+      const width = fitsWidth ? Math.ceil(root!.getBoundingClientRect().width) : undefined;
+
+      window.parent.postMessage(
+        width ? { type: 'eddy-embed:resize', height, width } : { type: 'eddy-embed:resize', height },
+        '*',
+      );
     };
 
     post();
     const ro = new ResizeObserver(post);
     ro.observe(document.documentElement);
     if (document.body) ro.observe(document.body);
+    const root = widgetRoot();
+    if (root) ro.observe(root);
 
     window.addEventListener('load', post);
     window.addEventListener('resize', post);

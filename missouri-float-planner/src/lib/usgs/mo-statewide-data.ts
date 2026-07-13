@@ -240,14 +240,18 @@ export function classifyStageFromThresholds(
     level_dangerous: number | null;
     flood_stage_ft?: number | null;
   },
+  stageFt?: number | null,
 ): ConditionCode {
-  if (value == null) return 'unknown';
-
-  // Flood-stage override: NWS flood stage is the authoritative hazard
-  // line for ft-threshold gauges, even if level_dangerous wasn't set.
-  if (unit === 'ft' && th.flood_stage_ft != null && value >= th.flood_stage_ft) {
+  // Flood-stage override: the NWS flood stage (feet) is the authoritative hazard
+  // line regardless of the unit the gauge is classified in. Both readings are
+  // stored, so a cfs-primary gauge still gets it via the stored gauge height —
+  // pass `stageFt` at the call site (for ft gauges `value` already is the stage).
+  const stage = unit === 'ft' ? value : (stageFt ?? null);
+  if (th.flood_stage_ft != null && stage != null && stage >= th.flood_stage_ft) {
     return 'dangerous';
   }
+
+  if (value == null) return 'unknown';
 
   const result = computeCondition(
     unit === 'ft' ? value : null,

@@ -229,6 +229,7 @@ export interface RiverCondition {
   code: ConditionCode;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  thresholdUnit?: 'ft' | 'cfs';
   readingTimestamp: string | null;
   readingAgeHours: number | null;
   accuracyWarning: boolean;
@@ -254,6 +255,7 @@ export interface ConditionGauge {
   isPrimary: boolean;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  thresholdUnit?: 'ft' | 'cfs';
   readingTimestamp: string | null;
   readingAgeHours: number | null;
 }
@@ -407,6 +409,7 @@ export interface CommunityReport {
   // River visual fields
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  thresholdUnit?: 'ft' | 'cfs';
   accessPointId: string | null;
   accessPointName: string | null;
   gaugeStationId: string | null;
@@ -440,6 +443,7 @@ export interface RiverVisual {
   description: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  thresholdUnit?: 'ft' | 'cfs';
   accessPointId: string | null;
   accessPointName: string | null;
   gaugeStationId: string | null;

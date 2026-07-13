@@ -85,7 +85,13 @@ const nextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.blob.vercel-storage.com https://openweathermap.org https://www.nps.gov https://images.unsplash.com https://*.tile.openstreetmap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://tiles.openfreemap.org",
+      // Access-point imagery is hot-linked from a broad, growing set of external
+      // hosts (mdc.mo.gov, cdn.recreation.gov, fs.usda.gov, mostateparks.com,
+      // private outfitter domains, …) rather than self-hosted. Enumerating every
+      // host is brittle — a new river's source would silently fail to render — so
+      // img-src allows any HTTPS origin. This is images only; script-src,
+      // connect-src, etc. remain locked to explicit allowlists above/below.
+      "img-src 'self' data: blob: https:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://www.googletagmanager.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org",
       "worker-src 'self' blob:",
       "font-src 'self' https://fonts.gstatic.com",
