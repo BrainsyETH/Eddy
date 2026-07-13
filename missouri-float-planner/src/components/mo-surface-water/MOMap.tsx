@@ -1035,11 +1035,11 @@ export default function MOMap(props: MOMapProps) {
   // Particle budget: 700 desktop / 300 small screens or low-end hardware
   // (docs/mo-surface-water-observatory.md). Sampled once per mount.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 700;
+    if (typeof window === 'undefined') return 460;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 300 : 700;
+    return small || lowEnd ? 210 : 460;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
