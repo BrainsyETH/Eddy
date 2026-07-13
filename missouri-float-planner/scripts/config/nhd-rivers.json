@@ -191,6 +191,76 @@
       "state": "AR",
       "timezone": "America/Chicago",
       "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Mulberry River",
+      "slug": "mulberry",
+      "description": "Arkansas's premier float and whitewater river, running clear through the Ozark National Forest.",
+      "difficultyRating": "Class I-II (III at high water)",
+      "region": "Ozarks",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "Kings River",
+      "slug": "kings-river",
+      "description": "A clear northwest-Arkansas Ozark float flowing north to Table Rock Lake.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "Crooked Creek",
+      "slug": "crooked-creek",
+      "description": "A renowned Ozark smallmouth-bass float in north Arkansas.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "Bryant Creek",
+      "slug": "bryant-creek",
+      "description": "A spring-fed Ozark float joining the North Fork of the White near Tecumseh.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Caddo River",
+      "slug": "caddo-river",
+      "description": "A popular Ouachita Mountains family float from Caddo Gap through Glenwood.",
+      "difficultyRating": "Class I-II",
+      "region": "Ouachita Mountains",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "War Eagle Creek",
+      "slug": "war-eagle-creek",
+      "description": "A scenic northwest-Arkansas Ozark float to Beaver Lake, past the historic War Eagle Mill.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "Big River",
+      "slug": "big-river",
+      "description": "A long float in Missouri's St. Francois Mountains region, joining the Meramec near Eureka.",
+      "difficultyRating": "Class I",
+      "region": "St. Francois Mountains",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
     }
   ]
 }

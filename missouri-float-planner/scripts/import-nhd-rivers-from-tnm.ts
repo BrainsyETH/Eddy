@@ -91,6 +91,14 @@ const RIVERS: RiverSpec[] = [
   { slug: 'elk',              gnisNames: ['Elk River'],    hucs: ['11070208'], mode: 'insert' },
   { slug: 'james',            gnisNames: ['James River'],  hucs: ['11010002'], mode: 'insert' },
   { slug: 'spring-river',     gnisNames: ['Spring River'], hucs: ['11010010'], mode: 'insert' },
+  // 2026-07 third onboarding batch (HUC8s pulled from each river's USGS gauge huc_cd)
+  { slug: 'mulberry',        gnisNames: ['Mulberry River'],   hucs: ['11110201'], mode: 'insert' },
+  { slug: 'kings-river',     gnisNames: ['Kings River'],      hucs: ['11010001'], mode: 'insert' },
+  { slug: 'crooked-creek',   gnisNames: ['Crooked Creek'],    hucs: ['11010003'], mode: 'insert' },
+  { slug: 'bryant-creek',    gnisNames: ['Bryant Creek'],     hucs: ['11010006'], mode: 'insert' },
+  { slug: 'caddo-river',     gnisNames: ['Caddo River'],      hucs: ['08040102'], mode: 'insert' },
+  { slug: 'war-eagle-creek', gnisNames: ['War Eagle Creek'],  hucs: ['11010001'], mode: 'insert' },
+  { slug: 'big-river',       gnisNames: ['Big River'],        hucs: ['07140104'], mode: 'insert' },
 ];
 
 interface RiverMeta {
