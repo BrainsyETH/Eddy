@@ -10,6 +10,7 @@ import RiverReportsGrid from '@/components/gauge/RiverReportsGrid';
 import { EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
 import { getRivers } from '@/lib/data/rivers';
+import { buildRiverFilterMeta } from '@/lib/rivers/filters';
 
 export const revalidate = 300; // ISR every 5 minutes
 
@@ -24,6 +25,11 @@ export default async function RiversPage() {
   // Build Eddy's summary across all rivers (server-side, from current conditions)
   const conditionCodes = rivers.map(r => r.currentCondition?.code ?? null);
   const eddySummary = buildRiversSummary(conditionCodes);
+
+  // Per-river metadata (state, type, difficulty tier, length) for the grid's
+  // facet filters. Derived here from the already-fetched river list — the grid
+  // itself is gauge-driven and doesn't otherwise see these fields.
+  const riverMeta = buildRiverFilterMeta(rivers);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
@@ -65,7 +71,7 @@ export default async function RiversPage() {
       {/* Live conditions dashboard (filter + search + per-river cards) */}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
         <Suspense fallback={<div className="h-48 rounded-xl bg-white border border-neutral-200 animate-pulse" />}>
-          <RiverReportsGrid />
+          <RiverReportsGrid riverMeta={riverMeta} />
         </Suspense>
 
         {/* Data attribution */}
