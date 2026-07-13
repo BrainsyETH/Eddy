@@ -8,12 +8,13 @@
 // black, where 'lighter' compositing and white particle heads read as
 // light. Our rivers flow over a LIGHT parchment landmass, so additive
 // blending just washes toward white and the white heads dominate. We
-// instead draw "ink current" — each particle is a translucent streak in
-// its reach's condition color with a brighter same-hue crest, composited
-// normally, so it reads as colored water moving in the channel.
+// instead draw "ink current" — each particle is a faint translucent streak
+// in its reach's condition color with a soft same-hue crest, composited
+// normally, so it reads as colored water moving in the channel — present
+// but quiet, never speckling over the band it rides.
 //
-// Perf budget (docs/mo-surface-water-observatory.md): ≤700 particles on
-// desktop, ≤300 on small/low-end devices; dt clamped; paused when the
+// Perf budget (docs/mo-surface-water-observatory.md): ≤460 particles on
+// desktop, ≤210 on small/low-end devices; dt clamped; paused when the
 // tab is hidden, the layer is toggled off, or reduced motion is set.
 // Self-degrading: if the rolling frame time stays over ~24 ms, the
 // particle count halves (floor 120) before the map ever gets janky.
@@ -181,9 +182,10 @@ export default function FlowLayer({
           const k = Math.max(0, Math.min(1, (t - lo.offset) / span));
           const rgb = [0, 1, 2].map((c) => Math.round(lo.rgb[c] + (hi.rgb[c] - lo.rgb[c]) * k));
           lut.push(`${rgb[0]},${rgb[1]},${rgb[2]}`);
-          // The lit crest: same hue mixed 42% toward white. Reads as a
-          // sunlit ripple on colored water — not a white pinprick.
-          const head = rgb.map((c) => Math.round(c + (255 - c) * 0.42));
+          // A soft same-hue crest — mixed just 22% toward white so the head
+          // reads as a gentle ripple, not a bright speckle. (The old 42% made
+          // the layer feel busy against its own same-hue condition band.)
+          const head = rgb.map((c) => Math.round(c + (255 - c) * 0.22));
           headLut.push(`${head[0]},${head[1]},${head[2]}`);
         }
         return { pts: r.pts, cum, total, speed: speedFor(r.verdict, r.percentile), lut, headLut };
@@ -314,17 +316,19 @@ export default function FlowLayer({
         const hx = x * s + ox;
         const hy = y * s + oy;
         // Colored streak in the reach's condition hue — reads on parchment.
-        ctx.strokeStyle = `rgba(${color},0.5)`;
-        ctx.lineWidth = Math.max(1, 1.4 * dpr);
+        // Deliberately faint and thin so the moving layer whispers under the
+        // condition band instead of speckling across it.
+        ctx.strokeStyle = `rgba(${color},0.36)`;
+        ctx.lineWidth = Math.max(1, 1.05 * dpr);
         ctx.beginPath();
         ctx.moveTo(tx * s + ox, ty * s + oy);
         ctx.lineTo(hx, hy);
         ctx.stroke();
 
-        // Lit crest — brighter same-hue tone, not white.
-        ctx.fillStyle = `rgba(${r.headLut[bucket]},0.7)`;
+        // Soft same-hue crest — a small, low-contrast head, not a white dot.
+        ctx.fillStyle = `rgba(${r.headLut[bucket]},0.5)`;
         ctx.beginPath();
-        ctx.arc(hx, hy, Math.max(0.8, 0.9 * dpr), 0, Math.PI * 2);
+        ctx.arc(hx, hy, Math.max(0.7, 0.75 * dpr), 0, Math.PI * 2);
         ctx.fill();
       }
 

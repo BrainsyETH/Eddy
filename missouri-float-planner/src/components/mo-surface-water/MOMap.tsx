@@ -205,6 +205,71 @@ function strokeWidthForBasemapRiver(lengthMi: number): number {
   return 1.0;
 }
 
+// ── Hue-aware blend for the river condition gradient ────────────────────
+// SVG <linearGradient> blends stop colors straight in sRGB, so a green gauge
+// feeding into a red one paints a dull off-hue band across the middle of the
+// reach — a third color that reads as "conflicting" and makes one section
+// look like it's showing two colors at once. We instead sample each
+// gauge-to-gauge span in HSL (below) and emit the in-between colors as their
+// own stops, so the transition sweeps green → orange → red around the hue
+// wheel and the reach colors visibly flow into each other.
+function hexToHsl(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const v = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(v.slice(0, 2), 16) / 255;
+  const g = parseInt(v.slice(2, 4), 16) / 255;
+  const b = parseInt(v.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let hue = 0;
+  let s = 0;
+  if (d > 1e-6) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) hue = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) hue = (b - r) / d + 2;
+    else hue = (r - g) / d + 4;
+    hue *= 60;
+  }
+  return [hue, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const hh = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hh < 60) [r, g, b] = [c, x, 0];
+  else if (hh < 120) [r, g, b] = [x, c, 0];
+  else if (hh < 180) [r, g, b] = [0, c, x];
+  else if (hh < 240) [r, g, b] = [0, x, c];
+  else if (hh < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const to = (n: number) => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+// Blend two hex colors in HSL, rotating hue the SHORT way. A near-gray
+// endpoint (the "unknown"/too-low tones carry almost no saturation) borrows
+// the other end's hue so it fades in cleanly instead of swinging through an
+// arbitrary color.
+function mixHsl(a: string, b: string, t: number): string {
+  const A = hexToHsl(a);
+  const B = hexToHsl(b);
+  let ha = A[0];
+  let hb = B[0];
+  if (A[1] < 0.08) ha = hb;
+  if (B[1] < 0.08) hb = ha;
+  let dh = hb - ha;
+  if (dh > 180) dh -= 360;
+  if (dh < -180) dh += 360;
+  return hslToHex(ha + dh * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t);
+}
+
 // Compositor-camera tuning (see "Compositor-transform camera" below).
 // The SVGs render a VIEW_BUFFER margin beyond the stage on every side, so
 // gesture transforms can slide the stale raster around without exposing
@@ -296,17 +361,44 @@ export default function MOMap(props: MOMapProps) {
       // adjacent gauges fade smoothly. We extend the first/last stops
       // to offsets 0 and 1 so the river ends paint in their nearest
       // gauge's color rather than gradient-default.
-      const stops: Array<{ offset: number; color: string; condition: StageVerdict; siteId: string }> = [];
+      const anchors: Array<{ offset: number; color: string; condition: StageVerdict; siteId: string }> = [];
       const firstColor = STAGE_VERDICTS[gs[0].condition].color;
       const lastColor = STAGE_VERDICTS[gs[gs.length - 1].condition].color;
       if (gs[0].offset > 0.001) {
-        stops.push({ offset: 0, color: firstColor, condition: gs[0].condition, siteId: gs[0].siteId });
+        anchors.push({ offset: 0, color: firstColor, condition: gs[0].condition, siteId: gs[0].siteId });
       }
       for (const g of gs) {
-        stops.push({ offset: g.offset, color: STAGE_VERDICTS[g.condition].color, condition: g.condition, siteId: g.siteId });
+        anchors.push({ offset: g.offset, color: STAGE_VERDICTS[g.condition].color, condition: g.condition, siteId: g.siteId });
       }
       if (gs[gs.length - 1].offset < 0.999) {
-        stops.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
+        anchors.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
+      }
+
+      // Tessellate each span between adjacent gauge anchors into short HSL
+      // steps, so SVG only ever blends between near-identical colors and the
+      // transition sweeps through hue (green→orange→red) rather than fading
+      // straight through a dull off-hue mid-tone. Same-color spans stay one
+      // step. The flow layer reads these same stops, so its particles ride the
+      // identical ramp; anchors are preserved, so a flood gauge keeps a
+      // 'dangerous' stop at its offset for the dash overlay's filter.
+      const STEPS = 8;
+      const stops: typeof anchors = [anchors[0]];
+      for (let i = 1; i < anchors.length; i++) {
+        const prev = anchors[i - 1];
+        const cur = anchors[i];
+        if (prev.color === cur.color) {
+          stops.push(cur);
+          continue;
+        }
+        for (let k = 1; k <= STEPS; k++) {
+          const t = k / STEPS;
+          stops.push({
+            offset: prev.offset + (cur.offset - prev.offset) * t,
+            color: mixHsl(prev.color, cur.color, t),
+            condition: t < 0.5 ? prev.condition : cur.condition,
+            siteId: t < 0.5 ? prev.siteId : cur.siteId,
+          });
+        }
       }
 
       out[r.id] = { x1: first[0], y1: first[1], x2: last[0], y2: last[1], stops };
@@ -1035,11 +1127,11 @@ export default function MOMap(props: MOMapProps) {
   // Particle budget: 700 desktop / 300 small screens or low-end hardware
   // (docs/mo-surface-water-observatory.md). Sampled once per mount.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 700;
+    if (typeof window === 'undefined') return 460;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 300 : 700;
+    return small || lowEnd ? 210 : 460;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
