@@ -1,7 +1,8 @@
 {
-  "_status": "STUB — scaffold only, NOT researched. Identity + MO access law pre-filled; gauges/sections/accessPoints/thresholds are EMPTY and must be filled by the research pass (hand this file + research-prompt-missouri.md to research). River-specific caution: Upper reach carries Springfield urban runoff (flashier, water-quality notes); lower Galena reach is the recreational float. Note the divergence.",
+  "_status": "SIGNED-OFF 2026-07-12 — owner-authorized go-live (Elk + James first batch). James River, spring_fed_float. Two calibrated reaches: lower/Galena (07052500, cfs) optimal 180–937 / high 3079 (=7 ft) / dangerous 4410 (=8 ft, James River Outfitters closure via the USGS exsa rating, NOT the NWS flood stage); middle reach (07052250 Boaz, cfs) too_low 80 / optimal_min 150 (moherp OBSERVED). [verify] cleared (07052500, 07052250, 07050700 in verified-identifiers-james.md). NOTE: Springfield 07050700 observed Flood=1400 is a candidate danger anchor on the urban-headwater datum. Access points [manual] — place before activation; active stays FALSE until access placement + owner activation.",
   "name": "James River",
   "slug": "james",
+  "primaryGaugeSiteId": "07052500",
   "state": "MO",
   "country": "US",
   "timezone": "America/Chicago",
@@ -19,13 +20,278 @@
     "confidence": "medium"
   },
   "seasonalClosures": [],
-  "gauges": [],
-  "sections": [],
-  "accessPoints": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07052500",
+      "name": "James River at Galena, MO",
+      "lat": 36.80539,
+      "lon": -93.46158,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 987,
+      "servesSections": [
+        "james-galena"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07050700",
+      "name": "James River near Springfield, MO",
+      "lat": 37.14997,
+      "lon": -93.20339,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "servesSections": [
+        "james-upper"
+      ],
+      "knownBias": "urban headwater signal; moherp OBSERVED Low 40 / Good 150 / Flood 1400 cfs — the Flood=1400 is a potential do-not-float anchor but on the urban-headwater datum (reads lower than the Boaz-reach floats)"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07052250",
+      "name": "James River near Boaz, MO",
+      "lat": 37.00658,
+      "lon": -93.36467,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 462,
+      "servesSections": [
+        "james-upper"
+      ],
+      "knownBias": "middle-reach gauge — best represents the Delaware Town / Shelvin Rock / Hootentown floats"
+    }
+  ],
+  "sections": [
+    {
+      "slug": "james-galena",
+      "name": "Lower / Galena reach (Hootentown → Galena, ~22 mi)",
+      "description": "The classic lower-James float: Hootentown down to the Galena Y-Bridge, ~22 river miles of clear, spring-influenced Class I water through the Springfield Plateau of the Ozarks. Gravel bars, occasional bluffs, and a noted smallmouth-bass fishery (a Smallmouth Bass Special Management Area begins near Hootentown). This is the recreational reach served by the Galena outfitters.",
+      "putIn": {
+        "name": "Hootentown Access",
+        "lat": 36.9383,
+        "lon": -93.3858
+      },
+      "takeOut": {
+        "name": "Galena Y-Bridge Access",
+        "lat": 36.8069,
+        "lon": -93.4618
+      },
+      "publishedLengthMiles": 22,
+      "representativeGauge": {
+        "siteId": "07052500",
+        "rationale": "James River at Galena (07052500) is the long-record USGS gauge at the Galena Y-Bridge take-out, co-located with the reach's downstream end, carries both discharge (00060) and gage height (00065), and is the datum both the moherp community ratings and James River Outfitters quote against — so every Galena anchor references a gauge we actually poll.",
+        "knownBias": "sits at the downstream (take-out) end of the ~22 mi reach; the Hootentown put-in ~22 mi upstream runs somewhat lower, so a near-minimum reading here means the top of the reach is already thin."
+      },
+      "thresholds": [
+        {
+          "level": "optimal_min",
+          "value": 180,
+          "unit": "cfs",
+          "referenceGauge": "07052500",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED 'Good' community breakpoint for James at Galena 07052500 (https://rivers.moherp.org/gauge/?gauge=07052500)",
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_max",
+          "value": 937,
+          "unit": "cfs",
+          "referenceGauge": "07052500",
+          "referenceGaugeIsPolled": true,
+          "source": "inferred from moherp OBSERVED 'Good' trip reports up to 937 cfs",
+          "confidence": "low"
+        },
+        {
+          "level": "high",
+          "value": 3079,
+          "unit": "cfs",
+          "referenceGauge": "07052500",
+          "referenceGaugeIsPolled": true,
+          "source": "James River Outfitters caution level = 7 ft gage height, converted to cfs via the USGS 07052500 exsa rating (7.00 ft = 3079 cfs)",
+          "corroboratingSources": [
+            "USGS 07052500 exsa rating curve",
+            "moherp trip 2330 cfs rated 'High'"
+          ],
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 4410,
+          "unit": "cfs",
+          "referenceGauge": "07052500",
+          "referenceGaugeIsPolled": true,
+          "source": "James River Outfitters closes the river above 8 ft gage height ('no boats, no exceptions'), converted to cfs via the USGS 07052500 exsa rating (8.00 ft = 4410 cfs). Deliberately NOT the NWS flood stage (15 ft).",
+          "corroboratingSources": [
+            "James River Outfitters water-levels page",
+            "USGS 07052500 exsa rating curve"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "publishedFloatTimes": [
+        {
+          "reachLabel": "Hootentown to Galena (Y-Bridge)",
+          "distanceMiles": 22,
+          "source": "james-findings-partial.md — full lower-James run Hootentown→Galena = 22 mi (the classic reach served by the Galena outfitters); per-vessel float hours not captured (toVerify for speed calibration)."
+        }
+      ],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": [
+          "strainer",
+          "rapid"
+        ],
+        "lowWaterMeaning": "below ~180 cfs boats drag on riffles",
+        "risingWaterHazards": "outfitter closes above 8 ft gage height"
+      },
+      "hazards": [
+        {
+          "value": "Strainers (downed trees and logjams on outside bends) are the main in-water hazard on this Class I gravel-bed reach.",
+          "source": "james-findings-partial.md (lower James reach character — primary hazards strainer/rapid)",
+          "confidence": "medium"
+        },
+        {
+          "value": "Rising water: James River Outfitters posts a caution zone from 7 ft and a do-not-float limit at 8 ft gage height on USGS 07052500 ('no boats, no exceptions').",
+          "source": "James River Outfitters water-levels page (gage-height limits converted to cfs via the USGS 07052500 exsa rating)",
+          "confidence": "high"
+        }
+      ],
+      "localKnowledge": [
+        "The James is a noted smallmouth-bass fishery: a Smallmouth Bass Special Management Area (SMA) begins near the Hootentown access at the upstream end of this reach and runs downstream — special length/creel regulations apply, so confirm current MDC SMA rules before keeping fish.",
+        "Two Galena outfitters serve the lower reach: James River Outfitters (canoe/kayak/raft/SUP/tube rental, shuttle, camping/RV, store) and Float the James / Horsecreek Ranch (tube/kayak/SUP, shuttle, camping, cabins).",
+        "The full Hootentown → Galena Y-Bridge run is ~22 mi — the classic lower-James float; shorter days are made by putting in or taking out at intermediate accesses."
+      ]
+    },
+    {
+      "slug": "james-upper",
+      "name": "Upper / urban reach (Hwy 125 → Hootentown)",
+      "description": "The upper James from around Highway 125 down to Hootentown, draining Springfield and its urban fringe. Flashier and more rain-driven than the spring-fed lower reach, with urban runoff and Springfield wastewater-treatment-plant influence on water quality. Floats only at medium/high water and is not the recreational reach. Carries a low-head dam hazard (Kissick Dam).",
+      "putIn": {
+        "name": "Highway 125 access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Hootentown Access",
+        "lat": 36.9383,
+        "lon": -93.3858
+      },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "07052250",
+        "rationale": "Boaz 07052250 is the middle-reach gauge the floatable Delaware Town / Shelvin Rock / Hootentown trips reference; Springfield 07050700 is the urban headwater signal.",
+        "knownBias": "middle reach; smaller drainage (462 sqmi) than Galena — reads lower."
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 80,
+          "unit": "cfs",
+          "referenceGauge": "07052250",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for James near Boaz 07052250 (https://rivers.moherp.org/gauge/?gauge=07052250): OBSERVED 'Low' threshold 80 cfs (below = poor/scrapy).",
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_min",
+          "value": 150,
+          "unit": "cfs",
+          "referenceGauge": "07052250",
+          "referenceGaugeIsPolled": true,
+          "source": "rivers.moherp.org OBSERVED community rating for James near Boaz 07052250 (https://rivers.moherp.org/gauge/?gauge=07052250): OBSERVED 'Good' threshold 150 cfs; Good floats observed ~140–1050 cfs.",
+          "confidence": "medium"
+        }
+      ],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "rain_flashy",
+        "primaryHazards": [
+          "low_water_dam",
+          "strainer",
+          "rapid"
+        ],
+        "lowWaterMeaning": "floats only at medium/high water",
+        "risingWaterHazards": "flashy urban runoff; Springfield WWTP water-quality"
+      },
+      "hazards": [
+        {
+          "value": "Kissick Dam (low-head dam) at approximately river mile 12.3 — a drowning-machine hazard; portage or scout, do NOT run it.",
+          "source": "james-findings-partial.md — Kissick Dam ~mi 12.3, low-head dam HAZARD (portage/scout)",
+          "confidence": "medium"
+        },
+        {
+          "value": "Urban runoff and Springfield wastewater-treatment-plant (WWTP) discharge affect water quality on this reach, which is flashier than the spring-fed lower reach.",
+          "source": "james-findings-partial.md (upper/urban reach character)",
+          "confidence": "medium"
+        }
+      ],
+      "localKnowledge": [
+        "This reach carries Springfield urban runoff and is rain-flashy; it floats only at medium/high water and is not the recreational reach — most floaters use the lower Hootentown → Galena run.",
+        "No OBSERVED floatability calibration exists for the upper reach; only scattered trip reports. It is intentionally left uncalibrated (thresholds empty) until a floater-sourced anchor is found."
+      ]
+    }
+  ],
+  "accessPoints": [
+    {
+      "name": "Shelvin Rock Access",
+      "type": "access",
+      "lat": 36.9962,
+      "lon": -93.3699,
+      "riverMile": null,
+      "ownership": "MDC",
+      "notes": "MDC access on the upper James, upstream of Hootentown. Coordinates verified; river mile and facility details pending human placement.",
+      "source": "james-findings-partial.md (access-point coordinates verified)"
+    },
+    {
+      "name": "Hootentown Access",
+      "type": "access",
+      "lat": 36.9383,
+      "lon": -93.3858,
+      "riverMile": null,
+      "ownership": "MDC",
+      "notes": "MDC access marking the upstream end of the smallmouth Special Management Area (SMA) and the boundary between the upper/urban reach and the lower/Galena float reach — the put-in for the classic ~22 mi Hootentown→Galena float. Coordinates verified; river mile pending.",
+      "source": "james-findings-partial.md (access-point coordinates verified; SMA upstream end)"
+    },
+    {
+      "name": "Galena Y-Bridge Access",
+      "type": "access",
+      "lat": 36.8069,
+      "lon": -93.4618,
+      "riverMile": null,
+      "ownership": null,
+      "notes": "Standard take-out for the lower James at the Galena Y-Bridge, co-located with the primary gauge USGS 07052500 (James River at Galena). Coordinates verified; ownership (city/MDC) and river mile pending verification.",
+      "source": "james-findings-partial.md (take-out at the gauge; coordinates verified)"
+    },
+    {
+      "name": "Delaware Town Access",
+      "type": "access",
+      "riverMile": null,
+      "ownership": null,
+      "notes": "Listed James River access; coordinates, ownership, and river mile UNKNOWN (toVerify) — human places the point in admin. One of several accesses (with HL Kerr and others) not yet located.",
+      "source": "james-findings-partial.md (Delaware Town listed; coords UNKNOWN/toVerify)"
+    },
+    {
+      "name": "Kissick Dam",
+      "type": "hazard",
+      "riverMile": 12.3,
+      "ownership": null,
+      "notes": "Low-head dam on the UPPER reach at approximately river mile 12.3 — a drowning-machine hazard; portage or scout, do NOT run. Not a launch point; recorded as a mapped hazard. Coordinates omitted (toVerify).",
+      "source": "james-findings-partial.md (Kissick Dam ~mi 12.3, low-head dam HAZARD)"
+    }
+  ],
   "weatherPoint": {
     "city": "Galena",
-    "lat": null,
-    "lon": null
+    "lat": 36.8069,
+    "lon": -93.4618
   },
   "alertSearchTerms": [
     "james river",
@@ -37,20 +303,34 @@
     "springfield"
   ],
   "research": {
-    "date": null,
-    "sourcesConsulted": [],
+    "date": "2026-07-12",
+    "sourcesConsulted": [
+      "https://rivers.moherp.org/gauge/?gauge=07052500",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07052500/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07050700/",
+      "James River Outfitters water-levels page (jamesriveroutfitters.com) — 7 ft caution / 8 ft do-not-float",
+      "https://floatthejames.com/ (Float the James / Horsecreek Ranch)",
+      "USGS 07052500 exsa rating curve (waterdata.usgs.gov get_ratings, exsa)",
+      "https://mdc.mo.gov/ (MDC stream access / smallmouth SMA)"
+    ],
     "openQuestions": [
-      "Reach division: Upper (near Springfield, urban) vs lower (Galena → Table Rock) — 2 reaches.",
-      "Candidate gauges (LEADS — verify each site number on waterdata.usgs.gov): James River near Galena; James River at Springfield",
-      "River-type / character check: Upper reach carries Springfield urban runoff (flashier, water-quality notes); lower Galena reach is the recreational float. Note the divergence."
+      "MIDDLE REACH CALIBRATED 2026-07-12 (owner moherp screenshots): james-upper re-keyed to Boaz 07052250 with moherp OBSERVED too_low 80 / optimal_min 150 cfs (estimated tier rejected). No observed High/Flood for Boaz, so the badge caps at 'good' above 150 — Springfield 07050700 carries an observed Flood=1400 that could seed a dangerous anchor if the reach is re-keyed to the urban-headwater datum. Consider splitting urban-headwater (Springfield) from the floatable middle (Boaz).",
+      "UPPER/URBAN REACH DANGER IS UNKNOWN BY DESIGN: the Hwy 125 → Hootentown reach has NO OBSERVED floatability calibration — no moherp OBSERVED rating and no outfitter do-not-float number exist for it (the ESTIMATED tier is rejected per the calibration hierarchy). Its thresholds[] are intentionally EMPTY and representativeGauge 07050700 is uncalibrated. This reach must NOT drive a live condition badge; it reads insufficient-data until a floater-sourced anchor is captured.",
+      "GALENA <180 cfs CURRENTLY READS 'too_low': no too_low/low anchor was sourced (moherp gives only an OBSERVED 'Good' breakpoint at 180 cfs; the ESTIMATED tier is rejected), so the too_low anchor is intentionally OMITTED. Condition logic reads [—, optimal_min=180) as 'too_low', which is acceptable for now, but a genuine low/too_low anchor (an Agnew navigability table or an outfitter minimum) should be captured so the badge can distinguish 'low but floatable' from 'too low to float'.",
+      "GALENA UNIT DECISION (resolved, confirm at signoff): all four Galena anchors are encoded in cfs — the outfitter ft limits (7 ft caution / 8 ft do-not-float) were converted to cfs via the USGS 07052500 exsa rating so the whole ladder shares one unit (the [auto] one-unit-per-gauge gate requires it). The findings flagged an owner choice of badging in ft vs cfs; cfs was chosen to match the moherp optimal band. Owner to confirm.",
+      "NHD Permanent_Identifier GUID is UNKNOWN — nhdFeatureId left 'UNKNOWN'. We DO have GNIS 750497, NHD reachcode 11010002000005, and NHDPlus COMID 7609749; resolve the flowline's Permanent_Identifier GUID on the National Map NHDPlus_HR (MO HUC 11010002) to fill nhdFeatureId.",
+      "SPRINGFIELD GAUGE 07050700: drainage area (sq mi) and NWS LID are UNKNOWN — needed before the upper reach can be drainage-area scaled or flood-cross-checked. (Galena 07052500 LID = GLNM7, action 11 ft / flood 15 ft, CROSS-CHECK ONLY, not the anchor.)",
+      "ACCESS-POINT GPS PENDING: only Shelvin Rock, Hootentown, and the Galena Y-Bridge carry coordinates; Delaware Town, HL Kerr, and other James accesses need coordinates + ownership + river miles (a human places every point in admin). All river miles are unconfirmed.",
+      "CABINS CONFLICT AT JAMES RIVER OUTFITTERS: the findings list James River Outfitters as outfitter + campground (no cabins) but Float the James / Horsecreek Ranch as offering cabins — confirm whether James River Outfitters itself offers cabins before publishing lodging info.",
+      "MIDDLE-GAUGE CANDIDATE (not adopted): 07052250 James River near Boaz (37.00658, -93.36467, drainage 462, 00060+00065, LID JAMM7) sits between the two reaches; the two-reach model keys Galena to 07052500 and the upper reach to 07050700, so Boaz is not in gauges[]. Revisit if a middle reach is later split out."
     ],
     "toVerify": [
-      "NHD Permanent Identifier for the flowline (National Map NHDPlus_HR, MO HUC)",
-      "USGS gauge site numbers for each representative gauge (verify on monitoring-location page)",
-      "NWS AHPS action-stage / flood-stage (ft) per gauge — the danger-anchor second source",
-      "MDC / outfitter floatability stage (ft) statements per reach",
-      "Full MDC access-point list with coordinates (human places every point)",
-      "County list for NWS alert terms (seeded: Greene, Christian, Stone)"
+      "USGS 07052500 (James at Galena) and 07050700 (James near Springfield): site #, name, lat/lon, params, drainage transcribed from the monitoring-location pages → verified-identifiers-james.md written this pass. 07050700 drainage area still UNKNOWN.",
+      "NHD Permanent_Identifier GUID for the James flowline (National Map NHDPlus_HR, MO HUC 11010002) — have GNIS 750497 / reachcode 11010002000005 / COMID 7609749.",
+      "NWS LID + flood/action stages for the upper reach gauge 07050700 (unknown). Galena LID GLNM7 (action 11 ft / flood 15 ft) is a CROSS-CHECK only; fetch-nws-flood-stages.ts auto-pulls authoritative values at ingest.",
+      "Full MDC access-point list with coordinates and river miles (human places every point): Shelvin Rock, Hootentown, and the Galena Y-Bridge have coords; Delaware Town, HL Kerr, and others are pending. Confirm Y-Bridge ownership (city/MDC).",
+      "James River Outfitters cabins question — resolve the lodging conflict against the two Galena outfitters before publishing accommodation details.",
+      "County list for NWS alert terms (seeded: Greene, Christian, Stone)."
     ]
   }
 }

@@ -1,0 +1,134 @@
+[
+  {
+    "name": "City of Pineville Elk River Access",
+    "kind": "boat_ramp",
+    "expected_mile": 24,
+    "lat": 36.58884,
+    "lon": -94.38682,
+    "is_public": true,
+    "ownership": "City",
+    "managing_agency": "City",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
+    "facilities": "Concrete/gravel boat ramp, parking, public restrooms; city access opened spring 2010; ~0.15 mi river frontage.",
+    "description": "Datum WGS84 (OSM). This is the developed town launch at the Business 71 (old US-71 / Hwy 71B) bridge in Pineville, ~0.7 mi upstream of the main US-71/I-49 bridge.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
+      "https://thepaddlinghub.com/directory/missouri/pineville-city-of-pineville-elk-river-access",
+      "https://www.openstreetmap.org/node/13608514810"
+    ]
+  },
+  {
+    "name": "US-71 Bridge (I-49) Access",
+    "kind": "bridge",
+    "expected_mile": 24.5,
+    "lat": 36.5861,
+    "lon": -94.3976,
+    "is_public": true,
+    "ownership": "MoDOT",
+    "managing_agency": "MoDOT",
+    "official_site_url": null,
+    "facilities": "Main highway (US-71 / I-49) bridge crossing. As a freeway span, the usable put-in is the river road / gravel bar on the south side near Kozy Kamp (private); the bridge itself is the mile-24.5 reference point.",
+    "description": "Datum WGS84 (OSM). US-71 through here is now co-signed I-49; this is the crossing referred to historically as the 'US-71 bridge'. Located ~0.7 mi downstream of the City of Pineville access.",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.floatmissouri.com/plan/missouri-rivers/elk-river/",
+      "https://overpass-api.de/api/interpreter"
+    ]
+  },
+  {
+    "name": "Mount Shira Access",
+    "kind": "access",
+    "expected_mile": 32,
+    "lat": 36.57653,
+    "lon": -94.46142,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
+    "facilities": "26-acre MDC area; gravel boat launch, large parking lot, restrooms, wheelchair-accessible trail. 2 mi north of Noel on Hwy 59; right bank, ~mile 32.",
+    "description": "Datum WGS84 (OSM). Sources converge on the access location (36.576-36.578, -94.462 to -94.464); exact gravel-ramp point on the bank not individually mapped, so confidence is medium. Do NOT confuse with the private 'Trestle Park / Elk River Floats' launch ~1.1 km NE at the Elk Springs Road bridge (36.5859, -94.4547).",
+    "confidence": "medium",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
+      "https://snoflo.org/parks/missouri/mount-shira-elk-river-park",
+      "https://www.openstreetmap.org/way/1484166288"
+    ]
+  },
+  {
+    "name": "Noel / Shadow Lake Access (Hwy 59 bridge)",
+    "kind": "access",
+    "expected_mile": 35.8,
+    "lat": 36.54902,
+    "lon": -94.49361,
+    "is_public": true,
+    "ownership": "City",
+    "managing_agency": "City",
+    "official_site_url": null,
+    "facilities": "Public MO-59 Elk River bridge at Noel next to Shadow Lake; town take-out above the Shadow Lake low-water dam. City park / ball-field frontage sits ~150-300 m NE (Shadow Lake reservoir ~36.5495, -94.4904).",
+    "description": "Datum WGS84 (OSM). The specific Noel City Park boat ramp is NOT authoritatively geocoded in any source found (no MDC/OSM ramp node); the Noel riverfront is otherwise private outfitters (Wayside, River Ranch, Two Sons, etc.). Coordinate given is the verified on-river public Hwy 59 bridge crossing that serves as the public put-in/take-out. Ownership of the bridge itself is MoDOT; the adjacent access frontage is City of Noel.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.floatmissouri.com/plan/missouri-rivers/elk-river/",
+      "https://www.theshadowlake.com/post/the-ultimate-summer-elk-river-weekend-itinerary-float-camp-party-in-noel-mo",
+      "https://overpass-api.de/api/interpreter"
+    ]
+  },
+  {
+    "name": "Sycamore Landing",
+    "kind": "campground",
+    "expected_mile": 36,
+    "lat": null,
+    "lon": null,
+    "is_public": false,
+    "ownership": "private",
+    "managing_agency": "private",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/sycamore-access",
+    "facilities": "Private riverfront campground / float launch for River Ranch guests.",
+    "description": "Excluded from public-access set per instructions (private outfitter/resort). lat/lon left null; no public coordinate applicable. Flag if the app owner actually wants the private launch point plotted.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://riverranchresort.com/lodging/camping/sycamore-landing/",
+      "https://pinecliffresort.net/campgrounds-rv-parks/sycamore-landing",
+      "https://mdc.mo.gov/discover-nature/places/sycamore-access"
+    ]
+  },
+  {
+    "name": "Cowskin Access",
+    "kind": "access",
+    "expected_mile": 45,
+    "lat": 36.63092,
+    "lon": -94.58758,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/cowskin-access",
+    "facilities": "MDC access with parking lot and concrete boat ramp; mostly forested, small mowed field, no gravel bars. At the MO-43 Elk River bridge; USGS Tiff City streamgage is co-located.",
+    "description": "Datum WGS84 (OSM) / NAD83 (USGS) \u2014 equivalent to <1 m here. Lowermost MO public access before the Oklahoma line / Grand Lake.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/cowskin-access",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07189000/",
+      "https://www.openstreetmap.org/node/3813247085"
+    ]
+  },
+  {
+    "name": "Lanagan Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.60702,
+    "lon": -94.44649,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/lanagan-access",
+    "facilities": "MDC public access with boat ramp/slipway on the Elk River at Lanagan.",
+    "description": "Datum WGS84 (OSM). Not in the original request list but a legitimate MDC public access; sits between the US-71 bridge (mile ~24.5) and Mount Shira (mile ~32), roughly river mile 28-30 (approximate, not authoritatively measured).",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/lanagan-access",
+      "https://www.openstreetmap.org/way/1484168328",
+      "https://www.openstreetmap.org/node/13608507480"
+    ]
+  }
+]

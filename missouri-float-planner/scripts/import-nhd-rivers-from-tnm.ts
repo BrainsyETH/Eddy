@@ -86,6 +86,11 @@ const RIVERS: RiverSpec[] = [
   { slug: 'black',      gnisNames: ['Black River'],      hucs: ['11010007'], mode: 'insert' },
   { slug: 'st-francis', gnisNames: ['St. Francis River', 'Saint Francis River'], hucs: ['08020202'], mode: 'insert' },
   { slug: 'buffalo',    gnisNames: ['Buffalo River'],    hucs: ['11010005'], mode: 'insert' },
+  // 2026-07 second onboarding batch (dossiers AWAITING SIGNOFF; see DEPLOYMENT-STATUS.md)
+  { slug: 'north-fork-white', gnisNames: ['North Fork River', 'North Fork White River'], hucs: ['11010006'], mode: 'insert' },
+  { slug: 'elk',              gnisNames: ['Elk River'],    hucs: ['11070208'], mode: 'insert' },
+  { slug: 'james',            gnisNames: ['James River'],  hucs: ['11010002'], mode: 'insert' },
+  { slug: 'spring-river',     gnisNames: ['Spring River'], hucs: ['11010010'], mode: 'insert' },
 ];
 
 interface RiverMeta {

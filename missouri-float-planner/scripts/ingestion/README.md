@@ -24,7 +24,8 @@
 ```
 scaffold → research (dossier) → verify (identifiers) → sign-off (thresholds)
    → geometry (NHD) → ingest --apply → validate_river_data() → place access
-   points [human] → activate [human] → cold-start Eddy prose
+   points [human] → services (outfitters/campgrounds) → activate [human]
+   → cold-start Eddy prose
 ```
 
 Every arrow is a gate. The two-layer design (research JSON ≠ DB write) is what
@@ -144,18 +145,85 @@ Resolve all **errors** before activating. After migration `00164`, also resolve 
 consciously accept the **warnings** — `no_dangerous_anchor` / `no_optimal_max_anchor`
 / `no_too_low_anchor` mean the badge can't express part of its range (see below).
 
-### Phase 8 — Access points [human]
+### Phase 8 — Access points [human-verified]
 
-Load candidates as **PENDING** (`approved=false`, `is_public=false`) — the enrich +
-preload path is `preload-dossier-access-points.py`. Then a human verifies each pin
-against an official source (MDC Atlas, NPS, USFS, Recreation.gov, USGS) and approves
-it in `/admin/geography`. Coordinates are **never** script-written to `approved`.
+`ingest-dossier` never writes access points (the `[manual]` gate): a float planner
+is only as trustworthy as its put-in/take-out pins, so coordinates ship only after
+human-grade verification. The current path (`import-dossier-access-points.ts`):
+
+1. **Source coordinates** from authoritative agency layers, not geocoding: MDC
+   Conservation Atlas (MO), the AGFC ArcGIS *Public Use Facilities* layer (AR),
+   USFS / Recreation.gov, MO/AR State Parks, USGS gauge stations. Corroborate each
+   pin against a second source (an OSM slipway node, a second agency page) and keep
+   the source URL. Anything you can't corroborate ships `lat/lon: null` (held) —
+   **never a guessed coordinate.** (Fan-out research agents do this well: one per
+   river, "do not guess," structured JSON out.)
+2. **Assemble** `access-points/<slug>.json` — an array of `{name, kind,
+   expected_mile, lat, lon, is_public, ownership, managing_agency,
+   official_site_url, facilities, source_urls, confidence}`. `kind` ∈
+   `access | bridge | boat_ramp | park | campground | gravel_bar`.
+3. **Import + snap + mile + validate:**
+   ```bash
+   npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> --write
+   ```
+   Upserts (`approved=false`); the `auto_snap_access_point` trigger fills
+   `location_snap` + `snap_distance_m`; then `set_access_point_miles_from_geometry`
+   (00165) fills `river_mile_downstream` from the flowline (mile 0 = headwaters —
+   the trigger stopped setting miles in 00121). Prints a validation table flagging
+   any pin with `snap_distance_m > 250 m`, a null mile, or a river-mile order
+   inversion. `managing_agency` is mapped to the allowed enum
+   (MDC/NPS/USFS/COE/State Park/County/Municipal/Private); AGFC/USGS/MoDOT fall to
+   null with `ownership` keeping the true operator (00158 precedent).
+4. **Review** the flags, fix coordinates, re-run until clean.
+5. **Approve** the pins that pass: append `--approve` (approves only ✅ rows).
+6. **Imagery** (#843): `npx tsx scripts/ingestion/backfill-imagery-cli.ts <slug>`
+   resolves agency photos for approved pins. MDC / State-Park / USFS-web / NPS
+   pages carry per-place og:images; AGFC ramps have no per-place page and cleanly
+   no-match (default artwork) — a data-source limit, not a pipeline gap. (NPS/RIDB
+   sources need `NPS_API_KEY` / `RIDB_API_KEY`; og:image sources work without.)
+
+### Phase 8.5 — Services [separate subsystem — now required]
+
+Outfitters, campgrounds, and shuttles are **not** in the dossier schema. They
+live in **`nearby_services`** (+ `service_rivers` M2M — `is_primary` = the river a
+business mostly serves) and, for NPS-park rivers, **`nps_campgrounds`** (synced
+from the NPS API by `park_code`). **This step was skipped for all five Wave-1
+rivers — they shipped with 0 services while the original rivers carry 20–30 each.
+Do not skip it again.**
+
+Research per corridor (outfitter sites, Google/Yelp/TripAdvisor, chamber
+directories; NPS / State Parks / USFS / MDC / AGFC for campgrounds). The repo's
+`Data Gap Analysis` and `Business Database` PDFs are prior groundwork (75
+businesses across 6 corridors, incl. Black, Gasconade, Spring AR). Load via CSV:
+
+```bash
+npx tsx scripts/import-services-csv.ts <file>.csv            # dry-run / validate
+npx tsx scripts/import-services-csv.ts <file>.csv --import   # write
+```
+
+CSV (`scripts/services.template.csv`): `name, type (outfitter|campground|
+cabin_lodge), river_slugs` (pipe-separated, first = `is_primary`), `phone, email,
+website, reservation_url, booking_platform, latitude, longitude, services_offered`
+(pipe-separated: `canoe_rental|shuttle|showers|…`), `tent_sites, rv_sites,
+cabin_count, fee_range, season_open_month, season_close_month`. Idempotent by
+`slug`. **Backlog:** backfill the five Wave-1 rivers (Black, Bourbeuse, Buffalo,
+Gasconade, St. Francis) from the Business Database PDF.
 
 ### Phase 9 — Activate [human] + cold-start
 
-```sql
-UPDATE rivers SET active = true WHERE slug = '<slug>';   -- only after validate is clean
+Cold-start prose (`float_summary` + `float_tip`, shown before the first live
+reading) and `weather_lat/lon` go in first — see `set-cold-start.ts` for the shape
+(a gauge-oriented floatability summary + one safety tip, written from the finalized
+thresholds). `validate_river_data()` only evaluates active rivers, so activation is
+also the validation gate:
+
+```bash
+npx tsx scripts/ingestion/activate-rivers.ts <slug> [<slug> ...]
 ```
+
+Flips `active=true`, reads back `validate_river_data()`, and **auto-rolls-back any
+river with an error-severity finding.** Warnings (`no_dangerous` / `no_too_low` on
+spring-fed rivers) are printed and left live — the documented, intentional gaps.
 
 Then populate Eddy prose immediately instead of waiting for the daily cron:
 
@@ -236,6 +304,7 @@ never guessed.
 - [ ] `validate_river_data()` → **0 errors**; ladder warnings resolved or consciously accepted.
 - [ ] `## <River>` section in `EDDY_KNOWLEDGE.md`; `npm run check:eddy-knowledge` passes.
 - [ ] Access points loaded PENDING; each verified + approved by a human in `/admin/geography`.
+- [ ] Services loaded (`nearby_services` + `service_rivers`) — outfitters/campgrounds/shuttles; do not ship at 0.
 - [ ] `rivers.active = true`; cold-start `generate-eddy-updates?river=<slug>` run.
 - [ ] First cron pass observed; `stale_gauge` cleared.
 

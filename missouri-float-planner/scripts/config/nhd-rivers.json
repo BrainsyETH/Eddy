@@ -180,6 +180,17 @@
       "state": "MO",
       "timezone": "America/Chicago",
       "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Spring River",
+      "slug": "spring-river",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "A cold, clear, spring-fed float in north-central Arkansas rising at Mammoth Spring and running past Hardy toward its confluence with the Black River; trout in the upper reach, a few ledges including Saddler Falls.",
+      "difficultyRating": "Class I-II (Saddler Falls & High Falls ledges)",
+      "region": "Ozark Foothills",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "spring_fed_float"
     }
   ]
 }

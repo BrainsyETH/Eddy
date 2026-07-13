@@ -1,0 +1,300 @@
+{
+  "_status": "SIGNED-OFF 2026-07-12 — owner-authorized go-live (full batch). Spring River (AR), spring_fed_float. Reach 1 (Dam 3→Hardy) on AGFC typical discharge (07069305, cfs): optimal 206–694. [verify] cleared (07069305, 07069500); McIlroy access law. FOLLOW-UP: dangerous anchor still unsourced (NWS flood stages over-anchored: 10 ft = 15,868 cfs, ~23x floatable) — outfitter call is the path (RiverStop 870-955-5088). Lower reach uncalibrated. Access points approximate (interpolation), flagged for verification.",
+  "name": "Spring River",
+  "slug": "spring-river",
+  "primaryGaugeSiteId": "07069305",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozark Foothills",
+  "nhdFeatureId": "UNKNOWN",
+  "difficultyRating": "Class I-II (Saddler Falls & High Falls ledges)",
+  "description": "A cold, clear, spring-fed float in north-central Arkansas rising at Mammoth Spring (one of the largest springs in the U.S.) and running past Hardy toward its confluence with the Black River near Black Rock. Reliable year-round flow from the spring; trout in the upper reach, smallmouth lower; a few ledges/rapids including Saddler Falls. A very popular canoe/kayak float.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Arkansas Game & Fish Commission (public accesses); Arkansas State Parks (Mammoth Spring State Park); streambed navigability per Arkansas law",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "Arkansas follows the recreational (public-use) navigability doctrine: the public may float and wade streams susceptible to recreational use by small craft for a substantial portion of the year; everything below the ordinary high-water mark is public, but riparian owners may bar crossing their land, so lawful entry is via public accesses (AGFC Dam 3, Bayou, Cold Springs; Mammoth Spring State Park). Adopted in State v. McIlroy, 268 Ark. 227 (1980); see Ark. Code Ann. § 22-6-201.",
+    "source": "State v. McIlroy, 268 Ark. 227 (1980); Ark. Code Ann. § 22-6-201",
+    "confidence": "high"
+  },
+  "seasonalClosures": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07069305",
+      "name": "Spring River at Spring Street Bridge at Hardy, AR",
+      "lat": 36.3136,
+      "lon": -91.4828,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 845,
+      "servesSections": [
+        "spring-reach1"
+      ],
+      "knownBias": "downstream end of the reach (drainage 845 vs ~280 at the spring) — reads higher than the Dam 3 put-in"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07069500",
+      "name": "Spring River at Imboden, AR",
+      "lat": 36.20556,
+      "lon": -91.17167,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 1180,
+      "servesSections": [
+        "spring-reach2"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "slug": "spring-reach1",
+      "name": "Mammoth Spring / Dam 3 → Hardy (~15 mi)",
+      "description": "The classic Spring River float: put in at Dam 3 / Riverside (~3.2 mi below the spring, the main put-in) and take out at Hardy, ~15 mi. Fed by Mammoth Spring's constant ~340 cfs, 58°F baseflow, so it runs cold, clear, and floatable year-round and is effectively never too low (no too_low anchor set). AGFC-stocked trout water in the cold upper stretch; Class I-II with ledges (Saddler Falls, High Falls) and low-head Dams #1 and #3 to portage in high water.",
+      "putIn": {
+        "name": "Dam 3 / Riverside Access"
+      },
+      "takeOut": {
+        "name": "Hardy (Spring Street Bridge)",
+        "lat": 36.3136,
+        "lon": -91.4828
+      },
+      "publishedLengthMiles": 15,
+      "representativeGauge": {
+        "siteId": "07069305",
+        "rationale": "Spring River at Hardy (07069305) is the only reach gauge reporting both discharge (00060) and stage (00065) live, sits at the reach take-out, and carries an NWS forecast point (HDYA4); AGFC's typical-discharge range is quoted in cfs, matching this gauge's 00060.",
+        "knownBias": "at the downstream (Hardy) end of the reach — drainage 845 sqmi vs ~280 at the spring/Dam 3 put-in, so it reads higher than the upper put-in."
+      },
+      "thresholds": [
+        {
+          "level": "optimal_min",
+          "value": 206,
+          "unit": "cfs",
+          "referenceGauge": "07069305",
+          "referenceGaugeIsPolled": true,
+          "source": "Arkansas Game & Fish Commission Spring River trout page: typical discharge 206–694 cfs (https://www.agfc.com/fishing/where-to-fish/trout-waters/spring-river/)",
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_max",
+          "value": 694,
+          "unit": "cfs",
+          "referenceGauge": "07069305",
+          "referenceGaugeIsPolled": true,
+          "source": "AGFC Spring River: typical discharge top of range 694 cfs",
+          "confidence": "medium"
+        }
+      ],
+      "publishedFloatTimes": [
+        {
+          "reachLabel": "Dam 3 to Hardy",
+          "distanceMiles": 15,
+          "hoursTypical": 6.5,
+          "hoursLow": 6,
+          "hoursHigh": 7,
+          "source": "spring-river-findings-partial.md — classic Dam 3 → Hardy float ≈ 15 mi (typical ~6–7 hr outfitter estimate; confirm with RiverStop / River Wilderness Sports)"
+        }
+      ],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": [
+          "low_water_dam",
+          "rapid",
+          "strainer",
+          "cold_water"
+        ],
+        "lowWaterMeaning": "spring-fed — rarely too low to float",
+        "risingWaterHazards": "portage Saddler Falls & High Falls in high water; cold 58°F water year-round (hypothermia)"
+      },
+      "hazards": [
+        {
+          "value": "Saddler Falls — Class II ledge / S-turn at ~river mile 5; scout or portage in high water",
+          "source": "spring-river-findings-partial.md (AGFC / outfitter float descriptions)",
+          "confidence": "medium"
+        },
+        {
+          "value": "High Falls — ~6-ft waterfall / ledge; portage in high water",
+          "source": "spring-river-findings-partial.md (AGFC / outfitter float descriptions)",
+          "confidence": "medium"
+        },
+        {
+          "value": "Low-head Dam #1 (Mammoth Spring SP / Spring Lake) and Dam #3 (~3.2 mi below the spring, at the main put-in) — low-head-dam drowning hazard; keep clear / portage",
+          "source": "spring-river-findings-partial.md",
+          "confidence": "medium"
+        },
+        {
+          "value": "Low-water bridge on the Many Islands → Hardy stretch — portage",
+          "source": "spring-river-findings-partial.md",
+          "confidence": "medium"
+        }
+      ],
+      "localKnowledge": [
+        "AGFC-stocked trout water from Dam #1 down to Myatt Creek (~12 mi) — put-and-take rainbow and brown trout in the cold upper reach.",
+        "Extremely popular summer party float (canoes, kayaks, tubes); heavy weekend crowds Memorial Day–Labor Day, with outfitters concentrated around Hardy and Mammoth Spring."
+      ]
+    },
+    {
+      "slug": "spring-reach2",
+      "name": "Hardy → Ravenden → Imboden → Black River",
+      "description": "The lower Spring River from Hardy down through Ravenden and Imboden to the Black River confluence near Black Rock. Larger, warmer, and far less calibrated than the upper trout reach; smallmouth, walleye, and tiger-muskie fishery. Spring-fed baseflow keeps it floatable, but no gauge-keyed floatability thresholds were captured — thresholds are intentionally left empty pending Imboden 07069500 calibration.",
+      "putIn": {
+        "name": "Hardy (Spring Street Bridge)",
+        "lat": 36.3136,
+        "lon": -91.4828
+      },
+      "takeOut": {
+        "name": "Imboden (to Black River confluence near Black Rock)"
+      },
+      "publishedLengthMiles": null,
+      "representativeGauge": {
+        "siteId": "07069500",
+        "rationale": "Spring River at Imboden (07069500) is the long-record (since 1936) discharge gauge on the lower river and the only pollable gauge below Hardy representing the Hardy → Imboden → Black River reach.",
+        "knownBias": "UNCALIBRATED — near the lower end of the reach (drainage 1180 sqmi), reads higher than the Hardy end; no floatability thresholds captured, so thresholds are intentionally empty pending Imboden-keyed data."
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": true,
+        "hydroType": "spring_fed_float",
+        "primaryHazards": [
+          "strainer"
+        ],
+        "lowWaterMeaning": "spring-fed, always floatable",
+        "risingWaterHazards": "standard river hazards"
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "Lower-river smallmouth, walleye, and tiger-muskie fishery; much less commercial float traffic than the upper trout reach."
+      ]
+    }
+  ],
+  "accessPoints": [
+    {
+      "name": "Mammoth Spring State Park (Dam #1)",
+      "type": "park",
+      "riverMile": 0,
+      "ownership": "Arkansas State Parks",
+      "notes": "The source — Mammoth Spring (one of the largest springs in the U.S.) and low-head Dam #1 / Spring Lake in Mammoth Spring State Park; uppermost access. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map; Arkansas State Parks)"
+    },
+    {
+      "name": "Cold Springs Access",
+      "type": "access",
+      "riverMile": 1,
+      "ownership": "AGFC",
+      "notes": "AGFC access ~river mile 1; ADA fishing pier. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    },
+    {
+      "name": "Lassiter Access",
+      "type": "access",
+      "riverMile": null,
+      "ownership": null,
+      "notes": "Walk-in access; river mile and ownership unverified. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    },
+    {
+      "name": "Dam 3 / Riverside Access",
+      "type": "access",
+      "riverMile": 3.2,
+      "ownership": "AGFC",
+      "notes": "MAIN put-in for the classic Dam 3 → Hardy float, ~3.2 mi below the spring, just below low-head Dam #3. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    },
+    {
+      "name": "Bayou Access",
+      "type": "access",
+      "riverMile": 6,
+      "ownership": "AGFC",
+      "notes": "AGFC access ~river mile 6. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    },
+    {
+      "name": "Hardy (Spring Street Bridge)",
+      "type": "access",
+      "lat": 36.3136,
+      "lon": -91.4828,
+      "riverMile": null,
+      "ownership": null,
+      "notes": "Standard take-out for the Dam 3 → Hardy float (~15 river mi below Dam 3) at the Spring Street bridge; co-located with USGS gauge 07069305; also the put-in for the lower reach. Coordinate sourced from the USGS gauge location; ownership unverified.",
+      "source": "USGS 07069305 monitoring-location coordinate; spring-river-findings-partial.md"
+    },
+    {
+      "name": "Many Islands",
+      "type": "campground",
+      "riverMile": null,
+      "ownership": "private",
+      "notes": "Private Many Islands Camp & Canoe (60+ yr) upstream of Hardy; a low-water bridge lies on the Many Islands → Hardy stretch (portage). Private — not a public access. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    },
+    {
+      "name": "Ravenden Access",
+      "type": "access",
+      "riverMile": null,
+      "ownership": null,
+      "notes": "Lower-river access at Ravenden (Lawrence Co.) on the Hardy → Imboden reach; type/ownership unverified. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    },
+    {
+      "name": "Imboden Access",
+      "type": "access",
+      "riverMile": null,
+      "ownership": null,
+      "notes": "Lower-river access at Imboden, near USGS gauge 07069500 and above the Black River confluence; type/ownership unverified. GPS PENDING [manual].",
+      "source": "spring-river-findings-partial.md (AGFC 2009 Spring River access map)"
+    }
+  ],
+  "weatherPoint": {
+    "city": "Hardy",
+    "lat": null,
+    "lon": null
+  },
+  "alertSearchTerms": [
+    "spring river",
+    "fulton county",
+    "sharp county",
+    "lawrence county",
+    "mammoth spring",
+    "hardy",
+    "cherokee village",
+    "ravenden"
+  ],
+  "research": {
+    "date": "2026-07-12",
+    "sourcesConsulted": [
+      "https://www.agfc.com/fishing/where-to-fish/trout-waters/spring-river/ (AGFC Spring River trout page — typical discharge 206–694 cfs)",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07069305/ (Spring River at Hardy, Spring St Bridge — 00060+00065 live)",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07069500/ (Spring River at Imboden — long record since 1936)",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07069220/ (Spring River near Mammoth Spring — 00060 discharge discontinued 2016, ft only)",
+      "USGS/NWS NWPS HDYA4 (Spring River at Hardy) flood stages — action 8 / minor flood 10 ft (cross-check only)",
+      "State v. McIlroy, 268 Ark. 227 (1980); Ark. Code Ann. § 22-6-201 (AR recreational navigability doctrine)",
+      "Encyclopedia of Arkansas — Spring River (~75 mi length)",
+      "Wikipedia — Spring River (Arkansas) (57 mi length; GNIS 00055122)",
+      "spring-river-findings-partial.md (distilled research backstop; AGFC 2009 Spring River access map)"
+    ],
+    "openQuestions": [
+      "NWS-FLOOD DANGER ANCHOR INVALID (checked 2026-07-12 vs owner-provided HDYA4 flood impacts): the Hardy gauge flood onset (10 ft = banks breaking) = 15,868 cfs on the USGS 07069305 exsa rating — ~23x the AGFC floatable max (694 cfs); access/campground flooding impacts start even higher (12-14 ft). Same over-anchoring as Gasconade — do NOT use NWS flood stage as the dangerous anchor. The outfitter call (RiverStop 870-955-5088 / River Wilderness 870-955-5003) remains the only valid path to a floater do-not-float number.",
+      "DANGEROUS ANCHOR UNSOURCED (reach 1): no outfitter/AGFC/American Whitewater do-not-float cfs; outfitters run 'by judgment.' Call RiverStop (870-955-5088) and River Wilderness Sports (870-955-5003) to source a floater-danger number at Hardy 07069305. NWS HDYA4 action 8 / minor-flood 10 ft is valley flooding, NOT floater danger — do not use as the dangerous anchor. Until sourced, optimal_max (694 cfs) drives the high band; no dangerous anchor is set.",
+      "Representative-gauge choice per reach [signoff]: reach 1 (Dam 3 → Hardy) on Hardy 07069305 (00060+00065 live, NWS point); reach 2 (Hardy → Imboden → Black River) on Imboden 07069500. Confirm the app polls the right gauge for each reach via river mile.",
+      "AGFC DATUM RECONCILIATION: AGFC's 'typical 4.0–5.3 ft' stage does NOT match the Hardy gauge (443 cfs read at 2.96 ft on 2026-07-12) — the AGFC ft figure is a different gauge/datum. Thresholds are encoded in AGFC cfs (206–694), NOT its ft. Reconcile the ft datum before publishing any stage-based guidance.",
+      "LOWER REACH UNCALIBRATED (spring-reach2): no Imboden-keyed floatability thresholds captured; thresholds intentionally left empty. Capture optimal/high anchors at 07069500 before the lower reach can drive a badge."
+    ],
+    "toVerify": [
+      "USGS 07069305 (Spring River at Hardy, Spring St Bridge) and 07069500 (Spring River at Imboden): site #, name, lat/lon, params (00060/00065), drainage area transcribed to verified-identifiers-spring-river.md (written). 07069220 near Mammoth Spring EXCLUDED — 00060 discharge discontinued 2016 (ft only), so it is not in gauges[].",
+      "Hardy HUC anomaly: the USGS Hardy site page reports HUC 11010008 while NHD/NHDPlus_HR gives 11010010 for the flowline — the agent corrected the brief's 11010012 to 11010010. Reconcile the Hardy-site HUC vs NHD before ingest.",
+      "Single NHD Permanent Identifier for the flowline (multi-segment; no single PID captured). GNIS feature id 00055122 is on hand — resolve the NHDPlus_HR flowline PID(s) in AR HUC 11010010.",
+      "Access-point GPS [manual]: only the Hardy take-out (36.3136, -91.4828) is sourced; a human must place coordinates for Mammoth Spring SP/Dam 1, Cold Springs, Lassiter, Dam 3/Riverside, Bayou, Many Islands (private), Ravenden, and Imboden (AGFC 2009 map gives river-miles, not GPS).",
+      "River length conflict: 57 mi (Wikipedia) vs ~75 mi (Encyclopedia of Arkansas). Resolve the total mainstem length; the calibrated float (Dam 3 → Hardy) is ~15 mi regardless.",
+      "AR navigability doctrine RESOLVED for the state: State v. McIlroy, 268 Ark. 227 (1980) + Ark. Code Ann. § 22-6-201 — accessLaw upgraded to high confidence and reusable across AR rivers.",
+      "County list for NWS alert terms (seeded: Fulton, Sharp, Lawrence) — confirm complete."
+    ]
+  }
+}
