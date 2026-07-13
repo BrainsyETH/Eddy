@@ -51,6 +51,18 @@ function slugify(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+// access_points_managing_agency_check (00034) allows only this set (or NULL).
+// AGFC / USGS / MoDOT are NOT in it — map known synonyms, else null the column
+// (ownership still records the true operator as free text, matching the 00158
+// Buffalo precedent: "managing_agency left null because AGFC is not in the enum").
+const ALLOWED_AGENCY = new Set(['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private']);
+const AGENCY_SYNONYM: Record<string, string> = { City: 'Municipal', 'State Parks': 'State Park', Federal: 'USFS' };
+function normalizeAgency(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const mapped = AGENCY_SYNONYM[raw] ?? raw;
+  return ALLOWED_AGENCY.has(mapped) ? mapped : null;
+}
+
 async function main() {
   const [slug, ...flags] = process.argv.slice(2);
   if (!slug) {
@@ -86,8 +98,8 @@ async function main() {
         type: r.kind,
         is_public: r.is_public ?? true,
         ownership: r.ownership ?? null,
-        managing_agency: r.managing_agency ?? r.ownership ?? null,
-        official_site_url: r.official_site_url ?? (r.source_urls?.[0] ?? null),
+        managing_agency: normalizeAgency(r.managing_agency ?? r.ownership),
+        official_site_url: r.official_site_url ?? null,
         facilities: r.facilities ?? null,
         description: r.description ?? null,
         approved: false,
@@ -99,6 +111,15 @@ async function main() {
       if (error) throw new Error(`upsert ${r.name}: ${error.message}`);
     }
     console.log(`  ✅ upserted ${placeable.length} rows (approved=false)`);
+
+    // Since 00121 the auto-snap trigger sets only location_snap + snap_distance_m;
+    // river_mile_downstream is populated here from the geometry (00165 helper).
+    const { data: nSet, error: mileErr } = await db.rpc('set_access_point_miles_from_geometry', {
+      p_river_id: river.id,
+      p_force: false,
+    });
+    if (mileErr) throw new Error(`set miles: ${mileErr.message}`);
+    console.log(`  ✅ set river_mile_downstream on ${nSet} point(s) from geometry`);
   }
 
   // Read back current DB state (post-trigger snap)
@@ -144,7 +165,7 @@ async function main() {
     if (validated.length) {
       const { error } = await db
         .from('access_points')
-        .update({ approved: true, approved_at: new Date().toISOString(), approved_by: 'dossier-pipeline' })
+        .update({ approved: true, approved_at: new Date().toISOString() })
         .in('id', validated);
       if (error) throw error;
     }
