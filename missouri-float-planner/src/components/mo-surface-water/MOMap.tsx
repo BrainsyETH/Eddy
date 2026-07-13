@@ -1155,11 +1155,14 @@ export default function MOMap(props: MOMapProps) {
   // The threshold is generous — NHD simplification keeps true on-river gauges
   // within a few hundred meters — and the check self-heals: point a river at
   // its real on-river gauge, or extend the geometry, and the marker appears.
-  // (This is exactly what migration 00164 did for Huzzah/Courtois: they were
-  // mis-wired to Big River at Irondale, off in another basin and suppressed
-  // here; repointing them to the real Huzzah gauge at Steelville, 07014000,
-  // which sits on the drawn line, surfaces the marker.) The gauge itself
-  // still rates its river in the dock, cards, and reach coloring regardless.
+  // (Concrete example: migration 00164 found Huzzah + Courtois mis-wired to
+  // Big River at Irondale — off in another basin, suppressed here — and
+  // repointed both to the real Huzzah gauge at Steelville, 07014000. That
+  // gauge sits ~0.02 mi off the Huzzah's own line, so the Huzzah marker now
+  // shows; Courtois borrows the same gauge as a proxy and it lands ~1.9 mi
+  // off the Courtois line, so Courtois stays suppressed here — still rated
+  // via the proxy in the dock/cards, just no floating pin.) The gauge itself
+  // rates its river in the dock, cards, and reach coloring regardless.
   const offRiverKeys = useMemo(() => {
     const KX = 54.6, KY = 69.0; // ≈ miles per degree at Missouri latitudes
     const MAX_MI = 1.5;
