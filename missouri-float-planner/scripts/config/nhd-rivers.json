@@ -261,6 +261,17 @@
       "state": "MO",
       "timezone": "America/Chicago",
       "riverType": "spring_fed_float"
+    },
+    {
+      "name": "Spring River (Missouri)",
+      "slug": "spring-river-mo",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "A fast-paced southwest-Missouri float on the Ozark border, running from near Carthage down toward the Kansas state line; one of the streams Native Americans knew as the 'Seven Bulls.' Distinct from the Arkansas Spring River.",
+      "difficultyRating": "Class I",
+      "region": "Ozark Border",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
     }
   ]
 }

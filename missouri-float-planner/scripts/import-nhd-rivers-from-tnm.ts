@@ -101,6 +101,9 @@ const RIVERS: RiverSpec[] = [
   { slug: 'caddo-river',     gnisNames: ['Caddo River'],      hucs: ['08040102'], mode: 'insert' },
   { slug: 'war-eagle-creek', gnisNames: ['War Eagle Creek'],  hucs: ['11010001'], mode: 'update' },
   { slug: 'big-river',       gnisNames: ['Big River'],        hucs: ['07140104'], mode: 'insert' },
+  // 2026-07 — Missouri Spring River (distinct from the AR 'spring-river' above; different
+  // HUC). Carthage→Kansas-line float; gnis 'Spring River' within HUC 11070207 is the mainstem.
+  { slug: 'spring-river-mo',  gnisNames: ['Spring River'],     hucs: ['11070207'], mode: 'insert' },
 ];
 
 interface RiverMeta {
