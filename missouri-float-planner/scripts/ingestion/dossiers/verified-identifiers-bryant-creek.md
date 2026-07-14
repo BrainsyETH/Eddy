@@ -22,3 +22,13 @@ All gauge IDs below were verified against the live USGS site service on 2026-07-
 ## Calibration key + sign-off notes
 
 moherp community trip-report calibration (optimal band well-grounded). high/dangerous OMITTED per owner (2026-07-13) — no published recreational cutoff exists (percentile inference only). Ships optimal-only, documented no_dangerous.
+
+## 2026-07-14 — high/dangerous ADDED via moherp (owner sign-off; reverses 2026-07-13 hold)
+
+Owner supplied the moherp Bryant Creek @ Tecumseh (07058000) page and adopted its key,
+reversing the 2026-07-13 optimal-only hold. Set **level_high = 1051**, **level_dangerous
+= 1932 cfs** (moherp High / Flood).
+- Cross-check that anchors the ladder: moherp *observed* "Good" = 300 cfs = our
+  optimal_min, and moherp *estimated* Good 586 ≈ our optimal_max 600. High/Flood are
+  moherp model estimates (same source & precedent the owner approved for Big Piney).
+- validate_river_data(): 0 errors, 0 warnings.
