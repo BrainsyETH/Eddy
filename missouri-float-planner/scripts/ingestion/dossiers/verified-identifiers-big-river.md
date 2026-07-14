@@ -44,3 +44,18 @@ downstream Section-4 end). The most popular float — Washington State Park (Sec
 A Byrnesville-driven badge over-reads for upstream (Washington State Park) floaters. Owner to
 decide whether to switch the primary to Richwoods/Section 3 (the marquee reach) or keep
 Byrnesville. Other section gauges: Big River near Irondale (Sections 1–2).
+
+## 2026-07-14 (2) — PRIMARY SWITCHED to Richwoods (Section 3) per owner ("best gauge for floaters")
+
+Owner chose the best floater gauge. Made **07018100 Big River near Richwoods, MO** (Section 3,
+the Washington State Park family reach — the marquee float) the PRIMARY; demoted 07018500
+Byrnesville to SECONDARY (keeps its Section-4 ladder 90/150/300/600/900/1200 for the lower river).
+
+Richwoods primary ladder (cfs), from the guide's Section-3 navigability, read CONSERVATIVELY for
+the beginner/family audience:
+- too_low 60 / low 90 / optimal_min 100 / optimal_max 400 / high 600 / dangerous 800.
+- Guide bands: "<100 low but floatable; 100–400 easily floatable; 400–800 high but floatable;
+  800–1200 very high, strong currents may be dangerous for the inexperienced; >1200 too high."
+- dangerous = **800** = the onset of "may be dangerous for the inexperienced" (family reach). The
+  guide's absolute "too high" is 1200 — owner can relax dangerous to 1200 if a less-conservative
+  experienced-paddler reading is preferred. validate_river_data(): 0 errors, 0 warnings.
