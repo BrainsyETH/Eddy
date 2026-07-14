@@ -35,3 +35,12 @@ Primary-source transcription from the USGS Site Service + NWPS, owner-provided
 - Whitewater reach representative = Roselle: change provider to `nws`/ROZM7 (USGS 07034000 dead since 1997).
 - Lower reach representative = Patterson 07037500 (active, 00060+00065).
 - Reconcile with the app's existing Roselle config (the Eddy card already renders the 3–6 ft ladder).
+
+## 2026-07-14 — Patterson secondary gauge added (owner request "add both gauges")
+
+Linked **07037500 = St. Francis River near Patterson, MO** (drainage 956; 37.1945,-90.5033)
+as a SECONDARY gauge alongside the primary Roselle 07034000 (whitewater shut-ins reach, ft).
+Thresholds left NULL: the downstream Patterson reach needs its own calibration, and the
+moherp Patterson key is internally inconsistent (estimated "Good" 285 cfs vs an observed
+"Good" trip at 2660 cfs), so it was NOT shipped. The whitewater reach still needs a `high`
+anchor (American Whitewater) — pending research + sign-off.

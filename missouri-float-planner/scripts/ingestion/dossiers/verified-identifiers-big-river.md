@@ -24,3 +24,23 @@ All gauge IDs below were verified against the live USGS site service on 2026-07-
 ## Calibration key + sign-off notes
 
 USGS day-of-year percentiles cross-checked with moherp live rating + OzarkAnglers seasonal normals (optimal band). high/dangerous OMITTED per owner — percentile inference only. Ships optimal-only. Popular Washington State Park reach is better represented by secondary gauge 07018100 (Richwoods).
+
+## 2026-07-14 — DANGER ANCHOR ADDED from the section-by-section float guide (owner-provided)
+
+Owner supplied an authoritative section-by-section Big River guide with explicit
+navigability-by-cfs breakpoints. The app's primary gauge **07018500 = Big River at
+Byrnesville, MO** (drainage 917) is the guide's **Section 4 (Morse Mill → Meramec)** gauge.
+Applied Section 4's navigability to the ladder:
+- optimal_min 200 → **300** ("300–600 cfs easily floatable"), high → **900** ("900–1200 high
+  but usually still fishable"), dangerous → **1200** ("1200–1600 very high, possibly
+  dangerous… the mill-dam areas will be especially dangerous"; >1600 too high).
+- Kept too_low 90 / low 150 / optimal_max 600. validate_river_data(): 0 errors, 0 warnings.
+
+⚠ REACH NOTE / open decision: Big River is onboarded as the whole 141-mi river (9 access
+points, Leadwood → Rockford Beach) but has only ONE primary gauge (Byrnesville, the
+downstream Section-4 end). The most popular float — Washington State Park (Section 3) — is
+~55 mi upstream on the **Big River near Richwoods (07018100)** gauge, which runs much lower
+(Section 3: easily floatable 100–400, high 400–800, dangerous 800–1200, >1200 too high).
+A Byrnesville-driven badge over-reads for upstream (Washington State Park) floaters. Owner to
+decide whether to switch the primary to Richwoods/Section 3 (the marquee reach) or keep
+Byrnesville. Other section gauges: Big River near Irondale (Sections 1–2).
