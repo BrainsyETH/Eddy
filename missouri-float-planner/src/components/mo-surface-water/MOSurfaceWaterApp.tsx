@@ -103,10 +103,6 @@ export default function MOSurfaceWaterApp() {
   // or the dock drawer) — at PEEK it keeps running, since the visible live
   // map above the sheet is the point of the page.
   const [sheetExpanded, setSheetExpanded] = useState(false);
-  // The 30-day timeline is a big fixed reserve; collapse it by default on
-  // phones to give the map back ~100px, expanded on md+. Starts expanded on
-  // both server and first client render (so hydration matches), then
-  // collapses after mount if we're on a small screen.
   // This page is a fixed full-viewport app — iOS rubber-banding the (empty)
   // body just reveals the light site background above the dark header as a
   // gray band. Contain overscroll and paint the body dark for the cases
@@ -126,10 +122,11 @@ export default function MOSurfaceWaterApp() {
     };
   }, []);
 
-  const [timelineExpanded, setTimelineExpanded] = useState(true);
-  useEffect(() => {
-    if (!window.matchMedia('(min-width: 768px)').matches) setTimelineExpanded(false);
-  }, []);
+  // The 30-day timeline is a big fixed reserve, so it starts collapsed on
+  // every viewport — the live map is the point. Users expand it from the
+  // scrubber's header toggle to replay the month. Same value on server and
+  // first client render, so hydration matches with no flip.
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
 
   // Access points / campgrounds / springs are paused while we iterate on
   // the gauge-first experience. The MOMap props are kept so the layers
@@ -141,6 +138,9 @@ export default function MOSurfaceWaterApp() {
   const [showTerrain, setShowTerrain] = useState(true);
   const [showSites, setShowSites] = useState(true);
   const [showFlow, setShowFlow] = useState(true);
+  // River name labels — off by default; an opt-in overlay for orienting to
+  // which reach is which without clicking through.
+  const [showRiverLabels, setShowRiverLabels] = useState(false);
 
   // Initial fetches. On success the payloads are snapshotted to
   // localStorage; on failure we hydrate from that snapshot with a loud
@@ -710,6 +710,8 @@ export default function MOSurfaceWaterApp() {
         setShowSites={setShowSites}
         showFlow={showFlow}
         setShowFlow={setShowFlow}
+        showRiverLabels={showRiverLabels}
+        setShowRiverLabels={setShowRiverLabels}
         siteCount={moSites?.sites.length ?? 0}
         sitesCapped={moSites?.capped ?? false}
         onHoverRiver={setHoveredRiverId}
@@ -745,6 +747,7 @@ export default function MOSurfaceWaterApp() {
           showGauges={showGauges}
           showTerrain={showTerrain}
           showFlow={showFlow}
+          showRiverLabels={showRiverLabels}
           contextSites={moSites?.sites ?? []}
           showSites={showSites}
           selectedContextSiteId={selectedSite?.site_no ?? null}

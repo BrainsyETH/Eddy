@@ -20,6 +20,8 @@ export interface RiverListItem extends River {
   accessPointCount: number;
   /** rivers.state code, e.g. 'MO' */
   state: string;
+  /** rivers.river_type — hydrological archetype, e.g. 'spring_fed_float' */
+  riverType: string | null;
   /** Canonical page path, e.g. /rivers/missouri/current */
   path: string;
   currentCondition: {

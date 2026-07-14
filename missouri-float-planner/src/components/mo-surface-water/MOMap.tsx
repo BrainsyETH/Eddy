@@ -113,6 +113,8 @@ interface MOMapProps {
   showTerrain?: boolean;
   /** Animated particle flow layer along the curated rivers. */
   showFlow?: boolean;
+  /** River name labels along each curated reach. Off by default. */
+  showRiverLabels?: boolean;
   /** Temporarily stop the flow animation (expanded sheet / modal / dock
    *  covering the map) without unmounting the layer. */
   flowPaused?: boolean;
@@ -374,14 +376,19 @@ export default function MOMap(props: MOMapProps) {
         anchors.push({ offset: 1, color: lastColor, condition: gs[gs.length - 1].condition, siteId: gs[gs.length - 1].siteId });
       }
 
-      // Tessellate each span between adjacent gauge anchors into short HSL
-      // steps, so SVG only ever blends between near-identical colors and the
-      // transition sweeps through hue (green→orange→red) rather than fading
-      // straight through a dull off-hue mid-tone. Same-color spans stay one
-      // step. The flow layer reads these same stops, so its particles ride the
-      // identical ramp; anchors are preserved, so a flood gauge keeps a
-      // 'dangerous' stop at its offset for the dash overlay's filter.
-      const STEPS = 8;
+      // Hold each gauge's color across most of its reach and confine the
+      // crossfade to a short band (BLEND_FRAC of the gap) around the midpoint.
+      // Colors still flow into each other — no hard divider — but the
+      // intermediate hue (a green→red span passes through amber) shrinks from a
+      // wide band to a sliver, and a hot gauge's color no longer bleeds far
+      // down a calmer reach. The band samples HSL so it sweeps through hue, not
+      // a dull off-hue mid-tone; the long solid spans on either side are immune
+      // to the straight gradient axis, so most of each river reads true even
+      // where it meanders. (Flow is a separate neutral-white layer now and does
+      // NOT read these stops; anchors are still preserved so a flood gauge
+      // keeps a 'dangerous' stop for the dash overlay's filter.)
+      const BLEND_FRAC = 0.4; // share of each gauge-to-gauge gap spent blending
+      const STEPS = 10;
       const stops: typeof anchors = [anchors[0]];
       for (let i = 1; i < anchors.length; i++) {
         const prev = anchors[i - 1];
@@ -390,15 +397,27 @@ export default function MOMap(props: MOMapProps) {
           stops.push(cur);
           continue;
         }
+        const mid = (prev.offset + cur.offset) / 2;
+        const halfW = (BLEND_FRAC * (cur.offset - prev.offset)) / 2;
+        // Hold prev's color solid up to the blend band…
+        stops.push({ offset: mid - halfW, color: prev.color, condition: prev.condition, siteId: prev.siteId });
+        // …cross-fade through hue across the band. Offsets stay even, but the
+        // MIX is smoothstepped so the color barely moves where the band meets
+        // the solid spans (velocity → 0 at both edges) and eases through the
+        // middle — no hard kink at the boundaries, and it passes through the
+        // midpoint hue quickly so the amber stays a sliver.
         for (let k = 1; k <= STEPS; k++) {
           const t = k / STEPS;
+          const e = t * t * (3 - 2 * t); // smoothstep
           stops.push({
-            offset: prev.offset + (cur.offset - prev.offset) * t,
-            color: mixHsl(prev.color, cur.color, t),
+            offset: mid - halfW + 2 * halfW * t,
+            color: mixHsl(prev.color, cur.color, e),
             condition: t < 0.5 ? prev.condition : cur.condition,
             siteId: t < 0.5 ? prev.siteId : cur.siteId,
           });
         }
+        // …then hold cur's color solid to its offset.
+        stops.push(cur);
       }
 
       out[r.id] = { x1: first[0], y1: first[1], x2: last[0], y2: last[1], stops };
@@ -1123,15 +1142,16 @@ export default function MOMap(props: MOMapProps) {
   // Terrain raster: AVIF first, PNG on decode failure (older Safari).
   const [hillshadeHref, setHillshadeHref] = useState('/mo-hillshade.avif');
 
-  // Particle budget: 240 desktop / 110 small screens or low-end hardware
-  // (docs/mo-surface-water-observatory.md). Sampled once per mount. Wisps are
-  // longer and more legible than the old comet dots, so fewer read as more.
+  // Particle budget for the flow layer: 420 desktop / 200 small screens or
+  // low-end hardware (docs/mo-surface-water-observatory.md). Distributed along
+  // rivers by length; their fading trails do the visual work, so it reads as
+  // fuller than the count suggests. Sampled once per mount.
   const [maxParticles] = useState(() => {
-    if (typeof window === 'undefined') return 240;
+    if (typeof window === 'undefined') return 420;
     const nav = navigator as Navigator & { deviceMemory?: number };
     const small = window.matchMedia('(max-width: 768px)').matches;
     const lowEnd = (navigator.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4;
-    return small || lowEnd ? 110 : 240;
+    return small || lowEnd ? 200 : 420;
   });
 
   // Sort rivers so lower-order paint underneath higher-order, and the
@@ -1759,16 +1779,8 @@ export default function MOMap(props: MOMapProps) {
             )}
             {/* Hit target */}
             <path d={d} stroke="transparent" strokeWidth={Math.max(18, sw * 3)} fill="none" strokeLinecap="round" />
-            {/* Permanent dark casing — frames the colored reach so it reads
-                cleanly over both the parchment and the muted basemap. */}
-            <path
-              d={d}
-              stroke="rgba(15,45,53,0.55)"
-              strokeWidth={sw + 2.6}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            {/* No dark casing — the bold condition band sits straight on the
+                parchment now (the gray outline read as clutter). */}
             {/* Glow on hover/focus */}
             {(isHovered || isFocused) && (
               <path
@@ -1882,6 +1894,42 @@ export default function MOMap(props: MOMapProps) {
               );
             }),
           )}
+        </g>
+      )}
+
+      {/* River name labels — opt-in (off by default), toggled from the HUD.
+          A low-chrome overlay for orienting to which reach is which: one
+          horizontal label at each curated river's mid-vertex, painted above
+          the reaches but below the gauge markers (next SVG) so the data
+          points stay dominant and clickable. Parchment halo (paintOrder
+          stroke) keeps the ink legible over the colored reaches, matching
+          the city labels. */}
+      {props.showRiverLabels && (
+        <g pointerEvents="none">
+          {orderedRivers.map((r) => {
+            const coords = r.geometry.coordinates as Array<[number, number]>;
+            if (coords.length < 2) return null;
+            const midpt = coords[Math.floor(coords.length / 2)];
+            const [lx, ly] = project(midpt[0], midpt[1]);
+            return (
+              <text
+                key={`river-label-${r.id}`}
+                x={lx}
+                y={ly - 5 * kStable}
+                textAnchor="middle"
+                fontFamily="var(--font-mono), ui-monospace, monospace"
+                fontSize={11 * kStable}
+                fontWeight={700}
+                fill="rgba(45,42,36,0.9)"
+                paintOrder="stroke"
+                stroke="rgba(242,234,216,0.92)"
+                strokeWidth={2.6 * kStable}
+                strokeLinejoin="round"
+              >
+                {r.name}
+              </text>
+            );
+          })}
         </g>
       )}
 

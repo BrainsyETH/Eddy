@@ -2,7 +2,8 @@
 
 // src/components/layout/SiteHeader.tsx
 // Global site header. Top nav is intentionally flat — one link per primary
-// surface (Plan a Float, River Reports, About) so it scales as we add more rivers.
+// surface (Plan a Float, River Reports, River Map, About) so it scales as we
+// add more rivers.
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -27,9 +28,16 @@ const NAV_ITEMS: NavItem[] = [
     label: 'River Reports',
     // River Reports owns both the live conditions dashboard (/gauges) and the
     // river browse/guide surfaces (/rivers), so browsing a river no longer
-    // lights up "Plan a Float".
+    // lights up "Plan a Float". Note: /river-map is a sibling surface, not a
+    // /rivers/ child, so it never matches this prefix.
     matches: (p) =>
       p === '/gauges' || p.startsWith('/gauges/') || p === '/rivers' || p.startsWith('/rivers/'),
+  },
+  {
+    href: '/river-map',
+    label: 'River Map',
+    // The live statewide observatory — its own primary surface.
+    matches: (p) => p === '/river-map' || p.startsWith('/river-map/'),
   },
   {
     href: '/blog',

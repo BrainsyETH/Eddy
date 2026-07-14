@@ -1,23 +1,26 @@
 'use client';
 
-// Animated flow layer — soft light "wisps" riding the curated rivers' real
-// geometry downstream, at a speed set by each river's condition. One canvas,
-// one rAF loop, zero React re-renders per frame.
+// Animated flow layer — a downstream particle field rendered with a FADING
+// ACCUMULATION BUFFER, the standard "wind map" technique (Windy, Mapbox's
+// WebGL wind map, Esri wind-js). One canvas, one rAF loop, zero React
+// re-renders per frame.
 //
 // Design: the condition COLOR lives on the SVG band underneath; this layer's
-// only job is MOTION. Each wisp is a translucent, faintly-cool white streak
-// that FOLLOWS the channel's curve — sampled along the real polyline, never a
-// straight chord across a meander — and tapers from a soft leading glint back
-// to nothing, like light catching moving water. Neutral white reads cleanly
-// over every condition color; the old version tinted each particle its
-// reach's own color and drew it as a straight dash over a band of that same
-// color, which is exactly why it looked like scratchy, low-contrast noise.
+// only job is MOTION. Each particle advects downstream along its river's real
+// polyline; every frame we only STAMP its new head, and — crucially — instead
+// of clearing the canvas we fade it slightly toward transparent, so the trail
+// of recent heads lingers and decays into a smooth streak. That's what turns
+// moving dots into flowing water instead of scratchy specks. The marks are a
+// soft near-white so they read cleanly over every condition color rather than
+// competing with it. Trail length scales with flow speed for free (a faster
+// head outruns its own fade), so flood water streaks longer.
 //
-// Perf budget (docs/mo-surface-water-observatory.md): ≤240 wisps on desktop,
-// ≤110 on small/low-end devices; dt clamped; paused when the tab is hidden,
-// the layer is toggled off, or reduced motion is set. Self-degrading: if the
-// rolling frame time stays over ~24 ms, the count halves (floor 120) before
-// the map ever gets janky.
+// When the camera moves the retained pixels are stale (they live in screen
+// space), so a moved frame hard-clears instead of fading; trails rebuild in a
+// few still frames. Perf budget (docs/mo-surface-water-observatory.md): ≤420
+// particles on desktop, ≤200 on small/low-end devices; one fillRect + one
+// short stroke per particle. dt clamped; paused when the tab is hidden, the
+// layer is toggled off, or reduced motion is set; self-degrades under load.
 
 import { useEffect, useRef, type RefObject } from 'react';
 import type { StageVerdict } from '@/lib/usgs/mo-statewide-data';
@@ -66,14 +69,12 @@ function speedFor(verdict: StageVerdict, percentile: number | null): number {
   return base * (0.8 + 0.4 * (p / 100));
 }
 
-// Trail sampled as this many short segments along the real river polyline —
-// enough to bend cleanly through a meander without over-drawing.
-const TRAIL_SEGMENTS = 6;
-// Wisp tone: a faint, barely-cool white that reads as a glint of light on the
-// colored water regardless of the condition color underneath. Motion only —
-// the band carries the color.
-const WISP_BODY = '240,248,251'; // faint full-length streak
-const WISP_HEAD = '248,252,254'; // brighter leading glint
+// FADE_ALPHA sets how fast trails decay each frame (lower = longer tails);
+// PARTICLE_COLOR/HEAD_ALPHA are the soft near-white head mark. Particle COUNT
+// is the `maxParticles` budget, distributed along rivers by length.
+const FADE_ALPHA = 0.055;
+const PARTICLE_COLOR = '250,252,254';
+const HEAD_ALPHA = 0.6;
 
 interface Particle {
   river: number;
@@ -144,9 +145,12 @@ export default function FlowLayer({
       });
     if (!runtimes.length) return;
 
-    // ── Seed particles (deterministic LCG — stable across re-inits) ──
-    const totalLen = runtimes.reduce((s, r) => s + r.total, 0);
-    const particleBudget = maxParticles;
+    // ── Seed particles along every reach, distributed by length so the whole
+    //    network carries a similar stream density (budget = maxParticles).
+    //    Random start positions + small speed jitter so streams don't march in
+    //    lockstep; deterministic LCG so a re-init lands the same layout (no
+    //    flicker on data ticks). Their fading trails reveal the flow. ──
+    const totalLen = runtimes.reduce((sum, r) => sum + r.total, 0) || 1;
     let seed = 1234567;
     const rand = () => {
       seed = (seed * 1103515245 + 12345) % 2147483648;
@@ -154,7 +158,7 @@ export default function FlowLayer({
     };
     let particles: Particle[] = [];
     runtimes.forEach((r, idx) => {
-      const n = Math.max(6, Math.round((r.total / totalLen) * particleBudget));
+      const n = Math.max(2, Math.round((r.total / totalLen) * maxParticles));
       for (let i = 0; i < n; i++) {
         particles.push({ river: idx, s: rand() * r.total, jitter: 0.85 + rand() * 0.3 });
       }
@@ -176,10 +180,11 @@ export default function FlowLayer({
     let last = performance.now();
     let running = true;
     let clearedForPause = false;
+    let lastView: ViewBox | null = null; // for the accumulation-buffer reset
     // Rolling degradation check. The small-budget tier is already on
     // constrained hardware, so it gets half the reaction window — ~0.75s
     // of slow frames instead of ~1.5s before the particle count halves.
-    const SLOW_FRAME_LIMIT = maxParticles <= 150 ? 30 : 60;
+    const SLOW_FRAME_LIMIT = maxParticles <= 250 ? 30 : 60;
     let slowFrames = 0;
 
     const pointAt = (r: RiverRuntime, s: number): [number, number, number] => {
@@ -246,61 +251,57 @@ export default function FlowLayer({
       const oy = (ch - view.h * s) / 2 - view.y * s;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, cw, ch);
-      // Normal compositing — this paints over a LIGHT parchment landmass,
+      // Accumulation buffer: when the camera is STILL, fade the previous frame
+      // toward transparent (destination-out lowers existing alpha) so trails
+      // linger and decay. When it MOVED since last frame the retained pixels
+      // are stale (screen space), so hard-clear instead — trails rebuild within
+      // a few still frames.
+      const moved = !lastView || lastView.x !== view.x || lastView.y !== view.y
+        || lastView.w !== view.w || lastView.h !== view.h;
+      lastView = { x: view.x, y: view.y, w: view.w, h: view.h };
+      if (moved) {
+        ctx.clearRect(0, 0, cw, ch);
+      } else {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = `rgba(0,0,0,${FADE_ALPHA})`;
+        ctx.fillRect(0, 0, cw, ch);
+      }
+      // Normal compositing for the marks — over a LIGHT parchment landmass,
       // where additive ('lighter') would just wash everything toward white.
       ctx.globalCompositeOperation = 'source-over';
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
+      // Head marks are all the same soft near-white; set the style once.
+      const headR = Math.max(0.6, 0.9 * dpr);
+      ctx.fillStyle = `rgba(${PARTICLE_COLOR},${HEAD_ALPHA})`;
+      ctx.strokeStyle = `rgba(${PARTICLE_COLOR},${HEAD_ALPHA})`;
+      ctx.lineWidth = Math.max(1, 1.1 * dpr);
       for (const p of particles) {
         const r = runtimes[p.river];
-        p.s += r.speed * p.jitter * dt;
+        const step = r.speed * p.jitter * dt;
+        p.s += step;
         if (p.s >= r.total) p.s -= r.total;
 
-        // Trail streaks upstream, sampled along the ACTUAL polyline in short
-        // steps so the wisp bends with the channel instead of chording across
-        // a meander. Length grows gently with speed — flood water streaks
-        // longer. Clamped at the headwater, never wrapped (a wrapped tail
-        // would draw a chord clean across the map from mouth to source).
-        const tailLen = Math.min(18, 5 + r.speed * 0.5);
-
-        // Body: one faint soft-white stroke through every sample point, so it
-        // reads as a single curved wisp rather than a stack of segments.
-        let x0 = 0;
-        let y0 = 0;
-        let x1 = 0;
-        let y1 = 0;
-        ctx.strokeStyle = `rgba(${WISP_BODY},0.13)`;
-        ctx.lineWidth = Math.max(1, 1.25 * dpr);
-        ctx.beginPath();
-        for (let k = 0; k <= TRAIL_SEGMENTS; k++) {
-          const sk = Math.max(0.01, p.s - (tailLen * k) / TRAIL_SEGMENTS);
-          const q = pointAt(r, sk);
-          const cx = q[0] * s + ox;
-          const cy = q[1] * s + oy;
-          if (k === 0) {
-            ctx.moveTo(cx, cy);
-            x0 = cx;
-            y0 = cy;
-          } else {
-            ctx.lineTo(cx, cy);
-            if (k === 1) {
-              x1 = cx;
-              y1 = cy;
-            }
-          }
+        // Only the head is drawn each frame; the fade buffer turns the trail of
+        // past heads into a streak. Connect this head to last frame's with a
+        // short stroke so fast / zoomed-out streams stay continuous — but right
+        // after a wrap (p.s < step) just stamp a dot, so no chord is drawn from
+        // the river's mouth back to its source.
+        const q1 = pointAt(r, p.s);
+        const c1x = q1[0] * s + ox;
+        const c1y = q1[1] * s + oy;
+        if (p.s - step >= 0.01) {
+          const q0 = pointAt(r, p.s - step);
+          ctx.beginPath();
+          ctx.moveTo(q0[0] * s + ox, q0[1] * s + oy);
+          ctx.lineTo(c1x, c1y);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(c1x, c1y, headR, 0, Math.PI * 2);
+          ctx.fill();
         }
-        ctx.stroke();
-
-        // Leading glint: the head-most segment, brighter and a touch wider —
-        // light catching the front of the moving water. No dot, no speckle.
-        ctx.strokeStyle = `rgba(${WISP_HEAD},0.44)`;
-        ctx.lineWidth = Math.max(1, 1.7 * dpr);
-        ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
-        ctx.stroke();
       }
 
       if (!firstFrameLogged) {

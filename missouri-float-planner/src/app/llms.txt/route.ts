@@ -17,7 +17,7 @@ Eddy covers float rivers in Missouri's Ozarks region including the Current River
 - ${BASE_URL}/rivers — Browse all rivers with current conditions
 - ${BASE_URL}/rivers/{slug} — Individual river page with conditions, access points, float planning
 - ${BASE_URL}/rivers/{slug}/access/{accessSlug} — Access point details (coordinates, amenities, parking, facilities)
-- ${BASE_URL}/gauges — Real-time USGS gauge stations with water levels and flow trends
+- ${BASE_URL}/river-map — Live statewide map: every curated river painted by its USGS gauges, with 30-day trends, gauge detail, forecast-aware flood warnings, and a drag-to-replay timeline
 - ${BASE_URL}/blog — Float trip guides, safety tips, gear reviews, and river profiles
 - ${BASE_URL}/about — How Eddy works, FAQ about river conditions and float planning
 

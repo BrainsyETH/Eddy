@@ -38,6 +38,7 @@ export default function SiteFooter({
             <h3 className="text-white font-semibold mb-2">Plan</h3>
             <ul className="space-y-1.5">
               <li><Link href="/rivers" className="text-primary-200 hover:text-white transition-colors">River Reports</Link></li>
+              <li><Link href="/river-map" className="text-primary-200 hover:text-white transition-colors">River Map</Link></li>
               <li><Link href="/plan" className="text-primary-200 hover:text-white transition-colors">Plan a Float</Link></li>
             </ul>
           </div>

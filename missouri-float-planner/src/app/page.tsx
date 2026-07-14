@@ -1,8 +1,8 @@
 // src/app/page.tsx
 // Landing page for Eddy — "Home v2" layout: status-forward hero, two pillar
-// cards, a side-by-side Eddy read + live river list, a featured-rivers guide
-// band, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is unchanged;
-// only the section structure was reworked.
+// cards, a side-by-side Eddy read + River Map teaser, a featured-rivers guide
+// band, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is
+// unchanged; only the section structure was reworked.
 
 import type { Metadata } from 'next';
 import Image from 'next/image';
@@ -10,8 +10,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRiverGuides } from '@/lib/data/rivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
+import RiverMapFeature from '@/components/home/RiverMapFeature';
 import EddyHeroBubble from '@/components/home/EddyHeroBubble';
-import FloatingWellNow from '@/components/home/FloatingWellNow';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const metadata: Metadata = {
@@ -118,27 +118,14 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ─── Eddy's Read + Floating Well Now ─── */}
+      {/* ─── Eddy's Read + River Map ─── */}
       <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-12 md:pt-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
           {/* Eddy's read */}
           <EddySaysReport />
 
-          {/* Live river list */}
-          <div className="bg-white border border-neutral-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-                Floating well now
-              </h2>
-              <Link
-                href="/rivers"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition-colors no-underline"
-              >
-                All rivers <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-            <FloatingWellNow />
-          </div>
+          {/* Live statewide map teaser */}
+          <RiverMapFeature />
         </div>
       </section>
 

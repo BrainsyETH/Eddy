@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { Droplets, ArrowRight, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import type { RiverGroup } from '@/lib/river-groups';
+import { type RiverFilterMeta, DIFFICULTY_TIER_LABELS, riverTypeLabel } from '@/lib/rivers/filters';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
@@ -19,10 +20,27 @@ import GaugeTrendContext from '@/components/gauge/GaugeTrendContext';
 
 interface RiverCardProps {
   riverGroup: RiverGroup;
+  /** Optional per-river metadata (state, type, difficulty, length) for the info line. */
+  meta?: RiverFilterMeta;
+  /** Straight-line distance from the visitor, when the "Nearest me" sort is active. */
+  distanceMiles?: number | null;
 }
 
-export default function RiverCard({ riverGroup }: RiverCardProps) {
+export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCardProps) {
   const { riverName, riverSlug, condition, primaryGauge, primaryThreshold, allGauges } = riverGroup;
+
+  // Compact "at a glance" descriptors, shown as a muted dot-separated line so a
+  // grid of many rivers stays scannable (distance / state / length / type /
+  // difficulty). Distance leads when present since it's why the card is here.
+  const metaBits: string[] = [];
+  if (distanceMiles != null && Number.isFinite(distanceMiles)) {
+    metaBits.push(`${Math.max(1, Math.round(distanceMiles))} mi away`);
+  }
+  if (meta?.state) metaBits.push(meta.state);
+  if (meta?.lengthMiles != null && Number.isFinite(meta.lengthMiles)) metaBits.push(`${Math.round(meta.lengthMiles)} mi`);
+  const typeLabel = riverTypeLabel(meta?.riverType);
+  if (typeLabel) metaBits.push(typeLabel);
+  if (meta?.difficultyTier) metaBits.push(DIFFICULTY_TIER_LABELS[meta.difficultyTier]);
 
   const [showFull, setShowFull] = useState(false);
 
@@ -120,6 +138,11 @@ export default function RiverCard({ riverGroup }: RiverCardProps) {
                   {allGauges.length} gauge{allGauges.length !== 1 ? 's' : ''}
                 </span>
               </div>
+              {metaBits.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-neutral-500 truncate">
+                  {metaBits.join(' · ')}
+                </p>
+              )}
             </div>
 
             {/* Current reading */}
