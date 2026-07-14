@@ -113,6 +113,8 @@ interface MOMapProps {
   showTerrain?: boolean;
   /** Animated particle flow layer along the curated rivers. */
   showFlow?: boolean;
+  /** River name labels along each curated reach. Off by default. */
+  showRiverLabels?: boolean;
   /** Temporarily stop the flow animation (expanded sheet / modal / dock
    *  covering the map) without unmounting the layer. */
   flowPaused?: boolean;
@@ -1892,6 +1894,42 @@ export default function MOMap(props: MOMapProps) {
               );
             }),
           )}
+        </g>
+      )}
+
+      {/* River name labels — opt-in (off by default), toggled from the HUD.
+          A low-chrome overlay for orienting to which reach is which: one
+          horizontal label at each curated river's mid-vertex, painted above
+          the reaches but below the gauge markers (next SVG) so the data
+          points stay dominant and clickable. Parchment halo (paintOrder
+          stroke) keeps the ink legible over the colored reaches, matching
+          the city labels. */}
+      {props.showRiverLabels && (
+        <g pointerEvents="none">
+          {orderedRivers.map((r) => {
+            const coords = r.geometry.coordinates as Array<[number, number]>;
+            if (coords.length < 2) return null;
+            const midpt = coords[Math.floor(coords.length / 2)];
+            const [lx, ly] = project(midpt[0], midpt[1]);
+            return (
+              <text
+                key={`river-label-${r.id}`}
+                x={lx}
+                y={ly - 5 * kStable}
+                textAnchor="middle"
+                fontFamily="var(--font-mono), ui-monospace, monospace"
+                fontSize={11 * kStable}
+                fontWeight={700}
+                fill="rgba(45,42,36,0.9)"
+                paintOrder="stroke"
+                stroke="rgba(242,234,216,0.92)"
+                strokeWidth={2.6 * kStable}
+                strokeLinejoin="round"
+              >
+                {r.name}
+              </text>
+            );
+          })}
         </g>
       )}
 
