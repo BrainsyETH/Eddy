@@ -18,7 +18,9 @@ export function TimeScrubber({
   setDayOffset: (v: number) => void;
   history: MoHistoryBundleEntry[];
   rivers: MORiver[];
-  /** Collapsed on mobile by default to reclaim map height; always true on md+. */
+  /** Collapsed by default on every viewport; the user expands it from the
+   *  header toggle. (The live map is the point — the 30-day chart is a big
+   *  fixed reserve.) */
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -87,18 +89,20 @@ export function TimeScrubber({
           >
             30-day timeline
           </span>
-          {/* Hidden on phones: the wrapped hint pushed the chart past the
-              card's fixed height. */}
-          <span
-            className="ml-3 hidden sm:inline"
-            style={{
-              fontFamily: MONO, fontSize: 10, color: 'rgba(242,234,216,0.6)',
-            }}
-          >
-            {history.length
-              ? 'drag to replay the past month · line = share of rivers floatable'
-              : 'historical readings still loading…'}
-          </span>
+          {/* Hidden on phones (the wrapped hint pushed the chart past the
+              card's fixed height) and while collapsed (nothing to drag yet). */}
+          {expanded && (
+            <span
+              className="ml-3 hidden sm:inline"
+              style={{
+                fontFamily: MONO, fontSize: 10, color: 'rgba(242,234,216,0.6)',
+              }}
+            >
+              {history.length
+                ? 'drag to replay the past month · line = share of rivers floatable'
+                : 'historical readings still loading…'}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div
@@ -109,14 +113,14 @@ export function TimeScrubber({
           >
             {dayOffset === 0 ? 'TODAY' : `${Math.abs(dayOffset)}d ago`}
           </div>
-          {/* Mobile-only collapse toggle — reclaims map height. Desktop keeps
-              the timeline always open. */}
+          {/* Collapse toggle — reclaims map height. Shown on every viewport
+              now that the timeline starts collapsed by default. */}
           <button
             type="button"
             onClick={onToggle}
             aria-label={expanded ? 'Collapse timeline' : 'Expand timeline'}
             aria-expanded={expanded}
-            className="grid place-items-center md:hidden"
+            className="grid place-items-center"
             style={{ width: 28, height: 28, color: THEME.parchment, fontSize: 13, lineHeight: 1 }}
           >
             {expanded ? '▾' : '▴'}

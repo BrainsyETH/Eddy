@@ -80,6 +80,8 @@ export default function DataDock({
   setShowSites,
   showFlow,
   setShowFlow,
+  showRiverLabels,
+  setShowRiverLabels,
   siteCount,
   sitesCapped,
   onHoverRiver,
@@ -118,6 +120,8 @@ export default function DataDock({
   setShowSites: (v: boolean) => void;
   showFlow: boolean;
   setShowFlow: (v: boolean) => void;
+  showRiverLabels: boolean;
+  setShowRiverLabels: (v: boolean) => void;
   /** Context-site count + cap disclosure for the layers row. */
   siteCount: number;
   sitesCapped: boolean;
@@ -589,6 +593,12 @@ export default function DataDock({
               glyph="≈"
               on={showFlow}
               onToggle={() => setShowFlow(!showFlow)}
+            />
+            <LayerToggle
+              label="Labels"
+              glyph="A"
+              on={showRiverLabels}
+              onToggle={() => setShowRiverLabels(!showRiverLabels)}
             />
           </div>
           {showSites && siteCount > 0 && (
