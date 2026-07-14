@@ -30,4 +30,4 @@ async function _GET(request: NextRequest) {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.005', 'River data access');
+export const GET = withX402Route(_GET, '/api/rivers');

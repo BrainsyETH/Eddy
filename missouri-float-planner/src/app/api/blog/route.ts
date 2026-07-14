@@ -49,4 +49,4 @@ async function _GET() {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.005', 'Blog posts data');
+export const GET = withX402Route(_GET, '/api/blog');

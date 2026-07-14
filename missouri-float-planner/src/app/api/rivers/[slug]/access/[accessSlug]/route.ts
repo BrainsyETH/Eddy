@@ -43,4 +43,4 @@ async function _GET(
   }
 }
 
-export const GET = withX402Route<{ params: Promise<{ slug: string; accessSlug: string }> }>(_GET, '$0.005', 'Access point detail data');
+export const GET = withX402Route<{ params: Promise<{ slug: string; accessSlug: string }> }>(_GET, '/api/rivers/:slug/access/:accessSlug');

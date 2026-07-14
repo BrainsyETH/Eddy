@@ -259,4 +259,4 @@ function hashIp(ip: string): string {
   return Math.abs(hash).toString(36);
 }
 
-export const POST = withX402Route(_POST as unknown as (request: import('next/server').NextRequest) => Promise<import('next/server').NextResponse>, '$0.02', 'AI chat access');
+export const POST = withX402Route(_POST as unknown as (request: import('next/server').NextRequest) => Promise<import('next/server').NextResponse>, '/api/chat');

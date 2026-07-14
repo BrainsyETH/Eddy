@@ -62,7 +62,18 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
 
 # App URL
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# x402 — AI-agent payments (x402 V2). Optional; dormant until a wallet is set.
+# Browsers always pass through free; only AI agents are asked to pay (USDC).
+# X402_WALLET_ADDRESS=0xYourBaseWallet        # EVM payout on Base — activates x402
+# X402_SOLANA_ADDRESS=YourSolanaAddress       # optional: also accept on Solana
+# CDP_API_KEY_ID=...                          # Coinbase CDP facilitator (+ Bazaar
+# CDP_API_KEY_SECRET=...                      #   auto-discovery). Else X402_FACILITATOR_URL.
 ```
+
+See [`docs/x402.md`](docs/x402.md) for the full x402 setup, including the
+optional feature flags (`X402_SIWX_ENABLED`, `X402_BAZAAR_ENABLED`,
+`X402_DYNAMIC_PAYTO`) and testnet mode.
 
 ### Database Setup
 

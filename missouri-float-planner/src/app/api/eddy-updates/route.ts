@@ -98,4 +98,4 @@ async function _GET() {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.01', 'Eddy updates (all rivers)');
+export const GET = withX402Route(_GET, '/api/eddy-updates');
