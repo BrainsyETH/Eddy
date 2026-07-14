@@ -1,0 +1,4 @@
+name,type,river_slugs,phone,website,address_line1,city,state,zip,services_offered,cabin_count,verified_source
+Kings River Outfitters,outfitter,kings-river,(479) 253-8954,https://kingsriveroutfitters.com,8190 Hwy 221,Eureka Springs,AR,72632,canoe_rental|kayak_rental|shuttle|cabins|camping_primitive,,owner_provided+outfitter_site
+Trigger Gap Outfitters,outfitter,kings-river,(479) 253-5444,https://triggergapoutfitters.com,190 County Road 539,Eureka Springs,AR,72632,canoe_rental|kayak_rental|raft_rental|shuttle|camping_primitive,,owner_provided+outfitter_site
+Riverside Resort & Canoes,outfitter,kings-river,(870) 423-3116,http://www.riversideresortandcanoes.com,3031 Hwy 62 West,Berryville,AR,72616,canoe_rental|kayak_rental|shuttle|cabins|lodge_rooms,7,owner_provided+outfitter_site
