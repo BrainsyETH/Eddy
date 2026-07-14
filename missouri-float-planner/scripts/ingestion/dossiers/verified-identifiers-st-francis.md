@@ -44,3 +44,20 @@ Thresholds left NULL: the downstream Patterson reach needs its own calibration, 
 moherp Patterson key is internally inconsistent (estimated "Good" 285 cfs vs an observed
 "Good" trip at 2660 cfs), so it was NOT shipped. The whitewater reach still needs a `high`
 anchor (American Whitewater) — pending research + sign-off.
+
+## 2026-07-14 (2) — Roselle ladder COMPLETED + CORROBORATED via American Whitewater
+
+Research (AW "Tiemann Shut-Ins" reach id 2921, echoed by St. Louis Outdoor Adventures +
+FloatMissouri) publishes a level-vs-Class key on the Roselle gauge (07034000) in FEET:
+3–4 ft II–III (low) / 4–5 III (optimal) / **5–6 III+ (high/pushy)** / 6–8 IV (experts only) /
+>8 V (flood). D-bridge conversion: inches = 15×(Roselle−3); **6.0 ft = top of the bridge =
+III+→IV onset**, exactly the app's dangerous 6.0.
+- This INDEPENDENTLY CONFIRMS the existing ladder (too_low 3 / optimal 4–5 / dangerous 6) —
+  no change to the danger anchor, now corroborated.
+- Filled the two intermediate anchors from AW's bands: **low = 3.5** (mid of the 3–4 II–III
+  band), **high = 5.5** (mid of the 5–6 III+ band). Non-danger anchors; owner may re-encode
+  the 5–6 band differently. Full ladder now 3/3.5/4/5/5.5/6 ft, 0 errors/0 warnings.
+
+Patterson (07037500) secondary: still NO authoritative cfs key. The only cfs breakpoints found
+(moherp) are statistically miscalibrated (flag ~1280 cfs "normal" summer flow as flood), so they
+were NOT used. Patterson stays a context gauge with null thresholds.
