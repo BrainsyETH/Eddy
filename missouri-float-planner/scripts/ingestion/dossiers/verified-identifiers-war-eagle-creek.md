@@ -27,3 +27,7 @@ ideal 2.0–3.5 ft, ">4 ft = flood." Set **level_dangerous = 4.0 ft** (was null)
   anchor, adopted per owner rather than a hydrologic AHPS stage.
 - `level_high` left null (no distinct published high band; sources jump ideal-3.5 →
   flood-4.0). validate_river_data(): 0 errors, 0 warnings.
+
+## 2026-07-14 (2) — high anchor added (BEST-EFFORT, owner directive)
+Per owner ("all rivers should have high + dangerous set, best effort"): **high = 3.8 ft** =
+midpoint of optimal_max 3.5 and the sourced dangerous 4.0. Interpolated, not independently sourced.

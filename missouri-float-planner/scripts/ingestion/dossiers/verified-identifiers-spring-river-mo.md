@@ -50,3 +50,10 @@ Both linked via link-gauges.ts with threshold_unit='cfs' and **level_* left NULL
 - To activate: source an authoritative optimal (and ideally high/dangerous) key for
   07185765 (Carthage) — outfitter/agency/observed-trip calibration — then set it via
   update-thresholds.ts and run activate-rivers.ts. Also fix the Talbot coordinate.
+
+## 2026-07-14 (2) — ACTIVATED with a fully BEST-EFFORT ladder (owner directive)
+No outfitter/agency floatability key exists for the MO Spring, so per owner's best-effort directive the
+ladder is USGS statistical (Carthage 07185765 day-of-year p25 107 / p50 197 / p75 327 / p95 647, cfs):
+**too_low 60 / low 90 / optimal 110–330 / high 500 / dangerous 800**. Weather point + NWS alert terms set.
+Robert E. Talbot access still HELD (coordinate 1.1 km off the line — needs a corrected riverbank point).
+These are statistical anchors, not vetted floatability levels — revise if a real key appears.
