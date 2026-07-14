@@ -1,0 +1,297 @@
+{
+  "_status": "SIGNED-OFF 2026-07-13 — owner-authorized go-live (3rd batch). Class I-II",
+  "name": "Big Piney River",
+  "slug": "big-piney",
+  "primaryGaugeSiteId": "06930000",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "difficultyRating": "Class I-II",
+  "description": "The Big Piney River is a classic Ozark float stream and the principal tributary of the Gasconade, winding roughly 85 floatable miles north through Mark Twain National Forest in Texas and Pulaski counties. Spring-influenced (fed by Boiling Spring, Mineral Spring, and the large Shanghai/Blue Spring) it stays runnable through most summers, yet it is notably flashy and rises quickly after heavy rain. The upper river near Houston and Licking is a narrow, swift, clear creek framed by pine-topped limestone bluffs with frequent Class I-II riffles, easing to gentler Class I water as it deepens downstream. It offers some of Missouri's best smallmouth bass fishing (a special management area runs Slabtown to the Gasconade), quiet Forest Service and MDC gravel-bar accesses, and scenic day trips such as Mineral Springs or Sandy Shoals to Boiling Spring. A 12-mile middle reach through Fort Leonard Wood is closed to the public; the popular lower float passes the historic Route 66 landmark at Devils Elbow before reaching the Gasconade near Jerome.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "USDA Forest Service - Mark Twain National Forest (Houston-Rolla-Cedar Creek Ranger District); Missouri Department of Conservation (public river accesses). The middle reach passes through U.S. Army Fort Leonard Wood, which is closed to public floating.",
+  "accessLaw": "MO - Missouri recognizes a public right to float, paddle, wade, and fish navigable/floatable streams (the Big Piney is floatable). The public may travel the stream and use the wetted channel/gravel bars below the ordinary high-water mark, but adjacent banks and much of the lower-river land are private - do not trespass above the high-water mark. Portage obstacles staying within the stream corridor. The Fort Leonard Wood reach (approx. Ross to East Gate) is federally restricted and closed to the public.",
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "06930000",
+      "name": "Big Piney River near Big Piney, MO",
+      "lat": 37.66563889,
+      "lon": -92.0499167,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 560,
+      "servesSections": [
+        "boiling-spring-to-mason-bridge",
+        "mason-bridge-to-slabtown",
+        "slabtown-to-horse-camp",
+        "slabtown-to-ross",
+        "east-gate-to-crossroads",
+        "crossroads-to-bookers-bend",
+        "devils-elbow-to-gasconade"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "06928900",
+      "name": "BIG PINEY RIVER NEAR HOUSTON, MO",
+      "lat": 37.3264368,
+      "lon": -92.0071006,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 251,
+      "servesSections": [
+        "mineral-springs-to-boiling-spring"
+      ],
+      "knownBias": "Upper-river gauge (~Houston, Texas Co, 37.3231/-91.9971). Nearest gauge for upper sections (Baptist Camp–Mineral Springs–Boiling Spring). Already secondary in DB."
+    }
+  ],
+  "sections": [
+    {
+      "slug": "mineral-springs-to-boiling-spring",
+      "name": "Mineral Springs to Boiling Spring",
+      "description": "Class I-II",
+      "putIn": {
+        "name": "Mineral Springs Access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Boiling Spring Access",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 11.2,
+      "representativeGauge": {
+        "siteId": "06930000"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 164,
+          "unit": "cfs",
+          "referenceGauge": "06930000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=06930000"
+        },
+        {
+          "level": "low",
+          "value": 309,
+          "unit": "cfs",
+          "referenceGauge": "06930000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=06930000"
+        },
+        {
+          "level": "optimal_min",
+          "value": 519,
+          "unit": "cfs",
+          "referenceGauge": "06930000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=06930000"
+        },
+        {
+          "level": "optimal_max",
+          "value": 1013,
+          "unit": "cfs",
+          "referenceGauge": "06930000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=06930000"
+        },
+        {
+          "level": "high",
+          "value": 1014,
+          "unit": "cfs",
+          "referenceGauge": "06930000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=06930000",
+          "corroboratingSources": [
+            "https://water.noaa.gov/gauges/06930000"
+          ]
+        },
+        {
+          "level": "dangerous",
+          "value": 2049,
+          "unit": "cfs",
+          "referenceGauge": "06930000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=06930000",
+          "corroboratingSources": [
+            "https://water.noaa.gov/gauges/06930000"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "boiling-spring-to-mason-bridge",
+      "name": "Boiling Spring to Mason Bridge",
+      "description": "Class I",
+      "putIn": {
+        "name": "Boiling Spring Access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Mason Bridge Access",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 6,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    },
+    {
+      "slug": "mason-bridge-to-slabtown",
+      "name": "Mason Bridge to Slabtown",
+      "description": "Class I",
+      "putIn": {
+        "name": "Mason Bridge Access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Slabtown Recreation Area",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 8,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    },
+    {
+      "slug": "slabtown-to-horse-camp",
+      "name": "Slabtown to Horse Camp",
+      "description": "Class I",
+      "putIn": {
+        "name": "Slabtown Recreation Area",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Horse Camp Access",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 6,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    },
+    {
+      "slug": "slabtown-to-ross",
+      "name": "Slabtown to Ross",
+      "description": "Class I",
+      "putIn": {
+        "name": "Slabtown Recreation Area",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Ross Access",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 15,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    },
+    {
+      "slug": "east-gate-to-crossroads",
+      "name": "East Gate to Crossroads",
+      "description": "Class I",
+      "putIn": {
+        "name": "East Gate Access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Crossroads Access",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 3,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    },
+    {
+      "slug": "crossroads-to-bookers-bend",
+      "name": "Crossroads to Bookers Bend",
+      "description": "Class I",
+      "putIn": {
+        "name": "Crossroads Access",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Bookers Bend Access",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 8,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    },
+    {
+      "slug": "devils-elbow-to-gasconade",
+      "name": "Devils Elbow to Gasconade Confluence",
+      "description": "Class I",
+      "putIn": {
+        "name": "Devil's Elbow (Highway V Bridge)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Gasconade River Confluence",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 3.3,
+      "representativeGauge": {
+        "siteId": "06930000"
+      }
+    }
+  ],
+  "weatherPoint": {
+    "city": "Licking",
+    "lat": 37.4986,
+    "lon": -91.8563
+  },
+  "alertSearchTerms": [
+    "Big Piney River",
+    "Big Piney",
+    "Pulaski County",
+    "Texas County",
+    "Devils Elbow",
+    "Fort Leonard Wood"
+  ],
+  "accessPoints": [],
+  "research": {
+    "calibrationKeySource": "moherp.com published key for gauge 06930000 (owner-approved 2026-07-13, replacing the older conservative DB values)",
+    "calibrationNotes": "Ladder is ALREADY in the DB on gauge 06930000 in cfs (too_low 123 / optimal 194-263 / high 407 / dangerous 814); left as-is per coordinator. DB level_low value not supplied here (null). GAUGE-ID CORRECTION: the task's 07066000 is 'Jacks Fork at Eminence' (verified via USGS + app gauge_stations.sql); the real Big Piney primary is 06930000 (at Ross Access, 37.6656/-92.0499; NWS name 'Big Piney near Edgar Springs'). RECONCILIATION FLAG (safety): moherp — the stated calibration standard — publishes a MUCH higher cfs key on this same gauge: Poor 164 / Low 309 / Good(optimal) 519 / High 1014 / Flood 2049 (current reading 212 cfs = 'Poor', median ~190 cfs). Mapping Poor->too_low, Low->low, Good->optimal(519-1013), High->high(1014), Flood->dangerous(2049) would raise every anchor ~2-2.5x vs the DB. Most safety-relevant: DB 'dangerous' 814 vs moherp 'High' floor 1014 / 'Flood' 2049; and DB 'optimal' 194-263 vs moherp 'Poor' (too low) for that range. NWS/AHPS flood stage ~8.0-8.25 ft at this gauge (corroborates a high-end anchor but in ft). Recommend an explicit editorial decision on whether to keep the conservative DB values or move toward the moherp standard the app treats as canonical elsewhere. moherp uses cfs, so keep the ladder in cfs.",
+    "hazards": [
+      "Fort Leonard Wood military reservation: ~12 mi (Ross Access mile ~54.8 to East Gate mile ~66.5, restricted ~mile 59.9-68.9) is CLOSED to public floating/access - Ross is the last legal take-out on the upper river; the lower river resumes at East Gate. This breaks any 'Ross to Devils Elbow' continuous float.",
+      "Low-head/rock dam near the Fort Leonard Wood water plant (~mile 62) and a concrete dam with dangerous obstructions (~mile 66) - portage required; both lie within the closed Fort Wood reach (this is the 'Mill Dam' hazard).",
+      "Low-water bridges / fords that can be dangerous or impassable in high water and form strainers: Baptist Camp low-water bridge (float-mile 0), Sandy Shoals Ford (mile ~19.3), Warren Bridge low-water crossing (mile ~33.3).",
+      "Flashy river: rises fast after rain. moherp High >=1014 cfs is 'potentially dangerous, especially for inexperienced'; Flood >=2049 cfs is 'treacherous or deadly'. NWS/AHPS flood stage ~8.0-8.25 ft at gauge 06930000. The May 2017 flood destroyed the Boiling Spring resort.",
+      "Narrow, tree-lined upper reaches with overhanging limbs, deadfall/strainers, and gravel-bar shallows; carry-in (no boat ramp) at several accesses (Baptist Camp, Slabtown, Ross gravel bar).",
+      "Cell service drops out in the Duke/Ross float corridor - plan shuttles and directions in advance."
+    ]
+  }
+}

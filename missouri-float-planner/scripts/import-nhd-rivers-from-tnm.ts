@@ -14,7 +14,9 @@
  *     (cached in `tmp/nhd/`).
  *  2. Parse `NHDFlowline.shp` with shpjs.
  *  3. Filter to features with the river's `gnis_name` and FCode in
- *     {46006 perennial, 55800 connector}.
+ *     {46006 perennial, 55800 connector, 46000 stream/river-unspecified}.
+ *     (46000 is required for rivers like War Eagle Creek whose middle reach is
+ *     tagged 46000 — excluding it splits the main stem and drops the lower half.)
  *  4. Build connected components by endpoint adjacency, walk each into a
  *     single LineString, return the LONGEST component (= the main channel).
  *  5. Simplify with Douglas-Peucker tolerance 0.0005 deg (~50m at MO lat).
@@ -91,6 +93,17 @@ const RIVERS: RiverSpec[] = [
   { slug: 'elk',              gnisNames: ['Elk River'],    hucs: ['11070208'], mode: 'insert' },
   { slug: 'james',            gnisNames: ['James River'],  hucs: ['11010002'], mode: 'insert' },
   { slug: 'spring-river',     gnisNames: ['Spring River'], hucs: ['11010010'], mode: 'insert' },
+  // 2026-07 third onboarding batch (HUC8s pulled from each river's USGS gauge huc_cd)
+  { slug: 'mulberry',        gnisNames: ['Mulberry River'],   hucs: ['11110201'], mode: 'insert' },
+  { slug: 'kings-river',     gnisNames: ['Kings River'],      hucs: ['11010001'], mode: 'insert' },
+  { slug: 'crooked-creek',   gnisNames: ['Crooked Creek'],    hucs: ['11010003'], mode: 'insert' },
+  { slug: 'bryant-creek',    gnisNames: ['Bryant Creek'],     hucs: ['11010006'], mode: 'insert' },
+  { slug: 'caddo-river',     gnisNames: ['Caddo River'],      hucs: ['08040102'], mode: 'insert' },
+  { slug: 'war-eagle-creek', gnisNames: ['War Eagle Creek'],  hucs: ['11010001'], mode: 'update' },
+  { slug: 'big-river',       gnisNames: ['Big River'],        hucs: ['07140104'], mode: 'insert' },
+  // 2026-07 — Missouri Spring River (distinct from the AR 'spring-river' above; different
+  // HUC). Carthage→Kansas-line float; gnis 'Spring River' within HUC 11070207 is the mainstem.
+  { slug: 'spring-river-mo',  gnisNames: ['Spring River'],     hucs: ['11070207'], mode: 'insert' },
 ];
 
 interface RiverMeta {
@@ -125,7 +138,7 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-const FCODE_PERENNIAL = new Set([46006, 55800]);
+const FCODE_PERENNIAL = new Set([46006, 55800, 46000]);
 const SIMPLIFY_TOLERANCE_DEG = 0.0005; // ~50 m at MO latitude
 // After component-by-component chaining, bridge chains whose endpoints
 // are within ~1.2 km of each other. NHD HR has small (~50–500 m)

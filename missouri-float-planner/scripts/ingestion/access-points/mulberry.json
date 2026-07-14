@@ -1,0 +1,125 @@
+[
+  {
+    "name": "Wolf Pen Recreation Area",
+    "kind": "campground",
+    "expected_mile": null,
+    "lat": 35.6754,
+    "lon": -93.6307,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/wolf-pen-recreation-area",
+    "facilities": "primitive camping, river access, picnic area; furthest-upstream Hwy 215 access",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/wolf-pen-recreation-area",
+      "https://allstays.com/Campgrounds-details/11490.htm"
+    ]
+  },
+  {
+    "name": "High Bank Recreation Area",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 35.6789,
+    "lon": -93.6889,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/mulberry-river",
+    "facilities": "canoe launch / walk-down ramp off AR-215, paved parking; at High Bank Twin Falls",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.exploretheozarksonline.com/activities/parksnature/nationalforests/ozark/pleasanthill/highbankaccess.html",
+      "https://www.openstreetmap.org/",
+      "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/mulberry-river"
+    ]
+  },
+  {
+    "name": "Byrd's Adventure Center",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 35.6784,
+    "lon": -93.7425,
+    "is_public": false,
+    "ownership": "Private",
+    "managing_agency": "Private",
+    "official_site_url": "https://byrdsadventurecenter.com/",
+    "facilities": "private outfitter, camping, canoe/kayak rental, river access (7037 Cass Oark Rd)",
+    "confidence": "high",
+    "source_urls": [
+      "https://byrdsadventurecenter.com/",
+      "https://www.openstreetmap.org/"
+    ]
+  },
+  {
+    "name": "Redding Recreation Area",
+    "kind": "campground",
+    "expected_mile": null,
+    "lat": 35.682,
+    "lon": -93.7864,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://www.recreation.gov/camping/campgrounds/10158827",
+    "facilities": "campground, rock canoe launch, accessible river access, toilets",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.recreation.gov/camping/campgrounds/10158827",
+      "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/redding-recreation-area",
+      "https://www.openstreetmap.org/"
+    ]
+  },
+  {
+    "name": "Turner Bend",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 35.6696,
+    "lon": -93.8284,
+    "is_public": false,
+    "ownership": "Private",
+    "managing_agency": "Private",
+    "official_site_url": "https://www.turnerbend.com/",
+    "facilities": "outfitter, store, canoe/kayak/raft rental, camping, cabins, river landing (Hwy 23 at Cass)",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.turnerbend.com/",
+      "https://www.openstreetmap.org/"
+    ]
+  },
+  {
+    "name": "Campbell Cemetery access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 35.6245,
+    "lon": -93.9107,
+    "is_public": true,
+    "ownership": null,
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "primitive river take-out (rock steps on river right); reached via Shores Lake Rd; near Ozark NF boundary",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/",
+      "https://www.turnerbend.com/MulberryRiver.html",
+      "https://www.arownbackyard.com/2025/08/18/turner-bend-to-campbell-cemetery-on-the-mulberry-river/"
+    ]
+  },
+  {
+    "name": "Mill Creek access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 35.5692,
+    "lon": -94.0208,
+    "is_public": true,
+    "ownership": null,
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "primitive lower-river access via Beneux Bottom Road; ~0.9 km downstream of USGS gage 07252000",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07252000/",
+      "https://www.turnerbend.com/MulberryRiver.html"
+    ]
+  }
+]

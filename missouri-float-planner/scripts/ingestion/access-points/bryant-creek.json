@@ -1,0 +1,167 @@
+[
+  {
+    "name": "Vera Cruz Access",
+    "kind": "access",
+    "expected_mile": 0.0,
+    "lat": 36.91433,
+    "lon": -92.49549,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/vera-cruz-access",
+    "facilities": "Hwy AB low-water bridge put-in; primitive gravel access, 80-ac MDC area in Douglas Co.; Hunter Creek confluence. Coord is the on-channel Hwy AB bridge; MDC parking/entry parcel ~470 m N (~36.9185,-92.4967).",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/vera-cruz-access",
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
+      "https://www.openstreetmap.org",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/"
+    ]
+  },
+  {
+    "name": "Highway 14 Access",
+    "kind": "bridge",
+    "expected_mile": 2.5,
+    "lat": 36.88687,
+    "lon": -92.47337,
+    "is_public": true,
+    "ownership": "MoDOT",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "MO-14 bridge crossing used as informal put-in; immediately adjacent to MDC Rippee Conservation Area / Bryant Creek Natural Area (no formal MDC boat ramp).",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/",
+      "https://mdc.mo.gov/discover-nature/places/rippee-conservation-area"
+    ]
+  },
+  {
+    "name": "Monastery Bridge",
+    "kind": "bridge",
+    "expected_mile": 6.3,
+    "lat": 36.85176,
+    "lon": -92.45922,
+    "is_public": true,
+    "ownership": "County",
+    "managing_agency": "County",
+    "official_site_url": null,
+    "facilities": "Low-water crossing (OSM: County Road 14-335) off Hwy OO near Assumption Abbey monastery; may need to portage/walk boats. OSM road name differs from local 'Monastery Bridge' name.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/"
+    ]
+  },
+  {
+    "name": "Bertha Ford",
+    "kind": "bridge",
+    "expected_mile": 11.6,
+    "lat": 36.82651,
+    "lon": -92.39,
+    "is_public": true,
+    "ownership": "County",
+    "managing_agency": "County",
+    "official_site_url": null,
+    "facilities": "Low-water bridge on County Road N-345 (off Rte N / CR 95-345 off Hwy 95); wade-fishing access, may need to portage/walk boats.",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/"
+    ]
+  },
+  {
+    "name": "Highway 95 / Bell School low-water bridge",
+    "kind": "bridge",
+    "expected_mile": 16.3,
+    "lat": 36.78287,
+    "lon": -92.36665,
+    "is_public": true,
+    "ownership": "MoDOT",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "MO-95 low-water bridge ('Bell Bridge') near Rockbridge; informal access with concrete ramp and gravel-bar parking (unofficial).",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/",
+      "https://www.ozarkcountytimes.com/news-local-news-outdoor-news/bryant-creek-access-answers-not-easy-it-used-be-still-worth-effort"
+    ]
+  },
+  {
+    "name": "Sycamore Access",
+    "kind": "access",
+    "expected_mile": 25.9,
+    "lat": 36.70712,
+    "lon": -92.26459,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/sycamore-access",
+    "facilities": "Main MDC access; gravel boat ramp on downstream side of Hwy 181 low-water bridge at Hodgson Mill; parking, 16.1 ac. MDC's only officially OPEN Bryant Creek access.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/sycamore-access",
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://www.openstreetmap.org",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/"
+    ]
+  },
+  {
+    "name": "Warren Bridge Access",
+    "kind": "access",
+    "expected_mile": 33.3,
+    "lat": 36.66811,
+    "lon": -92.28122,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/warren-bridge-access",
+    "facilities": "Gravel canoe access at County Road 328 bridge (Rtes FF/H area), 7 ac. STATUS: officially CLOSED for parking/takeout repairs since 2017 flood; still used informally.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/warren-bridge-access",
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://www.openstreetmap.org",
+      "https://www.ozarkcountytimes.com/news-local-news-outdoor-news/bryant-creek-access-answers-not-easy-it-used-be-still-worth-effort"
+    ]
+  },
+  {
+    "name": "Florence C. Cook Access",
+    "kind": "access",
+    "expected_mile": 40.0,
+    "lat": 36.60823,
+    "lon": -92.30617,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/flo-cook-access",
+    "facilities": "'Cook's Landing'; dirt/gravel ramp at end of County Road 308 (N off Hwys 160/J), minimal parking, just above Norfork Lake. STATUS: flood-damaged, officially CLOSED awaiting repair; used informally.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/flo-cook-access",
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
+      "https://www.openstreetmap.org",
+      "https://www.ozarkcountytimes.com/news-local-news-outdoor-news/bryant-creek-access-answers-not-easy-it-used-be-still-worth-effort"
+    ]
+  },
+  {
+    "name": "Tecumseh Access (North Fork confluence / The Forks)",
+    "kind": "access",
+    "expected_mile": 42.6,
+    "lat": 36.58759,
+    "lon": -92.28888,
+    "is_public": true,
+    "ownership": "COE",
+    "managing_agency": "COE",
+    "official_site_url": null,
+    "facilities": "USACE boat ramp at Hwy 160 Tecumseh bridge where Bryant Creek + North Fork enter Norfork Lake ('The Forks'). Coord = US-160 bridge; ramp adjacent, confluence ~0.4 mi upstream (~36.593,-92.290). STATUS: destroyed 2017 flood, USACE rebuilt ramp/parking ~2020-2021.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org",
+      "https://www.ozarkcountytimes.com/news-local-news/work-resumes-tecumseh-access-norfork-lake-levels-continue-drop",
+      "https://www.ozarkcountytimes.com/news-local-news/corps-engineers-reveals-plans-tecumseh-park-restoration-include-roadway-parking-lot",
+      "https://waterservices.usgs.gov/nwis/site/?sites=07058000"
+    ]
+  }
+]

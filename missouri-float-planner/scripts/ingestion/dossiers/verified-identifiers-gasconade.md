@@ -29,3 +29,8 @@ Primary-source transcription from the USGS Site Service + NWPS, owner-provided
   Coordinates + drainage areas ready to backfill into gasconade.json.
 - Still needed before signoff: gauge-keyed cfs FLOATABILITY thresholds (none captured — an
   Al Agnew / OzarkAnglers "Gasconade River Overview" would supply them).
+
+## 2026-07-14 — dangerous anchor added (BEST-EFFORT, owner directive)
+Per owner best-effort directive: **dangerous = 3000 cfs** = USGS 06928000 day-of-year **p95 ≈ 2980**
+(mid-July, 1929–2025). A statistical high-flow proxy, NOT an outfitter-vetted don't-float level;
+the NWS flood stage remains unusable as the anchor (far above floatable). Revisit if a real cutoff surfaces.

@@ -1,0 +1,4 @@
+[
+  { "siteId": "07185765", "name": "Spring River at Carthage, MO", "lat": 37.18863889, "lon": -94.3259167, "isPrimary": true,  "unit": "cfs", "drainageSqMi": 425,  "note": "Mid-reach (~Civil War Road access, geom mile 31); representative primary gauge. Live." },
+  { "siteId": "07186000", "name": "Spring River near Waco, MO",  "lat": 37.2456111,  "lon": -94.5664167, "isPrimary": false, "unit": "cfs", "drainageSqMi": 1164, "note": "Lower gauge near the Kansas line (~Maple Lane Bridge, geom mile 53). Live." }
+]

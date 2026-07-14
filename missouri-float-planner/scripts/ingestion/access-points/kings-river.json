@@ -1,0 +1,170 @@
+[
+  {
+    "name": "Hwy 74 Bridge",
+    "kind": "bridge",
+    "expected_mile": 0.0,
+    "lat": 36.01821,
+    "lon": -93.53927,
+    "is_public": false,
+    "ownership": "private",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "put-in bridge; no developed facilities",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/1352958561",
+      "https://www.ozarkexperience.com/canoeing-kayak/kings-river-eureka/trigger-gap-landing-48-1mi/"
+    ]
+  },
+  {
+    "name": "Hwy 21 Bridge / Boatright Creek",
+    "kind": "bridge",
+    "expected_mile": 7.6,
+    "lat": 36.0996,
+    "lon": -93.54397,
+    "is_public": false,
+    "ownership": "private",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "roadside bridge access near Boatright Creek confluence",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/1352958556",
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  },
+  {
+    "name": "Marble Access (Big Onion Creek)",
+    "kind": "boat_ramp",
+    "expected_mile": 13.4,
+    "lat": 36.14351,
+    "lon": -93.59431,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AGFC boating access, ramp and parking",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  },
+  {
+    "name": "Marshall Ford",
+    "kind": "access",
+    "expected_mile": 24.7,
+    "lat": 36.189,
+    "lon": -93.65173,
+    "is_public": false,
+    "ownership": "private",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "private ford / gravel-bar access",
+    "confidence": "high",
+    "source_urls": [
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  },
+  {
+    "name": "Rockhouse Access",
+    "kind": "access",
+    "expected_mile": 40.4,
+    "lat": 36.28193,
+    "lon": -93.66401,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AGFC canoe-kayak access and parking",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  },
+  {
+    "name": "Trigger Gap Landing",
+    "kind": "access",
+    "expected_mile": 48.1,
+    "lat": 36.31483,
+    "lon": -93.6635,
+    "is_public": false,
+    "ownership": "Trigger Gap Outfitters",
+    "managing_agency": "Private",
+    "official_site_url": "https://triggergapoutfitters.com/",
+    "facilities": "private outfitter landing off AR 221 (fee)",
+    "confidence": "high",
+    "source_urls": [
+      "https://kingsriverarkansas.com/access-points/",
+      "https://triggergapoutfitters.com/"
+    ]
+  },
+  {
+    "name": "J.D. Fletcher Access (Hwy 62)",
+    "kind": "boat_ramp",
+    "expected_mile": 61.0,
+    "lat": 36.39472,
+    "lon": -93.63711,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AGFC boating access and parking; public access reached from US 62 (US 62 does not bridge the Kings)",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  },
+  {
+    "name": "Stoney Point / Summers Ford",
+    "kind": "boat_ramp",
+    "expected_mile": 73.6,
+    "lat": 36.46254,
+    "lon": -93.59604,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AGFC boating access",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  },
+  {
+    "name": "Romp Hole Access",
+    "kind": "boat_ramp",
+    "expected_mile": 78.5,
+    "lat": 36.4841,
+    "lon": -93.58092,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "AGFC boat ramp and parking",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ]
+  },
+  {
+    "name": "MO Hwy 86 Bridge",
+    "kind": "bridge",
+    "expected_mile": 82.5,
+    "lat": 36.50278,
+    "lon": -93.6005,
+    "is_public": false,
+    "ownership": "private",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "MO 86 bridge at MO/AR state line, Table Rock Lake arm",
+    "confidence": "high",
+    "source_urls": [
+      "https://www.openstreetmap.org/way/262004637",
+      "https://kingsriverarkansas.com/access-points/"
+    ]
+  }
+]

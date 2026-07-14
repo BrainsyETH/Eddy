@@ -1,0 +1,68 @@
+{
+ "06928900": {
+  "name": "BIG PINEY RIVER NEAR HOUSTON, MO",
+  "lat": 37.3264368,
+  "lon": -92.0071006,
+  "drainageAreaSqMi": 251.0
+ },
+ "06930000": {
+  "name": "Big Piney River near Big Piney, MO",
+  "lat": 37.66563889,
+  "lon": -92.0499167,
+  "drainageAreaSqMi": 560.0
+ },
+ "07017200": {
+  "name": "Big River at Irondale, MO",
+  "lat": 37.83,
+  "lon": -90.6908889,
+  "drainageAreaSqMi": 175.0
+ },
+ "07018100": {
+  "name": "Big River near Richwoods, MO",
+  "lat": 38.1596111,
+  "lon": -90.7060556,
+  "drainageAreaSqMi": 735.0
+ },
+ "07018500": {
+  "name": "Big River at Byrnesville, MO",
+  "lat": 38.3917222,
+  "lon": -90.6378056,
+  "drainageAreaSqMi": 917.0
+ },
+ "07049000": {
+  "name": "War Eagle Creek near Hindsville, AR",
+  "lat": 36.2,
+  "lon": -93.855,
+  "drainageAreaSqMi": 263.0
+ },
+ "07050500": {
+  "name": "Kings River near Berryville, AR",
+  "lat": 36.4272222,
+  "lon": -93.6208333,
+  "drainageAreaSqMi": 527.0
+ },
+ "07055607": {
+  "name": "Crooked Creek at Kelly Crossing at Yellville, AR",
+  "lat": 36.23027778,
+  "lon": -92.7094444,
+  "drainageAreaSqMi": 398.0
+ },
+ "07058000": {
+  "name": "Bryant Creek near Tecumseh, MO",
+  "lat": 36.6272222,
+  "lon": -92.3060556,
+  "drainageAreaSqMi": 570.0
+ },
+ "07252000": {
+  "name": "Mulberry River near Mulberry, AR",
+  "lat": 35.57694444,
+  "lon": -94.0152778,
+  "drainageAreaSqMi": 373.0
+ },
+ "07359610": {
+  "name": "Caddo River near Caddo Gap, AR",
+  "lat": 34.38277778,
+  "lon": -93.6061111,
+  "drainageAreaSqMi": 136.0
+ }
+}

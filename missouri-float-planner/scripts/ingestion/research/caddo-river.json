@@ -1,0 +1,116 @@
+{
+  "slug": "caddo-river",
+  "name": "Caddo River",
+  "state": "AR",
+  "calibration": {
+    "primaryGaugeSiteId": "07359610",
+    "gaugeName": "Caddo River near Caddo Gap, AR",
+    "unit": "ft",
+    "keySource": "Caddo River Camping & Canoe Rental (caddoriver.com) published river-level key, stated in Caddo Gap gauge HEIGHT (feet); corroborated by AR Own Backyard trip reports, American Whitewater (Norman\u2013Amity), and rivers.moherp.org. Outfitters key floatability off the USGS 07359610 gage height in ft (they instruct floaters to read 'current height in ft'). cfs values are given by the outfitter only as secondary color.",
+    "keySourceUrls": [
+      "https://caddoriver.com/river-conditions",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/91/main",
+      "https://www.arownbackyard.com/2018/12/10/floating-the-caddo-river-caddo-gap-to-glenwood/",
+      "https://www.arownbackyard.com/2021/05/28/norman-to-caddo-gap-on-the-caddo-river/",
+      "https://rivers.moherp.org/gauge/?gauge=07359610&hours=168",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07359610/"
+    ],
+    "ladder": {
+      "too_low": {
+        "value": 5.25,
+        "confidence": "high",
+        "source": "caddoriver.com/river-conditions \u2014 the classic Caddo Gap\u2192Glenwood run is only offered from ~5.25 ft up; below this the river is bony and drags. Corroborated: today's 4.95 ft / ~45 cfs is described as 'boney'/'below recommended', American Whitewater notes ~150 cfs (\u22485.7 ft) is already 'boney and difficult to navigate', and rivers.moherp.org flags <50 cfs as too low. method: outfitter published route-availability floor + independent trip-report corroboration."
+      },
+      "optimal_min": {
+        "value": 5.5,
+        "confidence": "high",
+        "source": "caddoriver.com/river-conditions \u2014 'best range for Caddo Gap is 5.5\u20136.1 ft: great paddling, few rocks, more boat control.' Corroborated by AR Own Backyard / OnlyInYourState 'optimal 5.8\u20136.0 ft'. method: outfitter published level key."
+      },
+      "optimal_max": {
+        "value": 6.1,
+        "confidence": "high",
+        "source": "caddoriver.com/river-conditions \u2014 top of the '5.5\u20136.1 ft' best range; note tubes are only rented at \u22646 ft. method: outfitter published level key."
+      },
+      "high": {
+        "value": 6.2,
+        "confidence": "high",
+        "source": "caddoriver.com/river-conditions \u2014 '6.2\u20137.0 ft: faster (2\u20133 hr), rafts fun, experienced kayakers, caution against taking children in canoes/kayaks'; the upper Norman\u2192Caddo Gap route only opens at \u22656.2 ft. Outfitter also flags >650 cfs as requiring swift-water skill. method: outfitter published level key + cfs note."
+      },
+      "dangerous": {
+        "value": 7.0,
+        "confidence": "medium",
+        "source": "caddoriver.com/river-conditions \u2014 the standard family run is offered only up to ~7.0 ft; above this the outfitter does not run the casual float. Outfitter states >1,200 cfs is 'a fast-paced float for advanced or expert whitewater skills only due to tricky currents, strainers and other hazards.' NOTE: no official NWS flood stage is published for USGS 07359610, so this is a RECREATIONAL danger ceiling, not a property-flood stage. method: outfitter route-availability ceiling + outfitter cfs danger note."
+      }
+    },
+    "notes": "UNIT = gauge height in FEET (USGS 07359610 param 00065), matching the outfitter key; the gauge also reports discharge (00060). Added a 'low' anchor is folded between too_low and optimal_min: caddoriver.com lists 5.25\u20135.4 ft as the low/family band ('some rocks to navigate around, ideal for inexperienced boaters and families, 4\u20136 hr'), so treat ~5.4 ft as the low-water/beginner level (confidence high, source caddoriver.com). cfs CROSS-REFERENCE (secondary): outfitter says great paddling up to ~650 cfs, swift-water skill needed >650 cfs, and advanced/expert-only >1,200 cfs. American Whitewater rating points: ~150 cfs\u22485.7 ft (bony), ~500\u2013600 cfs\u22486.7 ft (swift Class II\u2013III). rivers.moherp.org algorithmic (statistical, NOT authoritative) cfs bands: <50 too low, 50\u2013109 low, ~174\u2013350 good, 350\u2013953 high, 953+ flood. Today (2026-07-13) the gauge reads ~4.93\u20134.95 ft / ~42\u201345 cfs \u2014 i.e. currently BELOW floatable, which independently validates the ~5.25 ft too_low anchor. USGS note on this gauge: 'the channel has moved to its original location; the datum has been adjusted for this change' \u2014 historical ft correlations may drift slightly from the current rating. FLOOD STAGE: the USGS legacy page lists NO NWS flood stage for 07359610 and there is no AHPS/NWPS forecast point at Caddo Gap (nearest is Caddo River at DeGray Dam, NWS id DGDA4); a '26.0 ft flood stage' surfaced in one aggregator search but is inconsistent with this gauge's ~5 ft normal datum and could not be verified for 07359610 \u2014 do NOT use it. Drainage area at the gauge \u2248136 sq mi; median flow \u224865 cfs."
+  },
+  "secondaryGauges": [],
+  "sections": [
+    {
+      "name": "Caddo Gap to Glenwood (the Classic Run)",
+      "slug": "caddo-gap-to-glenwood",
+      "putIn": "Caddo Gap \u2014 Hwy 8 river access / outfitter accesses near Arrowhead (Montgomery County)",
+      "takeOut": "Glenwood \u2014 Hwy 70 bridge access (Pike County)",
+      "miles": 7.5,
+      "difficulty": "Class I-II",
+      "primaryGaugeSiteId": "07359610"
+    },
+    {
+      "name": "Glenwood to Amity / DeGray headwaters",
+      "slug": "glenwood-to-amity",
+      "putIn": "Glenwood \u2014 Hwy 70 (Pike County)",
+      "takeOut": "near Amity \u2014 Hwy 182, ~1 mi north of Amity, toward the headwaters of DeGray Lake (Clark County)",
+      "miles": 8,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07359610"
+    },
+    {
+      "name": "Norman to Caddo Gap (Upper)",
+      "slug": "norman-to-caddo-gap",
+      "putIn": "Norman \u2014 Hwy 8/27 access (Montgomery County)",
+      "takeOut": "Caddo Gap (Montgomery County)",
+      "miles": null,
+      "difficulty": "Class I-II",
+      "primaryGaugeSiteId": "07359610"
+    }
+  ],
+  "metadata": {
+    "region": "Ouachita Mountains (west-central / southwest Arkansas)",
+    "difficultyRating": "Class I-II (easy family float; occasional Class II rock-garden rapids, with an isolated Class III hole/wave train on the long lower run ~15 mi below Glenwood at high water)",
+    "riverType": "Spring-fed freestone Ouachita Mountain river (novaculite/sandstone bed); rain-dependent and flashy \u2014 floatable most of the year but runs bony in late summer",
+    "description": "The Caddo River is a clear, spring-fed Ouachita Mountain stream in west-central Arkansas, rising from cold-water springs southeast of Mena (Polk County) and flowing generally west-to-east about 45 miles through Norman and the boulder-strewn novaculite gorge at Caddo Gap, past Glenwood, and on toward Amity before being impounded at DeGray Lake (it is a tributary of the Ouachita River). It is one of Arkansas's most popular family float streams: the classic Caddo Gap-to-Glenwood run (~7.5 mi, Class I-II) mixes fun rock-garden riffles and small rapids with long calm pools. Floaters read levels off the USGS Caddo Gap gauge height in feet; the river floats most of the year but drops low in late summer and can rise fast and dangerously after heavy rain.",
+    "timezone": "America/Chicago",
+    "country": "US",
+    "state": "AR",
+    "weatherCity": "Caddo Gap, AR",
+    "weatherLat": 34.4009,
+    "weatherLon": -93.6183,
+    "nhdReachHint": "Caddo River, Ouachita Mountains of west-central Arkansas \u2014 headwater springs SE of Mena (Polk County) flowing west-to-east through Norman and the Caddo Gap novaculite gorge (Montgomery County), past Glenwood (Pike County) toward Amity (Clark County) and into DeGray Lake; tributary of the Ouachita River. Reach of interest: Caddo Gap downstream through Glenwood. USGS gauge 07359610 at ~34.3828, -93.6061.",
+    "alertSearchTerms": [
+      "Caddo River",
+      "Caddo Gap",
+      "Glenwood",
+      "Montgomery County",
+      "Pike County",
+      "Clark County",
+      "Ouachita Mountains",
+      "DeGray Lake",
+      "flash flood",
+      "Caddo River flooding",
+      "Amity"
+    ],
+    "managingAuthority": "Ouachita National Forest \u2014 Caddo-Womble Ranger District (offices in Glenwood & Mount Ida) manages the upper reaches; U.S. Army Corps of Engineers manages DeGray Lake at the lower end; the river corridor is otherwise predominantly private land. Arkansas Game & Fish / Arkansas Dept. of Agriculture involved in fisheries and gauge cooperation.",
+    "accessLaw": "Arkansas navigable-waters doctrine: the public may float and use navigable streams and wade/portage up to the ordinary high-water mark. Navigability includes recreational use (Arkansas Supreme Court, post-1980) and a stream need only be navigable by small boat roughly six months per year to qualify; the Caddo is a recognized public float stream. However, the streambed banks are largely private and the public may NOT cross private land to reach the river \u2014 use established public/outfitter accesses."
+  },
+  "hazards": [
+    "Flash flooding \u2014 this is the #1 danger. The Caddo is a flashy Ouachita Mountain river that can rise several feet very fast during/after heavy rain; the same region's June 2010 Albert Pike flash flood (nearby Little Missouri River) killed ~20 campers on gravel bars. Never camp low on gravel bars, and get off the water when the gauge is rising or storms are upstream.",
+    "Rapidly rising / high water: >650 cfs requires swift-water skill (sit-on-top kayaks safer than open canoes); >1,200 cfs (roughly >7 ft) is advanced/expert-only with tricky currents and strainers \u2014 do not take children or inexperienced paddlers.",
+    "Strainers / downed trees & willow thickets, especially at higher flows and on outside bends.",
+    "Low-water bridges / crossings (including the old low-water bridge near Caddo Gap) \u2014 submerged and dangerous at higher flows; thermal springs bubble up in the riverbed ~200 yds NW of the old low-water bridge.",
+    "Bridge by Arrowhead at Caddo Gap: the river narrows and the current runs fast under the bridge (pin/strainer risk).",
+    "Caddo Gap gorge: narrow, boulder-strewn novaculite/sandstone rapids and 'water gaps'; upper reaches average a steep ~29 ft/mi gradient (rockier, more technical than the Glenwood run).",
+    "Class III hole with a wave train immediately after, ~15 mi below Glenwood on the long lower run, at higher flows (~500\u2013600+ cfs) per American Whitewater; passage on either side is minimal.",
+    "Low water (late summer, below ~5.25 ft): shallow rock gardens and shoals cause dragging/portaging and foot-entrapment risk if wading.",
+    "NOTE: no rapid specifically named 'the falls' could be sourced for the Caddo; the notable named/located features above are what published sources support."
+  ]
+}

@@ -74,3 +74,19 @@ discharge + stage and an NWS forecast point; carries the reach-1 thresholds
   Lassiter (walk-in), Dam 3/Riverside (~mi3.2), Bayou (~mi6), Many Islands
   (private), Ravenden, and Imboden need a human to place coordinates.
 - **River length** — 57 mi (Wikipedia) vs ~75 mi (Encyclopedia of Arkansas).
+
+## 2026-07-14 — Imboden secondary gauge added; primary confirmed = Hardy
+
+Clarified: the app's primary **07069305** is *Spring River at Spring St Bridge at HARDY, AR*
+(drainage 845; the float-hub gauge, mid-reach at access mile 18) — NOT Imboden. Added
+**07069500 = Spring River at Imboden, AR** (drainage 1180; 36.2056,-91.1717) as a SECONDARY
+context/long-record gauge (82-yr record) per owner request; thresholds NULL. The dead
+07069220 (near Mammoth Spring) remains unused. AR Spring still needs a Hardy-datum
+too_low/low/high/dangerous key (only optimal 206–694 is set) — pending research + sign-off.
+
+## 2026-07-14 (2) — high/dangerous added (BEST-EFFORT) + NWS flood stage wired
+Per owner best-effort directive, on the Hardy primary (07069305, cfs): **high 1000 / dangerous 1800**
+= day-of-year p75≈875 / p95≈1800 (mid-July). Statistical proxies, not outfitter-vetted. ALSO wired the
+authoritative **NWS AHPS** flood stage (the app's separate gauge-height hazard layer): nws_lid **HDYA4**,
+**action 8 ft / flood 10 ft** (normal float ~3 ft, so 8 ft = genuine flood onset). Optimal 206–694 left
+as-is (statistical normal band; no outfitter floatability key exists).

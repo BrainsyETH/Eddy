@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Norman Boating Access",
+    "kind": "boat_ramp",
+    "expected_mile": null,
+    "lat": 34.45032,
+    "lon": -93.67874,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Gravel AGFC boating access / canoe put-in on river left off AR-8 at Norman; uppermost public put-in on the run. Adjacent parking area.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=waterbody%20LIKE%20%27%25Caddo%25%27&outFields=*&outSR=4326&f=json",
+      "https://www.arownbackyard.com/2021/05/28/norman-to-caddo-gap-on-the-caddo-river/",
+      "https://www.openstreetmap.org/#map=16/34.45032/-93.67874"
+    ]
+  },
+  {
+    "name": "Swinging Bridge Access (Caddo Gap)",
+    "kind": "boat_ramp",
+    "expected_mile": null,
+    "lat": 34.39991,
+    "lon": -93.62159,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Paved AGFC canoe ramp at the historic Swinging Bridge, Caddo Gap (Montgomery Co) off Manfred Rd; the classic put-in, marked by a green AG&F 'Swinging Bridge' sign. Paved parking. Land acquired 2006 (deed MISCACC-06). AGFC-verified 2012-05-03.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=waterbody%20LIKE%20%27%25Caddo%25%27&outFields=*&outSR=4326&f=json",
+      "https://www.arownbackyard.com/2018/12/10/floating-the-caddo-river-caddo-gap-to-glenwood/",
+      "https://www.glenwoodarkansas.org/caddo-river"
+    ]
+  },
+  {
+    "name": "Glenwood Access (City Park Boat Ramp)",
+    "kind": "boat_ramp",
+    "expected_mile": null,
+    "lat": 34.32028,
+    "lon": -93.54172,
+    "is_public": true,
+    "ownership": "City of Glenwood",
+    "managing_agency": "Municipal",
+    "official_site_url": null,
+    "facilities": "Concrete boat ramp at Glenwood city park on 3rd St, south of US-70 (Pike Co); the main take-out for the Caddo Gap run. Paved parking. Owned by City of Glenwood.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=waterbody%20LIKE%20%27%25Caddo%25%27&outFields=*&outSR=4326&f=json",
+      "https://www.arownbackyard.com/2018/12/10/floating-the-caddo-river-caddo-gap-to-glenwood/",
+      "https://www.glenwoodarkansas.org/caddo-river"
+    ]
+  },
+  {
+    "name": "Hwy 182 Amity Boat Ramp",
+    "kind": "boat_ramp",
+    "expected_mile": null,
+    "lat": 34.28965,
+    "lon": -93.45925,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Concrete AGFC boat ramp at the AR-182 bridge ~1 mi N of Amity (Clark Co); take-out on the lower Caddo toward the DeGray Lake headwaters. Adjacent gravel parking.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=waterbody%20LIKE%20%27%25Caddo%25%27&outFields=*&outSR=4326&f=json",
+      "https://forums.arkansascanoeclub.com/viewtopic.php?t=20713",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/91/main"
+    ]
+  }
+]

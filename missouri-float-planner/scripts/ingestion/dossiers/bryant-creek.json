@@ -1,0 +1,249 @@
+{
+  "_status": "SIGNED-OFF 2026-07-13 — owner-authorized go-live (3rd batch). Class I (occasional Class I-II riffles; upper reach above Hwy 95 more technical)",
+  "name": "Bryant Creek",
+  "slug": "bryant-creek",
+  "primaryGaugeSiteId": "07058000",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "difficultyRating": "Class I (occasional Class I-II riffles; upper reach above Hwy 95 more technical)",
+  "description": "Bryant Creek is a wild, spring-influenced Ozark float that flows south about 42.6 miles from near Vera Cruz/Vanzant in Douglas County to its confluence with the North Fork of the White River near Tecumseh in Ozark County, just above Norfork Lake. It is a gentle Class I stream (a few Class I-II riffles) with clear pools, bluffs, gravel bars, willow jungles and rock shoals, prized for smallmouth bass and goggle-eye fishing. It is less spring-fed and lower-volume than the neighboring North Fork - narrower, with more obstacles and strainers - so it drags in drought and can turn dangerous quickly after local rain. It pairs naturally with the North Fork of the White River, into which it empties, letting paddlers extend a trip onto the larger, more reliably spring-fed river. Gradient averages ~5.8 ft/mi. The most popular reach is Sycamore/Hodgson Mill to Warren Bridge.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (MDC) - operates the Sycamore Access at Hodgson Mill (the only MDC Bryant access currently open); US Army Corps of Engineers manages the lower confluence/Norfork Lake area (Tecumseh); surrounding uplands include Mark Twain National Forest (USFS).",
+  "accessLaw": "Missouri: the public may float, wade and fish navigable/floatable streams within the ordinary high-water mark, but streambeds and banks are frequently privately owned. Legal access is limited to public points and road/bridge rights-of-way (MDC/USACE accesses, low-water bridges); crossing or portaging over private banks requires landowner permission. Several Bryant accesses were damaged in the 2017 flood - Warren Bridge and Cook's Landing are officially closed though used informally - so confirm current access status before a trip.",
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07058000",
+      "name": "Bryant Creek near Tecumseh, MO",
+      "lat": 36.6272222,
+      "lon": -92.3060556,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 570,
+      "servesSections": [
+        "vera-cruz-to-hwy-95",
+        "hwy-95-to-hodgson-mill",
+        "hodgson-mill-to-warren-bridge",
+        "warren-bridge-to-cooks-landing",
+        "cooks-landing-to-north-fork-confluence"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07057500",
+      "name": "07057500",
+      "lat": null,
+      "lon": null,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "servesSections": [],
+      "knownBias": "The North Fork of the White River, which Bryant Creek joins ~0.5 mi above Norfork Lake near Tecumseh. Larger and more strongly spring-fed than Bryant; useful for planning combined/extended floats onto the North Fork and for reading regional conditions. Not a substitute for the Bryant gauge - Bryant runs lower and flashier."
+    }
+  ],
+  "sections": [
+    {
+      "slug": "vera-cruz-to-hwy-95",
+      "name": "Vera Cruz to Highway 95 (Bell Bridge) - Upper Bryant",
+      "description": "Class I-II (upper reach: narrow, frequently choked with deadfall and willow strainers; higher-water only, extreme caution; often not floatable in summer without wading/dragging riffles)",
+      "putIn": {
+        "name": "Vera Cruz Access (Hwy AB low-water bridge)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Highway 95 / Bell School low-water bridge",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 16.3,
+      "representativeGauge": {
+        "siteId": "07058000"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07058000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=07058000"
+        },
+        {
+          "level": "low",
+          "value": 245,
+          "unit": "cfs",
+          "referenceGauge": "07058000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=07058000"
+        },
+        {
+          "level": "optimal_min",
+          "value": 300,
+          "unit": "cfs",
+          "referenceGauge": "07058000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "high",
+          "source": "https://rivers.moherp.org/gauge/?gauge=07058000"
+        },
+        {
+          "level": "optimal_max",
+          "value": 600,
+          "unit": "cfs",
+          "referenceGauge": "07058000",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=07058000"
+        }
+      ]
+    },
+    {
+      "slug": "hwy-95-to-hodgson-mill",
+      "name": "Highway 95 (Bell Bridge) to Sycamore / Hodgson Mill",
+      "description": "Class I (occasional Class I-II riffles)",
+      "putIn": {
+        "name": "Highway 95 / Bell School low-water bridge",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Sycamore Access (MDC), below Hwy 181 at Hodgson Mill",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 9.6,
+      "representativeGauge": {
+        "siteId": "07058000"
+      }
+    },
+    {
+      "slug": "hodgson-mill-to-warren-bridge",
+      "name": "Sycamore / Hodgson Mill to Warren Bridge",
+      "description": "Class I (traditionally the most popular reach; passes 'The Narrows' sharp bend near mile 29)",
+      "putIn": {
+        "name": "Sycamore Access (MDC), below Hwy 181 at Hodgson Mill",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Warren Bridge (County Rd 328 / Hwys FF & H area)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 7.4,
+      "representativeGauge": {
+        "siteId": "07058000"
+      }
+    },
+    {
+      "slug": "warren-bridge-to-cooks-landing",
+      "name": "Warren Bridge to Florence C. Cook (Cook's Landing)",
+      "description": "Class I",
+      "putIn": {
+        "name": "Warren Bridge (County Rd 328)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Florence C. Cook Access / Cook's Landing (County Rd 308)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 6.7,
+      "representativeGauge": {
+        "siteId": "07058000"
+      }
+    },
+    {
+      "slug": "cooks-landing-to-north-fork-confluence",
+      "name": "Florence Cook to North Fork Confluence (Tecumseh)",
+      "description": "Class I, then flatwater (lower end is Norfork Lake backwater when the lake is up)",
+      "putIn": {
+        "name": "Florence C. Cook Access / Cook's Landing (County Rd 308)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "North Fork White River confluence / Tecumseh (Hwy 160 area, Norfork Lake backwater)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 2.6,
+      "representativeGauge": {
+        "siteId": "07058000"
+      }
+    }
+  ],
+  "weatherPoint": {
+    "city": "Gainesville",
+    "lat": 36.6017,
+    "lon": -92.4271
+  },
+  "alertSearchTerms": [
+    "Bryant Creek",
+    "Bryant Creek Tecumseh",
+    "Hodgson Mill",
+    "Sycamore Access",
+    "Ozark County Missouri",
+    "Douglas County Missouri",
+    "Gainesville MO",
+    "Tecumseh MO",
+    "North Fork White River",
+    "Norfork Lake"
+  ],
+  "accessPoints": [],
+  "research": {
+    "calibrationKeySource": "moherp.com community trip-report calibration (optimal band); high/dangerous omitted per owner (no published recreational cutoff)",
+    "calibrationNotes": "PRIMARY GAUGE CORRECTION: the originally supplied ID 07056700 is 'Buffalo River near Harriet, AR' (a different river in Arkansas) - verified against USGS twice. The correct gauge is 07058000 'Bryant Creek near Tecumseh, MO' (Ozark County; drainage 570 sq mi; lat 36.6272, lon -92.3061; datum 573.56 ft NAVD88; ~70+ yr record back to the early 1950s), which reports both discharge 00060 (cfs) and gage height 00065 (ft). moherp keys this gauge on cfs, so the ladder is in cfs. moherp does NOT publish fixed Poor/Low/Good/High/Flood cfs breakpoints for this gauge; it rates conditions from community trip reports and whether current flow is at/above the historic median for the date. Trip-report calibration observed (all on 07058000): 242 cfs=Low; 309/331/335/341 cfs=Good; 582 cfs=Good/comfortable. Mid-July date-percentiles: P05 141, P25 198, P50(median) 246, P75 358, P90 518, P95 1750 cfs. too_low/low/optimal are well-grounded; HIGH and DANGEROUS are low-confidence inferences (no published recreational cfs exists) and should be treated as conservative caution flags plus a reminder to visually inspect after rain. NWS flood categories (ft): action 14, minor/flood 16, moderate 20, major 25.",
+    "hazards": [
+      {
+        "name": "Low-water bridges (strainers in high water)",
+        "type": "low_water_bridge",
+        "description": "Multiple low-water bridges cross Bryant Creek: Monastery (Hwy OO), Bertha Ford (Co Rd N-345), Highway 95/Bell School, Hodgson Mill (Hwy 181), and Warren Bridge. They serve as access points at normal flow but become dangerous strainers when water is up - scout and portage; do not run a submerged or overtopped bridge."
+      },
+      {
+        "name": "Hodgson Mill (Highway 181 low-water bridge) - NOT a runnable dam",
+        "type": "low_water_bridge",
+        "description": "Historic Hodgson Mill was powered by a spring (~24 million gallons/day), NOT by a dam across Bryant Creek - there is no low-head dam here to run or portage. The hazard is the Highway 181 low-water bridge (dangerous in high water). The MDC Sycamore Access sits just below the bridge; watch for loose sand and deep gravel at the access (vehicle bogging)."
+      },
+      {
+        "name": "Upper reach strainers (above Hwy 95)",
+        "type": "strainer",
+        "description": "Above the Bell School low-water bridge (Hwy 95) the creek is narrow and often choked with deadfall and willow strainers; the upper reach can be paddled but extreme caution is urged (entrapment risk). Frequently marginal / requires dragging in summer."
+      },
+      {
+        "name": "Willow jungles, sweepers and sharp bends",
+        "type": "strainer",
+        "description": "Willow jungles, rock shoals and sharp bends throughout (including 'The Narrows' near mile 29, a ~2-mile bend spanning only ~0.2 mi straight-line). Willow-entrapment risk increases as flows rise."
+      },
+      {
+        "name": "Flash / high-water danger",
+        "type": "high_water",
+        "description": "Low-volume, spring-influenced creek that rises and muddies quickly after local rain and can become dangerous fast. Visually inspect before putting in after significant rainfall. NWS flood stages at Tecumseh gauge 07058000: action 14 ft, flood 16 ft (~18,000 cfs), moderate 20 ft, major 25 ft; record 33.07 ft / ~111,000 cfs (Apr 2017)."
+      },
+      {
+        "name": "Low water / dragging in drought",
+        "type": "low_water",
+        "description": "Below the optimal range (roughly under ~250-300 cfs at gauge 07058000) expect significant dragging and possible portaging over riffles, especially in summer and on the upper reaches."
+      },
+      {
+        "name": "Norfork Lake backwater at the mouth",
+        "type": "flatwater",
+        "description": "The lowest ~2-3 miles near Tecumseh become Norfork Lake backwater/flatwater when the lake is up; expect a paddle-out and possible motorboat traffic. Some low accesses (e.g., Bridges Creek / Stump Hole) can be submerged when the lake is high."
+      },
+      {
+        "name": "Access closures / uncertainty (post-2017 flood)",
+        "type": "access",
+        "description": "The 2017 flood destroyed or damaged several put-ins/take-outs. Warren Bridge and Cook's Landing are officially closed (used informally); Tecumseh Park (USACE) is closed but foot-accessible. Confirm access status and parking before committing to a shuttle."
+      }
+    ]
+  }
+}

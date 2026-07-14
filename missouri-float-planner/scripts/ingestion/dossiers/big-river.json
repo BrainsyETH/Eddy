@@ -1,0 +1,251 @@
+{
+  "_status": "SIGNED-OFF 2026-07-13 — owner-authorized go-live (3rd batch). Class I (beginner)",
+  "name": "Big River",
+  "slug": "big-river",
+  "primaryGaugeSiteId": "07018500",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "St. Francois Mountains / Missouri Ozarks (Old Lead Belt)",
+  "nhdFeatureId": null,
+  "difficultyRating": "Class I (beginner)",
+  "description": "The Big River is a slow, scenic Ozark float stream that rises in the St. Francois Mountains near Irondale and Leadwood and winds roughly 140 miles north and east through St. Francois, Washington and Jefferson counties before joining the Meramec River near Eureka/Byrnesville. It is a classic beginner (Class I) float of long pools, gravel-bar riffles, bluffs and historic mill sites; Washington State Park — noted for its CCC-built stone architecture and Native American petroglyphs — is the most popular float base and runs a summer canoe/kayak/raft concession (a ~3-mile trip). The watershed drained Missouri's historic 'Old Lead Belt,' and lead and heavy-metal mine tailings still affect river sediment, so MDC maintains a fish-consumption advisory in St. Francois and Jefferson counties; avoid disturbing or ingesting bottom sediment. The lower river carries several old mill and low-head dams (Morse Mill, Cedar Hill, Byrnes Mill) that must be portaged. The entire main stem is a Smallmouth Bass Special Management Area.",
+  "riverType": "spring_fed_float",
+  "managingAuthority": "Missouri Department of Conservation (MDC) — public river accesses; Washington State Park (Missouri State Parks / MO DNR) — primary float put-in and canoe/kayak/raft concession.",
+  "accessLaw": "Missouri: the Big River is a public float stream — the flowing water and streambed are open to floating and wading, but adjacent banks and many gravel bars are privately owned. Enter and exit only at public MDC accesses or Washington State Park; do not trespass above the ordinary high-water mark.",
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07018500",
+      "name": "Big River at Byrnesville, MO",
+      "lat": 38.3917222,
+      "lon": -90.6378056,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 917,
+      "servesSections": [
+        "morse-mill-to-cedar-hill"
+      ]
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07018100",
+      "name": "Big River near Richwoods, MO",
+      "lat": 38.1596111,
+      "lon": -90.7060556,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 735,
+      "servesSections": [
+        "washington-state-park-to-mammoth",
+        "mammoth-to-merrill-horne",
+        "blackwell-to-washington-state-park"
+      ],
+      "knownBias": "Nearest gauge just downstream of Washington State Park and the popular upper float accesses (Blackwell RM 12, Washington SP RM 20, Mammoth RM 23.3, Merrill Horne RM 28.7); it is the gauge moherp pairs with those reaches (documented moherp trip 'Merrill Horne to Browns Ford' cited 572 cfs / 3.79 ft here). Also carried on moherp: https://rivers.moherp.org/gauge/?gauge=07018100"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07017200",
+      "name": "Big River at Irondale, MO",
+      "lat": 37.83,
+      "lon": -90.6908889,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 175,
+      "servesSections": [],
+      "knownBias": "Uppermost gauge (St. Francois Mts., near Irondale/Leadwood). Small drainage with very low summer flow (USGS July p50 = 19 cfs, p90 = 83 cfs) — the headwater reach is usually TOO LOW to float outside spring/high water, confirming guide advice that the upper 'lead belt' section is not recommended. Included for completeness of the upper river; not a practical float-calibration gauge in summer. NOTE lat: DMS 37°49'48\" = 37.8300 (use 37.83, not 38.0)."
+    }
+  ],
+  "sections": [
+    {
+      "slug": "washington-state-park-to-mammoth",
+      "name": "Washington State Park to Mammoth",
+      "description": "The popular ~3-mile float run by the Washington State Park concession (kayaks/canoes/rafts, Memorial Day-Labor Day). Beginner-friendly, no dams.",
+      "putIn": {
+        "name": "Washington State Park Access (Missouri State Parks / MO DNR, ~RM 20.0)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Mammoth Access / Mammoth Bridge (MDC, ~RM 23.3)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 3.3,
+      "representativeGauge": {
+        "siteId": "07018500"
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 90,
+          "unit": "cfs",
+          "referenceGauge": "07018500",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://forums.ozarkanglers.com/waters/rivers/big-river/big-river-sections-r318/"
+        },
+        {
+          "level": "low",
+          "value": 150,
+          "unit": "cfs",
+          "referenceGauge": "07018500",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://forums.ozarkanglers.com/waters/rivers/big-river/big-river-sections-r318/"
+        },
+        {
+          "level": "optimal_min",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07018500",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://rivers.moherp.org/gauge/?gauge=07018500"
+        },
+        {
+          "level": "optimal_max",
+          "value": 600,
+          "unit": "cfs",
+          "referenceGauge": "07018500",
+          "referenceGaugeIsPolled": true,
+          "confidence": "medium",
+          "source": "https://forums.ozarkanglers.com/waters/rivers/big-river/big-river-sections-r318/"
+        }
+      ]
+    },
+    {
+      "slug": "mammoth-to-merrill-horne",
+      "name": "Mammoth to Merrill Horne",
+      "description": "Scenic wooded reach below Washington State Park; smallmouth/rock bass water. No dams.",
+      "putIn": {
+        "name": "Mammoth Access (MDC, ~RM 23.3)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Merrill Horne Access (MDC, ~RM 28.7)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 5.4,
+      "representativeGauge": {
+        "siteId": "07018500"
+      }
+    },
+    {
+      "slug": "blackwell-to-washington-state-park",
+      "name": "Jeremiah Blackwell to Washington State Park",
+      "description": "Upper float into Washington State Park. In low summer water the very upper river (toward Irondale gauge 07017200) can be too shallow; check Richwoods flow.",
+      "putIn": {
+        "name": "Jeremiah Blackwell Jr. Access (MDC, ~RM 12.0)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Washington State Park Access (~RM 20.0)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 8,
+      "representativeGauge": {
+        "siteId": "07018500"
+      }
+    },
+    {
+      "slug": "morse-mill-to-cedar-hill",
+      "name": "Morse Mill to Cedar Hill",
+      "description": "Lower river, best represented by the Byrnesville gauge. HAZARD: Cedar Hill low-head mill dam at the take-out area (portage left). Morse Mill Dam is just above the put-in.",
+      "putIn": {
+        "name": "Morse Mill Access (MDC, ~RM 52.4)",
+        "lat": null,
+        "lon": null
+      },
+      "takeOut": {
+        "name": "Cedar Hill Access (MDC, ~RM 63.2)",
+        "lat": null,
+        "lon": null
+      },
+      "publishedLengthMiles": 10.8,
+      "representativeGauge": {
+        "siteId": "07018500"
+      }
+    }
+  ],
+  "weatherPoint": {
+    "city": "De Soto, MO",
+    "lat": 38.1395,
+    "lon": -90.5551
+  },
+  "alertSearchTerms": [
+    "Big River",
+    "Big River Byrnesville",
+    "Big River Washington State Park",
+    "Byrnesville",
+    "De Soto MO",
+    "Jefferson County MO",
+    "St. Francois County MO"
+  ],
+  "accessPoints": [],
+  "research": {
+    "calibrationKeySource": "USGS day-of-year percentiles cross-checked with moherp live rating + OzarkAnglers seasonal normals (optimal band); high/dangerous omitted per owner",
+    "calibrationNotes": "Unit is cfs (discharge, USGS 00060) to match moherp's rating basis. Gage-height cross-reference (USGS 00065): live 4.99-5.04 ft ≈ 1020-1040 cfs (2026-07-13). NWS AHPS flood categories for Byrnesville (BYRM7), datum NAVD88 433.70 ft: action 13 ft, flood/minor 16 ft, moderate 20 ft, major 28 ft — no low-water thresholds published. IMPORTANT SERVING-GAUGE CAVEAT: the app's primary gauge 07018500 (Byrnesville) sits on the LOWER river below the mill dams; the single most popular float — the Washington State Park reach and other upper accesses (Blackwell, Mammoth, Merrill Horne) — is better represented by secondary gauge 07018100 (Richwoods), whose July percentiles (p50=184, p80=421, p90=852, p95=1260) are within ~10-15% of Byrnesville, so this same cfs ladder can be applied to the Richwoods reach with only minor downward scaling. moherp does not publish fixed cfs cutoffs, so all values are derived and capped at 'medium' confidence; treat 'high'/'dangerous' as advisory and defer to on-site scouting.",
+    "hazards": [
+      {
+        "type": "low-head dam",
+        "name": "Morse Mill Dam",
+        "location": "~RM 52.4 (lower river)",
+        "severity": "high",
+        "description": "Old mill / low-head dam — dangerous recirculating hydraulic. Portage right. Serving gauge 07018500."
+      },
+      {
+        "type": "low-head dam",
+        "name": "Cedar Hill Dam",
+        "location": "~RM 63.2 (lower river)",
+        "severity": "high",
+        "description": "Old mill / low-head dam. Portage left. Serving gauge 07018500."
+      },
+      {
+        "type": "low-head dam",
+        "name": "Private dam",
+        "location": "~RM 68.9 (lower river)",
+        "severity": "high",
+        "description": "Privately owned dam. Portage right."
+      },
+      {
+        "type": "low-head dam",
+        "name": "Byrnes Mill Dam",
+        "location": "~RM 74.6 (near Byrnesville, above the Byrnesville gauge)",
+        "severity": "high",
+        "description": "Old mill / low-head dam. Portage right. Serving gauge 07018500."
+      },
+      {
+        "type": "contamination",
+        "name": "Old Lead Belt mine tailings",
+        "location": "watershed-wide, strongest in St. Francois County headwaters and downstream sediment",
+        "severity": "moderate",
+        "description": "Lead and heavy-metal tailings from historic lead mining persist in bed sediment and floodplain 'chat.' MDC maintains a fish-consumption advisory in St. Francois and Jefferson counties (limit sunfish, rock bass, carp, redhorse and other suckers). Avoid stirring up or ingesting bottom sediment; wash after contact."
+      },
+      {
+        "type": "high water",
+        "name": "Elevated / muddy flow",
+        "location": "whole river",
+        "severity": "moderate-high",
+        "description": "This is a larger stream than typical Ozark floats. Above ~900 cfs at Byrnesville the river is 'High' (moherp) and pushy for beginners; above ~1500 cfs it is muddy and unsafe for casual floats. NWS action stage 13 ft / flood 16 ft indicate true flooding — do not float. Today's ~1020-1040 cfs (≈5.0 ft) is already rated High."
+      },
+      {
+        "type": "strainers / logjams",
+        "name": "Woody debris",
+        "location": "whole river, especially outer bends after high water",
+        "severity": "moderate",
+        "description": "Typical Ozark strainers, logjams and undercut banks; scout blind bends, especially when flows are up."
+      }
+    ]
+  }
+}

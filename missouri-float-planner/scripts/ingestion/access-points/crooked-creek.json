@@ -1,0 +1,172 @@
+[
+  {
+    "name": "Harmon Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": null,
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Informal low-water bridge (slab) put-in near Harmon, Boone Co; NOT an official AGFC access. Best unverified candidate = OSM ford on Crooked Creek at 36.23999,-92.93698 (node 116322079). Multiple low-water bridges ~1 mi apart in this reach; exact put-in unresolved. ~9.5 river mi above Pyatt.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://www.openstreetmap.org/node/116322079",
+      "https://www.bradwiegmann.com/destinations/1079-fishing-and-floating-crooked-creek-in-arkansas.html",
+      "https://southwestpaddler.com/docs/whitear21.html"
+    ]
+  },
+  {
+    "name": "Upper Pyatt Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.24812,
+    "lon": -92.84355,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+    "facilities": "Primitive launch, concrete ramp; east side of US Hwy 62 Spur bridge south of Pyatt (AGFC 'Pyatt #2 Boat Ramp')",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/"
+    ]
+  },
+  {
+    "name": "Lower Pyatt Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.24663,
+    "lon": -92.83499,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+    "facilities": "Concrete boat ramp, gravel parking, fishing pier; north side of US Hwy 62 bridge (AGFC 'Pyatt #1')",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/"
+    ]
+  },
+  {
+    "name": "Snow Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.24356,
+    "lon": -92.79992,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+    "facilities": "Concrete boat ramp, gravel parking; via Marion Co Rd 4006 south of Snow/US Hwy 62",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/"
+    ]
+  },
+  {
+    "name": "Mark Oliver Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.24973,
+    "lon": -92.74849,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+    "facilities": "Paved boat ramp, paved parking; via Old US Hwy 62 / MC 4052",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/"
+    ]
+  },
+  {
+    "name": "Kelly's Slab Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.22916,
+    "lon": -92.71042,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+    "facilities": "Concrete boat ramp, gravel parking, bank fishing; at Fred Berry Conservation Education Center; at USGS gauge 07055607 (Kelly Crossing); via Marion Co Rd 4002",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+      "https://waterdata.usgs.gov/monitoring-location/07055607/"
+    ]
+  },
+  {
+    "name": "Crooked Creek Gravel Bar Camping Area",
+    "kind": "gravel_bar",
+    "expected_mile": null,
+    "lat": 36.24493,
+    "lon": -92.71569,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Gravel bar tent camping (tents only), registration required (870-449-3484); near Fred Berry CEC",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ]
+  },
+  {
+    "name": "Brooksher Float Campsite",
+    "kind": "campground",
+    "expected_mile": null,
+    "lat": 36.24251,
+    "lon": -92.7665,
+    "is_public": true,
+    "ownership": "TNC (The Nature Conservancy)",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Canoe-in float campsite, tents only, single-night camping; between Snow and Mark Oliver",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ]
+  },
+  {
+    "name": "Yellville City Park Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.2226,
+    "lon": -92.67941,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+    "facilities": "Concrete boat ramp, paved parking; at Yellville City Park via AR Hwy 14",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+      "https://www.openstreetmap.org/node/3654197705"
+    ]
+  },
+  {
+    "name": "Lower Crooked Creek Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": 36.23614,
+    "lon": -92.53593,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "Concrete boat ramp; downstream-most AGFC access, toward White River confluence near Cotter",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ]
+  }
+]

@@ -1,0 +1,142 @@
+{
+  "slug": "crooked-creek",
+  "name": "Crooked Creek",
+  "state": "AR",
+  "calibration": {
+    "primaryGaugeSiteId": "07055607",
+    "gaugeName": "Crooked Creek at Kelly Crossing at Yellville, AR",
+    "unit": "ft",
+    "keySource": "Composite feet-based key: AGFC Crooked Creek Water Trail (state agency) + OzarkAnglers paddler forum consensus, cross-referenced with Float NWA cfs guidance. NWS Little Rock lists NO official flood stage for this gauge, so high/dangerous tiers are paddler-derived, not an official flood threshold.",
+    "keySourceUrls": [
+      "https://www.agfc.com/things-to-do/water-trails/crooked-creek/",
+      "https://forums.ozarkanglers.com/topic/44313-first-crooked-creek-float-water-level/",
+      "https://floatnwa.com/rivers/crooked-creek/",
+      "https://forecast.weather.gov/product.php?site=NWS&issuedby=LZK&product=RVA",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-07055607/"
+    ],
+    "ladder": {
+      "too_low": {
+        "value": 10.5,
+        "unit": "ft",
+        "confidence": "medium",
+        "source": "OzarkAnglers forum (paddler consensus): floatable below 10.5 ft only 'if your tolerance for dragging your kayak is high'; cross-ref Float NWA comfortable-minimum ~250 cfs. Method: below ~10.5 ft = skinny water / heavy gravel dragging = practical too-low floor.",
+        "source_url": "https://forums.ozarkanglers.com/topic/44313-first-crooked-creek-float-water-level/"
+      },
+      "low": {
+        "value": null,
+        "unit": "ft",
+        "confidence": "low",
+        "source": "No distinct sourced 'low-but-runnable' band. Sources treat ~10.5 ft as a sharp pivot between draggy and ideal; roughly 10.5-11.5 ft is the skinny low edge of runnable (Float NWA ~250 cfs 'comfortable minimum' falls here). Left null rather than guessed. Method: honest gap.",
+        "source_url": "https://floatnwa.com/rivers/crooked-creek/"
+      },
+      "optimal_min": {
+        "value": 10.5,
+        "unit": "ft",
+        "confidence": "medium",
+        "source": "OzarkAnglers forum: 'ideal water level anywhere from Pyatt bridge to Yellville is around 10.5-12.0 ft on the Kellys Crossing graph.' Method: bottom of ideal float range. Note: equals too_low value because ~10.5 ft is the pivot (below = draggy, at/above = ideal).",
+        "source_url": "https://forums.ozarkanglers.com/topic/44313-first-crooked-creek-float-water-level/"
+      },
+      "optimal_max": {
+        "value": 12.5,
+        "unit": "ft",
+        "confidence": "medium-high",
+        "source": "AGFC Crooked Creek Water Trail (state agency): 'A moderate level for floating the creek is 12-12.5 feet.' OzarkAnglers forum ideal tops ~12.0 ft. Method: top of comfortable/ideal range.",
+        "source_url": "https://www.agfc.com/things-to-do/water-trails/crooked-creek/"
+      },
+      "high": {
+        "value": 13.0,
+        "unit": "ft",
+        "confidence": "medium",
+        "source": "OzarkAnglers forum: creek is floatable 'up to 13.0 and maybe 13.5 if you are a good kayaker.' Method: 12.5-13.5 ft is high/pushy water for experienced paddlers only.",
+        "source_url": "https://forums.ozarkanglers.com/topic/44313-first-crooked-creek-float-water-level/"
+      },
+      "dangerous": {
+        "value": 13.5,
+        "unit": "ft",
+        "confidence": "medium",
+        "source": "OzarkAnglers forum: '~13.5 ft maybe, if you are a good kayaker' = practical upper ceiling; above this is beyond safe recreational floating. Reinforced by AGFC/arkansas.com warnings that the creek 'can turn into a raging torrent very quickly.' NOTE: NWS Little Rock defines NO official flood stage for this gauge, so 13.5 ft is a paddler-derived ceiling, not an official flood threshold \u2014 judge high water conservatively.",
+        "source_url": "https://forums.ozarkanglers.com/topic/44313-first-crooked-creek-float-water-level/"
+      }
+    },
+    "notes": "GAUGE CORRECTION (safety-critical, incorporated): the originally-supplied ID 07056000 is 'Buffalo River near St. Joe, AR' (drainage 829 sq mi, Newton County) \u2014 a DIFFERENT river; verified verbatim against the USGS site service. Its live values (189 cfs / 3.39 ft on 2026-07-13) coincidentally resembled the expected numbers. The correct Crooked Creek gauge is USGS 07055607 'Crooked Creek at Kelly Crossing at Yellville, AR' (drainage 398 sq mi, Marion County; reports 00060 discharge + 00065 gage height), reading 203-205 cfs / 10.75-10.76 ft on 2026-07-13. All values here are on 07055607. LADDER UNIT = FEET (gage height) because the AGFC and local paddler keys are stated in feet on this gauge's datum (moderate flow ~10.5-12.5 ft; datum cross-confirmed: NWS Yellville read 10.80 ft and USACE Yellville ~10-11 ft the same week \u2014 do NOT reuse the Buffalo River gauge's ~3.4 ft datum). CFS CROSS-REFERENCE (Float NWA, on 07055607): ideal 250-1000 cfs; comfortable-floating minimum ~250 cfs, below which expect frequent gravel dragging. LIVE SANITY CHECK: today's 205 cfs / 10.76 ft sits just below the 250 cfs / ~11 ft comfortable minimum = low but floatable with some dragging (consistent with the summer draw-down). FLASHY: entirely rain-fed, rises fast; no NWS flood stage published, so treat rapid rises and any level above ~13.5 ft as dangerous regardless."
+  },
+  "secondaryGauges": [],
+  "sections": [
+    {
+      "name": "Harmon to Pyatt (upper)",
+      "slug": "harmon-to-pyatt",
+      "putIn": "Harmon (Hwy 62/412 area, upstream)",
+      "takeOut": "Pyatt access",
+      "miles": 9.5,
+      "difficulty": "Class I-II",
+      "primaryGaugeSiteId": "07055607"
+    },
+    {
+      "name": "Pyatt to Snow",
+      "slug": "pyatt-to-snow",
+      "putIn": "Lower Pyatt Access",
+      "takeOut": "Snow Access",
+      "miles": 6.7,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07055607"
+    },
+    {
+      "name": "Snow to Mark Oliver",
+      "slug": "snow-to-mark-oliver",
+      "putIn": "Snow Access",
+      "takeOut": "Mark Oliver Access",
+      "miles": 5.2,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07055607"
+    },
+    {
+      "name": "Mark Oliver to Kelly's Slab",
+      "slug": "mark-oliver-to-kellys-slab",
+      "putIn": "Mark Oliver Access",
+      "takeOut": "Kelly's Slab Access (Fred Berry CEC)",
+      "miles": 6.6,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07055607"
+    },
+    {
+      "name": "Kelly's Slab to Yellville",
+      "slug": "kellys-slab-to-yellville",
+      "putIn": "Kelly's Slab Access (Fred Berry CEC)",
+      "takeOut": "Yellville City Park Access",
+      "miles": 3.5,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "07055607"
+    }
+  ],
+  "metadata": {
+    "region": "Ozarks - North-Central Arkansas (Marion & Boone counties)",
+    "difficultyRating": "Class I",
+    "riverType": "rain_flashy",
+    "description": "Crooked Creek is a clear, gravel-bottomed Ozark stream running roughly 80 miles across Boone and Marion counties to the White River near Cotter. Designated by the Arkansas Game & Fish Commission as a Blue Ribbon Smallmouth Bass stream and a 22-mile Water Trail (Lower Pyatt to Yellville), it offers easy Class I floats past long gravel bars, riffles, fast chutes and deep pools, and is famed for feisty smallmouth bass. Entirely rain-fed and flashy, it drops low and skinny in summer and fall (and often goes dry east of Yellville) yet can rise into a dangerous torrent within hours after heavy rain.",
+    "timezone": "America/Chicago",
+    "country": "US",
+    "state": "AR",
+    "weatherCity": "Yellville",
+    "weatherLat": 36.2287,
+    "weatherLon": -92.6857,
+    "nhdReachHint": "Crooked Creek, Boone/Marion counties, AR - from headwaters near Harrison flowing generally east/northeast past Pyatt, Snow, Mark Oliver, Kelly's Slab and Yellville to the White River near Cotter. Primary floated reach: Pyatt to Yellville (~22 mi water trail).",
+    "alertSearchTerms": [
+      "Crooked Creek",
+      "Crooked Creek Yellville",
+      "Kelly Crossing",
+      "Kelly's Slab",
+      "Marion County Arkansas",
+      "Yellville flooding",
+      "Crooked Creek flash flood"
+    ],
+    "managingAuthority": "Arkansas Game and Fish Commission (AGFC) - Crooked Creek Water Trail; Fred Berry Conservation Education Center at Kelly's Slab",
+    "accessLaw": "Arkansas: the public may float and wade streams capable of navigation. Use AGFC public access points (Pyatt, Snow, Mark Oliver, Kelly's Slab, Yellville City Park); the streambed and banks along stretches deemed non-navigable can be privately owned, so do not trespass above the ordinary high-water mark or portage across private land without permission."
+  },
+  "hazards": [
+    "Kelly's Slab low-water bridge: a concrete slab crossing at the Fred Berry Conservation Education Center (just west/south of Yellville). Scout and portage; can be hazardous when water flows over the slab at higher levels. AGFC explicitly advises 'use caution at Kelley's Slab.'",
+    "Flash flooding: creek is entirely rain-dependent and flashy - 'can turn into a raging torrent very quickly, especially during heavy spring rains' and become 'too dangerous to float.' Check weather/gauge before and during a trip.",
+    "No official NWS flood stage is published for this gauge, so there is no automated flood alert threshold - judge rapid rises and any stage above ~13.5 ft as dangerous.",
+    "Strainers / log jams requiring portage, plus rocky shoals, fast chutes and low-hanging tree limbs (Class I-II hazards in places).",
+    "Summer/fall low water: gravel-bar dragging when the creek drops; the reach east of Yellville toward Cotter is intermittent and often nearly dry - not a reliable float."
+  ]
+}

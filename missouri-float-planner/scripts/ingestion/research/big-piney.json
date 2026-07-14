@@ -1,0 +1,162 @@
+{
+  "slug": "big-piney",
+  "name": "Big Piney River",
+  "state": "MO",
+  "calibration": {
+    "primaryGaugeSiteId": "06930000",
+    "gaugeName": "Big Piney River near Big Piney, MO",
+    "unit": "cfs",
+    "keySource": "already-in-DB (prior calibration); external standard = moherp",
+    "keySourceUrls": [
+      "https://rivers.moherp.org/gauge/?gauge=06930000&hours=168",
+      "https://waterdata.usgs.gov/monitoring-location/USGS-06930000/",
+      "https://water.noaa.gov/gauges/06930000"
+    ],
+    "ladder": {
+      "too_low": {
+        "value": 123,
+        "confidence": "medium",
+        "source": "existing app DB (per coordinator)"
+      },
+      "low": {
+        "value": null,
+        "confidence": "unknown",
+        "source": "not provided by coordinator; DB level_low between too_low(123) and optimal_min(194)"
+      },
+      "optimal_min": {
+        "value": 194,
+        "confidence": "medium",
+        "source": "existing app DB (per coordinator)"
+      },
+      "optimal_max": {
+        "value": 263,
+        "confidence": "medium",
+        "source": "existing app DB (per coordinator)"
+      },
+      "high": {
+        "value": 407,
+        "confidence": "medium",
+        "source": "existing app DB (per coordinator)"
+      },
+      "dangerous": {
+        "value": 814,
+        "confidence": "medium",
+        "source": "existing app DB (per coordinator)"
+      }
+    },
+    "notes": "Ladder is ALREADY in the DB on gauge 06930000 in cfs (too_low 123 / optimal 194-263 / high 407 / dangerous 814); left as-is per coordinator. DB level_low value not supplied here (null). GAUGE-ID CORRECTION: the task's 07066000 is 'Jacks Fork at Eminence' (verified via USGS + app gauge_stations.sql); the real Big Piney primary is 06930000 (at Ross Access, 37.6656/-92.0499; NWS name 'Big Piney near Edgar Springs'). RECONCILIATION FLAG (safety): moherp \u2014 the stated calibration standard \u2014 publishes a MUCH higher cfs key on this same gauge: Poor 164 / Low 309 / Good(optimal) 519 / High 1014 / Flood 2049 (current reading 212 cfs = 'Poor', median ~190 cfs). Mapping Poor->too_low, Low->low, Good->optimal(519-1013), High->high(1014), Flood->dangerous(2049) would raise every anchor ~2-2.5x vs the DB. Most safety-relevant: DB 'dangerous' 814 vs moherp 'High' floor 1014 / 'Flood' 2049; and DB 'optimal' 194-263 vs moherp 'Poor' (too low) for that range. NWS/AHPS flood stage ~8.0-8.25 ft at this gauge (corroborates a high-end anchor but in ft). Recommend an explicit editorial decision on whether to keep the conservative DB values or move toward the moherp standard the app treats as canonical elsewhere. moherp uses cfs, so keep the ladder in cfs."
+  },
+  "secondaryGauges": [
+    {
+      "siteId": "06928900",
+      "name": "Big Piney River near Houston, MO",
+      "unit": "ft",
+      "note": "Upper-river gauge (~Houston, Texas Co, 37.3231/-91.9971). Nearest gauge for upper sections (Baptist Camp\u2013Mineral Springs\u2013Boiling Spring). Already secondary in DB."
+    }
+  ],
+  "sections": [
+    {
+      "name": "Mineral Springs to Boiling Spring",
+      "slug": "mineral-springs-to-boiling-spring",
+      "putIn": "Mineral Springs Access",
+      "takeOut": "Boiling Spring Access",
+      "miles": 11.2,
+      "difficulty": "Class I-II",
+      "primaryGaugeSiteId": "06928900"
+    },
+    {
+      "name": "Boiling Spring to Mason Bridge",
+      "slug": "boiling-spring-to-mason-bridge",
+      "putIn": "Boiling Spring Access",
+      "takeOut": "Mason Bridge Access",
+      "miles": 6.0,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    },
+    {
+      "name": "Mason Bridge to Slabtown",
+      "slug": "mason-bridge-to-slabtown",
+      "putIn": "Mason Bridge Access",
+      "takeOut": "Slabtown Recreation Area",
+      "miles": 8.0,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    },
+    {
+      "name": "Slabtown to Horse Camp",
+      "slug": "slabtown-to-horse-camp",
+      "putIn": "Slabtown Recreation Area",
+      "takeOut": "Horse Camp Access",
+      "miles": 6.0,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    },
+    {
+      "name": "Slabtown to Ross",
+      "slug": "slabtown-to-ross",
+      "putIn": "Slabtown Recreation Area",
+      "takeOut": "Ross Access",
+      "miles": 15.0,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    },
+    {
+      "name": "East Gate to Crossroads",
+      "slug": "east-gate-to-crossroads",
+      "putIn": "East Gate Access",
+      "takeOut": "Crossroads Access",
+      "miles": 3.0,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    },
+    {
+      "name": "Crossroads to Bookers Bend",
+      "slug": "crossroads-to-bookers-bend",
+      "putIn": "Crossroads Access",
+      "takeOut": "Bookers Bend Access",
+      "miles": 8.0,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    },
+    {
+      "name": "Devils Elbow to Gasconade Confluence",
+      "slug": "devils-elbow-to-gasconade",
+      "putIn": "Devil's Elbow (Highway V Bridge)",
+      "takeOut": "Gasconade River Confluence",
+      "miles": 3.3,
+      "difficulty": "Class I",
+      "primaryGaugeSiteId": "06930000"
+    }
+  ],
+  "metadata": {
+    "region": "Ozarks",
+    "difficultyRating": "Class I-II",
+    "riverType": "spring_fed_float",
+    "description": "The Big Piney River is a classic Ozark float stream and the principal tributary of the Gasconade, winding roughly 85 floatable miles north through Mark Twain National Forest in Texas and Pulaski counties. Spring-influenced (fed by Boiling Spring, Mineral Spring, and the large Shanghai/Blue Spring) it stays runnable through most summers, yet it is notably flashy and rises quickly after heavy rain. The upper river near Houston and Licking is a narrow, swift, clear creek framed by pine-topped limestone bluffs with frequent Class I-II riffles, easing to gentler Class I water as it deepens downstream. It offers some of Missouri's best smallmouth bass fishing (a special management area runs Slabtown to the Gasconade), quiet Forest Service and MDC gravel-bar accesses, and scenic day trips such as Mineral Springs or Sandy Shoals to Boiling Spring. A 12-mile middle reach through Fort Leonard Wood is closed to the public; the popular lower float passes the historic Route 66 landmark at Devils Elbow before reaching the Gasconade near Jerome.",
+    "timezone": "America/Chicago",
+    "country": "US",
+    "state": "MO",
+    "weatherCity": "Licking",
+    "weatherLat": 37.4986,
+    "weatherLon": -91.8563,
+    "nhdReachHint": "Big Piney River (GNIS), a north-flowing tributary of the Gasconade; existing DB nhd_feature_id 9897784. NHD mainstem from headwaters near Cabool/Elk Creek (Texas Co) downstream past Houston, Licking/Boiling Spring, Slabtown, Ross, through Fort Leonard Wood (Pulaski Co), to the Gasconade River confluence near Jerome/Devils Elbow. Floatable mainstem ~85.7 mi (Baptist Camp float-mile 0 to Gasconade confluence). NOTE: DB geom length_miles=68.4 and the geometry-datum river_mile_downstream values are inconsistent in the lowest reach (Devils Elbow computes downstream of the Gasconade confluence) \u2014 flag for geometry cleanup.",
+    "alertSearchTerms": [
+      "Big Piney River",
+      "Big Piney",
+      "Pulaski County",
+      "Texas County",
+      "Devils Elbow",
+      "Fort Leonard Wood"
+    ],
+    "managingAuthority": "USDA Forest Service - Mark Twain National Forest (Houston-Rolla-Cedar Creek Ranger District); Missouri Department of Conservation (public river accesses). The middle reach passes through U.S. Army Fort Leonard Wood, which is closed to public floating.",
+    "accessLaw": "MO - Missouri recognizes a public right to float, paddle, wade, and fish navigable/floatable streams (the Big Piney is floatable). The public may travel the stream and use the wetted channel/gravel bars below the ordinary high-water mark, but adjacent banks and much of the lower-river land are private - do not trespass above the high-water mark. Portage obstacles staying within the stream corridor. The Fort Leonard Wood reach (approx. Ross to East Gate) is federally restricted and closed to the public."
+  },
+  "hazards": [
+    "Fort Leonard Wood military reservation: ~12 mi (Ross Access mile ~54.8 to East Gate mile ~66.5, restricted ~mile 59.9-68.9) is CLOSED to public floating/access - Ross is the last legal take-out on the upper river; the lower river resumes at East Gate. This breaks any 'Ross to Devils Elbow' continuous float.",
+    "Low-head/rock dam near the Fort Leonard Wood water plant (~mile 62) and a concrete dam with dangerous obstructions (~mile 66) - portage required; both lie within the closed Fort Wood reach (this is the 'Mill Dam' hazard).",
+    "Low-water bridges / fords that can be dangerous or impassable in high water and form strainers: Baptist Camp low-water bridge (float-mile 0), Sandy Shoals Ford (mile ~19.3), Warren Bridge low-water crossing (mile ~33.3).",
+    "Flashy river: rises fast after rain. moherp High >=1014 cfs is 'potentially dangerous, especially for inexperienced'; Flood >=2049 cfs is 'treacherous or deadly'. NWS/AHPS flood stage ~8.0-8.25 ft at gauge 06930000. The May 2017 flood destroyed the Boiling Spring resort.",
+    "Narrow, tree-lined upper reaches with overhanging limbs, deadfall/strainers, and gravel-bar shallows; carry-in (no boat ramp) at several accesses (Baptist Camp, Slabtown, Ross gravel bar).",
+    "Cell service drops out in the Duke/Ross float corridor - plan shuttles and directions in advance."
+  ]
+}
