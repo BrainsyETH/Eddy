@@ -105,20 +105,20 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
       const milePart =
         typeof hazard.riverMile === 'number' ? ` · Mile ${hazard.riverMile.toFixed(1)}` : '';
       const portageLine = hazard.portageRequired
-        ? `<p style="margin: 6px 0 0 0; font-size: 11px; font-weight: 600; color: #fbbf24;">Portage required${
+        ? `<p style="margin: 6px 0 0 0; font-size: 11px; font-weight: 600; color: var(--color-warning);">Portage required${
             hazard.portageSide ? ` (${hazard.portageSide === 'either' ? 'either side' : `${hazard.portageSide} side`})` : ''
           }</p>`
         : '';
 
       const popupContent = `
-        <div style="padding: 10px; min-width: 160px; max-width: 220px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
-          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <div style="padding: 10px; min-width: 160px; max-width: 220px;">
+          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             ${escapeHtml(hazard.name)}
           </h3>
-          <p style="margin: 0 0 6px 0; font-size: 11px; color: #c7b8a6;">
+          <p style="margin: 0 0 6px 0; font-size: 11px; color: var(--color-text-secondary);">
             ${typeLabel}${milePart}
           </p>
-          ${hazard.description ? `<p style="margin: 0; font-size: 11px; color: #d1d5db; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">${escapeHtml(hazard.description)}</p>` : ''}
+          ${hazard.description ? `<p style="margin: 0; font-size: 11px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">${escapeHtml(hazard.description)}</p>` : ''}
           ${portageLine}
         </div>
       `;

@@ -176,22 +176,22 @@ export default function AccessPointMarkers({
       let selectionPrompt = '';
       if (onMarkerClick) {
         if (isPutIn) {
-          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to deselect put-in</p>`;
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to deselect put-in</p>`;
         } else if (isTakeOut) {
-          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to deselect take-out</p>`;
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to deselect take-out</p>`;
         } else if (!selectedPutIn) {
-          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to select as put-in</p>`;
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to select as put-in</p>`;
         } else {
-          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: #39a0ca; font-weight: 600;">Click to select as take-out</p>`;
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to select as take-out</p>`;
         }
       }
 
       const popupContent = `
-        <div style="padding: 12px; min-width: 180px; max-width: 220px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); overflow: hidden;">
-          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <div style="padding: 12px; min-width: 180px; max-width: 220px; overflow: hidden;">
+          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             ${escapeHtml(point.name)}
           </h3>
-          <p style="margin: 0 0 8px 0; font-size: 12px; color: #c7b8a6;">
+          <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--color-text-secondary);">
             Mile ${point.riverMile.toFixed(1)} • ${point.type.replace('_', ' ')}
           </p>
           ${point.isPublic
@@ -203,7 +203,7 @@ export default function AccessPointMarkers({
             : ''
           }
           ${isUpstreamChoice
-            ? '<p style="margin: 8px 0 0 0; font-size: 11px; color: #fca5a5; font-weight: 600;">Upstream from your put-in</p>'
+            ? '<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-error); font-weight: 600;">Upstream from your put-in</p>'
             : ''
           }
           ${selectionPrompt}
