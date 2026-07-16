@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { useMap } from './MapContainer';
+import { ANCHORS, addLayerAt } from './layer-anchors';
 
 interface DriveRouteLayerProps {
   routeGeometry: GeoJSON.LineString | null;
@@ -88,9 +89,11 @@ export default function DriveRouteLayer({
         return;
       }
 
-      // Add white outline/casing layer for visibility
+      // Add white outline/casing layer for visibility. Inserted at the
+      // line anchor so the shuttle route stays below labels (see
+      // ./layer-anchors.ts).
       try {
-        map.addLayer({
+        addLayerAt(map, {
           id: DRIVE_GLOW_LAYER_ID,
           type: 'line',
           source: DRIVE_SOURCE_ID,
@@ -103,14 +106,14 @@ export default function DriveRouteLayer({
             'line-cap': 'round',
             'line-join': 'round',
           },
-        });
+        }, ANCHORS.lines);
       } catch (err) {
         console.warn('Error adding drive route outline layer:', err);
       }
 
       // Add main route layer with prominent dashed pattern
       try {
-        map.addLayer({
+        addLayerAt(map, {
           id: DRIVE_LAYER_ID,
           type: 'line',
           source: DRIVE_SOURCE_ID,
@@ -124,7 +127,7 @@ export default function DriveRouteLayer({
             'line-cap': 'butt',
             'line-join': 'round',
           },
-        });
+        }, ANCHORS.lines);
       } catch (err) {
         console.warn('Error adding drive route layer:', err);
       }
