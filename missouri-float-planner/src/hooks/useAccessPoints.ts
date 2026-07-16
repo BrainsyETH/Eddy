@@ -17,5 +17,6 @@ export function useAccessPoints(riverSlug: string | null) {
       return data.accessPoints;
     },
     enabled: !!riverSlug,
+    placeholderData: (previousData) => previousData,
   });
 }

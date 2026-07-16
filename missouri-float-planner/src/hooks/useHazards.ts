@@ -15,6 +15,7 @@ export function useHazards(riverSlug: string | null | undefined) {
       return (data.hazards || []) as Hazard[];
     },
     enabled: !!riverSlug,
+    placeholderData: (previousData) => previousData,
     staleTime: 5 * 60 * 1000, // 5 min - hazards change infrequently
     refetchOnWindowFocus: true,
   });

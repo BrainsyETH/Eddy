@@ -42,6 +42,7 @@ import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
 
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
+const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
@@ -592,8 +593,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
-            {/* Statewide condition network under the route (hero river excluded) */}
-            <ConditionNetworkLayer excludeRiverId={river.id} />
+            {/* Statewide condition network: every OTHER river in its live
+                condition color, thin, as context. Click one to switch the
+                active river. The selected river is drawn separately below. */}
+            <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+            {/* The selected river, drawn prominently in its own condition color
+                (so it's not the one bare line among colored context rivers). */}
+            {river.geometry && (
+              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
+            )}
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
@@ -696,8 +704,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
-            {/* Statewide condition network under the route (hero river excluded) */}
-            <ConditionNetworkLayer excludeRiverId={river.id} />
+            {/* Statewide condition network: every OTHER river in its live
+                condition color, thin, as context. Click one to switch the
+                active river. The selected river is drawn separately below. */}
+            <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+            {/* The selected river, drawn prominently in its own condition color
+                (so it's not the one bare line among colored context rivers). */}
+            {river.geometry && (
+              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
+            )}
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
