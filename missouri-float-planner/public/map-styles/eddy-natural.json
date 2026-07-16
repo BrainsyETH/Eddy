@@ -5358,7 +5358,7 @@
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "place",
-      "minzoom": 10,
+      "minzoom": 9,
       "filter": [
         "==",
         [

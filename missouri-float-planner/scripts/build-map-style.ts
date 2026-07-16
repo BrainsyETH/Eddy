@@ -81,9 +81,12 @@ const HIDDEN_LAYER_IDS = new Set([
 
 // Later-appearing minor labels: calmer state-level framing, unchanged
 // close-up. (id → new minzoom; only ever raises, never lowers.)
+// NOTE: label_village is deliberately NOT bumped — in the rural Ozarks
+// the towns paddlers navigate by (Eminence, Van Buren, Birch Tree…) are
+// OSM villages, and hiding them below z10 stripped every settlement name
+// from a typical reach framing (z9–10).
 const MINZOOM_BUMPS: Record<string, number> = {
   label_other: 10, // hamlets/suburbs/neighbourhoods
-  label_village: 10,
   road_shield_us: 10,
   building: 14,
 };
