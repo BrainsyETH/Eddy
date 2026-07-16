@@ -14,7 +14,7 @@ import { riverPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
@@ -25,14 +25,24 @@ import SiteFooter from '@/components/ui/SiteFooter';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
+// ISR: guide pages are identical for every visitor (live conditions render
+// client-side), so serve them from the CDN and regenerate at most every
+// 5 minutes. Previously this route was fully dynamic — the cookie-bound
+// Supabase server client plus a searchParams read forced no-store, and
+// every visitor paid ~2s of server render before first paint.
+export const revalidate = 300;
+
 interface Props {
   params: Promise<{ state: string; slug: string }>;
-  searchParams: Promise<{ putIn?: string; takeOut?: string; vessel?: string }>;
 }
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+// Note: legacy share URLs (/rivers/<state>/<slug>?putIn=…&takeOut=…) are
+// 308'd to /plan by next.config.mjs redirects() and never reach this
+// route, so nothing here reads searchParams — that read would opt the
+// whole page back into per-request rendering.
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
-    const [resolvedParams, resolvedSearch] = await Promise.all([params, searchParams]);
+    const resolvedParams = await params;
     const slug = resolvedParams?.slug;
 
     if (!slug) {
@@ -42,7 +52,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       };
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: river, error: riverError } = await supabase
       .from('rivers')
       .select('id, name, slug, state, length_miles, description, difficulty_rating, region')
@@ -51,28 +61,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
     if (riverError || !river) {
       return { title: 'River Not Found' };
-    }
-
-    // If this is a deep-link with float plan params we'll redirect, but provide
-    // sensible metadata anyway in case the redirect fails.
-    const putInId = resolvedSearch?.putIn;
-    const takeOutId = resolvedSearch?.takeOut;
-    if (putInId && takeOutId) {
-      const ogImageUrl = `${BASE_URL}/api/og/float?putIn=${putInId}&takeOut=${takeOutId}`;
-      const planUrl = `${BASE_URL}/plan?river=${slug}&putIn=${putInId}&takeOut=${takeOutId}`;
-      return {
-        title: `Float Plan | ${river.name}`,
-        description: `Floating ${river.name} on Eddy.`,
-        alternates: { canonical: planUrl },
-        openGraph: {
-          type: 'website',
-          title: `Float Plan | ${river.name}`,
-          description: `Floating ${river.name} on Eddy.`,
-          url: planUrl,
-          siteName: 'Eddy',
-          images: [{ url: ogImageUrl, width: 1200, height: 630 }],
-        },
-      };
     }
 
     let conditionCode = 'unknown';
@@ -151,7 +139,10 @@ export default async function RiverGuidePage({ params }: Props) {
   // Note: /rivers/<state>/<slug>?putIn=…&takeOut=… is 308'd to /plan via
   // next.config.mjs redirects() before we reach this handler.
 
-  const supabase = await createClient();
+  // Admin client (no cookies()): this page is public and identical for all
+  // visitors — the cookie-bound server client would force per-request
+  // rendering and defeat the ISR above.
+  const supabase = createAdminClient();
 
   const [riverResult, guideResult] = await Promise.all([
     supabase

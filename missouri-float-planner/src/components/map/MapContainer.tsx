@@ -192,12 +192,12 @@ export default function MapContainer({
   // next data change. Children remount via key={styleEpoch} instead.
   const [styleEpoch, setStyleEpoch] = useState(0);
   // URL camera (deep link) handling. The URL is read ONCE per page load
-  // and consumed on first map creation: the init effect below tears down
-  // and recreates the map whenever initialBounds changes (river switch),
-  // and by then the ?lat&lng&z in the URL is our own moveend echo — the
-  // new river's bounds must win, not the stale camera.
+  // and consumed at map creation — afterwards the ?lat&lng&z in the URL is
+  // our own moveend echo, and bounds changes must win over it.
   const pendingUrlCamRef = useRef<UrlCamera | null | undefined>(undefined);
-  const urlCamAppliedRef = useRef(false);
+  // True when the constructor already framed the camera (deep link or
+  // initial bounds) — lets the fitBounds effect skip its redundant first run.
+  const cameraSetAtCreateRef = useRef(false);
   const firstBoundsFitRef = useRef(true);
 
   // Close the style picker on outside click or Escape
@@ -439,9 +439,9 @@ export default function MapContainer({
         padding: 50,
       },
     });
+    cameraSetAtCreateRef.current = Boolean(urlCam || initialBounds);
     if (urlCam) {
-      urlCamAppliedRef.current = true;
-      pendingUrlCamRef.current = null; // consumed — recreations use bounds
+      pendingUrlCamRef.current = null; // consumed
     }
 
     // Mirror the camera into the URL after every settled movement (pan,
@@ -513,17 +513,26 @@ export default function MapContainer({
         map.current = null;
       }
     };
-  }, [initialBounds, cooperativeGestures, syncCameraToUrl]);
+    // Create the map ONCE per component mount. This effect was previously
+    // keyed on initialBounds, so switching rivers in the planner tore down
+    // and rebuilt the entire MapLibre instance — style re-fetch/re-parse
+    // and every tile re-requested on each switch. Bounds changes are eased
+    // by the fitBounds effect below instead; cooperativeGestures and
+    // syncCameraToUrl are create-time constants on every surface that
+    // renders this component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!map.current || !initialBounds) return;
 
-    // The first bounds fit after a deep-linked camera would stomp the very
-    // view the link encoded — skip it once. Every later bounds change
-    // (picking a different river) fits normally.
+    // Skip the one fit the constructor already performed: at mount the map
+    // is created framed to these same bounds (or to a deep-linked ?lat&lng&z
+    // camera, which must win over the bounds). Every later bounds change
+    // (picking a different river) eases to the new framing.
     if (firstBoundsFitRef.current) {
       firstBoundsFitRef.current = false;
-      if (urlCamAppliedRef.current) return;
+      if (cameraSetAtCreateRef.current) return;
     }
 
     const bounds = new maplibregl.LngLatBounds(

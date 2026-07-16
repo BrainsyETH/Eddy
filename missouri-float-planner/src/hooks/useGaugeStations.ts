@@ -6,7 +6,7 @@ import type { GaugeStation, GaugesResponse } from '@/app/api/gauges/route';
 
 export type { GaugeStation };
 
-export function useGaugeStations() {
+export function useGaugeStations(options?: { enabled?: boolean }) {
   return useQuery<GaugeStation[], Error>({
     queryKey: ['gaugeStations'],
     queryFn: async (): Promise<GaugeStation[]> => {
@@ -17,6 +17,11 @@ export function useGaugeStations() {
       const data = (await response.json()) as GaugesResponse;
       return data.gauges;
     },
+    // Callers that only need gauges behind a toggle (the planner's gauge
+    // layer) pass enabled:false until the toggle flips — /api/gauges is a
+    // statewide query with a live-USGS fallback path, not something to pay
+    // for on every page load.
+    enabled: options?.enabled ?? true,
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
