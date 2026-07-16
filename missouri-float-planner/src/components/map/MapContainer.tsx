@@ -108,6 +108,24 @@ function ensureHillshade(map: maplibregl.Map) {
   }
 }
 
+// Camera state parsed from ?lat&lng&z (PaddleWays-style shareable views).
+interface UrlCamera {
+  lat: number;
+  lng: number;
+  z: number;
+}
+
+function readCameraFromUrl(): UrlCamera | null {
+  if (typeof window === 'undefined') return null;
+  const p = new URLSearchParams(window.location.search);
+  const lat = parseFloat(p.get('lat') ?? '');
+  const lng = parseFloat(p.get('lng') ?? '');
+  const z = parseFloat(p.get('z') ?? '');
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(z)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180 || z < 0 || z > 22) return null;
+  return { lat, lng, z };
+}
+
 interface MapContainerProps {
   initialBounds?: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
   children?: React.ReactNode;
@@ -122,6 +140,13 @@ interface MapContainerProps {
    * false so green only ever means one thing per surface.
    */
   legendRoute?: boolean;
+  /**
+   * Mirror the camera to ?lat&lng&z via history.replaceState so the
+   * current view is shareable/deep-linkable. On load, a valid camera in
+   * the URL wins over initialBounds ONCE (the deep link IS the intent);
+   * later bounds changes (e.g. picking a different river) fit as usual.
+   */
+  syncCameraToUrl?: boolean;
   cooperativeGestures?: boolean;
 }
 
@@ -145,6 +170,7 @@ export default function MapContainer({
   onGaugeToggle,
   showLegend = false,
   legendRoute = true,
+  syncCameraToUrl = false,
   cooperativeGestures = false,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -165,6 +191,14 @@ export default function MapContainer({
   // base style silently dropped the route line and overlays until the
   // next data change. Children remount via key={styleEpoch} instead.
   const [styleEpoch, setStyleEpoch] = useState(0);
+  // URL camera (deep link) handling. The URL is read ONCE per page load
+  // and consumed on first map creation: the init effect below tears down
+  // and recreates the map whenever initialBounds changes (river switch),
+  // and by then the ?lat&lng&z in the URL is our own moveend echo — the
+  // new river's bounds must win, not the stale camera.
+  const pendingUrlCamRef = useRef<UrlCamera | null | undefined>(undefined);
+  const urlCamAppliedRef = useRef(false);
+  const firstBoundsFitRef = useRef(true);
 
   // Close the style picker on outside click or Escape
   useEffect(() => {
@@ -373,20 +407,29 @@ export default function MapContainer({
     // Reset mapLoaded when creating a new map instance (important for bounds changes)
     setMapLoaded(false);
 
+    // A valid ?lat&lng&z camera wins over initialBounds on first creation
+    // only (see pendingUrlCamRef above).
+    if (pendingUrlCamRef.current === undefined) {
+      pendingUrlCamRef.current = syncCameraToUrl ? readCameraFromUrl() : null;
+    }
+    const urlCam = pendingUrlCamRef.current;
+
     // Initialize map
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: mapStyleUrl,
       cooperativeGestures: cooperativeGestures,
       attributionControl: false,
-      center: initialBounds
+      center: urlCam
+        ? [urlCam.lng, urlCam.lat]
+        : initialBounds
         ? [
             (initialBounds[0] + initialBounds[2]) / 2,
             (initialBounds[1] + initialBounds[3]) / 2,
           ]
         : [-91.5, 37.8], // Center of Missouri
-      zoom: initialBounds ? 8 : 7,
-      bounds: initialBounds
+      zoom: urlCam ? urlCam.z : initialBounds ? 8 : 7,
+      bounds: !urlCam && initialBounds
         ? new maplibregl.LngLatBounds(
             [initialBounds[0], initialBounds[1]],
             [initialBounds[2], initialBounds[3]]
@@ -396,6 +439,24 @@ export default function MapContainer({
         padding: 50,
       },
     });
+    if (urlCam) {
+      urlCamAppliedRef.current = true;
+      pendingUrlCamRef.current = null; // consumed — recreations use bounds
+    }
+
+    // Mirror the camera into the URL after every settled movement (pan,
+    // zoom, fitBounds), replaceState so history doesn't stack per pan.
+    if (syncCameraToUrl) {
+      map.current.on('moveend', () => {
+        if (!map.current) return;
+        const c = map.current.getCenter();
+        const url = new URL(window.location.href);
+        url.searchParams.set('lat', c.lat.toFixed(5));
+        url.searchParams.set('lng', c.lng.toFixed(5));
+        url.searchParams.set('z', map.current.getZoom().toFixed(2));
+        window.history.replaceState(window.history.state, '', url);
+      });
+    }
     
     // Persistent per-style treatment — fires on the initial load AND every
     // setStyle() switch (styleKeyRef, not a captured key, so it never goes
@@ -452,10 +513,18 @@ export default function MapContainer({
         map.current = null;
       }
     };
-  }, [initialBounds, cooperativeGestures]);
+  }, [initialBounds, cooperativeGestures, syncCameraToUrl]);
 
   useEffect(() => {
     if (!map.current || !initialBounds) return;
+
+    // The first bounds fit after a deep-linked camera would stomp the very
+    // view the link encoded — skip it once. Every later bounds change
+    // (picking a different river) fits normally.
+    if (firstBoundsFitRef.current) {
+      firstBoundsFitRef.current = false;
+      if (urlCamAppliedRef.current) return;
+    }
 
     const bounds = new maplibregl.LngLatBounds(
       [initialBounds[0], initialBounds[1]],

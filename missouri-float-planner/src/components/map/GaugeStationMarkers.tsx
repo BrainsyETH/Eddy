@@ -9,6 +9,7 @@ import maplibregl from 'maplibre-gl';
 import { Droplets, AlertTriangle } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
+import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { computeCondition } from '@/lib/conditions';
@@ -86,6 +87,11 @@ export default function GaugeStationMarkers({
     markersRef.current = [];
     popupsRef.current = [];
     rootsRef.current = [];
+
+    // Zoom-aware sizing (see ./marker-zoom.ts): gauges for other rivers
+    // compact at state framing; highlighted ones (selected river, nearest
+    // to put-in) stay pinned at full prominence.
+    const zoomFadeEntries: ZoomFadeEntry[] = [];
 
     // Create markers for each gauge
     gauges.forEach((gauge) => {
@@ -318,10 +324,14 @@ export default function GaugeStationMarkers({
 
       markersRef.current.push(marker);
       popupsRef.current.push(popup);
+      zoomFadeEntries.push({ el, circle, pinned: isHighlighted });
     });
+
+    const detachZoomFade = attachMarkerZoomFade(map, zoomFadeEntries);
 
     // Cleanup
     return () => {
+      detachZoomFade();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
       rootsRef.current.forEach((root) => root.unmount());
