@@ -329,6 +329,17 @@ export default function SocialAdminPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [videoPreviewPost, setVideoPreviewPost] = useState<SocialPost | null>(null);
 
+  // TikTok connection status
+  const [tiktokStatus, setTiktokStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    openId: string | null;
+    accessTokenExpiresAt: string | null;
+    refreshTokenExpiresAt: string | null;
+    scope: string | null;
+  } | null>(null);
+  const [tiktokBusy, setTiktokBusy] = useState(false);
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -415,6 +426,49 @@ export default function SocialAdminPage() {
     }
   }, []);
 
+  const fetchTikTokStatus = useCallback(async () => {
+    try {
+      const res = await adminFetch(`/api/admin/social/tiktok/status?_t=${Date.now()}`);
+      if (res.ok) setTiktokStatus(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch TikTok status:', err);
+    }
+  }, []);
+
+  const connectTikTok = async () => {
+    setTiktokBusy(true);
+    try {
+      const res = await adminFetch('/api/admin/social/tiktok/connect');
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        window.location.href = data.url; // hand off to TikTok's authorize page
+      } else {
+        showToast(data.error || 'Could not start TikTok connect', 'error');
+        setTiktokBusy(false);
+      }
+    } catch {
+      showToast('Could not start TikTok connect', 'error');
+      setTiktokBusy(false);
+    }
+  };
+
+  const disconnectTikTok = async () => {
+    setTiktokBusy(true);
+    try {
+      const res = await adminFetch('/api/admin/social/tiktok/status', { method: 'DELETE' });
+      if (res.ok) {
+        showToast('TikTok disconnected', 'success');
+        fetchTikTokStatus();
+      } else {
+        showToast('Failed to disconnect TikTok', 'error');
+      }
+    } catch {
+      showToast('Failed to disconnect TikTok', 'error');
+    } finally {
+      setTiktokBusy(false);
+    }
+  };
+
   const runPreflight = useCallback(async () => {
     setPreflightChecking(true);
     try {
@@ -438,6 +492,13 @@ export default function SocialAdminPage() {
     Promise.all([fetchConfig(), fetchPosts(), fetchContent(), fetchRivers(), fetchHealth()]).finally(() =>
       setLoading(false)
     );
+    fetchTikTokStatus();
+    // Surface the TikTok OAuth round-trip result (set by the callback redirect).
+    const p = new URLSearchParams(window.location.search);
+    const tk = p.get('tiktok');
+    if (tk === 'connected') showToast('TikTok connected', 'success');
+    else if (tk === 'error') showToast(`TikTok connect failed: ${p.get('reason') || 'unknown'}`, 'error');
+    if (tk) window.history.replaceState({}, '', window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1215,6 +1276,53 @@ export default function SocialAdminPage() {
 
                   <div className={`text-sm font-medium ${config.posting_enabled ? 'text-green-400' : 'text-red-400'}`}>
                     {config.posting_enabled ? 'Active - Posts will be published automatically' : 'Paused - No posts will be published'}
+                  </div>
+                </div>
+
+                {/* TikTok connection */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">TikTok</h3>
+                      <p className="text-sm text-neutral-400">
+                        Reels are uploaded to your TikTok inbox as drafts; finish &amp; post them in the app.
+                        Capped at 5 drafts / 24h.
+                      </p>
+                    </div>
+                    {tiktokStatus?.connected ? (
+                      <button
+                        onClick={disconnectTikTok}
+                        disabled={tiktokBusy}
+                        className="px-4 py-2 text-sm rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        onClick={connectTikTok}
+                        disabled={tiktokBusy || !tiktokStatus?.configured}
+                        className="px-4 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 disabled:opacity-50"
+                        title={tiktokStatus?.configured ? '' : 'Set TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET first'}
+                      >
+                        {tiktokBusy ? 'Connecting…' : 'Connect TikTok'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-3 text-sm">
+                    {!tiktokStatus ? (
+                      <span className="text-neutral-500">Checking…</span>
+                    ) : !tiktokStatus.configured ? (
+                      <span className="text-amber-400">App not configured — set TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET.</span>
+                    ) : tiktokStatus.connected ? (
+                      <span className="text-green-400">
+                        Connected{tiktokStatus.openId ? ` (open_id ${tiktokStatus.openId.slice(0, 8)}…)` : ''}
+                        {tiktokStatus.refreshTokenExpiresAt
+                          ? ` · re-auth by ${new Date(tiktokStatus.refreshTokenExpiresAt).toLocaleDateString()}`
+                          : ''}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">Not connected.</span>
+                    )}
                   </div>
                 </div>
 

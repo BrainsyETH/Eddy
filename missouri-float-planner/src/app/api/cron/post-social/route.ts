@@ -9,10 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
-import { FacebookAdapter } from '@/lib/social/facebook-adapter';
-import { InstagramAdapter } from '@/lib/social/instagram-adapter';
-import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
-import type { PlatformAdapter, SocialPlatform, ScheduledPost } from '@/lib/social/types';
+import { getAdapter } from '@/lib/social/adapters';
+import type { SocialPlatform, ScheduledPost } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { buildPostContext } from '@/lib/social/post-context';
@@ -37,12 +35,6 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
     eddyUpdateId: post.eddyUpdateId ?? undefined,
   });
   return ctx?.renderData ?? {};
-}
-
-function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
-  if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
-  if (platform === 'instagram' && hasInstagramCredentials()) return new InstagramAdapter();
-  return null;
 }
 
 // Link a clip post back to its clip_library row by matching the rendered video

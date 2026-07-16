@@ -6,6 +6,7 @@
 // Stores results on social_posts rows.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { SocialPlatform } from './types';
 
 const LOG_PREFIX = '[InsightsFetcher]';
 
@@ -22,8 +23,11 @@ interface PostInsights {
  */
 async function fetchPostInsights(
   platformPostId: string,
-  platform: 'instagram' | 'facebook',
+  platform: SocialPlatform,
 ): Promise<PostInsights | null> {
+  // TikTok analytics require a separate API (TikTok Business/Display) — not
+  // implemented in v1. Meta-only below.
+  if (platform === 'tiktok') return null;
   const token = process.env.META_PAGE_ACCESS_TOKEN;
   if (!token) return null;
 
@@ -119,6 +123,7 @@ export async function fetchAllPendingInsights(): Promise<{
     .from('social_posts')
     .select('id, platform_post_id, platform')
     .eq('status', 'published')
+    .neq('platform', 'tiktok') // no TikTok analytics API in v1
     .not('platform_post_id', 'is', null)
     .gte('published_at', sevenDaysAgo)
     .or(`insights_fetched_at.is.null,insights_fetched_at.lt.${oneDayAgo}`)
@@ -136,7 +141,7 @@ export async function fetchAllPendingInsights(): Promise<{
 
     const insights = await fetchPostInsights(
       post.platform_post_id!,
-      post.platform as 'instagram' | 'facebook',
+      post.platform as SocialPlatform,
     );
 
     if (insights) {
