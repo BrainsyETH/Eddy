@@ -182,38 +182,38 @@ export default function GaugeStationMarkers({
         const t = gauge.thresholds.find(th => th.isPrimary) || gauge.thresholds[0];
         const tUnit = t.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
         thresholdHtml = `
-          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">
-            <p style="font-size: 11px; font-weight: 600; color: #c7b8a6; margin-bottom: 6px;">
+          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--color-border);">
+            <p style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 6px;">
               Thresholds (${t.riverName})
             </p>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
               ${t.levelOptimalMin !== null && t.levelOptimalMax !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.flowing};"></span>
-                  <span style="color: #a3a3a3;">Flowing:</span>
+                  <span style="color: var(--color-text-muted);">Flowing:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ${tUnit}</span>
+                <span style="color: var(--color-text-primary); text-align: right;">${t.levelOptimalMin}-${t.levelOptimalMax} ${tUnit}</span>
               ` : ''}
               ${t.levelLow !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.good};"></span>
-                  <span style="color: #a3a3a3;">Good:</span>
+                  <span style="color: var(--color-text-muted);">Good:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelLow} ${tUnit}</span>
+                <span style="color: var(--color-text-primary); text-align: right;">${t.levelLow} ${tUnit}</span>
               ` : ''}
               ${t.levelHigh !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.high};"></span>
-                  <span style="color: #a3a3a3;">High:</span>
+                  <span style="color: var(--color-text-muted);">High:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelHigh} ${tUnit}</span>
+                <span style="color: var(--color-text-primary); text-align: right;">${t.levelHigh} ${tUnit}</span>
               ` : ''}
               ${t.levelDangerous !== null ? `
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: ${CONDITION_COLORS.dangerous};"></span>
-                  <span style="color: #a3a3a3;">Dangerous:</span>
+                  <span style="color: var(--color-text-muted);">Dangerous:</span>
                 </div>
-                <span style="color: #ffffff; text-align: right;">${t.levelDangerous}+ ${tUnit}</span>
+                <span style="color: var(--color-text-primary); text-align: right;">${t.levelDangerous}+ ${tUnit}</span>
               ` : ''}
             </div>
           </div>
@@ -237,36 +237,36 @@ export default function GaugeStationMarkers({
       if (gauge.thresholds && gauge.thresholds.length > 0) {
         const riverNames = gauge.thresholds.map(t => t.riverName).join(', ');
         riversHtml = `
-          <p style="margin-top: 8px; font-size: 10px; color: #a3a3a3;">
+          <p style="margin-top: 8px; font-size: 10px; color: var(--color-text-muted);">
             Rivers: ${escapeHtml(riverNames)}
           </p>
         `;
       }
 
       const popupContent = `
-        <div style="padding: 12px; min-width: 200px; max-width: 280px; background: #161748; border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);">
+        <div style="padding: 12px; min-width: 200px; max-width: 280px;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${condition.color};"></span>
             <span style="font-size: 11px; font-weight: 600; color: ${condition.color};">${condition.label}</span>
-            ${ageText ? `<span style="margin-left: auto; font-size: 10px; color: #6b7280;">${ageText}</span>` : ''}
+            ${ageText ? `<span style="margin-left: auto; font-size: 10px; color: var(--color-text-muted);">${ageText}</span>` : ''}
           </div>
-          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: #ffffff; line-height: 1.3;">
+          <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: var(--color-text-primary); line-height: 1.3;">
             ${escapeHtml(gauge.name)}
           </h3>
-          <p style="margin: 0 0 8px 0; font-size: 11px; color: #6b7280;">
+          <p style="margin: 0 0 8px 0; font-size: 11px; color: var(--color-text-muted);">
             USGS ${gauge.usgsSiteId}
           </p>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
-            <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px;">
-              <p style="font-size: 10px; color: #a3a3a3; margin: 0 0 2px 0;">Gauge Height</p>
-              <p style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
+            <div style="background: var(--color-background); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px;">
+              <p style="font-size: 10px; color: var(--color-text-muted); margin: 0 0 2px 0;">Gauge Height</p>
+              <p style="font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0;">
                 ${gauge.gaugeHeightFt !== null ? `${gauge.gaugeHeightFt.toFixed(2)} ft` : 'N/A'}
               </p>
             </div>
-            <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px;">
-              <p style="font-size: 10px; color: #a3a3a3; margin: 0 0 2px 0;">Discharge</p>
-              <p style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
+            <div style="background: var(--color-background); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px;">
+              <p style="font-size: 10px; color: var(--color-text-muted); margin: 0 0 2px 0;">Discharge</p>
+              <p style="font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0;">
                 ${gauge.dischargeCfs !== null ? `${gauge.dischargeCfs.toLocaleString()} cfs` : 'N/A'}
               </p>
             </div>
@@ -276,8 +276,8 @@ export default function GaugeStationMarkers({
           ${riversHtml}
 
           ${isNearest ? `
-            <div style="margin-top: 8px; padding: 6px 8px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 6px;">
-              <p style="font-size: 10px; color: #60a5fa; margin: 0; font-weight: 600;">
+            <div style="margin-top: 8px; padding: 6px 8px; background: var(--color-primary-50); border: 1px solid var(--color-primary-200); border-radius: 6px;">
+              <p style="font-size: 10px; color: var(--color-primary-700); margin: 0; font-weight: 600;">
                 Nearest gauge to your put-in
               </p>
             </div>
