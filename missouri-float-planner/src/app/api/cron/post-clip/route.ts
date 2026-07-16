@@ -31,19 +31,33 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Oldest approved clips first; pick the first one not yet used in a post.
+  // Oldest approved, UNUSED clip first. The "unused" test MUST run in the query,
+  // not in JS after a fixed `.limit()`: clip_library only grows, so once the
+  // oldest N approved clips have all been posted, a `.limit(N)` window fills
+  // entirely with used clips and the JS find() below returns nothing — the cron
+  // silently no-ops ("backlog empty") while freshly-approved clips sit just past
+  // the window and never post. (That is exactly how clip posting stalled: 25
+  // approved clips were used, 5 newer approved clips waited at positions 26-30.)
+  // Filtering unused in-DB keeps selection O(1) no matter how many used clips
+  // accumulate. used_in_posts defaults to '{}' (see 00087_clip_library.sql), so
+  // "unused" means the empty array OR null.
   const { data: clips, error } = await supabase
     .from('clip_library')
     .select('*')
     .eq('brand_check_status', 'approved')
+    .not('clip_url', 'is', null)
+    .or('used_in_posts.is.null,used_in_posts.eq.{}')
     .order('created_at', { ascending: true })
-    .limit(25);
+    .limit(5);
 
   if (error) {
     console.error(`${LOG} query failed:`, error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // The query already restricts to unused clips that have a clip_url; this JS
+  // guard is a defensive backstop so a filter quirk can never surface a clip
+  // that was already posted.
   const next = (clips || []).find(
     (c: ClipRow) => c.clip_url && (!Array.isArray(c.used_in_posts) || c.used_in_posts.length === 0),
   );
