@@ -41,6 +41,7 @@ import Image from 'next/image';
 import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
 
+const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
@@ -96,7 +97,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   });
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
-  const { data: allGaugeStations } = useGaugeStations();
+  // Statewide gauges load only once the gauge layer is toggled on — the
+  // planner renders fine without them and /api/gauges is its slowest fetch.
+  const { data: allGaugeStations } = useGaugeStations({ enabled: showGauges });
   const { data: pois } = usePOIs(riverSlug);
   const { data: hazards } = useHazards(riverSlug);
   const { data: weather } = useWeather(riverSlug);
@@ -229,8 +232,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
         : null
     : null;
 
-  const forecastLat = selectedPutInPoint?.coordinates.lat ?? nearestGauge?.coordinates.lat ?? null;
-  const forecastLng = selectedPutInPoint?.coordinates.lng ?? nearestGauge?.coordinates.lng ?? null;
+  // Forecast anchor: put-in when chosen, else nearest gauge (only known
+  // once the gauge layer has been toggled on — gauges load lazily now),
+  // else the river's bounds centre. County-scale forecasts don't care
+  // about the few miles between these.
+  const boundsCenterLat = river?.bounds ? (river.bounds[1] + river.bounds[3]) / 2 : null;
+  const boundsCenterLng = river?.bounds ? (river.bounds[0] + river.bounds[2]) / 2 : null;
+  const forecastLat = selectedPutInPoint?.coordinates.lat ?? nearestGauge?.coordinates.lat ?? boundsCenterLat;
+  const forecastLng = selectedPutInPoint?.coordinates.lng ?? nearestGauge?.coordinates.lng ?? boundsCenterLng;
   const { data: forecast } = useForecastByCoords(forecastLat, forecastLng);
 
   const handleMarkerClick = useCallback((point: AccessPoint) => {
@@ -583,6 +592,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
+            {/* Statewide condition network under the route (hero river excluded) */}
+            <ConditionNetworkLayer excludeRiverId={river.id} />
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
@@ -685,6 +696,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {pois && pois.length > 0 && (
               <POIMarkers pois={pois} activeMileRange={activeMileRange} />
             )}
+            {/* Statewide condition network under the route (hero river excluded) */}
+            <ConditionNetworkLayer excludeRiverId={river.id} />
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}

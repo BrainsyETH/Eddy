@@ -30,16 +30,14 @@ import { useEffect, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt } from './layer-anchors';
-import { LINE_WIDTH, CASING_WIDTH, CASING_COLOR, HIT_WIDTH } from './line-style';
+import { LINE_WIDTH, CASING_WIDTH, CASING_COLOR, HIT_WIDTH, NO_DATA_WATER_COLOR } from './line-style';
 import { useConditions } from '@/hooks/useConditions';
 import { conditionChip } from '@shared/condition-system';
 import { escapeHtml } from '@/lib/escape-html';
 import type { RiverCondition } from '@/types/api';
 import type { GeoJSON } from 'geojson';
 
-// Featured-but-unrated: a step deeper than the basemap's #7db4c9 waterways
-// so the curated reach still reads as "the" river of the page.
-const NO_DATA_COLOR = '#4f97b5';
+const NO_DATA_COLOR = NO_DATA_WATER_COLOR;
 
 const SOURCE_ID = 'condition-river-source';
 const LAYER_ID = 'condition-river-layer';

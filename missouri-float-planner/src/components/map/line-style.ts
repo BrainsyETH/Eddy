@@ -36,3 +36,25 @@ export const HIT_WIDTH: maplibregl.ExpressionSpecification = [
 // Neutral casing: separates the line color from terrain/hillshade on the
 // light curated style and stays crisp on satellite.
 export const CASING_COLOR = 'rgba(255, 255, 255, 0.9)';
+
+// Featured-but-unrated water: a step deeper than the basemap's waterways so
+// a curated reach with no gauge data still reads as "an Eddy river" without
+// claiming a condition (gray reads as broken, not as "no data").
+export const NO_DATA_WATER_COLOR = '#4f97b5';
+
+// The statewide condition network draws every curated river; it sits UNDER
+// the focused river / route, so it's a step thinner.
+export const NETWORK_LINE_WIDTH: maplibregl.ExpressionSpecification = [
+  'interpolate', ['exponential', 1.5], ['zoom'],
+  7, 1.4,
+  10, 2.2,
+  13, 3.2,
+  16, 4.5,
+];
+export const NETWORK_CASING_WIDTH: maplibregl.ExpressionSpecification = [
+  'interpolate', ['exponential', 1.5], ['zoom'],
+  7, 2.8,
+  10, 4,
+  13, 5.4,
+  16, 7,
+];

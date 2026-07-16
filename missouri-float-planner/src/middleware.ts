@@ -10,6 +10,16 @@ import { updateSession } from '@/lib/supabase/middleware';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Public river guide pages are identical for every visitor and served
+  // via ISR (see app/rivers/[state]/[slug]/page.tsx). Skip the Supabase
+  // session refresh for them: it reads/writes auth cookies per request,
+  // which both adds latency and marks responses uncacheable at the CDN —
+  // the same reason api/usgs/ is excluded in the matcher below. Logged-in
+  // users' sessions still refresh on every other route they touch.
+  if (pathname === '/rivers' || pathname.startsWith('/rivers/')) {
+    return NextResponse.next();
+  }
+
   // Centralized admin API auth check (excludes login route only)
   if (pathname.startsWith('/api/admin') &&
       pathname !== '/api/admin/login') {
