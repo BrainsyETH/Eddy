@@ -116,6 +116,12 @@ interface MapContainerProps {
   showGauges?: boolean;
   onGaugeToggle?: (enabled: boolean) => void;
   showLegend?: boolean;
+  /**
+   * Show the route-direction legend rows (downstream/upstream greens).
+   * Pages that render ConditionRiverLayer instead of RouteLayer pass
+   * false so green only ever means one thing per surface.
+   */
+  legendRoute?: boolean;
   cooperativeGestures?: boolean;
 }
 
@@ -138,6 +144,7 @@ export default function MapContainer({
   showGauges = false,
   onGaugeToggle,
   showLegend = false,
+  legendRoute = true,
   cooperativeGestures = false,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -632,8 +639,12 @@ export default function MapContainer({
               <LegendItem color="#478559" label="Put-in" />
               <LegendItem color="#f95d9b" label="Take-out" />
               <LegendItem color="#c7b8a6" label="Access point" />
-              <LegendItem color="#22c55e" label="Route (downstream)" />
-              <LegendItem color="#ef4444" label="Route (upstream)" />
+              {legendRoute && (
+                <>
+                  <LegendItem color="#22c55e" label="Route (downstream)" />
+                  <LegendItem color="#ef4444" label="Route (upstream)" />
+                </>
+              )}
               <div className="mt-1 pt-1.5 border-t border-neutral-700">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                   Conditions

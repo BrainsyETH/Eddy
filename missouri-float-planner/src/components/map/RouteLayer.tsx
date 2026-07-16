@@ -13,27 +13,8 @@
 import { useEffect } from 'react';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt } from './layer-anchors';
+import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR } from './line-style';
 import type { GeoJSON } from 'geojson';
-
-// Zoom-interpolated widths (exponential 1.5 tracks how fast ground size
-// shrinks per zoom level). Casing reads as a ~2px halo around the line.
-const ROUTE_WIDTH: maplibregl.ExpressionSpecification = [
-  'interpolate', ['exponential', 1.5], ['zoom'],
-  7, 2,
-  10, 3.5,
-  13, 5.5,
-  16, 8,
-];
-const CASING_WIDTH: maplibregl.ExpressionSpecification = [
-  'interpolate', ['exponential', 1.5], ['zoom'],
-  7, 4,
-  10, 6.5,
-  13, 9,
-  16, 12.5,
-];
-// Neutral casing: separates the route color from terrain/hillshade on the
-// light curated style and stays crisp on satellite.
-const CASING_COLOR = 'rgba(255, 255, 255, 0.9)';
 
 interface RouteLayerProps {
   routeGeometry: GeoJSON.LineString | GeoJSON.Feature | null;
