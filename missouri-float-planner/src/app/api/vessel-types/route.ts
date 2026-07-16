@@ -54,4 +54,4 @@ async function _GET() {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.001', 'Vessel types data');
+export const GET = withX402Route(_GET, '/api/vessel-types');

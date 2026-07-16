@@ -6,9 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { FacebookAdapter } from '@/lib/social/facebook-adapter';
-import { InstagramAdapter } from '@/lib/social/instagram-adapter';
-import { hasMetaCredentials, hasInstagramCredentials } from '@/lib/social/meta-client';
+import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
 import { buildPostContext, type PostContext } from '@/lib/social/post-context';
@@ -17,12 +15,6 @@ import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 export const dynamic = 'force-dynamic';
 
 const BASE_URL = 'https://eddy.guide';
-
-function getAdapter(platform: SocialPlatform) {
-  if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
-  if (platform === 'instagram' && hasInstagramCredentials()) return new InstagramAdapter();
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request);

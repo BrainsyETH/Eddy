@@ -2,9 +2,7 @@
 // Shared logic for publishing an already-rendered clip_library clip to FB/IG.
 // Used by the admin "post clip" button and the twice-daily post-clip cron.
 
-import { FacebookAdapter } from './facebook-adapter';
-import { InstagramAdapter } from './instagram-adapter';
-import { hasMetaCredentials, hasInstagramCredentials } from './meta-client';
+import { getAdapter } from './adapters';
 import { generateCaption } from './caption-generator';
 import type { SocialPlatform, HookStyle } from './types';
 
@@ -30,12 +28,6 @@ export interface ClipPostResult {
   ok: boolean;
   caption: string;
   results: Array<{ platform: string; success: boolean; error?: string; postId?: string }>;
-}
-
-function getAdapter(platform: SocialPlatform) {
-  if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
-  if (platform === 'instagram' && hasInstagramCredentials()) return new InstagramAdapter();
-  return null;
 }
 
 // Tier 1 = a known Eddy river (river name + targeted hashtag + "plan your float

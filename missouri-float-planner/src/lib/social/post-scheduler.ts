@@ -13,6 +13,8 @@ import {
 import { pickNotableTrend } from './trend-picker';
 import { overlayLiveConditions } from './live-conditions';
 import { buildPostContext } from './post-context';
+import { getEnabledPlatforms } from './adapters';
+import { tiktokRemainingBudget } from './tiktok-cap';
 
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
@@ -178,6 +180,23 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   const cstDay = getLocalDay(schedulerZone);
   const todayKey = DAY_KEYS[cstDay];
 
+  // Platforms this run fans out to (FB/IG when Meta creds present; TikTok only
+  // when connected). All scheduled formats are video, so each post also goes to
+  // TikTok — but only while the rolling 24h TikTok draft budget lasts. `budget`
+  // is decremented per post that includes TikTok; once it hits 0, later posts in
+  // this run (and subsequent runs) get FB/IG only.
+  const enabledPlatforms = await getEnabledPlatforms(supabase);
+  const tiktokEnabled = enabledPlatforms.includes('tiktok');
+  const nonTiktokPlatforms = enabledPlatforms.filter((p) => p !== 'tiktok');
+  let tiktokBudget = tiktokEnabled ? await tiktokRemainingBudget(supabase) : 0;
+  const platformsForPost = (): SocialPlatform[] => {
+    if (tiktokEnabled && tiktokBudget > 0) {
+      tiktokBudget -= 1;
+      return [...nonTiktokPlatforms, 'tiktok'];
+    }
+    return nonTiktokPlatforms;
+  };
+
   // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
   {
     const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
@@ -210,7 +229,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         if (topRivers.length === 0) {
           console.log(`${LOG_PREFIX} Weekly forecast: no floatable rivers right now — skipping`);
         } else {
-          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          const platforms = platformsForPost();
           for (const platform of platforms) {
             const { caption, hashtags } = formatWeeklyForecastCaption(
               topRivers,
@@ -259,7 +278,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
         if (!ctx) {
           console.log(`${LOG_PREFIX} Float Pick: no live section and no evergreen favorite — skipping`);
         } else {
-          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          const platforms = platformsForPost();
           for (const platform of platforms) {
             const { caption, hashtags } = ctx.caption(platform, customContent);
             posts.push({
@@ -302,7 +321,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
           console.log(`${LOG_PREFIX} Weekly trend: no notable movement this week — skipping`);
         } else {
           const latest = updates.find((u) => u.river_slug === trend.riverSlug);
-          const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+          const platforms = platformsForPost();
           for (const platform of platforms) {
             const { caption, hashtags } = formatWeeklyTrendCaption(trend, customContent, platform);
             posts.push({
@@ -334,7 +353,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     } else if (!isDueNow(config.digest_time_cst) && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_cst} CST), skipping digest`);
     } else {
-      const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+      const platforms = platformsForPost();
       for (const platform of platforms) {
         const { caption, hashtags } = formatDailyDigestCaption(
           updates,
@@ -431,7 +450,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     diag.due_rivers.push(riverSlug);
 
     // Create posts for both platforms
-    const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+    const platforms = platformsForPost();
     // highlightMediaType computed above; non-null here (else loop is empty).
     for (const platform of platforms) {
       const { caption, hashtags } = formatRiverHighlightCaption(

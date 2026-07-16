@@ -124,4 +124,4 @@ async function _GET(
   }
 }
 
-export const GET = withX402Route<{ params: Promise<{ siteId: string }> }>(_GET, '$0.005', 'Gauge history data');
+export const GET = withX402Route<{ params: Promise<{ siteId: string }> }>(_GET, '/api/gauges/:siteId/history');

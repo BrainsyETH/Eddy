@@ -188,6 +188,7 @@ export async function fetchAllPendingInsights(): Promise<{
     .from('social_posts')
     .select('id, platform_post_id, platform, media_type')
     .eq('status', 'published')
+    .neq('platform', 'tiktok') // no TikTok analytics API in v1
     .not('platform_post_id', 'is', null)
     .gte('published_at', sevenDaysAgo)
     .or(`insights_fetched_at.is.null,insights_fetched_at.lt.${oneDayAgo}`)

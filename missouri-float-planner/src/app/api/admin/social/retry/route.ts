@@ -4,8 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
-import { FacebookAdapter } from '@/lib/social/facebook-adapter';
-import { InstagramAdapter } from '@/lib/social/instagram-adapter';
+import { getAdapter } from '@/lib/social/adapters';
+import type { SocialPlatform } from '@/lib/social/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +36,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Only failed posts can be retried' }, { status: 400 });
   }
 
-  const adapter = post.platform === 'facebook'
-    ? new FacebookAdapter()
-    : new InstagramAdapter();
+  const adapter = getAdapter(post.platform as SocialPlatform);
+  if (!adapter) {
+    return NextResponse.json(
+      { error: `No adapter/credentials configured for platform "${post.platform}"` },
+      { status: 400 },
+    );
+  }
 
   // Mark as publishing
   await supabase

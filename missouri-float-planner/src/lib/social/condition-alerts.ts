@@ -12,9 +12,8 @@
 // gauges on the same river collapse to a single most-severe entry.
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { FacebookAdapter } from './facebook-adapter';
-import { InstagramAdapter } from './instagram-adapter';
-import { hasMetaCredentials, hasInstagramCredentials } from './meta-client';
+import { getAdapter, getEnabledPlatforms } from './adapters';
+import { tiktokCapReached } from './tiktok-cap';
 import {
   formatConditionChangeCaption,
   formatStormDigestCaption,
@@ -23,7 +22,7 @@ import {
 import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from '@shared/condition-copy';
 import { getOrCreateConfig } from './config-helpers';
 import { triggerVideoRender } from './video-renderer';
-import type { SocialPlatform, PlatformAdapter } from './types';
+import type { SocialPlatform } from './types';
 
 const LOG_PREFIX = '[ConditionAlert]';
 
@@ -71,12 +70,6 @@ function classifyTransition(oldCondition: string, newCondition: string): AlertKi
   if (isNotableTransition(oldCondition, newCondition)) return 'warning';
   if (isEasingTransition(oldCondition, newCondition)) return 'easing';
   if (isRecoveryTransition(oldCondition, newCondition)) return 'recovery';
-  return null;
-}
-
-function getAdapter(platform: SocialPlatform): PlatformAdapter | null {
-  if (platform === 'facebook' && hasMetaCredentials()) return new FacebookAdapter();
-  if (platform === 'instagram' && hasInstagramCredentials()) return new InstagramAdapter();
   return null;
 }
 
@@ -265,7 +258,12 @@ export async function publishConditionChangeAlert(params: {
 
   const asVideo = config.video_features?.condition_alerts_as_video === true;
   const baseUrl = 'https://eddy.guide';
-  const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+  let platforms = await getEnabledPlatforms(supabase);
+  // TikTok is video-only (v1 draft mode) and capped at 5 drafts/24h — drop it
+  // from image alerts or once the daily cap is hit. FB/IG are unaffected.
+  if (platforms.includes('tiktok') && (!asVideo || (await tiktokCapReached(supabase)))) {
+    platforms = platforms.filter((p) => p !== 'tiktok');
+  }
 
   const ctx = await loadGaugeContext(supabase, riverSlug, gaugeHeightFt);
   // Trend for trend-aware copy: a river receding from dangerous into high is
@@ -624,7 +622,8 @@ export async function publishStormDigest(
   if (!config?.posting_enabled) return { published: 0, skipped: true, reason: 'posting_disabled' };
 
   const baseUrl = 'https://eddy.guide';
-  const platforms: SocialPlatform[] = ['facebook', 'instagram'];
+  // Storm digests are image-only, so TikTok (video-only in v1) is excluded.
+  const platforms = (await getEnabledPlatforms(supabase)).filter((p) => p !== 'tiktok');
   const riversParam = encodeURIComponent(
     changes.map((c) => `${c.riverSlug}:${c.newCondition}`).join(','),
   );

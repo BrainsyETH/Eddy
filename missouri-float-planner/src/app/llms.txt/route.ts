@@ -46,7 +46,7 @@ All API endpoints return JSON. AI agents accessing the API programmatically shou
 - Data Export: ${BASE_URL}/api/export/rivers.json (complete dataset for RAG pipelines)
 
 ## x402 Payment Protocol
-API endpoints are gated for AI agents via the x402 payment protocol. See pricing and payment details at:
+API endpoints are metered for AI agents via the x402 payment protocol (V2), settled in USDC on Base (and optionally Solana). Agents that call the API receive an HTTP 402 with payment requirements (the \`accepts\` list) and pay per request; regular browsers and crawlers are never charged. Endpoints are discoverable via the x402 Bazaar. See the discovery manifest for networks, facilitator, and the per-route price table:
 - ${BASE_URL}/.well-known/x402
 
 Content pages (rivers, blog, gauges, about) are freely accessible to AI crawlers for indexing and grounding.

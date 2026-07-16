@@ -460,4 +460,4 @@ async function _GET(request: NextRequest) {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.001', 'Gauge stations data');
+export const GET = withX402Route(_GET, '/api/gauges');
