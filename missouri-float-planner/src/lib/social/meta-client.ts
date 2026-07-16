@@ -111,6 +111,51 @@ export async function publishToFacebook(params: {
   }
 }
 
+// Publish a LINK post to a Facebook Page. Facebook fetches the Open Graph card
+// (image + title + description) from the URL itself, so the whole post is one
+// clickable unit that drives traffic to the site — the right format for blog
+// promotion (a plain photo post with a bare URL in the caption is not clickable
+// and gets down-ranked). The returned id is a real feed post id
+// ({pageid}_{postid}), so insights work on it too.
+export async function publishLinkToFacebook(params: {
+  message: string;
+  link: string;
+}): Promise<{ success: boolean; postId?: string; error?: string }> {
+  const { accessToken, pageId } = getCredentials();
+
+  if (!accessToken || !pageId) {
+    return { success: false, error: 'Missing META_PAGE_ACCESS_TOKEN or META_PAGE_ID' };
+  }
+
+  try {
+    const feedBody = new URLSearchParams({
+      message: params.message,
+      link: params.link,
+      access_token: accessToken,
+    });
+
+    const feedResponse = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
+      method: 'POST',
+      body: feedBody,
+    });
+
+    const feedData = await feedResponse.json();
+
+    if (!feedResponse.ok) {
+      const apiError = feedData as MetaApiError;
+      const errorMsg = apiError.error?.message || `HTTP ${feedResponse.status}`;
+      console.error('[MetaClient] Facebook link post failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    return { success: true, postId: feedData.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[MetaClient] Facebook link publish error:', msg);
+    return { success: false, error: msg };
+  }
+}
+
 // Publish a photo post to Instagram (2-step container flow)
 export async function publishToInstagram(params: {
   caption: string;

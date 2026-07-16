@@ -13,6 +13,9 @@ export type PostType =
   | 'weekly_forecast'
   | 'section_guide'
   | 'weekly_trend'
+  // Weekly blog spotlight — a Facebook-only link post to a river-guide blog
+  // (drives site traffic; IG can't do clickable in-feed links).
+  | 'blog_feature'
   // Legacy values — no longer scheduled, kept so historical social_posts rows
   // still typecheck and render in admin. eddy_says merged into river_highlight;
   // favorite_float merged into section_guide (Float Pick).
