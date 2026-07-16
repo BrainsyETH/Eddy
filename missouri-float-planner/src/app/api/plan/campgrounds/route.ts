@@ -138,4 +138,4 @@ async function _GET(request: NextRequest) {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.01', 'Campgrounds data');
+export const GET = withX402Route(_GET, '/api/plan/campgrounds');

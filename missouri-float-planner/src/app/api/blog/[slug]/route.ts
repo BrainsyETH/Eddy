@@ -63,4 +63,4 @@ async function _GET(
   }
 }
 
-export const GET = withX402Route<{ params: Promise<{ slug: string }> }>(_GET, '$0.005', 'Blog post data');
+export const GET = withX402Route<{ params: Promise<{ slug: string }> }>(_GET, '/api/blog/:slug');

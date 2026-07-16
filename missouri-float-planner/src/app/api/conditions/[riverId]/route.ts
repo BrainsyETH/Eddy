@@ -491,4 +491,4 @@ async function _GET(
   }
 }
 
-export const GET = withX402Route<{ params: Promise<{ riverId: string }> }>(_GET, '$0.01', 'River conditions data');
+export const GET = withX402Route<{ params: Promise<{ riverId: string }> }>(_GET, '/api/conditions/:riverId');

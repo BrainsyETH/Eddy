@@ -797,4 +797,4 @@ async function _GET(request: NextRequest) {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.02', 'Float plan data');
+export const GET = withX402Route(_GET, '/api/plan');

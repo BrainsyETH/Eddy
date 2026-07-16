@@ -40,4 +40,4 @@ async function _GET(
   }
 }
 
-export const GET = withX402Route<{ params: Promise<{ riverSlug: string }> }>(_GET, '$0.01', 'River weather data');
+export const GET = withX402Route<{ params: Promise<{ riverSlug: string }> }>(_GET, '/api/weather/:riverSlug');

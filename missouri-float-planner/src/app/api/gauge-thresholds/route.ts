@@ -125,4 +125,4 @@ async function _GET() {
   }
 }
 
-export const GET = withX402Route(_GET, '$0.001', 'Gauge thresholds data');
+export const GET = withX402Route(_GET, '/api/gauge-thresholds');
