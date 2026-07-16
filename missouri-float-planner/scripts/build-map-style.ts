@@ -43,6 +43,7 @@ import { join } from 'path';
 
 const SOURCE_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const OUT_PATH = join(process.cwd(), 'public', 'map-styles', 'eddy-natural.json');
+const IMMERSIVE_OUT_PATH = join(process.cwd(), 'public', 'map-styles', 'eddy-immersive.json');
 
 // Minimal style-spec typing — we only touch what we transform.
 interface StyleLayer {
@@ -57,6 +58,9 @@ interface StyleLayer {
 interface StyleDoc {
   name?: string;
   metadata?: Record<string, unknown>;
+  sources?: Record<string, Record<string, unknown>>;
+  sprite?: unknown;
+  glyphs?: unknown;
   layers: StyleLayer[];
   [key: string]: unknown;
 }
@@ -169,11 +173,104 @@ function anchorLayer(id: string): StyleLayer {
   return { id, type: 'background', paint: { 'background-opacity': 0 } };
 }
 
+// ── Immersive style ─────────────────────────────────────────────────────
+// The "PaddleWays look": ESRI World Imagery with luminous water veins and
+// haloed labels drawn over it. Water here is neutral aqua CONTEXT — the
+// live condition colors come from the app's condition layers on top
+// (ConditionNetworkLayer / ConditionRiverLayer), which insert at the same
+// baked anchors this style carries. Assembled from a hand-picked subset
+// of Liberty's layers so widths/zoom behavior stay battle-tested.
+function buildImmersive(original: StyleDoc): StyleDoc {
+  const pick = (id: string): StyleLayer => {
+    const layer = original.layers.find((l) => l.id === id);
+    if (!layer) throw new Error(`immersive: liberty layer missing: ${id} — upstream style changed`);
+    return JSON.parse(JSON.stringify(layer)) as StyleLayer;
+  };
+  const repaint = (layer: StyleLayer, paint: Record<string, unknown>): StyleLayer => {
+    layer.paint = { ...(layer.paint ?? {}), ...paint };
+    return layer;
+  };
+
+  const DARK_HALO = {
+    'text-halo-color': 'rgba(9, 22, 28, 0.9)',
+    'text-halo-width': 1.6,
+    'text-halo-blur': 1,
+  };
+  const whiteLabel = (id: string, minzoom?: number): StyleLayer => {
+    const l = repaint(pick(id), { 'text-color': '#ffffff', ...DARK_HALO });
+    if (minzoom !== undefined) l.minzoom = Math.max(l.minzoom ?? 0, minzoom);
+    return l;
+  };
+
+  const layers: StyleLayer[] = [
+    // Dark base under the imagery while tiles stream in.
+    { id: 'background', type: 'background', paint: { 'background-color': '#0b1216' } },
+    {
+      id: 'esri-imagery',
+      type: 'raster',
+      source: 'esri-imagery',
+      minzoom: 0,
+      maxzoom: 22,
+    },
+    anchorLayer(ANCHOR_OVERLAYS),
+    // Water context: translucent fill + aqua veins over the imagery.
+    repaint(pick('water'), { 'fill-color': 'rgba(85, 176, 205, 0.38)' }),
+    repaint(pick('waterway_river'), { 'line-color': '#59c5e3', 'line-opacity': 0.9 }),
+    repaint(pick('waterway_other'), { 'line-color': '#6fd0ea', 'line-opacity': 0.85 }),
+    // State/county lines for orientation over imagery.
+    repaint(pick('boundary_3'), { 'line-color': 'rgba(255,255,255,0.35)' }),
+    repaint(pick('boundary_2'), { 'line-color': 'rgba(255,255,255,0.5)' }),
+    anchorLayer(ANCHOR_LINES),
+    // Labels: water names in pale aqua, places in white, all dark-haloed.
+    repaint(pick('waterway_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
+    repaint(pick('water_name_point_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
+    repaint(pick('water_name_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
+    whiteLabel('label_village'),
+    whiteLabel('label_town'),
+    whiteLabel('label_state'),
+    whiteLabel('label_city'),
+    whiteLabel('label_city_capital'),
+    // Interstate/US shields for orientation (sprite-based, minzoom-bumped).
+    (() => { const l = pick('highway-shield-us-interstate'); return l; })(),
+    (() => { const l = pick('road_shield_us'); l.minzoom = Math.max(l.minzoom ?? 0, 10); return l; })(),
+  ];
+
+  const openmaptiles = original.sources?.openmaptiles;
+  if (!openmaptiles) throw new Error('immersive: liberty openmaptiles source missing');
+
+  return {
+    version: 8,
+    name: 'Eddy Immersive',
+    metadata: {
+      'eddy:generated-by': 'scripts/build-map-style.ts',
+      'eddy:source': `${SOURCE_STYLE_URL} + ESRI World Imagery`,
+    },
+    sources: {
+      'esri-imagery': {
+        type: 'raster',
+        tiles: [
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        ],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution:
+          '&copy; Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN',
+      },
+      openmaptiles: JSON.parse(JSON.stringify(openmaptiles)),
+    },
+    sprite: original.sprite,
+    glyphs: original.glyphs,
+    layers,
+  } as unknown as StyleDoc;
+}
+
 async function main() {
   console.log(`fetching ${SOURCE_STYLE_URL} …`);
   const res = await fetch(SOURCE_STYLE_URL);
   if (!res.ok) throw new Error(`style fetch → ${res.status}`);
   const style = (await res.json()) as StyleDoc;
+  // Pristine copy for the immersive build — main() mutates `style` in place.
+  const original = JSON.parse(JSON.stringify(style)) as StyleDoc;
 
   let recolored = 0;
   const colorProps = ['fill-color', 'line-color', 'background-color', 'text-color', 'fill-outline-color'];
@@ -254,6 +351,13 @@ async function main() {
   writeFileSync(OUT_PATH, out);
   console.log(
     `wrote ${OUT_PATH} (${(out.length / 1024).toFixed(0)} KB, ${style.layers.length} layers, ${recolored} paints recolored)`,
+  );
+
+  const immersive = buildImmersive(original);
+  const immersiveOut = JSON.stringify(immersive, null, 2);
+  writeFileSync(IMMERSIVE_OUT_PATH, immersiveOut);
+  console.log(
+    `wrote ${IMMERSIVE_OUT_PATH} (${(immersiveOut.length / 1024).toFixed(0)} KB, ${immersive.layers.length} layers)`,
   );
 }
 

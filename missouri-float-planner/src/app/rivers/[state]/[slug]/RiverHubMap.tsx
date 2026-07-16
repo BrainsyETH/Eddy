@@ -33,6 +33,7 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMarkers'), { ssr: false });
 const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
+const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
 
 /** True once the element has come within `rootMargin` of the viewport —
  *  sticky, so the map never unmounts after the user scrolls past. */
@@ -76,6 +77,8 @@ export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
     >
       {near && river ? (
         <MapContainer initialBounds={river.bounds} showLegend={true} legendRoute={false} cooperativeGestures={true}>
+          {/* Mounted before ConditionRiverLayer so the hero river stacks above. */}
+          <ConditionNetworkLayer excludeRiverId={river.id} />
           {river.geometry && (
             <ConditionRiverLayer
               riverId={river.id}
