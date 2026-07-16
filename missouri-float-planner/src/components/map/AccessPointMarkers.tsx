@@ -9,6 +9,7 @@ import maplibregl from 'maplibre-gl';
 import { MapPin, Flag, FlagOff, type LucideIcon } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
+import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
 import type { AccessPoint } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
 
@@ -53,6 +54,11 @@ export default function AccessPointMarkers({
       ? accessPoints.find((point) => point.id === selectedPutIn)
       : null;
     const putInMile = selectedPutInPoint?.riverMile ?? null;
+
+    // Zoom-aware sizing (see ./marker-zoom.ts): neutral pins compact at
+    // state framing, full size once zoomed to the reach. Selected put-in/
+    // take-out stay pinned at full prominence.
+    const zoomFadeEntries: ZoomFadeEntry[] = [];
 
     // Create markers for each access point
     accessPoints.forEach((point) => {
@@ -286,10 +292,14 @@ export default function AccessPointMarkers({
 
       markersRef.current.push(marker);
       popupsRef.current.push(popup);
+      zoomFadeEntries.push({ el, circle, pinned: isPutIn || isTakeOut });
     });
+
+    const detachZoomFade = attachMarkerZoomFade(map, zoomFadeEntries);
 
     // Cleanup
     return () => {
+      detachZoomFade();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
       rootsRef.current.forEach((root) => root.unmount());

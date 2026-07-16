@@ -563,6 +563,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             showLegend={false}
             showGauges={showGauges}
             onGaugeToggle={setShowGauges}
+            syncCameraToUrl
           >
             {accessPoints && (
               <AccessPointMarkers
@@ -664,6 +665,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             showLegend={false}
             showGauges={showGauges}
             onGaugeToggle={setShowGauges}
+            syncCameraToUrl
           >
             {accessPoints && (
               <AccessPointMarkers

@@ -1,10 +1,19 @@
 'use client';
 
 // src/components/map/RouteLayer.tsx
-// Displays the selected float route on the map
+// Displays the selected float route on the map.
+//
+// Two crisp line layers — a neutral casing under a colored line — instead
+// of the old soft blurred glow. Widths interpolate across zoom so the
+// route stays readable from state framing (z7) to gravel-bar framing
+// (z16) instead of going hairline or chunky. Both layers insert at the
+// curated style's line anchor, BELOW every label: a route can never cover
+// a town name (see ./layer-anchors.ts).
 
 import { useEffect } from 'react';
 import { useMap } from './MapContainer';
+import { ANCHORS, addLayerAt } from './layer-anchors';
+import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR } from './line-style';
 import type { GeoJSON } from 'geojson';
 
 interface RouteLayerProps {
@@ -34,7 +43,7 @@ export default function RouteLayer({
 
     const routeSourceId = 'float-route-source';
     const routeLayerId = 'float-route-layer';
-    const routeGlowLayerId = 'float-route-glow-layer';
+    const routeCasingLayerId = 'float-route-casing-layer';
 
     // Helper to safely check if source exists
     const hasSource = (id: string): boolean => {
@@ -58,7 +67,7 @@ export default function RouteLayer({
     if (!routeGeometry) {
       try {
         if (hasLayer(routeLayerId)) map.removeLayer(routeLayerId);
-        if (hasLayer(routeGlowLayerId)) map.removeLayer(routeGlowLayerId);
+        if (hasLayer(routeCasingLayerId)) map.removeLayer(routeCasingLayerId);
         if (hasSource(routeSourceId)) map.removeSource(routeSourceId);
       } catch (err) {
         console.warn('Error removing route layers:', err);
@@ -73,7 +82,6 @@ export default function RouteLayer({
 
     // Route colors - green for downstream (valid), red for upstream (warning)
     const routeColor = isUpstream ? '#ef4444' : '#22c55e'; // red-500 or green-500
-    const glowColor = isUpstream ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
 
     // Add or update route source
     if (hasSource(routeSourceId)) {
@@ -83,12 +91,9 @@ export default function RouteLayer({
           geometry,
           properties: {},
         });
-        // Update colors if direction changed
+        // Update color if direction changed
         if (hasLayer(routeLayerId)) {
           map.setPaintProperty(routeLayerId, 'line-color', routeColor);
-        }
-        if (hasLayer(routeGlowLayerId)) {
-          map.setPaintProperty(routeGlowLayerId, 'line-color', glowColor);
         }
       } catch (err) {
         console.warn('Error updating route source:', err);
@@ -104,37 +109,41 @@ export default function RouteLayer({
           },
         });
 
-        // Route glow layer (underneath)
-        if (!hasLayer(routeGlowLayerId)) {
-          map.addLayer({
-            id: routeGlowLayerId,
+        // Casing first, then the line — both immediately before the line
+        // anchor, so the line stacks above its casing and both stay below
+        // labels.
+        if (!hasLayer(routeCasingLayerId)) {
+          addLayerAt(map, {
+            id: routeCasingLayerId,
             type: 'line',
             source: routeSourceId,
             paint: {
-              'line-color': glowColor,
-              'line-width': 14,
-              'line-opacity': 0.6,
-              'line-blur': 4,
+              'line-color': CASING_COLOR,
+              'line-width': CASING_WIDTH,
             },
-          });
+            layout: {
+              'line-cap': 'round',
+              'line-join': 'round',
+            },
+          }, ANCHORS.lines);
         }
 
         // Main route line
         if (!hasLayer(routeLayerId)) {
-          map.addLayer({
+          addLayerAt(map, {
             id: routeLayerId,
             type: 'line',
             source: routeSourceId,
             paint: {
               'line-color': routeColor,
-              'line-width': 5,
+              'line-width': ROUTE_WIDTH,
               'line-opacity': 1,
             },
             layout: {
               'line-cap': 'round',
               'line-join': 'round',
             },
-          });
+          }, ANCHORS.lines);
         }
       } catch (err) {
         console.warn('Error adding route source/layers:', err);
@@ -145,7 +154,7 @@ export default function RouteLayer({
     return () => {
       try {
         if (hasLayer(routeLayerId)) map.removeLayer(routeLayerId);
-        if (hasLayer(routeGlowLayerId)) map.removeLayer(routeGlowLayerId);
+        if (hasLayer(routeCasingLayerId)) map.removeLayer(routeCasingLayerId);
         if (hasSource(routeSourceId)) map.removeSource(routeSourceId);
       } catch {
         // Ignore cleanup errors
