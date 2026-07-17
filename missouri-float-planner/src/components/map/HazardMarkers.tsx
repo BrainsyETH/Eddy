@@ -139,6 +139,12 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
         el.addEventListener('mouseleave', () => {
           popup.remove();
         });
+        // Click pins the card and must not fall through to the river
+        // line's hit layer beneath (its popup would replace this one).
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          presentPopup(map, popup, [lng, lat]);
+        });
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();

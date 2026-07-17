@@ -37,8 +37,12 @@ export interface RenderData {
   riverSlug?: string;
   conditionCode?: string;
   gaugeHeightFt?: number | null;
+  /** Ft thresholds for the gauge instrument. Absent (no trustworthy ft data,
+   *  e.g. a CFS-primary gauge) → the reel renders a level-only bar. */
   optimalMin?: number;
   optimalMax?: number;
+  levelHigh?: number;
+  levelDangerous?: number;
   quoteText?: string;
   summaryText?: string;
   rivers?: Array<{
@@ -171,8 +175,12 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       riverName: data.riverName || 'Unknown River',
       conditionCode: data.conditionCode || 'unknown',
       gaugeHeightFt: data.gaugeHeightFt ?? 0,
-      optimalMin: data.optimalMin ?? 1.5,
-      optimalMax: data.optimalMax ?? 4.0,
+      // No invented defaults: absent thresholds render a level-only bar rather
+      // than a fake 1.5–4.0 "GOOD" band that can contradict the condition.
+      optimalMin: data.optimalMin,
+      optimalMax: data.optimalMax,
+      levelHigh: data.levelHigh,
+      levelDangerous: data.levelDangerous,
       quoteText: data.quoteText || data.summaryText || '',
       dateLabel: data.dateLabel || defaultDate(),
       eyebrow: 'Eddy Says',

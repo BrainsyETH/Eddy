@@ -176,6 +176,12 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
         el.addEventListener('mouseleave', () => {
           popup.remove();
         });
+        // Click pins the card and must not fall through to the river
+        // line's hit layer beneath (its popup would replace this one).
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          presentPopup(map, popup, [poi.longitude, poi.latitude]);
+        });
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();

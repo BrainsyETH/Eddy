@@ -21,10 +21,11 @@
 // keeps the page's hero river out of the network so the two never
 // double-draw.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { simplifyLine, LABEL_SIMPLIFY_TOLERANCE } from './simplify';
 import {
   LINE_WIDTH,
   NETWORK_LINE_WIDTH,
@@ -36,6 +37,7 @@ import type { ConditionCode } from '@shared/condition-system';
 import { useConditionNetwork } from '@/hooks/useStatewideConditions';
 
 const SOURCE_ID = 'condition-network-source';
+const LABEL_SOURCE_ID = 'condition-network-label-source';
 const LINE_LAYER_ID = 'condition-network-layer';
 const CASING_LAYER_ID = 'condition-network-casing-layer';
 const HIGHLIGHT_LAYER_ID = 'condition-network-highlight-layer';
@@ -70,6 +72,24 @@ export default function ConditionNetworkLayer({
   // Bumped when a style transition finishes so the add-layers effect
   // retries (see whenStyleReady in ./layer-anchors).
   const [styleReadyTick, setStyleReadyTick] = useState(0);
+
+  // Labels ride SIMPLIFIED shadow lines: full-res NHD meanders defeat
+  // MapLibre's line placement (every attempt trips text-max-angle), which
+  // left river names invisible even at top collision priority. See
+  // ./simplify.ts.
+  const labelCollection = useMemo(() => {
+    if (!collection) return null;
+    return {
+      type: 'FeatureCollection' as const,
+      features: collection.features.map((f) => ({
+        ...f,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: simplifyLine(f.geometry.coordinates, LABEL_SIMPLIFY_TOLERANCE),
+        },
+      })),
+    };
+  }, [collection]);
 
   useEffect(() => {
     if (!map || !collection) return;
@@ -135,28 +155,40 @@ export default function ConditionNetworkLayer({
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       }, ANCHORS.lines);
 
-      // River names along the lines, so rivers are identifiable (and
-      // clickable) without the dropdown. White with a dark halo reads on
-      // both the light Natural style and satellite imagery.
-      if (showLabels) addLayerAt(map, {
-        id: LABEL_LAYER_ID,
-        type: 'symbol',
-        source: SOURCE_ID,
-        layout: {
-          'symbol-placement': 'line',
-          'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Italic'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 13, 14],
-          'text-letter-spacing': 0.04,
-          'text-max-angle': 30,
-        },
-        paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(9, 22, 28, 0.85)',
-          'text-halo-width': 1.4,
-          'text-halo-blur': 1,
-        },
-      }, ANCHORS.lines);
+      // River names, so rivers are identifiable (and clickable) without
+      // the dropdown. White with a dark halo reads on both the light
+      // Natural style and satellite imagery. Two placement rules learned
+      // the hard way:
+      //  - TOP of the style (no anchor): MapLibre gives collision priority
+      //    to the topmost symbol layers; anchored below the basemap's own
+      //    waterway labels, our names lost every contest.
+      //  - SIMPLIFIED shadow source: full-res NHD meanders trip
+      //    text-max-angle on nearly every line placement (the basemap's
+      //    own water names vanish the same way), so labels lay along the
+      //    smoothed course instead.
+      if (showLabels && labelCollection) {
+        map.addSource(LABEL_SOURCE_ID, { type: 'geojson', data: labelCollection });
+        map.addLayer({
+          id: LABEL_LAYER_ID,
+          type: 'symbol',
+          source: LABEL_SOURCE_ID,
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': 350,
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Italic'],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 13, 14],
+            'text-letter-spacing': 0.04,
+            'text-max-angle': 45,
+          },
+          paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(9, 22, 28, 0.85)',
+            'text-halo-width': 1.4,
+            'text-halo-blur': 1,
+          },
+        });
+      }
     } catch (err) {
       console.warn('Error adding condition network layers:', err);
     }
@@ -167,11 +199,12 @@ export default function ConditionNetworkLayer({
           if (hasLayer(id)) map.removeLayer(id);
         }
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        if (map.getSource(LABEL_SOURCE_ID)) map.removeSource(LABEL_SOURCE_ID);
       } catch {
         // Ignore cleanup errors
       }
     };
-  }, [map, collection, styleReadyTick, showLabels]);
+  }, [map, collection, labelCollection, styleReadyTick, showLabels]);
 
   // Condition filter from the Filters panel's legend chips. setFilter on
   // the existing layers (cheap) rather than rebuilding the source; deps

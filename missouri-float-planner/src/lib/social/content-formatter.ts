@@ -11,7 +11,7 @@ import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weath
 import { toNum } from '@/lib/utils/num';
 // Long display names ("Current River", "Huzzah Creek") — shared with the OG
 // covers + reels via river-display so a rename can't drift across surfaces.
-import { riverDisplayLong } from './river-display';
+import { riverDisplayLong, riverDisplayShort } from './river-display';
 
 // ---------------------------------------------------------------------------
 // Canonical link builder — river pages live at /rivers/<slug>. Building bare
@@ -39,7 +39,28 @@ const RIVER_SHORT_NAMES: Record<string, string> = {
   gasconade: 'the Gasconade',
   black: 'the Black',
   bourbeuse: 'the Bourbeuse',
+  'big-river': 'Big River',
+  'st-francis': 'the St. Francis',
+  buffalo: 'the Buffalo',
+  elk: 'the Elk',
+  james: 'the James',
+  'north-fork-white': 'the North Fork',
+  'bryant-creek': 'Bryant Creek',
+  'crooked-creek': 'Crooked Creek',
+  'kings-river': 'the Kings',
+  mulberry: 'the Mulberry',
+  'caddo-river': 'the Caddo',
+  'spring-river': 'the Spring River',
+  'spring-river-mo': 'the Spring River',
+  'war-eagle-creek': 'War Eagle Creek',
 };
+
+/** Casual prose name with a NEVER-raw-slug fallback: an unmapped slug degrades
+ *  to the title-cased short display name ("big-river" → "Big River"), not the
+ *  slug itself (a published caption once read "HIGH WATER — big-river"). */
+function riverCasualName(slug: string): string {
+  return RIVER_SHORT_NAMES[slug] || riverDisplayShort(slug);
+}
 
 // Short condition labels for scannable digest lines — derived from the canonical
 // condition system (shared/condition-system.ts) so captions, cards, and video agree.
@@ -217,7 +238,7 @@ export function formatRiverHighlightCaption(
   customContent: SocialCustomContent[],
   platform: SocialPlatform
 ): { caption: string; hashtags: string[] } {
-  const riverName = RIVER_SHORT_NAMES[update.river_slug] || update.river_slug;
+  const riverName = riverCasualName(update.river_slug);
   const condition = update.condition_code;
   const emoji = CONDITION_EMOJI[condition] || '';
   const gauge = formatGauge(update.gauge_height_ft);
@@ -304,14 +325,14 @@ export function formatWeeklyForecastCaption(
   // Deterministic headline for the feed-preview fold.
   const names = topRivers
     .slice(0, 3)
-    .map((r) => RIVER_SHORT_NAMES[r.river_slug] || r.river_slug)
+    .map((r) => riverCasualName(r.river_slug))
     .join(', ');
   lines.push(holiday ? `${holiday.name} Weekend — ${names} 🛶` : `This Weekend — ${names} 🛶`);
   lines.push('');
 
   // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft · 78°/55° · Clear"
   for (const river of topRivers.slice(0, 3)) {
-    const name = RIVER_SHORT_NAMES[river.river_slug] || river.river_slug;
+    const name = riverCasualName(river.river_slug);
     const emoji = CONDITION_EMOJI[river.condition_code] || '';
     const label = SHORT_CONDITION_LABELS[river.condition_code] || 'Unknown';
     const gauge = formatGauge(river.gauge_height_ft);
@@ -635,7 +656,7 @@ export function formatConditionChangeCaption(params: {
   /** Which way the water is moving, so the body never says "risen" while falling. */
   trend?: TrendDir;
 }): { caption: string; hashtags: string[] } {
-  const riverName = RIVER_SHORT_NAMES[params.riverSlug] || params.riverSlug;
+  const riverName = riverCasualName(params.riverSlug);
   const isRecovery = params.kind === 'recovery';
   const trend: TrendDir = params.trend ?? 'steady';
   // Severity label shared with the OG cover + reel (shared/condition-copy.ts).
@@ -707,7 +728,7 @@ export function formatConditionChangeCaption(params: {
 export function formatStormDigestCaption(
   changes: Array<{ riverSlug: string; newCondition: string }>,
 ): { caption: string; hashtags: string[] } {
-  const names = changes.map((c) => RIVER_SHORT_NAMES[c.riverSlug] || c.riverSlug);
+  const names = changes.map((c) => riverCasualName(c.riverSlug));
   const shown = names.slice(0, 5).join(', ');
   const more = names.length > 5 ? ' and more' : '';
 
