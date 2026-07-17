@@ -81,6 +81,23 @@ Apply `supabase/migrations/00169_inbound_emails.sql` to create the
 To test signature rejection, `POST` to the endpoint without valid `svix-*`
 headers — it should return `401`/`400`, not `200`.
 
+## Replying
+
+Resend's dashboard only lets you *view* received mail — it has no compose/reply
+button. Replies are sent programmatically via the sending API, which the admin
+panel does for you:
+
+- Expand a message in **Feedback → Inbound Email** and click **Reply**. The reply
+  is sent from eddy.guide via `resend.emails.send()`, threaded to the original
+  (`In-Reply-To` / `References` headers), with the original quoted underneath.
+- **From address:** defaults to the eddy.guide address the message was delivered
+  to (e.g. a message to `hello@eddy.guide` is replied to *from* `hello@eddy.guide`).
+  If the message wasn't addressed to an eddy.guide address, set `RESEND_REPLY_FROM`.
+- **Requires the domain to be verified for _sending_** in Resend (DKIM/SPF), not
+  just receiving. Sending a reply also marks the message read and flags it
+  **Replied**.
+- Endpoint: `POST /api/admin/inbound-emails/[id]/reply`.
+
 ## Behavior notes
 
 - **Idempotent:** rows are upserted on `email_id` (`ignoreDuplicates`), so a

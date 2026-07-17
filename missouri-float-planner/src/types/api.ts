@@ -661,6 +661,7 @@ export interface InboundEmail {
   attachments: InboundEmailAttachmentMeta[];
   bodyFetched: boolean;
   status: InboundEmailStatus;
+  lastRepliedAt: string | null;
   resendCreatedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -674,6 +675,19 @@ export interface InboundEmailListResponse {
 
 export interface UpdateInboundEmailRequest {
   status?: InboundEmailStatus;
+}
+
+export interface ReplyInboundEmailRequest {
+  /** Plain-text reply body. */
+  body: string;
+  /** Optional From override; must be an address on the sending domain. */
+  from?: string;
+}
+
+export interface ReplyInboundEmailResponse {
+  email: InboundEmail;
+  /** Resend id of the sent reply. */
+  sendId: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────
