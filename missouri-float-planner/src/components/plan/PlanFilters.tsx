@@ -52,6 +52,12 @@ export interface PlanFiltersProps {
   /** Categories currently hidden (empty = all shown). */
   hiddenCategories: Set<string>;
   onToggleCategory: (category: string) => void;
+  /**
+   * Positioning of the root. Defaults to floating at the map's top-left;
+   * pass e.g. "relative" to slot it into an overlay stack alongside the
+   * weather widget so the two never overlap.
+   */
+  className?: string;
 }
 
 export default function PlanFilters({
@@ -62,6 +68,7 @@ export default function PlanFilters({
   availableCategories,
   hiddenCategories,
   onToggleCategory,
+  className = 'absolute top-4 left-4 z-30',
 }: PlanFiltersProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -89,7 +96,7 @@ export default function PlanFilters({
     (showNetwork ? 0 : 1) + (!showPOIs ? 1 : Math.min(hiddenCategories.size, categories.length));
 
   return (
-    <div ref={rootRef} className="absolute top-4 left-4 z-30">
+    <div ref={rootRef} className={className}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

@@ -21,11 +21,11 @@
 // keeps the page's hero river out of the network so the two never
 // double-draw.
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { useQuery } from '@tanstack/react-query';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt } from './layer-anchors';
+import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import {
   NETWORK_LINE_WIDTH,
   NETWORK_CASING_WIDTH,
@@ -44,6 +44,7 @@ const SOURCE_ID = 'condition-network-source';
 const LINE_LAYER_ID = 'condition-network-layer';
 const CASING_LAYER_ID = 'condition-network-casing-layer';
 const HIT_LAYER_ID = 'condition-network-hit-layer';
+const LABEL_LAYER_ID = 'condition-network-label-layer';
 
 function useConditionNetwork() {
   const dataset = useQuery<MODataset, Error>({
@@ -83,6 +84,9 @@ export default function ConditionNetworkLayer({
 }) {
   const map = useMap();
   const { rivers, gauges } = useConditionNetwork();
+  // Bumped when a style transition finishes so the add-layers effect
+  // retries (see whenStyleReady in ./layer-anchors).
+  const [styleReadyTick, setStyleReadyTick] = useState(0);
 
   // FeatureCollection with one condition-colored feature per curated river.
   // Same classification path the Observatory's scrubbed-day view uses:
@@ -113,7 +117,7 @@ export default function ConditionNetworkLayer({
         return {
           type: 'Feature' as const,
           geometry: r.geometry,
-          properties: { riverId: r.id, slug: r.slug, color },
+          properties: { riverId: r.id, slug: r.slug, name: r.name, color },
         };
       });
     if (!features.length) return null;
@@ -123,14 +127,13 @@ export default function ConditionNetworkLayer({
   useEffect(() => {
     if (!map || !collection) return;
 
-    if (!map.loaded()) {
-      const handleLoad = () => {
-        // Map loaded, effect will re-run
-      };
-      map.once('load', handleLoad);
-      return () => {
-        map.off('load', handleLoad);
-      };
+    // Style mid-transition (setStyle switch): retry once it settles. Never
+    // gate on map.loaded() — it's false while TILES stream, and the layers
+    // only need the style. (The old loaded()/once('load') gate is why
+    // condition layers silently never rendered: 'load' fires once per map
+    // lifetime, so data arriving during a tile stream hit a dead handler.)
+    if (!map.isStyleLoaded()) {
+      return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 
     const hasLayer = (id: string): boolean => {
@@ -172,13 +175,36 @@ export default function ConditionNetworkLayer({
         paint: { 'line-color': 'rgba(0,0,0,0)', 'line-width': HIT_WIDTH },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       }, ANCHORS.lines);
+
+      // River names along the lines, so rivers are identifiable (and
+      // clickable) without the dropdown. White with a dark halo reads on
+      // both the light Natural style and satellite imagery.
+      addLayerAt(map, {
+        id: LABEL_LAYER_ID,
+        type: 'symbol',
+        source: SOURCE_ID,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Italic'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 13, 14],
+          'text-letter-spacing': 0.04,
+          'text-max-angle': 30,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(9, 22, 28, 0.85)',
+          'text-halo-width': 1.4,
+          'text-halo-blur': 1,
+        },
+      }, ANCHORS.lines);
     } catch (err) {
       console.warn('Error adding condition network layers:', err);
     }
 
     return () => {
       try {
-        for (const id of [HIT_LAYER_ID, LINE_LAYER_ID, CASING_LAYER_ID]) {
+        for (const id of [LABEL_LAYER_ID, HIT_LAYER_ID, LINE_LAYER_ID, CASING_LAYER_ID]) {
           if (hasLayer(id)) map.removeLayer(id);
         }
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
@@ -186,7 +212,7 @@ export default function ConditionNetworkLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, collection]);
+  }, [map, collection, styleReadyTick]);
 
   // Click a context river to make it the active planner river. Kept in its
   // own effect (keyed on the callback) so re-binding never tears down the

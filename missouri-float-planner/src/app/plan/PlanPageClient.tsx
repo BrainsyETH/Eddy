@@ -515,7 +515,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               Plan a Float
             </h1>
             <p className="text-sm text-neutral-600 mb-3">
-              Pick a river to see access points, float times, and shuttle.
+              Tap any river on the map — colored by today&apos;s conditions —
+              or pick one from the list.
             </p>
             <RiverSwitcher
               currentSlug={null}
@@ -570,6 +571,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       {/* ─── DESKTOP: Split-panel layout ─── */}
       {isDesktop !== false && (
       <div className="hidden lg:flex overflow-hidden plan-viewport-h">
+        {/* Map-first: the sidebar column only exists once a put-in starts a
+            plan. Before that the map is full-bleed and the river switcher
+            floats on it (left overlay stack below). */}
+        {putInPoint && (
         <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col min-h-0">
           <div className="p-3 border-b border-neutral-200 bg-white">
             <RiverSwitcher
@@ -597,6 +602,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             captureRef={captureRef}
           />
         </div>
+        )}
 
         <div className="flex-1 relative">
           <MapContainer
@@ -641,17 +647,30 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
 
-          <PlanFilters
-            showNetwork={showNetwork}
-            onToggleNetwork={toggleNetwork}
-            showPOIs={showPOIs}
-            onTogglePOIs={togglePOIs}
-            availableCategories={availablePoiCategories}
-            hiddenCategories={hiddenPoiCategories}
-            onToggleCategory={togglePoiCategory}
-          />
-
-          <WeatherBug riverSlug={riverSlug} riverId={river.id} />
+          {/* Left overlay stack — river switcher (until a put-in starts the
+              plan), weather, filters. One column so they never overlap. */}
+          <div className="absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
+            {!putInPoint && (
+              <div className="w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
+                <RiverSwitcher
+                  currentSlug={riverSlug}
+                  rivers={rivers || []}
+                  onChange={handleRiverChange}
+                />
+              </div>
+            )}
+            <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="relative" />
+            <PlanFilters
+              showNetwork={showNetwork}
+              onToggleNetwork={toggleNetwork}
+              showPOIs={showPOIs}
+              onTogglePOIs={togglePOIs}
+              availableCategories={availablePoiCategories}
+              hiddenCategories={hiddenPoiCategories}
+              onToggleCategory={togglePoiCategory}
+              className="relative"
+            />
+          </div>
 
           <MapEddySays
             riverSlug={riverSlug}

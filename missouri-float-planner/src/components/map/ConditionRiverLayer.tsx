@@ -26,10 +26,10 @@
 // family: visually "a river we feature", without claiming a condition
 // (gray reads as broken, not as "no data").
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt } from './layer-anchors';
+import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { LINE_WIDTH, CASING_WIDTH, CASING_COLOR, HIT_WIDTH, NO_DATA_WATER_COLOR } from './line-style';
 import { useConditions } from '@/hooks/useConditions';
 import { conditionChip } from '@shared/condition-system';
@@ -108,6 +108,9 @@ export default function ConditionRiverLayer({
 }: ConditionRiverLayerProps) {
   const map = useMap();
   const { data: conditions } = useConditions(riverId);
+  // Bumped when a style transition finishes so the add-layers effect
+  // retries (see whenStyleReady in ./layer-anchors).
+  const [styleReadyTick, setStyleReadyTick] = useState(0);
 
   const condition = conditions?.condition ?? null;
   const color = useMemo(() => {
@@ -119,14 +122,12 @@ export default function ConditionRiverLayer({
   useEffect(() => {
     if (!map) return;
 
-    if (!map.loaded()) {
-      const handleLoad = () => {
-        // Map loaded, effect will re-run
-      };
-      map.once('load', handleLoad);
-      return () => {
-        map.off('load', handleLoad);
-      };
+    // Style mid-transition: retry once it settles. Never gate on
+    // map.loaded() — false while tiles stream, and 'load' fires only once
+    // per map lifetime (the old gate left this layer silently unrendered
+    // whenever conditions arrived during a tile stream).
+    if (!map.isStyleLoaded()) {
+      return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 
     const hasLayer = (id: string): boolean => {
@@ -182,13 +183,15 @@ export default function ConditionRiverLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, geometry, color]);
+  }, [map, geometry, color, styleReadyTick]);
 
   // Interaction lives in its own effect keyed on the popup inputs, so a
   // condition refresh updates the popup content without tearing down and
-  // re-adding the layers above.
+  // re-adding the layers above. No readiness gate: layer-scoped event
+  // handlers are delegated by id, so binding before the layer exists is
+  // safe and starts working the moment it's added.
   useEffect(() => {
-    if (!map || !map.loaded()) return;
+    if (!map) return;
 
     let popup: maplibregl.Popup | null = null;
 
