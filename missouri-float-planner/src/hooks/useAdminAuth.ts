@@ -9,6 +9,17 @@ import { useState, useEffect, useCallback } from 'react';
 const ADMIN_TOKEN_KEY = 'mfp_admin_token';
 const ADMIN_TOKEN_EXPIRY_KEY = 'mfp_admin_token_expiry';
 
+// Dispatched when an admin API call is rejected with 401, so AdminLayout can
+// drop back to the login screen instead of leaving the page stuck on a raw
+// "Unauthorized" error with a token the server no longer accepts.
+const ADMIN_AUTH_EXPIRED_EVENT = 'admin-auth-expired';
+
+function clearAdminToken(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  sessionStorage.removeItem(ADMIN_TOKEN_EXPIRY_KEY);
+}
+
 /**
  * Check if the stored token is still valid (not expired).
  */
@@ -35,6 +46,17 @@ export function useAdminAuth() {
 
   useEffect(() => {
     setIsAuthorized(isTokenValid());
+  }, []);
+
+  // When any admin API call 401s, adminFetch clears the token and fires this
+  // event — flip straight to the login screen so the user can re-auth.
+  useEffect(() => {
+    function handleExpired() {
+      setIsAuthorized(false);
+      setPassword('');
+    }
+    window.addEventListener(ADMIN_AUTH_EXPIRED_EVENT, handleExpired);
+    return () => window.removeEventListener(ADMIN_AUTH_EXPIRED_EVENT, handleExpired);
   }, []);
 
   // Auto-logout when token expires
@@ -99,8 +121,7 @@ export function useAdminAuth() {
   };
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-    sessionStorage.removeItem(ADMIN_TOKEN_EXPIRY_KEY);
+    clearAdminToken();
     setIsAuthorized(false);
     setPassword('');
   }, []);
@@ -142,5 +163,16 @@ export async function adminFetch(
   // created since the tab loaded has to appear on the next fetch, not after a
   // hard refresh. (This is why newly-added rivers were invisible in the
   // geography editor's river list.)
-  return fetch(url, { cache: 'no-store', ...options, headers });
+  const response = await fetch(url, { cache: 'no-store', ...options, headers });
+
+  // Auto-recover from a rejected token (expired session, or a token signed with
+  // a rotated/other-environment secret): drop it and signal AdminLayout to show
+  // the login screen. Without this the caller just renders "Unauthorized"
+  // forever while re-sending the same dead token on every retry.
+  if (response.status === 401 && typeof window !== 'undefined') {
+    clearAdminToken();
+    window.dispatchEvent(new Event(ADMIN_AUTH_EXPIRED_EVENT));
+  }
+
+  return response;
 }

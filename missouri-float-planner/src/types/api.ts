@@ -631,6 +631,52 @@ export interface UpdateFeedbackRequest {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Inbound Email API Types (mail received at *@eddy.guide via Resend)
+// ─────────────────────────────────────────────────────────────
+
+export type InboundEmailStatus = 'unread' | 'read' | 'archived' | 'spam';
+
+/** Attachment metadata from Resend (binary content is fetched on demand). */
+export interface InboundEmailAttachmentMeta {
+  id?: string;
+  filename?: string | null;
+  content_type?: string;
+  content_disposition?: string | null;
+  content_id?: string | null;
+}
+
+export interface InboundEmail {
+  id: string;
+  emailId: string;
+  messageId: string | null;
+  fromAddress: string | null;
+  toAddresses: string[];
+  ccAddresses: string[];
+  bccAddresses: string[];
+  receivedFor: string[];
+  replyTo: string[];
+  subject: string | null;
+  textBody: string | null;
+  htmlBody: string | null;
+  attachments: InboundEmailAttachmentMeta[];
+  bodyFetched: boolean;
+  status: InboundEmailStatus;
+  resendCreatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InboundEmailListResponse {
+  emails: InboundEmail[];
+  total: number;
+  unread: number;
+}
+
+export interface UpdateInboundEmailRequest {
+  status?: InboundEmailStatus;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Access Point Detail API Types
 // ─────────────────────────────────────────────────────────────
 

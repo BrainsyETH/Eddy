@@ -92,9 +92,14 @@ headers — it should return `401`/`400`, not `200`.
   the Attachments API (`resend.emails.receiving.attachments.get`).
 - **Access:** the table is admin-only (RLS `is_admin()`); only the webhook, via
   the service-role client, writes to it.
+- **Reading it:** received mail shows up in the admin panel under
+  **Feedback → Inbound Email** (`/admin/feedback`), with unread/read/archive/spam
+  triage and a Reply button. The tab shows a badge with the unread count.
 
 ## Files
 
 - `src/app/api/webhooks/resend/route.ts` — the webhook receiver
 - `src/lib/email/resend.ts` — shared Resend client
 - `supabase/migrations/00169_inbound_emails.sql` — the `inbound_emails` table
+- `src/app/api/admin/inbound-emails/route.ts` + `[id]/route.ts` — admin list / triage API
+- `src/components/admin/InboundEmailList.tsx` — the admin inbox UI (Feedback tab)

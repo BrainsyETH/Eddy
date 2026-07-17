@@ -6,9 +6,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
+import InboundEmailList from '@/components/admin/InboundEmailList';
 import {
   Flag,
   Mail,
+  Inbox,
   User,
   Clock,
   MapPin,
@@ -21,6 +23,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { Feedback, FeedbackStatus } from '@/types/api';
+
+type AdminInboxView = 'feedback' | 'email';
 
 const FEEDBACK_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   inaccurate_data: { label: 'Inaccurate Data', color: 'bg-red-500' },
@@ -38,12 +42,25 @@ const STATUS_OPTIONS: { value: FeedbackStatus; label: string; color: string }[] 
 ];
 
 export default function FeedbackAdminPage() {
+  const [view, setView] = useState<AdminInboxView>('feedback');
+  const [emailUnread, setEmailUnread] = useState(0);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('pending');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+
+  // Probe the unread-email count on mount so the Email sub-tab shows a badge
+  // before it's ever opened. Kept live afterwards by InboundEmailList.
+  useEffect(() => {
+    adminFetch('/api/admin/inbound-emails?status=unread&limit=1')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setEmailUnread(data.unread ?? 0);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchFeedback = useCallback(async () => {
     setLoading(true);
@@ -127,10 +144,45 @@ export default function FeedbackAdminPage() {
 
   return (
     <AdminLayout
-      title="Feedback"
-      description="Review user-submitted feedback and data reports"
+      title="Feedback & Email"
+      description="Review user-submitted feedback and mail received at eddy.guide"
     >
       <div className="p-6">
+        {/* Sub-tab switcher: user feedback vs. inbound email */}
+        <div className="flex items-center gap-1 mb-6 border-b border-neutral-700">
+          <button
+            onClick={() => setView('feedback')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              view === 'feedback'
+                ? 'border-primary-500 text-white'
+                : 'border-transparent text-neutral-400 hover:text-neutral-200'
+            }`}
+          >
+            <Flag className="w-4 h-4" />
+            Feedback
+          </button>
+          <button
+            onClick={() => setView('email')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              view === 'email'
+                ? 'border-primary-500 text-white'
+                : 'border-transparent text-neutral-400 hover:text-neutral-200'
+            }`}
+          >
+            <Inbox className="w-4 h-4" />
+            Inbound Email
+            {emailUnread > 0 && (
+              <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">
+                {emailUnread}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {view === 'email' && <InboundEmailList onUnreadChange={setEmailUnread} />}
+
+        {view === 'feedback' && (
+        <>
         {/* Filter Bar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -318,6 +370,8 @@ export default function FeedbackAdminPage() {
               );
             })}
           </div>
+        )}
+        </>
         )}
       </div>
     </AdminLayout>

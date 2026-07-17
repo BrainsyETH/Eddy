@@ -32,29 +32,37 @@ export function createAdminToken(): string {
   return `${expiresAt}.${signature}`;
 }
 
+// Machine-readable reason a token was rejected. Surfaced in server logs and the
+// 401 response body so an "always unauthorized" report can be pinned to a cause
+// (expired session vs. a token signed with a different/rotated secret vs. a
+// stale malformed token) instead of a blank "Unauthorized".
+type TokenRejection = 'malformed' | 'expired' | 'bad-signature';
+
 /**
- * Validates a time-limited admin token.
- * Returns true if the token is valid and not expired.
+ * Validates a time-limited admin token. Returns null when valid, otherwise a
+ * short reason describing why it was rejected.
  */
-function validateAdminToken(token: string): boolean {
+function validateAdminToken(token: string): TokenRejection | null {
   const secret = getAdminSecret();
-  if (!secret) return false;
+  if (!secret) return 'bad-signature';
 
   // NOTE: the legacy "raw secret as bearer token" path was removed — it never
   // expired and let the shared password be replayed indefinitely. Clients must
-  // now present a time-limited HMAC token from POST /api/admin/login.
+  // now present a time-limited HMAC token from POST /api/admin/login. A token
+  // minted by that old flow (or before a secret rotation) still lives in some
+  // browsers' sessionStorage and lands here as 'malformed'/'bad-signature'.
 
   // Validate time-limited token format: <expiry>.<signature>
   const dotIndex = token.indexOf('.');
-  if (dotIndex === -1) return false;
+  if (dotIndex === -1) return 'malformed';
 
   const expiresAt = parseInt(token.substring(0, dotIndex), 10);
   const signature = token.substring(dotIndex + 1);
 
-  if (isNaN(expiresAt)) return false;
+  if (isNaN(expiresAt)) return 'malformed';
 
   // Check expiration
-  if (Date.now() > expiresAt) return false;
+  if (Date.now() > expiresAt) return 'expired';
 
   // Verify signature
   const expectedSignature = createHmac('sha256', secret)
@@ -62,12 +70,12 @@ function validateAdminToken(token: string): boolean {
     .digest('hex');
 
   // Constant-time comparison to prevent timing attacks
-  if (signature.length !== expectedSignature.length) return false;
+  if (signature.length !== expectedSignature.length) return 'bad-signature';
   let mismatch = 0;
   for (let i = 0; i < signature.length; i++) {
     mismatch |= signature.charCodeAt(i) ^ expectedSignature.charCodeAt(i);
   }
-  return mismatch === 0;
+  return mismatch === 0 ? null : 'bad-signature';
 }
 
 /**
@@ -89,18 +97,31 @@ export function requireAdminAuth(request: NextRequest): NextResponse | null {
     );
   }
 
+  const path = request.nextUrl?.pathname;
+
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn(`[Admin Auth] Rejected ${path}: no Bearer token`);
     return NextResponse.json(
-      { error: 'Unauthorized' },
+      { error: 'Unauthorized', reason: 'no-token' },
       { status: 401 }
     );
   }
 
   const token = authHeader.substring(7);
-  if (!validateAdminToken(token)) {
+  const rejection = validateAdminToken(token);
+  if (rejection) {
+    // Distinct server log per cause: 'expired' is a normal 4h timeout, while a
+    // steady stream of 'bad-signature' points at an ADMIN_API_SECRET /
+    // ADMIN_PASSWORD mismatch between the deploy that minted the token and the
+    // one validating it (e.g. a rotated or per-environment secret).
+    console.warn(`[Admin Auth] Rejected ${path}: token ${rejection}`);
+    const message =
+      rejection === 'expired'
+        ? 'Unauthorized — session expired, please sign in again'
+        : 'Unauthorized — invalid token, please sign in again';
     return NextResponse.json(
-      { error: 'Unauthorized — session expired or invalid token' },
+      { error: message, reason: rejection },
       { status: 401 }
     );
   }
