@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { presentPopup } from './popup-manager';
 import { LINE_WIDTH, CASING_WIDTH, CASING_COLOR, HIT_WIDTH, NO_DATA_WATER_COLOR } from './line-style';
 import { useConditions } from '@/hooks/useConditions';
 import { conditionChip } from '@shared/condition-system';
@@ -43,6 +44,7 @@ const SOURCE_ID = 'condition-river-source';
 const LAYER_ID = 'condition-river-layer';
 const CASING_LAYER_ID = 'condition-river-casing-layer';
 const HIT_LAYER_ID = 'condition-river-hit-layer';
+const LABEL_LAYER_ID = 'condition-river-label-layer';
 
 function popupHtml(
   condition: RiverCondition | null,
@@ -98,6 +100,8 @@ interface ConditionRiverLayerProps {
   /** Enables the "Plan this float" popup link when provided. */
   riverSlug?: string;
   geometry: GeoJSON.LineString;
+  /** Line-placed name label on the reach (toggleable from Filters). */
+  showLabel?: boolean;
 }
 
 export default function ConditionRiverLayer({
@@ -105,6 +109,7 @@ export default function ConditionRiverLayer({
   riverName,
   riverSlug,
   geometry,
+  showLabel = true,
 }: ConditionRiverLayerProps) {
   const map = useMap();
   const { data: conditions } = useConditions(riverId);
@@ -141,7 +146,7 @@ export default function ConditionRiverLayer({
     try {
       map.addSource(SOURCE_ID, {
         type: 'geojson',
-        data: { type: 'Feature', geometry, properties: {} },
+        data: { type: 'Feature', geometry, properties: { name: riverName } },
       });
 
       // Casing → line → hit, each inserted immediately before the anchor,
@@ -169,13 +174,34 @@ export default function ConditionRiverLayer({
         paint: { 'line-color': 'rgba(0,0,0,0)', 'line-width': HIT_WIDTH },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       }, ANCHORS.lines);
+
+      // The hero river deserves a name too (the network layer excludes it).
+      if (showLabel) addLayerAt(map, {
+        id: LABEL_LAYER_ID,
+        type: 'symbol',
+        source: SOURCE_ID,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Italic'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 13, 15],
+          'text-letter-spacing': 0.04,
+          'text-max-angle': 30,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(9, 22, 28, 0.85)',
+          'text-halo-width': 1.4,
+          'text-halo-blur': 1,
+        },
+      }, ANCHORS.lines);
     } catch (err) {
       console.warn('Error adding condition river layers:', err);
     }
 
     return () => {
       try {
-        for (const id of [HIT_LAYER_ID, LAYER_ID, CASING_LAYER_ID]) {
+        for (const id of [LABEL_LAYER_ID, HIT_LAYER_ID, LAYER_ID, CASING_LAYER_ID]) {
           if (hasLayer(id)) map.removeLayer(id);
         }
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
@@ -183,7 +209,7 @@ export default function ConditionRiverLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, geometry, color, styleReadyTick]);
+  }, [map, geometry, color, styleReadyTick, showLabel, riverName]);
 
   // Interaction lives in its own effect keyed on the popup inputs, so a
   // condition refresh updates the popup content without tearing down and
@@ -204,9 +230,8 @@ export default function ConditionRiverLayer({
     const onClick = (e: maplibregl.MapLayerMouseEvent) => {
       popup?.remove();
       popup = new maplibregl.Popup({ offset: 10, maxWidth: '280px' })
-        .setLngLat(e.lngLat)
-        .setHTML(popupHtml(condition, riverName, planHref))
-        .addTo(map);
+        .setHTML(popupHtml(condition, riverName, planHref));
+      presentPopup(map, popup, e.lngLat);
     };
 
     map.on('mouseenter', HIT_LAYER_ID, onEnter);

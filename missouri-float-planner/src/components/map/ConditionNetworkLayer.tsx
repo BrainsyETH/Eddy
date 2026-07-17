@@ -45,6 +45,7 @@ const LABEL_LAYER_ID = 'condition-network-label-layer';
 export default function ConditionNetworkLayer({
   excludeRiverId,
   onSelectRiver,
+  showLabels = true,
 }: {
   /** The page's hero river — rendered by ConditionRiverLayer/RouteLayer
    *  instead, so the network skips it. */
@@ -52,6 +53,8 @@ export default function ConditionNetworkLayer({
   /** When set, each context river is clickable: clicking one activates it
    *  (the planner switches to that river). Enables a pointer cursor too. */
   onSelectRiver?: (slug: string) => void;
+  /** Line-placed river name labels (toggleable from the Filters panel). */
+  showLabels?: boolean;
 }) {
   const map = useMap();
   const { rivers, gauges } = useStatewideConditions();
@@ -150,7 +153,7 @@ export default function ConditionNetworkLayer({
       // River names along the lines, so rivers are identifiable (and
       // clickable) without the dropdown. White with a dark halo reads on
       // both the light Natural style and satellite imagery.
-      addLayerAt(map, {
+      if (showLabels) addLayerAt(map, {
         id: LABEL_LAYER_ID,
         type: 'symbol',
         source: SOURCE_ID,
@@ -183,7 +186,7 @@ export default function ConditionNetworkLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, collection, styleReadyTick]);
+  }, [map, collection, styleReadyTick, showLabels]);
 
   // Click a context river to make it the active planner river. Kept in its
   // own effect (keyed on the callback) so re-binding never tears down the

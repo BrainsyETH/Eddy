@@ -9,6 +9,7 @@ import maplibregl from 'maplibre-gl';
 import { Star, type LucideIcon, Droplets, Mountain, Landmark, Eye, CircleDot, Tent, Sailboat } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
+import { presentPopup } from './popup-manager';
 import type { PointOfInterest } from '@/types/nps';
 import { escapeHtml } from '@/lib/escape-html';
 
@@ -170,7 +171,7 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
 
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
-          popup.setLngLat([poi.longitude, poi.latitude]).addTo(map);
+          presentPopup(map, popup, [poi.longitude, poi.latitude]);
         });
         el.addEventListener('mouseleave', () => {
           popup.remove();
@@ -178,7 +179,7 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
-          popup.setLngLat([poi.longitude, poi.latitude]).addTo(map);
+          presentPopup(map, popup, [poi.longitude, poi.latitude]);
           map.once('click', () => popup.remove());
         });
       }

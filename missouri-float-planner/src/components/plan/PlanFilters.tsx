@@ -1,9 +1,12 @@
 'use client';
 
 // src/components/plan/PlanFilters.tsx
-// Plan-page map filter control. Lets the paddler decide what the map shows:
-// the statewide "nearby rivers" condition network on/off, and which
-// categories of points-of-interest to surface (outfitters, camps, springs…).
+// Plan-page map filter control — the single home for every DATA-layer
+// toggle: the statewide "nearby rivers" condition network, river name
+// labels, gauge stations, and which categories of points-of-interest to
+// surface (outfitters, camps, springs…). Map PRESENTATION controls (style,
+// radar, 3D, expand) stay on MapContainer's right-hand rail; content
+// belongs here so there is exactly one place to answer "what am I seeing?".
 //
 // State is owned by PlanPageClient and threaded in; this component is pure
 // presentation. POI filtering uses a HIDDEN-set model (empty = show all), so
@@ -14,6 +17,8 @@ import { useState, useRef, useEffect } from 'react';
 import {
   SlidersHorizontal,
   Waves,
+  Type,
+  Gauge,
   Sailboat,
   Tent,
   Droplets,
@@ -45,6 +50,12 @@ export interface PlanFiltersProps {
   /** Statewide condition network (every other river) on/off. */
   showNetwork: boolean;
   onToggleNetwork: () => void;
+  /** River name labels along the condition-colored lines. */
+  showRiverNames: boolean;
+  onToggleRiverNames: () => void;
+  /** USGS gauge station pins. */
+  showGauges: boolean;
+  onToggleGauges: () => void;
   /** Master POI visibility. */
   showPOIs: boolean;
   onTogglePOIs: () => void;
@@ -64,6 +75,10 @@ export interface PlanFiltersProps {
 export default function PlanFilters({
   showNetwork,
   onToggleNetwork,
+  showRiverNames,
+  onToggleRiverNames,
+  showGauges,
+  onToggleGauges,
   showPOIs,
   onTogglePOIs,
   availableCategories,
@@ -92,9 +107,13 @@ export default function PlanFilters({
   }, [open]);
 
   const categories = CATEGORY_ORDER.filter((c) => availableCategories.includes(c));
-  // Badge count: how many filters are narrowing the view from the default.
+  // Badge count: how many filters are narrowing the view from the default
+  // (everything on).
   const activeFilterCount =
-    (showNetwork ? 0 : 1) + (!showPOIs ? 1 : Math.min(hiddenCategories.size, categories.length));
+    (showNetwork ? 0 : 1) +
+    (showRiverNames ? 0 : 1) +
+    (showGauges ? 0 : 1) +
+    (!showPOIs ? 1 : Math.min(hiddenCategories.size, categories.length));
 
   return (
     <div ref={rootRef} className={className}>
@@ -127,6 +146,20 @@ export default function PlanFilters({
               sublabel="Live conditions statewide"
               on={showNetwork}
               onClick={onToggleNetwork}
+            />
+            <ToggleRow
+              icon={Type}
+              label="River names"
+              sublabel="Labels along each river"
+              on={showRiverNames}
+              onClick={onToggleRiverNames}
+            />
+            <ToggleRow
+              icon={Gauge}
+              label="Gauge stations"
+              sublabel="Live USGS readings"
+              on={showGauges}
+              onClick={onToggleGauges}
             />
             <ToggleRow
               icon={Star}

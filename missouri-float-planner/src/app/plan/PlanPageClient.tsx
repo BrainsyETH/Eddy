@@ -83,14 +83,19 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
-  const [showGauges, setShowGauges] = useState(false);
-  // Map content filters (see components/plan/PlanFilters). Nearby-rivers
-  // network + POIs default on; hiddenPoiCategories is empty = all shown, so
-  // a paddler's category choices persist as they switch rivers.
+  // Gauges default ON — condition-colored gauge pins are core map content.
+  const [showGauges, setShowGauges] = useState(true);
+  // Map content filters (see components/plan/PlanFilters). Everything
+  // defaults on — nearby-rivers network, river name labels, gauges, POIs;
+  // hiddenPoiCategories is empty = all shown, so a paddler's category
+  // choices persist as they switch rivers.
   const [showNetwork, setShowNetwork] = useState(true);
+  const [showRiverNames, setShowRiverNames] = useState(true);
   const [showPOIs, setShowPOIs] = useState(true);
   const [hiddenPoiCategories, setHiddenPoiCategories] = useState<Set<string>>(() => new Set());
   const toggleNetwork = useCallback(() => setShowNetwork((v) => !v), []);
+  const toggleRiverNames = useCallback(() => setShowRiverNames((v) => !v), []);
+  const toggleGauges = useCallback(() => setShowGauges((v) => !v), []);
   const togglePOIs = useCallback(() => setShowPOIs((v) => !v), []);
   const togglePoiCategory = useCallback((c: string) => {
     setHiddenPoiCategories((prev) => {
@@ -118,8 +123,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   });
   const condition = conditionData?.condition ?? null;
   const { data: vesselTypes } = useVesselTypes();
-  // Statewide gauges load only once the gauge layer is toggled on — the
-  // planner renders fine without them and /api/gauges is its slowest fetch.
+  // Statewide gauges stop fetching whenever the layer is toggled off in
+  // Filters — /api/gauges is the planner's slowest fetch.
   const { data: allGaugeStations } = useGaugeStations({ enabled: showGauges });
   const { data: pois } = usePOIs(riverSlug);
   const { data: hazards } = useHazards(riverSlug);
@@ -512,7 +517,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
         <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false}>
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
-          <ConditionNetworkLayer onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+          <ConditionNetworkLayer showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
         </MapContainer>
 
         {/* Prominent river selector floating on the map */}
@@ -620,8 +625,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           <MapContainer
             initialBounds={river.bounds}
             showLegend={false}
-            showGauges={showGauges}
-            onGaugeToggle={setShowGauges}
             syncCameraToUrl
           >
             {accessPoints && (
@@ -646,12 +649,12 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
             )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
             {river.geometry && (
-              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
+              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} showLabel={showRiverNames} />
             )}
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
@@ -675,6 +678,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <PlanFilters
               showNetwork={showNetwork}
               onToggleNetwork={toggleNetwork}
+              showRiverNames={showRiverNames}
+              onToggleRiverNames={toggleRiverNames}
+              showGauges={showGauges}
+              onToggleGauges={toggleGauges}
               showPOIs={showPOIs}
               onTogglePOIs={togglePOIs}
               availableCategories={availablePoiCategories}
@@ -761,8 +768,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           <MapContainer
             initialBounds={river.bounds}
             showLegend={false}
-            showGauges={showGauges}
-            onGaugeToggle={setShowGauges}
             syncCameraToUrl
           >
             {accessPoints && (
@@ -787,12 +792,12 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
             )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
             {river.geometry && (
-              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
+              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} showLabel={showRiverNames} />
             )}
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
@@ -800,14 +805,21 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
 
+          {/* Below the top-center Eddy pill (92% wide on phones — a top-4
+              left-4 button would sit underneath it). */}
           <PlanFilters
             showNetwork={showNetwork}
             onToggleNetwork={toggleNetwork}
+            showRiverNames={showRiverNames}
+            onToggleRiverNames={toggleRiverNames}
+            showGauges={showGauges}
+            onToggleGauges={toggleGauges}
             showPOIs={showPOIs}
             onTogglePOIs={togglePOIs}
             availableCategories={availablePoiCategories}
             hiddenCategories={hiddenPoiCategories}
             onToggleCategory={togglePoiCategory}
+            className="absolute top-[4.25rem] left-3 z-30"
           />
 
           <MapEddySays
@@ -816,8 +828,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
             onSubmitPhoto={() => setShowVisualSubmitForm(true)}
           />
+          {/* Same row as the Filters button (left-3) — centered stats,
+              aligned tops, no overlap on ≥360px viewports. */}
           {(putInPoint && takeOutPoint) && (
-            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
+            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} className="!top-[4.25rem]" />
           )}
 
           {/* Access point picker strip — only while picking. Once both
