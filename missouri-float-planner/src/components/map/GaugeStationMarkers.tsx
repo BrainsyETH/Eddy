@@ -294,13 +294,20 @@ export default function GaugeStationMarkers({
         className: 'gauge-station-popup',
       }).setHTML(popupContent);
 
-      // Show popup on hover for hover-capable devices
+      // Show popup on hover for hover-capable devices. Click PINS it and
+      // must stopPropagation: the gauge sits on the river line, so an
+      // unswallowed click reaches the condition layer's hit layer and its
+      // river popup replaces this gauge card.
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
           presentPopup(map, popup, [gauge.coordinates.lng, gauge.coordinates.lat]);
         });
         el.addEventListener('mouseleave', () => {
           popup.remove();
+        });
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          presentPopup(map, popup, [gauge.coordinates.lng, gauge.coordinates.lat]);
         });
       }
 

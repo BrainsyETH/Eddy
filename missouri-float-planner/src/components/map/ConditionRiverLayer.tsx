@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { simplifyLine, LABEL_SIMPLIFY_TOLERANCE } from './simplify';
 import { presentPopup } from './popup-manager';
 import { LINE_WIDTH, CASING_WIDTH, CASING_COLOR, HIT_WIDTH, NO_DATA_WATER_COLOR } from './line-style';
 import { useConditions } from '@/hooks/useConditions';
@@ -41,6 +42,7 @@ import type { GeoJSON } from 'geojson';
 const NO_DATA_COLOR = NO_DATA_WATER_COLOR;
 
 const SOURCE_ID = 'condition-river-source';
+const LABEL_SOURCE_ID = 'condition-river-label-source';
 const LAYER_ID = 'condition-river-layer';
 const CASING_LAYER_ID = 'condition-river-casing-layer';
 const HIT_LAYER_ID = 'condition-river-hit-layer';
@@ -124,6 +126,16 @@ export default function ConditionRiverLayer({
   }, [condition?.code]);
   const planHref = riverSlug ? `/plan?river=${riverSlug}` : null;
 
+  // The name label rides a SIMPLIFIED shadow line — full-res NHD meanders
+  // defeat MapLibre's line placement entirely (see ./simplify.ts).
+  const labelGeometry = useMemo(
+    () => ({
+      type: 'LineString' as const,
+      coordinates: simplifyLine(geometry.coordinates, LABEL_SIMPLIFY_TOLERANCE),
+    }),
+    [geometry],
+  );
+
   useEffect(() => {
     if (!map) return;
 
@@ -177,32 +189,37 @@ export default function ConditionRiverLayer({
 
       // The hero river deserves a name too (the network layer excludes it).
       // Top of the style, NOT at the lines anchor: topmost symbol layers
-      // win MapLibre collision placement, and the basemap's own waterway
-      // labels trace this same corridor — anchored beneath them, this name
-      // lost every collision and never appeared. Mounting after the
-      // network layer also puts it above the network's names, so the hero
-      // river's label wins that contest too. 45° max-angle: Ozark meanders
-      // rejected nearly every placement at 30°.
-      if (showLabel) map.addLayer({
-        id: LABEL_LAYER_ID,
-        type: 'symbol',
-        source: SOURCE_ID,
-        layout: {
-          'symbol-placement': 'line',
-          'symbol-spacing': 350,
-          'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Italic'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 13, 15],
-          'text-letter-spacing': 0.04,
-          'text-max-angle': 45,
-        },
-        paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(9, 22, 28, 0.85)',
-          'text-halo-width': 1.4,
-          'text-halo-blur': 1,
-        },
-      });
+      // win MapLibre collision placement — anchored beneath the basemap's
+      // labels this name lost every contest. Mounting after the network
+      // layer also puts it above the network's names. The label source is
+      // the SIMPLIFIED line: placement on full-res meanders trips
+      // text-max-angle everywhere and the name never appears.
+      if (showLabel) {
+        map.addSource(LABEL_SOURCE_ID, {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: labelGeometry, properties: { name: riverName } },
+        });
+        map.addLayer({
+          id: LABEL_LAYER_ID,
+          type: 'symbol',
+          source: LABEL_SOURCE_ID,
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': 350,
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Italic'],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 13, 15],
+            'text-letter-spacing': 0.04,
+            'text-max-angle': 45,
+          },
+          paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(9, 22, 28, 0.85)',
+            'text-halo-width': 1.4,
+            'text-halo-blur': 1,
+          },
+        });
+      }
     } catch (err) {
       console.warn('Error adding condition river layers:', err);
     }
@@ -213,11 +230,12 @@ export default function ConditionRiverLayer({
           if (hasLayer(id)) map.removeLayer(id);
         }
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        if (map.getSource(LABEL_SOURCE_ID)) map.removeSource(LABEL_SOURCE_ID);
       } catch {
         // Ignore cleanup errors
       }
     };
-  }, [map, geometry, color, styleReadyTick, showLabel, riverName]);
+  }, [map, geometry, labelGeometry, color, styleReadyTick, showLabel, riverName]);
 
   // Interaction lives in its own effect keyed on the popup inputs, so a
   // condition refresh updates the popup content without tearing down and
