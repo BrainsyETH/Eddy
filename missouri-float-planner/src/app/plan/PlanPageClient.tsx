@@ -42,6 +42,8 @@ import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from 
 import Image from 'next/image';
 import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
+import { trackEvent } from '@/lib/analytics';
+import OutfittersNearby from '@/components/plan/OutfittersNearby';
 
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
 const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
@@ -207,7 +209,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
   // River change: clear access point selections (a put-in from one river
   // never makes sense on another)
-  const handleRiverChange = useCallback((slug: string | null) => {
+  const handleRiverChange = useCallback((slug: string | null, source: 'dropdown' | 'map' = 'dropdown') => {
+    if (slug) trackEvent('river_selected', { slug, source });
     setRiverSlug(slug);
     setSelectedPutIn(null);
     setSelectedTakeOut(null);
@@ -282,15 +285,19 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       return;
     }
     if (!selectedPutIn && !selectedTakeOut) {
+      trackEvent('putin_selected', { river: riverSlug ?? '' });
       setSelectedPutIn(point.id);
     } else if (selectedPutIn && !selectedTakeOut) {
+      trackEvent('takeout_selected', { river: riverSlug ?? '' });
       setBothPoints(selectedPutIn, point.id);
     } else if (!selectedPutIn && selectedTakeOut) {
+      trackEvent('putin_selected', { river: riverSlug ?? '' });
       setBothPoints(point.id, selectedTakeOut);
     } else if (selectedPutIn && selectedTakeOut) {
+      trackEvent('takeout_selected', { river: riverSlug ?? '' });
       setBothPoints(selectedPutIn, point.id);
     }
-  }, [selectedPutIn, selectedTakeOut, setBothPoints]);
+  }, [selectedPutIn, selectedTakeOut, setBothPoints, riverSlug]);
 
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
@@ -351,6 +358,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           title: `Float Plan - ${river.name}`,
           url: shareUrl,
         });
+        trackEvent('plan_shared', { river: riverSlug ?? '', method: 'link' });
         setShareStatus('idle');
         return;
       } catch {
@@ -360,6 +368,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
     try {
       await navigator.clipboard.writeText(shareUrl);
+      trackEvent('plan_shared', { river: riverSlug ?? '', method: 'link' });
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000);
     } catch {
@@ -370,6 +379,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
   const handleDownloadImage = useCallback(async () => {
     if (!selectedPutIn || !selectedTakeOut || !river || !plan || !captureRef.current) return;
+    trackEvent('plan_shared', { river: riverSlug ?? '', method: 'image' });
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(captureRef.current, {
@@ -392,7 +402,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     } catch (err) {
       console.error('Error generating image:', err);
     }
-  }, [selectedPutIn, selectedTakeOut, river, plan]);
+  }, [selectedPutIn, selectedTakeOut, river, plan, riverSlug]);
 
   const handleAccessPointHover = useCallback((point: AccessPoint) => {
     if (!river || !accessPoints || !selectedVesselTypeId) return;
@@ -502,7 +512,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
         <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false}>
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
-          <ConditionNetworkLayer onSelectRiver={handleRiverChange} />
+          <ConditionNetworkLayer onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
         </MapContainer>
 
         {/* Prominent river selector floating on the map */}
@@ -585,6 +595,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           </div>
           <PlanSidebar
             riverName={river.name}
+            riverSlug={river.slug}
+            pois={pois}
             conditionCode={condition?.code ?? 'unknown'}
             plan={plan || null}
             isLoading={planLoading}
@@ -634,7 +646,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
             )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
@@ -775,7 +787,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
             )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
@@ -880,6 +892,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           riverSlug={riverSlug}
           accessPointId={selectedPutIn}
         />
+
+        <OutfittersNearby pois={pois} putInPoint={putInPoint} riverSlug={riverSlug} />
 
         <NearbyServices riverSlug={riverSlug} defaultOpen={false} />
 

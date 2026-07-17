@@ -239,7 +239,7 @@ export interface PointOfInterest {
   description: string | null;
   bodyText: string | null;
   type: POIType;
-  source: 'nps' | 'manual';
+  source: 'nps' | 'manual' | 'osm';
   npsUrl: string | null;
   latitude: number;
   longitude: number;
@@ -248,6 +248,9 @@ export interface PointOfInterest {
   amenities: string[];
   active: boolean;
   isOnWater: boolean;
+  /** Contact details surfaced from the OSM import (outfitters). */
+  website?: string | null;
+  phone?: string | null;
 }
 
 export type POIType =
@@ -258,4 +261,5 @@ export type POIType =
   | 'waterfall'
   | 'geological'
   | 'float_camp'
+  | 'outfitter'
   | 'other';

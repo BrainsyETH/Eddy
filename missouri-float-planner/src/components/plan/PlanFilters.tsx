@@ -24,6 +24,7 @@ import {
   Star,
   type LucideIcon,
 } from 'lucide-react';
+import { conditionColor, CONDITION_ORDER, conditionDef } from '@shared/condition-system';
 
 // Canonical POI category → label + icon. Order is the display order in the
 // panel; only categories actually present on the current river are shown.
@@ -134,6 +135,25 @@ export default function PlanFilters({
               on={showPOIs}
               onClick={onTogglePOIs}
             />
+          </div>
+
+          {/* Condition legend — the network colors carry meaning; make the
+              "Eddy green" scale learnable right where users control it. */}
+          <div className="border-t border-neutral-100 px-3 py-2.5">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+              River conditions
+            </p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {CONDITION_ORDER.map((code) => (
+                <span key={code} className="flex items-center gap-1.5 text-xs text-neutral-600">
+                  <span
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full border border-white shadow-sm"
+                    style={{ backgroundColor: conditionColor(code) }}
+                  />
+                  {conditionDef(code).label}
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* POI categories — only when POIs are on and the river has any */}

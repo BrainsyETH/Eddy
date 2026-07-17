@@ -12,6 +12,7 @@ import Image from 'next/image';
 import { ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import { getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
+import FloatWindow from '@/components/plan/FloatWindow';
 
 const EddyQuote = dynamic(() => import('@/components/river/EddyQuote'), { ssr: false });
 
@@ -59,6 +60,11 @@ export default function MapEddySays({
 
         {open && (
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-neutral-100 overscroll-contain">
+            {/* Five-day float window — visible before a put-in is chosen,
+                when the sidebar (its other home) doesn't exist yet. */}
+            <div className="border-b border-neutral-100 p-2">
+              <FloatWindow riverSlug={riverSlug} />
+            </div>
             <EddyQuote
               riverSlug={riverSlug}
               conditionCode={conditionCode}
