@@ -121,11 +121,15 @@ export default function GaugeStationMarkers({
 
       // Outer element is a ≥44px transparent hit area (touch target). The visible
       // circle lives in an inner child so the visible size is unchanged.
-      // position:relative anchors the severe-condition badge.
+      // NEVER set an inline position here: MapLibre positions the marker via
+      // the .maplibregl-marker class (position:absolute) + an inline
+      // translate, and an inline "position: relative" overrides the class —
+      // every marker then translates from its DOM-flow spot instead of the
+      // map origin, scattering gauges off their rivers. (The severe badge
+      // anchors to this element fine: absolute-in-absolute.)
       const el = document.createElement('div');
       el.className = 'gauge-station-marker';
       el.style.cssText = `
-        position: relative;
         width: 44px;
         height: 44px;
         background: transparent;
@@ -163,8 +167,10 @@ export default function GaugeStationMarkers({
       eddyImg.alt = '';
       eddyImg.draggable = false;
       eddyImg.loading = 'lazy';
+      // contain + inset, not cover: the otter is a full-body illustration,
+      // and cover crops the head/flag against the circle's edge.
       eddyImg.style.cssText =
-        'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;';
+        'width:100%;height:100%;object-fit:contain;padding:2px;box-sizing:border-box;display:block;pointer-events:none;';
       circle.appendChild(eddyImg);
 
       // Shape redundancy at the dangerous end (color must never be the
