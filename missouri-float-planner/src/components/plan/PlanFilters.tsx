@@ -171,7 +171,14 @@ export default function PlanFilters({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Map filters"
-        className="flex items-center gap-2 rounded-lg bg-white/95 px-3 py-2 text-sm font-semibold text-neutral-700 shadow-lg backdrop-blur-md transition-colors hover:bg-white"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-lg transition-opacity hover:opacity-90"
+        style={{
+          // Solid surface, no color-mix/translucency: older mobile Safari
+          // drops unsupported backgrounds entirely, which over satellite
+          // imagery means unreadable — the bug this file just fixed.
+          background: 'var(--color-surface)',
+          color: 'var(--color-text-primary)',
+        }}
       >
         <SlidersHorizontal className="h-4 w-4" />
         <span>Filters</span>
@@ -182,11 +189,19 @@ export default function PlanFilters({
         )}
       </button>
 
+      {/* SOLID theme surface (never translucent): this floats over satellite
+          imagery, where a see-through panel makes every label unreadable.
+          Colors come from the global semantic tokens so dark mode holds.
+          Height clamps to the viewport with internal scroll — the panel
+          outgrew short phones. */}
       {open && (
-        <div className="mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-neutral-200 bg-white/97 shadow-2xl backdrop-blur-md">
+        <div
+          className="mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border shadow-2xl"
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        >
           {/* Map layers */}
           <div className="px-3 py-2.5">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[color:var(--color-text-muted)]">
               Show on map
             </p>
             <ToggleRow
@@ -230,9 +245,9 @@ export default function PlanFilters({
               filter the network to matching rivers (the Observatory's
               verdict-tile pattern): tap "Flowing" to answer "where can I
               float today?". Counts are statewide, live. */}
-          <div className="border-t border-neutral-100 px-3 py-2.5">
+          <div className="border-t border-[color:var(--color-border)] px-3 py-2.5">
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[color:var(--color-text-muted)]">
                 River conditions
               </p>
               {totalRivers > 0 && (
@@ -263,12 +278,14 @@ export default function PlanFilters({
                           ? `Stop filtering by ${conditionDef(code).label}`
                           : `Show only ${conditionDef(code).label} rivers`
                     }
-                    className={`flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-xs transition-all ${
+                    className={`flex items-center gap-1.5 rounded-md border px-1.5 py-1.5 text-left text-xs transition-all ${
                       !interactive
                         ? 'cursor-default opacity-40'
-                        : 'hover:bg-neutral-50'
+                        : 'hover:bg-[var(--color-background)]'
                     } ${conditionFilterActive && !selected ? 'opacity-50' : ''} ${
-                      selected ? 'font-semibold text-neutral-800' : 'text-neutral-600'
+                      selected
+                        ? 'font-semibold text-[color:var(--color-text-primary)]'
+                        : 'text-[color:var(--color-text-secondary)]'
                     }`}
                     style={{
                       borderColor: selected ? color : 'transparent',
@@ -280,7 +297,7 @@ export default function PlanFilters({
                       style={{ backgroundColor: color }}
                     />
                     <span className="min-w-0 flex-1 truncate">{conditionDef(code).label}</span>
-                    <span className="text-[10px] font-semibold tabular-nums text-neutral-400">
+                    <span className="text-[10px] font-semibold tabular-nums text-[color:var(--color-text-muted)]">
                       {n}
                     </span>
                   </button>
@@ -302,7 +319,7 @@ export default function PlanFilters({
                 <span>Clear ×</span>
               </button>
             ) : (
-              <p className="mt-1.5 text-[10px] text-neutral-400">
+              <p className="mt-1.5 text-[10px] text-[color:var(--color-text-muted)]">
                 Tap a condition to filter the map
               </p>
             )}
@@ -310,8 +327,8 @@ export default function PlanFilters({
 
           {/* POI categories — only when POIs are on and the river has any */}
           {showPOIs && categories.length > 0 && (
-            <div className="border-t border-neutral-100 px-3 py-2.5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+            <div className="border-t border-[color:var(--color-border)] px-3 py-2.5">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[color:var(--color-text-muted)]">
                 Point types
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -325,10 +342,10 @@ export default function PlanFilters({
                       type="button"
                       onClick={() => onToggleCategory(c)}
                       aria-pressed={active}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                         active
                           ? 'border-primary-600 bg-primary-600 text-white'
-                          : 'border-neutral-200 bg-white text-neutral-500 hover:border-primary-300'
+                          : 'border-[color:var(--color-border)] bg-[var(--color-surface)] text-[color:var(--color-text-secondary)] hover:border-primary-300'
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5" />
@@ -341,10 +358,18 @@ export default function PlanFilters({
           )}
 
           {/* Provenance footer: how fresh the colors are, and the statewide
-              dashboard the readings come from. */}
-          <div className="flex items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-3 py-2">
-            <span className="text-[10px] tabular-nums text-neutral-400">
-              USGS · {stamp ? `as of ${stamp}` : 'live readings'} · 15-min refresh
+              dashboard the readings come from. Truncates instead of wrapping
+              ("15-/min refresh" read broken on phones); cadence lives in the
+              tooltip. */}
+          <div
+            className="flex items-center justify-between gap-2 border-t px-3 py-2"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
+          >
+            <span
+              className="min-w-0 truncate text-[10px] tabular-nums text-[color:var(--color-text-muted)]"
+              title="Refreshes every 15 minutes"
+            >
+              USGS · {stamp ? `as of ${stamp}` : 'live readings'}
             </span>
             <Link
               href="/river-map"
@@ -377,17 +402,23 @@ function ToggleRow({
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-neutral-50"
+      className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-2 text-left transition-colors hover:bg-[var(--color-background)]"
     >
-      <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-primary-600' : 'text-neutral-400'}`} />
+      <Icon
+        className={`h-4 w-4 shrink-0 ${on ? 'text-primary-600' : 'text-[color:var(--color-text-muted)]'}`}
+      />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-neutral-700">{label}</span>
-        <span className="block truncate text-[11px] text-neutral-400">{sublabel}</span>
+        <span className="block text-sm font-semibold text-[color:var(--color-text-primary)]">
+          {label}
+        </span>
+        <span className="block truncate text-[11px] text-[color:var(--color-text-muted)]">
+          {sublabel}
+        </span>
       </span>
       {/* Track + knob */}
       <span
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          on ? 'bg-primary-600' : 'bg-neutral-300'
+          on ? 'bg-primary-600' : 'bg-[var(--color-border-strong)]'
         }`}
       >
         <span
