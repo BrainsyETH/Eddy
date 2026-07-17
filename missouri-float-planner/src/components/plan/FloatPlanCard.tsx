@@ -932,47 +932,35 @@ function JourneyCenter({
         </div>
       )}
 
-      {/* Float Summary Card */}
-      <div className="bg-neutral-50 rounded-xl p-2.5 mb-3">
-        <div className="flex items-center justify-center gap-3 mb-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-support-500"></div>
-          <div className="w-20 h-0.5 rounded-full bg-gradient-to-r from-support-400 to-accent-400"></div>
-          <div className="w-2.5 h-2.5 rounded-full bg-accent-500"></div>
-        </div>
-        <div className="flex items-start justify-center gap-3">
-          <div className="text-center">
-            <p className="text-xl font-bold text-neutral-900 leading-tight">{plan.distance.formatted}</p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5">Distance</p>
+      {/* Float Summary — ONE hero number. The estimator's whole job is
+          "how long will this take"; time gets the stage and distance is a
+          caption, instead of two equal-weight stats fighting for it. */}
+      <div className="bg-neutral-50 rounded-xl px-3 py-3 mb-3 text-center">
+        {isLoading || recalculating ? (
+          <div className="flex items-center justify-center h-9">
+            <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
-          <span className="text-neutral-300 text-lg leading-none pt-1">|</span>
-          <div className="text-center min-w-0">
-            {isLoading || recalculating ? (
-              <div className="flex items-center justify-center h-7">
-                <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : (
-              <p className="text-lg font-bold text-neutral-900 leading-tight tabular-nums">
-                {plan.floatTime?.timeRange
-                  ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
-                  : plan.floatTime?.formatted || '--'}
-              </p>
-            )}
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500 mt-0.5 flex items-center justify-center gap-0.5">
-              Est. Time
-              <span
-                className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
-                tabIndex={0}
-                role="button"
-                aria-label="Float time estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns."
-              >
-                <Info className="w-3 h-3 text-neutral-400 cursor-help" aria-hidden="true" />
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto group-focus-within/tip:opacity-100 transition-opacity z-50 normal-case tracking-normal">
-                  Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
-                </span>
-              </span>
-            </p>
-          </div>
-        </div>
+        ) : (
+          <p className="text-2xl font-bold text-neutral-900 leading-tight tabular-nums">
+            {plan.floatTime?.timeRange
+              ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
+              : plan.floatTime?.formatted || '--'}
+          </p>
+        )}
+        <p className="text-xs text-neutral-500 mt-1 flex items-center justify-center gap-1">
+          {plan.distance.formatted} on the water
+          <span
+            className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+            tabIndex={0}
+            role="button"
+            aria-label="Float time estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns."
+          >
+            <Info className="w-3 h-3 text-neutral-400 cursor-help" aria-hidden="true" />
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto group-focus-within/tip:opacity-100 transition-opacity z-50 normal-case tracking-normal">
+              Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
+            </span>
+          </span>
+        </p>
       </div>
 
       {/* Upstream Warning */}
@@ -983,63 +971,39 @@ function JourneyCenter({
         </div>
       )}
 
-      {/* Conditions - Revamped Card (matching mobile) */}
-      <div className={`rounded-2xl overflow-hidden ${conditionConfig.bgClass} mb-3`}>
-        {/* Main Status */}
-        <div className="px-3 py-2 flex items-center justify-center gap-2">
-          <Image
-            src={getEddyImageForCondition(conditionCode)}
-            alt={conditionConfig.label}
-            width={48}
-            height={48}
-            className="flex-shrink-0"
-          />
-          <div>
-            <p className={`text-lg font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
-            {plan.condition.gaugeName && (
-              <p className={`text-[10px] ${conditionConfig.textClass} opacity-75`}>
-                {plan.condition.gaugeName}
-              </p>
-            )}
-          </div>
+      {/* Conditions — one calm strip: the verdict is the message; the
+          gauge reading is a single muted line, not a second stats row
+          competing with the time estimate above. */}
+      <div className={`rounded-xl ${conditionConfig.bgClass} px-3 py-2.5 mb-3 flex items-center gap-2.5`}>
+        <Image
+          src={getEddyImageForCondition(conditionCode)}
+          alt={conditionConfig.label}
+          width={40}
+          height={40}
+          className="flex-shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+          <p className={`text-[11px] ${conditionConfig.textClass} opacity-80 truncate`}>
+            {[
+              plan.condition.gaugeHeightFt != null ? `${plan.condition.gaugeHeightFt.toFixed(1)} ft` : null,
+              plan.condition.dischargeCfs != null ? `${plan.condition.dischargeCfs.toLocaleString()} cfs` : null,
+              plan.condition.gaugeName || null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'No live gauge reading'}
+          </p>
         </div>
-
-        {/* Stats Row */}
-        <div className="bg-white rounded-b-2xl px-3 py-2.5">
-          <div className="flex items-center justify-around">
-            <div className="text-center">
-              <p className="text-lg font-bold text-neutral-800">
-                {plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-neutral-500 font-medium">Feet</p>
-            </div>
-            <div className="w-px h-8 bg-neutral-200"></div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-neutral-800">
-                {plan.condition.dischargeCfs?.toLocaleString() ?? '—'}
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-neutral-500 font-medium">CFS</p>
-            </div>
-            {plan.condition.usgsUrl && (
-              <>
-                <div className="w-px h-8 bg-neutral-200"></div>
-                <a
-                  href={plan.condition.usgsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col items-center text-primary-600 hover:text-primary-700"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                  </svg>
-                  <p className="text-[9px] uppercase tracking-wider font-medium mt-0.5">USGS</p>
-                </a>
-              </>
-            )}
-          </div>
-        </div>
+        {plan.condition.usgsUrl && (
+          <a
+            href={plan.condition.usgsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider ${conditionConfig.textClass} underline-offset-2 hover:underline`}
+          >
+            USGS ↗
+          </a>
+        )}
       </div>
 
       {/* Shuttle - Minimal button design */}
@@ -1310,8 +1274,9 @@ function MobileBottomSheet({
               <p className="text-xs font-medium text-neutral-700 mt-0.5">{takeOutPoint.name}</p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-neutral-900">{plan.distance.formatted}</p>
-              <p className="text-xs text-neutral-600">{compactTime || '--'}</p>
+              {/* Time leads — it's the number a paddler is here for. */}
+              <p className="text-lg font-bold text-neutral-900 tabular-nums">{compactTime || '--'}</p>
+              <p className="text-xs text-neutral-600">{plan.distance.formatted}</p>
             </div>
           </div>
 
@@ -1428,63 +1393,41 @@ function MobileBottomSheet({
           </div>
         )}
 
-        {/* 3. River Conditions - Revamped Card */}
+        {/* 3. River Conditions — one calm strip (matches desktop): verdict
+            first, the gauge reading as a single muted line instead of a
+            row of oversized numbers. */}
         <div className="mb-4">
           <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">River Conditions</p>
-          <div className={`rounded-2xl overflow-hidden ${conditionConfig.bgClass}`}>
-            {/* Main Status */}
-            <div className="px-4 py-4 text-center">
-              <Image
-                src={getEddyImageForCondition(conditionCode)}
-                alt={conditionConfig.label}
-                width={64}
-                height={64}
-                className="mx-auto mb-2"
-              />
-              <p className={`text-xl font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
-              {plan.condition.gaugeName && (
-                <p className={`text-xs ${conditionConfig.textClass} opacity-75 mt-1`}>
-                  {plan.condition.gaugeName}
-                </p>
-              )}
+          <div className={`rounded-xl ${conditionConfig.bgClass} px-3 py-3 flex items-center gap-3`}>
+            <Image
+              src={getEddyImageForCondition(conditionCode)}
+              alt={conditionConfig.label}
+              width={44}
+              height={44}
+              className="flex-shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <p className={`text-base font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+              <p className={`text-xs ${conditionConfig.textClass} opacity-80 truncate`}>
+                {[
+                  plan.condition.gaugeHeightFt != null ? `${plan.condition.gaugeHeightFt.toFixed(1)} ft` : null,
+                  plan.condition.dischargeCfs != null ? `${plan.condition.dischargeCfs.toLocaleString()} cfs` : null,
+                  plan.condition.gaugeName || null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || 'No live gauge reading'}
+              </p>
             </div>
-
-            {/* Stats Row */}
-            <div className="bg-white rounded-b-2xl px-4 py-3">
-              <div className="flex items-center justify-around">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-neutral-800">
-                    {plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}
-                  </p>
-                  <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">Feet</p>
-                </div>
-                <div className="w-px h-10 bg-neutral-200"></div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-neutral-800">
-                    {plan.condition.dischargeCfs?.toLocaleString() ?? '—'}
-                  </p>
-                  <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">CFS</p>
-                </div>
-                {plan.condition.usgsUrl && (
-                  <>
-                    <div className="w-px h-10 bg-neutral-200"></div>
-                    <a
-                      href={plan.condition.usgsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center text-primary-600 hover:text-primary-700"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                        <polyline points="15 3 21 3 21 9"/>
-                        <line x1="10" y1="14" x2="21" y2="3"/>
-                      </svg>
-                      <p className="text-[10px] uppercase tracking-wider font-medium mt-1">USGS</p>
-                    </a>
-                  </>
-                )}
-              </div>
-            </div>
+            {plan.condition.usgsUrl && (
+              <a
+                href={plan.condition.usgsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider ${conditionConfig.textClass} underline-offset-2 hover:underline`}
+              >
+                USGS ↗
+              </a>
+            )}
           </div>
         </div>
 

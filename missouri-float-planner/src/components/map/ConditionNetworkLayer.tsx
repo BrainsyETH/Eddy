@@ -138,17 +138,25 @@ export default function ConditionNetworkLayer({
       // River names along the lines, so rivers are identifiable (and
       // clickable) without the dropdown. White with a dark halo reads on
       // both the light Natural style and satellite imagery.
-      if (showLabels) addLayerAt(map, {
+      //
+      // Added at the TOP of the style (no anchor), not at ANCHORS.lines:
+      // MapLibre gives collision priority to the topmost symbol layers, and
+      // the basemap's own waterway labels run along these exact corridors —
+      // anchored below them, our names lost every collision and never
+      // rendered. text-max-angle 45 (not 30): Ozark meanders are so
+      // sinuous that 30° rejected nearly every line placement.
+      if (showLabels) map.addLayer({
         id: LABEL_LAYER_ID,
         type: 'symbol',
         source: SOURCE_ID,
         layout: {
           'symbol-placement': 'line',
+          'symbol-spacing': 350,
           'text-field': ['get', 'name'],
           'text-font': ['Noto Sans Italic'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 13, 14],
           'text-letter-spacing': 0.04,
-          'text-max-angle': 30,
+          'text-max-angle': 45,
         },
         paint: {
           'text-color': '#ffffff',
@@ -156,7 +164,7 @@ export default function ConditionNetworkLayer({
           'text-halo-width': 1.4,
           'text-halo-blur': 1,
         },
-      }, ANCHORS.lines);
+      });
     } catch (err) {
       console.warn('Error adding condition network layers:', err);
     }
