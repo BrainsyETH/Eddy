@@ -17,6 +17,7 @@
 import type { GuideData } from '@/types/blog';
 import { dayIndex, springsForRun, type Section } from './section-picker';
 import { toNum } from '@/lib/utils/num';
+import { riverDisplayLong } from './river-display';
 
 /** A curated favorite float: the route geometry RouteDraw needs + editorial copy. */
 export interface FavoriteFloat extends Section {
@@ -134,7 +135,7 @@ async function loadFavoritePool(
     if (!riverSlug) continue;
     const riverId = riverIdBySlug.get(riverSlug);
     if (!riverId) continue;
-    const riverName = riverNameBySlug.get(riverSlug) || riverSlug;
+    const riverName = riverNameBySlug.get(riverSlug) || riverDisplayLong(riverSlug);
 
     for (const section of guide.guide_data?.sections || []) {
       // When favorites are flagged anywhere, only flagged sections qualify.

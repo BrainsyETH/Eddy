@@ -22,7 +22,7 @@ import {
   type WeatherSummary,
   type WeatherChip,
 } from '@/lib/weather/openweather';
-import { getStatusStyles, getStatusGradient, BRAND_COLORS } from '@/lib/og/colors';
+import { getStatusStyles, getStatusGradient, conditionCoverBackground, BRAND_COLORS } from '@/lib/og/colors';
 import {
   WEEKEND_FLOATABLE as FORECAST_FLOATABLE,
   WEEKEND_SEVERITY as FORECAST_SEVERITY,
@@ -34,7 +34,9 @@ import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/
 import { pickNotableTrend } from '@/lib/social/trend-picker';
 import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live-conditions';
 import { warningCopy, recoveryCopy } from '@shared/condition-copy';
-import { RIVER_DISPLAY_LONG, RIVER_DISPLAY_SHORT } from '@/lib/social/river-display';
+// riverDisplayLong/Short degrade unmapped slugs to readable title-cased names —
+// never the raw slug ("big-river"), which briefly shipped on live covers.
+import { riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
 import { trendMeta } from '@shared/trend-meta';
 
 export const revalidate = 300;
@@ -432,7 +434,7 @@ async function generateDigestImage(
         >
           {rivers.map(([slug, data]) => {
             const statusStyles = getStatusStyles(data.condition_code as ConditionCode);
-            const name = RIVER_DISPLAY_SHORT[slug] || slug;
+            const name = riverDisplayShort(slug);
             return (
               <div
                 key={slug}
@@ -562,7 +564,7 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
   // (otherwise we'd render "sweet spot" copy next to a "High Water" badge).
   const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
-  const riverName = RIVER_DISPLAY_LONG[riverSlug] || riverSlug;
+  const riverName = riverDisplayLong(riverSlug);
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
   const statusStyles = getStatusStyles(conditionCode);
   const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
@@ -598,7 +600,9 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
-          background: '#1A3D40',
+          // Faint condition wash (High → orange, Dangerous → red, …) so the
+          // grid reads the condition at a glance; floatable stays blue-green.
+          background: conditionCoverBackground(conditionCode),
           padding: isPortrait ? '72px' : '64px',
           justifyContent: isPortrait ? 'center' : 'flex-start',
           position: 'relative',
@@ -979,7 +983,7 @@ async function generateForecastImage(size: { width: number; height: number }) {
 
   // Cover features only the single best bet (best condition, rain-free if any).
   const best = top[0] || null;
-  const bestName = best ? (RIVER_DISPLAY_SHORT[best.river_slug] || best.river_slug) : '';
+  const bestName = best ? riverDisplayShort(best.river_slug) : '';
   const bestStyles = best ? getStatusStyles(best.condition_code as ConditionCode) : null;
   const bestCondLabel = best
     ? (CONDITION_LABELS[best.condition_code as keyof typeof CONDITION_LABELS] || bestStyles!.label)
@@ -1172,7 +1176,8 @@ async function generateSectionImage(
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
+          // Condition wash over the brand teal (see conditionCoverBackground).
+          background: conditionCoverBackground(condition as ConditionCode),
           padding: isPortrait ? '120px 72px' : '72px 64px',
           justifyContent: 'center',
           alignItems: 'center',
@@ -1455,7 +1460,7 @@ async function generateClipImage(
   let riverName = 'Ozark Paddling';
   if (riverSlug) {
     const { data: river } = await supabase.from('rivers').select('name').eq('slug', riverSlug).maybeSingle();
-    riverName = river?.name || riverSlug;
+    riverName = river?.name || riverDisplayLong(riverSlug);
   }
   const creator = (params.creator || '').trim();
 
@@ -1629,6 +1634,9 @@ async function generateTrendImage(
   const wx = ogWeatherLabel(weatherChip(rows.find((u) => u.river_slug === trend.riverSlug)?.weather ?? null));
 
   const meta = trendMeta(trend.direction);
+  // Featured river's live condition — drives the cover's faint condition wash.
+  const trendCondition = (rows.find((u) => u.river_slug === trend.riverSlug)?.condition_code ||
+    'unknown') as ConditionCode;
   const deltaSign = trend.deltaFt > 0 ? '+' : trend.deltaFt < 0 ? '−' : '';
   const deltaAbs = Math.abs(trend.deltaFt).toFixed(1);
 
@@ -1670,7 +1678,8 @@ async function generateTrendImage(
           width: '100%',
           height: '100%',
           fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
+          // Condition wash keyed to the featured river's live condition.
+          background: conditionCoverBackground(trendCondition),
           padding: isPortrait ? '120px 72px' : '72px 64px',
           justifyContent: 'center',
           position: 'relative',
@@ -1878,7 +1887,7 @@ async function generateWarningImage(
     .limit(1)
     .maybeSingle();
 
-  const riverName = RIVER_DISPLAY_LONG[riverSlug] || riverSlug;
+  const riverName = riverDisplayLong(riverSlug);
 
   // Prefer the PINNED event (baked into the URL by the alert as &to=&ft=) so the
   // cover always agrees with the caption + reel — a re-fetched "live" value can
@@ -2261,7 +2270,7 @@ async function generateStormImage(
         >
           {rivers.map((r) => {
             const styles = getStatusStyles(r.condition as ConditionCode);
-            const name = RIVER_DISPLAY_LONG[r.slug] || r.slug;
+            const name = riverDisplayLong(r.slug);
             return (
               <div
                 key={r.slug}

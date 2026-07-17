@@ -10,6 +10,7 @@
 // downstream-mile scale.
 
 import mileMarkers from '../../../floatmissouri_mile_markers.json';
+import { riverDisplayLong } from './river-display';
 
 interface MileMarker {
   river_id: string;
@@ -142,7 +143,7 @@ export async function listAllSections(
       row.type === 'access' || types.includes('access') || types.includes('boat_ramp');
     if (!carAccessible) continue;
     const entry: { name: string; access: AccessRow[] } =
-      byRiver.get(slug) || { name: row.rivers?.name || slug, access: [] };
+      byRiver.get(slug) || { name: row.rivers?.name || riverDisplayLong(slug), access: [] };
     entry.access.push({
       name: cleanName(row.name),
       mile: Number(row.river_mile_downstream),
