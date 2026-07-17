@@ -1,20 +1,24 @@
 // src/app/api/admin/inbound-emails/[id]/reply/route.ts
 // POST /api/admin/inbound-emails/[id]/reply — send a reply to a received message
-// from eddy.guide via Resend, threaded to the original.
+// from eddy.guide via Resend, threaded to the original, as branded HTML.
 //
-// Requires the domain to be verified for SENDING in Resend (DKIM/SPF), and
-// RESEND_API_KEY to be set. The From address defaults to the eddy.guide address
-// the original was delivered to; override with RESEND_REPLY_FROM if needed.
+// Accepts either `html` (rich text from the admin editor) or `body` (plain
+// text). The content is sanitized, wrapped in the Eddy email shell, and sent
+// with a plain-text fallback. Requires the domain verified for SENDING and
+// RESEND_API_KEY set. From defaults to the eddy.guide address the message was
+// delivered to; override with RESEND_REPLY_FROM.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { getResendClient, hasResendApiKey, pickReplyFromAddress } from '@/lib/email/resend';
 import { mapInboundEmailRow } from '@/lib/email/inbound';
+import { sanitizeRichText } from '@/lib/sanitize';
+import { renderReplyEmail, buildReplyText, htmlToText, escapeHtml, type OriginalMessage } from '@/lib/email/render';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_REPLY_LENGTH = 25000;
+const MAX_REPLY_LENGTH = 50000;
 
 /** Prefix a subject with "Re: " unless it already has one. */
 function replySubject(subject: string | null): string {
@@ -23,16 +27,12 @@ function replySubject(subject: string | null): string {
   return /^re:/i.test(base) ? base : `Re: ${base}`;
 }
 
-/** Append the original message as a quoted block for thread context. */
-function buildReplyText(reply: string, opts: { from: string | null; date: string | null; original: string | null }): string {
-  const parts = [reply.trimEnd()];
-  if (opts.original) {
-    const when = opts.date ? new Date(opts.date).toUTCString() : 'a previous message';
-    const who = opts.from || 'someone';
-    const quoted = opts.original.split('\n').map((line) => `> ${line}`).join('\n');
-    parts.push('', `On ${when}, ${who} wrote:`, quoted);
-  }
-  return parts.join('\n');
+/** Turn a plain-text reply into simple paragraph HTML. */
+function textToHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
+    .join('');
 }
 
 export async function POST(
@@ -54,13 +54,24 @@ export async function POST(
     if (!isValidUUID(id)) return invalidIdResponse();
 
     const body = await request.json().catch(() => null);
-    const replyText: string | undefined = body?.body;
+    const rawHtml: string | undefined = typeof body?.html === 'string' ? body.html : undefined;
+    const rawText: string | undefined = typeof body?.body === 'string' ? body.body : undefined;
     const fromOverride: string | undefined = body?.from;
 
-    if (!replyText || !replyText.trim()) {
+    // Resolve the reply content into sanitized HTML + a plain-text version.
+    let safeHtml: string;
+    let contentText: string;
+    if (rawHtml && htmlToText(rawHtml).trim()) {
+      safeHtml = sanitizeRichText(rawHtml) || '';
+      contentText = htmlToText(safeHtml);
+    } else if (rawText && rawText.trim()) {
+      safeHtml = textToHtml(rawText);
+      contentText = rawText;
+    } else {
       return NextResponse.json({ error: 'Reply body is required' }, { status: 400 });
     }
-    if (replyText.length > MAX_REPLY_LENGTH) {
+
+    if (contentText.length > MAX_REPLY_LENGTH) {
       return NextResponse.json({ error: 'Reply is too long' }, { status: 400 });
     }
 
@@ -98,6 +109,12 @@ export async function POST(
       );
     }
 
+    const original: OriginalMessage = {
+      from: row.from_address,
+      date: row.resend_created_at || row.created_at,
+      text: row.text_body,
+    };
+
     // Thread the reply to the original via standard headers.
     const headers: Record<string, string> = {};
     if (row.message_id) {
@@ -111,11 +128,8 @@ export async function POST(
       to,
       subject: replySubject(row.subject),
       replyTo: from,
-      text: buildReplyText(replyText, {
-        from: row.from_address,
-        date: row.resend_created_at || row.created_at,
-        original: row.text_body,
-      }),
+      html: renderReplyEmail(safeHtml, original),
+      text: buildReplyText(contentText, original),
       ...(Object.keys(headers).length ? { headers } : {}),
     });
 

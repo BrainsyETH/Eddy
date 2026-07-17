@@ -39,6 +39,8 @@ interface RichTextEditorProps {
   onChange: (content: string) => void;
   placeholder?: string;
   onImageUpload?: () => Promise<string | null>;
+  /** Min editor height (CSS length). Defaults to 400px; replies use less. */
+  minHeight?: string;
 }
 
 function MenuButton({
@@ -328,6 +330,7 @@ export default function RichTextEditor({
   onChange,
   placeholder = 'Start writing your blog post...',
   onImageUpload,
+  minHeight = '400px',
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -361,7 +364,8 @@ export default function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[400px] p-4',
+        class: 'prose prose-invert prose-lg max-w-none focus:outline-none p-4',
+        style: `min-height: ${minHeight}`,
       },
     },
   });

@@ -22,8 +22,15 @@ import {
   CornerUpLeft,
 } from 'lucide-react';
 import type { InboundEmail, InboundEmailStatus } from '@/types/api';
+import RichTextEditor from '@/components/admin/RichTextEditor';
+import { REPLY_TEMPLATES } from '@/lib/email/reply-templates';
 
 const EDDY_DOMAIN = 'eddy.guide';
+
+/** True when rich-text HTML has no visible content (e.g. an empty "<p></p>"). */
+function isHtmlEmpty(html: string): boolean {
+  return !html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+}
 
 /** Best-effort client-side guess of the From address (server decides for real). */
 function replyFromDisplay(email: InboundEmail): string {
@@ -87,7 +94,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
   // Reply composer state (one open at a time).
   const [replyingId, setReplyingId] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
+  const [replyHtml, setReplyHtml] = useState('');
   const [sending, setSending] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [replySent, setReplySent] = useState(false);
@@ -164,7 +171,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
   const openReply = (email: InboundEmail) => {
     setReplyingId(email.id);
-    setReplyText('');
+    setReplyHtml('');
     setReplyError(null);
     setReplySent(false);
     setExpandedId(email.id);
@@ -172,20 +179,20 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
   const cancelReply = () => {
     setReplyingId(null);
-    setReplyText('');
+    setReplyHtml('');
     setReplyError(null);
     setReplySent(false);
   };
 
   const sendReply = async (email: InboundEmail) => {
-    if (!replyText.trim()) return;
+    if (isHtmlEmpty(replyHtml)) return;
     setSending(true);
     setReplyError(null);
     try {
       const response = await adminFetch(`/api/admin/inbound-emails/${email.id}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: replyText }),
+        body: JSON.stringify({ html: replyHtml }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Failed to send reply');
@@ -200,7 +207,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
       }
       setEmails((prev) => prev.map((e) => (e.id === email.id ? updated : e)));
       setReplySent(true);
-      setReplyText('');
+      setReplyHtml('');
     } catch (err) {
       setReplyError(err instanceof Error ? err.message : 'Failed to send reply');
     } finally {
@@ -459,19 +466,36 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                                   <span className="text-neutral-500">Subject:</span> {replySubjectDisplay(email.subject)}
                                 </div>
                               </div>
-                              <textarea
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                rows={6}
-                                autoFocus
+                              <div className="mb-2 flex items-center gap-2">
+                                <label className="text-xs text-neutral-500">Template:</label>
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    const tpl = REPLY_TEMPLATES.find((t) => t.id === e.target.value);
+                                    if (tpl) setReplyHtml(tpl.html);
+                                    e.target.value = '';
+                                  }}
+                                  className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                >
+                                  <option value="">Insert a quick reply…</option>
+                                  {REPLY_TEMPLATES.map((t) => (
+                                    <option key={t.id} value={t.id} title={t.description}>
+                                      {t.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <RichTextEditor
+                                content={replyHtml}
+                                onChange={setReplyHtml}
+                                minHeight="150px"
                                 placeholder="Write your reply…"
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y"
                               />
                               {replyError && <div className="text-red-400 text-xs mt-2">{replyError}</div>}
                               <div className="flex items-center gap-2 mt-2">
                                 <button
                                   onClick={() => sendReply(email)}
-                                  disabled={sending || !replyText.trim()}
+                                  disabled={sending || isHtmlEmpty(replyHtml)}
                                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {sending ? (

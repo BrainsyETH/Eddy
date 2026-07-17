@@ -66,10 +66,12 @@ Set both in Vercel (Production + Preview) and in local `.env.local`:
 Both are required. If either is missing the route returns `500` and logs
 `Missing RESEND_WEBHOOK_SECRET or RESEND_API_KEY` (fail-closed by design).
 
-### 4. Run the migration
+### 4. Run the migrations
 
-Apply `supabase/migrations/00169_inbound_emails.sql` to create the
-`inbound_emails` table, then regenerate DB types if you use them.
+Apply `supabase/migrations/00169_inbound_emails.sql` (the `inbound_emails`
+table) and `00170_inbound_emails_replied_at.sql` (the `last_replied_at` column
+used by replies), then regenerate DB types if you use them. Both are already
+applied to the production project (`ilefwfpvphadsbptiaur`).
 
 ## Testing
 
@@ -87,9 +89,16 @@ Resend's dashboard only lets you *view* received mail — it has no compose/repl
 button. Replies are sent programmatically via the sending API, which the admin
 panel does for you:
 
-- Expand a message in **Feedback → Inbound Email** and click **Reply**. The reply
-  is sent from eddy.guide via `resend.emails.send()`, threaded to the original
-  (`In-Reply-To` / `References` headers), with the original quoted underneath.
+- Expand a message in **Feedback → Inbound Email** and click **Reply**. Compose
+  in the **rich-text editor** (bold, links, lists, headings) or pick a
+  **quick-reply template** from the dropdown (`src/lib/email/reply-templates.ts`)
+  and edit it. The reply is sent from eddy.guide via `resend.emails.send()`,
+  threaded to the original (`In-Reply-To` / `References` headers), with the
+  original quoted underneath.
+- **Branding:** the body is sanitized (`sanitizeRichText`) and wrapped in the
+  Eddy email shell (`src/lib/email/render.ts` — deep-teal header, otter logo,
+  river-blue links) matching the marketing emails, and sent with a plain-text
+  fallback.
 - **From address:** defaults to the eddy.guide address the message was delivered
   to (e.g. a message to `hello@eddy.guide` is replied to *from* `hello@eddy.guide`).
   If the message wasn't addressed to an eddy.guide address, set `RESEND_REPLY_FROM`.
