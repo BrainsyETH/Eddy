@@ -3,6 +3,8 @@
 Companion to **`widget-showcase-email.html`** (the rich, paste-ready HTML email).
 Everything here is copy you can lift straight into Gmail, Mailchimp, Instantly, Apollo, etc.
 
+> **The widget images are real screenshots** of the live widgets (captured with real conditions), stored in `missouri-float-planner/public/email/` and referenced in the email as `https://eddy.guide/email/<name>.png`. **They go live the moment this branch is deployed** — until then those URLs 404, so preview with the self-contained copy (all images inlined) rather than the raw file. The Eddy otter art is served from the existing Vercel Blob store and already loads anywhere.
+
 ---
 
 ## 1. Subject lines (A/B test these)
@@ -122,8 +124,18 @@ Ozarks. Not a fit? Reply "no thanks" and I won't reach out again.
 
 - **Test render first.** Send yourself a copy and check Gmail (web + app), Apple Mail, and Outlook. The rich card degrades gracefully in Outlook (square corners, no shadows) but stays readable.
 - **Gmail clipping.** This email is well under Gmail's ~102 KB clip limit. If you add a lot more, watch for a "[Message clipped]" link.
-- **Images off by default.** The design still fully makes sense with images blocked — the widget previews are live HTML/CSS, not screenshots, so they always show. Only the otter illustrations and header logo are images (all have alt text).
+- **Deploy before you send.** The widget screenshots live at `https://eddy.guide/email/*.png`, which only exist once this branch is deployed. Send yourself a test after deploy to confirm every image loads.
+- **Images off by default.** Every image has descriptive alt text, so the email still reads and sells with images blocked. The showcase images are real widget screenshots; the otter art and logo are the only illustrations.
+- **Swap in your own examples anytime.** To feature a different river or a card branded for a specific prospect, replace the matching PNG in `public/email/` (keep the filename) — no HTML change needed.
 - **Links.** All CTAs point to `https://eddy.guide/embed`. Swap in UTM tags if you want to track this campaign (e.g. `?utm_source=outreach&utm_medium=email&utm_campaign=widget_showcase`).
 - **From a real person.** "Built you a free river-conditions widget" from your name will out-open a branded no-reply sender for this kind of outreach.
 - **Follow-up.** If no reply in ~5 days, a one-line nudge ("Did the river-conditions widget make sense for {{BusinessName}}? Happy to set it up for you.") tends to convert well.
 - **CAN-SPAM.** Keep the opt-out line and a physical mailing address in the footer for cold sends.
+
+---
+
+## 7. Asset notes
+
+- **Screenshots** (`public/email/`): `card.png` (Floatable From Here — branded for a demo "Riverside Retreat"), `live-conditions.png`, `planner.png` (a realistic ~9.8 mi / ~5 hr Current River float), `multi-river.png`, `eddy-quote.png`, `services.png`, `badge.png`. All captured at 2× for retina sharpness.
+- **Demo card:** the "Floatable From Here" screenshot uses a real embed card created via the public API (`emb_324932fe`, Eminence MO → Jacks Fork). It's a throwaway demo — delete it whenever, or regenerate `card.png` branded for a real prospect.
+- **Heads-up (product bug):** the **Gauge Report** widget's big headline number renders wrong — it showed `1 cfs` / `3 cfs` while the chart and "Eddy Says" line correctly read ~123 / ~1,010 cfs. That's why the Gauge Report isn't featured as a screenshot here (only mentioned in text). Worth fixing in the widget — the headline reading looks like it's pulling the wrong field or a rounded delta.
