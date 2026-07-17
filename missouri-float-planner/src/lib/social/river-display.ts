@@ -7,33 +7,69 @@
 //   - LONG  ("Current River", "Huzzah Creek") — hero covers + reels
 //   - SHORT ("Current", "Huzzah")             — compact grids (digest / forecast)
 // (content-formatter keeps its own CASUAL form — "the Current" — for prose.)
+//
+// These maps mirror rivers.name and must cover EVERY postable slug: a slug that
+// missed the map used to fall back to `<TitleCase> River`, which turned
+// "big-river" into "Big River River" on a live reel (the name already ends in
+// "River"). The fallback below no longer double-appends, but the maps remain
+// the source of correct punctuation ("St. Francis") and short forms.
 
 export const RIVER_DISPLAY_LONG: Record<string, string> = {
-  meramec: 'Meramec River',
-  current: 'Current River',
-  'eleven-point': 'Eleven Point River',
-  'jacks-fork': 'Jacks Fork River',
-  niangua: 'Niangua River',
   'big-piney': 'Big Piney River',
-  huzzah: 'Huzzah Creek',
-  courtois: 'Courtois Creek',
-  gasconade: 'Gasconade River',
+  'big-river': 'Big River',
   black: 'Black River',
   bourbeuse: 'Bourbeuse River',
+  'bryant-creek': 'Bryant Creek',
+  buffalo: 'Buffalo National River',
+  'caddo-river': 'Caddo River',
+  courtois: 'Courtois Creek',
+  'crooked-creek': 'Crooked Creek',
+  current: 'Current River',
+  'eleven-point': 'Eleven Point River',
+  elk: 'Elk River',
+  gasconade: 'Gasconade River',
+  huzzah: 'Huzzah Creek',
+  'jacks-fork': 'Jacks Fork River',
+  james: 'James River',
+  'kings-river': 'Kings River',
+  meramec: 'Meramec River',
+  mulberry: 'Mulberry River',
+  niangua: 'Niangua River',
+  'north-fork-white': 'North Fork River',
+  'spring-river': 'Spring River',
+  'spring-river-mo': 'Spring River (Missouri)',
+  'st-francis': 'St. Francis River',
+  'war-eagle-creek': 'War Eagle Creek',
 };
 
 export const RIVER_DISPLAY_SHORT: Record<string, string> = {
-  meramec: 'Meramec',
-  current: 'Current',
-  'eleven-point': 'Eleven Point',
-  'jacks-fork': 'Jacks Fork',
-  niangua: 'Niangua',
   'big-piney': 'Big Piney',
-  huzzah: 'Huzzah',
-  courtois: 'Courtois',
-  gasconade: 'Gasconade',
+  // "Big River" keeps its suffix — "River" is part of the proper name, so the
+  // short form can't drop it the way "Current River" → "Current" does.
+  'big-river': 'Big River',
   black: 'Black',
   bourbeuse: 'Bourbeuse',
+  'bryant-creek': 'Bryant Creek',
+  buffalo: 'Buffalo',
+  'caddo-river': 'Caddo',
+  courtois: 'Courtois',
+  'crooked-creek': 'Crooked Creek',
+  current: 'Current',
+  'eleven-point': 'Eleven Point',
+  elk: 'Elk',
+  gasconade: 'Gasconade',
+  huzzah: 'Huzzah',
+  'jacks-fork': 'Jacks Fork',
+  james: 'James',
+  'kings-river': 'Kings',
+  meramec: 'Meramec',
+  mulberry: 'Mulberry',
+  niangua: 'Niangua',
+  'north-fork-white': 'North Fork',
+  'spring-river': 'Spring River',
+  'spring-river-mo': 'Spring River (MO)',
+  'st-francis': 'St. Francis',
+  'war-eagle-creek': 'War Eagle',
 };
 
 /** Title-case a raw slug ("big-piney" → "Big Piney") so an unmapped river
@@ -46,9 +82,17 @@ function titleCaseSlug(slug: string): string {
     .join(' ');
 }
 
-/** Long display name; unmapped slugs degrade to a title-cased "<Name> River". */
+/** Names that already end in a waterway word must not get " River" appended —
+ *  that's how "big-river" became "Big River River" on a published reel. */
+const WATERWAY_SUFFIX = /(river|creek|fork|branch|bayou)$/i;
+
+/** Long display name; unmapped slugs degrade to a title-cased "<Name> River"
+ *  (or just the title-cased name when it already ends in a waterway word). */
 export function riverDisplayLong(slug: string): string {
-  return RIVER_DISPLAY_LONG[slug] || `${titleCaseSlug(slug)} River`;
+  const mapped = RIVER_DISPLAY_LONG[slug];
+  if (mapped) return mapped;
+  const titled = titleCaseSlug(slug);
+  return WATERWAY_SUFFIX.test(titled) ? titled : `${titled} River`;
 }
 
 /** Short display name; unmapped slugs degrade to a title-cased slug. */
