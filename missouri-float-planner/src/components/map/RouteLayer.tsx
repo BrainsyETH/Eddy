@@ -10,9 +10,9 @@
 // curated style's line anchor, BELOW every label: a route can never cover
 // a town name (see ./layer-anchors.ts).
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt } from './layer-anchors';
+import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR } from './line-style';
 import type { GeoJSON } from 'geojson';
 
@@ -26,19 +26,18 @@ export default function RouteLayer({
   isUpstream = false,
 }: RouteLayerProps) {
   const map = useMap();
+  // Bumped when a style transition finishes so the effect retries (see
+  // whenStyleReady in ./layer-anchors).
+  const [styleReadyTick, setStyleReadyTick] = useState(0);
 
   useEffect(() => {
     if (!map) return;
 
-    // Wait for map to be loaded
-    if (!map.loaded()) {
-      const handleLoad = () => {
-        // Map loaded, effect will re-run
-      };
-      map.once('load', handleLoad);
-      return () => {
-        map.off('load', handleLoad);
-      };
+    // Style mid-transition: retry once it settles. Never gate on
+    // map.loaded() — false while tiles stream, and 'load' fires only once
+    // per map lifetime, so the old gate could silently drop the route.
+    if (!map.isStyleLoaded()) {
+      return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 
     const routeSourceId = 'float-route-source';
@@ -160,7 +159,7 @@ export default function RouteLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, routeGeometry, isUpstream]);
+  }, [map, routeGeometry, isUpstream, styleReadyTick]);
 
   return null;
 }

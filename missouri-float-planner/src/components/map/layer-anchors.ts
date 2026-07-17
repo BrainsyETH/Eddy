@@ -51,3 +51,31 @@ export function addLayerAt(
 ): void {
   map.addLayer(layer, anchorBeforeId(map, anchor));
 }
+
+/**
+ * Invoke `onReady` once the map's STYLE can accept sources/layers again.
+ *
+ * Layer components used to gate on `map.loaded()` + `once('load', noop)`,
+ * which is a dead end twice over: `loaded()` is false whenever any tile is
+ * still streaming (guaranteed during a fitBounds over satellite imagery),
+ * and the `load` event fires exactly once per map lifetime — so a layer
+ * whose data arrived seconds after mount silently never rendered. The
+ * right check for ADDING layers is `isStyleLoaded()` (true while tiles
+ * stream); the only wait state is a style transition, which always ends in
+ * an `idle` event.
+ *
+ * Returns a cleanup that cancels the wait.
+ */
+export function whenStyleReady(
+  map: maplibregl.Map,
+  onReady: () => void,
+): () => void {
+  const handler = () => {
+    if (map.isStyleLoaded()) onReady();
+    else map.once('idle', handler);
+  };
+  map.once('idle', handler);
+  return () => {
+    map.off('idle', handler);
+  };
+}

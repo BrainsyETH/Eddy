@@ -14,6 +14,9 @@ interface WeatherBugProps {
   riverSlug: string | null;
   riverId: string | null;
   className?: string;
+  /** Root placement. Default floats top-left; pass "relative" to slot the
+   *  bug into an overlay stack (so filters/river card never overlap it). */
+  positionClassName?: string;
 }
 
 function getConditionIcon(condition: string): React.ReactNode {
@@ -27,7 +30,11 @@ function getConditionIcon(condition: string): React.ReactNode {
   }
 }
 
-export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProps) {
+export default function WeatherBug({
+  riverSlug,
+  className = '',
+  positionClassName = 'absolute top-4 left-4 z-20',
+}: WeatherBugProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: weatherData, isLoading: weatherLoading, isError: hasWeatherError } = useWeather(riverSlug);
   const weather = weatherData as WeatherData | null | undefined;
@@ -44,7 +51,7 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
         onClick={() => setIsExpanded(true)}
         aria-expanded="false"
         aria-label="Expand weather details"
-        className={`absolute top-4 left-4 z-20 glass-card-dark rounded-lg px-3 py-2
+        className={`${positionClassName} glass-card-dark rounded-lg px-3 py-2
                     backdrop-blur-md border border-primary-600/30 shadow-lg
                     hover:border-primary-500/50 transition-colors ${className}`}
       >
@@ -67,7 +74,7 @@ export default function WeatherBug({ riverSlug, className = '' }: WeatherBugProp
 
   return (
     <div
-      className={`absolute top-4 left-4 z-20 glass-card-dark rounded-lg p-4
+      className={`${positionClassName} glass-card-dark rounded-lg p-4
                   backdrop-blur-md border border-primary-600/30 shadow-lg
                   min-w-[240px] ${className}`}
     >
