@@ -632,6 +632,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {river.geometry && (
               <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
             )}
+            {/* Statewide condition network under the route (hero river excluded) */}
+            <ConditionNetworkLayer excludeRiverId={river.id} />
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
@@ -755,6 +757,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {river.geometry && (
               <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
             )}
+            {/* Statewide condition network under the route (hero river excluded) */}
+            <ConditionNetworkLayer excludeRiverId={river.id} />
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
