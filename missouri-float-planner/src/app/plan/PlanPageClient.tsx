@@ -20,8 +20,9 @@ import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
 import FloatPlanCard, { ShareableCapture } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import PlanSidebar from '@/components/plan/PlanSidebar';
-import { MapHintBanner, RouteStatsBadge, MapLegend } from '@/components/plan/MapOverlayHelpers';
+import { RouteStatsBadge, MapLegend } from '@/components/plan/MapOverlayHelpers';
 import PlanFilters from '@/components/plan/PlanFilters';
+import MapEddySays from '@/components/plan/MapEddySays';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
@@ -498,7 +499,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   if (!riverSlug) {
     return (
       <div className="relative bg-neutral-100 plan-viewport-h">
-        <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false} />
+        <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false}>
+          {/* Every river in its live condition color — click one to start
+              planning it (no river excluded here since none is selected). */}
+          <ConditionNetworkLayer onSelectRiver={handleRiverChange} />
+        </MapContainer>
 
         {/* Prominent river selector floating on the map */}
         <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[380px] z-30">
@@ -575,7 +580,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           </div>
           <PlanSidebar
             riverName={river.name}
-            riverSlug={riverSlug}
             conditionCode={condition?.code ?? 'unknown'}
             plan={plan || null}
             isLoading={planLoading}
@@ -589,7 +593,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             selectedVesselTypeId={selectedVesselTypeId}
             onVesselChange={setSelectedVesselTypeId}
             onReportIssue={handleReportAccessPointIssue}
-            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
             pointsAlongRoute={pointsAlongRoute}
             captureRef={captureRef}
           />
@@ -632,8 +635,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {river.geometry && (
               <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
             )}
-            {/* Statewide condition network under the route (hero river excluded) */}
-            <ConditionNetworkLayer excludeRiverId={river.id} />
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
@@ -652,9 +653,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
           <WeatherBug riverSlug={riverSlug} riverId={river.id} />
 
-          <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
+          <MapEddySays
+            riverSlug={riverSlug}
+            conditionCode={condition?.code ?? 'unknown'}
+            gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
+          />
           {(putInPoint && takeOutPoint) && (
-            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} />
+            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
           )}
           {planHasError && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
@@ -757,8 +763,6 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {river.geometry && (
               <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} />
             )}
-            {/* Statewide condition network under the route (hero river excluded) */}
-            <ConditionNetworkLayer excludeRiverId={river.id} />
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
@@ -775,9 +779,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             onToggleCategory={togglePoiCategory}
           />
 
-          <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
+          <MapEddySays
+            riverSlug={riverSlug}
+            conditionCode={condition?.code ?? 'unknown'}
+            gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
+          />
           {(putInPoint && takeOutPoint) && (
-            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} />
+            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
           )}
 
           {/* Access point picker strip — only while picking. Once both

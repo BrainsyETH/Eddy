@@ -4,10 +4,9 @@
 // Left sidebar for the split-panel float planner — contains all plan info in a scrollable column
 // Desktop: visible as sidebar. Mobile: content rendered inside bottom sheet.
 
-import React, { useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
-import { Share2, Download, Check, ChevronRight, ChevronDown, ChevronUp, Camera, Info } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, Info } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import ConditionBadge from '@/components/ui/ConditionBadge';
@@ -17,12 +16,10 @@ import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
-const EddyQuote = dynamic(() => import('@/components/river/EddyQuote'), { ssr: false });
 
 
 interface PlanSidebarProps {
   riverName: string;
-  riverSlug: string;
   conditionCode: ConditionCode;
   plan: FloatPlan | null;
   isLoading: boolean;
@@ -36,14 +33,12 @@ interface PlanSidebarProps {
   selectedVesselTypeId: string | null;
   onVesselChange: (id: string) => void;
   onReportIssue?: (point: AccessPoint) => void;
-  onSubmitPhoto?: () => void;
   pointsAlongRoute?: RouteItem[];
   captureRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function PlanSidebar({
   riverName,
-  riverSlug,
   conditionCode,
   plan,
   isLoading,
@@ -57,10 +52,8 @@ export default function PlanSidebar({
   selectedVesselTypeId,
   onVesselChange,
   onReportIssue,
-  onSubmitPhoto,
   pointsAlongRoute = [],
 }: PlanSidebarProps) {
-  const [showEddySays, setShowEddySays] = useState(false);
   const hasBothPoints = putInPoint && takeOutPoint;
 
   // Vessel toggle (canoe vs. raft) — the same control the mobile FloatPlanCard
@@ -85,44 +78,8 @@ export default function PlanSidebar({
             {riverName}
           </h1>
         </div>
-        <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden bg-white">
-          <button
-            onClick={() => setShowEddySays(!showEddySays)}
-            className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-90 transition-colors"
-          >
-            <Image
-              src={getEddyImageForCondition(conditionCode)}
-              alt="Eddy"
-              width={20}
-              height={20}
-              className="flex-shrink-0"
-            />
-            <span className="text-xs font-medium text-neutral-700">Eddy Says — River Report</span>
-            {showEddySays
-              ? <ChevronUp size={14} className="text-neutral-400 ml-auto" />
-              : <ChevronDown size={14} className="text-neutral-400 ml-auto" />
-            }
-          </button>
-          {showEddySays && (
-            <>
-              <EddyQuote
-                riverSlug={riverSlug}
-                conditionCode={conditionCode}
-                gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
-                embedded
-              />
-              {onSubmitPhoto && (
-                <button
-                  onClick={onSubmitPhoto}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border-t border-neutral-100 text-xs font-medium text-teal-700 hover:bg-teal-50 transition-colors"
-                >
-                  <Camera size={13} />
-                  Show us what the river looks like
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        {/* "Eddy Says — River Report" moved to the map's top-center overlay
+            (components/plan/MapEddySays) — see the planner map. */}
       </div>
 
       {/* Scrollable content */}
