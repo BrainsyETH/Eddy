@@ -11,6 +11,7 @@ import maplibregl from 'maplibre-gl';
 import { AlertTriangle } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
+import { presentPopup } from './popup-manager';
 import { HAZARD_TYPES, HAZARD_SEVERITY_COLORS } from '@/constants';
 import type { Hazard } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
@@ -133,7 +134,7 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
 
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
-          popup.setLngLat([lng, lat]).addTo(map);
+          presentPopup(map, popup, [lng, lat]);
         });
         el.addEventListener('mouseleave', () => {
           popup.remove();
@@ -141,7 +142,7 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
-          popup.setLngLat([lng, lat]).addTo(map);
+          presentPopup(map, popup, [lng, lat]);
           map.once('click', () => popup.remove());
         });
       }

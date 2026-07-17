@@ -10,6 +10,7 @@ import { MapPin, Flag, FlagOff, type LucideIcon } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
+import { presentPopup } from './popup-manager';
 import type { AccessPoint } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
 
@@ -223,7 +224,7 @@ export default function AccessPointMarkers({
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
           el.style.zIndex = '1'; // Lower marker z-index when popup shows
-          popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
+          presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
         });
         el.addEventListener('mouseleave', () => {
           el.style.zIndex = `${zIndex}`; // Restore original z-index
@@ -285,7 +286,7 @@ export default function AccessPointMarkers({
         });
         // Surface the popup on keyboard focus, mirroring hover.
         el.addEventListener('focus', () => {
-          popup.setLngLat([point.coordinates.lng, point.coordinates.lat]).addTo(map);
+          presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
         });
         el.addEventListener('blur', () => popup.remove());
       }

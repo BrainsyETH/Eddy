@@ -10,6 +10,7 @@ import { Droplets, AlertTriangle } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
+import { presentPopup } from './popup-manager';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { computeCondition } from '@/lib/conditions';
@@ -296,7 +297,7 @@ export default function GaugeStationMarkers({
       // Show popup on hover for hover-capable devices
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
-          popup.setLngLat([gauge.coordinates.lng, gauge.coordinates.lat]).addTo(map);
+          presentPopup(map, popup, [gauge.coordinates.lng, gauge.coordinates.lat]);
         });
         el.addEventListener('mouseleave', () => {
           popup.remove();
@@ -317,7 +318,7 @@ export default function GaugeStationMarkers({
       if (!supportsHoverRef.current) {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
-          popup.setLngLat([gauge.coordinates.lng, gauge.coordinates.lat]).addTo(map);
+          presentPopup(map, popup, [gauge.coordinates.lng, gauge.coordinates.lat]);
           map.once('click', () => popup.remove());
         });
       }

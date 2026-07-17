@@ -9,7 +9,6 @@ import Image from 'next/image';
 import { Share2, Download, Check, ChevronRight, Info, CalendarPlus, Mail } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
-import FloatWindow from '@/components/plan/FloatWindow';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
 import { downloadFloatPlanIcs, buildFloatPlanMailto } from '@/lib/plan-calendar';
 import { trackEvent } from '@/lib/analytics';
@@ -94,9 +93,6 @@ export default function PlanSidebar({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-
-        {/* Float window — "is Saturday good?" Today + NWS forecast days. */}
-        <FloatWindow riverSlug={riverSlug} />
 
         {/* Empty state — no selection */}
         {!putInPoint && !takeOutPoint && (

@@ -615,11 +615,12 @@ function RiverCard({
         </div>
       )}
 
-      {/* Cross-link to the full River Report — ties the map to the report +
-          blog pages this card's styling mirrors. Coral accent-700 keeps
-          white label text AA-compliant. */}
+      {/* The conversion path: this card answers "is it floatable?" — the
+          planner is where that becomes a trip. Coral primary (accent-700
+          keeps white label text AA-compliant); the report link demotes to
+          the neutral secondary treatment. */}
       <a
-        href={`/rivers/${river.slug}`}
+        href={`/plan?river=${river.slug}`}
         className="mt-4 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2.5 uppercase"
         style={{
           background: 'var(--color-accent-700)',
@@ -628,6 +629,23 @@ function RiverCard({
           boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
           fontFamily: MONO,
           fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+        }}
+      >
+        Plan a float
+        <span aria-hidden>→</span>
+      </a>
+      <a
+        href={`/rivers/${river.slug}`}
+        className="mt-2 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2 uppercase"
+        style={{
+          background: THEME.cardBg,
+          color: THEME.ink,
+          borderColor: THEME.cardBorder,
+          boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
+          fontFamily: MONO,
+          fontSize: 11,
           fontWeight: 700,
           letterSpacing: '0.12em',
         }}
@@ -897,8 +915,11 @@ function AccessPointCard({
         </div>
         <CloseBtn onClose={onClose} />
       </div>
+      {/* Deep-link straight into the planner with this access point as the
+          put-in (same access_points ids; an unmatched id just leaves the
+          planner unselected). The label finally goes where it promises. */}
       <a
-        href={`/rivers/${river.slug}`}
+        href={`/plan?river=${river.slug}&putIn=${ap.id}`}
         className="mt-3 inline-block rounded-md border-2 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em]"
         style={{
           background: THEME.cardBg, color: THEME.ink, borderColor: THEME.cardBorder,

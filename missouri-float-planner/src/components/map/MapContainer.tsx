@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Layers, Droplets, Maximize2, Minimize2 } from 'lucide-react';
+import { Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
 import { CONDITION_SHORT_LABELS } from '@/constants';
 import { ANCHORS, addLayerAt } from './layer-anchors';
@@ -147,8 +147,6 @@ interface MapContainerProps {
   children?: React.ReactNode;
   showWeatherOverlay?: boolean;
   onWeatherToggle?: (enabled: boolean) => void;
-  showGauges?: boolean;
-  onGaugeToggle?: (enabled: boolean) => void;
   showLegend?: boolean;
   /**
    * Show the route-direction legend rows (downstream/upstream greens).
@@ -182,8 +180,6 @@ export default function MapContainer({
   children,
   showWeatherOverlay = false,
   onWeatherToggle,
-  showGauges = false,
-  onGaugeToggle,
   showLegend = false,
   legendRoute = true,
   syncCameraToUrl = false,
@@ -193,7 +189,6 @@ export default function MapContainer({
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [weatherEnabled, setWeatherEnabled] = useState(showWeatherOverlay);
-  const [gaugesEnabled, setGaugesEnabled] = useState(showGauges);
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('immersive');
   const [showStylePicker, setShowStylePicker] = useState(false);
@@ -348,12 +343,8 @@ export default function MapContainer({
     onWeatherToggle?.(newValue);
   }, [weatherEnabled, onWeatherToggle]);
 
-  // Toggle gauge markers
-  const toggleGauges = useCallback(() => {
-    const newValue = !gaugesEnabled;
-    setGaugesEnabled(newValue);
-    onGaugeToggle?.(newValue);
-  }, [gaugesEnabled, onGaugeToggle]);
+  // (Gauge visibility is page state, not map state: the planner's Filters
+  // panel owns it and simply doesn't render GaugeStationMarkers when off.)
 
   // 2D ⇄ 3D terrain. Works on every style: the DEM source is added on
   // demand and terrain survives style switches via the style.load handler.
@@ -678,14 +669,6 @@ export default function MapContainer({
                   <span className={`w-2 h-2 rounded-full ${weatherEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
                 </button>
                 <button
-                  onClick={toggleGauges}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
-                  aria-pressed={gaugesEnabled}
-                >
-                  <span>Gauge stations</span>
-                  <span className={`w-2 h-2 rounded-full ${gaugesEnabled ? 'bg-blue-500' : 'bg-gray-300'}`} aria-hidden="true" />
-                </button>
-                <button
                   onClick={toggle3D}
                   className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
                   aria-pressed={is3D}
@@ -722,20 +705,6 @@ export default function MapContainer({
               d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
             />
           </svg>
-        </button>
-
-        {/* Gauge Stations Toggle - desktop only (mobile: inside Layers menu) */}
-        <button
-          onClick={toggleGauges}
-          className={`hidden md:block p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
-            gaugesEnabled
-              ? 'bg-blue-500 text-white'
-              : 'bg-white/90 text-gray-700 hover:bg-white'
-          }`}
-          title={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
-          aria-label={gaugesEnabled ? 'Hide gauge stations' : 'Show gauge stations'}
-        >
-          <Droplets className="w-5 h-5" />
         </button>
 
         {/* 2D/3D terrain toggle - desktop only (mobile: inside Layers menu) */}
