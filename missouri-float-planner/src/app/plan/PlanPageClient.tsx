@@ -761,7 +761,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               plan), weather, filters. One column so they never overlap. */}
           <div className="absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
             {!putInPoint && (
-              <div className="w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
+              // relative z-10: the backdrop-blur cards each create a stacking
+              // context, and later siblings (weather, Filters) were painting
+              // OVER the open river dropdown. Lifting the card lifts its
+              // dropdown with it.
+              <div className="relative z-10 w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
                 <RiverSwitcher
                   currentSlug={riverSlug}
                   rivers={rivers || []}

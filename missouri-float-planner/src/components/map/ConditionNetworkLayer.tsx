@@ -179,7 +179,11 @@ export default function ConditionNetworkLayer({
             'text-font': ['Noto Sans Italic'],
             'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 13, 14],
             'text-letter-spacing': 0.04,
-            'text-max-angle': 45,
+            'text-max-angle': 80,
+            // 80, not the 45 default: max-angle accumulates over the LABEL'S
+            // LENGTH, so even the simplified course rejects placement at 45.
+            // Verified in the offline harness: 45 -> zero labels, 80 -> clean
+            // repeats at z9-z11.
           },
           paint: {
             'text-color': '#ffffff',
