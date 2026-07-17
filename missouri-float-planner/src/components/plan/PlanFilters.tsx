@@ -20,6 +20,7 @@ import {
   Waves,
   Type,
   Gauge,
+  Wind,
   Sailboat,
   Tent,
   Droplets,
@@ -62,6 +63,9 @@ export interface PlanFiltersProps {
   /** USGS gauge station pins. */
   showGauges: boolean;
   onToggleGauges: () => void;
+  /** Animated downstream flow particles (presentation, session-only). */
+  showFlow: boolean;
+  onToggleFlow: () => void;
   /** Master POI visibility. */
   showPOIs: boolean;
   onTogglePOIs: () => void;
@@ -93,6 +97,8 @@ export default function PlanFilters({
   onToggleRiverNames,
   showGauges,
   onToggleGauges,
+  showFlow,
+  onToggleFlow,
   showPOIs,
   onTogglePOIs,
   availableCategories,
@@ -203,6 +209,13 @@ export default function PlanFilters({
               sublabel="Live USGS readings"
               on={showGauges}
               onClick={onToggleGauges}
+            />
+            <ToggleRow
+              icon={Wind}
+              label="Water flow"
+              sublabel="Animated current"
+              on={showFlow}
+              onClick={onToggleFlow}
             />
             <ToggleRow
               icon={Star}

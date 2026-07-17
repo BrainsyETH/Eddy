@@ -56,6 +56,9 @@ export interface ConditionNetworkFeatureProps {
   color: string;
   /** Verdict code — 'unknown' when the river has no rated reading. */
   code: ConditionCode;
+  /** USGS flow-statistics percentile at the primary gauge (0–100), or
+   *  null — modulates the flow-particle speed within the verdict band. */
+  percentile: number | null;
 }
 
 export interface ConditionNetworkFeature {
@@ -103,6 +106,7 @@ export function useConditionNetwork(excludeRiverId?: string): {
             name: r.name,
             code,
             color: code !== 'unknown' ? conditionColor(code) : NO_DATA_WATER_COLOR,
+            percentile: reading?.percentile ?? null,
           },
         };
       });

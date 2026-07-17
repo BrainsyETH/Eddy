@@ -61,6 +61,7 @@ const RouteLayer = dynamic(() => import('@/components/map/RouteLayer'), { ssr: f
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
 const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
+const FlowParticlesLayer = dynamic(() => import('@/components/map/FlowParticlesLayer'), { ssr: false });
 
 // Roughly the bounding box covering all Missouri Ozark float rivers we plan
 // — used as the default map view when no river is selected yet.
@@ -129,6 +130,12 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     () => (conditionFilter.size ? Array.from(conditionFilter) : null),
     [conditionFilter],
   );
+  // Flow particles are ambience, so the toggle is session-only (never
+  // persisted) and the default is per-device: on for desktop, off on
+  // phones (battery). null = viewport not known yet (hydration).
+  const [showFlow, setShowFlow] = useState<boolean | null>(null);
+  const toggleFlow = useCallback(() => setShowFlow((v) => !(v === true)), []);
+  const flowOn = showFlow === true;
 
   // Layer choices persist across visits (the map style already does). The
   // condition filter deliberately does NOT persist — "what's floatable" is
@@ -202,6 +209,12 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   // render (viewport unknown): render both wrappers exactly like the old
   // CSS-hidden markup so server and client HTML agree, then drop one.
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+
+  // Resolve the flow-particle default once the viewport is known; a choice
+  // the user already made this session wins.
+  useEffect(() => {
+    if (isDesktop !== null) setShowFlow((v) => (v === null ? isDesktop : v));
+  }, [isDesktop]);
 
   const gaugeStations = useMemo(
     () => allGaugeStations?.filter(g => g.thresholds?.some(t => t.riverId === river?.id)),
@@ -583,6 +596,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
           <ConditionNetworkLayer showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+          {/* Statewide flow at first sight — the wow frame. */}
+          {flowOn && <FlowParticlesLayer />}
         </MapContainer>
 
         {/* Prominent river selector floating on the map */}
@@ -732,6 +747,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
             <HazardMarkers hazards={hazards ?? []} />
+            {/* Animated downstream current. Honors the legend-chip filter;
+                when the network is hidden, flow stays on the hero river. */}
+            {flowOn && (
+              <FlowParticlesLayer
+                visibleConditions={visibleConditions}
+                onlyRiverId={showNetwork ? undefined : river.id}
+              />
+            )}
           </MapContainer>
 
           {/* Left overlay stack — river switcher (until a put-in starts the
@@ -754,6 +777,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               onToggleRiverNames={toggleRiverNames}
               showGauges={showGauges}
               onToggleGauges={toggleGauges}
+              showFlow={flowOn}
+              onToggleFlow={toggleFlow}
               showPOIs={showPOIs}
               onTogglePOIs={togglePOIs}
               availableCategories={availablePoiCategories}
@@ -880,6 +905,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
             {/* Safety-critical: hazards render always, never gated behind toggles */}
             <HazardMarkers hazards={hazards ?? []} />
+            {/* Animated downstream current. Honors the legend-chip filter;
+                when the network is hidden, flow stays on the hero river. */}
+            {flowOn && (
+              <FlowParticlesLayer
+                visibleConditions={visibleConditions}
+                onlyRiverId={showNetwork ? undefined : river.id}
+              />
+            )}
           </MapContainer>
 
           {/* Below the top-center Eddy pill (92% wide on phones — a top-4
@@ -891,6 +924,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             onToggleRiverNames={toggleRiverNames}
             showGauges={showGauges}
             onToggleGauges={toggleGauges}
+            showFlow={flowOn}
+            onToggleFlow={toggleFlow}
             showPOIs={showPOIs}
             onTogglePOIs={togglePOIs}
             availableCategories={availablePoiCategories}
