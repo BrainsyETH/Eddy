@@ -10,10 +10,12 @@
 // the visible condition-colored line keeps the true geometry.
 
 /**
- * Simplify a lng/lat polyline. `tolerance` is in degrees — 0.002° ≈ 200 m
- * in Missouri, which keeps a label within a few screen pixels of the real
- * channel at planning zooms while smoothing the wiggles that break text
- * placement.
+ * Simplify a lng/lat polyline. `tolerance` is in degrees — 0.004° ≈ 400 m
+ * in Missouri, which keeps a label near the real channel at planning
+ * zooms while smoothing the wiggles that break text placement. (0.002
+ * proved too faithful: offline harness renders showed labels still
+ * failing placement until the line was straightened this far AND
+ * text-max-angle was raised — see the label layers.)
  */
 export function simplifyLine(
   coords: ReadonlyArray<ReadonlyArray<number>>,
@@ -59,4 +61,4 @@ export function simplifyLine(
 }
 
 /** Shared tolerance for river-name label lines (see module comment). */
-export const LABEL_SIMPLIFY_TOLERANCE = 0.002;
+export const LABEL_SIMPLIFY_TOLERANCE = 0.004;

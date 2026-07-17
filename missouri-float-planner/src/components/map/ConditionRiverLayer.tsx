@@ -48,6 +48,9 @@ const CASING_LAYER_ID = 'condition-river-casing-layer';
 const HIT_LAYER_ID = 'condition-river-hit-layer';
 const LABEL_LAYER_ID = 'condition-river-label-layer';
 
+// Popup body: real padding (the global .maplibregl-popup-content resets to
+// 0, so every bit of breathing room lives here), theme-token colors, and a
+// title that reserves room for the close ×.
 function popupHtml(
   condition: RiverCondition | null,
   riverName: string,
@@ -57,10 +60,10 @@ function popupHtml(
   const parts: string[] = [];
 
   parts.push(
-    `<div style="font-weight:600;font-size:13px;color:#1f2937;margin-bottom:6px">${escapeHtml(riverName)}</div>`,
+    `<div style="font-weight:600;font-size:14px;line-height:1.3;color:var(--color-text-primary);padding-right:26px;margin-bottom:9px">${escapeHtml(riverName)}</div>`,
   );
   parts.push(
-    `<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:9999px;background:${chip.background};color:${chip.color};border:1px solid ${chip.borderColor};font-size:12px;font-weight:600">` +
+    `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:9999px;background:${chip.background};color:${chip.color};border:1px solid ${chip.borderColor};font-size:12px;font-weight:600;line-height:1.4">` +
       `<span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${chip.solid}"></span>` +
       `${escapeHtml(chip.longLabel)}</span>`,
   );
@@ -77,23 +80,23 @@ function popupHtml(
         : null;
     if (reading.length) {
       parts.push(
-        `<div style="margin-top:7px;font-size:12px;color:#374151">${reading.join(' · ')}${age ? ` <span style="color:#6b7280">(${age})</span>` : ''}</div>`,
+        `<div style="margin-top:10px;font-size:12px;line-height:1.5;color:var(--color-text-secondary)">${reading.join(' · ')}${age ? ` <span style="color:var(--color-text-muted)">(${age})</span>` : ''}</div>`,
       );
     }
     if (condition.gaugeName) {
       parts.push(
-        `<div style="margin-top:2px;font-size:11px;color:#6b7280">${escapeHtml(condition.gaugeName)}</div>`,
+        `<div style="margin-top:3px;font-size:11px;line-height:1.5;color:var(--color-text-muted)">${escapeHtml(condition.gaugeName)}</div>`,
       );
     }
   }
 
   if (planHref) {
     parts.push(
-      `<a href="${escapeHtml(planHref)}" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600;color:#0e7490;text-decoration:none">Plan this float →</a>`,
+      `<a href="${escapeHtml(planHref)}" style="display:inline-block;margin-top:10px;font-size:12px;font-weight:600;color:#0e7490;text-decoration:none">Plan this float →</a>`,
     );
   }
 
-  return `<div style="min-width:190px;padding:2px 2px 4px">${parts.join('')}</div>`;
+  return `<div style="min-width:200px;padding:13px 15px 12px">${parts.join('')}</div>`;
 }
 
 interface ConditionRiverLayerProps {
@@ -210,7 +213,11 @@ export default function ConditionRiverLayer({
             'text-font': ['Noto Sans Italic'],
             'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 13, 15],
             'text-letter-spacing': 0.04,
-            'text-max-angle': 45,
+            'text-max-angle': 80,
+            // 80, not the 45 default: max-angle accumulates over the LABEL'S
+            // LENGTH, so even the simplified course rejects placement at 45.
+            // Verified in the offline harness: 45 -> zero labels, 80 -> clean
+            // repeats at z9-z11.
           },
           paint: {
             'text-color': '#ffffff',

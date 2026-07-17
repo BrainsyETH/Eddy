@@ -6,13 +6,13 @@
 import { useEffect, useRef } from 'react';
 import React from 'react';
 import maplibregl from 'maplibre-gl';
-import { Droplets, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
 import { presentPopup } from './popup-manager';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
-import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import { computeCondition } from '@/lib/conditions';
 import { escapeHtml } from '@/lib/escape-html';
 
@@ -120,10 +120,12 @@ export default function GaugeStationMarkers({
       const isSevere = condition.code === 'dangerous' || condition.code === 'high';
 
       // Outer element is a ≥44px transparent hit area (touch target). The visible
-      // colored circle lives in an inner child so the visible size is unchanged.
+      // circle lives in an inner child so the visible size is unchanged.
+      // position:relative anchors the severe-condition badge.
       const el = document.createElement('div');
       el.className = 'gauge-station-marker';
       el.style.cssText = `
+        position: relative;
         width: 44px;
         height: 44px;
         background: transparent;
@@ -136,36 +138,61 @@ export default function GaugeStationMarkers({
         box-sizing: border-box;
       `;
 
-      // Inner colored circle (the visible marker).
+      // The visible marker: Eddy's condition face in a surface-colored
+      // circle with a slim ring in the condition color — the same
+      // condition→otter mapping the river condition page uses, so gauges
+      // read as "Eddy's verdict here", not an abstract dot.
       const circle = document.createElement('div');
       circle.className = 'gauge-station-marker-circle';
       circle.style.cssText = `
-        background: linear-gradient(135deg, ${bgColor} 0%, ${adjustColor(bgColor, -30)} 100%);
-        width: ${28 * scale}px;
-        height: ${28 * scale}px;
+        background: var(--color-surface, #ffffff);
+        width: ${30 * scale}px;
+        height: ${30 * scale}px;
         border-radius: 50%;
-        border: 2px solid ${ringColor};
+        border: 2px solid ${bgColor};
+        outline: 1.5px solid ${ringColor};
         box-shadow: ${baseShadow};
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        overflow: hidden;
         transition: box-shadow 0.2s ease, border-width 0.2s ease;
         box-sizing: border-box;
       `;
       el.appendChild(circle);
 
-      // Render condition icon: AlertTriangle for the dangerous end (high/dangerous),
-      // Droplets otherwise. Near-black ink stays legible on light yellow/lime fills.
-      const iconSize = 14 * scale;
-      const root = createRoot(circle);
-      root.render(
-        React.createElement(isSevere ? AlertTriangle : Droplets, {
-          size: iconSize,
-          color: '#1A1814',
-          strokeWidth: 2.5,
-        })
-      );
-      rootsRef.current.push(root);
+      const eddyImg = document.createElement('img');
+      eddyImg.src = getEddyImageForCondition(condition.code);
+      eddyImg.alt = '';
+      eddyImg.draggable = false;
+      eddyImg.loading = 'lazy';
+      eddyImg.style.cssText =
+        'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;';
+      circle.appendChild(eddyImg);
+
+      // Shape redundancy at the dangerous end (color must never be the
+      // only signal): a small alert badge rides the marker's corner.
+      if (isSevere) {
+        const badge = document.createElement('div');
+        badge.style.cssText = `
+          position: absolute;
+          right: 3px;
+          bottom: 3px;
+          width: ${14 * scale}px;
+          height: ${14 * scale}px;
+          border-radius: 9999px;
+          background: ${bgColor};
+          border: 1.5px solid #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          pointer-events: none;
+        `;
+        const badgeRoot = createRoot(badge);
+        badgeRoot.render(
+          React.createElement(AlertTriangle, { size: 9 * scale, color: '#1A1814', strokeWidth: 3 })
+        );
+        rootsRef.current.push(badgeRoot);
+        el.appendChild(badge);
+      }
 
       // Hover effect
       el.addEventListener('mouseenter', () => {
@@ -361,15 +388,3 @@ function hexToRgba(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Helper to darken/lighten colors
-function adjustColor(color: string, amount: number): string {
-  const clamp = (val: number) => Math.min(255, Math.max(0, val));
-  color = color.replace('#', '');
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-  const newR = clamp(r + amount);
-  const newG = clamp(g + amount);
-  const newB = clamp(b + amount);
-  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-}
