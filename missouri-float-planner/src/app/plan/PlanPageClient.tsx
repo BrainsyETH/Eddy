@@ -21,6 +21,7 @@ import FloatPlanCard, { ShareableCapture } from '@/components/plan/FloatPlanCard
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import PlanSidebar from '@/components/plan/PlanSidebar';
 import { MapHintBanner, RouteStatsBadge, MapLegend } from '@/components/plan/MapOverlayHelpers';
+import PlanFilters from '@/components/plan/PlanFilters';
 import WeatherBug from '@/components/ui/WeatherBug';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import FeedbackModal from '@/components/ui/FeedbackModal';
@@ -80,6 +81,22 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
   const [showGauges, setShowGauges] = useState(false);
+  // Map content filters (see components/plan/PlanFilters). Nearby-rivers
+  // network + POIs default on; hiddenPoiCategories is empty = all shown, so
+  // a paddler's category choices persist as they switch rivers.
+  const [showNetwork, setShowNetwork] = useState(true);
+  const [showPOIs, setShowPOIs] = useState(true);
+  const [hiddenPoiCategories, setHiddenPoiCategories] = useState<Set<string>>(() => new Set());
+  const toggleNetwork = useCallback(() => setShowNetwork((v) => !v), []);
+  const togglePOIs = useCallback(() => setShowPOIs((v) => !v), []);
+  const togglePoiCategory = useCallback((c: string) => {
+    setHiddenPoiCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  }, []);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
@@ -116,6 +133,17 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const gaugeStations = useMemo(
     () => allGaugeStations?.filter(g => g.thresholds?.some(t => t.riverId === river?.id)),
     [allGaugeStations, river?.id]
+  );
+
+  // POI category filter (see PlanFilters). availableCategories drives which
+  // pills show; filteredPois is what the map renders.
+  const availablePoiCategories = useMemo(
+    () => Array.from(new Set((pois ?? []).map((p) => p.type))),
+    [pois],
+  );
+  const filteredPois = useMemo(
+    () => (showPOIs ? (pois ?? []).filter((p) => !hiddenPoiCategories.has(p.type)) : []),
+    [pois, showPOIs, hiddenPoiCategories],
   );
 
   // Update URL whenever any planner state changes
@@ -590,13 +618,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 nearestGaugeId={nearestGauge?.id}
               />
             )}
-            {pois && pois.length > 0 && (
-              <POIMarkers pois={pois} activeMileRange={activeMileRange} />
+            {filteredPois.length > 0 && (
+              <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
             )}
             {/* Statewide condition network: every OTHER river in its live
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
-            <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+            {showNetwork && (
+              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+            )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
             {river.geometry && (
@@ -607,6 +637,16 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {/* Safety-critical: hazards render always, never gated behind toggles */}
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
+
+          <PlanFilters
+            showNetwork={showNetwork}
+            onToggleNetwork={toggleNetwork}
+            showPOIs={showPOIs}
+            onTogglePOIs={togglePOIs}
+            availableCategories={availablePoiCategories}
+            hiddenCategories={hiddenPoiCategories}
+            onToggleCategory={togglePoiCategory}
+          />
 
           <WeatherBug riverSlug={riverSlug} riverId={river.id} />
 
@@ -701,13 +741,15 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 nearestGaugeId={nearestGauge?.id}
               />
             )}
-            {pois && pois.length > 0 && (
-              <POIMarkers pois={pois} activeMileRange={activeMileRange} />
+            {filteredPois.length > 0 && (
+              <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
             )}
             {/* Statewide condition network: every OTHER river in its live
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
-            <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+            {showNetwork && (
+              <ConditionNetworkLayer excludeRiverId={river.id} onSelectRiver={handleRiverChange} />
+            )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
             {river.geometry && (
@@ -718,6 +760,16 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {/* Safety-critical: hazards render always, never gated behind toggles */}
             <HazardMarkers hazards={hazards ?? []} />
           </MapContainer>
+
+          <PlanFilters
+            showNetwork={showNetwork}
+            onToggleNetwork={toggleNetwork}
+            showPOIs={showPOIs}
+            onTogglePOIs={togglePOIs}
+            availableCategories={availablePoiCategories}
+            hiddenCategories={hiddenPoiCategories}
+            onToggleCategory={togglePoiCategory}
+          />
 
           <MapHintBanner putInPoint={putInPoint} takeOutPoint={takeOutPoint} />
           {(putInPoint && takeOutPoint) && (
