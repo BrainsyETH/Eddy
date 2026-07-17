@@ -11,12 +11,31 @@ import type maplibregl from 'maplibre-gl';
 
 let current: maplibregl.Popup | null = null;
 
+// Escape dismisses whatever card is showing — same key that closes the
+// Filters panel. Registered once, on the first present (client-only by
+// construction: presentPopup runs from map event handlers).
+let escBound = false;
+function ensureEscapeHandler(): void {
+  if (escBound || typeof document === 'undefined') return;
+  escBound = true;
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || !current) return;
+    try {
+      current.remove();
+    } catch {
+      // A popup whose map is gone throws harmlessly.
+    }
+    current = null;
+  });
+}
+
 /** Show `popup` at `lngLat`, closing any other managed popup first. */
 export function presentPopup(
   map: maplibregl.Map,
   popup: maplibregl.Popup,
   lngLat: [number, number] | maplibregl.LngLat,
 ): void {
+  ensureEscapeHandler();
   if (current && current !== popup) {
     try {
       current.remove();

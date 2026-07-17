@@ -38,6 +38,7 @@ import { usePOIs } from '@/hooks/usePOIs';
 import { useHazards } from '@/hooks/useHazards';
 import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
+import { useConditionNetwork } from '@/hooks/useStatewideConditions';
 import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from '@/types/api';
 import Image from 'next/image';
 import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
@@ -64,6 +65,10 @@ const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { 
 // Roughly the bounding box covering all Missouri Ozark float rivers we plan
 // — used as the default map view when no river is selected yet.
 const OZARKS_BOUNDS: [number, number, number, number] = [-93.5, 36.4, -90.4, 38.6];
+
+// localStorage key for the Filters panel's layer choices (versioned so a
+// future shape change can just bump the suffix instead of migrating).
+const FILTERS_STORAGE_KEY = 'eddy-plan-map-filters-v1';
 
 interface PlanPageClientProps {
   initialRiverSlug: string | null;
@@ -105,6 +110,63 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       return next;
     });
   }, []);
+  // Legend-chip condition filter: narrow the nearby-rivers network to the
+  // tapped conditions ("show me only flowing rivers"). Empty = show all.
+  const [conditionFilter, setConditionFilter] = useState<Set<ConditionCode>>(() => new Set());
+  const toggleCondition = useCallback((code: ConditionCode) => {
+    // Filtering implies wanting to SEE the network — turn it on if off.
+    setShowNetwork(true);
+    setConditionFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+    trackEvent('map_condition_filter', { condition: code });
+  }, []);
+  const clearConditionFilter = useCallback(() => setConditionFilter(new Set()), []);
+  const visibleConditions = useMemo(
+    () => (conditionFilter.size ? Array.from(conditionFilter) : null),
+    [conditionFilter],
+  );
+
+  // Layer choices persist across visits (the map style already does). The
+  // condition filter deliberately does NOT persist — "what's floatable" is
+  // a today question, and a stale filter reads as missing rivers.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof saved.showNetwork === 'boolean') setShowNetwork(saved.showNetwork);
+      if (typeof saved.showRiverNames === 'boolean') setShowRiverNames(saved.showRiverNames);
+      if (typeof saved.showGauges === 'boolean') setShowGauges(saved.showGauges);
+      if (typeof saved.showPOIs === 'boolean') setShowPOIs(saved.showPOIs);
+      if (Array.isArray(saved.hiddenPoiCategories)) {
+        setHiddenPoiCategories(
+          new Set(saved.hiddenPoiCategories.filter((c): c is string => typeof c === 'string')),
+        );
+      }
+    } catch {
+      // Bad/absent storage — defaults stand.
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        FILTERS_STORAGE_KEY,
+        JSON.stringify({
+          showNetwork,
+          showRiverNames,
+          showGauges,
+          showPOIs,
+          hiddenPoiCategories: Array.from(hiddenPoiCategories),
+        }),
+      );
+    } catch {
+      // Storage full/blocked — persistence is best-effort.
+    }
+  }, [showNetwork, showRiverNames, showGauges, showPOIs, hiddenPoiCategories]);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
@@ -126,6 +188,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   // Statewide gauges stop fetching whenever the layer is toggled off in
   // Filters — /api/gauges is the planner's slowest fetch.
   const { data: allGaugeStations } = useGaugeStations({ enabled: showGauges });
+  // Statewide condition counts + newest-reading stamp for the Filters
+  // legend. Same React Query keys the network layer uses — no extra fetch.
+  const { countsByCode, newestReadingAt } = useConditionNetwork();
   const { data: pois } = usePOIs(riverSlug);
   const { data: hazards } = useHazards(riverSlug);
   const { data: weather } = useWeather(riverSlug);
@@ -538,6 +603,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               rivers={rivers || []}
               onChange={handleRiverChange}
             />
+            {/* The browsing mood belongs to the Observatory — offer it. */}
+            <Link
+              href="/river-map"
+              className="mt-3 flex items-center justify-center gap-1 text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700"
+            >
+              See statewide conditions →
+            </Link>
           </div>
         </div>
       </div>
@@ -649,7 +721,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
             )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
@@ -687,6 +759,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               availableCategories={availablePoiCategories}
               hiddenCategories={hiddenPoiCategories}
               onToggleCategory={togglePoiCategory}
+              conditionCounts={countsByCode}
+              conditionFilter={conditionFilter}
+              onToggleCondition={toggleCondition}
+              onClearConditionFilter={clearConditionFilter}
+              readingsAsOf={newestReadingAt}
               className="relative"
             />
           </div>
@@ -792,7 +869,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
             )}
             {/* The selected river, drawn prominently in its own condition color
                 (so it's not the one bare line among colored context rivers). */}
@@ -819,6 +896,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             availableCategories={availablePoiCategories}
             hiddenCategories={hiddenPoiCategories}
             onToggleCategory={togglePoiCategory}
+            conditionCounts={countsByCode}
+            conditionFilter={conditionFilter}
+            onToggleCondition={toggleCondition}
+            onClearConditionFilter={clearConditionFilter}
+            readingsAsOf={newestReadingAt}
             className="absolute top-[4.25rem] left-3 z-30"
           />
 
@@ -838,7 +920,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               endpoints are chosen the bottom sheet carries all the detail and
               the strip would just stack a third band of UI over the map. */}
           {accessPoints && accessPoints.length > 0 && !(putInPoint && takeOutPoint) && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-1 px-1 pointer-events-none">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-[calc(0.25rem+env(safe-area-inset-bottom))] px-1 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
                   accessPoints={accessPoints}

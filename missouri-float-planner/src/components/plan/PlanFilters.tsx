@@ -14,6 +14,7 @@
 // switch rivers.
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import {
   SlidersHorizontal,
   Waves,
@@ -29,7 +30,12 @@ import {
   Star,
   type LucideIcon,
 } from 'lucide-react';
-import { conditionColor, CONDITION_ORDER, conditionDef } from '@shared/condition-system';
+import {
+  conditionColor,
+  CONDITION_ORDER,
+  conditionDef,
+  type ConditionCode,
+} from '@shared/condition-system';
 
 // Canonical POI category → label + icon. Order is the display order in the
 // panel; only categories actually present on the current river are shown.
@@ -64,6 +70,14 @@ export interface PlanFiltersProps {
   /** Categories currently hidden (empty = all shown). */
   hiddenCategories: Set<string>;
   onToggleCategory: (category: string) => void;
+  /** Statewide rivers per condition (drives the legend-chip counts). */
+  conditionCounts: Record<ConditionCode, number>;
+  /** Conditions the network is filtered to (empty = show all). */
+  conditionFilter: ReadonlySet<ConditionCode>;
+  onToggleCondition: (code: ConditionCode) => void;
+  onClearConditionFilter: () => void;
+  /** Newest actual USGS reading timestamp (freshness stamp). */
+  readingsAsOf?: string | null;
   /**
    * Positioning of the root. Defaults to floating at the map's top-left;
    * pass e.g. "relative" to slot it into an overlay stack alongside the
@@ -84,6 +98,11 @@ export default function PlanFilters({
   availableCategories,
   hiddenCategories,
   onToggleCategory,
+  conditionCounts,
+  conditionFilter,
+  onToggleCondition,
+  onClearConditionFilter,
+  readingsAsOf = null,
   className = 'absolute top-4 left-4 z-30',
 }: PlanFiltersProps) {
   const [open, setOpen] = useState(false);
@@ -113,7 +132,31 @@ export default function PlanFilters({
     (showNetwork ? 0 : 1) +
     (showRiverNames ? 0 : 1) +
     (showGauges ? 0 : 1) +
+    (conditionFilter.size > 0 ? 1 : 0) +
     (!showPOIs ? 1 : Math.min(hiddenCategories.size, categories.length));
+
+  // The single number the legend exists to answer: how much of the state
+  // is floatable right now (Observatory's "N/M go", planner-toned).
+  const totalRivers = Object.values(conditionCounts).reduce((a, b) => a + b, 0);
+  const floatableCount = (conditionCounts.good ?? 0) + (conditionCounts.flowing ?? 0);
+  const conditionFilterActive = conditionFilter.size > 0;
+  const matchingCount = [...conditionFilter].reduce(
+    (sum, code) => sum + (conditionCounts[code] ?? 0),
+    0,
+  );
+
+  // Freshness = the newest actual gauge reading, not fetch time. Same-day
+  // shows time only; an older stamp keeps its date so the age is unmissable.
+  const stampDate = readingsAsOf ? new Date(readingsAsOf) : null;
+  const stamp =
+    stampDate && !Number.isNaN(stampDate.getTime())
+      ? stampDate.toLocaleString(
+          undefined,
+          stampDate.toDateString() === new Date().toDateString()
+            ? { hour: 'numeric', minute: '2-digit' }
+            : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' },
+        )
+      : null;
 
   return (
     <div ref={rootRef} className={className}>
@@ -170,23 +213,86 @@ export default function PlanFilters({
             />
           </div>
 
-          {/* Condition legend — the network colors carry meaning; make the
-              "Eddy green" scale learnable right where users control it. */}
+          {/* Condition legend + filter — the chips explain the colors AND
+              filter the network to matching rivers (the Observatory's
+              verdict-tile pattern): tap "Flowing" to answer "where can I
+              float today?". Counts are statewide, live. */}
           <div className="border-t border-neutral-100 px-3 py-2.5">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-              River conditions
-            </p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              {CONDITION_ORDER.map((code) => (
-                <span key={code} className="flex items-center gap-1.5 text-xs text-neutral-600">
-                  <span
-                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full border border-white shadow-sm"
-                    style={{ backgroundColor: conditionColor(code) }}
-                  />
-                  {conditionDef(code).label}
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                River conditions
+              </p>
+              {totalRivers > 0 && (
+                <span className="text-[11px] font-bold tabular-nums text-emerald-600">
+                  {floatableCount}/{totalRivers} floatable
                 </span>
-              ))}
+              )}
             </div>
+            <div className="grid grid-cols-2 gap-1">
+              {CONDITION_ORDER.map((code) => {
+                const n = conditionCounts[code] ?? 0;
+                const selected = conditionFilter.has(code);
+                const color = conditionColor(code);
+                // A condition with no rivers right now can't be filtered to
+                // (it would empty the map), so its chip is inert and dim.
+                const interactive = n > 0;
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    disabled={!interactive}
+                    aria-pressed={selected}
+                    onClick={() => onToggleCondition(code)}
+                    title={
+                      !interactive
+                        ? `${conditionDef(code).label} — no rivers right now`
+                        : selected
+                          ? `Stop filtering by ${conditionDef(code).label}`
+                          : `Show only ${conditionDef(code).label} rivers`
+                    }
+                    className={`flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-xs transition-all ${
+                      !interactive
+                        ? 'cursor-default opacity-40'
+                        : 'hover:bg-neutral-50'
+                    } ${conditionFilterActive && !selected ? 'opacity-50' : ''} ${
+                      selected ? 'font-semibold text-neutral-800' : 'text-neutral-600'
+                    }`}
+                    style={{
+                      borderColor: selected ? color : 'transparent',
+                      background: selected ? `${color}1f` : undefined,
+                    }}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full border border-white shadow-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate">{conditionDef(code).label}</span>
+                    <span className="text-[10px] font-semibold tabular-nums text-neutral-400">
+                      {n}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Filter status / discoverability: when filtering, the match
+                count + clear; otherwise a faint prompt so the chips read as
+                interactive, not just a readout. */}
+            {conditionFilterActive ? (
+              <button
+                type="button"
+                onClick={onClearConditionFilter}
+                className="mt-1.5 flex w-full items-center justify-between rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-[11px] font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+              >
+                <span>
+                  Showing {matchingCount} {matchingCount === 1 ? 'river' : 'rivers'}
+                </span>
+                <span>Clear ×</span>
+              </button>
+            ) : (
+              <p className="mt-1.5 text-[10px] text-neutral-400">
+                Tap a condition to filter the map
+              </p>
+            )}
           </div>
 
           {/* POI categories — only when POIs are on and the river has any */}
@@ -220,6 +326,20 @@ export default function PlanFilters({
               </div>
             </div>
           )}
+
+          {/* Provenance footer: how fresh the colors are, and the statewide
+              dashboard the readings come from. */}
+          <div className="flex items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-3 py-2">
+            <span className="text-[10px] tabular-nums text-neutral-400">
+              USGS · {stamp ? `as of ${stamp}` : 'live readings'} · 15-min refresh
+            </span>
+            <Link
+              href="/river-map"
+              className="whitespace-nowrap text-[10px] font-bold text-primary-600 hover:text-primary-700"
+            >
+              Statewide map →
+            </Link>
+          </div>
         </div>
       )}
     </div>
