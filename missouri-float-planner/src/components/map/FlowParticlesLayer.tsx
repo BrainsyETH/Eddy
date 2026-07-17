@@ -125,8 +125,7 @@ export default function FlowParticlesLayer({
     const glCanvas = map.getCanvas();
     const canvas = document.createElement('canvas');
     canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.cssText =
-      'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+    canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
     container.insertBefore(canvas, glCanvas.nextSibling);
     const ctx = canvas.getContext('2d');
     if (!ctx) {
@@ -137,10 +136,16 @@ export default function FlowParticlesLayer({
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     let cssW = 0;
     let cssH = 0;
+    // Size from the GL canvas, NOT the canvas container: the GL canvas is
+    // absolutely positioned, so its parent div collapses to ZERO height —
+    // measuring it (or sizing with width/height:100% of it) yields a 0×0
+    // canvas and no particles ever draw. Explicit px CSS for the same
+    // reason.
     const sizeCanvas = () => {
-      const rect = container.getBoundingClientRect();
-      cssW = rect.width;
-      cssH = rect.height;
+      cssW = glCanvas.clientWidth || map.getContainer().clientWidth;
+      cssH = glCanvas.clientHeight || map.getContainer().clientHeight;
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
       canvas.width = Math.round(cssW * dpr);
       canvas.height = Math.round(cssH * dpr);
     };
@@ -334,6 +339,9 @@ export default function FlowParticlesLayer({
       paused = true;
     };
     const onMoveEnd = () => {
+      // Self-heal: if the map wasn't laid out at mount, the canvas is
+      // 0-sized — remeasure before rebuilding.
+      if (!canvas.width || !canvas.height) sizeCanvas();
       rebuild();
       paused = false;
       last = performance.now();

@@ -939,12 +939,18 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             className="absolute top-[4.25rem] left-3 z-30"
           />
 
-          <MapEddySays
-            riverSlug={riverSlug}
-            conditionCode={condition?.code ?? 'unknown'}
-            gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
-            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
-          />
+          {/* Hidden once both endpoints are chosen: the fixed z-40 float
+              sheet takes the stage and buried/collided with the pill on
+              the sliver of map that remains — and the sheet's conditions
+              card carries the same report. */}
+          {!(putInPoint && takeOutPoint) && (
+            <MapEddySays
+              riverSlug={riverSlug}
+              conditionCode={condition?.code ?? 'unknown'}
+              gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+              onSubmitPhoto={() => setShowVisualSubmitForm(true)}
+            />
+          )}
           {/* Same row as the Filters button (left-3) — centered stats,
               aligned tops, no overlap on ≥360px viewports. */}
           {(putInPoint && takeOutPoint) && (

@@ -176,17 +176,25 @@ export default function ConditionRiverLayer({
       }, ANCHORS.lines);
 
       // The hero river deserves a name too (the network layer excludes it).
-      if (showLabel) addLayerAt(map, {
+      // Top of the style, NOT at the lines anchor: topmost symbol layers
+      // win MapLibre collision placement, and the basemap's own waterway
+      // labels trace this same corridor — anchored beneath them, this name
+      // lost every collision and never appeared. Mounting after the
+      // network layer also puts it above the network's names, so the hero
+      // river's label wins that contest too. 45° max-angle: Ozark meanders
+      // rejected nearly every placement at 30°.
+      if (showLabel) map.addLayer({
         id: LABEL_LAYER_ID,
         type: 'symbol',
         source: SOURCE_ID,
         layout: {
           'symbol-placement': 'line',
+          'symbol-spacing': 350,
           'text-field': ['get', 'name'],
           'text-font': ['Noto Sans Italic'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 13, 15],
           'text-letter-spacing': 0.04,
-          'text-max-angle': 30,
+          'text-max-angle': 45,
         },
         paint: {
           'text-color': '#ffffff',
@@ -194,7 +202,7 @@ export default function ConditionRiverLayer({
           'text-halo-width': 1.4,
           'text-halo-blur': 1,
         },
-      }, ANCHORS.lines);
+      });
     } catch (err) {
       console.warn('Error adding condition river layers:', err);
     }
