@@ -22,6 +22,7 @@
 // double-draw.
 
 import { useEffect, useMemo } from 'react';
+import type maplibregl from 'maplibre-gl';
 import { useQuery } from '@tanstack/react-query';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt } from './layer-anchors';
@@ -30,6 +31,7 @@ import {
   NETWORK_CASING_WIDTH,
   CASING_COLOR,
   NO_DATA_WATER_COLOR,
+  HIT_WIDTH,
 } from './line-style';
 import { conditionColor } from '@shared/condition-system';
 import {
@@ -41,6 +43,7 @@ import type { MoStatewideResponse } from '@/app/api/usgs/mo-statewide/route';
 const SOURCE_ID = 'condition-network-source';
 const LINE_LAYER_ID = 'condition-network-layer';
 const CASING_LAYER_ID = 'condition-network-casing-layer';
+const HIT_LAYER_ID = 'condition-network-hit-layer';
 
 function useConditionNetwork() {
   const dataset = useQuery<MODataset, Error>({
@@ -69,10 +72,14 @@ function useConditionNetwork() {
 
 export default function ConditionNetworkLayer({
   excludeRiverId,
+  onSelectRiver,
 }: {
   /** The page's hero river — rendered by ConditionRiverLayer/RouteLayer
    *  instead, so the network skips it. */
   excludeRiverId?: string;
+  /** When set, each context river is clickable: clicking one activates it
+   *  (the planner switches to that river). Enables a pointer cursor too. */
+  onSelectRiver?: (slug: string) => void;
 }) {
   const map = useMap();
   const { rivers, gauges } = useConditionNetwork();
@@ -156,13 +163,22 @@ export default function ConditionNetworkLayer({
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       }, ANCHORS.lines);
+
+      // Wide invisible hit target so a thin context river is easy to click.
+      addLayerAt(map, {
+        id: HIT_LAYER_ID,
+        type: 'line',
+        source: SOURCE_ID,
+        paint: { 'line-color': 'rgba(0,0,0,0)', 'line-width': HIT_WIDTH },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      }, ANCHORS.lines);
     } catch (err) {
       console.warn('Error adding condition network layers:', err);
     }
 
     return () => {
       try {
-        for (const id of [LINE_LAYER_ID, CASING_LAYER_ID]) {
+        for (const id of [HIT_LAYER_ID, LINE_LAYER_ID, CASING_LAYER_ID]) {
           if (hasLayer(id)) map.removeLayer(id);
         }
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
@@ -171,6 +187,35 @@ export default function ConditionNetworkLayer({
       }
     };
   }, [map, collection]);
+
+  // Click a context river to make it the active planner river. Kept in its
+  // own effect (keyed on the callback) so re-binding never tears down the
+  // layers above.
+  useEffect(() => {
+    if (!map || !onSelectRiver) return;
+
+    const onEnter = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    const onLeave = () => {
+      map.getCanvas().style.cursor = '';
+    };
+    const onClick = (e: maplibregl.MapLayerMouseEvent) => {
+      const slug = e.features?.[0]?.properties?.slug;
+      if (typeof slug === 'string' && slug) onSelectRiver(slug);
+    };
+
+    map.on('mouseenter', HIT_LAYER_ID, onEnter);
+    map.on('mouseleave', HIT_LAYER_ID, onLeave);
+    map.on('click', HIT_LAYER_ID, onClick);
+
+    return () => {
+      map.off('mouseenter', HIT_LAYER_ID, onEnter);
+      map.off('mouseleave', HIT_LAYER_ID, onLeave);
+      map.off('click', HIT_LAYER_ID, onClick);
+      map.getCanvas().style.cursor = '';
+    };
+  }, [map, onSelectRiver]);
 
   return null;
 }
