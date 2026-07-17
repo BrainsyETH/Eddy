@@ -37,7 +37,10 @@ async function _GET(
       .select('*')
       .eq('river_id', river.id)
       .eq('active', true)
-      .eq('is_on_water', true)
+      // On-water features only — except outfitters, which are streamside by
+      // nature (the OSM import stores them with is_on_water=false) and are
+      // exactly what a planner wants to see.
+      .or('is_on_water.eq.true,type.eq.outfitter')
       .order('river_mile', { ascending: true, nullsFirst: false });
 
     if (poisError) {
@@ -56,6 +59,15 @@ async function _GET(
         try { images = JSON.parse(images); } catch { images = []; }
       }
 
+      // Contact details (outfitters): the OSM import keeps original tags in
+      // raw_data; expose the useful ones so the planner can offer
+      // tap-to-call / website without shipping the whole blob.
+      const raw = (poi.raw_data ?? {}) as Record<string, unknown>;
+      const rawStr = (k: string): string | null =>
+        typeof raw[k] === 'string' && (raw[k] as string).length > 0 ? (raw[k] as string) : null;
+      const website = rawStr('website') ?? rawStr('contact:website') ?? rawStr('url');
+      const phone = rawStr('phone') ?? rawStr('contact:phone');
+
       return {
         id: poi.id,
         riverId: poi.river_id,
@@ -73,6 +85,8 @@ async function _GET(
         amenities: poi.amenities,
         active: poi.active,
         isOnWater: poi.is_on_water,
+        website,
+        phone,
       };
     });
 

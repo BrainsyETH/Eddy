@@ -6,9 +6,14 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Share2, Download, Check, ChevronRight, Info } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, Info, CalendarPlus, Mail } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
+import FloatWindow from '@/components/plan/FloatWindow';
+import OutfittersNearby from '@/components/plan/OutfittersNearby';
+import { downloadFloatPlanIcs, buildFloatPlanMailto } from '@/lib/plan-calendar';
+import { trackEvent } from '@/lib/analytics';
+import type { PointOfInterest } from '@/types/nps';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
@@ -20,7 +25,10 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 interface PlanSidebarProps {
   riverName: string;
+  riverSlug: string;
   conditionCode: ConditionCode;
+  /** POIs for the river (outfitter entries power the conversion card). */
+  pois?: PointOfInterest[];
   plan: FloatPlan | null;
   isLoading: boolean;
   putInPoint: AccessPoint | null;
@@ -39,7 +47,9 @@ interface PlanSidebarProps {
 
 export default function PlanSidebar({
   riverName,
+  riverSlug,
   conditionCode,
+  pois,
   plan,
   isLoading,
   putInPoint,
@@ -84,6 +94,9 @@ export default function PlanSidebar({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
+        {/* Float window — "is Saturday good?" Today + NWS forecast days. */}
+        <FloatWindow riverSlug={riverSlug} />
 
         {/* Empty state — no selection */}
         {!putInPoint && !takeOutPoint && (
@@ -264,6 +277,9 @@ export default function PlanSidebar({
         {pointsAlongRoute.length > 0 && (
           <AlongYourRoute items={pointsAlongRoute} />
         )}
+
+        {/* Outfitters near the put-in — the "book it" moment. */}
+        <OutfittersNearby pois={pois} putInPoint={putInPoint} riverSlug={riverSlug} />
       </div>
 
       {/* Footer — share buttons (sticky at bottom) */}
@@ -279,6 +295,40 @@ export default function PlanSidebar({
             >
               Clear route &amp; start over
             </button>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() => {
+                if (!plan) return;
+                downloadFloatPlanIcs({
+                  riverName,
+                  putInName: plan.putIn.name,
+                  takeOutName: plan.takeOut.name,
+                  url: window.location.href,
+                  minutes: plan.floatTime?.timeRange?.max ?? plan.floatTime?.minutes ?? null,
+                  distanceLabel: plan.distance.formatted,
+                });
+                trackEvent('plan_shared', { river: riverSlug, method: 'calendar' });
+              }}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-50 border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-100 transition-colors"
+            >
+              <CalendarPlus size={13} />
+              Calendar
+            </button>
+            <a
+              href={plan ? buildFloatPlanMailto({
+                riverName,
+                putInName: plan.putIn.name,
+                takeOutName: plan.takeOut.name,
+                url: typeof window !== 'undefined' ? window.location.href : '',
+                distanceLabel: plan.distance.formatted,
+              }) : '#'}
+              onClick={() => trackEvent('plan_shared', { river: riverSlug, method: 'email' })}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-50 border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-100 transition-colors"
+            >
+              <Mail size={13} />
+              Email
+            </a>
           </div>
           <div className="flex gap-2">
             <button

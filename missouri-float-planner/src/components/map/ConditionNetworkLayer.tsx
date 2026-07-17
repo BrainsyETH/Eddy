@@ -23,7 +23,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
-import { useQuery } from '@tanstack/react-query';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import {
@@ -34,42 +33,14 @@ import {
   HIT_WIDTH,
 } from './line-style';
 import { conditionColor } from '@shared/condition-system';
-import {
-  classifyStageFromThresholds,
-  type MODataset,
-} from '@/lib/usgs/mo-statewide-data';
-import type { MoStatewideResponse } from '@/app/api/usgs/mo-statewide/route';
+import { classifyStageFromThresholds } from '@/lib/usgs/mo-statewide-data';
+import { useStatewideConditions } from '@/hooks/useStatewideConditions';
 
 const SOURCE_ID = 'condition-network-source';
 const LINE_LAYER_ID = 'condition-network-layer';
 const CASING_LAYER_ID = 'condition-network-casing-layer';
 const HIT_LAYER_ID = 'condition-network-hit-layer';
 const LABEL_LAYER_ID = 'condition-network-label-layer';
-
-function useConditionNetwork() {
-  const dataset = useQuery<MODataset, Error>({
-    queryKey: ['mo-dataset'],
-    queryFn: async () => {
-      const res = await fetch('/api/usgs/mo-dataset');
-      if (!res.ok) throw new Error('Failed to fetch river dataset');
-      return (await res.json()) as MODataset;
-    },
-    staleTime: 10 * 60 * 1000, // geometries/thresholds barely change
-    refetchOnWindowFocus: false,
-  });
-  const statewide = useQuery<MoStatewideResponse, Error>({
-    queryKey: ['mo-statewide'],
-    queryFn: async () => {
-      const res = await fetch('/api/usgs/mo-statewide');
-      if (!res.ok) throw new Error('Failed to fetch statewide readings');
-      return (await res.json()) as MoStatewideResponse;
-    },
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 15 * 60 * 1000, // matches the payload's 900s cadence
-    refetchOnWindowFocus: false,
-  });
-  return { rivers: dataset.data?.rivers, gauges: statewide.data?.gauges };
-}
 
 export default function ConditionNetworkLayer({
   excludeRiverId,
@@ -83,7 +54,7 @@ export default function ConditionNetworkLayer({
   onSelectRiver?: (slug: string) => void;
 }) {
   const map = useMap();
-  const { rivers, gauges } = useConditionNetwork();
+  const { rivers, gauges } = useStatewideConditions();
   // Bumped when a style transition finishes so the add-layers effect
   // retries (see whenStyleReady in ./layer-anchors).
   const [styleReadyTick, setStyleReadyTick] = useState(0);
