@@ -14,6 +14,8 @@
 import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
+import { riverDisplayLong, riverDisplayShort } from './river-display';
+import { loadFtThresholds } from './gauge-thresholds';
 import { pickSectionForRivers } from './section-picker';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
@@ -40,8 +42,9 @@ export function truncateForVideo(text: string | null): string {
   return (lastSpace > 140 ? truncated.slice(0, lastSpace) : truncated) + '...';
 }
 
-const titleize = (slug: string) =>
-  slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+// (Display names come from river-display — a plain title-caser here produced
+// "Current" instead of "Current River" on hero reels and can't know real
+// punctuation like "St. Francis".)
 
 const longDate = () =>
   new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -125,7 +128,7 @@ export async function buildPostContext(
     const globalSummary: string | null = globalUpdate?.summary_text || null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rivers = (deduped as any[]).map((u) => ({
-      riverName: titleize(u.river_slug),
+      riverName: riverDisplayShort(u.river_slug),
       conditionCode: u.condition_code,
       gaugeHeightFt: u.gauge_height_ft,
     }));
@@ -166,7 +169,7 @@ export async function buildPostContext(
       renderData: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rivers: topRivers.map((u: any) => ({
-          riverName: titleize(u.river_slug),
+          riverName: riverDisplayShort(u.river_slug),
           conditionCode: u.condition_code,
           gaugeHeightFt: u.gauge_height_ft,
           weather: weatherChip(u.weather),
@@ -288,19 +291,13 @@ export async function buildPostContext(
     if (!rawUpdate) return null;
     const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
 
-    // Optimal band for the gauge composition.
-    let optimalMin = 1.5;
-    let optimalMax = 4.0;
-    const { data: gauge } = await supabase
-      .from('river_gauges')
-      .select('level_optimal_min, level_optimal_max')
-      .eq('river_id', update.river_slug)
-      .eq('is_primary', true)
-      .maybeSingle();
-    if (gauge) {
-      optimalMin = gauge.level_optimal_min ?? optimalMin;
-      optimalMax = gauge.level_optimal_max ?? optimalMax;
-    }
+    // Optimal band for the gauge composition — unit-aware ft thresholds via the
+    // shared resolver. The old inline query filtered river_gauges.river_id (a
+    // UUID) by slug, always failed silently, and painted a generic 1.5–4.0 ft
+    // band on every daily reel. Undefined thresholds → the reel draws a
+    // level-only bar instead of inventing a band.
+    const { optimalMin, optimalMax, levelHigh, levelDangerous } =
+      await loadFtThresholds(supabase, update.river_slug);
 
     // Same cached AI art the cover uses, so the reel's full-bleed background
     // matches its thumbnail (null → the reel's solid brand background).
@@ -310,11 +307,13 @@ export async function buildPostContext(
       postType,
       riverSlug: update.river_slug,
       renderData: {
-        riverName: titleize(update.river_slug),
+        riverName: riverDisplayLong(update.river_slug),
         conditionCode: update.condition_code,
         gaugeHeightFt: update.gauge_height_ft,
         optimalMin,
         optimalMax,
+        levelHigh,
+        levelDangerous,
         quoteText: truncateForVideo(update.quote_text ?? null),
         summaryText: truncateForVideo(update.summary_text ?? null),
         backgroundUrl,

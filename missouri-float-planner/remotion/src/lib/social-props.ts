@@ -62,8 +62,12 @@ export type GaugeAnimationProps = {
   riverName: string;
   conditionCode: ConditionCode;
   gaugeHeightFt: number;
-  optimalMin: number;
-  optimalMax: number;
+  /** Ft bounds of the GOOD band. OPTIONAL: rivers without trustworthy ft
+   *  thresholds (e.g. CFS-primary gauges with no ft mirror) omit them and the
+   *  bar renders level-only — never a made-up band that can contradict the
+   *  condition (a HIGH WATER reel once showed its reading inside "GOOD"). */
+  optimalMin?: number;
+  optimalMax?: number;
   /** High-water threshold — draws the orange high zone on the gauge bar (warning reels). */
   levelHigh?: number;
   /** Dangerous/flood threshold — draws the red danger zone on the gauge bar (warning reels). */

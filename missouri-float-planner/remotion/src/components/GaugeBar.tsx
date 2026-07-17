@@ -17,10 +17,11 @@ export interface GaugeSeriesPoint {
 interface GaugeBarProps {
   /** Current gauge reading in feet */
   currentHeight: number;
-  /** Bottom of optimal range */
-  optimalMin: number;
+  /** Bottom of optimal range — omit (with optimalMax) for a level-only bar
+   *  when the river has no trustworthy ft thresholds. */
+  optimalMin?: number;
   /** Top of optimal range */
-  optimalMax: number;
+  optimalMax?: number;
   /** High-water threshold — dashed line + label; the fill flips to the
    *  condition color the moment the animated level crosses it (optional). */
   levelHigh?: number;
@@ -194,11 +195,18 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   );
   const maxHeight =
     maxHeightProp ??
-    Math.max(currentHeight * 1.3, seriesPeak * 1.15, optimalMax * 1.2, (levelDangerous ?? 0) * 1.08, 5);
+    Math.max(currentHeight * 1.3, seriesPeak * 1.15, (optimalMax ?? 0) * 1.2, (levelDangerous ?? 0) * 1.08, 5);
 
   const highFraction = levelHigh != null ? Math.min(1, levelHigh / maxHeight) : null;
   const dangerFraction =
     levelDangerous != null ? Math.min(1, levelDangerous / maxHeight) : null;
+
+  // GOOD band: only when real bounds exist, and never extending above the
+  // high-water threshold — water can't be both "good" and "high", and an
+  // unclamped band once showed a HIGH WATER reading inside the green zone.
+  const bandTopFt =
+    optimalMax != null ? (levelHigh != null ? Math.min(optimalMax, levelHigh) : optimalMax) : null;
+  const hasBand = optimalMin != null && bandTopFt != null && bandTopFt > optimalMin;
 
   const fill = gaugeFillModel(frame, fps, {
     currentHeight,
@@ -210,8 +218,8 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   });
 
   const fillFraction = Math.min(1, Math.max(0, fill.value / maxHeight));
-  const optMinFraction = optimalMin / maxHeight;
-  const optMaxFraction = optimalMax / maxHeight;
+  const optMinFraction = hasBand ? optimalMin! / maxHeight : 0;
+  const optMaxFraction = hasBand ? bandTopFt! / maxHeight : 0;
 
   // Water color: teal until the level crosses the high threshold, then a
   // 10-frame crossfade into the condition color. No threshold → condition
@@ -298,40 +306,45 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
       ))}
 
       {/* GOOD range band — green-tinted with its own label; above the fill so
-          the safe zone stays marked even when the level submerges it */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: `${optMinFraction * 100}%`,
-          height: `${(optMaxFraction - optMinFraction) * 100}%`,
-          width: "100%",
-          backgroundColor: "rgba(78,184,107,0.18)",
-          borderTop: "1px dashed rgba(149,217,167,0.55)",
-          borderBottom: "1px dashed rgba(149,217,167,0.55)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          zIndex: 2,
-        }}
-      >
-        {/* Text label only at instrument (emphasis) sizes — on the compact
-            bar it collides with the waterline reading pill. */}
-        {emphasis && (
-          <span
-            style={{
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: 16,
-              fontWeight: 700,
-              letterSpacing: 2,
-              color: "rgba(149,217,167,0.9)",
-              paddingRight: 10,
-              textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-            }}
-          >
-            GOOD
-          </span>
-        )}
-      </div>
+          the safe zone stays marked even when the level submerges it. The tint
+          is strong enough to read over the saturated water fill (at 0.18 it
+          visually vanished underwater, so the band appeared to shrink as the
+          level rose). */}
+      {hasBand && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: `${optMinFraction * 100}%`,
+            height: `${(optMaxFraction - optMinFraction) * 100}%`,
+            width: "100%",
+            backgroundColor: "rgba(78,184,107,0.30)",
+            borderTop: "2px dashed rgba(149,217,167,0.8)",
+            borderBottom: "2px dashed rgba(149,217,167,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            zIndex: 2,
+          }}
+        >
+          {/* Text label only at instrument (emphasis) sizes — on the compact
+              bar it collides with the waterline reading pill. */}
+          {emphasis && (
+            <span
+              style={{
+                fontFamily: "'Geist Sans', system-ui, sans-serif",
+                fontSize: 16,
+                fontWeight: 700,
+                letterSpacing: 2,
+                color: "rgba(198,240,210,0.95)",
+                paddingRight: 10,
+                textShadow: "0 1px 4px rgba(0,0,0,0.9)",
+              }}
+            >
+              GOOD
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Animated water fill — teal until the high-threshold crossing */}
       <div

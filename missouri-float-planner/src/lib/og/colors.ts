@@ -66,6 +66,37 @@ export function getStatusGradient(status: ConditionCode): [string, string] {
   return [solid, lighten(solid, 0.18)];
 }
 
+/** #RRGGBB × #RRGGBB linear mix (t: 0 → a, 1 → b). */
+function mixHex(a: string, b: string, t: number): string {
+  const ha = a.replace('#', '');
+  const hb = b.replace('#', '');
+  const ch = (i: number) => {
+    const va = parseInt(ha.slice(i, i + 2), 16);
+    const vb = parseInt(hb.slice(i, i + 2), 16);
+    return Math.round(va + (vb - va) * Math.max(0, Math.min(1, t)))
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${ch(0)}${ch(2)}${ch(4)}`;
+}
+
+/**
+ * Cover background with a FAINT condition wash over the brand teal, so the
+ * grid reads the condition at a glance: High leans orange, Dangerous leans
+ * red, low water leans amber, floatable conditions stay close to the default
+ * blue-green. Deliberately subtle (≤18% blend at the top, fading out) — a
+ * tint, not a repaint. Blended into a single-layer gradient because Satori
+ * (next/og) doesn't support multi-layer background shorthand.
+ */
+export function conditionCoverBackground(status: ConditionCode): string {
+  const base = '#1A3D40';
+  const deep = '#0d2a2c';
+  const solid = def(status).solid;
+  const washTop = mixHex(base, solid, 0.18);
+  const washMid = mixHex(base, solid, 0.08);
+  return `linear-gradient(160deg, ${washTop} 0%, ${washMid} 45%, ${deep} 100%)`;
+}
+
 // Background gradient for cards
 export const CARD_BACKGROUND = 'linear-gradient(135deg, #161748 0%, #1a1f5c 50%, #1B4965 100%)';
 

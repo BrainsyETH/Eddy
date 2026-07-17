@@ -3,6 +3,9 @@
 // absolute 7-day gauge delta — and return its sparkline data.
 
 import { toNum } from '@/lib/utils/num';
+// Display names come from the shared river-display map — a local title-caser
+// produced "Current" instead of "Current River" on the trend reel's hero.
+import { riverDisplayLong } from './river-display';
 
 export interface TrendSeriesPoint {
   /** Hours offset from now (negative = past). */
@@ -28,13 +31,6 @@ export interface TrendRiverData {
 
 const SPARKLINE_POINTS = 30;
 const FLAT_THRESHOLD_FT = 0.15;
-
-function titleize(slug: string): string {
-  return slug
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
 
 /**
  * For each river with a primary gauge, pull the last 7 days of
@@ -136,7 +132,7 @@ export async function pickNotableTrend(
     candidates.push({
       stationId,
       riverSlug: slug,
-      riverName: titleize(slug),
+      riverName: riverDisplayLong(slug),
       currentHeightFt: last,
       sevenDayFirstFt: first,
       sevenDayLastFt: last,

@@ -21,6 +21,7 @@ import {
 } from './content-formatter';
 import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from '@shared/condition-copy';
 import { getOrCreateConfig } from './config-helpers';
+import { loadFtThresholds } from './gauge-thresholds';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform } from './types';
 
@@ -100,8 +101,11 @@ async function hasRecentPost(
 }
 
 interface GaugeContext {
-  optimalMin: number;
-  optimalMax: number;
+  /** Ft thresholds for the reel's gauge instrument. Undefined when the river
+   *  has no trustworthy ft thresholds (e.g. a CFS-primary gauge with no ft
+   *  mirror) — the reel then renders a level-only bar instead of a fake band. */
+  optimalMin?: number;
+  optimalMax?: number;
   levelHigh?: number;
   levelDangerous?: number;
   /** "up 2.4 ft in 6h" (or "down …"), null when flat / no history. */
@@ -127,31 +131,12 @@ async function loadGaugeContext(
   riverSlug: string,
   currentFt: number | null,
 ): Promise<GaugeContext> {
-  let optimalMin = 1.5;
-  let optimalMax = 4.0;
-  let levelHigh: number | undefined;
-  let levelDangerous: number | undefined;
-  let gaugeStationId: string | null = null;
-  let stationLabel: string | undefined;
-
-  const { data: gauge } = await supabase
-    .from('river_gauges')
-    .select(
-      'level_optimal_min, level_optimal_max, level_high, level_dangerous, gauge_station_id, ' +
-      'gauge_stations (name, usgs_site_id)',
-    )
-    .eq('river_id', riverSlug)
-    .eq('is_primary', true)
-    .maybeSingle();
-  if (gauge) {
-    optimalMin = gauge.level_optimal_min ?? optimalMin;
-    optimalMax = gauge.level_optimal_max ?? optimalMax;
-    levelHigh = gauge.level_high ?? undefined;
-    levelDangerous = gauge.level_dangerous ?? undefined;
-    gaugeStationId = gauge.gauge_station_id ?? null;
-    const station = Array.isArray(gauge.gauge_stations) ? gauge.gauge_stations[0] : gauge.gauge_stations;
-    stationLabel = station?.name || station?.usgs_site_id || undefined;
-  }
+  // Unit-aware ft thresholds via the shared resolver. The old inline query
+  // filtered river_gauges.river_id (a UUID) by slug — it always failed
+  // silently, so every alert reel painted a generic 1.5–4.0 ft "GOOD" band
+  // with no high/danger lines (and CFS-primary gauges would have drawn CFS
+  // numbers on the ft bar even if the filter had worked).
+  const { gaugeStationId, stationLabel, ...thresholds } = await loadFtThresholds(supabase, riverSlug);
 
   let riseText: string | null = null;
   let riseDeltaFt: number | null = null;
@@ -208,7 +193,7 @@ async function loadGaugeContext(
     }
   }
 
-  return { optimalMin, optimalMax, levelHigh, levelDangerous, riseText, riseDeltaFt, series, stationLabel };
+  return { ...thresholds, riseText, riseDeltaFt, series, stationLabel };
 }
 
 /** A cached AI cover-art URL by key ('danger' or a river slug), for the reel. */
@@ -532,19 +517,22 @@ async function countRecentWarningRivers(supabase: any, windowHours: number): Pro
  *  the WHOLE storm, not only the rivers that happened to cross this pass. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadElevatedRivers(supabase: any): Promise<Array<{ riverSlug: string; newCondition: string }>> {
+  // river_id is a UUID — join through rivers for the slug, or the storm digest
+  // would carry raw UUIDs as river names.
   const { data } = await supabase
     .from('river_gauges')
-    .select('river_id, last_condition_code')
+    .select('last_condition_code, rivers!inner(slug)')
     .eq('is_primary', true) // one condition per river — mirror the primary-gauge rule in update-gauges
     .in('last_condition_code', Array.from(ELEVATED));
   if (!data) return [];
   return dedupeBySeverity(
-    data
-      .filter((g: { river_id: string | null }) => g.river_id)
-      .map((g: { river_id: string; last_condition_code: string }) => ({
-        riverSlug: g.river_id,
-        newCondition: g.last_condition_code,
-      })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data as any[])
+      .map((g) => ({
+        riverSlug: (Array.isArray(g.rivers) ? g.rivers[0] : g.rivers)?.slug as string | undefined,
+        newCondition: g.last_condition_code as string,
+      }))
+      .filter((g): g is { riverSlug: string; newCondition: string } => !!g.riverSlug),
   );
 }
 
