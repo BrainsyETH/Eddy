@@ -7,35 +7,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { mapInboundEmailRow } from '@/lib/email/inbound';
 import type { InboundEmail, InboundEmailListResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
 
 const VALID_STATUSES = ['unread', 'read', 'archived', 'spam'];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRow(row: any): InboundEmail {
-  return {
-    id: row.id,
-    emailId: row.email_id,
-    messageId: row.message_id,
-    fromAddress: row.from_address,
-    toAddresses: row.to_addresses ?? [],
-    ccAddresses: row.cc_addresses ?? [],
-    bccAddresses: row.bcc_addresses ?? [],
-    receivedFor: row.received_for ?? [],
-    replyTo: row.reply_to ?? [],
-    subject: row.subject,
-    textBody: row.text_body,
-    htmlBody: row.html_body,
-    attachments: row.attachments ?? [],
-    bodyFetched: row.body_fetched ?? false,
-    status: row.status,
-    resendCreatedAt: row.resend_created_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,7 +52,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch inbound emails' }, { status: 500 });
     }
 
-    const emails: InboundEmail[] = (data || []).map(mapRow);
+    const emails: InboundEmail[] = (data || []).map(mapInboundEmailRow);
 
     return NextResponse.json({
       emails,

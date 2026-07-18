@@ -17,8 +17,34 @@ import {
   Archive,
   Ban,
   Inbox,
+  Send,
+  CheckCircle,
+  CornerUpLeft,
 } from 'lucide-react';
 import type { InboundEmail, InboundEmailStatus } from '@/types/api';
+import RichTextEditor from '@/components/admin/RichTextEditor';
+import { REPLY_TEMPLATES } from '@/lib/email/reply-templates';
+
+const EDDY_DOMAIN = 'eddy.guide';
+
+/** True when rich-text HTML has no visible content (e.g. an empty "<p></p>"). */
+function isHtmlEmpty(html: string): boolean {
+  return !html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+}
+
+/** Best-effort client-side guess of the From address (server decides for real). */
+function replyFromDisplay(email: InboundEmail): string {
+  const found = [...email.receivedFor, ...email.toAddresses].find((a) =>
+    a?.toLowerCase().includes(`@${EDDY_DOMAIN}`),
+  );
+  return found ? found.match(new RegExp(`[^\\s<>"]+@${EDDY_DOMAIN}`, 'i'))?.[0] || found : `an @${EDDY_DOMAIN} address`;
+}
+
+function replySubjectDisplay(subject: string | null): string {
+  const base = (subject || '').trim();
+  if (!base) return 'Re:';
+  return /^re:/i.test(base) ? base : `Re: ${base}`;
+}
 
 const FILTER_OPTIONS: { value: InboundEmailStatus | 'all'; label: string }[] = [
   { value: 'unread', label: 'Unread' },
@@ -65,6 +91,13 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
   const [statusFilter, setStatusFilter] = useState<InboundEmailStatus | 'all'>('unread');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+
+  // Reply composer state (one open at a time).
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyHtml, setReplyHtml] = useState('');
+  const [sending, setSending] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [replySent, setReplySent] = useState(false);
 
   const reportUnread = useCallback(
     (n: number) => {
@@ -133,6 +166,52 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
       alert('Failed to update email');
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const openReply = (email: InboundEmail) => {
+    setReplyingId(email.id);
+    setReplyHtml('');
+    setReplyError(null);
+    setReplySent(false);
+    setExpandedId(email.id);
+  };
+
+  const cancelReply = () => {
+    setReplyingId(null);
+    setReplyHtml('');
+    setReplyError(null);
+    setReplySent(false);
+  };
+
+  const sendReply = async (email: InboundEmail) => {
+    if (isHtmlEmpty(replyHtml)) return;
+    setSending(true);
+    setReplyError(null);
+    try {
+      const response = await adminFetch(`/api/admin/inbound-emails/${email.id}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: replyHtml }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to send reply');
+
+      // Reflect replied + read state on the row in place — keep it visible so the
+      // "Reply sent" confirmation shows (it clears from a filtered view on the
+      // next refresh). The server marks a replied message read, so drop the
+      // unread count if this was the transition.
+      const updated = data.email as InboundEmail;
+      if (email.status === 'unread' && updated.status !== 'unread') {
+        reportUnread(Math.max(0, emails.filter((e) => e.status === 'unread').length - 1));
+      }
+      setEmails((prev) => prev.map((e) => (e.id === email.id ? updated : e)));
+      setReplySent(true);
+      setReplyHtml('');
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : 'Failed to send reply');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -216,6 +295,12 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                         {!email.bodyFetched && (
                           <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs border border-yellow-500/30">
                             Body pending
+                          </span>
+                        )}
+                        {email.lastRepliedAt && (
+                          <span className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs border border-green-500/30">
+                            <CornerUpLeft className="w-3 h-3" />
+                            Replied
                           </span>
                         )}
                       </div>
@@ -316,38 +401,124 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                     )}
 
                     {/* Actions */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-neutral-700">
-                      <span className="text-sm text-neutral-400 mr-2">Mark as:</span>
-                      {ACTIONS.map((action) => {
-                        const Icon = action.icon;
-                        const active = email.status === action.value;
-                        return (
+                    <div className="pt-2 border-t border-neutral-700">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-neutral-400 mr-2">Mark as:</span>
+                        {ACTIONS.map((action) => {
+                          const Icon = action.icon;
+                          const active = email.status === action.value;
+                          return (
+                            <button
+                              key={action.value}
+                              onClick={() => updateStatus(email, action.value)}
+                              disabled={updating === email.id || active}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                active
+                                  ? `${STATUS_BADGE[action.value].color} text-white`
+                                  : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                              }`}
+                            >
+                              <Icon className="w-3 h-3" />
+                              {action.label}
+                            </button>
+                          );
+                        })}
+                        {email.fromAddress && replyingId !== email.id && (
                           <button
-                            key={action.value}
-                            onClick={() => updateStatus(email, action.value)}
-                            disabled={updating === email.id || active}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                              active
-                                ? `${STATUS_BADGE[action.value].color} text-white`
-                                : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-                            }`}
+                            onClick={() => openReply(email)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors ml-auto"
                           >
-                            <Icon className="w-3 h-3" />
-                            {action.label}
+                            <CornerUpLeft className="w-3 h-3" />
+                            Reply
                           </button>
-                        );
-                      })}
-                      {email.fromAddress && (
-                        <a
-                          href={`mailto:${email.fromAddress}${email.subject ? `?subject=Re: ${encodeURIComponent(email.subject)}` : ''}`}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors ml-auto"
-                        >
-                          <Mail className="w-3 h-3" />
-                          Reply
-                        </a>
-                      )}
-                      {updating === email.id && (
-                        <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                        )}
+                        {updating === email.id && (
+                          <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                        )}
+                      </div>
+
+                      {/* In-app reply composer — sends from eddy.guide via Resend */}
+                      {replyingId === email.id && (
+                        <div className="mt-3 bg-neutral-900 border border-neutral-700 rounded-lg p-3">
+                          {replySent ? (
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-2 text-sm text-green-400">
+                                <CheckCircle className="w-4 h-4" />
+                                Reply sent from {replyFromDisplay(email)}.
+                              </span>
+                              <button
+                                onClick={cancelReply}
+                                className="px-3 py-1.5 rounded text-xs font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-xs text-neutral-400 mb-2 space-y-0.5">
+                                <div>
+                                  <span className="text-neutral-500">To:</span> {email.fromAddress}
+                                </div>
+                                <div>
+                                  <span className="text-neutral-500">From:</span> {replyFromDisplay(email)}
+                                </div>
+                                <div>
+                                  <span className="text-neutral-500">Subject:</span> {replySubjectDisplay(email.subject)}
+                                </div>
+                              </div>
+                              <div className="mb-2 flex items-center gap-2">
+                                <label className="text-xs text-neutral-500">Template:</label>
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    const tpl = REPLY_TEMPLATES.find((t) => t.id === e.target.value);
+                                    if (tpl) setReplyHtml(tpl.html);
+                                    e.target.value = '';
+                                  }}
+                                  className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                >
+                                  <option value="">Insert a quick reply…</option>
+                                  {REPLY_TEMPLATES.map((t) => (
+                                    <option key={t.id} value={t.id} title={t.description}>
+                                      {t.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <RichTextEditor
+                                content={replyHtml}
+                                onChange={setReplyHtml}
+                                minHeight="150px"
+                                placeholder="Write your reply…"
+                              />
+                              {replyError && <div className="text-red-400 text-xs mt-2">{replyError}</div>}
+                              <div className="flex items-center gap-2 mt-2">
+                                <button
+                                  onClick={() => sendReply(email)}
+                                  disabled={sending || isHtmlEmpty(replyHtml)}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {sending ? (
+                                    <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Send className="w-4 h-4" />
+                                  )}
+                                  {sending ? 'Sending…' : 'Send reply'}
+                                </button>
+                                <button
+                                  onClick={cancelReply}
+                                  disabled={sending}
+                                  className="px-4 py-2 rounded-lg text-sm font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600 transition-colors disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                                <span className="text-xs text-neutral-500 ml-auto hidden sm:inline">
+                                  Sends from eddy.guide via Resend
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

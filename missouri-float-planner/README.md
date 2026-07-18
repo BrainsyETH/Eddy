@@ -63,10 +63,12 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
 # App URL
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
-# Inbound email (Resend) — receive mail sent to *@eddy.guide.
-# Both are required for POST /api/webhooks/resend. See docs/INBOUND_EMAIL.md.
-RESEND_API_KEY=re_your_api_key                 # fetches the full received body
+# Inbound email (Resend) — receive (and reply to) mail sent to *@eddy.guide.
+# The first two are required for POST /api/webhooks/resend. See docs/INBOUND_EMAIL.md.
+RESEND_API_KEY=re_your_api_key                 # fetches the received body + sends replies
 RESEND_WEBHOOK_SECRET=whsec_your_signing_secret # verifies the Svix signature
+# RESEND_REPLY_FROM=hello@eddy.guide            # optional: From for admin replies when the
+                                                #   message wasn't sent to an @eddy.guide address
 
 # x402 — AI-agent payments (x402 V2). Optional; dormant until a wallet is set.
 # Browsers always pass through free; only AI agents are asked to pay (USDC).

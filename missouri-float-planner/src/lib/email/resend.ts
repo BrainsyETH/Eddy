@@ -31,3 +31,25 @@ export function getResendClient(): Resend {
   }
   return client;
 }
+
+/** The domain we receive (and reply from) inbound mail on. */
+export const EDDY_EMAIL_DOMAIN = 'eddy.guide';
+
+/**
+ * Chooses the From address for a reply. A reply must come from an address on a
+ * domain verified for *sending* in Resend, so we prefer the eddy.guide address
+ * the original message was delivered to (best for threading + recognizability),
+ * then fall back to RESEND_REPLY_FROM, then a plausible default on the domain.
+ *
+ * `candidates` are the original message's received-for / to addresses, which may
+ * be bare ("hi@eddy.guide") or display-name form ("Eddy <hi@eddy.guide>").
+ */
+export function pickReplyFromAddress(candidates: string[]): string | null {
+  const domain = EDDY_EMAIL_DOMAIN.replace('.', '\\.');
+  const re = new RegExp(`[^\\s<>"]+@${domain}`, 'i');
+  for (const candidate of candidates) {
+    const match = candidate?.match(re);
+    if (match) return match[0];
+  }
+  return process.env.RESEND_REPLY_FROM || null;
+}
