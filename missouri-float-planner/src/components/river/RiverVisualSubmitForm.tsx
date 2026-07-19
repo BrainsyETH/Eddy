@@ -5,7 +5,7 @@
 // Auto-populates gauge readings from current conditions, user can edit
 
 import { useState, useEffect } from 'react';
-import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
 interface RiverVisualSubmitFormProps {
@@ -41,6 +41,13 @@ export default function RiverVisualSubmitForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Capture-time metadata: when the photo was taken (EXIF) and how the gauge
+  // reading was determined. Older photos get their reading backfilled from USGS.
+  const [capturedAt, setCapturedAt] = useState<string | null>(null);
+  const [readingSource, setReadingSource] = useState<'live' | 'historical' | 'manual'>('live');
+  const [readingNote, setReadingNote] = useState<string | null>(null);
+  const [readingLoading, setReadingLoading] = useState(false);
+
   // Update gauge values if they change externally
   useEffect(() => {
     if (currentGaugeHeightFt != null && !gaugeHeight) {
@@ -73,11 +80,66 @@ export default function RiverVisualSubmitForm({
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
+
+    // Read capture time from EXIF; for older photos, backfill the reading from
+    // USGS for when the photo was actually taken (not now).
+    void extractCaptureAndBackfill(file);
+  }
+
+  async function extractCaptureAndBackfill(file: File) {
+    setReadingNote(null);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mod: any = await import('exifr');
+      const exifr = mod.default ?? mod;
+      const exif = await exifr.parse(file, ['DateTimeOriginal', 'CreateDate']).catch(() => null);
+      const taken: Date | undefined = exif?.DateTimeOriginal ?? exif?.CreateDate;
+
+      if (!(taken instanceof Date) || isNaN(taken.getTime())) {
+        setCapturedAt(null);
+        return;
+      }
+      setCapturedAt(taken.toISOString());
+
+      // A photo taken in the last few hours is effectively "now" — the reading
+      // auto-filled when the form opened is already right.
+      if (Date.now() - taken.getTime() < 6 * 60 * 60 * 1000) return;
+
+      const takenLabel = taken.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      if (!gaugeStationId) {
+        setReadingNote(`Photo taken ${takenLabel}.`);
+        return;
+      }
+
+      setReadingLoading(true);
+      try {
+        const res = await fetch(
+          `/api/gauge-reading-at?gaugeStationId=${gaugeStationId}&at=${encodeURIComponent(taken.toISOString())}`
+        );
+        const data = res.ok ? await res.json() : null;
+        if (data?.found) {
+          if (data.gaugeHeightFt != null) setGaugeHeight(String(data.gaugeHeightFt));
+          if (data.dischargeCfs != null) setDischargeCfs(String(data.dischargeCfs));
+          setReadingSource('historical');
+          setReadingNote(`Stage & flow backfilled from USGS for ${takenLabel}.`);
+        } else {
+          setReadingNote(`Photo taken ${takenLabel} — no USGS reading found, please enter the level.`);
+        }
+      } finally {
+        setReadingLoading(false);
+      }
+    } catch {
+      // EXIF/USGS lookup is best-effort; fall back to the live reading silently.
+    }
   }
 
   function clearImage() {
     setImageFile(null);
     setImagePreview(null);
+    setCapturedAt(null);
+    setReadingSource('live');
+    setReadingNote(null);
+    setReadingLoading(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -140,6 +202,8 @@ export default function RiverVisualSubmitForm({
         accessPointId: selectedAccessPointId || undefined,
         gaugeStationId: gaugeStationId || undefined,
         submitterName: submitterName.trim() || undefined,
+        capturedAt: capturedAt || undefined,
+        readingSource,
       };
 
       const res = await fetch('/api/reports', {
@@ -293,6 +357,18 @@ export default function RiverVisualSubmitForm({
           </select>
         </div>
 
+        {/* Capture-time reading note */}
+        {(readingNote || readingLoading) && (
+          <div className="flex items-start gap-1.5 text-xs text-teal-800 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+            {readingLoading
+              ? <Loader2 className="w-3.5 h-3.5 shrink-0 mt-px animate-spin" />
+              : <Clock className="w-3.5 h-3.5 shrink-0 mt-px" />}
+            <span>
+              {readingLoading ? 'Checking USGS for the reading when this photo was taken…' : readingNote}
+            </span>
+          </div>
+        )}
+
         {/* Gauge readings - auto-populated, editable */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -303,7 +379,7 @@ export default function RiverVisualSubmitForm({
               type="number"
               step="0.01"
               value={gaugeHeight}
-              onChange={(e) => setGaugeHeight(e.target.value)}
+              onChange={(e) => { setGaugeHeight(e.target.value); setReadingSource('manual'); }}
               placeholder="Auto-filled"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
             />
@@ -316,7 +392,7 @@ export default function RiverVisualSubmitForm({
               type="number"
               step="1"
               value={dischargeCfs}
-              onChange={(e) => setDischargeCfs(e.target.value)}
+              onChange={(e) => { setDischargeCfs(e.target.value); setReadingSource('manual'); }}
               placeholder="Auto-filled"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
             />
