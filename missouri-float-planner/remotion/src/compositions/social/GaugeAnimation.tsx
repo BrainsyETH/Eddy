@@ -66,6 +66,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   followCta,
   series,
   stationLabel,
+  flowText,
   format,
 }) => {
   const frame = useCurrentFrame();
@@ -445,6 +446,25 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 }}
               >
                 USGS · {stationLabel}
+              </div>
+            )}
+
+            {/* Flow context — for CFS-primary rivers the condition is driven by
+                DISCHARGE, not stage, so a shallow-looking gauge can still be
+                moving a lot of water. Surfacing "N cfs · X× normal flow" makes
+                the "High" self-explanatory instead of contradicting the feet. */}
+            {flowText && (
+              <div
+                style={{
+                  fontFamily: "'Fredoka', system-ui, sans-serif",
+                  fontSize: isPortrait ? 27 : 21,
+                  fontWeight: 600,
+                  letterSpacing: 0.3,
+                  color: condition.solid,
+                  marginTop: 2,
+                }}
+              >
+                {flowText}
               </div>
             )}
 
