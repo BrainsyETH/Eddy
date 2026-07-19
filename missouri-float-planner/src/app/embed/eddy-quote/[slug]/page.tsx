@@ -287,23 +287,27 @@ export default function EddyQuoteEmbedPage() {
         metrics={[
           {
             label: 'Gauge height',
+            icon: 'gauge',
             value: gaugeSnapshot?.gaugeHeightFt != null ? `${gaugeSnapshot.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable',
             detail: gaugeSnapshot?.name || 'Primary gauge',
             accent: conditionStyle,
           },
           {
             label: 'Flow now',
+            icon: 'flow',
             value: gaugeSnapshot?.dischargeCfs != null ? `${gaugeSnapshot.dischargeCfs.toLocaleString()} cfs` : 'Unavailable',
             detail: 'Present discharge',
             accent: conditionStyle,
           },
           {
             label: 'Optimal range',
+            icon: 'optimal',
             value: optimalRange || 'Not set',
             detail: 'Established range',
           },
           {
             label: 'Weather',
+            icon: 'weather',
             value: weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable',
             detail: [
               weather?.condition || forecast?.condition,

@@ -377,6 +377,7 @@ export default function EmbedWidgetPage() {
               metrics={[
                 {
                   label: 'Gauge height',
+                  icon: 'gauge',
                   value: primaryGauge.gaugeHeightFt != null ? `${primaryGauge.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable',
                   detail: primaryTrend ? `${getTrendArrow(primaryTrend)} ${primaryTrend}` : primaryGauge.conditionLabel,
                   accent: primaryConditionStyle,
@@ -384,17 +385,20 @@ export default function EmbedWidgetPage() {
                 },
                 {
                   label: 'Flow now',
+                  icon: 'flow',
                   value: primaryGauge.dischargeCfs != null ? `${primaryGauge.dischargeCfs.toLocaleString()} cfs` : 'Unavailable',
                   detail: primaryGauge.conditionLabel,
                   accent: primaryConditionStyle,
                 },
                 {
                   label: 'Optimal range',
+                  icon: 'optimal',
                   value: primaryGauge.optimalRange || 'Not set',
                   detail: 'Established range',
                 },
                 {
                   label: 'Weather',
+                  icon: 'weather',
                   value: weather ? `${Math.round(weather.temp)}°F` : 'Unavailable',
                   detail: weather
                     ? `${weather.condition}${weather.windSpeed > 5 ? ` · Wind ${Math.round(weather.windSpeed)} mph` : ''}`

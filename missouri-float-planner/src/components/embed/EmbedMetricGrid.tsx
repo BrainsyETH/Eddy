@@ -3,11 +3,14 @@
 import type { CSSProperties } from 'react';
 import { conditionChip } from '@shared/condition-system';
 import { EMBED_FONTS, type EmbedPalette } from '@/lib/embed/theme';
+import { TileIcon, type EmbedTileIconKey } from '@/lib/embed/tileIcons';
 
 export interface EmbedMetric {
   label: string;
   value: string;
   detail: string;
+  /** Which brand icon fills the tile's badge. Defaults to `gauge`. */
+  icon?: EmbedTileIconKey;
   accent?: ReturnType<typeof conditionChip>;
   detailColor?: string;
   href?: string;
@@ -20,82 +23,84 @@ interface EmbedMetricGridProps {
   palette: EmbedPalette;
 }
 
-const CELL_BORDERS = [
-  'border-r border-b sm:border-b-0',
-  'border-b sm:border-b-0 sm:border-r',
-  'border-r',
-  '',
-] as const;
+// Badge color for a tile with no live condition accent. Live tiles (gauge,
+// flow) inherit the condition's solid; context tiles carry a fixed brand hue —
+// Sandbar Tan for the optimal range, Sunset Coral for weather (see .stitch/DESIGN.md).
+const BADGE_FALLBACK: Record<EmbedTileIconKey, string> = {
+  gauge: '#2D7889', // primary teal
+  flow: '#2D7889',
+  optimal: '#B89D72', // secondary tan
+  weather: '#F07052', // accent coral
+};
+
+// Peel a known trailing unit off a formatted value so the tile can render the
+// number large and the unit small (e.g. "1,010 cfs" → 1,010 · cfs). Anything
+// without a recognized unit (e.g. "Unavailable", "Not set") renders whole.
+const UNIT_RE = /\s*(cfs|ft|mph|in|°F|°C|%)\s*$/i;
+function splitValueUnit(value: string): { num: string; unit: string | null } {
+  const match = value.match(UNIT_RE);
+  if (!match || match.index === undefined) return { num: value, unit: null };
+  return { num: value.slice(0, match.index).trim(), unit: match[1] };
+}
 
 export default function EmbedMetricGrid({ ariaLabel, metrics, palette }: EmbedMetricGridProps) {
+  // The two embed palettes are the only callers; light bg is pure white.
+  const isDark = palette.bg.toLowerCase() !== '#ffffff';
   return (
-    <section
-      aria-label={ariaLabel}
-      className="grid grid-cols-2 sm:grid-cols-4 overflow-hidden rounded-lg border"
-      style={{ borderColor: palette.border, background: palette.cardBg }}
-    >
+    <section aria-label={ariaLabel} className="embed-tile-grid">
       {metrics.map((metric, index) => (
-        <MetricCell
-          key={metric.label}
-          metric={metric}
-          palette={palette}
-          className={CELL_BORDERS[index] || ''}
-        />
+        <MetricTile key={metric.label} metric={metric} palette={palette} isDark={isDark} index={index} />
       ))}
     </section>
   );
 }
 
-function MetricCell({
+function MetricTile({
   metric,
   palette,
-  className,
+  isDark,
+  index,
 }: {
   metric: EmbedMetric;
   palette: EmbedPalette;
-  className: string;
+  isDark: boolean;
+  index: number;
 }) {
-  const { label, value, detail, accent, detailColor, href, linkLabel } = metric;
-  const content = (
-    <>
-      <div
-        className="flex items-center justify-center gap-1.5 text-[11px] font-semibold leading-4"
-        style={{ color: palette.textSecondary }}
-      >
-        {accent && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
-            style={{ background: accent.solid }}
-          />
-        )}
-        {label}
-      </div>
-      <div
-        className="mt-0.5 break-words text-center text-[15px] font-bold leading-5 tabular-nums"
-        style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}
-      >
-        {value}
-      </div>
-      <div
-        className="embed-metric-detail mt-0.5 text-center text-[11px] leading-4"
-        title={detail}
-        style={{ color: detailColor || palette.textSecondary }}
-      >
-        {detail}{href ? ' →' : ''}
-      </div>
-    </>
-  );
+  const { label, value, detail, icon = 'gauge', accent, detailColor, href, linkLabel } = metric;
+  const { num, unit } = splitValueUnit(value);
+
+  const badgeColor = accent?.solid ?? BADGE_FALLBACK[icon];
+  // Live tiles take the canonical condition tint; context tiles take a soft
+  // wash of their brand hue (8% alpha reads on both light and dark surfaces).
+  const tileTint = accent?.background ?? `${BADGE_FALLBACK[icon]}14`;
+  const pillBg = isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF';
 
   const style = {
-    '--embed-border': palette.border,
-    '--embed-hover': accent?.background || palette.hoverBg,
     '--embed-focus': palette.focus,
+    '--embed-tile-shadow': isDark ? '0 6px 16px rgba(0,0,0,0.35)' : '0 6px 16px rgba(45,42,36,0.10)',
+    '--embed-tile-shadow-hover': isDark ? '0 12px 22px rgba(0,0,0,0.48)' : '0 12px 22px rgba(45,42,36,0.16)',
+    background: tileTint,
     borderColor: palette.border,
-    borderTopColor: accent?.solid || palette.border,
-    background: accent?.background,
+    animationDelay: `${index * 60}ms`,
   } as CSSProperties;
-  const classes = `min-w-0 border-t-2 px-2 py-2 text-center ${className}`;
+
+  const content = (
+    <>
+      <span className="embed-tile-pill" style={{ background: pillBg, borderColor: palette.border }}>
+        <span className="embed-tile-badge" style={{ background: badgeColor }}>
+          <TileIcon icon={icon} />
+        </span>
+        <span className="embed-tile-label" style={{ color: palette.textPrimary }}>{label}</span>
+      </span>
+      <span className="embed-tile-value" style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}>
+        {num}
+        {unit && <span className="embed-tile-unit" style={{ color: palette.textSecondary }}>{unit}</span>}
+      </span>
+      <span className="embed-tile-detail" title={detail} style={{ color: detailColor || palette.textSecondary }}>
+        {detail}{href ? ' →' : ''}
+      </span>
+    </>
+  );
 
   if (href) {
     return (
@@ -103,7 +108,7 @@ function MetricCell({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={`embed-metric-link ${classes} no-underline`}
+        className="embed-tile embed-tile-link"
         style={style}
         aria-label={linkLabel || `${label}: ${value}. ${detail}. Open details.`}
       >
@@ -112,5 +117,5 @@ function MetricCell({
     );
   }
 
-  return <div className={classes} style={style}>{content}</div>;
+  return <div className="embed-tile" style={style}>{content}</div>;
 }

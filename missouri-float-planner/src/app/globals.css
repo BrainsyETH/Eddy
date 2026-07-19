@@ -169,6 +169,110 @@ body {
   -webkit-line-clamp: 2;
 }
 
+/* Bubble stat tiles — the "Eddy Report Stats" redesign. Soft everywhere:
+   rounded corners, warm-stone border, a soft (never hard) offset shadow that
+   lifts slightly on hover. Dynamic colors arrive per-tile via inline styles. */
+.embed-tile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.embed-tile {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 2px solid transparent;
+  box-shadow: var(--embed-tile-shadow);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+  animation: embed-tile-in 0.42s var(--ease-out) both;
+}
+
+.embed-tile-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.embed-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--embed-tile-shadow-hover);
+}
+
+.embed-tile-link:focus-visible {
+  outline: 2px solid var(--embed-focus);
+  outline-offset: 2px;
+}
+
+.embed-tile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+}
+
+.embed-tile-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  color: #fff;
+}
+
+.embed-tile-label {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.embed-tile-value {
+  max-width: 100%;
+  margin-top: 11px;
+  font-size: clamp(20px, 6.4vw, 30px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+
+.embed-tile-unit {
+  margin-left: 0.28em;
+  font-size: 0.62em;
+  font-weight: 600;
+}
+
+.embed-tile-detail {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@keyframes embed-tile-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
 .embed-footer-link {
   transition:
     color var(--duration-fast) var(--ease-out),
@@ -193,8 +297,17 @@ body {
   .embed-metric-link,
   .embed-footer-link,
   .embed-control,
-  .embed-control-icon {
+  .embed-control-icon,
+  .embed-tile {
     transition: none !important;
+  }
+
+  .embed-tile {
+    animation: none !important;
+  }
+
+  .embed-tile:hover {
+    transform: none;
   }
 
   .embed-skeleton {
