@@ -153,10 +153,34 @@ interface GaugeContext {
   /** USGS station's human name (e.g. "Meramec River near Sullivan, MO") for
    *  the reel's instrument citation. */
   stationLabel?: string;
+  /** Discharge framing for CFS-primary rivers ("1,240 cfs · 3× normal flow"),
+   *  so a "High" driven by flow rather than stage is self-explanatory. Undefined
+   *  for ft-primary rivers (their feet gauge already tells the story). */
+  flowText?: string;
 }
 
 /** Max points passed to the reel — enough shape for a 3s rise, tiny payload. */
 const SERIES_MAX_POINTS = 24;
+
+/**
+ * "1,240 cfs · 3× normal flow" — surfaces live discharge and how it compares to
+ * the river's median (normal) flow for CFS-primary gauges. The multiplier is
+ * dropped below 1.5× (barely-above-normal isn't worth a callout, and would only
+ * undercut the headline). Large flows abbreviate to "12k cfs".
+ */
+function formatFlowText(cfs: number, normalCfs?: number): string {
+  const cfsStr =
+    cfs >= 10000
+      ? `${Math.round(cfs / 1000)}k`
+      : cfs >= 1000
+        ? Math.round(cfs).toLocaleString('en-US')
+        : `${Math.round(cfs)}`;
+  if (normalCfs && normalCfs > 0) {
+    const x = cfs / normalCfs;
+    if (x >= 1.5) return `${cfsStr} cfs · ${x >= 10 ? Math.round(x) : x.toFixed(1)}× normal flow`;
+  }
+  return `${cfsStr} cfs`;
+}
 
 /** Load the primary gauge's thresholds, station label, a plain-language 6h
  *  rise phrase, and the last-24h series that drives the reel's animated rise. */
@@ -171,7 +195,25 @@ async function loadGaugeContext(
   // silently, so every alert reel painted a generic 1.5–4.0 ft "GOOD" band
   // with no high/danger lines (and CFS-primary gauges would have drawn CFS
   // numbers on the ft bar even if the filter had worked).
-  const { gaugeStationId, stationLabel, ...thresholds } = await loadFtThresholds(supabase, riverSlug);
+  const { gaugeStationId, stationLabel, primaryUnit, flowNormalCfs, ...thresholds } =
+    await loadFtThresholds(supabase, riverSlug);
+
+  // Flow framing for CFS-primary rivers: their condition is classified from
+  // discharge, so surface the live cfs (and how it compares to normal) — a
+  // shallow-looking stage otherwise makes a flow-driven "High" look wrong.
+  let flowText: string | undefined;
+  if (gaugeStationId && primaryUnit === 'cfs') {
+    const { data: latest } = await supabase
+      .from('gauge_readings')
+      .select('discharge_cfs')
+      .eq('gauge_station_id', gaugeStationId)
+      .not('discharge_cfs', 'is', null)
+      .order('reading_timestamp', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const cfs = latest?.discharge_cfs != null ? Number(latest.discharge_cfs) : NaN;
+    if (Number.isFinite(cfs)) flowText = formatFlowText(cfs, flowNormalCfs);
+  }
 
   let riseText: string | null = null;
   let riseDeltaFt: number | null = null;
@@ -228,7 +270,7 @@ async function loadGaugeContext(
     }
   }
 
-  return { ...thresholds, riseText, riseDeltaFt, series, stationLabel };
+  return { ...thresholds, riseText, riseDeltaFt, series, stationLabel, flowText };
 }
 
 /** A cached AI cover-art URL by key ('danger' or a river slug), for the reel. */
@@ -496,6 +538,9 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
       // label is the instrument citation under the gauge.
       series: ctx.series,
       stationLabel: ctx.stationLabel,
+      // Discharge framing for CFS-primary rivers (undefined for ft rivers) so a
+      // flow-driven "High" reads sensibly next to a shallow-looking stage.
+      flowText: ctx.flowText,
       backgroundUrl,
       followCta: FOLLOW_CTA,
       quoteText,
