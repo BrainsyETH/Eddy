@@ -200,11 +200,20 @@ const sectionsRows = (dossier.sections ?? []).map((s: any, i: number) => ({
 }));
 // river_characteristics is per-river; merge the per-section captures.
 const secs: any[] = dossier.sections ?? [];
+// Join only sections that actually carry the field. When NO section has it,
+// write null (not "slug: n/a | slug: n/a") so Eddy falls back to the curated
+// per-river-type guidance instead of being fed placeholder junk.
+const joinSectionField = (key: 'lowWaterMeaning' | 'risingWaterHazards'): string | null => {
+  const parts = secs
+    .filter((s) => s.characteristics?.[key])
+    .map((s) => `${s.slug}: ${s.characteristics[key]}`);
+  return parts.length ? parts.join(' | ') : null;
+};
 const characteristics = secs.length ? {
   is_spring_fed: secs.every((s) => s.characteristics?.isSpringFed === true),
   primary_hazards: [...new Set(secs.flatMap((s) => s.characteristics?.primaryHazards ?? []))],
-  low_water_meaning: secs.map((s) => `${s.slug}: ${s.characteristics?.lowWaterMeaning ?? 'n/a'}`).join(' | '),
-  rising_water_hazards: secs.map((s) => `${s.slug}: ${s.characteristics?.risingWaterHazards ?? 'n/a'}`).join(' | '),
+  low_water_meaning: joinSectionField('lowWaterMeaning'),
+  rising_water_hazards: joinSectionField('risingWaterHazards'),
   river_note: `Per-section hydro types: ${secs.map((s) => `${s.slug}=${s.characteristics?.hydroType}`).join(', ')}. River-level default: ${dossier.riverType}.`,
 } : null;
 
