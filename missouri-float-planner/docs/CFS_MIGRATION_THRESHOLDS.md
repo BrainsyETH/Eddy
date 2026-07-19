@@ -5,6 +5,15 @@ CFS flip without the unit-independent flood override (both app `classifyStageFro
 and the DB `get_river_condition*` RPC) — dangerous is anchored to the official NWS flood
 STAGE (ft), backfilled in 00165.  CFS bands: too_low=p10 low=p25 opt_min=p50 opt_max=p75 high=p90.
 
+> **Recalibration (00171):** the condition classifier uses `optimal_max` as the
+> "high" onset, so the original `optimal_max = p75` fired "HIGH WATER" above the
+> 75th percentile of flow — far too often (e.g. Niangua went "High" at 191 cfs,
+> ~1.6× its 117 cfs median). Migration `00171_cfs_high_onset_p90.sql` raises
+> `optimal_max` to **p90** (copies the already-stored `level_high`) so "high"
+> fires only in the top ~10% of flow. **Future CFS flips must set
+> `optimal_max = p90` (the high onset), not p75.** The floatable "flowing" band
+> is then p50–p90.
+
 | USGS | Gauge | role | too_low | low | opt_min | opt_max | high | dangerous |
 |---|---|---|--:|--:|--:|--:|--:|--|
 | 07067000 | Current @ Van Buren | primary | 704 | 885 | 1180 | 1630 | 2000 | NWS flood-stage (ft) override |

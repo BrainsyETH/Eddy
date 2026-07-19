@@ -107,6 +107,11 @@ export type GaugeAnimationProps = {
   /** USGS station's human name (e.g. "Meramec River near Sullivan, MO") —
    *  rendered as an instrument citation under the gauge. Absent → no citation. */
   stationLabel?: string;
+  /** Discharge framing for CFS-primary rivers (e.g. "1,240 cfs · 3× normal
+   *  flow") — surfaced under the reading so a "High" driven by FLOW rather than
+   *  stage is self-explanatory (a shallow-looking gauge can still be moving a lot
+   *  of water). Absent → not shown (ft-primary rivers tell the story in feet). */
+  flowText?: string;
   /** Recovery ("all-clear") mode — mutually exclusive with warningMode. Uses
    *  recoveryCopy() + the condition's own calm (green/teal) color and positive
    *  framing instead of the red/orange alarmed warning chrome. */
