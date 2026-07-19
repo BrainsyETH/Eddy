@@ -337,6 +337,7 @@ export default function SocialAdminPage() {
     accessTokenExpiresAt: string | null;
     refreshTokenExpiresAt: string | null;
     scope: string | null;
+    redirectUri?: string;
   } | null>(null);
   const [tiktokBusy, setTiktokBusy] = useState(false);
 
@@ -1324,6 +1325,12 @@ export default function SocialAdminPage() {
                       <span className="text-neutral-400">Not connected.</span>
                     )}
                   </div>
+                  {tiktokStatus?.configured && tiktokStatus?.redirectUri && (
+                    <p className="mt-3 text-xs text-neutral-500 break-all">
+                      Register this exact URL in TikTok → Login Kit → Redirect URI:{' '}
+                      <code className="text-neutral-300 font-mono">{tiktokStatus.redirectUri}</code>
+                    </p>
+                  )}
                 </div>
 
                 {/* Posting Schedule — single unified grid */}
