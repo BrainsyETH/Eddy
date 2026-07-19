@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./run-local.sh                                  # scan all channels in channels.json
-#   ./run-local.sh --url <youtube-url> [--river current] [--peak 1]
+#   ./run-local.sh --url <youtube-url> [--river current] [--peak 1] [--category high_water]
 #
 # Env (optional):
 #   YOUTUBE_COOKIES_FILE   Netscape cookies.txt — only needed if YouTube bot-blocks you
@@ -54,6 +54,7 @@ fi
 PEAK_NUMBER=1
 SINGLE_URL=""
 SINGLE_RIVER=""
+SINGLE_CATEGORY=""
 VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
 MAX_CLIPS="${MAX_CLIPS:-3}"
 
@@ -63,6 +64,7 @@ while [ $# -gt 0 ]; do
     --river)      SINGLE_RIVER="$2"; shift 2 ;;
     --peak)       PEAK_NUMBER="$2"; shift 2 ;;
     --instagram)  SINGLE_IG="$2"; shift 2 ;;
+    --category)   SINGLE_CATEGORY="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -90,7 +92,7 @@ fi
 echo "Branding: Remotion clip-reel (cloud handoff) → Blob + clip_library (app gates & posts)"
 
 process_video() {
-  local URL="$1" RIVER="$2" PEAK="$3" IG="${4:-}"
+  local URL="$1" RIVER="$2" PEAK="$3" IG="${4:-}" CATEGORY="${5:-}"
   local WORK; WORK="$(mktemp -d)"
 
   echo ""
@@ -134,7 +136,7 @@ process_video() {
   # handoffs return 1 so the scan loop doesn't burn MAX_CLIPS on them.
   echo "→ Handing off to cloud Remotion branding..."
   local HANDOFF_RC=0
-  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" || HANDOFF_RC=$?
+  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" "$CATEGORY" || HANDOFF_RC=$?
   rm -rf "$WORK"
   if [ "$HANDOFF_RC" -ne 0 ]; then
     [ "$HANDOFF_RC" -eq 3 ] || echo "⚠️  handoff failed (rc=$HANDOFF_RC)"
@@ -144,7 +146,7 @@ process_video() {
 }
 
 if [ -n "$SINGLE_URL" ]; then
-  process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER" "${SINGLE_IG:-}"
+  process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER" "${SINGLE_IG:-}" "${SINGLE_CATEGORY:-}"
 else
   CHANNELS="$HERE/channels.json"
   [ -f "$CHANNELS" ] || { echo "No channels.json at $CHANNELS"; exit 1; }

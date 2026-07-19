@@ -4,13 +4,13 @@
 # which brands it (clip-reel) and inserts clip_library. Branding happens ONLY in
 # Remotion here — the local finalize-reel step is skipped, so no double-branding.
 #
-# Usage: ./handoff-clip.sh <raw-clip.mp4> <heatmap.json> <peak#> <river-slug> <source-url> [ig-handle]
+# Usage: ./handoff-clip.sh <raw-clip.mp4> <heatmap.json> <peak#> <river-slug> <source-url> [ig-handle] [category]
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$HERE/load-secrets.sh" ] && . "$HERE/load-secrets.sh"
 
-RAW="$1"; HEATMAP="$2"; PEAK="${3:-1}"; RIVER="${4:-}"; SRC_URL="${5:-}"; IG="${6:-}"
+RAW="$1"; HEATMAP="$2"; PEAK="${3:-1}"; RIVER="${4:-}"; SRC_URL="${5:-}"; IG="${6:-}"; CATEGORY="${7:-}"
 for v in BLOB_READ_WRITE_TOKEN SUPABASE_URL SUPABASE_KEY; do
   [ -n "${!v:-}" ] || { echo "❌ handoff: missing \$$v"; exit 2; }
 done
@@ -82,5 +82,6 @@ gh workflow run render-clip.yml --ref main \
   -f orientation="portrait" \
   -f heatmap_score="$SCORE" \
   -f captions="$CAPTIONS_JSON" \
-  -f source_orientation="$SRC_ORIENT"
+  -f source_orientation="$SRC_ORIENT" \
+  -f category="$CATEGORY"
 echo "  ✅ dispatched — Remotion will brand it and insert clip_library (pending)."

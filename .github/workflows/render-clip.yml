@@ -28,6 +28,7 @@ on:
       heatmap_score:    { description: 'Heatmap score', required: false, type: string, default: '0' }
       captions:         { description: 'Timed caption cues JSON (relative to clip start)', required: false, type: string, default: '[]' }
       source_orientation: { description: 'Orientation of the SOURCE clip (portrait|landscape)', required: false, type: string, default: 'landscape' }
+      category:           { description: 'Content category (e.g. high_water) — drives clip branding + clip_library.content_type', required: false, type: string, default: '' }
 
 # contents:read for checkout; packages:read so the reusable render job can pull
 # the private GHCR render image with the job's GITHUB_TOKEN.
@@ -69,17 +70,24 @@ jobs:
           DURATION_SECS: ${{ inputs.duration_secs }}
           CAPTIONS: ${{ inputs.captions }}
           SOURCE_ORIENTATION: ${{ inputs.source_orientation }}
+          CATEGORY: ${{ inputs.category }}
         run: |
           PROPS=$(python3 - <<'PY'
           import json, os
-          print(json.dumps({
+          props = {
               "videoUrl": os.environ["VIDEO_URL"],
               "riverName": os.environ["RIVER_NAME"],
               "creatorCredit": os.environ.get("CREATOR", ""),
               "durationSecs": float(os.environ.get("DURATION_SECS") or 13),
               "captions": json.loads(os.environ.get("CAPTIONS") or "[]"),
               "sourceOrientation": os.environ.get("SOURCE_ORIENTATION") or "landscape",
-          }))
+          }
+          # Only set the category prop when present, so normal clips keep the
+          # default branding (ClipReel treats an absent category as a plain clip).
+          category = os.environ.get("CATEGORY") or ""
+          if category:
+              props["category"] = category
+          print(json.dumps(props))
           PY
           )
           # Heredoc-delimited output handles any JSON content safely.
@@ -119,6 +127,7 @@ jobs:
           DURATION_SECS: ${{ inputs.duration_secs }}
           ORIENTATION: ${{ inputs.orientation }}
           HEATMAP_SCORE: ${{ inputs.heatmap_score }}
+          CATEGORY: ${{ inputs.category }}
         run: |
           python3 - <<'PY'
           import json, os, urllib.request, urllib.parse
@@ -138,6 +147,11 @@ jobs:
               "source_url": os.environ.get("SOURCE_URL") or None,
               "brand_check_status": "pending",
           }
+          # Content category (e.g. high_water) so the library + brand-check can
+          # tell flood-safety clips apart from normal paddling clips. Only set
+          # when present; a plain clip leaves content_type NULL as before.
+          if os.environ.get("CATEGORY"):
+              row["content_type"] = os.environ["CATEGORY"]
 
           # Never store a river_slug that isn't a real river — guards manual
           # dispatches / mis-detections so the library stays filterable.
