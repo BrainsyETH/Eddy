@@ -13,6 +13,8 @@ import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import { eddyDeepLink } from '@/lib/embed/branding';
+import { conditionChip } from '@shared/condition-system';
 import type { ConditionCode } from '@/types/api';
 
 interface EddyUpdate {
@@ -44,9 +46,12 @@ interface ForecastDay {
   precipitation: number;
 }
 
-interface GaugeMetric {
-  value: string;
-  unit: 'ft' | 'cfs';
+interface GaugeSnapshot {
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingSuspect: boolean;
+  qualifierNote: string | null;
   name: string;
 }
 
@@ -68,12 +73,25 @@ function splitQuote(text: string): { preview: string; detail: string } {
   return { preview, detail: text.slice(firstBreak + 1).trim() };
 }
 
-function formatAge(generatedAt: string): string {
-  const hours = (Date.now() - new Date(generatedAt).getTime()) / (1000 * 60 * 60);
-  if (hours < 1) return 'Updated just now';
-  if (hours < 2) return 'Updated 1 hr ago';
-  if (hours < 24) return `Updated ${Math.round(hours)} hrs ago`;
-  return `Updated ${Math.floor(hours / 24)}d ago`;
+function formatRelativeAge(timestamp: string): string {
+  const minutes = Math.max(0, (Date.now() - new Date(timestamp).getTime()) / (1000 * 60));
+  if (minutes < 2) return 'just now';
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  const hours = minutes / 60;
+  if (hours < 2) return '1 hr ago';
+  if (hours < 24) return `${Math.round(hours)} hrs ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function formatExactTime(timestamp: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(timestamp));
+}
+
+function formatRange(min: number, max: number, unit: string): string {
+  return `${min.toLocaleString()}\u2013${max.toLocaleString()} ${unit}`;
 }
 
 export default function EddyQuoteEmbedPage() {
@@ -88,7 +106,7 @@ export default function EddyQuoteEmbedPage() {
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [river, setRiver] = useState<RiverBasic | null>(null);
   const [optimalRange, setOptimalRange] = useState<string | null>(null);
-  const [gaugeMetric, setGaugeMetric] = useState<GaugeMetric | null>(null);
+  const [gaugeSnapshot, setGaugeSnapshot] = useState<GaugeSnapshot | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [forecast, setForecast] = useState<ForecastDay | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,22 +147,31 @@ export default function EddyQuoteEmbedPage() {
         if (gaugesRes.ok && riverId) {
           const gaugeData = await gaugesRes.json();
           interface GaugeThreshold { riverId: string; isPrimary: boolean; thresholdUnit?: string; levelOptimalMin?: number | null; levelOptimalMax?: number | null }
-          interface GaugeEntry { name: string; gaugeHeightFt: number | null; dischargeCfs: number | null; coordinates?: { lng: number; lat: number }; thresholds?: GaugeThreshold[] | null }
+          interface GaugeEntry {
+            name: string;
+            gaugeHeightFt: number | null;
+            dischargeCfs: number | null;
+            readingTimestamp: string | null;
+            readingSuspect?: boolean;
+            qualifierNote?: string | null;
+            coordinates?: { lng: number; lat: number };
+            thresholds?: GaugeThreshold[] | null;
+          }
           for (const gauge of (gaugeData.gauges as GaugeEntry[])) {
             const primary = gauge.thresholds?.find((t) => t.riverId === riverId && t.isPrimary);
             if (primary) {
               if (primary.levelOptimalMin != null && primary.levelOptimalMax != null) {
                 const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
-                setOptimalRange(`${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`);
+                setOptimalRange(formatRange(primary.levelOptimalMin, primary.levelOptimalMax, unit));
               }
-              // Prefer gauge height for the at-a-glance reading, even where the
-              // condition thresholds use CFS. This is display-only and never
-              // participates in condition calculation.
-              if (gauge.gaugeHeightFt !== null) {
-                setGaugeMetric({ value: gauge.gaugeHeightFt.toFixed(1), unit: 'ft', name: gauge.name });
-              } else if (gauge.dischargeCfs !== null) {
-                setGaugeMetric({ value: gauge.dischargeCfs.toLocaleString(), unit: 'cfs', name: gauge.name });
-              }
+              setGaugeSnapshot({
+                gaugeHeightFt: gauge.gaugeHeightFt,
+                dischargeCfs: gauge.dischargeCfs,
+                readingTimestamp: gauge.readingTimestamp,
+                readingSuspect: gauge.readingSuspect ?? false,
+                qualifierNote: gauge.qualifierNote ?? null,
+                name: gauge.name,
+              });
               // Weather at the river's primary gauge (lodging value, merged in
               // from the former River Day widget).
               if (gauge.coordinates) {
@@ -167,8 +194,26 @@ export default function EddyQuoteEmbedPage() {
   }, [slug]);
 
   // Determine what to display
-  const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
+  // The prominent condition always reflects the live river response. The Eddy
+  // quote keeps its own timestamp + snapshot condition and never overrides it.
+  const conditionCode = river?.currentCondition?.code || update?.conditionCode || 'unknown';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
+  const conditionStyle = conditionChip(conditionCode);
+  const weatherHref = eddyDeepLink(origin, `/gauges?river=${slug}`, {
+    widget: 'eddy-quote',
+    key: slug,
+    partner: branding?.businessName || partner || undefined,
+  });
+  const gaugeUpdatedAfterQuote = Boolean(
+    gaugeSnapshot?.readingTimestamp &&
+    update?.generatedAt &&
+    new Date(gaugeSnapshot.readingTimestamp).getTime() > new Date(update.generatedAt).getTime() + 5 * 60 * 1000
+  );
+  const conditionChangedSinceQuote = Boolean(
+    update?.conditionCode &&
+    river?.currentCondition?.code &&
+    update.conditionCode !== river.currentCondition.code
+  );
 
   // Build fallback text if no AI update
   const quoteText = update?.quoteText || (() => {
@@ -243,7 +288,7 @@ export default function EddyQuoteEmbedPage() {
             {river.name}
           </div>
           <div className="text-xs font-medium mt-1" style={{ color: textSecondary }}>
-            {update?.generatedAt ? formatAge(update.generatedAt) : 'Current river conditions'}
+            Live river conditions
           </div>
         </div>
         <ConditionBadge code={conditionCode} size="md" className="flex-shrink-0" />
@@ -251,6 +296,20 @@ export default function EddyQuoteEmbedPage() {
 
       {/* At-a-glance facts. Values come directly from gauge/weather APIs and do
           not alter or reinterpret the canonical condition. */}
+      <div className="flex items-center justify-between gap-3 px-0.5">
+        <div className="text-xs font-bold uppercase tracking-wide" style={{ color: textSecondary }}>
+          Live gauge
+        </div>
+        <div
+          className="text-xs text-right truncate"
+          title={gaugeSnapshot?.readingTimestamp ? formatExactTime(gaugeSnapshot.readingTimestamp) : undefined}
+          style={{ color: textSecondary }}
+        >
+          {gaugeSnapshot?.readingTimestamp
+            ? `Observed ${formatRelativeAge(gaugeSnapshot.readingTimestamp)}`
+            : 'Observation time unavailable'}
+        </div>
+      </div>
       <section
         aria-label="River conditions at a glance"
         className="grid grid-cols-2 sm:grid-cols-4 overflow-hidden rounded-lg border"
@@ -258,32 +317,48 @@ export default function EddyQuoteEmbedPage() {
       >
         <Metric
           label="Gauge height"
-          value={gaugeMetric ? `${gaugeMetric.value} ${gaugeMetric.unit}` : 'Unavailable'}
-          detail={gaugeMetric?.name || 'Primary gauge'}
+          value={gaugeSnapshot?.gaugeHeightFt != null ? `${gaugeSnapshot.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable'}
+          detail={gaugeSnapshot?.name || 'Primary gauge'}
           palette={palette}
           className="border-r border-b sm:border-b-0"
+          accent={conditionStyle}
+        />
+        <Metric
+          label="Flow now"
+          value={gaugeSnapshot?.dischargeCfs != null ? `${gaugeSnapshot.dischargeCfs.toLocaleString()} cfs` : 'Unavailable'}
+          detail="Present discharge"
+          palette={palette}
+          className="border-b sm:border-b-0 sm:border-r"
+          accent={conditionStyle}
         />
         <Metric
           label="Optimal range"
           value={optimalRange || 'Not set'}
           detail="Established range"
           palette={palette}
-          className="border-b sm:border-b-0 sm:border-r"
-        />
-        <Metric
-          label="Today"
-          value={weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable'}
-          detail={weather?.condition || forecast?.condition || 'Weather unavailable'}
-          palette={palette}
           className="border-r"
         />
         <Metric
-          label="Rain chance"
-          value={forecast ? `${Math.round(forecast.precipitation)}%` : 'Unavailable'}
-          detail={weather && weather.windSpeed > 5 ? `Wind ${Math.round(weather.windSpeed)} mph` : 'Today’s forecast'}
+          label="Weather"
+          value={weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable'}
+          detail={[
+            weather?.condition || forecast?.condition,
+            forecast ? `${Math.round(forecast.precipitation)}% rain` : null,
+          ].filter(Boolean).join(' · ') || 'Weather unavailable'}
           palette={palette}
+          href={weatherHref}
         />
       </section>
+
+      {gaugeSnapshot?.readingSuspect && gaugeSnapshot.qualifierNote && (
+        <div
+          role="note"
+          className="rounded-md border px-3 py-2 text-xs font-medium"
+          style={{ borderColor: conditionStyle.borderColor, background: conditionStyle.background, color: textPrimary }}
+        >
+          {gaugeSnapshot.qualifierNote}
+        </div>
+      )}
 
       <section aria-labelledby="eddy-take-heading" className="py-1">
         <div className="flex items-center gap-2 mb-2">
@@ -294,17 +369,38 @@ export default function EddyQuoteEmbedPage() {
             height={24}
             className="w-6 h-6 object-contain rounded-full"
           />
-          <h2 id="eddy-take-heading" className="m-0 text-sm font-bold" style={{ fontFamily: EMBED_FONTS.display, color: textPrimary }}>
-            Eddy’s take
-          </h2>
+          <div className="min-w-0">
+            <h2 id="eddy-take-heading" className="m-0 text-sm font-bold" style={{ fontFamily: EMBED_FONTS.display, color: textPrimary }}>
+              Eddy’s take
+            </h2>
+            <div
+              className="text-xs mt-0.5"
+              title={update?.generatedAt ? formatExactTime(update.generatedAt) : undefined}
+              style={{ color: textSecondary }}
+            >
+              {update?.generatedAt ? `Generated ${formatRelativeAge(update.generatedAt)}` : 'Live fallback guidance'}
+            </div>
+          </div>
         </div>
+
+        {(gaugeUpdatedAfterQuote || conditionChangedSinceQuote) && (
+          <div
+            role="note"
+            className="mb-2 border-l-2 pl-2 text-xs font-medium"
+            style={{ borderColor: palette.link, color: textSecondary }}
+          >
+            {conditionChangedSinceQuote
+              ? 'The live condition has changed since Eddy’s take. Use the status and readings above.'
+              : 'The live gauge updated after Eddy’s take.'}
+          </div>
+        )}
         <p className="m-0 text-sm leading-relaxed font-medium">{quotePreview}</p>
 
         {quoteDetail && (
           <details
             className="mt-2 rounded-lg border px-3 py-2"
             style={{ borderColor: palette.border, background: palette.cardBg }}
-            open={EXPANDED_CONDITIONS.has(conditionCode as ConditionCode)}
+            open={conditionChangedSinceQuote || EXPANDED_CONDITIONS.has(conditionCode as ConditionCode)}
           >
             <summary className="cursor-pointer text-xs font-bold" style={{ color: palette.link }}>
               Read full condition update
@@ -315,11 +411,6 @@ export default function EddyQuoteEmbedPage() {
           </details>
         )}
 
-        {update?.generatedAt && (
-          <div className="text-xs mt-2" style={{ color: textSecondary }}>
-            {formatAge(update.generatedAt)}
-          </div>
-        )}
       </section>
 
       {/* Footer: Links */}
@@ -330,7 +421,10 @@ export default function EddyQuoteEmbedPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
-        links={[{ label: 'Full conditions', path: river.path || `/rivers/${river.slug}` }]}
+        links={[
+          { label: 'Full conditions', path: river.path || `/rivers/${river.slug}` },
+          { label: 'Weather & levels', path: `/gauges?river=${river.slug}` },
+        ]}
       />
     </div>
   );
@@ -342,23 +436,62 @@ function Metric({
   detail,
   palette,
   className = '',
+  accent,
+  href,
 }: {
   label: string;
   value: string;
   detail: string;
   palette: ReturnType<typeof embedPalette>;
   className?: string;
+  accent?: ReturnType<typeof conditionChip>;
+  href?: string;
 }) {
-  return (
-    <div
-      className={`min-w-0 px-3 py-3 ${className}`}
-      style={{ borderColor: palette.border }}
-    >
-      <div className="text-xs font-medium" style={{ color: palette.textSecondary }}>{label}</div>
-      <div className="mt-1 text-sm font-bold break-words" style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}>
+  const content = (
+    <>
+      <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: palette.textSecondary }}>
+        {accent && (
+          <span
+            aria-hidden="true"
+            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+            style={{ background: accent.solid }}
+          />
+        )}
+        {label}
+      </div>
+      <div
+        className="mt-1 text-sm font-bold break-words tabular-nums"
+        style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}
+      >
         {value}
       </div>
-      <div className="mt-1 text-xs truncate" title={detail} style={{ color: palette.textSecondary }}>{detail}</div>
-    </div>
+      <div className="mt-1 text-xs truncate" title={detail} style={{ color: palette.textSecondary }}>
+        {detail}{href ? ' →' : ''}
+      </div>
+    </>
   );
+
+  const style = {
+    borderColor: palette.border,
+    borderTopColor: accent?.solid || palette.border,
+    background: accent?.background,
+  };
+  const classes = `min-w-0 px-3 py-3 border-t-2 ${href ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]' : ''} ${className}`;
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${classes} no-underline transition-colors`}
+        style={style}
+        aria-label={`${label}: ${value}. ${detail}. Open weather and levels.`}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return <div className={classes} style={style}>{content}</div>;
 }
