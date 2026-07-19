@@ -78,8 +78,8 @@ function MetricTile({
 
   const style = {
     '--embed-focus': palette.focus,
-    '--embed-tile-shadow': isDark ? '0 6px 16px rgba(0,0,0,0.35)' : '0 6px 16px rgba(45,42,36,0.10)',
-    '--embed-tile-shadow-hover': isDark ? '0 12px 22px rgba(0,0,0,0.48)' : '0 12px 22px rgba(45,42,36,0.16)',
+    '--embed-tile-shadow': isDark ? '0 4px 11px rgba(0,0,0,0.32)' : '0 4px 11px rgba(45,42,36,0.09)',
+    '--embed-tile-shadow-hover': isDark ? '0 8px 16px rgba(0,0,0,0.42)' : '0 8px 16px rgba(45,42,36,0.14)',
     background: tileTint,
     borderColor: palette.border,
     animationDelay: `${index * 60}ms`,
