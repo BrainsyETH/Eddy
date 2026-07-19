@@ -3,14 +3,16 @@
 import type { CSSProperties } from 'react';
 import { conditionChip } from '@shared/condition-system';
 import { EMBED_FONTS, type EmbedPalette } from '@/lib/embed/theme';
-import { TileIcon, type EmbedTileIconKey } from '@/lib/embed/tileIcons';
+import { TileBadgeIcon, type EmbedTileIconKey } from '@/lib/embed/tileIcons';
 
 export interface EmbedMetric {
   label: string;
   value: string;
   detail: string;
-  /** Which brand icon fills the tile's badge. Defaults to `gauge`. */
+  /** Tile identity — drives the tone (gauge, flow, optimal, weather). */
   icon?: EmbedTileIconKey;
+  /** Brand image for the badge (mood otter, green flag). Weather has no image. */
+  iconImageUrl?: string;
   accent?: ReturnType<typeof conditionChip>;
   detailColor?: string;
   href?: string;
@@ -23,19 +25,17 @@ interface EmbedMetricGridProps {
   palette: EmbedPalette;
 }
 
-// Badge color for a tile with no live condition accent. Live tiles (gauge,
-// flow) inherit the condition's solid; context tiles carry a fixed brand hue —
-// Sandbar Tan for the optimal range, Sunset Coral for weather (see .stitch/DESIGN.md).
-const BADGE_FALLBACK: Record<EmbedTileIconKey, string> = {
-  gauge: '#2D7889', // primary teal
-  flow: '#2D7889',
-  optimal: '#B89D72', // secondary tan
-  weather: '#F07052', // accent coral
+// Soft wash behind context tiles that carry no live condition accent (Sandbar
+// Tan for the optimal range, Sunset Coral for weather). Live tiles (gauge,
+// flow) always pass an accent, so they never fall back to this.
+const CONTEXT_WASH: Partial<Record<EmbedTileIconKey, string>> = {
+  optimal: '#B89D7214',
+  weather: '#F0705214',
 };
 
 // Peel a known trailing unit off a formatted value so the tile can render the
-// number large and the unit small (e.g. "1,010 cfs" → 1,010 · cfs). Anything
-// without a recognized unit (e.g. "Unavailable", "Not set") renders whole.
+// number large and the unit small (e.g. "1,010 cfs" → 1,010 · cfs). Values
+// without a recognized unit (e.g. "Unavailable", "Not set") render whole.
 const UNIT_RE = /\s*(cfs|ft|mph|in|°F|°C|%)\s*$/i;
 function splitValueUnit(value: string): { num: string; unit: string | null } {
   const match = value.match(UNIT_RE);
@@ -66,13 +66,14 @@ function MetricTile({
   isDark: boolean;
   index: number;
 }) {
-  const { label, value, detail, icon = 'gauge', accent, detailColor, href, linkLabel } = metric;
+  const { label, value, detail, icon, iconImageUrl, accent, detailColor, href, linkLabel } = metric;
   const { num, unit } = splitValueUnit(value);
 
-  const badgeColor = accent?.solid ?? BADGE_FALLBACK[icon];
+  const isWeather = icon === 'weather';
+  const showIcon = Boolean(iconImageUrl) || isWeather;
   // Live tiles take the canonical condition tint; context tiles take a soft
-  // wash of their brand hue (8% alpha reads on both light and dark surfaces).
-  const tileTint = accent?.background ?? `${BADGE_FALLBACK[icon]}14`;
+  // brand wash. Both read on light and dark surfaces.
+  const tileTint = accent?.background ?? (icon ? CONTEXT_WASH[icon] : undefined) ?? 'transparent';
   const pillBg = isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF';
 
   const style = {
@@ -87,9 +88,11 @@ function MetricTile({
   const content = (
     <>
       <span className="embed-tile-pill" style={{ background: pillBg, borderColor: palette.border }}>
-        <span className="embed-tile-badge" style={{ background: badgeColor }}>
-          <TileIcon icon={icon} />
-        </span>
+        {showIcon && (
+          <span className="embed-tile-icon">
+            <TileBadgeIcon imageUrl={iconImageUrl} isWeather={isWeather} />
+          </span>
+        )}
         <span className="embed-tile-label" style={{ color: palette.textPrimary }}>{label}</span>
       </span>
       <span className="embed-tile-value" style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}>

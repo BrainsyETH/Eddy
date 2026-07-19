@@ -215,20 +215,18 @@ body {
   align-items: center;
   gap: 7px;
   max-width: 100%;
-  padding: 4px 10px 4px 4px;
+  padding: 4px 11px 4px 6px;
   border: 1px solid transparent;
   border-radius: 9999px;
 }
 
-.embed-tile-badge {
+.embed-tile-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 9999px;
-  color: #fff;
+  width: 26px;
+  height: 26px;
 }
 
 .embed-tile-label {

@@ -9,7 +9,9 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { getEddyImageForCondition } from '@/constants';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
+import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
 import EmbedWidgetSkeleton, { EmbedUnavailableState } from '@/components/embed/EmbedWidgetSkeleton';
@@ -288,6 +290,7 @@ export default function EddyQuoteEmbedPage() {
           {
             label: 'Gauge height',
             icon: 'gauge',
+            iconImageUrl: getEddyImageForCondition(conditionCode),
             value: gaugeSnapshot?.gaugeHeightFt != null ? `${gaugeSnapshot.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable',
             detail: gaugeSnapshot?.name || 'Primary gauge',
             accent: conditionStyle,
@@ -295,6 +298,7 @@ export default function EddyQuoteEmbedPage() {
           {
             label: 'Flow now',
             icon: 'flow',
+            iconImageUrl: getEddyImageForCondition(conditionCode),
             value: gaugeSnapshot?.dischargeCfs != null ? `${gaugeSnapshot.dischargeCfs.toLocaleString()} cfs` : 'Unavailable',
             detail: 'Present discharge',
             accent: conditionStyle,
@@ -302,6 +306,7 @@ export default function EddyQuoteEmbedPage() {
           {
             label: 'Optimal range',
             icon: 'optimal',
+            iconImageUrl: FLAG_GREEN_ICON,
             value: optimalRange || 'Not set',
             detail: 'Established range',
           },
