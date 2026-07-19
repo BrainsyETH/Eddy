@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./run-local.sh                                  # scan all channels in channels.json
-#   ./run-local.sh --url <youtube-url> [--river current] [--peak 1]
+#   ./run-local.sh --url <youtube-url> [--river current] [--peak 1] [--category high_water]
 #
 # Env (optional):
 #   YOUTUBE_COOKIES_FILE   Netscape cookies.txt — only needed if YouTube bot-blocks you
@@ -54,6 +54,7 @@ fi
 PEAK_NUMBER=1
 SINGLE_URL=""
 SINGLE_RIVER=""
+SINGLE_CATEGORY=""
 VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
 MAX_CLIPS="${MAX_CLIPS:-3}"
 
@@ -63,6 +64,7 @@ while [ $# -gt 0 ]; do
     --river)      SINGLE_RIVER="$2"; shift 2 ;;
     --peak)       PEAK_NUMBER="$2"; shift 2 ;;
     --instagram)  SINGLE_IG="$2"; shift 2 ;;
+    --category)   SINGLE_CATEGORY="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -90,7 +92,7 @@ fi
 echo "Branding: Remotion clip-reel (cloud handoff) → Blob + clip_library (app gates & posts)"
 
 process_video() {
-  local URL="$1" RIVER="$2" PEAK="$3" IG="${4:-}"
+  local URL="$1" RIVER="$2" PEAK="$3" IG="${4:-}" CATEGORY="${5:-}"
   local WORK; WORK="$(mktemp -d)"
 
   echo ""
@@ -134,7 +136,7 @@ process_video() {
   # handoffs return 1 so the scan loop doesn't burn MAX_CLIPS on them.
   echo "→ Handing off to cloud Remotion branding..."
   local HANDOFF_RC=0
-  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" || HANDOFF_RC=$?
+  bash "$HERE/handoff-clip.sh" "$WORK/raw-clip.mp4" "$WORK/heatmap-data.json" "$PEAK" "$RIVER" "$URL" "$IG" "$CATEGORY" || HANDOFF_RC=$?
   rm -rf "$WORK"
   if [ "$HANDOFF_RC" -ne 0 ]; then
     [ "$HANDOFF_RC" -eq 3 ] || echo "⚠️  handoff failed (rc=$HANDOFF_RC)"
@@ -144,13 +146,13 @@ process_video() {
 }
 
 if [ -n "$SINGLE_URL" ]; then
-  process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER" "${SINGLE_IG:-}"
+  process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER" "${SINGLE_IG:-}" "${SINGLE_CATEGORY:-}"
 else
   CHANNELS="$HERE/channels.json"
   [ -f "$CHANNELS" ] || { echo "No channels.json at $CHANNELS"; exit 1; }
   echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL each, up to $MAX_CLIPS clips)"
   COUNT=0
-  while IFS='|' read -r CH_URL CH_RIVER CH_IG; do
+  while IFS='|' read -r CH_URL CH_RIVER CH_IG CH_FLOODONLY; do
     [ -z "$CH_URL" ] && continue
     case "$CH_URL" in
       *REPLACE_WITH*|*ANOTHER_CHANNEL*) echo "  • skipping placeholder $CH_URL"; continue ;;
@@ -172,12 +174,18 @@ else
       [ "$COUNT" -ge "$MAX_CLIPS" ] && { echo "  Reached MAX_CLIPS=$MAX_CLIPS"; break 2; }
       VID="${LINE%%|||*}"; VTITLE="${LINE#*|||}"
       VRIVER="$(bash "$CE/detect-river.sh" "$VTITLE")"
+      VCATEGORY="$(bash "$CE/detect-flood.sh" "$VTITLE")"
       if [ -n "$VRIVER" ]; then
         echo "    🎯 $VRIVER ← ${VTITLE:0:64}"
-      elif [ "$(bash "$CE/detect-paddling.sh" "$VTITLE")" = yes ]; then
+      elif [ "$(bash "$CE/detect-paddling.sh" "$VTITLE")" = yes ] || [ "$VCATEGORY" = high_water ]; then
         echo "    🛶 paddling, no known river ← ${VTITLE:0:64}"
       else
         echo "    ⏭️  not paddling: ${VTITLE:0:64}"; continue
+      fi
+      [ "$VCATEGORY" = high_water ] && echo "    🌊 high water ← ${VTITLE:0:64}"
+      # Flood-only source channels contribute ONLY their high-water uploads.
+      if [ "$CH_FLOODONLY" = 1 ] && [ "$VCATEGORY" != high_water ]; then
+        echo "    ⏭️  flood-only channel, skipping non-high-water: ${VTITLE:0:64}"; continue
       fi
       # Video-level dedup BEFORE any scrape/download (mirrors the cloud
       # pipeline): a video that already has a clip in clip_library is skipped
@@ -194,7 +202,7 @@ else
         echo "    ⚠️  dedup check failed ($(printf '%s' "$EXISTING" | head -c 120)) — proceeding without dedup"
       fi
       # Count only produced clips so no-river/failed videos don't burn MAX_CLIPS.
-      if process_video "https://www.youtube.com/watch?v=${VID}" "$VRIVER" "$PEAK_NUMBER" "$CH_IG"; then
+      if process_video "https://www.youtube.com/watch?v=${VID}" "$VRIVER" "$PEAK_NUMBER" "$CH_IG" "$VCATEGORY"; then
         COUNT=$((COUNT + 1))
       fi
     done < <(yt-dlp --socket-timeout 30 --retries 3 --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
@@ -203,8 +211,8 @@ import json,sys
 # Pipe-delimited (not tab): tab is IFS-whitespace, so empty middle fields would
 # collapse and shift columns. '|' never appears in URLs/slugs/handles.
 for c in json.load(open('$CHANNELS')):
-    if isinstance(c,str): print(c+'||')
-    else: print((c.get('url') or '')+'|'+(c.get('river_slug') or '')+'|'+(c.get('instagram') or ''))
+    if isinstance(c,str): print(c+'|||')
+    else: print('|'.join([(c.get('url') or ''),(c.get('river_slug') or ''),(c.get('instagram') or ''),('1' if c.get('flood_only') else '')]))
 ")
 fi
 

@@ -36,6 +36,11 @@ on:
         required: false
         type: string
         default: '5'
+      category:
+        description: 'Content category for the clip(s) (e.g. high_water). Blank = normal paddling.'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   extract-clips:
@@ -78,6 +83,7 @@ jobs:
           PEAK_NUMBER: ${{ inputs.peak_number || '1' }}
           MAX_CLIPS: ${{ inputs.max_clips || '3' }}
           VIDEOS_PER_CHANNEL: ${{ inputs.videos_per_channel || '5' }}
+          CATEGORY_INPUT: ${{ inputs.category }}
           # Let known-river (Tier-1) videos produce a fallback clip when they have
           # no Most-Replayed heatmap (small Ozark channels). Tier-2 stays gated.
           # See scripts/clipengine/scrape-heatmap.sh (PR #748). Set to "0" to revert.
@@ -111,6 +117,7 @@ jobs:
             local URL="$1"
             local RIVER="$2"
             local PEAK="$3"
+            local CATEGORY="${4:-}"
             local VIDEO_DIR=$(mktemp -d)
 
             echo ""
@@ -194,7 +201,11 @@ jobs:
                 "${SUPABASE_URL}/rest/v1/rivers?slug=eq.${RIVER}&select=name" \
                 -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")
               RIVER_NAME=$(echo "$RIVER_RESP" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '[]'); print(d[0]['name'] if d else '')" 2>/dev/null || echo "")
-              if [ -z "$RIVER_NAME" ]; then
+              # high_water clips are intentionally region-agnostic: the "know your
+              # levels" message is universal and the branding uses a neutral "When
+              # Rivers Rise" hero, so an unknown/empty river is fine. Every OTHER
+              # category still requires a real Eddy river to post.
+              if [ -z "$RIVER_NAME" ] && [ "$CATEGORY" != "high_water" ]; then
                 echo "⚠️ '$RIVER' is not a known Eddy river — skipping $VIDEO_ID (only real rivers post)"
                 rm -rf "$VIDEO_DIR"
                 return
@@ -202,7 +213,7 @@ jobs:
             else
               RIVER_NAME="$RIVER"
             fi
-            echo "River name: $RIVER_NAME"
+            echo "River name: ${RIVER_NAME:-(none — high-water, neutral branding)}"
 
             echo "→ Uploading RAW clip to CDN for Remotion..."
             local DATE_PREFIX=$(date -u +%Y-%m-%d)
@@ -271,7 +282,8 @@ jobs:
               -f orientation="portrait" \
               -f heatmap_score="$PEAK_SCORE" \
               -f captions="$CAPTIONS_JSON" \
-              -f source_orientation="$SRC_ORIENT"; then
+              -f source_orientation="$SRC_ORIENT" \
+              -f category="$CATEGORY"; then
               echo "✅ Dispatched render-clip — it brands the clip and inserts clip_library (pending)."
             else
               echo "⚠️ Could not dispatch render-clip (needs actions:write + a token allowed to dispatch). Skipping."
@@ -299,7 +311,7 @@ jobs:
           # Process: either a single URL (manual dispatch) or scan the
           # configured channels (scheduled daily run).
           if [ -n "$YOUTUBE_URL" ]; then
-            process_video "$YOUTUBE_URL" "$RIVER_SLUG" "$PEAK_NUMBER"
+            process_video "$YOUTUBE_URL" "$RIVER_SLUG" "$PEAK_NUMBER" "$CATEGORY_INPUT"
           elif [ -n "$YOUTUBE_CHANNELS_JSON" ]; then
             VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
             echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL per channel, up to $MAX_CLIPS new clips)"
@@ -311,10 +323,13 @@ jobs:
             : > "$CANDIDATES"
 
             # Expand YOUTUBE_CHANNELS_JSON (array of channel URLs, or objects
-            # {url, river_slug}) into newest-first "videoUrl<TAB>river" rows.
-            # Process substitution keeps the loops in this shell so the
-            # MAX_CLIPS counter (read from RESULTS_JSON) stays consistent.
-            while IFS=$'\t' read -r CH_URL CH_RIVER; do
+            # {url, river_slug, flood_only}) into "url|river|flood_only" rows, and
+            # candidates into "videoUrl|river|category" rows. Pipe-delimited (not
+            # tab): tab is IFS-whitespace, so an empty MIDDLE field (e.g. a
+            # flood-only channel with no river) would collapse and shift columns.
+            # '|' never appears in URLs/slugs/categories. Process substitution
+            # keeps the loops in this shell so the MAX_CLIPS counter stays consistent.
+            while IFS='|' read -r CH_URL CH_RIVER CH_FLOODONLY; do
               [ -z "$CH_URL" ] && continue
               case "$CH_URL" in
                 *"/videos"|*"watch?v="*|*"youtu.be/"*) LIST_URL="$CH_URL" ;;
@@ -329,10 +344,17 @@ jobs:
                 VID="${LINE%%|||*}"; VT="${LINE#*|||}"
                 ROW_RIVER="$CH_RIVER"
                 if [ -z "$ROW_RIVER" ]; then ROW_RIVER="$(bash scripts/clipengine/detect-river.sh "$VT")"; fi
-                if [ -z "$ROW_RIVER" ] && [ "$(bash scripts/clipengine/detect-paddling.sh "$VT")" != yes ]; then
+                ROW_CATEGORY="$(bash scripts/clipengine/detect-flood.sh "$VT")"
+                # Topic gate: a known river, a paddling title, or (for the safety
+                # category) a high-water title lets it through. Flood-only channels
+                # contribute ONLY their high-water uploads.
+                if [ -z "$ROW_RIVER" ] && [ "$(bash scripts/clipengine/detect-paddling.sh "$VT")" != yes ] && [ "$ROW_CATEGORY" != high_water ]; then
                   continue
                 fi
-                printf '%s\t%s\n' "https://www.youtube.com/watch?v=${VID}" "$ROW_RIVER" >> "$CANDIDATES"
+                if [ "$CH_FLOODONLY" = "1" ] && [ "$ROW_CATEGORY" != high_water ]; then
+                  continue
+                fi
+                printf '%s|%s|%s\n' "https://www.youtube.com/watch?v=${VID}" "$ROW_RIVER" "$ROW_CATEGORY" >> "$CANDIDATES"
               done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
             done < <(echo "$YOUTUBE_CHANNELS_JSON" | python3 -c "
           import json, sys
@@ -342,15 +364,15 @@ jobs:
               sys.stderr.write('Invalid YOUTUBE_CHANNELS_JSON: %s\n' % e); sys.exit(0)
           for c in data:
               if isinstance(c, str):
-                  print(c + '\t')
+                  print(c + '||')
               else:
-                  print((c.get('url') or '') + '\t' + (c.get('river_slug') or ''))
+                  print('|'.join([(c.get('url') or ''), (c.get('river_slug') or ''), ('1' if c.get('flood_only') else '')]))
           ")
 
             CAND_TOTAL=$(wc -l < "$CANDIDATES" | tr -d ' ')
             echo "  Found ${CAND_TOTAL} candidate video(s)"
 
-            while IFS=$'\t' read -r VURL VRIVER; do
+            while IFS='|' read -r VURL VRIVER VCATEGORY; do
               [ -z "$VURL" ] && continue
               DONE=$(python3 -c "import json; print(len(json.load(open('$RESULTS_JSON'))))" 2>/dev/null || echo 0)
               if [ "$DONE" -ge "$MAX_CLIPS" ]; then
@@ -374,7 +396,7 @@ jobs:
                   echo "  ⚠️ dedup check failed for ${VID} — Supabase response: $(printf '%s' "$EXISTING" | head -c 140) — proceeding without dedup"
                 fi
               fi
-              process_video "$VURL" "$VRIVER" "$PEAK_NUMBER"
+              process_video "$VURL" "$VRIVER" "$PEAK_NUMBER" "$VCATEGORY"
             done < "$CANDIDATES"
           else
             echo "ℹ️ No youtube_url input and clipengine-local/channels.json is missing/empty — nothing to do."

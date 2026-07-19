@@ -85,6 +85,22 @@ jobs:
           supabase_key = os.environ["SUPABASE_KEY"]
           work_dir = os.environ.get("WORK_DIR", "/tmp")
 
+          # Content category drives the brand-safety policy below. A high_water
+          # clip is a deliberate flood-safety PSA, so dangerous-LOOKING high water
+          # is the point (not a rejection reason) — but a real injury or death is
+          # still an automatic REJECT.
+          content_type = ""
+          try:
+              creq = urllib.request.Request(
+                  f"{supabase_url}/rest/v1/clip_library?id=eq.{clip_id}&select=content_type",
+                  headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"})
+              with urllib.request.urlopen(creq, timeout=10) as cr:
+                  rows = json.loads(cr.read() or "[]")
+                  content_type = (rows[0].get("content_type") or "") if rows else ""
+              print(f"content_type: {content_type or '(none)'}")
+          except Exception as e:
+              print(f"content_type lookup skipped: {e}")
+
           frames = []
           for pct in [10, 50, 90]:
               path = os.path.join(work_dir, f"frame_{pct}.jpg")
@@ -103,13 +119,38 @@ jobs:
               print("No frames extracted")
               exit(1)
 
+          # Per-category brand-safety + alignment policy.
+          if content_type == "high_water":
+              safety_line = (
+                  "1. BRAND SAFETY: This is a HIGH-WATER SAFETY clip. Dramatic "
+                  "flood-stage water, big/muddy rapids, a swamped or pinned boat, a "
+                  "swim, or a swiftwater rescue where everyone is clearly okay are "
+                  "EXPECTED and in scope (the clip warns viewers to know their river "
+                  "levels). REJECT ONLY for a real INJURY (blood, a visibly hurt "
+                  "person), a body recovery, a fatality, or otherwise offensive "
+                  "content, nudity, or drug use."
+              )
+              align_line = (
+                  "3. BRAND ALIGNMENT: Shows a river / paddling / whitewater scene "
+                  "(anywhere — high-water safety clips are NOT limited to Missouri)."
+              )
+          else:
+              safety_line = (
+                  "1. BRAND SAFETY: No offensive content, violence, dangerous "
+                  "behavior, alcohol/drug use, nudity"
+              )
+              align_line = (
+                  "3. BRAND ALIGNMENT: Content relates to rivers, floating, "
+                  "kayaking, canoeing, nature, fishing, or outdoor recreation in Missouri"
+              )
+
           prompt_text = (
               "You are reviewing video frames from a clip that will be posted on the "
               "Eddy.guide Instagram account (a Missouri float trip / river conditions guide).\n\n"
               "Evaluate these 3 frames (from the beginning, middle, and end of the clip) for:\n"
-              "1. BRAND SAFETY: No offensive content, violence, dangerous behavior, alcohol/drug use, nudity\n"
+              f"{safety_line}\n"
               "2. VISUAL QUALITY: Good resolution, not blurry, properly lit, visually engaging\n"
-              "3. BRAND ALIGNMENT: Content relates to rivers, floating, kayaking, canoeing, nature, fishing, or outdoor recreation in Missouri\n"
+              f"{align_line}\n"
               "4. OVERLAY ISSUES: No obstructive watermarks, logos, or text that would conflict with Eddy branding\n\n"
               "Also DESCRIBE what the clip shows, for use in writing a social caption. "
               "Base it ONLY on what is visible in these frames: the watercraft (kayak, "
