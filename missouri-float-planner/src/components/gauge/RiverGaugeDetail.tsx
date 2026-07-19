@@ -25,6 +25,10 @@ import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
+import RiverVisualGallery from '@/components/river/RiverVisualGallery';
+import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
+import { useAccessPoints } from '@/hooks/useAccessPoints';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
@@ -33,11 +37,24 @@ interface RiverGaugeDetailProps {
 export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
+  // Access points power the "nearest access point" dropdown in the submit form.
+  const { data: accessPoints } = useAccessPoints(riverSlug);
 
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
+
+  // River-visual photo submission modal. Opened by the "Add Photo" button below
+  // or a ?submitPhoto=true deep link (read client-side in the effect further
+  // down so the ISR-cached hub page isn't forced into dynamic rendering).
+  const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(false);
+  const visualFormRef = useFocusTrap<HTMLDivElement>(showVisualSubmitForm, () => setShowVisualSubmitForm(false));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('submitPhoto') === 'true') {
+      setShowVisualSubmitForm(true);
+    }
+  }, []);
 
   // Eddy AI update (river-level, pinned to primary gauge)
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
@@ -389,13 +406,14 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               )}
             </div>
             <div className="flex items-center gap-4 sm:gap-3 sm:ml-auto">
-              <Link
-                href={`/rivers/${riverSlug}?submitPhoto=true`}
+              <button
+                type="button"
+                onClick={() => setShowVisualSubmitForm(true)}
                 className="flex items-center gap-1 text-neutral-400 hover:text-teal-600 transition-colors"
               >
                 <Camera className="w-3.5 h-3.5" />
                 Add Photo
-              </Link>
+              </button>
               <button
                 onClick={handleShare}
                 className={`flex items-center gap-1 transition-colors ${
@@ -624,6 +642,43 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               gaugeHeightFt={activeGauge.gaugeHeightFt}
               dischargeCfs={activeGauge.dischargeCfs}
             />
+          </div>
+        )}
+
+        {/* Community river visuals matching the river's current condition.
+            Self-hides when there are no approved photos at this level. */}
+        <div className="mb-8">
+          <RiverVisualGallery riverSlug={riverSlug} />
+        </div>
+
+        {/* Submit-a-photo modal — opened by the "Add Photo" button above or a
+            ?submitPhoto=true deep link. Pre-fills the reading the user is
+            currently viewing (activeGauge). */}
+        {showVisualSubmitForm && riverGroup && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setShowVisualSubmitForm(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Submit a river photo"
+          >
+            <div
+              ref={visualFormRef}
+              tabIndex={-1}
+              className="w-full max-w-md max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <RiverVisualSubmitForm
+                riverId={riverGroup.riverId}
+                accessPoints={accessPoints}
+                currentGaugeHeightFt={activeGauge?.gaugeHeightFt ?? null}
+                currentDischargeCfs={activeGauge?.dischargeCfs ?? null}
+                currentConditionCode={condition.code}
+                gaugeStationId={activeGauge?.id ?? null}
+                onSubmitted={() => setShowVisualSubmitForm(false)}
+                onClose={() => setShowVisualSubmitForm(false)}
+              />
+            </div>
           </div>
         )}
     </div>
