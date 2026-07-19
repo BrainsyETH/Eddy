@@ -49,6 +49,12 @@ interface ReelBrandFrameProps {
   creatorCredit?: string;
   /** CTA copy; defaults to the canonical PLAN_CTA. */
   cta?: string;
+  /**
+   * Optional accent override for a distinct category look (e.g. the high-water
+   * safety style): recolors the eyebrow, the title glow, and the CTA. Omit to
+   * keep the default coral-eyebrow / neutral-teal branding.
+   */
+  accent?: { eyebrow: string; cta: string; glow: string };
   /** Timed transcript captions drawn over the lower media (optional). */
   captions?: Caption[];
   /**
@@ -83,6 +89,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   title,
   creatorCredit,
   cta = PLAN_CTA,
+  accent,
   captions,
   fullBleed = false,
   backdrop,
@@ -93,6 +100,13 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   const eyebrowIn = spring({ frame, fps, config: ENTRANCE });
   const titleIn = spring({ frame: frame - 8, fps, config: ENTRANCE });
   const footerIn = spring({ frame: frame - 16, fps, config: ENTRANCE });
+
+  // A category can recolor the eyebrow / title glow / CTA (e.g. the high-water
+  // safety look); default to the neutral brand accents so every other reel is
+  // byte-for-byte unchanged.
+  const eyebrowColor = accent?.eyebrow ?? BRAND_EYEBROW_COLOR;
+  const ctaColor = accent?.cta ?? NEUTRAL_ACCENT;
+  const titleGlow = accent?.glow ?? NEUTRAL_GLOW;
 
   // Center the content for the landscape band; keep the high/low framing for
   // full-bleed (vertical) sources, which fill the frame.
@@ -204,7 +218,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
             fontFamily: fontFamilies.display,
             fontSize: 32,
             fontWeight: 500,
-            color: BRAND_EYEBROW_COLOR,
+            color: eyebrowColor,
             letterSpacing: 2,
             textTransform: "uppercase",
             marginTop: 8,
@@ -223,7 +237,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
             padding: "0 120px",
             lineHeight: 1.05,
             marginTop: 14,
-            textShadow: `0 0 30px ${NEUTRAL_GLOW}`,
+            textShadow: `0 0 30px ${titleGlow}`,
           }}
         >
           {title}
@@ -253,7 +267,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
         {creatorCredit ? (
           <div style={{ opacity: footerIn, color: colors.secondary[400], fontSize: 28 }}>🎥 Clip via {creatorCredit}</div>
         ) : null}
-        <BrandCTA color={NEUTRAL_ACCENT} opacity={footerIn} text={cta} />
+        <BrandCTA color={ctaColor} opacity={footerIn} text={cta} />
       </div>
 
       {/* Persistent eddy.guide mark — same component every other reel uses. */}
