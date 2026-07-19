@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
-import type { SavePlanRequest, SavePlanResponse } from '@/types/api';
+import type { SavePlanRequest, SavePlanResponse, SavePlanSnapshot } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json() as SavePlanRequest;
 
-    const { riverId, startId, endId, vesselTypeId } = body;
+    const { riverId, startId, endId, vesselTypeId, snapshot } = body;
 
     if (!riverId || !startId || !endId || !vesselTypeId) {
       return NextResponse.json(
@@ -28,21 +28,40 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Calculate plan to get snapshot data
-    const planResponse = await fetch(
-      `${request.nextUrl.origin}/api/plan?riverId=${riverId}&startId=${startId}&endId=${endId}&vesselTypeId=${vesselTypeId}`
-    );
-
-    if (!planResponse.ok) {
-      return NextResponse.json(
-        { error: 'Could not calculate plan' },
-        { status: 500 }
+    // The interactive planner already computed the plan and sends its snapshot,
+    // so we persist those numbers directly. Only fall back to the full (and
+    // slow — USGS + Mapbox) /api/plan recompute for legacy callers that don't.
+    // This is what makes "Share" feel instant: the click no longer waits on a
+    // second server-to-server plan calculation.
+    let snap: SavePlanSnapshot;
+    if (snapshot && typeof snapshot.distanceMiles === 'number') {
+      snap = snapshot;
+    } else {
+      const planResponse = await fetch(
+        `${request.nextUrl.origin}/api/plan?riverId=${riverId}&startId=${startId}&endId=${endId}&vesselTypeId=${vesselTypeId}`
       );
+
+      if (!planResponse.ok) {
+        return NextResponse.json(
+          { error: 'Could not calculate plan' },
+          { status: 500 }
+        );
+      }
+
+      const { plan } = await planResponse.json();
+      snap = {
+        distanceMiles: plan.distance.miles,
+        estimatedFloatMinutes: plan.floatTime?.minutes ?? null,
+        driveBackMinutes: plan.driveBack?.minutes ?? null,
+        conditionCode: plan.condition?.code ?? null,
+        gaugeHeightFt: plan.condition?.gaugeHeightFt ?? null,
+        dischargeCfs: plan.condition?.dischargeCfs ?? null,
+        gaugeName: plan.condition?.gaugeName ?? null,
+      };
     }
 
-    const { plan } = await planResponse.json();
-
-    // Generate unique short code
+    // Generate a unique short code. `maybeSingle()` returns null (not an error)
+    // on the common no-collision path, so the loop stays quiet.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: shortCodeData } = await (supabase.rpc as any)('generate_short_code', {
       length: 8,
@@ -58,7 +77,7 @@ export async function POST(request: NextRequest) {
         .from('float_plans')
         .select('id')
         .eq('short_code', shortCode)
-        .single();
+        .maybeSingle();
 
       if (!existing) {
         break; // Code is unique
@@ -88,13 +107,13 @@ export async function POST(request: NextRequest) {
       start_access_id: startId,
       end_access_id: endId,
       vessel_type_id: vesselTypeId,
-      distance_miles: plan.distance.miles,
-      estimated_float_minutes: plan.floatTime?.minutes || null,
-      drive_back_minutes: plan.driveBack.minutes,
-      condition_at_creation: plan.condition.code,
-      gauge_reading_at_creation: plan.condition.gaugeHeightFt,
-      discharge_cfs_at_creation: plan.condition.dischargeCfs, // TODO: Uncomment after migration 00020
-      gauge_name_at_creation: plan.condition.gaugeName, // TODO: Uncomment after migration 00021
+      distance_miles: snap.distanceMiles,
+      estimated_float_minutes: snap.estimatedFloatMinutes,
+      drive_back_minutes: snap.driveBackMinutes,
+      condition_at_creation: snap.conditionCode,
+      gauge_reading_at_creation: snap.gaugeHeightFt,
+      discharge_cfs_at_creation: snap.dischargeCfs, // TODO: Uncomment after migration 00020
+      gauge_name_at_creation: snap.gaugeName, // TODO: Uncomment after migration 00021
     });
 
     if (insertError) {

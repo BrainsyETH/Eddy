@@ -210,8 +210,25 @@ function getLogisticsLine(point: AccessPoint): string {
   return parts.join(' · ');
 }
 
-// Shareable capture component - branded card for image export
-export function ShareableCapture({
+// Solid hex fills per condition for the exported card. The on-screen UI uses
+// Tailwind classes, but the downloaded image is built with inline styles so
+// html2canvas renders the neo-brutalist treatment (solid fills, black borders,
+// hard offset shadows) crisply and predictably.
+const CAPTURE_CONDITION_STYLE: Record<ConditionCode, { bg: string; text: string }> = {
+  flowing: { bg: '#10b981', text: '#ffffff' },
+  good: { bg: '#84CC16', text: '#1A3D23' },
+  low: { bg: '#EAB308', text: '#2D2A24' },
+  too_low: { bg: '#857D70', text: '#ffffff' },
+  high: { bg: '#F97316', text: '#ffffff' },
+  dangerous: { bg: '#DC2626', text: '#ffffff' },
+  unknown: { bg: '#857D70', text: '#ffffff' },
+};
+
+// Shareable float card — the branded, downloadable "trip ticket" (captured to
+// PNG via html2canvas). Neo-brutalist to match the site: thick black borders,
+// hard offset shadows, warm palette, display headings. Rendered off-screen; the
+// wrapper padding is deliberate so the inner card's offset shadow is captured.
+export function ShareableFloatCard({
   plan,
   putInPoint,
   takeOutPoint,
@@ -226,104 +243,138 @@ export function ShareableCapture({
 }) {
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
   const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
+  const condStyle = CAPTURE_CONDITION_STYLE[conditionCode] || CAPTURE_CONDITION_STYLE.unknown;
   const putInLogistics = getLogisticsLine(putInPoint);
   const takeOutLogistics = getLogisticsLine(takeOutPoint);
+  const INK = '#2D2A24'; // neutral-900
+
+  const flowValue = plan.condition.thresholdUnit === 'cfs'
+    ? (plan.condition.dischargeCfs != null ? plan.condition.dischargeCfs.toLocaleString() : '—')
+    : (plan.condition.gaugeHeightFt != null ? plan.condition.gaugeHeightFt.toFixed(1) : '—');
+  const flowUnit = plan.condition.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
+  const flowLabel = plan.condition.thresholdUnit === 'cfs' ? 'Flow' : 'Gauge';
+
+  const statTile = (value: string, unit: string | null, label: string) => (
+    <div
+      style={{
+        flex: 1,
+        textAlign: 'center',
+        padding: '10px 4px',
+        background: '#F7F6F3',
+        border: `2px solid ${INK}`,
+        borderRadius: 10,
+        boxShadow: '3px 3px 0 #DBD5CA',
+      }}
+    >
+      <p style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', fontSize: 22, fontWeight: 800, color: INK, lineHeight: 1 }}>
+        {value}
+        {unit && <span style={{ fontSize: 13, color: '#A49C8E', marginLeft: 2 }}>{unit}</span>}
+      </p>
+      <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#857D70', fontWeight: 700, marginTop: 5 }}>{label}</p>
+    </div>
+  );
 
   return (
     <div
       ref={captureRef}
-      className="absolute left-[-9999px] top-0 w-[420px]"
-      style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+      className="absolute left-[-9999px] top-0"
+      style={{ width: 472, padding: 22, background: '#EDEBE6', fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
-      {/* Top branded bar */}
-      <div className="px-5 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4F5C 100%)' }}>
-        <div className="flex items-center gap-2.5">
-          <Image
-            src={getEddyImageForCondition(conditionCode)}
-            alt="Eddy"
-            width={36}
-            height={36}
-            className="object-contain"
-          />
-          <div>
-            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
-              {riverName || 'Float Plan'}
-            </h1>
-            <p className="text-[11px] text-white/50 font-medium">eddy.guide</p>
+      {/* Inner card with hard offset shadow */}
+      <div style={{ background: '#ffffff', border: `3px solid ${INK}`, borderRadius: 16, boxShadow: '8px 8px 0 #0F2D35', overflow: 'hidden' }}>
+        {/* Header — solid teal, black bottom border */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '16px 18px',
+            background: '#163F4A',
+            borderBottom: `3px solid ${INK}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Image
+              src={getEddyImageForCondition(conditionCode)}
+              alt="Eddy"
+              width={44}
+              height={44}
+              className="object-contain"
+            />
+            <div>
+              <h1 style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', fontSize: 22, fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
+                {riverName || 'Float Plan'}
+              </h1>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: '#A3D1DB', textTransform: 'uppercase', marginTop: 5 }}>
+                eddy.guide
+              </p>
+            </div>
           </div>
-        </div>
-        <div className={`px-3 py-1.5 rounded-lg ${conditionConfig.bgClass} flex items-center gap-1.5`}>
-          <span className={`text-sm font-bold ${conditionConfig.textClass}`}>
-            {conditionConfig.label}
-          </span>
-        </div>
-      </div>
-
-      {/* Main card body */}
-      <div className="bg-white px-5 py-4">
-        {/* Stats row */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
-            <p className="text-2xl font-bold text-neutral-900">{plan.distance.formatted}</p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Distance</p>
-          </div>
-          <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
-            <p className="text-2xl font-bold text-neutral-900">{plan.floatTime?.formatted || '--'}</p>
-            <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Est. Time</p>
-          </div>
-          <div className="flex-1 text-center py-2.5 bg-neutral-50 rounded-xl">
-            {plan.condition.thresholdUnit === 'cfs' ? (
-              <>
-                <p className="text-2xl font-bold text-neutral-900">{plan.condition.dischargeCfs?.toLocaleString() ?? '—'}<span className="text-sm text-neutral-400 ml-0.5">cfs</span></p>
-                <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Flow</p>
-              </>
-            ) : (
-              <>
-                <p className="text-2xl font-bold text-neutral-900">{plan.condition.gaugeHeightFt?.toFixed(1) ?? '—'}<span className="text-sm text-neutral-400 ml-0.5">ft</span></p>
-                <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Gauge</p>
-              </>
-            )}
+          <div style={{ padding: '6px 12px', background: condStyle.bg, border: `2px solid ${INK}`, borderRadius: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: condStyle.text, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+              {conditionConfig.label}
+            </span>
           </div>
         </div>
 
-        {/* Route with logistics */}
-        <div className="flex items-stretch gap-3">
-          {/* Connector dots */}
-          <div className="flex flex-col items-center pt-2 pb-1">
-            <div className="w-3.5 h-3.5 rounded-full bg-support-500 border-2 border-white shadow-sm"></div>
-            <div className="w-0.5 flex-1 bg-gradient-to-b from-support-300 to-accent-300 my-1"></div>
-            <div className="w-3.5 h-3.5 rounded-full bg-accent-500 border-2 border-white shadow-sm"></div>
+        {/* Main card body */}
+        <div style={{ background: '#ffffff', padding: '16px 18px' }}>
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            {statTile(plan.distance.formatted, null, 'Distance')}
+            {statTile(plan.floatTime?.formatted || '--', null, 'Est. Time')}
+            {statTile(flowValue, flowUnit, flowLabel)}
           </div>
 
-          {/* Route details */}
-          <div className="flex-1 space-y-3">
-            {/* Put-in */}
-            <div className="bg-support-50 border border-support-200 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] font-bold text-support-600 uppercase tracking-wider">Put-in · Mile {putInPoint.riverMile.toFixed(1)}</p>
-              <p className="font-bold text-neutral-900 text-[15px] mt-0.5">{putInPoint.name}</p>
-              {putInLogistics && (
-                <p className="text-[11px] text-neutral-500 mt-1">{putInLogistics}</p>
-              )}
+          {/* Route with logistics */}
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
+            {/* Connector dots */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 6, paddingBottom: 6 }}>
+              <div style={{ width: 14, height: 14, borderRadius: 999, background: '#4EB86B', border: `2px solid ${INK}` }} />
+              <div style={{ width: 3, flex: 1, background: INK, margin: '4px 0' }} />
+              <div style={{ width: 14, height: 14, borderRadius: 999, background: '#F07052', border: `2px solid ${INK}` }} />
             </div>
 
-            {/* Take-out */}
-            <div className="bg-accent-50 border border-accent-200 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] font-bold text-accent-600 uppercase tracking-wider">Take-out · Mile {takeOutPoint.riverMile.toFixed(1)}</p>
-              <p className="font-bold text-neutral-900 text-[15px] mt-0.5">{takeOutPoint.name}</p>
-              {takeOutLogistics && (
-                <p className="text-[11px] text-neutral-500 mt-1">{takeOutLogistics}</p>
-              )}
+            {/* Route details */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Put-in */}
+              <div style={{ background: '#EDFAF1', border: `2px solid ${INK}`, borderRadius: 10, padding: '10px 12px' }}>
+                <p style={{ fontSize: 10, fontWeight: 800, color: '#347A47', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Put-in · Mile {putInPoint.riverMile.toFixed(1)}
+                </p>
+                <p style={{ fontWeight: 800, color: INK, fontSize: 15, marginTop: 2 }}>{putInPoint.name}</p>
+                {putInLogistics && <p style={{ fontSize: 11, color: '#6B6459', marginTop: 4 }}>{putInLogistics}</p>}
+              </div>
+
+              {/* Take-out */}
+              <div style={{ background: '#FEF5F3', border: `2px solid ${INK}`, borderRadius: 10, padding: '10px 12px' }}>
+                <p style={{ fontSize: 10, fontWeight: 800, color: '#CC3E2B', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Take-out · Mile {takeOutPoint.riverMile.toFixed(1)}
+                </p>
+                <p style={{ fontWeight: 800, color: INK, fontSize: 15, marginTop: 2 }}>{takeOutPoint.name}</p>
+                {takeOutLogistics && <p style={{ fontSize: 11, color: '#6B6459', marginTop: 4 }}>{takeOutLogistics}</p>}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="px-5 py-2.5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between">
-        <p className="text-[11px] text-neutral-400 font-medium">Plan your float at eddy.guide</p>
-        <p className="text-[11px] text-neutral-400">
-          {plan.condition.dischargeCfs ? `${plan.condition.dischargeCfs.toLocaleString()} cfs` : ''}
-        </p>
+        {/* Footer */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 18px',
+            background: '#F7F6F3',
+            borderTop: `3px solid ${INK}`,
+          }}
+        >
+          <p style={{ fontSize: 11, color: '#6B6459', fontWeight: 700 }}>Plan your float at eddy.guide</p>
+          {plan.condition.gaugeName && (
+            <p style={{ fontSize: 11, color: '#857D70' }}>{plan.condition.gaugeName}</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1099,7 +1150,18 @@ function MobileBottomSheet({
   const [putInExpanded, setPutInExpanded] = useState(false);
   const [takeOutExpanded, setTakeOutExpanded] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const dragRef = useRef<{
+    startY: number;
+    startHeight: number;
+    lastY: number;
+    lastT: number;
+    vUp: number; // smoothed upward velocity, px/ms (+ = dragging up)
+    moved: boolean;
+  } | null>(null);
+  // Set on release when the gesture actually dragged, so the synthetic click
+  // that follows a touch can't also fire the tap handlers and override the snap
+  // (this double-handling was a big part of the "takes two actions" feel).
+  const suppressClickRef = useRef(false);
   const [sheetHeight, setSheetHeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -1125,37 +1187,82 @@ function MobileBottomSheet({
   // Handle touch start for drag
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
+    // Clear any stale suppression from a prior gesture whose synthetic click
+    // never arrived, so this new tap isn't wrongly swallowed.
+    suppressClickRef.current = false;
     setIsDragging(true);
     dragRef.current = {
       startY: touch.clientY,
       startHeight: sheetHeight ?? heightFor(sheetState),
+      lastY: touch.clientY,
+      lastT: e.timeStamp,
+      vUp: 0,
+      moved: false,
     };
   }, [sheetHeight, sheetState, heightFor]);
 
-  // Handle touch move for drag
+  // Handle touch move for drag — track velocity so the release can tell a
+  // deliberate flick from a slow drag.
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!dragRef.current) return;
+    const drag = dragRef.current;
+    if (!drag) return;
     const touch = e.touches[0];
-    const deltaY = dragRef.current.startY - touch.clientY;
+    const deltaY = drag.startY - touch.clientY;
+    if (Math.abs(deltaY) > 6) drag.moved = true;
+
+    // Instantaneous upward velocity, lightly smoothed so one jittery sample
+    // can't dominate the flick decision on release.
+    const dt = e.timeStamp - drag.lastT;
+    if (dt > 0) {
+      const vUp = (drag.lastY - touch.clientY) / dt;
+      drag.vUp = drag.vUp * 0.4 + vUp * 0.6;
+    }
+    drag.lastY = touch.clientY;
+    drag.lastT = e.timeStamp;
+
     const newHeight = Math.max(
       COLLAPSED_HEIGHT,
-      Math.min(EXPANDED_HEIGHT, dragRef.current.startHeight + deltaY)
+      Math.min(EXPANDED_HEIGHT, drag.startHeight + deltaY)
     );
     setSheetHeight(newHeight);
   }, [EXPANDED_HEIGHT]);
 
-  // Handle touch end - snap to the nearest of the three states
+  // Handle touch end — velocity-aware snap. A confident flick travels all the
+  // way in its direction (collapsed → expanded in ONE gesture); a gentle
+  // release settles to the nearest snap after a little momentum carry.
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
-    if (!dragRef.current || sheetHeight === null) return;
-    const states: SheetState[] = ['collapsed', 'peek', 'expanded'];
-    const nearest = states.reduce((best, s) =>
-      Math.abs(heightFor(s) - sheetHeight) < Math.abs(heightFor(best) - sheetHeight) ? s : best
-    );
-    setSheetState(nearest);
-    setSheetHeight(heightFor(nearest));
+    const drag = dragRef.current;
     dragRef.current = null;
+    if (!drag || sheetHeight === null) return;
+    // A real drag must not also be treated as a tap by the click handlers.
+    if (drag.moved) suppressClickRef.current = true;
+
+    const order: SheetState[] = ['collapsed', 'peek', 'expanded'];
+    const STRONG_FLICK = 0.6; // px/ms — decisive flick opens/closes fully
+    const PROJECTION_MS = 90;  // momentum carry for gentle releases
+
+    let target: SheetState;
+    if (Math.abs(drag.vUp) >= STRONG_FLICK) {
+      target = drag.vUp > 0 ? 'expanded' : 'collapsed';
+    } else {
+      const projected = sheetHeight + drag.vUp * PROJECTION_MS;
+      target = order.reduce((best, s) =>
+        Math.abs(heightFor(s) - projected) < Math.abs(heightFor(best) - projected) ? s : best
+      );
+    }
+    setSheetState(target);
+    setSheetHeight(heightFor(target));
   }, [sheetHeight, heightFor]);
+
+  // Tap handlers that must yield to a preceding drag (see suppressClickRef).
+  const handleTapToState = useCallback((state: SheetState) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    setSheetState(state);
+  }, []);
 
   const isOpen = sheetState !== 'collapsed';
 
@@ -1176,15 +1283,22 @@ function MobileBottomSheet({
       // z-40: below the site header menu, river picker, photo/feedback modals,
       // and fullscreen map (all z-50) — the sheet used to win those ties by
       // DOM order and drew over every one of them.
-      className={`fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl shadow-2xl ease-out overflow-hidden lg:hidden ${
-        isDragging ? '' : 'transition-all duration-300'
-      } ${
+      className={`fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl shadow-2xl overflow-hidden lg:hidden ${
         isOpen
           ? 'bg-white border-t border-neutral-200'
           : 'bg-[#1e3a5f] border-t border-[#2a4d7a]'
       }`}
-      // Safe-area inset keeps the sheet clear of the home indicator / gesture bar
-      style={{ height: `calc(${sheetHeight ?? COLLAPSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))` }}
+      // Safe-area inset keeps the sheet clear of the home indicator / gesture bar.
+      // While dragging, height tracks the finger 1:1 (no transition); on release
+      // a springy ease settles it to the snap for a fluid slide instead of a
+      // linear glide.
+      style={{
+        height: `calc(${sheetHeight ?? COLLAPSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+        transition: isDragging
+          ? 'none'
+          : 'height 380ms cubic-bezier(0.22, 1, 0.36, 1), background-color 260ms ease-out, border-color 260ms ease-out',
+        willChange: 'height',
+      }}
     >
       {isOpen ? (
         <>
@@ -1195,7 +1309,7 @@ function MobileBottomSheet({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd}
-            onClick={() => setSheetState('collapsed')}
+            onClick={() => handleTapToState('collapsed')}
           >
             <GripHorizontal size={24} className="text-neutral-300" />
           </div>
@@ -1238,7 +1352,7 @@ function MobileBottomSheet({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
-          onClick={() => setSheetState('peek')}
+          onClick={() => handleTapToState('peek')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -1685,7 +1799,7 @@ export default function FloatPlanCard({
 
           {/* Hidden capture component for image export */}
           {captureRef && (
-            <ShareableCapture
+            <ShareableFloatCard
               plan={displayPlan}
               putInPoint={putInPoint}
               takeOutPoint={takeOutPoint}

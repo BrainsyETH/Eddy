@@ -364,6 +364,23 @@ export interface SavePlanRequest {
   startId: string;
   endId: string;
   vesselTypeId: string;
+  /**
+   * Snapshot of the already-computed plan, sent by the interactive planner so
+   * the save endpoint doesn't have to re-run the full (USGS + Mapbox) plan
+   * calculation just to persist a shareable short code. Omitted by legacy
+   * callers, in which case the server recomputes as a fallback.
+   */
+  snapshot?: SavePlanSnapshot;
+}
+
+export interface SavePlanSnapshot {
+  distanceMiles: number;
+  estimatedFloatMinutes: number | null;
+  driveBackMinutes: number | null;
+  conditionCode: string | null;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  gaugeName: string | null;
 }
 
 export interface SavePlanResponse {

@@ -206,6 +206,7 @@ export async function GET(request: NextRequest) {
                   height: 28,
                   borderRadius: 6,
                   background: '#4EB86B',
+                  border: '3px solid #000',
                   marginRight: 16,
                   flexShrink: 0,
                 }}
@@ -257,6 +258,7 @@ export async function GET(request: NextRequest) {
                   height: 28,
                   borderRadius: 6,
                   background: BRAND_COLORS.accentCoral,
+                  border: '3px solid #000',
                   marginRight: 16,
                   flexShrink: 0,
                 }}
@@ -280,7 +282,9 @@ export async function GET(request: NextRequest) {
                 display: 'flex',
                 padding: '14px 28px',
                 background: condDisplay.bg,
-                border: '3px solid #000',
+                border: '4px solid #000',
+                borderRadius: 6,
+                boxShadow: '6px 6px 0 #000',
               }}
             >
               <span
@@ -297,7 +301,16 @@ export async function GET(request: NextRequest) {
             </div>
 
             {gaugeHeight !== null && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 6,
+                  padding: '10px 20px',
+                  border: '3px solid rgba(255,255,255,0.25)',
+                  borderRadius: 6,
+                }}
+              >
                 <span
                   style={{
                     fontFamily: 'system-ui, sans-serif',
