@@ -52,7 +52,7 @@ export function TileBadgeIcon({
   imageUrl,
   isWeather = false,
   weatherColor = 'var(--color-accent-500)',
-  size = 26,
+  size = 18,
 }: {
   imageUrl?: string;
   isWeather?: boolean;
