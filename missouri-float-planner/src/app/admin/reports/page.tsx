@@ -28,8 +28,7 @@ interface Report {
   hazardId: string | null;
   hazardName: string | null;
   type: string;
-  latitude: number;
-  longitude: number;
+  coordinates: { lng: number; lat: number } | null;
   riverMile: number | null;
   imageUrl: string | null;
   description: string | null;
@@ -316,11 +315,11 @@ export default function AdminReportsPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
                           <span className="text-neutral-400 text-xs">Latitude</span>
-                          <p className="text-white font-mono">{report.latitude.toFixed(6)}</p>
+                          <p className="text-white font-mono">{report.coordinates?.lat != null ? report.coordinates.lat.toFixed(6) : 'N/A'}</p>
                         </div>
                         <div>
                           <span className="text-neutral-400 text-xs">Longitude</span>
-                          <p className="text-white font-mono">{report.longitude.toFixed(6)}</p>
+                          <p className="text-white font-mono">{report.coordinates?.lng != null ? report.coordinates.lng.toFixed(6) : 'N/A'}</p>
                         </div>
                         <div>
                           <span className="text-neutral-400 text-xs">River Mile</span>
