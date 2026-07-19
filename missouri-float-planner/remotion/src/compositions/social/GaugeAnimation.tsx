@@ -241,16 +241,25 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               opacity: warningPulse,
               display: "flex",
               alignItems: "center",
-              gap: 16,
+              gap: isPortrait ? 14 : 10,
               ...chipStyle(condition.solid),
               borderRadius: 999,
-              padding: isPortrait ? "12px 36px" : "10px 28px",
+              padding: isPortrait ? "10px 34px 10px 22px" : "8px 26px 8px 16px",
               marginBottom: 8,
             }}
           >
-            <span style={{ fontSize: isPortrait ? 40 : 30 }}>
-              {isRecovery ? "✅" : "⚠️"}
-            </span>
+            {/* Eddy is the host — his icon fronts the alert instead of a generic
+                ⚠️/✅ emoji. Rendered as a plain always-visible Img (no entrance)
+                so the first autoplay frame / grid thumbnail is branded. */}
+            <Img
+              src={staticFile("eddy/eddy-favicon.png")}
+              style={{
+                width: isPortrait ? 62 : 46,
+                height: isPortrait ? 62 : 46,
+                objectFit: "contain",
+                filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.5))",
+              }}
+            />
             <span
               style={{
                 fontFamily: "'Fredoka', system-ui, sans-serif",
@@ -339,17 +348,16 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </div>
         )}
 
-        {/* Gauge + Eddy. In alert/recovery mode the bar is the HERO — enlarged
-            and centered, the focal instrument — with Eddy shrunk to a small
-            companion. Quote-forward (Eddy Says) drops the big gauge bar so the
-            quote can be the hero. Otherwise the normal side-by-side layout. */}
+        {/* Gauge + Eddy. Alert/recovery mode makes the bar the sole HERO —
+            enlarged and CENTERED — with Eddy relocated to the alert banner
+            above (his icon fronts the severity chip). Quote-forward (Eddy Says)
+            drops the big gauge bar so the quote can be the hero. The default
+            highlight keeps the normal side-by-side bar + Eddy layout. */}
         <div
           style={{
             display: "flex",
-            // Alert: Eddy floats beside the instrument's midline; default
-            // keeps him planted at the bar's base.
-            alignItems: alertMode ? "center" : "flex-end",
-            gap: isPortrait ? (alertMode ? 24 : 36) : 32,
+            alignItems: "flex-end",
+            gap: isPortrait ? 36 : 32,
             justifyContent: "center",
           }}
         >
@@ -373,23 +381,15 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               height={alertMode ? (isPortrait ? 460 : 320) : isPortrait ? 420 : 300}
             />
           )}
-          <div style={{ marginBottom: alertMode ? 0 : 12 }}>
-            <EddyMascot
-              variant={getOtterVariant(conditionCode)}
-              size={
-                isPortrait
-                  ? alertMode
-                    ? 165
-                    : quoteForward
-                      ? 180
-                      : 220
-                  : alertMode
-                    ? 120
-                    : 170
-              }
-              delay={30}
-            />
-          </div>
+          {!alertMode && (
+            <div style={{ marginBottom: 12 }}>
+              <EddyMascot
+                variant={getOtterVariant(conditionCode)}
+                size={isPortrait ? (quoteForward ? 180 : 220) : 170}
+                delay={30}
+              />
+            </div>
+          )}
         </div>
 
         {/* Big counting numeral — a direct child of the centered column so it
