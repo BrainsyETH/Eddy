@@ -465,6 +465,8 @@ export interface RiverVisual {
   thresholdUnit?: 'ft' | 'cfs';
   accessPointId: string | null;
   accessPointName: string | null;
+  /** Canonical path to the access point detail page, when known. */
+  accessPointHref: string | null;
   gaugeStationId: string | null;
   submitterName: string | null;
   conditionCode: ConditionCode;

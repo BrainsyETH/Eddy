@@ -648,7 +648,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         {/* Community river visuals matching the river's current condition.
             Self-hides when there are no approved photos at this level. */}
         <div className="mb-8">
-          <RiverVisualGallery riverSlug={riverSlug} />
+          <RiverVisualGallery riverSlug={riverSlug} onAddPhoto={() => setShowVisualSubmitForm(true)} />
         </div>
 
         {/* Submit-a-photo modal — opened by the "Add Photo" button above or a
