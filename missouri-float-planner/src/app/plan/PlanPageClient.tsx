@@ -17,7 +17,7 @@ import NearbyServices from '@/components/river/NearbyServices';
 import ShuttlePanel from '@/components/river/ShuttlePanel';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import RiverVisualSubmitForm from '@/components/river/RiverVisualSubmitForm';
-import FloatPlanCard, { ShareableCapture } from '@/components/plan/FloatPlanCard';
+import FloatPlanCard, { ShareableFloatCard } from '@/components/plan/FloatPlanCard';
 import type { RouteItem } from '@/components/plan/FloatPlanCard';
 import PlanSidebar from '@/components/plan/PlanSidebar';
 import { RouteStatsBadge, MapLegend } from '@/components/plan/MapOverlayHelpers';
@@ -424,6 +424,20 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           startId: selectedPutIn,
           endId: selectedTakeOut,
           vesselTypeId: selectedVesselTypeId,
+          // Send the already-computed plan so the save endpoint can skip the
+          // full (USGS + Mapbox) recalculation — this is what makes the Share
+          // click resolve near-instantly instead of after several seconds.
+          snapshot: plan
+            ? {
+                distanceMiles: plan.distance.miles,
+                estimatedFloatMinutes: plan.floatTime?.minutes ?? null,
+                driveBackMinutes: plan.driveBack?.minutes ?? null,
+                conditionCode: plan.condition?.code ?? null,
+                gaugeHeightFt: plan.condition?.gaugeHeightFt ?? null,
+                dischargeCfs: plan.condition?.dischargeCfs ?? null,
+                gaugeName: plan.condition?.gaugeName ?? null,
+              }
+            : undefined,
         }),
       });
       if (res.ok) {
@@ -458,7 +472,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       setShareStatus('idle');
       window.prompt('Copy this link:', shareUrl);
     }
-  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river]);
+  }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river, plan]);
 
   const handleDownloadImage = useCallback(async () => {
     if (!selectedPutIn || !selectedTakeOut || !river || !plan || !captureRef.current) return;
@@ -476,7 +490,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${river.name.toLowerCase().replace(/\s+/g, '-')}-float-plan.png`;
+        link.download = `eddy-float-plan-${river.name.toLowerCase().replace(/\s+/g, '-')}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1067,7 +1081,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       </div>
 
       {putInPoint && takeOutPoint && plan && captureRef && (
-        <ShareableCapture
+        <ShareableFloatCard
           plan={plan}
           putInPoint={putInPoint}
           takeOutPoint={takeOutPoint}

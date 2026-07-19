@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
-import { CONDITION_SHORT_LABELS } from '@/constants';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import type { RiverVisual, RiverVisualsResponse } from '@/types/api';
 
 interface RiverVisualGalleryProps {
@@ -63,23 +63,18 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
 
   const visuals = data.visuals;
   const current = visuals[currentIndex];
-  const conditionLabel = CONDITION_SHORT_LABELS[data.currentCondition] || data.currentCondition;
 
   return (
     <>
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-neutral-500" />
-            <h3 className="text-sm font-semibold text-neutral-800">
-              River Visuals
-            </h3>
-            <span className="text-xs text-neutral-400">
-              at {conditionLabel} conditions
-            </span>
-          </div>
-          <span className="text-xs text-neutral-400">
+        <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
+          <h3 className="text-sm font-semibold text-neutral-800">
+            What the river looks like at this level
+          </h3>
+          <ConditionBadge code={data.currentCondition} size="sm" />
+          <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
             {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -133,33 +128,45 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
         </div>
 
         {/* Caption / metadata */}
-        <div className="px-4 py-3 space-y-1">
+        <div className="px-4 py-3 space-y-2.5">
           {current.description && (
             <p className="text-sm text-neutral-700 line-clamp-2">{current.description}</p>
           )}
-          <div className="flex items-center gap-3 text-xs text-neutral-400">
-            {current.accessPointName && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {current.accessPointName}
-              </span>
-            )}
-            {current.gaugeHeightFt != null && (
-              <span className="flex items-center gap-1">
-                <Ruler className="w-3 h-3" />
-                {current.gaugeHeightFt} ft
-              </span>
-            )}
-            {current.dischargeCfs != null && (
-              <span className="flex items-center gap-1">
-                <Droplets className="w-3 h-3" />
-                {current.dischargeCfs} cfs
-              </span>
-            )}
-            {current.submitterName && (
-              <span>by {current.submitterName}</span>
-            )}
-          </div>
+          {/* Stage + flow when the photo was taken — the whole point of the gallery */}
+          {(current.gaugeHeightFt != null || current.dischargeCfs != null) && (
+            <div className="flex flex-wrap gap-2">
+              {current.gaugeHeightFt != null && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-1.5">
+                  <Ruler className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Stage</span>
+                  <span className="text-sm font-bold text-neutral-800">{current.gaugeHeightFt}</span>
+                  <span className="text-xs text-neutral-500">ft</span>
+                </span>
+              )}
+              {current.dischargeCfs != null && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-1.5">
+                  <Droplets className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Flow</span>
+                  <span className="text-sm font-bold text-neutral-800">{current.dischargeCfs}</span>
+                  <span className="text-xs text-neutral-500">cfs</span>
+                </span>
+              )}
+            </div>
+          )}
+          {/* Where the shot was taken + who shared it */}
+          {(current.accessPointName || current.submitterName) && (
+            <div className="flex items-center gap-3 text-xs text-neutral-400">
+              {current.accessPointName && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {current.accessPointName}
+                </span>
+              )}
+              {current.submitterName && (
+                <span>by {current.submitterName}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -261,8 +268,8 @@ function Lightbox({
                 <MapPin className="w-3 h-3" /> {current.accessPointName}
               </span>
             )}
-            {current.gaugeHeightFt != null && <span>{current.gaugeHeightFt} ft</span>}
-            {current.dischargeCfs != null && <span>{current.dischargeCfs} cfs</span>}
+            {current.gaugeHeightFt != null && <span className="font-semibold text-white">{current.gaugeHeightFt} ft</span>}
+            {current.dischargeCfs != null && <span className="font-semibold text-white">{current.dischargeCfs} cfs</span>}
             {current.submitterName && <span>by {current.submitterName}</span>}
             <span>{currentIndex + 1} / {visuals.length}</span>
           </div>

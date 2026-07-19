@@ -5,6 +5,7 @@
 // hardcoding its own. See RouteDraw's EVERGREEN_STYLE for the live-agnostic
 // accent this mirrors.
 import { colors } from "../design-tokens/colors";
+import { CONDITION_SYSTEM } from "../../../shared/condition-system";
 
 /** Canonical call-to-action for "go plan a float" reels (RouteDraw,
  *  SectionGuide, ClipReel). Context-specific CTAs (e.g. TrendReel's
@@ -31,3 +32,26 @@ export const NEUTRAL_ACCENT = colors.primary[300];
 
 /** Soft teal glow paired with NEUTRAL_ACCENT for text shadows / halos. */
 export const NEUTRAL_GLOW = "rgba(114,181,196,0.45)";
+
+// ─── High-water safety category ──────────────────────────────────────────────
+// A distinct look for flood / high-water clips: the shock-value footage is the
+// hook, and the payload is Eddy's core value — know the live level before you go.
+
+/** Safety-PSA CTA for the high-water clip category. Points straight at the live
+ *  gauge (the whole reason the clip is scary). Kept here, next to PLAN_CTA /
+ *  GENERIC_CTA, so the safety wording is centralized and never drifts. */
+export const SAFETY_CTA = "Know your river levels — check the gauge at eddy.guide";
+
+/** Hero-title fallback for a high-water clip with no known Eddy river. Flood
+ *  footage is frequently out-of-region, so it must NOT fall back to the
+ *  Missouri-specific OZARK_PADDLING_LABEL — a neutral, universal line instead. */
+export const HIGH_WATER_LABEL = "When Rivers Rise";
+
+/** Warning accent for the high-water category — the eyebrow, title glow, and CTA
+ *  color. Derived from the CANONICAL "high water" condition (never hardcode a
+ *  condition hex — see the brand rule in shared/condition-system.ts) so the
+ *  clip's alarm color is the same orange a follower already learned from the
+ *  gauge alert reels. Swap to CONDITION_SYSTEM.dangerous for the stronger red
+ *  "Flood" read. */
+export const WARNING_ACCENT = CONDITION_SYSTEM.high.solid; // canonical high-water orange
+export const WARNING_GLOW = CONDITION_SYSTEM.high.glow;

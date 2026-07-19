@@ -1,7 +1,15 @@
 import React from "react";
 import { OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
-import { GENERIC_CTA, OZARK_PADDLING_LABEL, PLAN_CTA } from "../../lib/brand";
+import {
+  GENERIC_CTA,
+  HIGH_WATER_LABEL,
+  OZARK_PADDLING_LABEL,
+  PLAN_CTA,
+  SAFETY_CTA,
+  WARNING_ACCENT,
+  WARNING_GLOW,
+} from "../../lib/brand";
 import type { ClipReelProps } from "../../lib/social-props";
 
 /**
@@ -20,6 +28,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   creatorCredit,
   captions,
   sourceOrientation,
+  category,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -33,11 +42,29 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   // instead of a river name + "plan this float" page promise.
   const hasRiver = !!(riverName && riverName.trim());
 
+  // High-water safety PSA: a distinct alarm look (orange "HIGH WATER" eyebrow +
+  // warning accent) and a CTA pointing straight at the live gauge — the whole
+  // reason the footage is scary. The hero title falls back to a neutral,
+  // universal line (not "Ozark Paddling") because flood clips are often
+  // out-of-region. Any other/absent category keeps the default paddling look.
+  const isHighWater = category === "high_water";
+  const eyebrow = isHighWater ? "HIGH WATER" : "On the Water";
+  const title = hasRiver
+    ? prettifyRiverName(riverName)
+    : isHighWater
+      ? HIGH_WATER_LABEL
+      : OZARK_PADDLING_LABEL;
+  const cta = isHighWater ? SAFETY_CTA : hasRiver ? PLAN_CTA : GENERIC_CTA;
+  const accent = isHighWater
+    ? { eyebrow: WARNING_ACCENT, cta: WARNING_ACCENT, glow: WARNING_GLOW }
+    : undefined;
+
   return (
     <ReelBrandFrame
-      eyebrow="On the Water"
-      title={hasRiver ? prettifyRiverName(riverName) : OZARK_PADDLING_LABEL}
-      cta={hasRiver ? PLAN_CTA : GENERIC_CTA}
+      eyebrow={eyebrow}
+      title={title}
+      cta={cta}
+      accent={accent}
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}

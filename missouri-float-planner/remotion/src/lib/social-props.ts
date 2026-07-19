@@ -257,4 +257,10 @@ export type ClipReelProps = {
    * (default) sit in the centered 16:9 band. The output is always portrait.
    */
   sourceOrientation?: "portrait" | "landscape";
+  /**
+   * Content category. "high_water" switches the clip to the safety-PSA look —
+   * a "HIGH WATER" eyebrow, the warning accent, and the "know your levels" CTA
+   * (SAFETY_CTA). Absent → the default on-the-water paddling branding.
+   */
+  category?: "high_water";
 }

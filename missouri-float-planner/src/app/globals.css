@@ -144,6 +144,65 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Shared interaction behavior for self-contained Eddy embeds. Colors are
+   supplied per-widget through CSS custom properties so light and dark themes
+   retain the same focus and motion behavior. */
+.embed-metric-link {
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.embed-metric-link:hover {
+  background: var(--embed-hover) !important;
+}
+
+.embed-metric-link:focus-visible,
+.embed-footer-link:focus-visible,
+.embed-control:focus-visible {
+  outline: 2px solid var(--embed-focus);
+  outline-offset: 2px;
+}
+
+.embed-metric-detail {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.embed-footer-link {
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.embed-footer-link:hover {
+  background: var(--embed-hover);
+}
+
+.embed-skeleton {
+  background: var(--embed-skeleton);
+  animation: embed-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes embed-skeleton-pulse {
+  0%, 100% { opacity: 0.48; }
+  50% { opacity: 0.82; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .embed-metric-link,
+  .embed-footer-link,
+  .embed-control,
+  .embed-control-icon {
+    transition: none !important;
+  }
+
+  .embed-skeleton {
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), system-ui, sans-serif;

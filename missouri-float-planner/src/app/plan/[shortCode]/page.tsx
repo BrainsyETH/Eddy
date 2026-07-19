@@ -94,8 +94,8 @@ export default function SharedPlanPage() {
 
   if (error || !plan) {
     return (
-      <div className="min-h-[60vh] bg-neutral-50 flex items-center justify-center">
-        <div className="text-center max-w-md px-4">
+      <div className="min-h-[60vh] bg-neutral-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-md w-full rounded-2xl border-[3px] border-neutral-900 bg-white p-8 shadow-[6px_6px_0_#0F2D35]">
           <Image
             src={EDDY_IMAGES.flag}
             alt="Eddy the otter"
@@ -103,9 +103,12 @@ export default function SharedPlanPage() {
             height={80}
             className="mx-auto mb-4 object-contain"
           />
-          <h1 className="text-2xl font-bold text-neutral-900 mb-3">Plan Not Found</h1>
+          <h1 className="text-2xl font-bold text-neutral-900 mb-3" style={{ fontFamily: 'var(--font-display)' }}>Plan Not Found</h1>
           <p className="text-neutral-600 mb-6">{error}</p>
-          <Link href="/plan" className="inline-block px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors no-underline">
+          <Link
+            href="/plan"
+            className="inline-block px-5 py-2.5 rounded-lg border-2 border-neutral-900 bg-accent-500 text-white text-sm font-bold no-underline shadow-[3px_3px_0_#0F2D35] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#0F2D35] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+          >
             Plan a new float
           </Link>
         </div>
@@ -125,21 +128,25 @@ export default function SharedPlanPage() {
       {copied && (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-900 text-white text-sm font-medium shadow-lg"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-neutral-900 bg-neutral-900 text-white text-sm font-bold shadow-[3px_3px_0_#4EB86B]"
         >
-          <Check size={16} className="text-emerald-400" />
+          <Check size={16} className="text-support-400" />
           Link copied to clipboard
         </div>
       )}
 
       {/* Plan title bar */}
-      <div className="flex-shrink-0 px-4 py-3 bg-white border-b-2 border-neutral-200">
+      <div className="flex-shrink-0 px-4 py-3 bg-white border-b-[3px] border-neutral-900">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <h1 className="text-lg font-bold text-neutral-900 truncate">Float Plan &middot; {plan.river.name}</h1>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Image src={EDDY_IMAGES.canoe} alt="" width={32} height={32} className="flex-shrink-0 object-contain hidden sm:block" />
+            <h1 className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
+              Float Plan &middot; {plan.river.name}
+            </h1>
+          </div>
           <Link
             href={`/plan?river=${plan.river.slug}`}
-            className="flex-shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white no-underline transition-all hover:brightness-110"
-            style={{ backgroundColor: '#F07052' }}
+            className="flex-shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold text-white no-underline border-2 border-neutral-900 bg-accent-500 shadow-[3px_3px_0_#0F2D35] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#0F2D35] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
           >
             Plan your own float
           </Link>
@@ -147,7 +154,7 @@ export default function SharedPlanPage() {
       </div>
 
       {/* Plan Summary - full width on top */}
-      <div className="flex-shrink-0 bg-white border-b border-neutral-200">
+      <div className="flex-shrink-0 bg-neutral-50 border-b-[3px] border-neutral-900">
         <div className="max-w-5xl mx-auto px-4 py-6">
           <PlanSummary
             plan={plan}
@@ -171,7 +178,7 @@ export default function SharedPlanPage() {
       </main>
 
       {/* Footer */}
-      <footer className="flex-shrink-0 bg-primary-800 border-t-2 border-neutral-900 px-4 py-3">
+      <footer className="flex-shrink-0 bg-primary-800 border-t-[3px] border-neutral-900 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-primary-200">
           <p>Eddy &middot; Water data from USGS</p>
           <p className="hidden md:block">Always check local conditions before floating</p>

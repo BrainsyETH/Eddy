@@ -64,7 +64,7 @@ const RIVER_SLUG_MAP: Record<string, string> = {
   'big-piney-river': 'big-piney',
   'niangua-river': 'niangua',
   'gasconade-river': 'gasconade',
-  'north-fork': 'north-fork',
+  'north-fork': 'north-fork-white', // DB slug is north-fork-white (was 'north-fork', which matched no river)
   'black-river': 'black',
   'st-francis-river': 'st-francis',
   'james-river': 'james',
@@ -73,9 +73,20 @@ const RIVER_SLUG_MAP: Record<string, string> = {
   'bourbeuse-river': 'bourbeuse',
   'sac-river': 'sac',
   'osage-fork': 'osage-fork',
-  'bryant-creek': 'bryant',
+  'bryant-creek': 'bryant-creek', // DB slug is bryant-creek (was 'bryant', which matched no river)
   'beaver-creek': 'beaver',
 };
+
+// ⚠️ CALIBRATION CAVEAT: this script writes each marker's floatmissouri `mile`
+// straight into river_mile_downstream and feeds it to get_point_at_mile(). That
+// is only correct when the floatmissouri mile system shares an origin/scale with
+// the DB river geometry. It does NOT for several rivers (e.g. Big River is offset
+// ~+57 mi; Bourbeuse/St. Francis/Black/Gasconade also diverge), and
+// get_point_at_mile itself misplaces points on the most sinuous rivers. Missing
+// dam/low-water-bridge hazards for the post-2026-01 rivers were instead added,
+// with per-river mile calibration and access-point-bracket coordinates, in
+// migration 00173_add_missing_river_hazards.sql. Re-running --import here would
+// duplicate and mislocate them, so treat this legacy importer with care.
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

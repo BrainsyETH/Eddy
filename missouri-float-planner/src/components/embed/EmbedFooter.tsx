@@ -8,6 +8,7 @@
 // linked business name) beats the zero-setup ?partner= text credit.
 
 import Image from 'next/image';
+import type { CSSProperties } from 'react';
 import { eddyDeepLink, type EmbedBranding } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 
@@ -48,7 +49,8 @@ export default function EmbedFooter({
         href={branding.siteUrl}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: p.textSecondary, textDecoration: 'none', fontWeight: 600 }}
+        className="embed-footer-link"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 32, padding: '0 4px', borderRadius: 4, fontSize: 10, color: p.textSecondary, textDecoration: 'none', fontWeight: 600, '--embed-hover': p.hoverBg, '--embed-focus': p.focus } as CSSProperties}
       >
         {branding.logoUrl && (
           // Partner logos live on arbitrary domains — next/image needs an
@@ -83,22 +85,25 @@ export default function EmbedFooter({
         paddingTop: 8,
         marginTop: 2,
         fontFamily: EMBED_FONTS.body,
-      }}
+        '--embed-hover': p.hoverBg,
+        '--embed-focus': p.focus,
+      } as CSSProperties}
     >
       {links.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <nav aria-label="More from Eddy" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {links.map(l => (
             <a
               key={l.label}
               href={eddyDeepLink(origin, l.path, utm)}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 11, color: p.link, textDecoration: 'none', fontWeight: 600 }}
+              className="embed-footer-link"
+              style={{ display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 4px', margin: '0 -4px', borderRadius: 4, fontSize: 11, color: p.link, textDecoration: 'none', fontWeight: 700 }}
             >
               {l.label} &rarr;
             </a>
           ))}
-        </div>
+        </nav>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
         {credit}
@@ -106,7 +111,8 @@ export default function EmbedFooter({
           href={eddyDeepLink(origin, '/', utm)}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: p.textSecondary, textDecoration: 'none' }}
+          className="embed-footer-link"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 32, padding: '0 4px', marginRight: -4, borderRadius: 4, fontSize: 10, color: p.textSecondary, textDecoration: 'none' }}
         >
           <Image
             src={EDDY_LOGO}
