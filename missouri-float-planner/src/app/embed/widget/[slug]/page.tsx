@@ -645,9 +645,8 @@ export default function EmbedWidgetPage() {
         partner={partner}
         branding={branding}
         links={[
-          { label: 'See full report', path: river.path || `/rivers/${river.slug}` },
-          { label: 'Water levels', path: `/gauges?river=${river.slug}` },
-          { label: 'Find outfitters', path: `/plan?river=${river.slug}` },
+          { label: 'Full River Report', path: river.path || `/rivers/${river.slug}` },
+          { label: 'Plan a Float', path: `/plan?river=${river.slug}` },
         ]}
       />
     </div>
@@ -675,7 +674,7 @@ function LiveMetric({
 }) {
   const content = (
     <>
-      <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: palette.textSecondary }}>
+      <div className="flex items-center justify-center gap-1.5 text-xs font-medium" style={{ color: palette.textSecondary }}>
         {accent && (
           <span
             aria-hidden="true"
@@ -686,13 +685,13 @@ function LiveMetric({
         {label}
       </div>
       <div
-        className="mt-1 text-sm font-bold break-words tabular-nums"
+        className="mt-0.5 text-sm font-bold break-words tabular-nums text-center"
         style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}
       >
         {value}
       </div>
       <div
-        className="mt-1 text-xs truncate capitalize"
+        className="mt-0.5 text-xs truncate capitalize text-center"
         title={detail}
         style={{ color: detailColor || palette.textSecondary }}
       >
@@ -705,7 +704,7 @@ function LiveMetric({
     borderTopColor: accent?.solid || palette.border,
     background: accent?.background,
   };
-  const classes = `min-w-0 px-3 py-3 border-t-2 ${href ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]' : ''} ${className}`;
+  const classes = `min-w-0 px-2 py-2 text-center border-t-2 ${href ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]' : ''} ${className}`;
 
   if (href) {
     return (
