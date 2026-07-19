@@ -9,9 +9,10 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
-import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
+import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import type { ConditionCode } from '@/types/api';
 
 interface EddyUpdate {
@@ -23,6 +24,7 @@ interface EddyUpdate {
 }
 
 interface RiverBasic {
+  id?: string;
   name: string;
   slug: string;
   path?: string;
@@ -35,59 +37,35 @@ interface WeatherData {
   windSpeed: number;
 }
 
-import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+interface ForecastDay {
+  tempHigh: number;
+  tempLow: number;
+  condition: string;
+  precipitation: number;
+}
+
+interface GaugeMetric {
+  value: string;
+  unit: 'ft' | 'cfs';
+  name: string;
+}
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
-// Bold yes/no float recommendation (#12)
-const FLOAT_RECOMMENDATIONS: Record<string, string> = {
-  flowing: 'Great day to float!',
-  good: 'Good to go',
-  low: 'Proceed with caution',
-  too_low: 'Not recommended',
-  high: 'Use caution',
-  dangerous: 'Do not float',
-  unknown: 'Check conditions locally',
-};
+const EXPANDED_CONDITIONS = new Set<ConditionCode>([
+  'low',
+  'too_low',
+  'high',
+  'dangerous',
+  'unknown',
+]);
 
-// Condition-tinted quote backgrounds (#13)
-function getQuoteColors(code: string, isDark: boolean): { bg: string; border: string; text: string } {
-  switch (code) {
-    case 'flowing':
-      return isDark
-        ? { bg: '#1f2d20', border: '#2d4a2e', text: '#a7f3d0' }
-        : { bg: '#f0fdf4', border: '#bbf7d0', text: '#065f46' };
-    case 'good':
-      return isDark
-        ? { bg: '#1f2d1a', border: '#3d5a2e', text: '#bef264' }
-        : { bg: '#f7fee7', border: '#d9f99d', text: '#3f6212' };
-    case 'low':
-      return isDark
-        ? { bg: '#2d2a1a', border: '#4a3f1e', text: '#fde68a' }
-        : { bg: '#fffbeb', border: '#fde68a', text: '#92400e' };
-    case 'too_low':
-      return isDark
-        ? { bg: '#292524', border: '#44403c', text: '#d6d3d1' }
-        : { bg: '#fafaf9', border: '#d6d3d1', text: '#57534e' };
-    case 'high':
-      return isDark
-        ? { bg: '#2d1f1a', border: '#4a2e1e', text: '#fdba74' }
-        : { bg: '#fff7ed', border: '#fed7aa', text: '#9a3412' };
-    case 'dangerous':
-      return isDark
-        ? { bg: '#2d1a1a', border: '#4a1e1e', text: '#fca5a5' }
-        : { bg: '#fef2f2', border: '#fecaca', text: '#991b1b' };
-    default:
-      return isDark
-        ? { bg: '#252525', border: '#3a3a3a', text: '#a0a0a0' }
-        : { bg: '#f5f5f5', border: '#d4d4d4', text: '#525252' };
-  }
-}
+function splitQuote(text: string): { preview: string; detail: string } {
+  const firstBreak = text.search(/[.!?](?:[”"']?)(?=\s+[A-Z0-9“"'])/);
+  if (firstBreak === -1) return { preview: text, detail: '' };
 
-
-
-function getConditionLabel(code: string): string {
-  return CONDITION_SHORT_LABELS[code] || 'Unknown';
+  const preview = text.slice(0, firstBreak + 1).trim();
+  return { preview, detail: text.slice(firstBreak + 1).trim() };
 }
 
 function formatAge(generatedAt: string): string {
@@ -110,19 +88,25 @@ export default function EddyQuoteEmbedPage() {
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [river, setRiver] = useState<RiverBasic | null>(null);
   const [optimalRange, setOptimalRange] = useState<string | null>(null);
-  const [gaugeReading, setGaugeReading] = useState<string | null>(null);
-  const [gaugeName, setGaugeName] = useState<string | null>(null);
+  const [gaugeMetric, setGaugeMetric] = useState<GaugeMetric | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [forecast, setForecast] = useState<ForecastDay | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [eddyRes, riversRes, gaugesRes] = await Promise.all([
+        const [eddyRes, riversRes, gaugesRes, forecastRes] = await Promise.all([
           fetch(`/api/eddy-update/${slug}`),
           fetch('/api/rivers'),
           fetch('/api/gauges'),
+          fetch(`/api/weather/${slug}/forecast`),
         ]);
+
+        if (forecastRes.ok) {
+          const forecastData = await forecastRes.json();
+          if (forecastData.forecast?.[0]) setForecast(forecastData.forecast[0]);
+        }
 
         let riverId: string | null = null;
         if (riversRes.ok) {
@@ -153,12 +137,13 @@ export default function EddyQuoteEmbedPage() {
                 const unit = primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
                 setOptimalRange(`${primary.levelOptimalMin}\u2013${primary.levelOptimalMax} ${unit}`);
               }
-              // Capture gauge reading and name for subtitle (#14)
-              const useCfs = primary.thresholdUnit === 'cfs';
-              const val = useCfs ? gauge.dischargeCfs : gauge.gaugeHeightFt;
-              if (val !== null) {
-                setGaugeReading(useCfs ? `${val.toLocaleString()} cfs` : `${val.toFixed(1)} ft`);
-                setGaugeName(gauge.name);
+              // Prefer gauge height for the at-a-glance reading, even where the
+              // condition thresholds use CFS. This is display-only and never
+              // participates in condition calculation.
+              if (gauge.gaugeHeightFt !== null) {
+                setGaugeMetric({ value: gauge.gaugeHeightFt.toFixed(1), unit: 'ft', name: gauge.name });
+              } else if (gauge.dischargeCfs !== null) {
+                setGaugeMetric({ value: gauge.dischargeCfs.toLocaleString(), unit: 'cfs', name: gauge.name });
               }
               // Weather at the river's primary gauge (lodging value, merged in
               // from the former River Day widget).
@@ -183,10 +168,7 @@ export default function EddyQuoteEmbedPage() {
 
   // Determine what to display
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
-  const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const quoteColors = getQuoteColors(conditionCode, isDark);
-  const recommendation = FLOAT_RECOMMENDATIONS[conditionCode] || FLOAT_RECOMMENDATIONS.unknown;
 
   // Build fallback text if no AI update
   const quoteText = update?.quoteText || (() => {
@@ -201,6 +183,7 @@ export default function EddyQuoteEmbedPage() {
     if (notes) parts.push(notes);
     return parts.join(' ');
   })();
+  const { preview: quotePreview, detail: quoteDetail } = splitQuote(quoteText);
 
   // Theme colors
   const palette = embedPalette(isDark);
@@ -245,108 +228,99 @@ export default function EddyQuoteEmbedPage() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Header: Eddy favicon + River name + gauge reading (#14) + condition badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Identity + canonical status. ConditionBadge is the approved renderer
+          backed by shared/condition-system.ts; no widget-local status mapping. */}
+      <header className="flex items-start gap-3 pb-3 border-b" style={{ borderColor: palette.border }}>
         <Image
           src={EDDY_LOGO}
           alt="Eddy"
-          width={32}
-          height={32}
-          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
+          width={36}
+          height={36}
+          className="w-9 h-9 object-contain rounded-full flex-shrink-0"
         />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: EMBED_FONTS.display }}>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-base leading-tight truncate" style={{ fontFamily: EMBED_FONTS.display }}>
             {river.name}
           </div>
-          {/* (#14) Show gauge reading instead of generic "Eddy says" */}
-          <div style={{ fontSize: 10, fontWeight: 500, color: textSecondary, marginTop: 2 }}>
-            {gaugeReading && gaugeName
-              ? `${gaugeReading} at ${gaugeName}`
-              : update?.generatedAt
-                ? formatAge(update.generatedAt)
-                : 'Eddy\u2019s take'}
+          <div className="text-xs font-medium mt-1" style={{ color: textSecondary }}>
+            {update?.generatedAt ? formatAge(update.generatedAt) : 'Current river conditions'}
           </div>
         </div>
-        {/* Condition pill */}
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '4px 10px',
-            borderRadius: 6,
-            backgroundColor: `${conditionColor}15`,
-            border: `1.5px solid ${conditionColor}55`,
-            boxShadow: embedShadow(palette),
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: conditionColor }} />
-          <span style={{ fontWeight: 700, fontSize: 11, color: conditionColor, whiteSpace: 'nowrap' }}>
-            {getConditionLabel(conditionCode)}
-          </span>
-        </div>
-      </div>
+        <ConditionBadge code={conditionCode} size="md" className="flex-shrink-0" />
+      </header>
 
-      {/* Weather at the river (merged in from River Day — lodging value) */}
-      {weather && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 11,
-            color: textSecondary,
-            padding: '5px 10px',
-            borderRadius: 6,
-            background: isDark ? '#163F4A' : '#F7F6F3',
-          }}
-        >
-          <span style={{ fontWeight: 700, color: textPrimary, fontFamily: EMBED_FONTS.mono }}>
-            {Math.round(weather.temp)}°F
-          </span>
-          <span>&middot;</span>
-          <span>{weather.condition}</span>
-          {weather.windSpeed > 5 && (
-            <>
-              <span>&middot;</span>
-              <span>Wind {Math.round(weather.windSpeed)} mph</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Bold float recommendation (#12) */}
-      <div
-        style={{
-          fontWeight: 700,
-          fontSize: 13,
-          color: conditionColor,
-          padding: '0 2px',
-        }}
+      {/* At-a-glance facts. Values come directly from gauge/weather APIs and do
+          not alter or reinterpret the canonical condition. */}
+      <section
+        aria-label="River conditions at a glance"
+        className="grid grid-cols-2 sm:grid-cols-4 overflow-hidden rounded-lg border"
+        style={{ borderColor: palette.border, background: palette.cardBg }}
       >
-        {recommendation}
-      </div>
+        <Metric
+          label="Gauge height"
+          value={gaugeMetric ? `${gaugeMetric.value} ${gaugeMetric.unit}` : 'Unavailable'}
+          detail={gaugeMetric?.name || 'Primary gauge'}
+          palette={palette}
+          className="border-r border-b sm:border-b-0"
+        />
+        <Metric
+          label="Optimal range"
+          value={optimalRange || 'Not set'}
+          detail="Established range"
+          palette={palette}
+          className="border-b sm:border-b-0 sm:border-r"
+        />
+        <Metric
+          label="Today"
+          value={weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable'}
+          detail={weather?.condition || forecast?.condition || 'Weather unavailable'}
+          palette={palette}
+          className="border-r"
+        />
+        <Metric
+          label="Rain chance"
+          value={forecast ? `${Math.round(forecast.precipitation)}%` : 'Unavailable'}
+          detail={weather && weather.windSpeed > 5 ? `Wind ${Math.round(weather.windSpeed)} mph` : 'Today’s forecast'}
+          palette={palette}
+        />
+      </section>
 
-      {/* Quote text with condition-tinted background (#13) */}
-      <div
-        style={{
-          background: quoteColors.bg,
-          border: `1.5px solid ${quoteColors.border}`,
-          borderRadius: 10,
-          padding: '10px 14px',
-          boxShadow: `0 1px 2px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)'}`,
-        }}
-      >
-        <p style={{ fontSize: 13, lineHeight: 1.5, color: quoteColors.text, margin: 0, fontWeight: 500 }}>
-          &ldquo;{quoteText}&rdquo;
-        </p>
+      <section aria-labelledby="eddy-take-heading" className="py-1">
+        <div className="flex items-center gap-2 mb-2">
+          <Image
+            src={EDDY_LOGO}
+            alt=""
+            width={24}
+            height={24}
+            className="w-6 h-6 object-contain rounded-full"
+          />
+          <h2 id="eddy-take-heading" className="m-0 text-sm font-bold" style={{ fontFamily: EMBED_FONTS.display, color: textPrimary }}>
+            Eddy’s take
+          </h2>
+        </div>
+        <p className="m-0 text-sm leading-relaxed font-medium">{quotePreview}</p>
+
+        {quoteDetail && (
+          <details
+            className="mt-2 rounded-lg border px-3 py-2"
+            style={{ borderColor: palette.border, background: palette.cardBg }}
+            open={EXPANDED_CONDITIONS.has(conditionCode as ConditionCode)}
+          >
+            <summary className="cursor-pointer text-xs font-bold" style={{ color: palette.link }}>
+              Read full condition update
+            </summary>
+            <p className="mt-2 mb-0 text-sm leading-relaxed" style={{ color: textSecondary }}>
+              {quoteDetail}
+            </p>
+          </details>
+        )}
+
         {update?.generatedAt && (
-          <div style={{ fontSize: 10, color: textSecondary, marginTop: 6 }}>
+          <div className="text-xs mt-2" style={{ color: textSecondary }}>
             {formatAge(update.generatedAt)}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Footer: Links */}
       <EmbedFooter
@@ -358,6 +332,33 @@ export default function EddyQuoteEmbedPage() {
         branding={branding}
         links={[{ label: 'Full conditions', path: river.path || `/rivers/${river.slug}` }]}
       />
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  detail,
+  palette,
+  className = '',
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  palette: ReturnType<typeof embedPalette>;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`min-w-0 px-3 py-3 ${className}`}
+      style={{ borderColor: palette.border }}
+    >
+      <div className="text-xs font-medium" style={{ color: palette.textSecondary }}>{label}</div>
+      <div className="mt-1 text-sm font-bold break-words" style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}>
+        {value}
+      </div>
+      <div className="mt-1 text-xs truncate" title={detail} style={{ color: palette.textSecondary }}>{detail}</div>
     </div>
   );
 }
