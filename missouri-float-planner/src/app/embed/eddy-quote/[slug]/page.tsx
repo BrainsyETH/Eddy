@@ -204,11 +204,6 @@ export default function EddyQuoteEmbedPage() {
     key: slug,
     partner: branding?.businessName || partner || undefined,
   });
-  const gaugeUpdatedAfterQuote = Boolean(
-    gaugeSnapshot?.readingTimestamp &&
-    update?.generatedAt &&
-    new Date(gaugeSnapshot.readingTimestamp).getTime() > new Date(update.generatedAt).getTime() + 5 * 60 * 1000
-  );
   const conditionChangedSinceQuote = Boolean(
     update?.conditionCode &&
     river?.currentCondition?.code &&
@@ -288,7 +283,7 @@ export default function EddyQuoteEmbedPage() {
             {river.name}
           </div>
           <div className="text-xs font-medium mt-1" style={{ color: textSecondary }}>
-            Live river conditions
+            Eddy’s Report
           </div>
         </div>
         <ConditionBadge code={conditionCode} size="md" className="flex-shrink-0" />
@@ -383,15 +378,13 @@ export default function EddyQuoteEmbedPage() {
           </div>
         </div>
 
-        {(gaugeUpdatedAfterQuote || conditionChangedSinceQuote) && (
+        {conditionChangedSinceQuote && (
           <div
             role="note"
             className="mb-2 border-l-2 pl-2 text-xs font-medium"
             style={{ borderColor: palette.link, color: textSecondary }}
           >
-            {conditionChangedSinceQuote
-              ? 'The live condition has changed since Eddy’s take. Use the status and readings above.'
-              : 'The live gauge updated after Eddy’s take.'}
+            The live condition has changed since Eddy’s take. Use the status and readings above.
           </div>
         )}
         <p className="m-0 text-sm leading-relaxed font-medium">{quotePreview}</p>
@@ -423,7 +416,7 @@ export default function EddyQuoteEmbedPage() {
         branding={branding}
         links={[
           { label: 'Full conditions', path: river.path || `/rivers/${river.slug}` },
-          { label: 'Weather & levels', path: `/gauges?river=${river.slug}` },
+          { label: 'Plan a Float', path: `/plan?river=${river.slug}` },
         ]}
       />
     </div>
