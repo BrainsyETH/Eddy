@@ -42,6 +42,13 @@ const variantFiles: Record<EddyVariant, string> = {
   flood: "eddy/eddy-flood.png",
 };
 
+/** Resolve an Eddy variant (incl. the condition moods from getOtterVariant) to
+ *  its static asset path — for callers that render a plain <Img> instead of the
+ *  animated component (e.g. the alert banner's always-visible host icon). */
+export function eddyVariantFile(variant: EddyVariant): string {
+  return variantFiles[variant];
+}
+
 /**
  * Eddy the Otter mascot with spring entrance and optional floating animation.
  */

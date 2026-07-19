@@ -9,6 +9,8 @@
 // Pure TypeScript (no React/Next/Remotion) so both the app (via the "@shared/*"
 // tsconfig path) and the isolated video project (relative import) can consume it.
 
+import { conditionDef } from './condition-system';
+
 export interface WarningCopy {
   /** Eyebrow / headline severity, uppercase. e.g. "HIGH WATER". */
   severityLabel: string;
@@ -84,7 +86,10 @@ export function recoveryCopy(code: string, riverName: string): WarningCopy {
         ? 'floatable again'
         : 'dropping back';
   return {
-    severityLabel: 'ALL CLEAR',
+    // State the condition the river has settled into (FLOWING / GOOD / LOW)
+    // rather than an "ALL CLEAR" safety verdict — after high/flood water we
+    // report the level, we don't certify that it's safe to go.
+    severityLabel: conditionDef(code).label.toUpperCase(),
     cta: 'Back to floatable — still check the gauge before you go',
     quote: `${riverName} has dropped back to floatable levels — ${floatable}. Always confirm the live gauge before you launch.`,
   };
