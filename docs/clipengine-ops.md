@@ -27,7 +27,7 @@ local-only edits to the pipeline scripts.**
 ## Full flow
 
 ```
-channels.json → title gate (river / paddling topic) → video-level dedup
+channels.json → title gate (river / paddling topic; detect-flood → high_water) → video-level dedup
   → scrape-heatmap (peaks, river detect, Tier-1 fallback)
   → extract-clip (windowed download, 12–60s at the peak)
   → upload raw to Vercel Blob → dispatch render-clip.yml
@@ -85,7 +85,44 @@ Two layers, both against `clip_library`:
   `rivers` table (8 slugs). The `RIVERS` keyword map is duplicated in
   `scrape-heatmap.sh` + `detect-river.sh` — edit both. Don't add new slugs
   without adding the river to the DB first (orphaned `river_slug` breaks the
-  Tier-1 CTA).
+  Tier-1 CTA). **Exception:** `high_water` clips (below) are region-agnostic and
+  bypass this gate.
+
+## Content categories
+
+A clip can carry a `category` that switches its branding and its brand-check
+policy. Default (no category) = the normal paddling clip. Today there is one:
+
+**`high_water`** — a flood-safety PSA: dramatic high-water / flood-stage footage
+branded to sell Eddy's core value, *know your river levels before you go.*
+
+- **Detection:** `scripts/clipengine/detect-flood.sh` tags a title `high_water`
+  (flood / high-water / carnage / swim / near-miss keywords). It **excludes**
+  titles signalling a fatality or serious injury, so the PSA never rides on a
+  death — brand-check is the visual backstop on the footage itself.
+- **Branding:** orange "HIGH WATER" eyebrow, warning accent, and the CTA
+  "Know your river levels — check the gauge at eddy.guide" (`remotion/src/lib/brand.ts`,
+  `ClipReel.tsx`). Out-of-region clips use a neutral "When Rivers Rise" hero
+  instead of a river name.
+- **Region-agnostic:** the safety message is universal, so `high_water` clips
+  **bypass the river-validation gate** — an unknown/empty river is fine. Every
+  other category still requires a known Eddy river.
+- **Brand-check policy:** `brand-check-clip.yml` reads `content_type` and, for
+  `high_water`, treats dramatic/dangerous-looking high water as EXPECTED (not a
+  rejection) while still auto-rejecting injury / body-recovery / fatalities.
+- **Storage:** written to `clip_library.content_type`.
+- **Threading:** `category` flows scan → `handoff-clip.sh` / dispatch →
+  `render-clip.yml` (props + `content_type`). Manual runs:
+  `run-local.sh --url <u> --category high_water`, or the `category` input on the
+  `youtube-clip-pipeline` / `render-clip` workflows.
+
+### Flood-only source channels
+
+A channel object in `channels.json` can set `"flood_only": true` — the scan then
+keeps **only** that channel's high-water uploads (its normal paddling uploads are
+skipped). Use it for out-of-region big-water creators whose everyday content
+isn't a fit but whose flood clips are. Seeded with `@serrasolsesmedia` and
+`@toekneegreen37`.
 
 ## Branding
 

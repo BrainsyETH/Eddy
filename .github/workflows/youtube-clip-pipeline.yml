@@ -323,10 +323,13 @@ jobs:
             : > "$CANDIDATES"
 
             # Expand YOUTUBE_CHANNELS_JSON (array of channel URLs, or objects
-            # {url, river_slug}) into newest-first "videoUrl<TAB>river" rows.
-            # Process substitution keeps the loops in this shell so the
-            # MAX_CLIPS counter (read from RESULTS_JSON) stays consistent.
-            while IFS=$'\t' read -r CH_URL CH_RIVER; do
+            # {url, river_slug, flood_only}) into "url|river|flood_only" rows, and
+            # candidates into "videoUrl|river|category" rows. Pipe-delimited (not
+            # tab): tab is IFS-whitespace, so an empty MIDDLE field (e.g. a
+            # flood-only channel with no river) would collapse and shift columns.
+            # '|' never appears in URLs/slugs/categories. Process substitution
+            # keeps the loops in this shell so the MAX_CLIPS counter stays consistent.
+            while IFS='|' read -r CH_URL CH_RIVER CH_FLOODONLY; do
               [ -z "$CH_URL" ] && continue
               case "$CH_URL" in
                 *"/videos"|*"watch?v="*|*"youtu.be/"*) LIST_URL="$CH_URL" ;;
@@ -341,10 +344,17 @@ jobs:
                 VID="${LINE%%|||*}"; VT="${LINE#*|||}"
                 ROW_RIVER="$CH_RIVER"
                 if [ -z "$ROW_RIVER" ]; then ROW_RIVER="$(bash scripts/clipengine/detect-river.sh "$VT")"; fi
-                if [ -z "$ROW_RIVER" ] && [ "$(bash scripts/clipengine/detect-paddling.sh "$VT")" != yes ]; then
+                ROW_CATEGORY="$(bash scripts/clipengine/detect-flood.sh "$VT")"
+                # Topic gate: a known river, a paddling title, or (for the safety
+                # category) a high-water title lets it through. Flood-only channels
+                # contribute ONLY their high-water uploads.
+                if [ -z "$ROW_RIVER" ] && [ "$(bash scripts/clipengine/detect-paddling.sh "$VT")" != yes ] && [ "$ROW_CATEGORY" != high_water ]; then
                   continue
                 fi
-                printf '%s\t%s\n' "https://www.youtube.com/watch?v=${VID}" "$ROW_RIVER" >> "$CANDIDATES"
+                if [ "$CH_FLOODONLY" = "1" ] && [ "$ROW_CATEGORY" != high_water ]; then
+                  continue
+                fi
+                printf '%s|%s|%s\n' "https://www.youtube.com/watch?v=${VID}" "$ROW_RIVER" "$ROW_CATEGORY" >> "$CANDIDATES"
               done < <(yt-dlp --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
             done < <(echo "$YOUTUBE_CHANNELS_JSON" | python3 -c "
           import json, sys
@@ -354,15 +364,15 @@ jobs:
               sys.stderr.write('Invalid YOUTUBE_CHANNELS_JSON: %s\n' % e); sys.exit(0)
           for c in data:
               if isinstance(c, str):
-                  print(c + '\t')
+                  print(c + '||')
               else:
-                  print((c.get('url') or '') + '\t' + (c.get('river_slug') or ''))
+                  print('|'.join([(c.get('url') or ''), (c.get('river_slug') or ''), ('1' if c.get('flood_only') else '')]))
           ")
 
             CAND_TOTAL=$(wc -l < "$CANDIDATES" | tr -d ' ')
             echo "  Found ${CAND_TOTAL} candidate video(s)"
 
-            while IFS=$'\t' read -r VURL VRIVER; do
+            while IFS='|' read -r VURL VRIVER VCATEGORY; do
               [ -z "$VURL" ] && continue
               DONE=$(python3 -c "import json; print(len(json.load(open('$RESULTS_JSON'))))" 2>/dev/null || echo 0)
               if [ "$DONE" -ge "$MAX_CLIPS" ]; then
@@ -386,7 +396,7 @@ jobs:
                   echo "  ⚠️ dedup check failed for ${VID} — Supabase response: $(printf '%s' "$EXISTING" | head -c 140) — proceeding without dedup"
                 fi
               fi
-              process_video "$VURL" "$VRIVER" "$PEAK_NUMBER"
+              process_video "$VURL" "$VRIVER" "$PEAK_NUMBER" "$VCATEGORY"
             done < "$CANDIDATES"
           else
             echo "ℹ️ No youtube_url input and clipengine-local/channels.json is missing/empty — nothing to do."
