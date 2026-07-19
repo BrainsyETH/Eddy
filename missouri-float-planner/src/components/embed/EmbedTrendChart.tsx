@@ -31,7 +31,7 @@ export default function EmbedTrendChart({
   const W = 540;
   const H = 112;
   const PAD_L = 38;
-  const PAD_R = 76;
+  const PAD_R = 10;
   const PAD_T = 8;
   const PAD_B = 20;
   const chartW = W - PAD_L - PAD_R;
@@ -57,11 +57,9 @@ export default function EmbedTrendChart({
   const linePath = `M${data.readings.map((reading, index) => `${toX(index).toFixed(1)},${toY(reading.value).toFixed(1)}`).join('L')}`;
   const areaPath = `${linePath}L${toX(data.readings.length - 1).toFixed(1)},${(PAD_T + chartH).toFixed(1)}L${PAD_L},${(PAD_T + chartH).toFixed(1)}Z`;
 
-  const thresholdLines: { value: number; color: string; label: string; dash: string }[] = [];
+  const thresholds: { value: number; color: string; label: string; dash: string }[] = [];
   const addThreshold = (value: number | null, color: string, label: string, dash: string) => {
-    if (value !== null && value >= paddedMin && value <= paddedMax) {
-      thresholdLines.push({ value, color, label, dash });
-    }
+    if (value !== null) thresholds.push({ value, color, label, dash });
   };
   if (data.thresholds) {
     addThreshold(data.thresholds.levelOptimalMin, CONDITION_COLORS.flowing, 'Optimal min', '4 2');
@@ -69,6 +67,7 @@ export default function EmbedTrendChart({
     addThreshold(data.thresholds.levelHigh, CONDITION_COLORS.high, 'High', '6 2');
     addThreshold(data.thresholds.levelDangerous, CONDITION_COLORS.dangerous, 'Flood', '1 2');
   }
+  const visibleThresholds = thresholds.filter(threshold => threshold.value >= paddedMin && threshold.value <= paddedMax);
 
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -105,15 +104,20 @@ export default function EmbedTrendChart({
             </linearGradient>
           </defs>
           <path d={areaPath} fill={`url(#${id}-area)`} />
-          {thresholdLines.map(threshold => {
+          {visibleThresholds.map(threshold => {
             const y = toY(threshold.value);
             return (
-              <g key={`${threshold.label}-${threshold.value}`}>
-                <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke={threshold.color} strokeWidth="1" strokeDasharray={threshold.dash} opacity="0.8" />
-                <text x={W - PAD_R + 5} y={y + 3} fill={palette.textSecondary} fontSize="8" fontWeight="600" fontFamily="system-ui, sans-serif">
-                  {threshold.label}
-                </text>
-              </g>
+              <line
+                key={`${threshold.label}-${threshold.value}`}
+                x1={PAD_L}
+                y1={y}
+                x2={W - PAD_R}
+                y2={y}
+                stroke={threshold.color}
+                strokeWidth="1"
+                strokeDasharray={threshold.dash}
+                opacity="0.8"
+              />
             );
           })}
           <path d={linePath} fill="none" stroke={palette.link} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" />
@@ -134,6 +138,22 @@ export default function EmbedTrendChart({
             </text>
           ))}
         </svg>
+        {thresholds.length > 0 && (
+          <div
+            className="flex flex-wrap gap-x-3 gap-y-1 border-t px-1.5 py-1.5 text-[10px] leading-4"
+            style={{ borderColor: palette.border, color: palette.textSecondary }}
+            aria-label="Chart thresholds"
+          >
+            {thresholds.map(threshold => (
+              <span key={`${threshold.label}-legend`} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <svg aria-hidden="true" width="20" height="4" viewBox="0 0 20 4" className="flex-none">
+                  <line x1="0" y1="2" x2="20" y2="2" stroke={threshold.color} strokeWidth="1.5" strokeDasharray={threshold.dash} />
+                </svg>
+                <span>{threshold.label} {formatValue(threshold.value)} {data.unit}</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <p className="sr-only">{description}</p>
     </section>

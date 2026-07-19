@@ -190,10 +190,22 @@ function riversQuery(c: WidgetCtx) {
 
 const WIDGETS: WidgetDef[] = [
   {
+    key: 'quote',
+    title: "Eddy's Daily Quote",
+    badge: 'TOP PICK',
+    badgeBg: '#F07052',
+    desc: "Eddy's plain-language read on the river, the current gauge reading, today's weather, and a clear float / no-float verdict. Great for lodging and outfitter sites. Updates throughout the day.",
+    previewHeight: 300,
+    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
+    params: [
+      { name: 'theme', values: 'light / dark' },
+      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
+    ],
+  },
+  {
     key: 'card',
     title: 'Floatable From Here',
-    badge: 'NEW',
-    badgeBg: '#F07052',
     desc: 'Pin your business location once. The card answers "is the water floatable from here right now?", shows how far your nearest launch is with real drive time, and puts YOUR booking button front and center.',
     previewHeight: 300,
     buildSrc: (c) => (c.cardEmbedId ? `${c.baseUrl}/embed/card/${c.cardEmbedId}?theme=${c.theme}` : ''),
@@ -209,8 +221,6 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'current',
     title: 'Live Conditions',
-    badge: 'REC',
-    badgeBg: '#256574',
     desc: 'Gauge readings, weather, condition badge and a 14-day trend chart. Updates automatically.',
     previewHeight: 480,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, c),
@@ -221,22 +231,8 @@ const WIDGETS: WidgetDef[] = [
     ],
   },
   {
-    key: 'quote',
-    title: "Eddy's Daily Quote",
-    desc: "Eddy's plain-language read on the river, the current gauge reading, today's weather, and a clear float / no-float verdict. Great for lodging and outfitter sites. Updates throughout the day.",
-    previewHeight: 300,
-    buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c),
-    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
-    params: [
-      { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
-    ],
-  },
-  {
     key: 'planner',
     title: 'Float Trip Planner',
-    badge: 'OUTFITTERS',
-    badgeBg: '#F07052',
     desc: 'Visitors pick a put-in and take-out and get shuttle distance, float time, conditions, and the outfitters on that stretch. The selected river is pre-selected but visitors can change it.',
     previewHeight: 420,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, c),
@@ -250,8 +246,6 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'services',
     title: 'Services Directory',
-    badge: 'NEW',
-    badgeBg: '#419959',
     desc: 'Nearby outfitters, campgrounds (including NPS sites reservable via recreation.gov) and lodging with one-tap click-to-call, website, and reservation links.',
     previewHeight: 400,
     hasFilters: true,
@@ -268,7 +262,7 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'gauge',
     title: 'Gauge Report',
-    desc: 'A 7 / 14 / 30-day gauge height chart, current reading, and the "Eddy Says" weekly read. Great for a quick visual sense of conditions over time.',
+    desc: 'A 7 / 14 / 30-day gauge trend chart, current unit-aware reading, and the "Eddy Says" weekly read. Great for a quick visual sense of conditions over time.',
     previewHeight: 480,
     hasDays: true,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/gauge-report/${c.selectedRiver}?theme=${c.theme}&days=${c.gaugeDays}`, c),
@@ -282,8 +276,6 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'rivers',
     title: 'Multi-River Overview',
-    badge: 'NEW',
-    badgeBg: '#419959',
     desc: 'Live condition rows for several rivers at once — for outfitters serving more than one river and regional tourism pages. Pick which rivers to show below.',
     previewHeight: 340,
     hasMultiRivers: true,
@@ -1149,14 +1141,7 @@ export default function EmbedWorkbench() {
           </div>
 
           <div className="mt-auto pt-6">
-            <div className="bg-primary-50 border-2 border-primary-200 rounded-lg px-3.5 py-3">
-              <div className="text-xs font-bold text-primary-700 mb-1">All widgets are free</div>
-              <div className="text-xs text-primary-600 leading-relaxed">
-                No account, no API key. Businesses get co-branding — your logo, color and
-                booking link — via the Floatable From Here card.
-              </div>
-            </div>
-            <nav aria-label="Site" className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+            <nav aria-label="Site" className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
               {SITE_LINKS.map(l => (
                 <Link key={l.href} href={l.href} className="text-neutral-500 hover:text-primary-700 font-medium transition-colors">{l.label}</Link>
               ))}

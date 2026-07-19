@@ -59,14 +59,6 @@ interface GaugeSnapshot {
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
-const EXPANDED_CONDITIONS = new Set<ConditionCode>([
-  'low',
-  'too_low',
-  'high',
-  'dangerous',
-  'unknown',
-]);
-
 function splitQuote(text: string): { preview: string; detail: string } {
   const firstBreak = text.search(/[.!?](?:[”"']?)(?=\s+[A-Z0-9“"'])/);
   if (firstBreak === -1) return { preview: text, detail: '' };
@@ -371,7 +363,6 @@ export default function EddyQuoteEmbedPage() {
           <details
             className="mt-2 rounded-lg border px-3 py-2"
             style={{ borderColor: palette.border, background: palette.cardBg }}
-            open={conditionChangedSinceQuote || EXPANDED_CONDITIONS.has(conditionCode as ConditionCode)}
           >
             <summary
               className="embed-control flex min-h-8 cursor-pointer items-center rounded text-xs font-bold"

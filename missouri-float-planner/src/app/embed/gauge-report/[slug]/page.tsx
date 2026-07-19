@@ -2,7 +2,7 @@
 
 // src/app/embed/gauge-report/[slug]/page.tsx
 // Embeddable gauge report widget showing 7/14/30-day chart,
-// current gauge height, and Eddy Says condition report.
+// current unit-aware gauge value, and Eddy Says condition report.
 
 import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
@@ -91,7 +91,7 @@ export default function EmbedGaugeReportPage() {
   const [river, setRiver] = useState<RiverBasic | null>(null);
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [history, setHistory] = useState<GaugeHistoryResponse | null>(null);
-  const [currentHeight, setCurrentHeight] = useState<number | null>(null);
+  const [currentValue, setCurrentValue] = useState<number | null>(null);
   const [primarySiteId, setPrimarySiteId] = useState<string | null>(null);
   const [chartThresholds, setChartThresholds] = useState<ChartThresholds | null>(null);
   const [chartUnit, setChartUnit] = useState<'ft' | 'cfs'>('ft');
@@ -136,9 +136,9 @@ export default function EmbedGaugeReportPage() {
               const useCfs = primary.thresholdUnit === 'cfs';
               setChartUnit(useCfs ? 'cfs' : 'ft');
               if (useCfs) {
-                if (gauge.dischargeCfs != null) setCurrentHeight(gauge.dischargeCfs);
+                if (gauge.dischargeCfs != null) setCurrentValue(gauge.dischargeCfs);
               } else {
-                if (gauge.gaugeHeightFt != null) setCurrentHeight(gauge.gaugeHeightFt);
+                if (gauge.gaugeHeightFt != null) setCurrentValue(gauge.gaugeHeightFt);
               }
               setChartThresholds({
                 levelOptimalMin: primary.levelOptimalMin ?? null,
@@ -161,9 +161,9 @@ export default function EmbedGaugeReportPage() {
             const useCfs = fallbackThreshold?.thresholdUnit === 'cfs';
             setChartUnit(useCfs ? 'cfs' : 'ft');
             if (useCfs) {
-              if (fallbackGauge.dischargeCfs != null) setCurrentHeight(fallbackGauge.dischargeCfs);
+              if (fallbackGauge.dischargeCfs != null) setCurrentValue(fallbackGauge.dischargeCfs);
             } else {
-              if (fallbackGauge.gaugeHeightFt != null) setCurrentHeight(fallbackGauge.gaugeHeightFt);
+              if (fallbackGauge.gaugeHeightFt != null) setCurrentValue(fallbackGauge.gaugeHeightFt);
             }
             if (fallbackThreshold) {
               setChartThresholds({
@@ -200,7 +200,11 @@ export default function EmbedGaugeReportPage() {
 
   const conditionCode = update?.conditionCode || river?.currentCondition?.code || 'unknown';
   const conditionColor = CONDITION_COLORS[conditionCode as keyof typeof CONDITION_COLORS] || CONDITION_COLORS.unknown;
-  const displayHeight = update?.gaugeHeightFt ?? currentHeight;
+  // Never pair gaugeHeightFt with a cfs label: prefer the live value selected
+  // for chartUnit, then fall back only to the matching Eddy snapshot field.
+  const displayValue = currentValue ?? (
+    chartUnit === 'cfs' ? update?.dischargeCfs : update?.gaugeHeightFt
+  );
 
   // Age of Eddy update
   const updatedAgo = useMemo(() => {
@@ -245,12 +249,12 @@ export default function EmbedGaugeReportPage() {
         </div>
       </div>
 
-      {/* Gauge height */}
+      {/* Current gauge value (height or discharge, based on river thresholds) */}
       <div>
-        {displayHeight != null ? (
+        {displayValue != null ? (
           <>
             <span style={{ fontSize: 28, fontWeight: 800, color: textPrimary, lineHeight: 1, fontFamily: EMBED_FONTS.mono }}>
-              {chartUnit === 'cfs' ? Math.round(displayHeight).toLocaleString() : displayHeight.toFixed(1)}
+              {chartUnit === 'cfs' ? Math.round(displayValue).toLocaleString() : displayValue.toFixed(1)}
             </span>
             <span style={{ fontSize: 13, fontWeight: 500, color: textSecondary, marginLeft: 3 }}>{chartUnit}</span>
           </>
