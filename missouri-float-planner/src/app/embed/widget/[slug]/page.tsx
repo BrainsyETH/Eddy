@@ -5,7 +5,7 @@
 // Designed to be lightweight, compact, and self-contained for external sites
 // SiteHeader is hidden via pathname check in SiteHeader component
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS } from '@/constants';
@@ -13,6 +13,9 @@ import { computeCondition, getConditionShortLabel, type ConditionThresholds } fr
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
+import EmbedTrendChart, { type EmbedChartData } from '@/components/embed/EmbedTrendChart';
+import EmbedWidgetSkeleton, { EmbedUnavailableState } from '@/components/embed/EmbedWidgetSkeleton';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { conditionChip } from '@shared/condition-system';
@@ -120,15 +123,8 @@ export default function EmbedWidgetPage() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [gaugeTrends, setGaugeTrends] = useState<Record<string, 'rising' | 'falling' | 'steady' | null>>({});
-  const [chartData, setChartData] = useState<{ readings: { timestamp: string; value: number }[]; unit: string; thresholds: ChartThresholds | null } | null>(null);
+  const [chartData, setChartData] = useState<EmbedChartData | null>(null);
   const [showAllGauges, setShowAllGauges] = useState(false);
-
-  interface ChartThresholds {
-    levelOptimalMin: number | null;
-    levelOptimalMax: number | null;
-    levelHigh: number | null;
-    levelDangerous: number | null;
-  }
 
   useEffect(() => {
     async function fetchData() {
@@ -297,36 +293,18 @@ export default function EmbedWidgetPage() {
   const borderColor = palette.border;
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180, background: bg }}>
-        <div
-          style={{
-            width: 20,
-            height: 20,
-            border: '2px solid #2D7889',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <EmbedWidgetSkeleton palette={palette} variant="conditions" />;
   }
 
   if (!river) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180, background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
-        River conditions temporarily unavailable
-      </div>
-    );
+    return <EmbedUnavailableState palette={palette} />;
   }
 
   const conditionCode = river.currentCondition?.code;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const utm = { widget: 'widget', key: slug, partner: branding?.businessName || partner };
   const riverHref = eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm);
-  const weatherHref = eddyDeepLink(origin, `/gauges?river=${river.slug}`, utm);
+  const weatherHref = eddyDeepLink(origin, `/plan?river=${river.slug}`, utm);
   const suspectGauge = gauges.find(g => g.readingSuspect && g.qualifierNote);
 
   return (
@@ -393,56 +371,50 @@ export default function EmbedWidgetPage() {
               </div>
             </div>
 
-            <section
-              aria-label={`${primaryGauge.name} current readings`}
-              className="grid grid-cols-2 sm:grid-cols-4 overflow-hidden rounded-lg border"
-              style={{ borderColor: palette.border, background: palette.cardBg }}
-            >
-              <LiveMetric
-                label="Gauge height"
-                value={primaryGauge.gaugeHeightFt != null ? `${primaryGauge.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable'}
-                detail={primaryTrend ? `${getTrendArrow(primaryTrend)} ${primaryTrend}` : primaryGauge.conditionLabel}
-                palette={palette}
-                className="border-r border-b sm:border-b-0"
-                accent={primaryConditionStyle}
-                detailColor={primaryTrend ? getTrendColor(primaryTrend, isDark) : undefined}
-              />
-              <LiveMetric
-                label="Flow now"
-                value={primaryGauge.dischargeCfs != null ? `${primaryGauge.dischargeCfs.toLocaleString()} cfs` : 'Unavailable'}
-                detail={primaryGauge.conditionLabel}
-                palette={palette}
-                className="border-b sm:border-b-0 sm:border-r"
-                accent={primaryConditionStyle}
-              />
-              <LiveMetric
-                label="Optimal range"
-                value={primaryGauge.optimalRange || 'Not set'}
-                detail="Established range"
-                palette={palette}
-                className="border-r"
-              />
-              <LiveMetric
-                label="Weather"
-                value={weather ? `${Math.round(weather.temp)}°F` : 'Unavailable'}
-                detail={weather
-                  ? `${weather.condition}${weather.windSpeed > 5 ? ` · Wind ${Math.round(weather.windSpeed)} mph` : ''}`
-                  : 'Weather unavailable'}
-                palette={palette}
-                href={weatherHref}
-              />
-            </section>
+            <EmbedMetricGrid
+              ariaLabel={`${primaryGauge.name} current readings`}
+              palette={palette}
+              metrics={[
+                {
+                  label: 'Gauge height',
+                  value: primaryGauge.gaugeHeightFt != null ? `${primaryGauge.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable',
+                  detail: primaryTrend ? `${getTrendArrow(primaryTrend)} ${primaryTrend}` : primaryGauge.conditionLabel,
+                  accent: primaryConditionStyle,
+                  detailColor: primaryTrend ? getTrendColor(primaryTrend, isDark) : undefined,
+                },
+                {
+                  label: 'Flow now',
+                  value: primaryGauge.dischargeCfs != null ? `${primaryGauge.dischargeCfs.toLocaleString()} cfs` : 'Unavailable',
+                  detail: primaryGauge.conditionLabel,
+                  accent: primaryConditionStyle,
+                },
+                {
+                  label: 'Optimal range',
+                  value: primaryGauge.optimalRange || 'Not set',
+                  detail: 'Established range',
+                },
+                {
+                  label: 'Weather',
+                  value: weather ? `${Math.round(weather.temp)}°F` : 'Unavailable',
+                  detail: weather
+                    ? `${weather.condition}${weather.windSpeed > 5 ? ` · Wind ${Math.round(weather.windSpeed)} mph` : ''}`
+                    : 'Weather unavailable',
+                  href: weatherHref,
+                  linkLabel: `Weather for ${river.name}. Open Plan a Float.`,
+                },
+              ]}
+            />
 
             {secondaryGauges.length > 0 && (
               <button
                 type="button"
                 onClick={() => setShowAllGauges(prev => !prev)}
                 aria-expanded={showAllGauges}
-                className="self-start inline-flex items-center gap-1 px-1 py-1 text-xs font-bold bg-transparent border-0 cursor-pointer"
-                style={{ color: palette.link }}
+                className="embed-control min-h-8 self-start inline-flex items-center gap-1 rounded px-1 py-1 text-xs font-bold bg-transparent border-0 cursor-pointer"
+                style={{ color: palette.link, '--embed-focus': palette.focus } as CSSProperties}
               >
                 {showAllGauges ? 'Hide' : 'Show'} {secondaryGauges.length} additional gauge{secondaryGauges.length === 1 ? '' : 's'}
-                <span aria-hidden="true" style={{ transform: showAllGauges ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                <span className="embed-control-icon" aria-hidden="true" style={{ transform: showAllGauges ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
               </button>
             )}
 
@@ -524,117 +496,7 @@ export default function EmbedWidgetPage() {
       )}
 
       {/* 14-day trend chart for primary gauge */}
-      {chartData && chartData.readings.length > 1 && (() => {
-        const W = 540;
-        const H = 100;
-        const PAD_L = 36;
-        const PAD_R = 8;
-        const PAD_T = 6;
-        const PAD_B = 18;
-        const chartW = W - PAD_L - PAD_R;
-        const chartH = H - PAD_T - PAD_B;
-
-        const values = chartData.readings.map(r => r.value);
-        const minVal = Math.min(...values);
-        const maxVal = Math.max(...values);
-        const range = maxVal - minVal || 1;
-        const padded_min = minVal - range * 0.05;
-        const padded_max = maxVal + range * 0.05;
-        const padded_range = padded_max - padded_min;
-
-        const toX = (i: number) => PAD_L + (i / (chartData.readings.length - 1)) * chartW;
-        const toY = (v: number) => PAD_T + (1 - (v - padded_min) / padded_range) * chartH;
-
-        // Build SVG path
-        const pathPoints = chartData.readings.map((r, i) => `${toX(i).toFixed(1)},${toY(r.value).toFixed(1)}`);
-        const linePath = `M${pathPoints.join('L')}`;
-
-        // Area fill path
-        const areaPath = `${linePath}L${toX(chartData.readings.length - 1).toFixed(1)},${(PAD_T + chartH).toFixed(1)}L${PAD_L.toFixed(1)},${(PAD_T + chartH).toFixed(1)}Z`;
-
-        // Threshold lines
-        const thresholdLines: { y: number; color: string; label: string }[] = [];
-        if (chartData.thresholds) {
-          const t = chartData.thresholds;
-          if (t.levelOptimalMin !== null && t.levelOptimalMin >= padded_min && t.levelOptimalMin <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelOptimalMin), color: CONDITION_COLORS.flowing, label: 'Flowing' });
-          }
-          if (t.levelOptimalMax !== null && t.levelOptimalMax >= padded_min && t.levelOptimalMax <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelOptimalMax), color: CONDITION_COLORS.flowing, label: 'Flowing' });
-          }
-          if (t.levelHigh !== null && t.levelHigh >= padded_min && t.levelHigh <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelHigh), color: CONDITION_COLORS.high, label: 'High' });
-          }
-          if (t.levelDangerous !== null && t.levelDangerous >= padded_min && t.levelDangerous <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelDangerous), color: CONDITION_COLORS.dangerous, label: 'Flood' });
-          }
-        }
-
-        // Date labels (first, middle, last)
-        const formatDate = (ts: string) => {
-          const d = new Date(ts);
-          return `${d.getMonth() + 1}/${d.getDate()}`;
-        };
-        const midIdx = Math.floor(chartData.readings.length / 2);
-        const dateLabels = [
-          { x: PAD_L, label: formatDate(chartData.readings[0].timestamp) },
-          { x: toX(midIdx), label: formatDate(chartData.readings[midIdx].timestamp) },
-          { x: W - PAD_R, label: formatDate(chartData.readings[chartData.readings.length - 1].timestamp) },
-        ];
-
-        // Y-axis labels
-        const yLabels = [
-          { y: PAD_T, label: chartData.unit === 'cfs' ? Math.round(padded_max).toLocaleString() : padded_max.toFixed(1) },
-          { y: PAD_T + chartH, label: chartData.unit === 'cfs' ? Math.round(padded_min).toLocaleString() : padded_min.toFixed(1) },
-        ];
-
-        return (
-          <div style={{ marginTop: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                14-Day Trend ({chartData.unit})
-              </div>
-            </div>
-            <div style={{ background: cardBg, borderRadius: 8, border: `1px solid ${borderColor}`, padding: '6px 4px 2px', overflow: 'hidden' }}>
-              <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ display: 'block' }}>
-                {/* Area fill */}
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={palette.link} stopOpacity="0.2" />
-                    <stop offset="100%" stopColor={palette.link} stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
-                <path d={areaPath} fill="url(#areaGrad)" />
-
-                {/* Threshold lines */}
-                {thresholdLines.map((t, i) => (
-                  <line key={i} x1={PAD_L} y1={t.y} x2={W - PAD_R} y2={t.y} stroke={t.color} strokeWidth="0.7" strokeDasharray="3,2" opacity="0.6" />
-                ))}
-
-                {/* Data line */}
-                <path d={linePath} fill="none" stroke={palette.link} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-
-                {/* Current value dot */}
-                <circle cx={toX(chartData.readings.length - 1)} cy={toY(chartData.readings[chartData.readings.length - 1].value)} r="3" fill={palette.link} stroke={palette.cardBg} strokeWidth="1.5" />
-
-                {/* Y-axis labels */}
-                {yLabels.map((yl, i) => (
-                  <text key={i} x={PAD_L - 4} y={yl.y + (i === 0 ? 8 : -2)} fill={textSecondary} opacity="0.8" fontSize="8" textAnchor="end" fontFamily="ui-monospace, monospace">
-                    {yl.label}
-                  </text>
-                ))}
-
-                {/* Date labels */}
-                {dateLabels.map((dl, i) => (
-                  <text key={i} x={dl.x} y={H - 2} fill={textSecondary} opacity="0.8" fontSize="8" textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} fontFamily="system-ui, sans-serif">
-                    {dl.label}
-                  </text>
-                ))}
-              </svg>
-            </div>
-          </div>
-        );
-      })()}
+      {chartData && <EmbedTrendChart data={chartData} palette={palette} />}
 
       {/* Bottom: Links (#10 friendlier language) */}
       <EmbedFooter
@@ -651,75 +513,4 @@ export default function EmbedWidgetPage() {
       />
     </div>
   );
-}
-
-function LiveMetric({
-  label,
-  value,
-  detail,
-  palette,
-  className = '',
-  accent,
-  detailColor,
-  href,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  palette: ReturnType<typeof embedPalette>;
-  className?: string;
-  accent?: ReturnType<typeof conditionChip>;
-  detailColor?: string;
-  href?: string;
-}) {
-  const content = (
-    <>
-      <div className="flex items-center justify-center gap-1.5 text-xs font-medium" style={{ color: palette.textSecondary }}>
-        {accent && (
-          <span
-            aria-hidden="true"
-            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-            style={{ background: accent.solid }}
-          />
-        )}
-        {label}
-      </div>
-      <div
-        className="mt-0.5 text-sm font-bold break-words tabular-nums text-center"
-        style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}
-      >
-        {value}
-      </div>
-      <div
-        className="mt-0.5 text-xs truncate capitalize text-center"
-        title={detail}
-        style={{ color: detailColor || palette.textSecondary }}
-      >
-        {detail}{href ? ' →' : ''}
-      </div>
-    </>
-  );
-  const style = {
-    borderColor: palette.border,
-    borderTopColor: accent?.solid || palette.border,
-    background: accent?.background,
-  };
-  const classes = `min-w-0 px-2 py-2 text-center border-t-2 ${href ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]' : ''} ${className}`;
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${classes} no-underline transition-colors`}
-        style={style}
-        aria-label={`${label}: ${value}. ${detail}. Open weather and levels.`}
-      >
-        {content}
-      </a>
-    );
-  }
-
-  return <div className={classes} style={style}>{content}</div>;
 }
