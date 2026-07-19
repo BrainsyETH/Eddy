@@ -5,12 +5,14 @@
 // Shows the AI-generated condition update with Eddy mascot, condition badge, and
 // links back to the full river page. Falls back to static quote when no AI update exists.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
+import EmbedWidgetSkeleton, { EmbedUnavailableState } from '@/components/embed/EmbedWidgetSkeleton';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { eddyDeepLink } from '@/lib/embed/branding';
@@ -199,7 +201,7 @@ export default function EddyQuoteEmbedPage() {
   const conditionCode = river?.currentCondition?.code || update?.conditionCode || 'unknown';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
   const conditionStyle = conditionChip(conditionCode);
-  const weatherHref = eddyDeepLink(origin, `/gauges?river=${slug}`, {
+  const weatherHref = eddyDeepLink(origin, `/plan?river=${slug}`, {
     widget: 'eddy-quote',
     key: slug,
     partner: branding?.businessName || partner || undefined,
@@ -230,29 +232,11 @@ export default function EddyQuoteEmbedPage() {
   const { bg, textPrimary, textSecondary } = palette;
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 140, background: bg }}>
-        <div
-          style={{
-            width: 20,
-            height: 20,
-            border: '2px solid #2D7889',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <EmbedWidgetSkeleton palette={palette} variant="quote" />;
   }
 
   if (!river) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 140, background: bg, color: textSecondary, padding: 16, textAlign: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
-        River conditions temporarily unavailable
-      </div>
-    );
+    return <EmbedUnavailableState palette={palette} minHeight={160} />;
   }
 
   return (
@@ -305,45 +289,39 @@ export default function EddyQuoteEmbedPage() {
             : 'Observation time unavailable'}
         </div>
       </div>
-      <section
-        aria-label="River conditions at a glance"
-        className="grid grid-cols-2 sm:grid-cols-4 overflow-hidden rounded-lg border"
-        style={{ borderColor: palette.border, background: palette.cardBg }}
-      >
-        <Metric
-          label="Gauge height"
-          value={gaugeSnapshot?.gaugeHeightFt != null ? `${gaugeSnapshot.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable'}
-          detail={gaugeSnapshot?.name || 'Primary gauge'}
-          palette={palette}
-          className="border-r border-b sm:border-b-0"
-          accent={conditionStyle}
-        />
-        <Metric
-          label="Flow now"
-          value={gaugeSnapshot?.dischargeCfs != null ? `${gaugeSnapshot.dischargeCfs.toLocaleString()} cfs` : 'Unavailable'}
-          detail="Present discharge"
-          palette={palette}
-          className="border-b sm:border-b-0 sm:border-r"
-          accent={conditionStyle}
-        />
-        <Metric
-          label="Optimal range"
-          value={optimalRange || 'Not set'}
-          detail="Established range"
-          palette={palette}
-          className="border-r"
-        />
-        <Metric
-          label="Weather"
-          value={weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable'}
-          detail={[
-            weather?.condition || forecast?.condition,
-            forecast ? `${Math.round(forecast.precipitation)}% rain` : null,
-          ].filter(Boolean).join(' · ') || 'Weather unavailable'}
-          palette={palette}
-          href={weatherHref}
-        />
-      </section>
+      <EmbedMetricGrid
+        ariaLabel="River conditions at a glance"
+        palette={palette}
+        metrics={[
+          {
+            label: 'Gauge height',
+            value: gaugeSnapshot?.gaugeHeightFt != null ? `${gaugeSnapshot.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable',
+            detail: gaugeSnapshot?.name || 'Primary gauge',
+            accent: conditionStyle,
+          },
+          {
+            label: 'Flow now',
+            value: gaugeSnapshot?.dischargeCfs != null ? `${gaugeSnapshot.dischargeCfs.toLocaleString()} cfs` : 'Unavailable',
+            detail: 'Present discharge',
+            accent: conditionStyle,
+          },
+          {
+            label: 'Optimal range',
+            value: optimalRange || 'Not set',
+            detail: 'Established range',
+          },
+          {
+            label: 'Weather',
+            value: weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable',
+            detail: [
+              weather?.condition || forecast?.condition,
+              forecast ? `${Math.round(forecast.precipitation)}% rain` : null,
+            ].filter(Boolean).join(' · ') || 'Weather unavailable',
+            href: weatherHref,
+            linkLabel: `Weather for ${river.name}. Open Plan a Float.`,
+          },
+        ]}
+      />
 
       {gaugeSnapshot?.readingSuspect && gaugeSnapshot.qualifierNote && (
         <div
@@ -395,7 +373,10 @@ export default function EddyQuoteEmbedPage() {
             style={{ borderColor: palette.border, background: palette.cardBg }}
             open={conditionChangedSinceQuote || EXPANDED_CONDITIONS.has(conditionCode as ConditionCode)}
           >
-            <summary className="cursor-pointer text-xs font-bold" style={{ color: palette.link }}>
+            <summary
+              className="embed-control flex min-h-8 cursor-pointer items-center rounded text-xs font-bold"
+              style={{ color: palette.link, '--embed-focus': palette.focus } as CSSProperties}
+            >
               Read full condition update
             </summary>
             <p className="mt-2 mb-0 text-sm leading-relaxed" style={{ color: textSecondary }}>
@@ -421,70 +402,4 @@ export default function EddyQuoteEmbedPage() {
       />
     </div>
   );
-}
-
-function Metric({
-  label,
-  value,
-  detail,
-  palette,
-  className = '',
-  accent,
-  href,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  palette: ReturnType<typeof embedPalette>;
-  className?: string;
-  accent?: ReturnType<typeof conditionChip>;
-  href?: string;
-}) {
-  const content = (
-    <>
-      <div className="flex items-center justify-center gap-1.5 text-xs font-medium" style={{ color: palette.textSecondary }}>
-        {accent && (
-          <span
-            aria-hidden="true"
-            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-            style={{ background: accent.solid }}
-          />
-        )}
-        {label}
-      </div>
-      <div
-        className="mt-0.5 text-sm font-bold break-words tabular-nums text-center"
-        style={{ color: palette.textPrimary, fontFamily: EMBED_FONTS.mono }}
-      >
-        {value}
-      </div>
-      <div className="mt-0.5 text-xs truncate text-center" title={detail} style={{ color: palette.textSecondary }}>
-        {detail}{href ? ' →' : ''}
-      </div>
-    </>
-  );
-
-  const style = {
-    borderColor: palette.border,
-    borderTopColor: accent?.solid || palette.border,
-    background: accent?.background,
-  };
-  const classes = `min-w-0 px-2 py-2 text-center border-t-2 ${href ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]' : ''} ${className}`;
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${classes} no-underline transition-colors`}
-        style={style}
-        aria-label={`${label}: ${value}. ${detail}. Open weather and levels.`}
-      >
-        {content}
-      </a>
-    );
-  }
-
-  return <div className={classes} style={style}>{content}</div>;
 }
