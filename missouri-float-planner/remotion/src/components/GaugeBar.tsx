@@ -158,6 +158,72 @@ function mixHex(a: string, b: string, t: number): string {
   return `#${ch(0)}${ch(2)}${ch(4)}`;
 }
 
+/** #rrggbb + alpha → rgba() string (for the translucent zone scale). */
+function hexA(hex: string, a: number): string {
+  const p = hex.replace("#", "");
+  const r = parseInt(p.slice(0, 2), 16);
+  const g = parseInt(p.slice(2, 4), 16);
+  const b = parseInt(p.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/** Canonical condition hues for the labeled zone scale — the SAME learnable
+ *  colors used across the app (see shared/condition-system.ts): low=yellow,
+ *  good=green, high=orange, flood=red. */
+const ZONE_COLORS = {
+  low: "#eab308",
+  good: "#10b981",
+  high: "#f97316",
+  flood: "#ef4444",
+} as const;
+
+export interface GaugeZone {
+  from: number;
+  to: number;
+  color: string;
+  label: string;
+}
+
+/**
+ * Build the fixed, labeled semantic scale for the instrument (emphasis) bar
+ * from whatever ft thresholds exist, covering [0, maxHeight] with no gaps:
+ *   LOW  [0, optimalMin)         yellow
+ *   GOOD [optimalMin, highBottom) green   (highBottom = levelHigh ?? optimalMax)
+ *   HIGH [highBottom, dangerous)  orange
+ *   FLOOD[dangerous, maxHeight]   red
+ * Missing thresholds collapse their zone gracefully (a CFS-only gauge with no ft
+ * bounds yields a single unlabeled scale rather than a fabricated band).
+ */
+export function buildGaugeZones(opts: {
+  maxHeight: number;
+  optimalMin?: number;
+  optimalMax?: number;
+  levelHigh?: number;
+  levelDangerous?: number;
+}): GaugeZone[] {
+  const { maxHeight, optimalMin, optimalMax, levelHigh, levelDangerous } = opts;
+  const zones: GaugeZone[] = [];
+  let cursor = 0;
+  const add = (top: number | undefined, color: string, label: string) => {
+    if (top == null) return;
+    const t = Math.min(top, maxHeight);
+    if (t > cursor + 0.02) {
+      zones.push({ from: cursor, to: t, color, label });
+      cursor = t;
+    }
+  };
+  const highBottom = levelHigh ?? optimalMax;
+  add(optimalMin, ZONE_COLORS.low, "LOW");
+  add(highBottom, ZONE_COLORS.good, "GOOD");
+  if (levelDangerous != null) {
+    add(levelDangerous, ZONE_COLORS.high, "HIGH");
+    add(maxHeight, ZONE_COLORS.flood, "FLOOD");
+  } else {
+    add(maxHeight, ZONE_COLORS.high, "HIGH");
+  }
+  return zones;
+}
+
 /**
  * Animated vertical gauge — the "field instrument". Solid panel with a hard
  * shadow (no glassmorphism/glow), a numeric ft scale, a labeled GOOD band, a
@@ -251,6 +317,13 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   const ticks: number[] = [];
   for (let ft = tickStep; ft < maxHeight; ft += tickStep) ticks.push(ft);
 
+  // Emphasis ("field instrument") mode renders a fixed, LABELED color scale
+  // instead of the compact bar's single recoloring fill + overlaid GOOD band —
+  // the combination that muddied into olive and put "GOOD" inside high water.
+  const zones = emphasis
+    ? buildGaugeZones({ maxHeight, optimalMin, optimalMax, levelHigh, levelDangerous })
+    : [];
+
   return (
     <div
       style={{
@@ -305,12 +378,137 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         </div>
       ))}
 
+      {/* ── Instrument (emphasis) scale ─────────────────────────────
+          A fixed, LABELED color scale — low/good/high/flood in the canonical
+          condition hues — replaces the compact bar's recoloring fill + overlaid
+          green band. The live level is shown by keeping the reached scale bright
+          and dimming the rest (not by tinting the water), so the colors never
+          mix into mud and the reading always lands in a clearly-labeled zone. */}
+      {emphasis &&
+        zones.map((z, i) => {
+          const bottomPct = (z.from / maxHeight) * 100;
+          const heightPct = ((z.to - z.from) / maxHeight) * 100;
+          return (
+            <div
+              key={`${z.label}-${i}`}
+              style={{
+                position: "absolute",
+                bottom: `${bottomPct}%`,
+                height: `${heightPct}%`,
+                left: 0,
+                right: 0,
+                backgroundColor: hexA(z.color, 0.55),
+                // Divider between zones (skip the topmost one — it meets the frame).
+                borderTop: i === zones.length - 1 ? undefined : "1px solid rgba(255,255,255,0.18)",
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "flex-end",
+                zIndex: 1,
+              }}
+            >
+              {/* Zone label sits at the BOTTOM of its band, so labels of the
+                  zones the water has passed through stay bright (below the dim
+                  scrim) and never collide with a mid-zone reading marker. */}
+              {heightPct > 5 && (
+                <span
+                  style={{
+                    fontFamily: "'Geist Sans', system-ui, sans-serif",
+                    fontSize: 15,
+                    fontWeight: 800,
+                    letterSpacing: 2,
+                    color: z.color,
+                    padding: "0 10px 6px 0",
+                    textShadow: "0 1px 4px rgba(0,0,0,0.95)",
+                  }}
+                >
+                  {z.label}
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+      {/* Level indicator — dim the not-yet-reached part of the scale so the
+          reached level reads bright. The bright/dim boundary IS the waterline. */}
+      {emphasis && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: `${fillFraction * 100}%`,
+            height: `${(1 - fillFraction) * 100}%`,
+            left: 0,
+            right: 0,
+            backgroundColor: "rgba(8,26,31,0.62)",
+            zIndex: 1,
+          }}
+        />
+      )}
+
+      {/* Subtle surface sheen just under the waterline (a hint of "wet"). */}
+      {emphasis && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            height: `${fillFraction * 100}%`,
+            left: 0,
+            right: 0,
+            background: "linear-gradient(to top, rgba(255,255,255,0.07), rgba(255,255,255,0) 45%)",
+            zIndex: 1,
+          }}
+        />
+      )}
+
+      {/* Reading marker — ONE bright waterline + a value pill pinned to the
+          level, condition-colored (teal until it crosses HIGH, then the alarm
+          hue). This is the single "you are here" pointer. */}
+      {emphasis && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              bottom: `${fillFraction * 100}%`,
+              left: 0,
+              right: 0,
+              height: 5,
+              backgroundColor: waterColor,
+              boxShadow: `0 0 16px ${waterColor}`,
+              transform: "translateY(2.5px)",
+              opacity: fill.progress,
+              zIndex: 5,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: `${fillFraction * 100}%`,
+              right: 6,
+              transform: "translateY(50%)",
+              backgroundColor: waterColor,
+              color: "#fff",
+              padding: "4px 11px",
+              borderRadius: 8,
+              border: "2px solid rgba(255,255,255,0.35)",
+              fontFamily: "'Geist Mono', monospace",
+              fontSize: 17,
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+              opacity: fill.progress,
+              boxShadow: "3px 3px 0 rgba(0,0,0,0.35)",
+              zIndex: 5,
+            }}
+          >
+            {fill.value.toFixed(1)} ft
+          </div>
+        </>
+      )}
+
       {/* GOOD range band — green-tinted with its own label; above the fill so
           the safe zone stays marked even when the level submerges it. The tint
           is strong enough to read over the saturated water fill (at 0.18 it
           visually vanished underwater, so the band appeared to shrink as the
-          level rose). */}
-      {hasBand && (
+          level rose). Compact bar only — emphasis uses the labeled scale above. */}
+      {hasBand && !emphasis && (
         <div
           style={{
             position: "absolute",
@@ -346,32 +544,37 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         </div>
       )}
 
-      {/* Animated water fill — teal until the high-threshold crossing */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          width: "100%",
-          height: `${fillFraction * 100}%`,
-          background: `linear-gradient(to top, ${waterColor}, ${waterColor}aa)`,
-          borderRadius: "0 0 16px 16px",
-        }}
-      >
-        {/* Waterline highlight */}
+      {/* Animated water fill — teal until the high-threshold crossing.
+          Compact bar only; the emphasis instrument shows level via the
+          bright/dim scale split + marker above. */}
+      {!emphasis && (
         <div
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            backgroundColor: "rgba(255,255,255,0.55)",
+            bottom: 0,
+            width: "100%",
+            height: `${fillFraction * 100}%`,
+            background: `linear-gradient(to top, ${waterColor}, ${waterColor}aa)`,
+            borderRadius: "0 0 16px 16px",
           }}
-        />
-      </div>
+        >
+          {/* Waterline highlight */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 4,
+              backgroundColor: "rgba(255,255,255,0.55)",
+            }}
+          />
+        </div>
+      )}
 
-      {/* Dangerous / flood zone (red tint from the flood threshold to the top) */}
-      {dangerFraction != null && (
+      {/* Dangerous / flood zone (red tint from the flood threshold to the top).
+          Compact bar only — emphasis renders a labeled FLOOD zone in the scale. */}
+      {dangerFraction != null && !emphasis && (
         <div
           style={{
             position: "absolute",
@@ -385,8 +588,10 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         />
       )}
 
-      {/* High-water threshold — dashed line that flashes at the crossing */}
-      {highFraction != null && (
+      {/* High-water threshold — dashed line that flashes at the crossing.
+          Compact bar only; in the emphasis scale the GOOD→HIGH color change
+          already marks this line. */}
+      {highFraction != null && !emphasis && (
         <div
           style={{
             position: "absolute",
@@ -401,23 +606,19 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
       )}
 
       {/* Threshold labels (inside, right-aligned — parent clips overflow).
-          Emphasis mode drops the word "High" — the dashed line's position
-          says what it is, and the alert eyebrow already names it. */}
-      {highFraction != null && (
+          Compact bar only — the emphasis instrument labels its zones directly. */}
+      {highFraction != null && !emphasis && (
         <ThresholdLabel
           fraction={highFraction}
-          text={emphasis && levelHigh != null ? `${levelHigh.toFixed(1)} ft` : "high"}
+          text="high"
           color={thresholdColor}
-          emphasis={emphasis}
-          mono={emphasis}
         />
       )}
-      {dangerFraction != null && (
+      {dangerFraction != null && !emphasis && (
         <ThresholdLabel
           fraction={dangerFraction}
           text="flood"
           color="rgba(239,68,68,0.95)"
-          emphasis={emphasis}
         />
       )}
 
