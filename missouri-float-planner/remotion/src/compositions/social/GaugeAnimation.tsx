@@ -9,7 +9,7 @@ import {
   interpolate,
   staticFile,
 } from "remotion";
-import { EddyMascot } from "../../components/EddyMascot";
+import { EddyMascot, eddyVariantFile } from "../../components/EddyMascot";
 import { GaugeBar, gaugeFillModel } from "../../components/GaugeBar";
 import { Watermark } from "../../components/Watermark";
 import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
@@ -248,14 +248,18 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               marginBottom: 8,
             }}
           >
-            {/* Eddy is the host — his icon fronts the alert instead of a generic
-                ⚠️/✅ emoji. Rendered as a plain always-visible Img (no entrance)
-                so the first autoplay frame / grid thumbnail is branded. */}
+            {/* Eddy is the host — his CONDITION MOOD otter fronts the alert
+                (red-flag for high, flood otter for dangerous, green for the
+                all-clear) instead of a generic ⚠️/✅ emoji, matching the otter
+                shown everywhere else for this level. Full-body art, so it's
+                sized by height (width auto). Plain always-visible Img (no
+                entrance) so the first autoplay frame / grid thumbnail is
+                branded. */}
             <Img
-              src={staticFile("eddy/eddy-favicon.png")}
+              src={staticFile(eddyVariantFile(getOtterVariant(conditionCode)))}
               style={{
-                width: isPortrait ? 62 : 46,
-                height: isPortrait ? 62 : 46,
+                height: isPortrait ? 74 : 56,
+                width: "auto",
                 objectFit: "contain",
                 filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.5))",
               }}
