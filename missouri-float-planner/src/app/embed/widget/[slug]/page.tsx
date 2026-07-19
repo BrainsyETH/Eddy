@@ -8,10 +8,11 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
-import { CONDITION_COLORS } from '@/constants';
+import { CONDITION_COLORS, getEddyImageForCondition } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
+import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
 import EmbedTrendChart, { type EmbedChartData } from '@/components/embed/EmbedTrendChart';
@@ -377,6 +378,8 @@ export default function EmbedWidgetPage() {
               metrics={[
                 {
                   label: 'Gauge height',
+                  icon: 'gauge',
+                  iconImageUrl: getEddyImageForCondition(primaryGauge.conditionCode),
                   value: primaryGauge.gaugeHeightFt != null ? `${primaryGauge.gaugeHeightFt.toFixed(1)} ft` : 'Unavailable',
                   detail: primaryTrend ? `${getTrendArrow(primaryTrend)} ${primaryTrend}` : primaryGauge.conditionLabel,
                   accent: primaryConditionStyle,
@@ -384,17 +387,22 @@ export default function EmbedWidgetPage() {
                 },
                 {
                   label: 'Flow now',
+                  icon: 'flow',
+                  iconImageUrl: getEddyImageForCondition(primaryGauge.conditionCode),
                   value: primaryGauge.dischargeCfs != null ? `${primaryGauge.dischargeCfs.toLocaleString()} cfs` : 'Unavailable',
                   detail: primaryGauge.conditionLabel,
                   accent: primaryConditionStyle,
                 },
                 {
                   label: 'Optimal range',
+                  icon: 'optimal',
+                  iconImageUrl: FLAG_GREEN_ICON,
                   value: primaryGauge.optimalRange || 'Not set',
                   detail: 'Established range',
                 },
                 {
                   label: 'Weather',
+                  icon: 'weather',
                   value: weather ? `${Math.round(weather.temp)}°F` : 'Unavailable',
                   detail: weather
                     ? `${weather.condition}${weather.windSpeed > 5 ? ` · Wind ${Math.round(weather.windSpeed)} mph` : ''}`
