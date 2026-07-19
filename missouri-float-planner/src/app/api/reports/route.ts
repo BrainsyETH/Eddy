@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
       accessPointId,
       gaugeStationId,
       submitterName,
+      capturedAt,
+      readingSource,
     } = body;
 
     // Validate required fields
@@ -128,6 +130,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid dischargeCfs' }, { status: 400 });
     }
 
+    // capturedAt (EXIF capture time), when present, must be a valid, non-future
+    // ISO timestamp within the plausible USGS record.
+    let capturedAtIso: string | null = null;
+    if (capturedAt != null) {
+      const d = new Date(capturedAt);
+      const now = Date.now();
+      if (
+        isNaN(d.getTime()) ||
+        d.getTime() > now + 60 * 60 * 1000 ||
+        d.getTime() < now - 40 * 365 * 24 * 60 * 60 * 1000
+      ) {
+        return NextResponse.json({ error: 'Invalid capturedAt' }, { status: 400 });
+      }
+      capturedAtIso = d.toISOString();
+    }
+    if (readingSource != null && !['live', 'historical', 'manual'].includes(readingSource)) {
+      return NextResponse.json({ error: 'Invalid readingSource' }, { status: 400 });
+    }
+
     const supabase = createAdminClient();
 
     // Build the base insert payload (without coordinates — added below)
@@ -148,6 +169,8 @@ export async function POST(request: NextRequest) {
       if (dischargeCfs != null) baseData.discharge_cfs = dischargeCfs;
       if (accessPointId) baseData.access_point_id = accessPointId;
       if (gaugeStationId) baseData.gauge_station_id = gaugeStationId;
+      if (capturedAtIso) baseData.captured_at = capturedAtIso;
+      if (readingSource) baseData.reading_source = readingSource;
     }
 
     // Try inserting with different geometry formats
