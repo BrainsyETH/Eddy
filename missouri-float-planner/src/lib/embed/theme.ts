@@ -21,6 +21,12 @@ export interface EmbedPalette {
   accent: string;
   /** Hard offset shadow color (Organic Brutalist depth). */
   shadow: string;
+  /** Subtle linked-cell hover surface. */
+  hoverBg: string;
+  /** High-visibility keyboard focus color. */
+  focus: string;
+  /** Neutral loading placeholder. */
+  skeleton: string;
 }
 
 export function embedPalette(isDark: boolean): EmbedPalette {
@@ -34,6 +40,9 @@ export function embedPalette(isDark: boolean): EmbedPalette {
         link: '#7FC4D4',
         accent: '#F07052',
         shadow: 'rgba(0, 0, 0, 0.45)',
+        hoverBg: '#1D525F',
+        focus: '#A3D1DB',
+        skeleton: '#2D5660',
       }
     : {
         bg: '#ffffff',
@@ -44,6 +53,9 @@ export function embedPalette(isDark: boolean): EmbedPalette {
         link: '#2D7889',
         accent: '#F07052',
         shadow: '#C2BAAC',
+        hoverBg: '#EBF5F7',
+        focus: '#2D7889',
+        skeleton: '#DBD5CA',
       };
 }
 
