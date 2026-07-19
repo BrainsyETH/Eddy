@@ -5,6 +5,7 @@
 // Includes optional RainViewer weather radar overlay
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Maximize2, Minimize2 } from 'lucide-react';
@@ -193,6 +194,22 @@ export default function MapContainer({
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('immersive');
   const [showStylePicker, setShowStylePicker] = useState(false);
   const stylePickerRef = useRef<HTMLDivElement>(null);
+  // The style menu is portaled to <body> so it renders ABOVE the mobile float
+  // plan sheet (fixed z-40). It can't just use a higher z-index in place: the
+  // map root is an `isolate` stacking context that sits below the sheet at the
+  // page level, so any z-index on the in-map dropdown is trapped beneath it —
+  // and you couldn't change the map style while the float plan was open.
+  const stylePickerBtnRef = useRef<HTMLButtonElement>(null);
+  const stylePanelRef = useRef<HTMLDivElement>(null);
+  const [stylePanelPos, setStylePanelPos] = useState<{ top: number; right: number } | null>(null);
+
+  // Anchor the portaled panel under the Layers button.
+  const positionStylePanel = useCallback(() => {
+    const btn = stylePickerBtnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    setStylePanelPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+  }, []);
   // Current style key, readable from the persistent style.load handler
   // (state would be a stale closure there).
   const styleKeyRef = useRef<MapStyleKey>('liberty');
@@ -216,24 +233,34 @@ export default function MapContainer({
   const cameraSetAtCreateRef = useRef(false);
   const firstBoundsFitRef = useRef(true);
 
-  // Close the style picker on outside click or Escape
+  // Close the style picker on outside click or Escape. The panel is portaled
+  // to <body>, so "outside" must also exclude the panel itself (otherwise
+  // tapping the in-panel weather / 3D toggles would dismiss the menu).
   useEffect(() => {
     if (!showStylePicker) return;
     const onMouseDown = (e: MouseEvent) => {
-      if (stylePickerRef.current && !stylePickerRef.current.contains(e.target as Node)) {
-        setShowStylePicker(false);
-      }
+      const t = e.target as Node;
+      const insideBtn = stylePickerRef.current?.contains(t);
+      const insidePanel = stylePanelRef.current?.contains(t);
+      if (!insideBtn && !insidePanel) setShowStylePicker(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowStylePicker(false);
     };
+    // A fixed-position panel would detach from the button on scroll/resize;
+    // reposition so it stays anchored.
+    const onReflow = () => positionStylePanel();
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onReflow);
+    window.addEventListener('scroll', onReflow, true);
     return () => {
       document.removeEventListener('mousedown', onMouseDown);
       document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onReflow);
+      window.removeEventListener('scroll', onReflow, true);
     };
-  }, [showStylePicker]);
+  }, [showStylePicker, positionStylePanel]);
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const radarSourceId = 'rainviewer-radar';
@@ -621,15 +648,20 @@ export default function MapContainer({
           so the column starts near the top; on desktop it sits below the
           MapLibre zoom/compass stack. */}
       {/* z-10 normally, but lifted above the z-20 hint/stats overlays while
-          the layers menu is open — the column is a stacking context, so an
-          inner z-50 alone can never escape it. */}
+          the layers menu is open. The dropdown PANEL itself is portaled to
+          <body> (below) so it clears the mobile float plan sheet. */}
       <div className={`absolute top-2.5 md:top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 ${showStylePicker ? 'z-30' : 'z-10'}`}>
         {/* Layers menu: map style everywhere; on mobile it also carries the
             weather-radar and gauge toggles so the map edge shows ONE button
             instead of three. */}
-        <div ref={stylePickerRef} className={`relative ${showStylePicker ? 'z-50' : ''}`}>
+        <div ref={stylePickerRef} className="relative">
           <button
-            onClick={() => setShowStylePicker(!showStylePicker)}
+            ref={stylePickerBtnRef}
+            onClick={() => {
+              const next = !showStylePicker;
+              if (next) positionStylePanel();
+              setShowStylePicker(next);
+            }}
             className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
               showStylePicker
                 ? 'bg-primary-500 text-white'
@@ -641,45 +673,55 @@ export default function MapContainer({
           >
             <Layers className="w-5 h-5" />
           </button>
-
-          {showStylePicker && (
-            <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[150px] z-50">
-              {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => changeMapStyle(key)}
-                  className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
-                    mapStyle === key ? 'bg-primary-50 text-primary-600 font-medium' : 'text-gray-700'
-                  }`}
-                >
-                  {MAP_STYLES[key].name}
-                </button>
-              ))}
-
-              {/* Mobile-only overlay toggles (desktop keeps dedicated buttons).
-                  Deliberately does NOT close the menu, so both can be toggled
-                  in one visit. */}
-              <div className="md:hidden border-t border-gray-200">
-                <button
-                  onClick={toggleWeather}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
-                  aria-pressed={weatherEnabled}
-                >
-                  <span>Weather radar</span>
-                  <span className={`w-2 h-2 rounded-full ${weatherEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
-                </button>
-                <button
-                  onClick={toggle3D}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
-                  aria-pressed={is3D}
-                >
-                  <span>3D terrain</span>
-                  <span className={`w-2 h-2 rounded-full ${is3D ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Style menu panel — portaled to <body> so its z-index is compared at
+            the page level and wins over the float plan sheet (z-40), instead of
+            being trapped inside the map's `isolate` stacking context. That trap
+            is exactly why the map style couldn't be changed with the float plan
+            open. */}
+        {typeof document !== 'undefined' && showStylePicker && stylePanelPos && createPortal(
+          <div
+            ref={stylePanelRef}
+            style={{ position: 'fixed', top: stylePanelPos.top, right: stylePanelPos.right, zIndex: 60 }}
+            className="bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[150px]"
+          >
+            {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => changeMapStyle(key)}
+                className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
+                  mapStyle === key ? 'bg-primary-50 text-primary-600 font-medium' : 'text-gray-700'
+                }`}
+              >
+                {MAP_STYLES[key].name}
+              </button>
+            ))}
+
+            {/* Mobile-only overlay toggles (desktop keeps dedicated buttons).
+                Deliberately does NOT close the menu, so both can be toggled
+                in one visit. */}
+            <div className="md:hidden border-t border-gray-200">
+              <button
+                onClick={toggleWeather}
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
+                aria-pressed={weatherEnabled}
+              >
+                <span>Weather radar</span>
+                <span className={`w-2 h-2 rounded-full ${weatherEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
+              </button>
+              <button
+                onClick={toggle3D}
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
+                aria-pressed={is3D}
+              >
+                <span>3D terrain</span>
+                <span className={`w-2 h-2 rounded-full ${is3D ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
         {/* Weather Overlay Toggle - desktop only (mobile: inside Layers menu) */}
         <button
