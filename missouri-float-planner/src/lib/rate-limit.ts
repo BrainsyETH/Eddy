@@ -9,10 +9,14 @@
 //   best-effort only (each lambda instance has its own store), which is why
 //   the Redis path exists — configure Upstash in production.
 //
-// Redis remains optional. When unavailable, the per-instance fallback keeps
-// writes usable while still providing basic burst protection.
+// Failure policy (audit F14): read-mostly routes fail open — a limiter outage
+// must not take down public condition data. Costly/storage/auth routes (login,
+// upload, reports, feedback, subscribe, chat) pass { failClosed: true } and get
+// a 503 when Redis is configured but erroring, because unlimited access to
+// those endpoints is worse than a brief write outage.
 
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 interface RateLimitEntry {
   count: number;
@@ -22,7 +26,8 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>();
 
 // Cleanup old entries every 5 minutes to prevent memory leak (in-memory
-// fallback only; harmless no-op churn when Redis is configured).
+// fallback only; harmless no-op churn when Redis is configured). unref() so
+// this housekeeping timer never holds the process (or a test run) open.
 setInterval(() => {
   const now = Date.now();
   store.forEach((entry, key) => {
@@ -30,7 +35,7 @@ setInterval(() => {
       store.delete(key);
     }
   });
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref?.();
 
 function tooManyRequests(retryAfterSeconds: number): NextResponse {
   return NextResponse.json(
@@ -74,7 +79,7 @@ async function redisIncrement(
     });
 
     if (!res.ok) {
-      console.warn(`[RateLimit] Upstash error ${res.status}; failing open`);
+      logger.warn('[RateLimit] Upstash error', { status: res.status });
       return null;
     }
 
@@ -84,31 +89,71 @@ async function redisIncrement(
     if (typeof count !== 'number') return null;
     return { count, ttlMs: typeof ttlMs === 'number' && ttlMs > 0 ? ttlMs : windowMs };
   } catch (e) {
-    console.warn('[RateLimit] Upstash request failed; failing open:', e);
+    logger.warn('[RateLimit] Upstash request failed', { error: String(e) });
     return null;
   }
 }
 
+function limiterUnavailable(): NextResponse {
+  return NextResponse.json(
+    { error: 'Service temporarily unavailable. Please try again shortly.' },
+    { status: 503, headers: { 'Retry-After': '30', 'Cache-Control': 'private, no-store' } }
+  );
+}
+
+export interface RateLimitOptions {
+  /**
+   * When true and Upstash is configured but erroring/unreachable, reject with
+   * 503 instead of allowing the request. Use for costly, storage-writing, and
+   * authentication endpoints where "unlimited while the limiter is down" is a
+   * worse failure than a brief write outage. Read-mostly routes should leave
+   * this unset and fail open.
+   */
+  failClosed?: boolean;
+}
+
+// Warn (not throw) once per process when a fail-closed route runs in
+// production without a global limiter — per-instance limiting still applies,
+// but fan-out across serverless instances is possible (audit F14).
+let warnedNoGlobalLimiter = false;
+
 /**
- * Rate limiter. Returns null if allowed, or a 429 NextResponse if limited.
+ * Rate limiter. Returns null if allowed, or a 429/503 NextResponse if the
+ * request should be rejected.
  *
  * @param key Unique key for this rate limit bucket (e.g., IP + route)
  * @param limit Max requests per window
  * @param windowMs Window duration in milliseconds
+ * @param options Failure policy — see RateLimitOptions.
  */
 export async function rateLimit(
   key: string,
   limit: number,
-  windowMs: number
+  windowMs: number,
+  options?: RateLimitOptions
 ): Promise<NextResponse | null> {
   // Global limiter when Upstash is configured
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     const result = await redisIncrement(key, windowMs);
-    if (result === null) return null;
+    if (result === null) {
+      if (options?.failClosed) {
+        logger.error('[RateLimit] limiter unavailable; failing closed', undefined, { key });
+        return limiterUnavailable();
+      }
+      return null;
+    }
     if (result.count > limit) {
       return tooManyRequests(Math.ceil(result.ttlMs / 1000));
     }
     return null;
+  }
+
+  if (options?.failClosed && process.env.NODE_ENV === 'production' && !warnedNoGlobalLimiter) {
+    warnedNoGlobalLimiter = true;
+    logger.warn(
+      '[RateLimit] fail-closed route running without Upstash configured; ' +
+        'limits are per-instance only — configure UPSTASH_REDIS_REST_URL/TOKEN'
+    );
   }
 
   // In-memory fallback (per-instance; dev / not-yet-configured environments)

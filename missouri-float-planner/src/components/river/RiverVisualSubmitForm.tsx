@@ -201,8 +201,10 @@ export default function RiverVisualSubmitForm({
         throw new Error(uploadError.error || 'Failed to upload image');
       }
 
+      // The upload endpoint quarantines the photo and returns its storage
+      // path; the photo only becomes publicly visible after moderation.
       const uploadData = await uploadRes.json();
-      const imageUrl: string = uploadData.url;
+      const imagePath: string = uploadData.path;
       setUploading(false);
 
       // 2. Anchor the public photo to a real access point on this river. Never
@@ -220,7 +222,7 @@ export default function RiverVisualSubmitForm({
         type: 'river_visual',
         latitude,
         longitude,
-        imageUrl,
+        imagePath,
         description: description.trim(),
         gaugeHeightFt: gaugeHeight ? parseFloat(gaugeHeight) : undefined,
         dischargeCfs: dischargeCfs ? parseFloat(dischargeCfs) : undefined,

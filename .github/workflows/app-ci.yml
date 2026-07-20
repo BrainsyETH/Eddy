@@ -1,6 +1,7 @@
 # .github/workflows/app-ci.yml
-# CI gate for the Next.js app: dependency audit, SBOM, typecheck, and lint on
-# every relevant PR and push to main. Keeps regressions visible before deploy.
+# CI gate for the Next.js app: dependency audit, SBOM, typecheck, lint, and
+# unit tests on every relevant PR and push to main. Keeps regressions visible
+# before deploy.
 
 name: App CI
 
@@ -60,3 +61,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test

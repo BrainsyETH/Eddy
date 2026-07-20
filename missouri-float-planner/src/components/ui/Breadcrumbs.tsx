@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { jsonLdString } from '@/lib/json-ld';
 
 export interface BreadcrumbItem {
   label: string;
@@ -49,7 +50,7 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdString({
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',
             itemListElement: [

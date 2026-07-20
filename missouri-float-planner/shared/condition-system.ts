@@ -242,3 +242,57 @@ export const WEEKEND_FLOATABLE: ReadonlySet<string> = new Set([
   "good",
   "high",
 ]);
+
+/**
+ * The strictly positive "go float it" bucket — flowing/good ONLY. This is what
+ * public "Floatable now" counts, filters, and headline numbers use.
+ * DELIBERATELY narrower than WEEKEND_FLOATABLE above: high water is worth
+ * *featuring* for experienced paddlers, but it must never be folded into
+ * positive "floatable" copy — high/dangerous stay in caution language.
+ */
+export const FLOATABLE_NOW: ReadonlySet<string> = new Set(["flowing", "good"]);
+
+/** Per-code tallies plus the derived buckets every cross-river surface shares. */
+export interface ConditionCounts {
+  total: number;
+  byCode: Record<ConditionCode, number>;
+  /** flowing + good — the only conditions positive copy may count. */
+  floatableNow: number;
+  /** low + too_low — the "running low" caution bucket. */
+  runningLow: number;
+  /** high + dangerous — the "running high" caution bucket. */
+  runningHigh: number;
+}
+
+/**
+ * THE one calculation for cross-river condition counts. The River Reports hero
+ * summary and the filter pills (and any future tally) must all derive from this
+ * function so the same river can never read as "running high" in one sentence
+ * while being counted as positively "floatable" in the next. Unrecognized or
+ * missing codes count as unknown and join no bucket.
+ */
+export function summarizeConditionCounts(
+  codes: ReadonlyArray<string | null | undefined>,
+): ConditionCounts {
+  const byCode: Record<ConditionCode, number> = {
+    too_low: 0,
+    low: 0,
+    good: 0,
+    flowing: 0,
+    high: 0,
+    dangerous: 0,
+    unknown: 0,
+  };
+  for (const code of codes) {
+    const key: ConditionCode =
+      code && code in byCode ? (code as ConditionCode) : "unknown";
+    byCode[key] += 1;
+  }
+  return {
+    total: codes.length,
+    byCode,
+    floatableNow: byCode.flowing + byCode.good,
+    runningLow: byCode.low + byCode.too_low,
+    runningHigh: byCode.high + byCode.dangerous,
+  };
+}

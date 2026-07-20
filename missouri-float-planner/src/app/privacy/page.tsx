@@ -67,9 +67,10 @@ export default function PrivacyPage() {
             <li>
               <strong>Community reports and photos.</strong> Report type, description, river
               and coordinates, optional display name, selected access/gauge context, and an
-              uploaded photo. Approved reports or photos may be shown publicly. Eddy decodes
-              and re-encodes community photos before storage to remove embedded camera metadata,
-              including EXIF location metadata.
+              uploaded photo. Uploaded photos are held privately for review and only become
+              publicly visible if a moderator approves the report; rejected photos are
+              deleted from storage. Eddy decodes and re-encodes community photos before
+              storage to remove embedded camera metadata, including EXIF location metadata.
             </li>
             <li>
               <strong>Location you choose to use.</strong> If you use a “nearest me” feature,

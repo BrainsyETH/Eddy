@@ -9,6 +9,7 @@ import { CONDITION_COLORS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import AboutCollapsibleSection from '@/components/ui/AboutCollapsibleSection';
 import SiteFooter from '@/components/ui/SiteFooter';
+import { jsonLdString } from '@/lib/json-ld';
 
 export const metadata: Metadata = {
   title: 'How Eddy Works',
@@ -397,7 +398,7 @@ export default function AboutPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdString({
             '@context': 'https://schema.org',
             '@type': 'FAQPage',
             mainEntity: [

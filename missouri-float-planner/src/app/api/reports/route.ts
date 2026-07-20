@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { isValidUUID } from '@/lib/admin-auth';
+import { isQuarantinePath } from '@/lib/uploads/visual-moderation';
 import {
   isValidEarthCoordinate,
   REPORT_CORRIDOR_MAX_DISTANCE_METERS,
@@ -22,7 +23,7 @@ const MAX_IMAGE_URL_LEN = 1000;
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 5 report submissions per IP per 15 minutes
-    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json();
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
       latitude,
       longitude,
       imageUrl,
+      imagePath,
       description,
       gaugeHeightFt,
       dischargeCfs,
@@ -111,8 +113,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // River visual requires an image.
-    if (type === 'river_visual' && !imageUrl) {
+    // imagePath, when present, must be a well-formed quarantine object path
+    // as issued by /api/upload. The photo stays private until moderation
+    // publishes it (audit F15).
+    if (imagePath != null && !isQuarantinePath(imagePath)) {
+      return NextResponse.json(
+        { error: 'imagePath is not a valid upload reference' },
+        { status: 400 }
+      );
+    }
+
+    // River visual requires an image (a fresh quarantined upload, or a legacy
+    // already-public URL from older clients).
+    if (type === 'river_visual' && !imagePath && !imageUrl) {
       return NextResponse.json(
         { error: 'River visual reports require an image' },
         { status: 400 }
@@ -223,7 +236,10 @@ export async function POST(request: NextRequest) {
     const baseData: Record<string, unknown> = {
       river_id: riverId,
       type,
+      // image_url is only set for legacy clients that still send a URL; new
+      // uploads carry a quarantine path and get image_url at publish time.
       image_url: imageUrl || null,
+      image_path: imagePath || null,
       description: description.trim(),
       status: 'pending',
     };
