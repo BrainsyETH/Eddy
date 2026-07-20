@@ -372,29 +372,44 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   return (
     <div>
-        {/* Gauge meta — identity on top, actions below on mobile / inline on desktop */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500 mb-5">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+        {/* Gauge selection first — surface the gauge picker right under the
+            "Live report" heading so it's the first thing people reach. */}
+        {tabs.length > 1 && (
+          <div className="mb-3">
+            <GaugeTabBar
+              gauges={tabs}
+              activeSiteId={activeSiteId || ''}
+              onTabChange={setActiveSiteId}
+            />
+          </div>
+        )}
+
+        {/* Selected-gauge meta — identity + actions, compact under the picker */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500 mb-5 sm:mb-6">
+            <div className="min-w-0">
               <span className="font-medium text-neutral-600">{activeGauge.name}</span>
-              <span className="text-neutral-300">&middot;</span>
-              <a
-                href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
-              >
-                USGS {activeGauge.usgsSiteId}
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              {ageText && (
-                <>
-                  <span className="text-neutral-300">&middot;</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    {ageText}
-                  </span>
-                </>
-              )}
+              {/* Source + freshness stay together on their own line so the
+                  timestamp never wraps off on its own with an orphaned separator. */}
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500 mt-0.5">
+                <a
+                  href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
+                >
+                  USGS {activeGauge.usgsSiteId}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                {ageText && (
+                  <>
+                    <span className="text-neutral-300">&middot;</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {ageText}
+                    </span>
+                  </>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-4 sm:gap-3 sm:ml-auto">
               <Link
@@ -417,17 +432,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               </button>
             </div>
           </div>
-
-        {/* Gauge Tab Bar */}
-        {tabs.length > 1 && (
-          <div className="mb-4 sm:mb-6">
-            <GaugeTabBar
-              gauges={tabs}
-              activeSiteId={activeSiteId || ''}
-              onTabChange={setActiveSiteId}
-            />
-          </div>
-        )}
 
         {/* Chart + Reading Row */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 sm:gap-6 mb-6 sm:mb-8">
