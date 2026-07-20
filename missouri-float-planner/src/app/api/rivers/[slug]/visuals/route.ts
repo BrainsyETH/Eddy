@@ -34,24 +34,40 @@ export async function GET(
       return NextResponse.json({ error: 'River not found' }, { status: 404 });
     }
 
-    // 2. Fetch thresholds + current condition + visuals in parallel
-    const [thresholdsResult, conditionResult, visualsResult] = await Promise.all([
-      // Primary gauge thresholds
+    // When scoped to an access point, resolve its put-in point so "current
+    // condition" comes from the gauge that represents that reach (segment-aware),
+    // not the river's single primary gauge.
+    let putInPoint: string | null = null;
+    if (accessPointId) {
+      const { data: ap } = await supabase
+        .from('access_points')
+        .select('location_snap, location_orig')
+        .eq('id', accessPointId)
+        .eq('river_id', river.id)
+        .maybeSingle();
+      const coords = ap?.location_snap?.coordinates || ap?.location_orig?.coordinates;
+      if (coords) putInPoint = `SRID=4326;POINT(${coords[0]} ${coords[1]})`;
+    }
+
+    // 2. Fetch every gauge's thresholds + current condition + visuals in parallel
+    const [gaugeRowsResult, conditionResult, visualsResult] = await Promise.all([
+      // Thresholds for ALL of the river's gauges — each photo is banded by the
+      // gauge that represents its reach, not just the primary gauge.
       supabase
         .from('river_gauges')
         .select(`
+          gauge_station_id, is_primary,
           level_too_low, level_low, level_optimal_min, level_optimal_max,
-          level_high, level_dangerous, threshold_unit,
-          gauge_station_id
+          level_high, level_dangerous, threshold_unit
         `)
-        .eq('river_id', river.id)
-        .eq('is_primary', true)
-        .limit(1)
-        .maybeSingle(),
+        .eq('river_id', river.id),
 
-      // Current condition from RPC
+      // Current condition — segment-aware when a put-in access point is given.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.rpc as any)('get_river_condition', { p_river_id: river.id }),
+      (supabase.rpc as any)(
+        putInPoint ? 'get_river_condition_segment' : 'get_river_condition',
+        putInPoint ? { p_river_id: river.id, p_put_in_point: putInPoint } : { p_river_id: river.id }
+      ),
 
       // All approved river_visual reports for this river
       supabase
@@ -82,18 +98,34 @@ export async function GET(
       ? mapConditionCode(conditionData.condition_code)
       : 'unknown';
 
-    // Build thresholds object
-    const thresholds: ConditionThresholds | null = thresholdsResult.data
-      ? {
-          levelTooLow: thresholdsResult.data.level_too_low,
-          levelLow: thresholdsResult.data.level_low,
-          levelOptimalMin: thresholdsResult.data.level_optimal_min,
-          levelOptimalMax: thresholdsResult.data.level_optimal_max,
-          levelHigh: thresholdsResult.data.level_high,
-          levelDangerous: thresholdsResult.data.level_dangerous,
-          thresholdUnit: thresholdsResult.data.threshold_unit as 'ft' | 'cfs' | undefined,
-        }
-      : null;
+    // Build a threshold set per gauge, keyed by station id, plus the primary as
+    // the fallback for photos with no gauge recorded (legacy) or an unknown one.
+    const toThresholds = (g: {
+      level_too_low: number | null;
+      level_low: number | null;
+      level_optimal_min: number | null;
+      level_optimal_max: number | null;
+      level_high: number | null;
+      level_dangerous: number | null;
+      threshold_unit: string | null;
+    }): ConditionThresholds => ({
+      levelTooLow: g.level_too_low,
+      levelLow: g.level_low,
+      levelOptimalMin: g.level_optimal_min,
+      levelOptimalMax: g.level_optimal_max,
+      levelHigh: g.level_high,
+      levelDangerous: g.level_dangerous,
+      thresholdUnit: (g.threshold_unit as 'ft' | 'cfs') || undefined,
+    });
+    const gaugeRows = gaugeRowsResult.data || [];
+    const thresholdsByGauge = new Map<string, ConditionThresholds>();
+    let primaryThresholds: ConditionThresholds | null = null;
+    for (const g of gaugeRows) {
+      const t = toThresholds(g);
+      if (g.gauge_station_id) thresholdsByGauge.set(g.gauge_station_id, t);
+      if (g.is_primary) primaryThresholds = t;
+    }
+    if (!primaryThresholds && gaugeRows.length > 0) primaryThresholds = toThresholds(gaugeRows[0]);
 
     // Map visuals and compute their condition codes dynamically
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,11 +134,15 @@ export async function GET(
         ? row.access_points[0]
         : row.access_points;
 
-      const conditionCode: ConditionCode = thresholds
+      // Band by the gauge that recorded THIS photo (reach-aware), falling back
+      // to the primary gauge for legacy rows with no gauge_station_id.
+      const photoThresholds =
+        (row.gauge_station_id ? thresholdsByGauge.get(row.gauge_station_id) : null) ?? primaryThresholds;
+      const conditionCode: ConditionCode = photoThresholds
         ? getPhotoConditionCode(
             row.gauge_height_ft ? parseFloat(row.gauge_height_ft) : null,
             row.discharge_cfs ? parseFloat(row.discharge_cfs) : null,
-            thresholds
+            photoThresholds
           )
         : 'unknown';
 
@@ -130,8 +166,10 @@ export async function GET(
       };
     });
 
-    // Filter to matching condition band and sort by proximity
-    const useCfs = thresholds?.thresholdUnit === 'cfs';
+    // Filter to matching condition band and sort by proximity. Use the selected
+    // (reach) gauge's unit, falling back to the primary's.
+    const selectedUnit = (conditionData?.threshold_unit as string | undefined) ?? primaryThresholds?.thresholdUnit;
+    const useCfs = selectedUnit === 'cfs';
     const currentValue = useCfs
       ? (currentDischargeCfs ?? currentGaugeHeightFt)
       : (currentGaugeHeightFt ?? currentDischargeCfs);
