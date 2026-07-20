@@ -9,13 +9,18 @@ on:
   pull_request:
     paths:
       - 'missouri-float-planner/**'
-      - '.github/workflows/app-ci.yml'
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
   push:
     branches: [main]
     paths:
       - 'missouri-float-planner/**'
-      - '.github/workflows/app-ci.yml'
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   lint-and-typecheck:
@@ -26,10 +31,10 @@ jobs:
         working-directory: missouri-float-planner
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: npm
@@ -38,8 +43,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Reject high-severity runtime advisories
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Generate CycloneDX SBOM
+        run: npm sbom --package-lock-only --sbom-format cyclonedx > "$RUNNER_TEMP/eddy-sbom.cdx.json"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: eddy-sbom-${{ github.sha }}
+          path: ${{ runner.temp }}/eddy-sbom.cdx.json
+          retention-days: 14
+
       - name: Typecheck
         run: npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
