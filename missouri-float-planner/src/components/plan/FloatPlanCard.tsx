@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X,
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
+import PlanFreshnessNotice from '@/components/plan/PlanFreshnessNotice';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
@@ -175,6 +176,8 @@ interface FloatPlanCardProps {
   isLoading: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  isLastValidFallback?: boolean;
+  lastValidAt?: number | null;
   putInPoint: AccessPoint | null;
   takeOutPoint: AccessPoint | null;
   onClearPutIn: () => void;
@@ -1134,6 +1137,9 @@ function MobileBottomSheet({
   shareStatus = 'idle',
   onReportIssue,
   pointsAlongRoute = [],
+  isLastValidFallback = false,
+  lastValidAt = null,
+  onRetry,
 }: {
   plan: FloatPlan;
   putInPoint: AccessPoint;
@@ -1148,6 +1154,9 @@ function MobileBottomSheet({
   shareStatus?: 'idle' | 'copied' | 'saving';
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
+  isLastValidFallback?: boolean;
+  lastValidAt?: number | null;
+  onRetry?: () => void;
 }) {
   // Three snap points instead of two: 'peek' keeps the route summary and
   // vessel toggle on screen while most of the map (and the drawn route) stays
@@ -1387,7 +1396,11 @@ function MobileBottomSheet({
 
       {/* Sheet Content (peek shows the route summary; scroll for the rest) */}
       <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 84px)` }}>
-        {isLoading && (
+        {isLastValidFallback && lastValidAt ? (
+          <div className="mb-3">
+            <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
+          </div>
+        ) : isLoading && (
           <div
             role="status"
             aria-live="polite"
@@ -1570,7 +1583,7 @@ function MobileBottomSheet({
         </div>
 
         {/* Share Buttons */}
-        <div className="flex gap-3 pb-4">
+        {!isLastValidFallback && <div className="flex gap-3 pb-4">
           <button
             onClick={onShare}
             className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
@@ -1589,7 +1602,7 @@ function MobileBottomSheet({
             <Download size={16} />
             Image
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -1600,6 +1613,8 @@ export default function FloatPlanCard({
   isLoading,
   isError = false,
   onRetry,
+  isLastValidFallback = false,
+  lastValidAt = null,
   putInPoint,
   takeOutPoint,
   onClearPutIn,
@@ -1761,6 +1776,11 @@ export default function FloatPlanCard({
       <>
         {/* Desktop Layout - hidden on mobile */}
         <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden p-4">
+          {isLastValidFallback && lastValidAt && (
+            <div className="mb-4">
+              <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
+            </div>
+          )}
           <div className="grid grid-cols-[1fr,280px,1fr] gap-4">
             {/* Put-in Card */}
             <AccessPointDetailCard
@@ -1794,7 +1814,7 @@ export default function FloatPlanCard({
           </div>
 
           {/* Actions Row */}
-          <div className="flex justify-end items-center mt-4 pt-4 border-t border-neutral-100">
+          {!isLastValidFallback && <div className="flex justify-end items-center mt-4 pt-4 border-t border-neutral-100">
             {/* Share Buttons */}
             <div className="flex gap-3">
               <button
@@ -1819,10 +1839,10 @@ export default function FloatPlanCard({
               Download Image
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Hidden capture component for image export */}
-          {captureRef && (
+          {captureRef && !isLastValidFallback && (
             <ShareableFloatCard
               plan={displayPlan}
               putInPoint={putInPoint}
@@ -1848,6 +1868,9 @@ export default function FloatPlanCard({
           shareStatus={shareStatus}
           onReportIssue={onReportIssue}
           pointsAlongRoute={pointsAlongRoute}
+          isLastValidFallback={isLastValidFallback}
+          lastValidAt={lastValidAt}
+          onRetry={onRetry}
         />
       </>
     );
