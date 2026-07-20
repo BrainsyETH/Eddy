@@ -9,9 +9,10 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
-import { getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
+import InfoTip from '@/components/ui/InfoTip';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
 import EmbedWidgetSkeleton, { EmbedUnavailableState } from '@/components/embed/EmbedWidgetSkeleton';
@@ -270,8 +271,25 @@ export default function EddyQuoteEmbedPage() {
       {/* At-a-glance facts. Values come directly from gauge/weather APIs and do
           not alter or reinterpret the canonical condition. */}
       <div className="flex items-center justify-between gap-3 px-0.5">
-        <div className="text-xs font-bold uppercase tracking-wide" style={{ color: textSecondary }}>
-          Live gauge
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: textSecondary }}>
+            Live gauge
+          </span>
+          <InfoTip
+            title={CFS_EXPLAINER.title}
+            body={CFS_EXPLAINER.body}
+            ariaLabel="What is CFS?"
+            size={15}
+            colors={{
+              trigger: textSecondary,
+              triggerBorder: palette.border,
+              popBg: palette.cardBg,
+              popBorder: palette.border,
+              title: textPrimary,
+              body: textSecondary,
+              focus: palette.focus,
+            }}
+          />
         </div>
         <div
           className="text-xs text-right truncate"
@@ -374,10 +392,11 @@ export default function EddyQuoteEmbedPage() {
             style={{ borderColor: palette.border, background: palette.cardBg }}
           >
             <summary
-              className="embed-control flex min-h-8 cursor-pointer items-center rounded text-xs font-bold"
+              className="embed-control embed-details-summary flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded text-xs font-bold"
               style={{ color: palette.link, '--embed-focus': palette.focus } as CSSProperties}
             >
-              Read full condition update
+              <span>Read full condition update</span>
+              <span className="embed-pm" aria-hidden="true" />
             </summary>
             <p className="mt-2 mb-0 text-sm leading-relaxed" style={{ color: textSecondary }}>
               {quoteDetail}

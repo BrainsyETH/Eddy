@@ -11,7 +11,8 @@ import Link from 'next/link';
 import { ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
-import { getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
+import InfoTip from '@/components/ui/InfoTip';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
@@ -447,7 +448,21 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               <h2 className="text-base font-bold text-neutral-900">
                 {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <InfoTip
+                  title={CFS_EXPLAINER.title}
+                  body={CFS_EXPLAINER.body}
+                  ariaLabel="What is CFS?"
+                  colors={{
+                    trigger: '#857D70',
+                    triggerBorder: '#C2BAAC',
+                    popBg: '#FFFFFF',
+                    popBorder: '#DBD5CA',
+                    title: '#2D2A24',
+                    body: '#524D43',
+                    focus: '#2D7889',
+                  }}
+                />
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
                 {canToggleUnit && (
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">

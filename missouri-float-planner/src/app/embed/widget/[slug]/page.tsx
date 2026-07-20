@@ -8,11 +8,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
-import { CONDITION_COLORS, getEddyImageForCondition } from '@/constants';
+import { CONDITION_COLORS, getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
+import InfoTip from '@/components/ui/InfoTip';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
 import EmbedTrendChart, { type EmbedChartData } from '@/components/embed/EmbedTrendChart';
@@ -360,8 +361,25 @@ export default function EmbedWidgetPage() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3 px-0.5">
               <div className="min-w-0">
-                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: textSecondary }}>
-                  Live gauge
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: textSecondary }}>
+                    Live gauge
+                  </span>
+                  <InfoTip
+                    title={CFS_EXPLAINER.title}
+                    body={CFS_EXPLAINER.body}
+                    ariaLabel="What is CFS?"
+                    size={15}
+                    colors={{
+                      trigger: textSecondary,
+                      triggerBorder: palette.border,
+                      popBg: palette.cardBg,
+                      popBorder: palette.border,
+                      title: textPrimary,
+                      body: textSecondary,
+                      focus: palette.focus,
+                    }}
+                  />
                 </div>
                 <div className="text-xs truncate mt-0.5" title={primaryGauge.name} style={{ color: textSecondary }}>
                   {primaryGauge.name}
