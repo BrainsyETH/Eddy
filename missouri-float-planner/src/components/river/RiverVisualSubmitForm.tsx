@@ -475,8 +475,7 @@ export default function RiverVisualSubmitForm({
 
         <p className="text-xs text-neutral-400 text-center">
           By submitting, you confirm this is your own photo and grant Eddy
-          permission to display it. Location data is removed, and photos are
-          reviewed before appearing publicly.
+          permission to display it. Photos are reviewed before appearing publicly.
         </p>
       </form>
     </div>
