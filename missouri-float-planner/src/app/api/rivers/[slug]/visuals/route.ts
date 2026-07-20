@@ -162,8 +162,28 @@ export async function GET(
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
 
+    // Group every verified visual by its computed level (dry → flood) so the
+    // client can let users scrub across bands, not just the current one.
+    const LEVEL_ORDER: ConditionCode[] = ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous', 'unknown'];
+    const grouped = new Map<ConditionCode, RiverVisual[]>();
+    for (const v of allVisuals) {
+      const arr = grouped.get(v.conditionCode);
+      if (arr) arr.push(v);
+      else grouped.set(v.conditionCode, [v]);
+    }
+    const byLevel = LEVEL_ORDER
+      .filter((code) => grouped.has(code))
+      .map((code) => ({
+        code,
+        visuals: grouped
+          .get(code)!
+          .slice()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+      }));
+
     const response: RiverVisualsResponse = {
       visuals: matchedVisuals,
+      byLevel,
       currentCondition: currentConditionCode,
       currentGaugeHeightFt,
       currentDischargeCfs,

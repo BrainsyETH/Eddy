@@ -29,6 +29,7 @@ import {
   Landmark,
   CircleDot,
   Star,
+  Camera,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -69,6 +70,9 @@ export interface PlanFiltersProps {
   /** Master POI visibility. */
   showPOIs: boolean;
   onTogglePOIs: () => void;
+  /** Community river-photo pins. */
+  showPhotos: boolean;
+  onTogglePhotos: () => void;
   /** POI categories present on the current river (raw `type` values). */
   availableCategories: string[];
   /** Categories currently hidden (empty = all shown). */
@@ -101,6 +105,8 @@ export default function PlanFilters({
   onToggleFlow,
   showPOIs,
   onTogglePOIs,
+  showPhotos,
+  onTogglePhotos,
   availableCategories,
   hiddenCategories,
   onToggleCategory,
@@ -238,6 +244,13 @@ export default function PlanFilters({
               sublabel="Outfitters, camps, springs…"
               on={showPOIs}
               onClick={onTogglePOIs}
+            />
+            <ToggleRow
+              icon={Camera}
+              label="River photos"
+              sublabel="Community water-level pics"
+              on={showPhotos}
+              onClick={onTogglePhotos}
             />
           </div>
 

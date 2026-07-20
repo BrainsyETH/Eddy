@@ -111,3 +111,52 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+const BULK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// PATCH /api/admin/reports - bulk-update the status of many reports at once.
+export async function PATCH(request: NextRequest) {
+  try {
+    const authError = requireAdminAuth(request);
+    if (authError) return authError;
+
+    const body = await request.json().catch(() => null);
+    const rawIds = body?.ids;
+    const status = body?.status;
+
+    if (status !== 'verified' && status !== 'rejected' && status !== 'pending') {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+    if (!Array.isArray(rawIds) || rawIds.length === 0) {
+      return NextResponse.json({ error: 'ids must be a non-empty array' }, { status: 400 });
+    }
+    if (rawIds.length > 200) {
+      return NextResponse.json({ error: 'Too many ids (max 200)' }, { status: 400 });
+    }
+    const ids = rawIds.filter((id: unknown): id is string => typeof id === 'string' && BULK_UUID_RE.test(id));
+    if (ids.length === 0) {
+      return NextResponse.json({ error: 'No valid ids' }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('community_reports')
+      .update({
+        status,
+        verified_at: status === 'verified' ? now : null,
+        updated_at: now,
+      })
+      .in('id', ids);
+
+    if (error) {
+      console.error('Error bulk-updating community reports:', error);
+      return NextResponse.json({ error: 'Could not update reports' }, { status: 500 });
+    }
+
+    return NextResponse.json({ updated: ids.length });
+  } catch (error) {
+    console.error('Error in admin reports bulk endpoint:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
