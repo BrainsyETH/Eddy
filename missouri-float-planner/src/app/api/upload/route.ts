@@ -5,38 +5,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { normalizeCommunityImage } from '@/lib/uploads/community-image';
+import { randomUUID } from 'node:crypto';
 
 export const dynamic = 'force-dynamic';
 
 const BUCKET_NAME = 'images';
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+function json(body: { error?: string; success?: boolean; url?: string }, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 10 uploads per IP per 15 minutes (service-role write to Storage)
-    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const contentType = request.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
+      return json({ error: 'Content-Type must be multipart/form-data' }, 415);
+    }
+
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return json({ error: 'Malformed multipart form data' }, 400);
+    }
+    const candidate = formData.get('file');
+    const file = candidate instanceof File ? candidate : null;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return json({ error: 'No file provided' }, 400);
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF' },
-        { status: 400 }
-      );
+      return json({ error: 'Invalid file type. Allowed: JPEG, PNG, WebP' }, 400);
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 10MB' },
-        { status: 400 }
-      );
+      return json({ error: 'File too large. Maximum size is 10MB' }, 400);
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -45,48 +59,46 @@ export async function POST(request: NextRequest) {
     // Don't trust the client-supplied MIME type — verify the actual file
     // signature (magic bytes) matches one of the allowed image formats.
     if (!hasAllowedImageSignature(buffer)) {
-      return NextResponse.json(
-        { error: 'File content is not a valid JPEG, PNG, WebP, or GIF image' },
-        { status: 400 }
-      );
+      return json({ error: 'File content is not a valid JPEG, PNG, or WebP image' }, 400);
+    }
+
+    let normalized: Buffer;
+    try {
+      normalized = await normalizeCommunityImage(buffer);
+    } catch {
+      return json({ error: 'Image could not be safely decoded' }, 400);
     }
 
     const supabase = createAdminClient();
 
     // Generate unique filename under community-visuals folder
-    const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const fileName = `community-visuals/${timestamp}-${sanitizedName}`;
+    const month = new Date().toISOString().slice(0, 7);
+    const fileName = `community-visuals/${month}/${randomUUID()}.webp`;
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(fileName, buffer, {
-        contentType: file.type,
+      .upload(fileName, normalized, {
+        contentType: 'image/webp',
+        cacheControl: '31536000',
         upsert: false,
       });
 
     if (error) {
       console.error('Upload error:', error);
-      return NextResponse.json(
-        { error: 'Upload failed. Please try again.' },
-        { status: 500 }
-      );
+      return json({ error: 'Upload failed. Please try again.' }, 500);
     }
 
     const { data: { publicUrl } } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(data.path);
 
-    return NextResponse.json({
+    return json({
       success: true,
       url: publicUrl,
     });
   } catch (error) {
     console.error('Error uploading image:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return json({ error: 'Internal server error' }, 500);
   }
 }
 
@@ -105,9 +117,6 @@ function hasAllowedImageSignature(buf: Buffer): boolean {
     buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
     buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
   ) return true;
-
-  // GIF: "GIF87a" or "GIF89a"
-  if (buf.toString('ascii', 0, 6) === 'GIF87a' || buf.toString('ascii', 0, 6) === 'GIF89a') return true;
 
   // WebP: "RIFF" .... "WEBP"
   if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return true;

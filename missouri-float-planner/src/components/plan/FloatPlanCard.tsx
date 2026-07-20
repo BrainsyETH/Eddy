@@ -186,7 +186,7 @@ interface FloatPlanCardProps {
   riverName?: string;
   vesselTypeId: string | null;
   onVesselChange: (id: string) => void;
-  captureRef?: React.RefObject<HTMLDivElement>;
+  captureRef?: React.RefObject<HTMLDivElement | null>;
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }
@@ -239,7 +239,7 @@ export function ShareableFloatCard({
   putInPoint: AccessPoint;
   takeOutPoint: AccessPoint;
   riverName?: string;
-  captureRef: React.RefObject<HTMLDivElement>;
+  captureRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
   const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;

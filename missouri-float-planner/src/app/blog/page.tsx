@@ -37,21 +37,25 @@ interface BlogPost {
 }
 
 async function getBlogPosts(): Promise<BlogPost[]> {
-  const supabase = createAdminClient();
+  try {
+    const supabase = createAdminClient();
+    const { data: posts, error } = await supabase
+      .from('blog_posts')
+      .select('slug, title, description, category, featured_image_url, read_time_minutes, published_at, river_slug')
+      .eq('status', 'published')
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false });
 
-  const { data: posts, error } = await supabase
-    .from('blog_posts')
-    .select('slug, title, description, category, featured_image_url, read_time_minutes, published_at, river_slug')
-    .eq('status', 'published')
-    .lte('published_at', new Date().toISOString())
-    .order('published_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching blog posts:', error);
+    if (error) {
+      console.error('Error fetching blog posts:', error);
+      return [];
+    }
+    return posts || [];
+  } catch (error) {
+    // Local/preview builds may intentionally omit production credentials.
+    console.warn('Blog posts unavailable during render:', error);
     return [];
   }
-
-  return posts || [];
 }
 
 // Look up display names for the rivers referenced by the posts, so cards can

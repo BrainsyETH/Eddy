@@ -773,13 +773,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
           {/* Left overlay stack — river switcher (until a put-in starts the
               plan), weather, filters. One column so they never overlap. */}
-          <div className="absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
+          <div className="pointer-events-none absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
             {!putInPoint && (
               // relative z-10: the backdrop-blur cards each create a stacking
               // context, and later siblings (weather, Filters) were painting
               // OVER the open river dropdown. Lifting the card lifts its
               // dropdown with it.
-              <div className="relative z-10 w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
+              <div className="pointer-events-auto relative z-10 w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
                 <RiverSwitcher
                   currentSlug={riverSlug}
                   rivers={rivers || []}
@@ -787,7 +787,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 />
               </div>
             )}
-            <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="relative" />
+            <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="pointer-events-auto relative" />
             <PlanFilters
               showNetwork={showNetwork}
               onToggleNetwork={toggleNetwork}
@@ -807,7 +807,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               onToggleCondition={toggleCondition}
               onClearConditionFilter={clearConditionFilter}
               readingsAsOf={newestReadingAt}
-              className="relative"
+              className="pointer-events-auto relative"
             />
           </div>
 
@@ -1336,4 +1336,3 @@ function PlanErrorBanner({ onRetry }: { onRetry: () => void }) {
     </div>
   );
 }
-

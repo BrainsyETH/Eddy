@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limit: 5 attempts per IP per 15 minutes
     const ip = getClientIp(request);
-    const rateLimitResponse = await rateLimit(`admin-login:${ip}`, 5, 15 * 60 * 1000);
+    const rateLimitResponse = await rateLimit(`admin-login:${ip}`, 5, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();

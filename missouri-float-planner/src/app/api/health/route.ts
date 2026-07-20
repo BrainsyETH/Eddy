@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
         hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
         hasMapboxToken: !!process.env.MAPBOX_ACCESS_TOKEN,
+        hasGlobalRateLimiter: !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN,
+        trustsGenericForwardedFor: process.env.TRUST_X_FORWARDED_FOR === 'true',
         nodeEnv: process.env.NODE_ENV,
         vercelEnv: process.env.VERCEL_ENV,
       },

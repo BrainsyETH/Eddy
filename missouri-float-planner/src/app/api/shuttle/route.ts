@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
+import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,11 +45,13 @@ async function _GET(request: NextRequest) {
       .maybeSingle();
 
     if (cached && cached.drive_minutes != null) {
+      const plausibility = assessShuttlePlausibility(Number(cached.drive_miles));
       return NextResponse.json({
         available: true,
         miles: Number(cached.drive_miles),
         minutes: Number(cached.drive_minutes),
         routeSummary: cached.route_summary,
+        ...plausibility,
       });
     }
 
@@ -111,11 +114,13 @@ async function _GET(request: NextRequest) {
         onConflict: 'start_access_id,end_access_id',
       });
 
+    const plausibility = assessShuttlePlausibility(result.miles);
     return NextResponse.json({
       available: true,
       miles: result.miles,
       minutes: result.minutes,
       routeSummary: result.routeSummary,
+      ...plausibility,
     });
   } catch (error) {
     console.error('Shuttle distance error:', error);

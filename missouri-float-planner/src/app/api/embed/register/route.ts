@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest): Promise<Response> {
   try {
     // 5 registrations per IP per minute — one business registers once.
-    const rateLimitResult = await rateLimit(`embed-register:${getClientIp(request)}`, 5, 60 * 1000);
+    const rateLimitResult = await rateLimit(`embed-register:${getClientIp(request)}`, 5, 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json().catch(() => null);

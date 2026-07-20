@@ -71,9 +71,15 @@ export default function EddySaysReport() {
     riverGroups.map(rg => rg.condition.code)
   );
 
-  const displayText = globalUpdate
-    ? (showFull || !globalUpdate.summaryText ? globalUpdate.quoteText : globalUpdate.summaryText)
-    : fallbackText;
+  // A statewide AI update is a frozen multi-river snapshot and cannot be
+  // reconciled atomically with the independently refreshed gauge feed. Prefer
+  // the deterministic summary built from the live river groups so its counts
+  // can never contradict the cards below it.
+  const displayText = riverGroups.length > 0
+    ? fallbackText
+    : globalUpdate
+      ? (showFull || !globalUpdate.summaryText ? globalUpdate.quoteText : globalUpdate.summaryText)
+      : fallbackText;
 
   return (
     <div className="h-full min-h-[240px] rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
@@ -100,7 +106,7 @@ export default function EddySaysReport() {
         <p className="text-sm text-neutral-700 leading-relaxed font-medium">
           &ldquo;{displayText}&rdquo;
         </p>
-        {globalUpdate?.summaryText && (
+        {riverGroups.length === 0 && globalUpdate?.summaryText && (
           <button
             onClick={() => setShowFull(!showFull)}
             aria-expanded={showFull}

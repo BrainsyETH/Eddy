@@ -184,6 +184,8 @@ export interface StaticEddyTextInput {
   conditionCode: ConditionCode;
   /** Current gauge height in feet (null → reading line omitted). */
   gaugeHeightFt?: number | null;
+  /** Current discharge, used when thresholds are cfs-based. */
+  dischargeCfs?: number | null;
   /** Optimal range bounds from DB thresholds. */
   optimalMin?: number | null;
   optimalMax?: number | null;
@@ -204,13 +206,16 @@ export interface StaticEddyTextInput {
 export function buildStaticEddyText({
   conditionCode,
   gaugeHeightFt,
+  dischargeCfs,
   optimalMin,
   optimalMax,
   thresholdUnit,
   riverNote,
 }: StaticEddyTextInput): string {
   const parts: string[] = [];
-  if (gaugeHeightFt != null) {
+  if (thresholdUnit === 'cfs' && dischargeCfs != null) {
+    parts.push(`Reading ${Math.round(dischargeCfs).toLocaleString()} cfs.`);
+  } else if (gaugeHeightFt != null) {
     parts.push(`Reading ${gaugeHeightFt.toFixed(1)} ft.`);
   }
   parts.push(CONDITION_CARD_BLURBS[conditionCode] || CONDITION_CARD_BLURBS.unknown);

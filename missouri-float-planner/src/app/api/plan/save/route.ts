@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 20 plan saves per IP per 15 minutes (public write to float_plans).
-    const rateLimitResult = await rateLimit(`plan-save:${getClientIp(request)}`, 20, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`plan-save:${getClientIp(request)}`, 20, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json() as SavePlanRequest;
