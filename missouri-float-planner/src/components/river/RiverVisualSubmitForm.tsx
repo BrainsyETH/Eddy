@@ -134,15 +134,68 @@ export default function RiverVisualSubmitForm({
   const [photoGps, setPhotoGps] = useState<{ lat: number; lng: number } | null>(null);
   const [usePhotoLocation, setUsePhotoLocation] = useState(false);
 
-  // Update gauge values if they change externally
+  // Reach-based gauge: when the submitter picks the nearest access point, resolve
+  // the gauge that represents that stretch of river (the same segment-aware
+  // selection the conditions API uses) rather than the river's single primary
+  // gauge — so a photo near Akers isn't tagged to a gauge 50 miles downstream.
+  // Falls back to the gauge the form opened with.
+  const [reachGauge, setReachGauge] = useState<
+    { id: string; gaugeHeightFt: number | null; dischargeCfs: number | null } | null
+  >(null);
+
+  const effGaugeStationId = reachGauge?.id ?? gaugeStationId;
+  const effCurrentGaugeHeightFt = reachGauge ? reachGauge.gaugeHeightFt : currentGaugeHeightFt;
+  const effCurrentDischargeCfs = reachGauge ? reachGauge.dischargeCfs : currentDischargeCfs;
+
+  // Resolve the reach gauge for the chosen access point via the conditions
+  // endpoint (which runs the segment-aware DB selection). Best-effort.
   useEffect(() => {
-    if (currentGaugeHeightFt != null && !gaugeHeight) {
-      setGaugeHeight(currentGaugeHeightFt.toString());
+    if (!selectedAccessPointId || !riverId) {
+      setReachGauge(null);
+      return;
     }
-    if (currentDischargeCfs != null && !dischargeCfs) {
-      setDischargeCfs(currentDischargeCfs.toString());
-    }
-  }, [currentGaugeHeightFt, currentDischargeCfs, gaugeHeight, dischargeCfs]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/conditions/${riverId}?putInAccessPointId=${encodeURIComponent(selectedAccessPointId)}`
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        const usgsId: string | null = json?.condition?.gaugeUsgsId ?? null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const gauges: Array<Record<string, any>> = Array.isArray(json?.gauges) ? json.gauges : [];
+        const match = usgsId ? gauges.find((g) => g.usgsSiteId === usgsId) : null;
+        if (cancelled || !match) return;
+        setReachGauge({
+          id: match.id as string,
+          gaugeHeightFt: json?.condition?.gaugeHeightFt ?? match.gaugeHeightFt ?? null,
+          dischargeCfs: json?.condition?.dischargeCfs ?? match.dischargeCfs ?? null,
+        });
+      } catch {
+        // Best-effort — keep the default gauge.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAccessPointId, riverId]);
+
+  // Keep the live reading in sync with the effective gauge's current values,
+  // unless the user picked a past date or hand-edited the field.
+  useEffect(() => {
+    if (readingSource !== 'live') return;
+    setGaugeHeight(effCurrentGaugeHeightFt != null ? String(effCurrentGaugeHeightFt) : '');
+    setDischargeCfs(effCurrentDischargeCfs != null ? String(effCurrentDischargeCfs) : '');
+  }, [effCurrentGaugeHeightFt, effCurrentDischargeCfs, readingSource]);
+
+  // When the reach gauge changes for an already-chosen past date, re-pull the
+  // reading from the new gauge so the stored stage/flow matches the location.
+  useEffect(() => {
+    if (readingSource === 'live' || readingSource === 'manual') return;
+    void selectDate(photoDate, capturedAt ?? undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effGaugeStationId]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -187,13 +240,13 @@ export default function RiverVisualSubmitForm({
     if (isToday || Date.now() - when.getTime() < 6 * 60 * 60 * 1000) {
       setReadingSource('live');
       setReadingNote(null);
-      setGaugeHeight(currentGaugeHeightFt?.toString() ?? '');
-      setDischargeCfs(currentDischargeCfs?.toString() ?? '');
+      setGaugeHeight(effCurrentGaugeHeightFt != null ? String(effCurrentGaugeHeightFt) : '');
+      setDischargeCfs(effCurrentDischargeCfs != null ? String(effCurrentDischargeCfs) : '');
       return;
     }
 
     const label = when.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    if (!gaugeStationId) {
+    if (!effGaugeStationId) {
       setReadingNote(`Using ${label}. Enter the level below.`);
       return;
     }
@@ -201,7 +254,7 @@ export default function RiverVisualSubmitForm({
     setReadingLoading(true);
     try {
       const res = await fetch(
-        `/api/gauge-reading-at?gaugeStationId=${gaugeStationId}&at=${encodeURIComponent(when.toISOString())}`
+        `/api/gauge-reading-at?gaugeStationId=${effGaugeStationId}&at=${encodeURIComponent(when.toISOString())}`
       );
       const data = res.ok ? await res.json() : null;
       if (data?.found) {
@@ -342,7 +395,7 @@ export default function RiverVisualSubmitForm({
         gaugeHeightFt: gaugeHeight ? parseFloat(gaugeHeight) : undefined,
         dischargeCfs: dischargeCfs ? parseFloat(dischargeCfs) : undefined,
         accessPointId: selectedAccessPointId || undefined,
-        gaugeStationId: gaugeStationId || undefined,
+        gaugeStationId: effGaugeStationId || undefined,
         submitterName: submitterName.trim() || undefined,
         capturedAt: capturedAt || undefined,
         readingSource,
