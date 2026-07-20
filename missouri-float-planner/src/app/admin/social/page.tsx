@@ -24,6 +24,7 @@ import {
   X,
   Zap,
   Play,
+  Copy,
 } from 'lucide-react';
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
@@ -730,6 +731,19 @@ export default function SocialAdminPage() {
       showToast('Network error — could not publish', 'error');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // TikTok draft (inbox) mode can't receive a caption via the API, so the reel
+  // lands blank and you write the caption in-app. This copies the caption Eddy
+  // already generated for the post so you can paste it when finishing the draft.
+  // (Direct-post mode, once audited, sends the caption automatically instead.)
+  const copyCaption = async (post: SocialPost) => {
+    try {
+      await navigator.clipboard.writeText(post.caption || '');
+      showToast('Caption copied — paste it when you finish the TikTok draft', 'success');
+    } catch {
+      showToast('Could not copy caption', 'error');
     }
   };
 
@@ -1955,6 +1969,16 @@ export default function SocialAdminPage() {
                                       >
                                         <Play className="w-3 h-3" />
                                         Preview
+                                      </button>
+                                    )}
+                                    {post.platform === 'tiktok' && post.caption && (
+                                      <button
+                                        onClick={() => copyCaption(post)}
+                                        className="flex items-center gap-1 px-2 py-1 text-xs text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 rounded transition-colors"
+                                        title="Copy the generated caption to paste when finishing the TikTok draft"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                        Copy caption
                                       </button>
                                     )}
                                     {post.status === 'failed' && (
