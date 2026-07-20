@@ -235,23 +235,16 @@ export default function RiverVisualSubmitForm({
       const imagePath: string = uploadData.path;
       setUploading(false);
 
-      // 2. Location: prefer the photo's own GPS when the submitter opted in
-      // (precise on-water spot); else the selected access point; else river center.
-      let latitude = 37.5; // Default Missouri center
-      let longitude = -91.5;
-
+      // 2. Location: the access point is required (checked above), so coordinates
+      // default to it; a submitter who opts in overrides with the photo's own GPS
+      // (the precise on-water spot).
+      const accessPoint = accessPoints?.find((p) => p.id === selectedAccessPointId);
+      let latitude = accessPoint?.coordinates.lat ?? 37.5;
+      let longitude = accessPoint?.coordinates.lng ?? -91.5;
       if (usePhotoLocation && photoGps) {
         latitude = photoGps.lat;
         longitude = photoGps.lng;
-      } else if (selectedAccessPointId && accessPoints) {
-        const ap = accessPoints.find((p) => p.id === selectedAccessPointId);
-        if (ap) {
-          latitude = ap.coordinates.lat;
-          longitude = ap.coordinates.lng;
-        }
       }
-      const latitude = accessPoint.coordinates.lat;
-      const longitude = accessPoint.coordinates.lng;
 
       // 3. Submit report
       const reportPayload = {
