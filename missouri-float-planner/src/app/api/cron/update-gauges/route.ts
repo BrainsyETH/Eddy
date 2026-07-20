@@ -383,7 +383,7 @@ async function runUpdate(request: NextRequest) {
 
               // Defer ALL transitions to the post-loop publish (awaited): the
               // elevated ones get the storm-vs-single decision; the rest
-              // (recoveries etc.) publish individually.
+              // (easing etc.) publish individually.
               const transition: Transition = {
                 riverSlug,
                 oldCondition: oldCode,
@@ -411,8 +411,9 @@ async function runUpdate(request: NextRequest) {
     // Elevated crossings run through publishElevatedCrossings, which dedupes per
     // river (multiple gauges → one entry, most severe) and uses a rolling window
     // to prefer ONE storm digest over a barrage of individual reels. Other
-    // transitions (recoveries etc.) publish individually — publishCondition
-    // ChangeAlert classifies and no-ops the non-notable ones.
+    // transitions (easing etc.) publish individually — publishCondition
+    // ChangeAlert classifies and no-ops the non-notable ones (incl. drops back
+    // to floatable water, which no longer post an all-clear).
     if (elevatedCrossings.length > 0) {
       try {
         const result = await publishElevatedCrossings(elevatedCrossings);

@@ -1598,7 +1598,7 @@ export default function SocialAdminPage() {
                         Condition-change alerts as Reels
                       </div>
                       <div className="text-sm text-neutral-400 mt-1">
-                        When a river flips to flowing, high, or dangerous, render a 12-second reel
+                        When a river flips to high or dangerous, render a 12-second reel
                         instead of posting a static image. Off = fast image alert; on = higher
                         engagement, slower publish.
                       </div>
