@@ -114,3 +114,16 @@ export function groupGaugesByRiver(gauges: GaugeStation[]): RiverGroup[] {
 export function findRiverGroupBySlug(groups: RiverGroup[], slug: string): RiverGroup | null {
   return groups.find(g => g.riverSlug === slug) || null;
 }
+
+/**
+ * Format a river group's primary reading for display, honoring its threshold
+ * unit ("4.2 ft" or "1,250 cfs"). Returns null when the primary gauge has no
+ * reading in the relevant unit. Shared by the home hero bubble and the
+ * "Rising Rivers" card so a river's level reads identically across surfaces.
+ */
+export function formatRiverLevel(group: RiverGroup): string | null {
+  const isCfs = group.primaryThreshold?.thresholdUnit === 'cfs';
+  const value = isCfs ? group.primaryGauge.dischargeCfs : group.primaryGauge.gaugeHeightFt;
+  if (value == null) return null;
+  return isCfs ? `${Math.round(value).toLocaleString()} cfs` : `${value.toFixed(1)} ft`;
+}
