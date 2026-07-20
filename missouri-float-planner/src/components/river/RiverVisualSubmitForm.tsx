@@ -19,6 +19,74 @@ function withinMissouri(lat: number, lng: number): boolean {
   return lat >= 35 && lat <= 41 && lng >= -97 && lng <= -88;
 }
 
+// Vercel's serverless functions reject request bodies larger than ~4.5 MB
+// before they ever reach /api/upload, so a 5–10 MB phone photo (allowed by the
+// 10 MB field cap) failed at the platform — the browser then surfaced the
+// non-JSON error page as a cryptic "string did not match the expected pattern".
+// Downscale anything over the safe threshold to a JPEG that comfortably fits.
+const UPLOAD_SAFE_BYTES = 4 * 1024 * 1024;
+const UPLOAD_MAX_DIMENSION = 2400; // mirrors the server-side normalize step
+
+/**
+ * Prepare a selected photo for upload. Large images are re-encoded to a smaller
+ * JPEG so the request stays under the platform body-size limit. EXIF
+ * orientation is baked in here (`imageOrientation: 'from-image'`) because the
+ * re-encode drops the orientation tag the server would otherwise honor. On any
+ * failure we fall back to the original file untouched.
+ */
+async function prepareUpload(file: File): Promise<Blob> {
+  if (file.size <= UPLOAD_SAFE_BYTES) return file;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    try {
+      const encodeAt = (maxDim: number, quality: number): Promise<Blob | null> => {
+        const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return Promise.resolve(null);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+      };
+      let blob = await encodeAt(UPLOAD_MAX_DIMENSION, 0.82);
+      if (!blob || blob.size > UPLOAD_SAFE_BYTES) {
+        blob = (await encodeAt(1800, 0.7)) ?? blob;
+      }
+      if (blob && blob.size > 0) return blob;
+    } finally {
+      bitmap.close?.();
+    }
+  } catch {
+    // Fall through to the original file; the server and error handling cope.
+  }
+  return file;
+}
+
+/**
+ * Read a fetch Response as JSON without ever throwing a cryptic parse error when
+ * the body isn't JSON (e.g. a platform 413/502 HTML page). Returns {} for any
+ * non-JSON body so callers fall back to a friendly, status-based message.
+ */
+async function readJsonSafe(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text().catch(() => '');
+  if (!text) return {};
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Friendly, human-readable message for a failed upload/report HTTP status. */
+function httpFailMessage(status: number, action: 'upload the photo' | 'submit the report'): string {
+  if (status === 413) return 'That photo is too large to upload. Please try a smaller photo.';
+  if (status === 429) return 'You’ve reached the submission limit. Please wait a bit and try again.';
+  if (status >= 500) return `Couldn’t ${action} right now. Please try again in a moment.`;
+  return `Couldn’t ${action} (error ${status}). Please try again.`;
+}
+
 interface RiverVisualSubmitFormProps {
   riverId: string;
   riverSlug?: string;
@@ -61,8 +129,8 @@ export default function RiverVisualSubmitForm({
   const [readingLoading, setReadingLoading] = useState(false);
 
   // The photo's own GPS (from EXIF), when it's a real on-water Missouri shot.
-  // Opting in pins the visual exactly where it was taken instead of at the
-  // (coarser) access point.
+  // Off by default; opting in pins the visual exactly where it was taken instead
+  // of at the (coarser) access point.
   const [photoGps, setPhotoGps] = useState<{ lat: number; lng: number } | null>(null);
   const [usePhotoLocation, setUsePhotoLocation] = useState(false);
 
@@ -163,7 +231,8 @@ export default function RiverVisualSubmitForm({
       }
 
       // Read the photo's GPS. If it's inside Missouri (a real on-water shot),
-      // offer to pin the visual exactly there — default on.
+      // offer to pin the visual exactly there — off by default, the submitter
+      // opts in with the toggle.
       const gps = await exifr.gps(file).catch(() => null);
       if (
         gps &&
@@ -172,11 +241,10 @@ export default function RiverVisualSubmitForm({
         withinMissouri(gps.latitude, gps.longitude)
       ) {
         setPhotoGps({ lat: gps.latitude, lng: gps.longitude });
-        setUsePhotoLocation(true);
       } else {
         setPhotoGps(null);
-        setUsePhotoLocation(false);
       }
+      setUsePhotoLocation(false);
     } catch {
       // EXIF is best-effort; the date field defaults to today.
     }
@@ -214,10 +282,16 @@ export default function RiverVisualSubmitForm({
     try {
       setSubmitting(true);
 
-      // 1. Upload image via public endpoint
+      // 1. Upload image via public endpoint. Large phone photos are downscaled
+      // first so the request stays under the platform's body-size limit.
       setUploading(true);
+      const uploadBlob = await prepareUpload(imageFile);
       const formData = new FormData();
-      formData.append('file', imageFile);
+      formData.append(
+        'file',
+        uploadBlob,
+        uploadBlob instanceof File ? uploadBlob.name : 'river-photo.jpg'
+      );
 
       const uploadRes = await fetch('/api/upload', {
         method: 'POST',
@@ -225,14 +299,17 @@ export default function RiverVisualSubmitForm({
       });
 
       if (!uploadRes.ok) {
-        const uploadError = await uploadRes.json();
-        throw new Error(uploadError.error || 'Failed to upload image');
+        const uploadError = await readJsonSafe(uploadRes);
+        throw new Error((uploadError.error as string) || httpFailMessage(uploadRes.status, 'upload the photo'));
       }
 
       // The upload endpoint quarantines the photo and returns its storage
       // path; the photo only becomes publicly visible after moderation.
-      const uploadData = await uploadRes.json();
-      const imagePath: string = uploadData.path;
+      const uploadData = await readJsonSafe(uploadRes);
+      const imagePath = typeof uploadData.path === 'string' ? uploadData.path : '';
+      if (!imagePath) {
+        throw new Error('The photo upload didn’t complete. Please try again.');
+      }
       setUploading(false);
 
       // 2. Location: the access point is required (checked above), so coordinates
@@ -270,8 +347,8 @@ export default function RiverVisualSubmitForm({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to submit');
+        const data = await readJsonSafe(res);
+        throw new Error((data.error as string) || httpFailMessage(res.status, 'submit the report'));
       }
 
       // Show the success confirmation; notify the parent when the user dismisses
@@ -416,26 +493,36 @@ export default function RiverVisualSubmitForm({
         </div>
 
         {/* Precise location from the photo's GPS — shown only when the photo
-            was geotagged inside Missouri. Default on; opt-out anytime. */}
+            was geotagged inside Missouri. Off by default; opt in with the toggle. */}
         {photoGps && (
-          <label className="flex items-start gap-2.5 p-3 rounded-lg border border-teal-100 bg-teal-50 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={usePhotoLocation}
-              onChange={(e) => setUsePhotoLocation(e.target.checked)}
-              className="mt-0.5 shrink-0"
-            />
-            <span className="text-xs">
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-teal-100 bg-teal-50">
+            <span className="text-xs flex-1">
               <span className="flex items-center gap-1 font-semibold text-teal-800">
                 <MapPin className="w-3.5 h-3.5" />
                 Pin it where I took the photo
               </span>
               <span className="mt-0.5 block text-teal-700/90">
                 Uses your photo&apos;s GPS so it lands on the map exactly where you were on the
-                river — more precise than the access point. Shown publicly once approved.
+                river — more precise than the access point. Off by default; shown publicly once approved.
               </span>
             </span>
-          </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={usePhotoLocation}
+              aria-label="Pin it where I took the photo"
+              onClick={() => setUsePhotoLocation((v) => !v)}
+              className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:ring-offset-1 ${
+                usePhotoLocation ? 'bg-teal-600' : 'bg-neutral-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  usePhotoLocation ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
         )}
 
         {/* Date of photo / float — drives the USGS reading lookup */}
