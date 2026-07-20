@@ -79,9 +79,19 @@ export async function POST(request: NextRequest) {
     const month = new Date().toISOString().slice(0, 7);
     const fileName = `community-visuals/${month}/${randomUUID()}.webp`;
 
+    // Upload as a Blob, not the raw Node Buffer. storage-js routes a Blob
+    // through its multipart path, which every runtime encodes as binary. A raw
+    // Buffer body goes through fetch's body handling instead, where sharp's
+    // pooled output Buffer failed the serverless runtime's binary-body
+    // detection and was coerced to UTF-8 text — silently replacing every byte
+    // >0x7F with U+FFFD and storing an undecodable image (broken previews for
+    // every community photo). Wrapping in a Blob copies the exact bytes and
+    // sidesteps that path entirely.
+    const uploadBody = new Blob([new Uint8Array(normalized)], { type: 'image/webp' });
+
     const { data, error } = await supabase.storage
       .from(QUARANTINE_BUCKET)
-      .upload(fileName, normalized, {
+      .upload(fileName, uploadBody, {
         contentType: 'image/webp',
         cacheControl: '31536000',
         upsert: false,
