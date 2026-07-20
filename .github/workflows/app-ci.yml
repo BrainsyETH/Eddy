@@ -1,7 +1,6 @@
 # .github/workflows/app-ci.yml
-# CI gate for the Next.js app: lint + typecheck on every PR and push to main.
-# Keeps the codebase compiling and lint-clean so regressions fail in CI rather
-# than at deploy time.
+# CI gate for the Next.js app: dependency audit, SBOM, typecheck, and lint on
+# every relevant PR and push to main. Keeps regressions visible before deploy.
 
 name: App CI
 
@@ -61,13 +60,3 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-  dependency-review:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
-        with:
-          fail-on-severity: high
