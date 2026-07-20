@@ -63,7 +63,7 @@
     "@tiptap/react": "^3.18.0",
     "@tiptap/starter-kit": "^3.18.0",
     "@turf/turf": "^7.3.2",
-    "@vercel/blob": "^2.0.1",
+    "@vercel/blob": "^2.6.1",
     "@x402/core": "^2.18.0",
     "@x402/evm": "^2.18.0",
     "@x402/extensions": "^2.18.0",
