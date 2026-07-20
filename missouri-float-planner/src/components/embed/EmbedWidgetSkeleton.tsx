@@ -41,16 +41,16 @@ export default function EmbedWidgetSkeleton({
         <span className="embed-skeleton h-3 w-20 rounded" style={blockStyle} />
         <span className="embed-skeleton h-3 w-28 rounded" style={blockStyle} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-[7px]">
         {[0, 1, 2, 3].map(index => (
           <div
             key={index}
-            className="flex flex-col items-center rounded-[13px] border p-2.5"
+            className="flex flex-col items-center rounded-[11px] border p-2"
             style={{ borderColor: palette.border, background: palette.cardBg }}
           >
-            <span className="embed-skeleton block h-[20px] w-20 rounded-full" style={blockStyle} />
-            <span className="embed-skeleton mt-2 block h-4 w-14 rounded" style={blockStyle} />
-            <span className="embed-skeleton mt-1.5 block h-2.5 w-12 rounded" style={blockStyle} />
+            <span className="embed-skeleton block h-[16px] w-16 rounded-full" style={blockStyle} />
+            <span className="embed-skeleton mt-2 block h-3.5 w-12 rounded" style={blockStyle} />
+            <span className="embed-skeleton mt-1.5 block h-2 w-10 rounded" style={blockStyle} />
           </div>
         ))}
       </div>
