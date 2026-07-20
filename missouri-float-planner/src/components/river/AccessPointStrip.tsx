@@ -3,7 +3,7 @@
 // src/components/river/AccessPointStrip.tsx
 // Horizontal scrollable strip of access points below the map
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import Link from 'next/link';
@@ -169,11 +169,14 @@ function CollapsibleDetailSection({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const contentId = useId();
 
   return (
     <div className="border-t border-neutral-100">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
         className="w-full flex items-center justify-between py-2 text-left hover:bg-neutral-50 transition-colors"
       >
         <span className="text-sm font-medium text-neutral-700">{title}</span>
@@ -184,7 +187,7 @@ function CollapsibleDetailSection({
         )}
       </button>
       {isOpen && (
-        <div className="pb-3 text-sm text-neutral-600">
+        <div id={contentId} className="pb-3 text-sm text-neutral-600">
           {children}
         </div>
       )}

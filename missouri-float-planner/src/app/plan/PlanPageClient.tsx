@@ -334,7 +334,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     : null;
   const {
     data: plan,
-    isLoading: planLoading,
+    // Include background route/vessel recalculation. React Query may retain
+    // the last result during that fetch, but the UI must not imply it is new.
+    isFetching: planLoading,
     isError: planIsError,
     refetch: refetchPlan,
   } = useFloatPlan(planParams);
