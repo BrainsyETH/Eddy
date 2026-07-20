@@ -139,10 +139,13 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   // bar's fill (see GaugeBar.gaugeFillModel) so the two can never disagree.
   const RISE_START = 15;
   const RISE_DURATION = 90;
+  // Match the gauge scale + classifier "high" onset (optimalMax ?? levelHigh) so
+  // the big numeral turns condition-colored exactly when the reading enters the
+  // HIGH zone — never white-in-"good" while the bar shows high water.
   const fill = gaugeFillModel(frame, fps, {
     currentHeight: gaugeHeightFt,
     series,
-    levelHigh,
+    levelHigh: optimalMax ?? levelHigh,
     riseStartFrame: RISE_START,
     riseDurationFrames: RISE_DURATION,
     delay: 30,
@@ -228,8 +231,9 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          // Alert packs more rows (numeral/citation/rise) — tighter rhythm.
-          gap: isPortrait ? (alertMode ? 22 : 28) : 20,
+          // Alert packs more rows (numeral/citation/flow/rise) — tighter rhythm
+          // so the whole column stays inside the Reels safe zone.
+          gap: isPortrait ? (alertMode ? 16 : 28) : 20,
         }}
       >
         {/* Severity eyebrow (warning OR recovery). Rendered from frame 0 (no
@@ -337,8 +341,10 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         )}
 
         {/* Date — matches the OG thumbnail's timestamp so the grid cover
-            and the reel content stay in sync */}
-        {dateLabel && (
+            and the reel content stay in sync. Dropped in alert mode: the reel
+            posts in real time (the caption carries the timestamp), and the extra
+            row pushed the dense alert layout past the Reels safe zone. */}
+        {dateLabel && !alertMode && (
           <div
             style={{
               opacity: dateEntrance,
@@ -381,9 +387,9 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               riseStartFrame={RISE_START}
               riseDurationFrames={RISE_DURATION}
               width={alertMode ? (isPortrait ? 140 : 110) : isPortrait ? 100 : 85}
-              // Alert bar cedes ~100px to the counting numeral + citation
+              // Alert bar cedes room to the counting numeral + citation + flow
               // below it so the whole instrument column stays in REEL_SAFE.
-              height={alertMode ? (isPortrait ? 460 : 320) : isPortrait ? 420 : 300}
+              height={alertMode ? (isPortrait ? 396 : 300) : isPortrait ? 420 : 300}
             />
           )}
           {!alertMode && (
@@ -415,7 +421,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
               <span
                 style={{
                   fontFamily: "'Geist Mono', monospace",
-                  fontSize: isPortrait ? 118 : 88,
+                  fontSize: isPortrait ? 104 : 82,
                   fontWeight: 700,
                   lineHeight: 1,
                   letterSpacing: -3,
