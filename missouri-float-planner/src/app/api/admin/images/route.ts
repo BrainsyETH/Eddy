@@ -166,14 +166,17 @@ export async function POST(request: NextRequest) {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${category}/${timestamp}-${sanitizedName}`;
 
-    // Convert file to buffer
+    // Convert file to a Blob for upload. storage-js sends a Blob through its
+    // multipart path (binary-safe on every runtime); a raw Node Buffer body can
+    // fail the serverless runtime's binary-body detection and be coerced to
+    // UTF-8 text, corrupting the stored image. See the note in /api/upload.
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const uploadBody = new Blob([arrayBuffer], { type: file.type });
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(fileName, buffer, {
+      .upload(fileName, uploadBody, {
         contentType: file.type,
         upsert: false,
       });
