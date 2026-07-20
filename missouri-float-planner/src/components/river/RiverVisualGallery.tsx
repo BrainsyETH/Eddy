@@ -16,11 +16,13 @@ const LEVEL_ORDER: ConditionCode[] = ['too_low', 'low', 'good', 'flowing', 'high
 interface RiverVisualGalleryProps {
   riverSlug: string;
   accessPointId?: string | null;
-  /** When provided, an empty gallery shows a CTA that opens the submit form. */
+  /** When provided, an empty gallery shows a CTA linking to the add-photo page. */
+  addPhotoHref?: string;
+  /** Fallback empty-state CTA action (opens a modal) when no addPhotoHref is given. */
   onAddPhoto?: () => void;
 }
 
-export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhoto }: RiverVisualGalleryProps) {
+export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoHref, onAddPhoto }: RiverVisualGalleryProps) {
   const [data, setData] = useState<RiverVisualsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -88,9 +90,24 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
   if (loading || !data) return null;
 
   // No verified photos at any level yet — invite a contribution in the image's
-  // place, when the host gives us a way to open the submit form.
+  // place, when the host gives us a link (or a modal action) to add one.
   if (data.byLevel.length === 0) {
-    if (!onAddPhoto) return null;
+    if (!addPhotoHref && !onAddPhoto) return null;
+    const ctaClass = 'group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors';
+    const ctaInner = (
+      <>
+        <span className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+          <Camera className="w-6 h-6" />
+        </span>
+        <span className="text-sm font-semibold text-neutral-800">No photos at this level yet</span>
+        <span className="text-xs text-neutral-500 max-w-xs">
+          Show fellow floaters what the water looks like right now.
+        </span>
+        <span className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold group-hover:bg-teal-700 transition-colors">
+          <Camera className="w-3.5 h-3.5" /> Add a photo
+        </span>
+      </>
+    );
     return (
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -100,22 +117,11 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
           </h3>
           <ConditionBadge code={data.currentCondition} size="sm" />
         </div>
-        <button
-          type="button"
-          onClick={onAddPhoto}
-          className="group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors"
-        >
-          <span className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
-            <Camera className="w-6 h-6" />
-          </span>
-          <span className="text-sm font-semibold text-neutral-800">No photos at this level yet</span>
-          <span className="text-xs text-neutral-500 max-w-xs">
-            Show fellow floaters what the water looks like right now.
-          </span>
-          <span className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold group-hover:bg-teal-700 transition-colors">
-            <Camera className="w-3.5 h-3.5" /> Add a photo
-          </span>
-        </button>
+        {addPhotoHref ? (
+          <Link href={addPhotoHref} className={ctaClass}>{ctaInner}</Link>
+        ) : (
+          <button type="button" onClick={onAddPhoto} className={ctaClass}>{ctaInner}</button>
+        )}
       </div>
     );
   }

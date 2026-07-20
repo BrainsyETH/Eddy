@@ -69,7 +69,7 @@ export default async function AccessPointDetailPage({ params }: Props) {
         <AccessPointHeader accessPoint={accessPoint} gaugeStatus={gaugeStatus} />
 
         {/* Community photos, this access point first, matched to the current level */}
-        <RiverVisualGallery riverSlug={riverSlug} accessPointId={accessPoint.id} />
+        <RiverVisualGallery riverSlug={riverSlug} accessPointId={accessPoint.id} addPhotoHref={`${riverHref}/add-photo`} />
 
         {/* Navigation Buttons */}
         <AccessPointNav accessPoint={accessPoint} />
