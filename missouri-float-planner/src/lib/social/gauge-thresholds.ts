@@ -110,18 +110,16 @@ export async function loadFtThresholds(
     levelHigh: num(gauge.level_high),
     levelDangerous: num(gauge.level_dangerous),
   };
-  const alt: LevelSet = {
-    optimalMin: num(gauge.alt_level_optimal_min),
-    optimalMax: num(gauge.alt_level_optimal_max),
-    levelHigh: num(gauge.alt_level_high),
-    levelDangerous: num(gauge.alt_level_dangerous),
-  };
-
-  // Unit routing: ft-primary (or legacy rows with no unit) → primary levels;
-  // cfs-primary → the alt mirror. Either way the chosen set must still pass the
-  // ft plausibility check before it's allowed onto the feet bar.
-  const chosen = primaryUnit === 'ft' ? primary : alt;
-  if (!plausibleFt(chosen)) return base;
-
-  return { ...base, ...chosen };
+  // CFS-primary gauges classify the CONDITION from discharge, and their ft
+  // "mirror" (the pre-migration ft ladder parked in alt_level_*) is stale — it
+  // routinely contradicts the cfs-derived condition, e.g. a DANGEROUS Meramec at
+  // 1,190 cfs whose 3.2 ft stage reads "good" on the old ft ladder, so the reel
+  // drew the reading inside a green GOOD zone. Hand the reel NO ft scale for
+  // them: it renders a level-only bar + the "N cfs · X× normal flow" line, which
+  // can never argue with the headline. ft-primary gauges keep their real ft
+  // ladder (still plausibility-checked). This is the single, unit-driven rule —
+  // no per-reading contradiction heuristic that could miss a case.
+  if (primaryUnit === 'cfs') return base;
+  if (!plausibleFt(primary)) return base;
+  return { ...base, ...primary };
 }
