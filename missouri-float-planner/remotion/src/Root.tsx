@@ -400,8 +400,13 @@ export const RemotionRoot: React.FC = () => {
           riverName: "Current River",
           conditionCode: "flowing",
           gaugeHeightFt: 3.2,
-          optimalMin: 2.0,
-          optimalMax: 4.5,
+          // NO optimalMin/optimalMax defaults here. This is the PRODUCTION render
+          // target: the app omits ft thresholds for CFS-primary (and any
+          // untrustworthy) rivers so the bar renders level-only — but a
+          // defaultProp for them would silently back-fill demo zones (2.0/4.5)
+          // after JSON serialization drops the omitted/undefined values, which is
+          // exactly how a DANGEROUS Meramec reel drew its reading in a GOOD zone.
+          // Thresholds must come from real data or be absent, never a demo value.
           quoteText: "The Current is running clear and steady today — perfect for a lazy float from Akers to Pulltite.",
           dateLabel: "April 18, 2026",
           format: "portrait",
