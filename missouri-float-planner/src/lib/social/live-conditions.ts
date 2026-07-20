@@ -45,7 +45,7 @@ export const STALE_READING_HOURS = 6;
  * A day-plus gap means a dead gauge, which blanks anyway. Social keeps the
  * stricter 6 h default.
  */
-export const WEBSITE_PROSE_STALE_HOURS = STALE_READING_HOURS;
+export const WEBSITE_PROSE_STALE_HOURS = 24;
 
 interface RiverGaugeRow {
   rivers: { slug: string } | null;
@@ -174,17 +174,52 @@ export interface OverlayOptions {
   /**
    * Reading-age (hours) beyond which prose is blanked for staleness ALONE
    * (independent of a condition change). Defaults to STALE_READING_HOURS (6),
-   * which is right for both website and social surfaces: specific numeric prose
-   * is never presented as current after the underlying reading is stale.
+   * which is right for social posts — a scheduled tweet shouldn't narrate
+   * six-hour-old specifics as current. Website surfaces pass a larger value:
+   * a reading gap of a few hours shouldn't nuke the whole quote (forecast,
+   * safety notes, and float tips stay valid) and drop the reader to the bland
+   * static one-liner. A genuinely dead gauge still blanks two ways — via this
+   * ceiling, and because a very old reading usually computes a different
+   * condition bucket than the morning snapshot (classChanged).
    */
   proseStaleHours?: number;
   /** Optional tag for the diagnostic log line (e.g. 'eddy-updates'). */
   logLabel?: string;
 }
 
-function displayedValue(value: number | null | undefined, unit: 'ft' | 'cfs'): number | null {
-  if (value == null) return null;
-  return unit === 'cfs' ? Math.round(value) : Math.round(value * 10) / 10;
+/**
+ * Coarse floatability class for a condition code. Prose is blanked only when
+ * the live reading moves the river to a DIFFERENT class than the quote was
+ * written for — not on every code change.
+ *
+ * Why: the overlay recomputes the live condition and compares it to the code
+ * stored on the morning quote. Blanking on any code difference makes the whole
+ * quote (weather, safety, tips) vanish over cosmetic jitter — e.g. a river
+ * drifting 'good' → 'low' while both are perfectly floatable, or the overlay's
+ * banding disagreeing by one notch with whatever stamped the stored code. Both
+ * collapse to the bland static one-liner. Grouping the floatable codes together
+ * keeps the quote through that jitter while still blanking on a real,
+ * contradictory move (floatable → dangerous, or floatable → too shallow), which
+ * is the case the blanking actually exists for. 'unknown' is a wildcard (lost
+ * telemetry) and never counts as a class change on its own.
+ */
+type FloatabilityClass = 'too_low' | 'floatable' | 'high' | 'dangerous' | 'unknown';
+function floatabilityClass(code: string): FloatabilityClass {
+  switch (code) {
+    case 'too_low':
+      return 'too_low';
+    case 'low':
+    case 'good':
+    case 'flowing':
+    case 'optimal':
+      return 'floatable';
+    case 'high':
+      return 'high';
+    case 'dangerous':
+      return 'dangerous';
+    default:
+      return 'unknown';
+  }
 }
 
 export type LiveOverlaid<T> = T & {
@@ -237,24 +272,20 @@ export async function overlayLiveConditions<
       reading_timestamp: u.reading_timestamp ?? null,
       snapshot_id: u.snapshot_id ?? null,
     };
-    const conditionChanged = u.condition_code !== live.condition_code;
-    const storedPrimaryValue = displayedValue(
-      live.threshold_unit === 'cfs' ? u.discharge_cfs : u.gauge_height_ft,
-      live.threshold_unit,
-    );
-    const livePrimaryValue = displayedValue(
-      live.threshold_unit === 'cfs' ? live.discharge_cfs : live.gauge_height_ft,
-      live.threshold_unit,
-    );
-    // If a caller did not fetch the stored primary value, the condition check
-    // still protects it. Callers that render prose on the website include both
-    // readings and therefore fail closed on any displayed numeric mismatch.
-    const readingChanged = storedPrimaryValue !== null &&
-      (livePrimaryValue === null || storedPrimaryValue !== livePrimaryValue);
-    // Prose is "too stale" only past the caller's threshold (default 6 h). A
-    // missing reading (null age) counts as too stale; but a genuinely dead
-    // gauge also computes a different condition, so a class change usually
-    // fires first anyway.
+    // Blank prose only when the floatability CLASS moves (good↔low is not a
+    // class move), not on every condition-code change and not on every reading
+    // tick. Blanking on any reading drift dropped nearly every river to the
+    // static one-liner within hours of the daily regen, since gauge discharge
+    // moves on essentially every reading. Transitions to/from 'unknown' (lost
+    // telemetry) don't count — the morning quote stays the best info.
+    const storedClass = floatabilityClass(u.condition_code);
+    const liveClass = floatabilityClass(live.condition_code);
+    const classChanged =
+      storedClass !== 'unknown' && liveClass !== 'unknown' && storedClass !== liveClass;
+    // Prose is "too stale" only past the caller's threshold (default 6 h; the
+    // website passes 24 h). A missing reading (null age) counts as too stale;
+    // but a genuinely dead gauge also computes a different condition, so a class
+    // change usually fires first anyway.
     const proseTooStale =
       live.reading_age_hours == null || live.reading_age_hours > proseStaleHours;
     const next: LiveOverlaid<T> = {
@@ -265,14 +296,12 @@ export async function overlayLiveConditions<
       reading_timestamp: live.reading_timestamp,
       snapshot_id: live.snapshot_id,
     };
-    if ((conditionChanged || readingChanged || proseTooStale) && clearProseOnConditionChange) {
+    if ((classChanged || proseTooStale) && clearProseOnConditionChange) {
       if ('quote_text' in next) (next as { quote_text?: string }).quote_text = '';
       if ('summary_text' in next) (next as { summary_text?: string | null }).summary_text = null;
-      const reason = conditionChanged
-        ? `condition ${u.condition_code}→${live.condition_code}`
-        : readingChanged
-          ? `reading ${storedPrimaryValue}→${livePrimaryValue} ${live.threshold_unit}`
-          : `stale ${live.reading_age_hours == null ? 'no-reading' : live.reading_age_hours.toFixed(1) + 'h'}`;
+      const reason = classChanged
+        ? `class ${u.condition_code}→${live.condition_code}`
+        : `stale ${live.reading_age_hours == null ? 'no-reading' : live.reading_age_hours.toFixed(1) + 'h'}`;
       blanked.push(`${u.river_slug}(${reason})`);
     }
     return next;
