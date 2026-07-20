@@ -13,12 +13,43 @@ import { ArrowRight } from 'lucide-react';
 
 import { EDDY_IMAGES } from '@/constants';
 import { conditionDef } from '@shared/condition-system';
-import { formatRiverLevel } from '@/lib/river-groups';
+import { formatRiverLevel, type RiverGroup } from '@/lib/river-groups';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 
 // Cap the list so a basin-wide flood can't run the card off the page.
 const MAX_RISING = 5;
+
+// Eddy-voiced caption for the rundown. Deterministic (it always matches the live
+// list), but it names the worst river and adapts to how many are flooding vs
+// merely high, so it reads like Eddy talking rather than a status line. Assumes
+// at least one rising river — the caller renders the all-clear copy otherwise.
+function buildRisingCaption(rising: RiverGroup[]): string {
+  const floods = rising.filter((rg) => rg.condition.code === 'dangerous');
+  const highs = rising.filter((rg) => rg.condition.code === 'high');
+  const parts: string[] = [];
+
+  if (floods.length > 0) {
+    parts.push(
+      floods.length === 1
+        ? `${floods[0].riverName} is at flood stage. Stay off it until levels drop.`
+        : `${floods.length} rivers are at flood stage, including ${floods[0].riverName}. Stay off them until levels drop.`,
+    );
+    if (highs.length === 1) {
+      parts.push(`${highs[0].riverName} is running high too, so use caution there.`);
+    } else if (highs.length > 1) {
+      parts.push(`${highs.length} more are running high, so use caution on those.`);
+    }
+  } else {
+    parts.push(
+      highs.length === 1
+        ? `${highs[0].riverName} is running high right now. Use caution and check before you launch.`
+        : `${highs.length} rivers are running high right now, including ${highs[0].riverName}. Use caution and check before you launch.`,
+    );
+  }
+
+  return parts.join(' ');
+}
 
 // Gradient-framed white card shell shared by every state so the loading,
 // error, and populated views stay pixel-identical.
@@ -83,7 +114,6 @@ export default function EddySaysReport() {
     .filter((rg) => rg.condition.code === 'high' || rg.condition.code === 'dangerous')
     .sort((a, b) => conditionDef(a.condition.code).severity - conditionDef(b.condition.code).severity);
 
-  const hasFlood = rising.some((rg) => rg.condition.code === 'dangerous');
   const shown = rising.slice(0, MAX_RISING);
   const overflow = rising.length - shown.length;
 
@@ -99,8 +129,7 @@ export default function EddySaysReport() {
       ) : (
         <>
           <p className="text-sm text-neutral-700 leading-relaxed font-medium mb-3">
-            {rising.length === 1 ? 'One river is' : `${rising.length} rivers are`} running {hasFlood ? 'high or flooding' : 'high'} right now.{' '}
-            {hasFlood ? 'Stay off the flooded water and use caution on the rest.' : 'Use caution and check before you launch.'}
+            {buildRisingCaption(rising)}
           </p>
           <ul className="flex flex-col gap-0.5">
             {shown.map((rg) => {
@@ -135,7 +164,7 @@ export default function EddySaysReport() {
             })}
           </ul>
           {overflow > 0 && (
-            <p className="text-xs text-neutral-400 mt-2">+{overflow} more running high</p>
+            <p className="text-xs text-neutral-400 mt-2">+{overflow} more rivers</p>
           )}
         </>
       )}
