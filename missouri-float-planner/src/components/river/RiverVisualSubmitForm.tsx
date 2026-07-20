@@ -205,10 +205,18 @@ export default function RiverVisualSubmitForm({
       );
       const data = res.ok ? await res.json() : null;
       if (data?.found) {
-        if (data.gaugeHeightFt != null) setGaugeHeight(String(data.gaugeHeightFt));
-        if (data.dischargeCfs != null) setDischargeCfs(String(data.dischargeCfs));
+        // Overwrite from the historical reading, clearing any field the record
+        // doesn't carry (older daily-mean records have discharge but no stage)
+        // so the form never keeps the live value it was seeded with for a past
+        // date.
+        setGaugeHeight(data.gaugeHeightFt != null ? String(data.gaugeHeightFt) : '');
+        setDischargeCfs(data.dischargeCfs != null ? String(data.dischargeCfs) : '');
         setReadingSource('historical');
-        setReadingNote(`Stage & flow pulled from USGS for ${label}.`);
+        setReadingNote(
+          data.gaugeHeightFt != null
+            ? `Stage & flow pulled from USGS for ${label}.`
+            : `Flow pulled from USGS for ${label}; enter the stage if you know it.`
+        );
       } else {
         setReadingNote(`No USGS reading found for ${label} — please enter the level.`);
       }
@@ -493,36 +501,39 @@ export default function RiverVisualSubmitForm({
         </div>
 
         {/* Precise location from the photo's GPS — shown only when the photo
-            was geotagged inside Missouri. Off by default; opt in with the toggle. */}
+            was geotagged inside Missouri. Off by default; opt in with the toggle.
+            The whole row is the switch, for a comfortable tap target on mobile. */}
         {photoGps && (
-          <div className="flex items-start gap-3 p-3 rounded-lg border border-teal-100 bg-teal-50">
-            <span className="text-xs flex-1">
-              <span className="flex items-center gap-1 font-semibold text-teal-800">
-                <MapPin className="w-3.5 h-3.5" />
+          <button
+            type="button"
+            role="switch"
+            aria-checked={usePhotoLocation}
+            aria-label="Pin it where I took the photo"
+            onClick={() => setUsePhotoLocation((v) => !v)}
+            className="flex w-full items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-left transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50"
+          >
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-800">
+                <MapPin className="h-4 w-4 shrink-0 text-teal-600" />
                 Pin it where I took the photo
               </span>
-              <span className="mt-0.5 block text-teal-700/90">
-                Uses your photo&apos;s GPS so it lands on the map exactly where you were on the
-                river — more precise than the access point. Off by default; shown publicly once approved.
+              <span className="mt-0.5 block text-xs text-neutral-500">
+                Uses your photo&apos;s GPS to drop the pin exactly where you stood, instead of at the access point.
               </span>
             </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={usePhotoLocation}
-              aria-label="Pin it where I took the photo"
-              onClick={() => setUsePhotoLocation((v) => !v)}
-              className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:ring-offset-1 ${
+            <span
+              aria-hidden="true"
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                 usePhotoLocation ? 'bg-teal-600' : 'bg-neutral-300'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                  usePhotoLocation ? 'translate-x-4' : 'translate-x-0.5'
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+                  usePhotoLocation ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
-            </button>
-          </div>
+            </span>
+          </button>
         )}
 
         {/* Date of photo / float — drives the USGS reading lookup */}
