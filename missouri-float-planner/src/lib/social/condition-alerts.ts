@@ -3,8 +3,8 @@
 //
 // Two single-river alert kinds share one pipeline:
 //   - 'warning'  — river crossed INTO elevated water (high / dangerous)
-//   - 'recovery' — river dropped back OUT of elevated water into a floatable
-//                  state (the "all-clear" the warning caption promises)
+//   - 'easing'   — river de-escalated from dangerous back to high (still
+//                  elevated, just coming down)
 // Plus a batched STORM DIGEST: publishElevatedCrossings watches a rolling window
 // and, once enough rivers have gone elevated (this pass + recent passes), posts
 // ONE "rivers rising" digest and suppresses individual reels for the rest of the
@@ -19,7 +19,7 @@ import {
   formatStormDigestCaption,
   getRiverName,
 } from './content-formatter';
-import { warningCopy, recoveryCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from '@shared/condition-copy';
+import { warningCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from '@shared/condition-copy';
 import { getOrCreateConfig } from './config-helpers';
 import { loadFtThresholds } from './gauge-thresholds';
 import { computeCondition } from '@/lib/conditions';
@@ -35,9 +35,6 @@ const LOG_PREFIX = '[ConditionAlert]';
 // last_condition_code each step. We skip alerts from 'unknown' (a first-ever
 // reading) to avoid spurious warnings on gauge initialization.
 const ELEVATED = new Set(['high', 'dangerous']);
-// "Back to floatable" targets for the all-clear (not low/too_low — those aren't
-// a celebration, just a drought).
-const FLOATABLE = new Set(['flowing', 'good']);
 
 /**
  * The reel + cover draw an ft gauge from the primary gauge's ft thresholds — but
@@ -73,7 +70,7 @@ function ftThresholdsContradictCondition(
   return ELEVATED.has(ftCond) !== ELEVATED.has(conditionCode);
 }
 
-type AlertKind = 'warning' | 'recovery' | 'easing';
+type AlertKind = 'warning' | 'easing';
 
 function isNotableTransition(oldCondition: string, newCondition: string): boolean {
   if (oldCondition === 'unknown') return false;     // don't alert on a first-ever reading
@@ -82,15 +79,10 @@ function isNotableTransition(oldCondition: string, newCondition: string): boolea
   return oldCondition !== 'dangerous';              // → dangerous from anything (incl. high→dangerous)
 }
 
-function isRecoveryTransition(oldCondition: string, newCondition: string): boolean {
-  return ELEVATED.has(oldCondition) && FLOATABLE.has(newCondition);
-}
-
 // De-escalation while STILL elevated: a river dropping from dangerous back to
-// high. It's neither a crossing INTO elevated water (so it stays out of the
-// storm-digest batching) nor an all-clear (high isn't floatable) — it gets its
-// own "coming down, but still running high" notice so the dangerous alert's
-// story has a follow-up instead of going silent until the full all-clear.
+// high. It's not a crossing INTO elevated water (so it stays out of the
+// storm-digest batching) — it gets its own "coming down, but still running
+// high" notice so the dangerous alert's story has a follow-up.
 function isEasingTransition(oldCondition: string, newCondition: string): boolean {
   return oldCondition === 'dangerous' && newCondition === 'high';
 }
@@ -105,7 +97,6 @@ function classifyTransition(oldCondition: string, newCondition: string): AlertKi
   if (oldCondition === 'unknown') return null; // don't alert on a first-ever reading
   if (isNotableTransition(oldCondition, newCondition)) return 'warning';
   if (isEasingTransition(oldCondition, newCondition)) return 'easing';
-  if (isRecoveryTransition(oldCondition, newCondition)) return 'recovery';
   return null;
 }
 
@@ -285,7 +276,7 @@ async function loadBackgroundUrl(
 
 /**
  * Called from gauge cron after detecting a condition change. Classifies the
- * transition (warning / recovery / neither), respects cooldown, and publishes.
+ * transition (warning / easing / neither), respects cooldown, and publishes.
  */
 export async function publishConditionChangeAlert(params: {
   riverSlug: string;
@@ -299,8 +290,7 @@ export async function publishConditionChangeAlert(params: {
   if (!kind) return { published: 0, skipped: true, reason: 'not_notable' };
 
   const supabase = createAdminClient();
-  const postType =
-    kind === 'recovery' ? 'condition_recovery' : kind === 'easing' ? 'condition_easing' : 'condition_change';
+  const postType = kind === 'easing' ? 'condition_easing' : 'condition_change';
 
   const recent = await hasRecentPost(postType, riverSlug, newCondition, 4, supabase);
   if (recent) {
@@ -344,9 +334,8 @@ export async function publishConditionChangeAlert(params: {
   // FALLING and must not read as "risen into high water" (the 6h delta is the
   // primary signal; the condition-change direction is the fallback).
   const trend: TrendDir = resolveTrend(ctx.riseDeltaFt, oldCondition, newCondition);
-  // Warning covers/reels use the generic 'danger' art; recovery uses the
-  // river's own art (a calm, on-brand backdrop).
-  const backgroundUrl = await loadBackgroundUrl(supabase, kind === 'recovery' ? riverSlug : 'danger');
+  // Warning/easing covers/reels use the generic 'danger' art.
+  const backgroundUrl = await loadBackgroundUrl(supabase, 'danger');
 
   const metadata = {
     kind,
@@ -386,14 +375,13 @@ type PublishParams = {
 
 /** Build the pinned OG cover URL for a single-river alert. */
 function coverUrl(p: PublishParams, platform: SocialPlatform): string {
-  const { baseUrl, riverSlug, oldCondition, newCondition, gaugeHeightFt, kind, ctx } = p;
+  const { baseUrl, riverSlug, oldCondition, newCondition, gaugeHeightFt, ctx } = p;
   const parts = [
     `type=warning`,
     `river=${riverSlug}`,
     `from=${oldCondition}`,
     `to=${newCondition}`,
     gaugeHeightFt != null ? `ft=${gaugeHeightFt}` : '',
-    kind === 'recovery' ? `kind=recovery` : '',
     ctx.riseText ? `rise=${encodeURIComponent(ctx.riseText)}` : '',
     `platform=${platform}`,
   ].filter(Boolean);
@@ -411,7 +399,7 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind: kind === 'recovery' ? 'recovery' : 'warning', riseText: ctx.riseText, trend: p.trend,
+      kind: 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -470,8 +458,8 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
 /**
  * Video path — inserts one 'rendering' row per platform, then dispatches a
  * single GH Actions render (social-gauge-portrait) that calls back into
- * /api/admin/social/video-callback. Warning reels run in warningMode; recovery
- * reels in the calm "all-clear" mode. The OG cover is still the pinned thumbnail.
+ * /api/admin/social/video-callback. Warning and easing reels run in warningMode.
+ * The OG cover is still the pinned thumbnail.
  */
 async function publishAsVideo(p: PublishParams): Promise<{ published: number; skipped: boolean; reason?: string }> {
   const { supabase, postType, kind, riverSlug, oldCondition, newCondition, gaugeHeightFt, ctx, backgroundUrl, metadata } = p;
@@ -484,7 +472,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
     const { caption, hashtags } = formatConditionChangeCaption({
       riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
-      kind: kind === 'recovery' ? 'recovery' : 'warning', riseText: ctx.riseText, trend: p.trend,
+      kind: 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
 
@@ -514,9 +502,7 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
 
   if (postIds.length === 0) return { published: 0, skipped: true, reason: 'no_credentials' };
 
-  const quoteText = kind === 'recovery'
-    ? recoveryCopy(newCondition, riverName).quote
-    : warningCopy(newCondition, riverName, p.trend).quote;
+  const quoteText = warningCopy(newCondition, riverName, p.trend).quote;
   const dateLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const dispatched = await triggerVideoRender({
@@ -526,8 +512,8 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
       riverName,
       conditionCode: newCondition,
       previousCondition: oldCondition,
-      warningMode: kind === 'warning' || kind === 'easing',
-      recovery: kind === 'recovery',
+      warningMode: true,
+      recovery: false,
       gaugeHeightFt: gaugeHeightFt ?? 0,
       optimalMin: ctx.optimalMin,
       optimalMax: ctx.optimalMax,
