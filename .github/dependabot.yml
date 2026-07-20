@@ -8,11 +8,13 @@ updates:
       time: "09:00"
       timezone: America/Chicago
     open-pull-requests-limit: 5
-    groups:
-      application-minor-and-patch:
+    # Major upgrades are migration projects, not routine maintenance. Keeping
+    # minor and patch updates in separate PRs makes regressions attributable to
+    # one package instead of hiding them inside a large update bundle.
+    ignore:
+      - dependency-name: "*"
         update-types:
-          - minor
-          - patch
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
@@ -22,3 +24,7 @@ updates:
       time: "09:30"
       timezone: America/Chicago
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
