@@ -3,12 +3,15 @@
 // src/components/river/RiverVisualGallery.tsx
 // Displays community-submitted river photos matching current conditions
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import type { RiverVisual, RiverVisualsResponse } from '@/types/api';
+import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
+
+// Level bands ordered dry → flood, for the scrubber.
+const LEVEL_ORDER: ConditionCode[] = ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous', 'unknown'];
 
 interface RiverVisualGalleryProps {
   riverSlug: string;
@@ -22,6 +25,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<ConditionCode | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +42,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
         if (!cancelled) {
           setData(json);
           setCurrentIndex(0);
+          setSelectedLevel(null);
         }
       } catch {
         // Silently fail — gallery is non-critical
@@ -50,22 +55,41 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
     return () => { cancelled = true; };
   }, [riverSlug, accessPointId]);
 
+  // Which band's photos are showing. Defaults to the river's current level when
+  // it has photos, else the nearest band that does.
+  const activeLevel = useMemo<ConditionCode | null>(() => {
+    if (!data || data.byLevel.length === 0) return null;
+    const has = (c: ConditionCode) => data.byLevel.some((l) => l.code === c);
+    if (selectedLevel && has(selectedLevel)) return selectedLevel;
+    if (has(data.currentCondition)) return data.currentCondition;
+    const i = LEVEL_ORDER.indexOf(data.currentCondition);
+    if (i >= 0) {
+      return [...data.byLevel].sort(
+        (a, b) => Math.abs(LEVEL_ORDER.indexOf(a.code) - i) - Math.abs(LEVEL_ORDER.indexOf(b.code) - i)
+      )[0].code;
+    }
+    return data.byLevel[0].code;
+  }, [data, selectedLevel]);
+
+  const activeGroup = data?.byLevel.find((l) => l.code === activeLevel) ?? null;
+  const groupVisuals = activeGroup?.visuals ?? [];
+
   const navigate = useCallback((direction: 1 | -1) => {
-    if (!data?.visuals.length) return;
+    if (!groupVisuals.length) return;
     setCurrentIndex((prev) => {
       const next = prev + direction;
-      if (next < 0) return data.visuals.length - 1;
-      if (next >= data.visuals.length) return 0;
+      if (next < 0) return groupVisuals.length - 1;
+      if (next >= groupVisuals.length) return 0;
       return next;
     });
-  }, [data?.visuals.length]);
+  }, [groupVisuals.length]);
 
   // Don't render while loading or if the fetch failed.
   if (loading || !data) return null;
 
-  // No photo matches the current level yet — invite a contribution in the
-  // image's place, when the host gives us a way to open the submit form.
-  if (data.visuals.length === 0) {
+  // No verified photos at any level yet — invite a contribution in the image's
+  // place, when the host gives us a way to open the submit form.
+  if (data.byLevel.length === 0) {
     if (!onAddPhoto) return null;
     return (
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
@@ -96,8 +120,8 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
     );
   }
 
-  const visuals = data.visuals;
-  const current = visuals[currentIndex];
+  const visuals = groupVisuals;
+  const current = visuals[currentIndex] ?? visuals[0];
 
   return (
     <>
@@ -108,11 +132,36 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhot
           <h3 className="text-sm font-semibold text-neutral-800">
             What the river looks like at this level
           </h3>
-          <ConditionBadge code={data.currentCondition} size="sm" />
+          <ConditionBadge code={activeLevel ?? data.currentCondition} size="sm" />
           <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
             {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
           </span>
         </div>
+
+        {/* Level scrubber — see the river at each level we have photos for */}
+        {data.byLevel.length > 1 && (
+          <div className="px-4 pt-3 flex flex-wrap items-center gap-x-1.5 gap-y-2">
+            {data.byLevel.map((l) => {
+              const isActive = l.code === activeLevel;
+              const isNow = l.code === data.currentCondition;
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
+                  aria-pressed={isActive}
+                  title={isNow ? 'The river is at this level right now' : `See the river at ${l.code}`}
+                  className="inline-flex items-center gap-1"
+                >
+                  <span className={`rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
+                    <ConditionBadge code={l.code} size="sm" />
+                  </span>
+                  {isNow && <span className="text-[10px] font-semibold text-teal-600">now</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Image carousel */}
         <div className="relative aspect-[16/10] bg-neutral-100">
