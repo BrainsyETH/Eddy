@@ -246,10 +246,10 @@ async function handleSettlement(
  * Dynamic routes pass their context type as the generic, e.g.
  *   withX402Route<{ params: Promise<{ slug: string }> }>(_GET, '/api/rivers/:slug')
  */
-export function withX402Route<C = undefined>(
-  handler: C extends undefined
-    ? (request: NextRequest) => Promise<NextResponse>
-    : (request: NextRequest, context: C) => Promise<NextResponse>,
+type StaticRouteContext = { params: Promise<Record<string, never>> };
+
+export function withX402Route<C = StaticRouteContext>(
+  handler: (request: NextRequest, context: C) => Promise<NextResponse>,
   routeKey: X402RouteKey,
 ) {
   // Dormant (no payout address configured) → return the handler untouched.
@@ -267,8 +267,7 @@ export function withX402Route<C = undefined>(
   const ensureReady = prepareServer(httpServer);
 
   return async function x402Handler(request: NextRequest, context: C): Promise<NextResponse> {
-    const runHandler = (req: NextRequest) =>
-      (handler as (req: NextRequest, ctx: C) => Promise<NextResponse>)(req, context);
+    const runHandler = (req: NextRequest) => handler(req, context);
 
     // Browsers / non-agent traffic: free passthrough.
     if (!isAiAgent(request.headers.get('user-agent'))) {

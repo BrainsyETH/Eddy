@@ -10,6 +10,10 @@ import { MapPin, Flag, FlagOff, type LucideIcon } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
+import {
+  attachNearestMarkerPointerPriority,
+  type MarkerPointerPriorityEntry,
+} from './marker-pointer-priority';
 import { presentPopup } from './popup-manager';
 import type { AccessPoint } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
@@ -60,6 +64,7 @@ export default function AccessPointMarkers({
     // state framing, full size once zoomed to the reach. Selected put-in/
     // take-out stay pinned at full prominence.
     const zoomFadeEntries: ZoomFadeEntry[] = [];
+    const pointerPriorityEntries: MarkerPointerPriorityEntry[] = [];
 
     // Create markers for each access point
     accessPoints.forEach((point) => {
@@ -103,6 +108,7 @@ export default function AccessPointMarkers({
       // circle lives in an inner child so its size is unchanged.
       const el = document.createElement('div');
       el.className = 'access-point-marker';
+      el.dataset.accessPointId = point.id;
       el.style.cssText = `
         width: 44px;
         height: 44px;
@@ -294,13 +300,18 @@ export default function AccessPointMarkers({
       markersRef.current.push(marker);
       popupsRef.current.push(popup);
       zoomFadeEntries.push({ el, circle, pinned: isPutIn || isTakeOut });
+      pointerPriorityEntries.push({ el, baseZIndex: zIndex });
     });
 
     const detachZoomFade = attachMarkerZoomFade(map, zoomFadeEntries);
+    const detachPointerPriority = supportsHoverRef.current
+      ? attachNearestMarkerPointerPriority(map, pointerPriorityEntries)
+      : () => {};
 
     // Cleanup
     return () => {
       detachZoomFade();
+      detachPointerPriority();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
       rootsRef.current.forEach((root) => root.unmount());

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
+import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
 import { calculateFloatTime, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
 import {
   fetchGaugeReadings,
@@ -621,6 +622,10 @@ async function _GET(request: NextRequest) {
     // Build warnings array
     const warnings: string[] = [];
     warnings.push(...spanWarnings);
+    const shuttlePlausibility = assessShuttlePlausibility(driveBack.miles, distanceMiles);
+    if (shuttlePlausibility.anomaly && shuttlePlausibility.warning) {
+      warnings.push(shuttlePlausibility.warning);
+    }
     if (condition?.accuracy_warning) {
       warnings.push(condition.accuracy_warning_reason || 'Gauge reading may be inaccurate');
     }

@@ -15,13 +15,15 @@ export default function NotFound() {
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary-500/20 flex items-center justify-center">
           <span className="text-3xl">🌊</span>
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">404 - Page Not Found</h2>
+        <h1 className="text-2xl font-bold text-white mb-2">404 - Page Not Found</h1>
         <p className="text-primary-200 mb-6">
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
-        <Link href="/" className="btn-primary inline-block">
-          Go Home
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link href="/plan" className="btn-primary inline-block">Plan a Float</Link>
+          <Link href="/rivers" className="text-primary-100 underline hover:text-white">River Reports</Link>
+          <Link href="/" className="text-primary-100 underline hover:text-white">Go Home</Link>
+        </div>
       </div>
     </div>
   );

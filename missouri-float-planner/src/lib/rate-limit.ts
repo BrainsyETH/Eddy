@@ -9,8 +9,8 @@
 //   best-effort only (each lambda instance has its own store), which is why
 //   the Redis path exists — configure Upstash in production.
 //
-// If the Redis call itself fails, requests are allowed (fail open) so an
-// Upstash outage can't take the site down.
+// Redis remains optional. When unavailable, the per-instance fallback keeps
+// writes usable while still providing basic burst protection.
 
 import { NextResponse } from 'next/server';
 
@@ -104,7 +104,7 @@ export async function rateLimit(
   // Global limiter when Upstash is configured
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     const result = await redisIncrement(key, windowMs);
-    if (result === null) return null; // fail open on Redis trouble
+    if (result === null) return null;
     if (result.count > limit) {
       return tooManyRequests(Math.ceil(result.ttlMs / 1000));
     }
@@ -133,9 +133,16 @@ export async function rateLimit(
  * Extracts a rate limit key from a request (IP-based).
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  // Vercel overwrites this header at the trusted edge. Generic
+  // X-Forwarded-For is ignored unless a self-hosted deployment explicitly
+  // opts in, since callers can otherwise choose their own limiter key.
+  const vercelForwarded = request.headers.get('x-vercel-forwarded-for');
+  if (vercelForwarded) return vercelForwarded.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp.trim();
+  if (process.env.TRUST_X_FORWARDED_FOR === 'true') {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) return forwarded.split(',')[0].trim();
   }
-  return request.headers.get('x-real-ip') || 'unknown';
+  return 'unknown';
 }

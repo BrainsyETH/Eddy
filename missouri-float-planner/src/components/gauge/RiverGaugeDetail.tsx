@@ -311,6 +311,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     return buildStaticEddyText({
       conditionCode: sourceCode,
       gaugeHeightFt: sourceGauge?.gaugeHeightFt ?? null,
+      dischargeCfs: sourceGauge?.dischargeCfs ?? null,
       optimalMin: sourceThreshold?.levelOptimalMin,
       optimalMax: sourceThreshold?.levelOptimalMax,
       thresholdUnit: sourceThreshold?.thresholdUnit,

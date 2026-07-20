@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Car, Phone, Globe, Loader2 } from 'lucide-react';
+import { AlertTriangle, Car, Phone, Globe, Loader2 } from 'lucide-react';
 import type { NearbyServiceDirectory } from '@/types/api';
 
 interface ShuttlePanelProps {
@@ -17,6 +17,8 @@ interface ShuttleResponse {
   miles?: number;
   minutes?: number;
   routeSummary?: string;
+  anomaly?: boolean;
+  warning?: string;
 }
 
 function useShuttleDistance(putInId: string, takeOutId: string) {
@@ -69,6 +71,12 @@ export default function ShuttlePanel({ putInId, takeOutId, putInName, takeOutNam
           {shuttle.routeSummary && (
             <p className="text-xs text-neutral-400 mt-0.5">via {shuttle.routeSummary}</p>
           )}
+          {shuttle.anomaly && (
+            <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-800" role="alert">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {shuttle.warning || 'This route looks unusually long. Verify the pickup route and timing with your outfitter.'}
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -98,6 +106,7 @@ export default function ShuttlePanel({ putInId, takeOutId, putInName, takeOutNam
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700"
+                      aria-label={`Visit ${outfitter.name} website (opens in a new tab)`}
                     >
                       <Globe className="w-3 h-3" />
                     </a>

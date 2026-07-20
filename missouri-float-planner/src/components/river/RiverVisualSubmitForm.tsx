@@ -5,6 +5,7 @@
 // Auto-populates gauge readings from current conditions, user can edit
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
@@ -70,9 +71,9 @@ export default function RiverVisualSubmitForm({
     if (!file) return;
 
     // Validate
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      setError('Please select a JPEG, PNG, WebP, or GIF image.');
+      setError('Please select a JPEG, PNG, or WebP image.');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -322,7 +323,7 @@ export default function RiverVisualSubmitForm({
                   <span className="text-xs font-medium text-teal-700">Take Photo</span>
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp"
                     capture="environment"
                     onChange={handleFileChange}
                     className="hidden"
@@ -335,13 +336,13 @@ export default function RiverVisualSubmitForm({
                   <span className="text-xs font-medium text-neutral-500">Upload</span>
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handleFileChange}
                     className="hidden"
                   />
                 </label>
               </div>
-              <span className="text-xs text-neutral-400">JPEG, PNG, WebP, GIF (max 10MB)</span>
+              <span className="text-xs text-neutral-400">JPEG, PNG, or WebP (max 10MB)</span>
             </div>
           )}
         </div>
@@ -473,9 +474,14 @@ export default function RiverVisualSubmitForm({
           )}
         </button>
 
-        <p className="text-xs text-neutral-400 text-center">
-          By submitting, you confirm this is your own photo and grant Eddy
-          permission to display it. Photos are reviewed before appearing publicly.
+        <p className="text-xs text-neutral-500 text-center leading-relaxed">
+          By submitting, you confirm this is your own photo and grant Eddy permission to display it.
+          {' '}Photos are re-encoded to remove camera metadata, reviewed, and may appear publicly
+          with the location, description, and name you provide. Don&apos;t include faces, license
+          plates, or private details. See our{' '}
+          <Link href="/privacy" className="underline hover:text-neutral-700">
+            privacy policy
+          </Link>.
         </p>
       </form>
     </div>
