@@ -4,6 +4,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { hasAdminCredential } from '@/lib/admin-session';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,8 +26,11 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ') || authHeader.length <= 'Bearer '.length) {
+    // This is intentionally a cheap presence gate. Every privileged route
+    // performs the full HMAC, expiry, and same-origin validation through
+    // requireAdminAuth(). Browser sessions use the HttpOnly cookie; trusted
+    // scripts may continue to use a Bearer token.
+    if (!hasAdminCredential(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }

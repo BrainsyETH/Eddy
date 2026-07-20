@@ -4,9 +4,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
+import { ADMIN_SESSION_COOKIE } from '@/lib/admin-session';
+
+export { ADMIN_SESSION_COOKIE } from '@/lib/admin-session';
 
 const TOKEN_EXPIRY_MS = 4 * 60 * 60 * 1000; // 4 hours
-export const ADMIN_SESSION_COOKIE = 'mfp_admin_session';
 export const ADMIN_SESSION_MAX_AGE_SECONDS = TOKEN_EXPIRY_MS / 1000;
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
