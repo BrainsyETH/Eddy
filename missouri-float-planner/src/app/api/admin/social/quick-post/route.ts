@@ -36,8 +36,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'type is required' }, { status: 400 });
   }
 
+  // TikTok is video-only (draft / inbox upload), so allow it for the video reel
+  // types but never for the image-only `tip` path — its adapter rejects images.
+  const tiktokAllowed = type !== 'tip';
   const validPlatforms = (platforms || []).filter(
-    (p): p is SocialPlatform => p === 'facebook' || p === 'instagram'
+    (p): p is SocialPlatform =>
+      p === 'facebook' || p === 'instagram' || (p === 'tiktok' && tiktokAllowed)
   );
   if (validPlatforms.length === 0) {
     return NextResponse.json({ error: 'At least one platform is required' }, { status: 400 });
