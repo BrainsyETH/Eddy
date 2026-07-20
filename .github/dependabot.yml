@@ -10,11 +10,25 @@ updates:
     open-pull-requests-limit: 5
     # Major upgrades are migration projects, not routine maintenance. Keeping
     # minor and patch updates in separate PRs makes regressions attributable to
-    # one package instead of hiding them inside a large update bundle.
+    # one package instead of hiding them inside a large update bundle. Tiptap is
+    # the exception: its packages declare exact peer versions and must move as
+    # a coordinated set.
+    groups:
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+        update-types:
+          - minor
+          - patch
     ignore:
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
+      # Turf is used by river geometry/import scripts. Hold this patch until
+      # those scripts have data-accuracy regression fixtures.
+      - dependency-name: "@turf/turf"
+        versions:
+          - "7.3.5"
 
   - package-ecosystem: github-actions
     directory: /
