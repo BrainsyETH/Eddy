@@ -337,6 +337,7 @@ export default function SocialAdminPage() {
     accessTokenExpiresAt: string | null;
     refreshTokenExpiresAt: string | null;
     scope: string | null;
+    redirectUri?: string;
   } | null>(null);
   const [tiktokBusy, setTiktokBusy] = useState(false);
 
@@ -590,7 +591,9 @@ export default function SocialAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: apiType,
-          platforms: ['facebook', 'instagram'],
+          // Post Now rows are all video reel types; include TikTok (draft) when
+          // an account is connected. The route ignores tiktok for image `tip`s.
+          platforms: ['facebook', 'instagram', ...(tiktokStatus?.connected ? ['tiktok'] : [])],
           asVideo,
         }),
       });
@@ -1037,6 +1040,21 @@ export default function SocialAdminPage() {
                 />
                 Instagram
               </label>
+              {tiktokStatus?.connected && quickPostType !== 'tip' && (
+                <label className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={quickPostPlatforms.includes('tiktok')}
+                    onChange={(e) => {
+                      setQuickPostPlatforms(e.target.checked
+                        ? [...quickPostPlatforms, 'tiktok']
+                        : quickPostPlatforms.filter(x => x !== 'tiktok'));
+                    }}
+                    className="rounded bg-neutral-900 border-neutral-600"
+                  />
+                  TikTok <span className="text-neutral-500">(draft)</span>
+                </label>
+              )}
             </div>
 
             {/* Media note — Digest/Highlight post as animated video; Tip is an image. */}
@@ -1324,6 +1342,12 @@ export default function SocialAdminPage() {
                       <span className="text-neutral-400">Not connected.</span>
                     )}
                   </div>
+                  {tiktokStatus?.configured && tiktokStatus?.redirectUri && (
+                    <p className="mt-3 text-xs text-neutral-500 break-all">
+                      Register this exact URL in TikTok → Login Kit → Redirect URI:{' '}
+                      <code className="text-neutral-300 font-mono">{tiktokStatus.redirectUri}</code>
+                    </p>
+                  )}
                 </div>
 
                 {/* Posting Schedule — single unified grid */}

@@ -1046,6 +1046,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
         <RiverVisualGallery
           riverSlug={riverSlug}
           accessPointId={selectedPutIn}
+          onAddPhoto={() => setShowVisualSubmitForm(true)}
         />
 
         <OutfittersNearby pois={pois} putInPoint={putInPoint} riverSlug={riverSlug} />

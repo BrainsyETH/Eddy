@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { type ConditionThresholds } from '@/lib/conditions';
 import { mapConditionCode } from '@/lib/conditions';
 import { getPhotoConditionCode } from '@/lib/river-visuals';
+import { riverAccessPath } from '@/lib/navigation/river-path';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export async function GET(
     // 1. Look up river by slug
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id')
+      .select('id, state')
       .eq('slug', slug)
       .single();
 
@@ -65,7 +66,7 @@ export async function GET(
           gauge_station_id,
           submitter_name,
           created_at,
-          access_points(name)
+          access_points(name, slug)
         `)
         .eq('river_id', river.id)
         .eq('type', 'river_visual')
@@ -109,6 +110,10 @@ export async function GET(
           )
         : 'unknown';
 
+      const accessPointHref = accessPointData?.slug
+        ? riverAccessPath(river.state, slug, accessPointData.slug)
+        : null;
+
       return {
         id: row.id,
         imageUrl: row.image_url,
@@ -117,6 +122,7 @@ export async function GET(
         dischargeCfs: row.discharge_cfs ? parseFloat(row.discharge_cfs) : null,
         accessPointId: row.access_point_id,
         accessPointName: accessPointData?.name || null,
+        accessPointHref,
         gaugeStationId: row.gauge_station_id,
         submitterName: row.submitter_name,
         conditionCode,

@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import type { RiverVisual, RiverVisualsResponse } from '@/types/api';
@@ -12,9 +13,11 @@ import type { RiverVisual, RiverVisualsResponse } from '@/types/api';
 interface RiverVisualGalleryProps {
   riverSlug: string;
   accessPointId?: string | null;
+  /** When provided, an empty gallery shows a CTA that opens the submit form. */
+  onAddPhoto?: () => void;
 }
 
-export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVisualGalleryProps) {
+export default function RiverVisualGallery({ riverSlug, accessPointId, onAddPhoto }: RiverVisualGalleryProps) {
   const [data, setData] = useState<RiverVisualsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -57,9 +60,41 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
     });
   }, [data?.visuals.length]);
 
-  // Don't render if no visuals or still loading
-  if (loading) return null;
-  if (!data || data.visuals.length === 0) return null;
+  // Don't render while loading or if the fetch failed.
+  if (loading || !data) return null;
+
+  // No photo matches the current level yet — invite a contribution in the
+  // image's place, when the host gives us a way to open the submit form.
+  if (data.visuals.length === 0) {
+    if (!onAddPhoto) return null;
+    return (
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
+          <h3 className="text-sm font-semibold text-neutral-800">
+            What the river looks like at this level
+          </h3>
+          <ConditionBadge code={data.currentCondition} size="sm" />
+        </div>
+        <button
+          type="button"
+          onClick={onAddPhoto}
+          className="group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors"
+        >
+          <span className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+            <Camera className="w-6 h-6" />
+          </span>
+          <span className="text-sm font-semibold text-neutral-800">No photos at this level yet</span>
+          <span className="text-xs text-neutral-500 max-w-xs">
+            Show fellow floaters what the water looks like right now.
+          </span>
+          <span className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold group-hover:bg-teal-700 transition-colors">
+            <Camera className="w-3.5 h-3.5" /> Add a photo
+          </span>
+        </button>
+      </div>
+    );
+  }
 
   const visuals = data.visuals;
   const current = visuals[currentIndex];
@@ -157,10 +192,20 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
           {(current.accessPointName || current.submitterName) && (
             <div className="flex items-center gap-3 text-xs text-neutral-400">
               {current.accessPointName && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {current.accessPointName}
-                </span>
+                current.accessPointHref ? (
+                  <Link
+                    href={current.accessPointHref}
+                    className="flex items-center gap-1 hover:text-teal-600 transition-colors"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    {current.accessPointName}
+                  </Link>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {current.accessPointName}
+                  </span>
+                )
               )}
               {current.submitterName && (
                 <span>by {current.submitterName}</span>
@@ -264,9 +309,15 @@ function Lightbox({
           )}
           <div className="flex items-center justify-center gap-3 text-xs text-white/60">
             {current.accessPointName && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" /> {current.accessPointName}
-              </span>
+              current.accessPointHref ? (
+                <Link href={current.accessPointHref} className="flex items-center gap-1 hover:text-white transition-colors">
+                  <MapPin className="w-3 h-3" /> {current.accessPointName}
+                </Link>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> {current.accessPointName}
+                </span>
+              )
             )}
             {current.gaugeHeightFt != null && <span className="font-semibold text-white">{current.gaugeHeightFt} ft</span>}
             {current.dischargeCfs != null && <span className="font-semibold text-white">{current.dischargeCfs} cfs</span>}

@@ -130,6 +130,12 @@ export function getEddyImageForCondition(code: string): string {
   return EDDY_IMAGES[conditionOtterMood(code)];
 }
 
+/** Plain-language explainer for the CFS unit, shown in the (i) info tips. */
+export const CFS_EXPLAINER = {
+  title: 'What is CFS?',
+  body: 'CFS is cubic feet per second — the volume of water flowing past the gauge each second. It’s the standard measure of a river’s flow: higher CFS means more water and a stronger current.',
+} as const;
+
 // NOTE: Condition badge/surface styling is NOT defined here. The former
 // BG_BY_CONDITION / TEXT_BY_CONDITION / LABEL_BY_CONDITION maps drifted out of
 // sync with the canonical taxonomy (they painted "high" red, colliding with

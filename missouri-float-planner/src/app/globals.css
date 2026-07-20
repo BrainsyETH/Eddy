@@ -169,6 +169,147 @@ body {
   -webkit-line-clamp: 2;
 }
 
+/* Bubble stat tiles — the "Eddy Report Stats" redesign. Soft everywhere:
+   rounded corners, warm-stone border, a soft (never hard) offset shadow that
+   lifts slightly on hover. Dynamic colors arrive per-tile via inline styles. */
+.embed-tile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.embed-tile {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 7px 8px 8px;
+  border-radius: 11px;
+  border: 1.5px solid transparent;
+  box-shadow: var(--embed-tile-shadow);
+  text-align: center;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+  animation: embed-tile-in 0.42s var(--ease-out) both;
+}
+
+.embed-tile-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.embed-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--embed-tile-shadow-hover);
+}
+
+.embed-tile-link:focus-visible {
+  outline: 2px solid var(--embed-focus);
+  outline-offset: 2px;
+}
+
+.embed-tile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 8px 2px 3px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+}
+
+.embed-tile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.embed-tile-label {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.embed-tile-value {
+  width: 100%;
+  margin-top: 4px;
+  font-size: clamp(13px, 3.4vw, 16px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+
+.embed-tile-unit {
+  margin-left: 0.22em;
+  font-size: 0.6em;
+  font-weight: 600;
+}
+
+.embed-tile-detail {
+  display: -webkit-box;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@keyframes embed-tile-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Expand/collapse (+/−) affordance for the embed "full condition update". */
+.embed-details-summary {
+  list-style: none;
+}
+
+.embed-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.embed-pm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.embed-pm::before {
+  content: '+';
+}
+
+details[open] .embed-details-summary .embed-pm::before {
+  content: '−';
+}
+
+/* Info "(i)" popover trigger focus ring (used on app pages and in embeds). */
+.info-tip-trigger:focus-visible {
+  outline: 2px solid var(--info-focus, #2D7889);
+  outline-offset: 2px;
+}
+
 .embed-footer-link {
   transition:
     color var(--duration-fast) var(--ease-out),
@@ -193,8 +334,17 @@ body {
   .embed-metric-link,
   .embed-footer-link,
   .embed-control,
-  .embed-control-icon {
+  .embed-control-icon,
+  .embed-tile {
     transition: none !important;
+  }
+
+  .embed-tile {
+    animation: none !important;
+  }
+
+  .embed-tile:hover {
+    transform: none;
   }
 
   .embed-skeleton {
