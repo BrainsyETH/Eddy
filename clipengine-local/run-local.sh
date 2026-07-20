@@ -97,6 +97,15 @@ if [ -n "$MISSING" ]; then
   echo "   Store secrets with ./set-secret.sh <NAME> and install/auth gh, then retry."
   exit 1
 fi
+# handoff-clip.sh dispatches render-clip via `gh`, which resolves the repo from
+# the CWD's git remote. The cron cd's into this dir first, but manual runs
+# (--url/--urls-file/--channel) can start anywhere — a wrong CWD dispatches to the
+# wrong repo (a 404, no clip lands). Pin gh to THIS clone's origin unless already set.
+if [ -z "${GH_REPO:-}" ]; then
+  _slug="$(git -C "$REPO" remote get-url origin 2>/dev/null | sed -E 's#^(git@github.com:|https://github.com/)##; s#\.git$##' || true)"
+  [ -n "${_slug:-}" ] && export GH_REPO="$_slug"
+  unset _slug
+fi
 echo "Branding: Remotion clip-reel (cloud handoff) → Blob + clip_library (app gates & posts)"
 
 process_video() {
@@ -192,7 +201,9 @@ if [ -n "$URLS_FILE" ]; then
   [ -f "$URLS_FILE" ] || { echo "❌ No urls file at $URLS_FILE"; exit 1; }
   echo "→ Batch add from $URLS_FILE (river default: ${SINGLE_RIVER:-auto-detect}, category: ${SINGLE_CATEGORY:-default})"
   N=0; ADDED=0
-  while IFS= read -r RAW || [ -n "$RAW" ]; do
+  # Read the list on fd 3, not stdin: add_one_url → process_video runs ffmpeg,
+  # which consumes stdin; a stdin-fed loop loses every URL after the first.
+  while IFS= read -r RAW <&3 || [ -n "$RAW" ]; do
     LINE="${RAW%%#*}"                       # drop trailing # comments
     read -r U REST <<< "$LINE" || true      # U=url, REST=optional river slug
     [ -z "${U:-}" ] && continue
@@ -200,7 +211,7 @@ if [ -n "$URLS_FILE" ]; then
     if add_one_url "$U" "${REST:-$SINGLE_RIVER}" "${SINGLE_IG:-}" "${SINGLE_CATEGORY:-}"; then
       ADDED=$((ADDED + 1))
     fi
-  done < "$URLS_FILE"
+  done 3< "$URLS_FILE"
   echo "→ Batch add complete: $ADDED dispatched of $N URL(s)"
 elif [ -n "$SINGLE_URL" ]; then
   process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER" "${SINGLE_IG:-}" "${SINGLE_CATEGORY:-}"
